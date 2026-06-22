@@ -2597,10 +2597,17 @@ Phase descriptions:
         from atdd.planner.commands.author import run as run_author
         return run_author(list(getattr(args, "author_argv", []) or []))
 
-    # atdd state <doctor|layout --check> ...  (#1168 Phase 1 — #1177)
+    # atdd state <doctor|layout|init|import-manifest|sync> ...  (#1168)
     elif args.command == "state":
+        state_argv = list(getattr(args, "state_argv", []) or [])
+        # `state sync` bridges to GitHub, so it lives in the integrations layer and
+        # is routed here (the composition root) — keeping atdd.state itself free of
+        # any atdd.integrations import (foundational-layer discipline, #1184).
+        if state_argv and state_argv[0] == "sync":
+            from atdd.integrations.github.state_sync import run_sync_cli
+            return run_sync_cli(state_argv[1:])
         from atdd.state.cli import run as run_state
-        return run_state(list(getattr(args, "state_argv", []) or []))
+        return run_state(state_argv)
 
     # atdd plan <source> ... (PLAN-1 — #758)
     elif args.command == "plan":
