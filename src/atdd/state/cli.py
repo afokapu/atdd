@@ -54,6 +54,17 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="Import .atdd/manifest.yaml operational state into the State Store (#1183).")
     imp.add_argument("--root", default=None, help="Starting directory (default: cwd).")
 
+    trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
+    trace_sub = trace.add_subparsers(dest="trace_op")
+    t_list = trace_sub.add_parser("list", help="List Hub sessions.")
+    t_list.add_argument("--root", default=None)
+    t_export = trace_sub.add_parser("export", help="Export a session's trace as JSON.")
+    t_export.add_argument("--session", required=True)
+    t_export.add_argument("--root", default=None)
+    t_promote = trace_sub.add_parser("promote", help="Promote a session's trace to the outbox.")
+    t_promote.add_argument("--session", required=True)
+    t_promote.add_argument("--root", default=None)
+
     return parser
 
 
@@ -176,6 +187,65 @@ def _cmd_import_manifest(root: Optional[str]) -> int:
     return 0
 
 
+def _open_store(root: Optional[str]):
+    """Resolve, init, and open the State Store; return (resolution, conn) or (None, rc)."""
+    start = _start_dir(root)
+    resolution, rc = _resolve_or_report(start)
+    if resolution is None:
+        return None, rc
+    from atdd.state.db import connect, init_state_store
+    db = init_state_store(start=resolution.control_root)
+    return resolution, connect(db)
+
+
+def _cmd_trace(args) -> int:
+    import json as _json
+
+    from atdd.state import hub
+    from atdd.state.store import StateStore
+
+    if args.trace_op is None:
+        print("usage: atdd state trace <list|export|promote>")
+        return 2
+
+    resolution, conn_or_rc = _open_store(args.root)
+    if resolution is None:
+        return conn_or_rc
+    conn = conn_or_rc
+    try:
+        store = StateStore(conn)
+        if args.trace_op == "list":
+            rows = hub.hub_session_projection(store)
+            if not rows:
+                print("(no Hub sessions)")
+            for r in rows:
+                print(f"{r.uid}  state={r.state}  adapters={len(r.adapters)}  events={r.event_count}")
+            return 0
+        if args.trace_op == "export":
+            try:
+                print(_json.dumps(hub.export_trace(store, args.session), indent=2, sort_keys=True))
+            except KeyError as exc:
+                _log.warning("trace export: session not found",
+                             extra={"session": args.session, "error": str(exc)})
+                print(f"ERROR: {exc}")
+                return 1
+            return 0
+        if args.trace_op == "promote":
+            try:
+                outbox_id = hub.promote_trace(store, args.session)
+            except KeyError as exc:
+                _log.warning("trace promote: session not found",
+                             extra={"session": args.session, "error": str(exc)})
+                print(f"ERROR: {exc}")
+                return 1
+            print(f"Promoted trace for {args.session} → outbox#{outbox_id}")
+            return 0
+        print(f"unknown trace op: {args.trace_op}")
+        return 2
+    finally:
+        conn.close()
+
+
 def run(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -191,6 +261,8 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_init(args.root)
     if args.op == "import-manifest":
         return _cmd_import_manifest(args.root)
+    if args.op == "trace":
+        return _cmd_trace(args)
 
     parser.print_help()
     return 2

@@ -34,6 +34,17 @@ from atdd.state.db import (
     current_version,
     init_state_store,
 )
+from atdd.state.hub import (
+    HubAdapterRow,
+    HubSessionRow,
+    export_trace,
+    hub_adapter_projection,
+    hub_session_projection,
+    promote_trace,
+    record_adapter,
+    record_event,
+    record_session,
+)
 from atdd.state.manifest_import import ImportResult, import_manifest
 from atdd.state.migrations import CORE_MIGRATIONS, Migration, latest_version
 from atdd.state.paths import (
@@ -76,8 +87,17 @@ __all__ = [
     "Event",
     "EventStore",
     "EvidenceRow",
+    "HubAdapterRow",
+    "HubSessionRow",
     "ImportResult",
+    "export_trace",
+    "hub_adapter_projection",
+    "hub_session_projection",
     "import_manifest",
+    "promote_trace",
+    "record_adapter",
+    "record_event",
+    "record_session",
     "ExternalRef",
     "ExternalRefStore",
     "LayoutMode",

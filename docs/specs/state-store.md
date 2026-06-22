@@ -173,6 +173,29 @@ real `GhCliClient` shells to `gh`. `atdd state sync` applies the inbox and
 reports pending outbox by default; `--push` performs the real GitHub writes;
 `--dry-run` reports without mutating.
 
+## Hub trace alignment (Phase 6, #1185)
+
+The Hub (#1096) does **not** own a separate SQLite schema — its sessions,
+adapters, and events are modelled as ordinary State Store primitives
+(`src/atdd/state/hub.py`), introducing no new core tables:
+
+- a Hub session → an `objects` row of kind `hub_session`;
+- a Hub adapter → an `objects` row of kind `hub_adapter`, linked to its session
+  by a `session_uses_adapter` relationship;
+- session/adapter activity → the `events` log keyed by the session uid.
+
+Hub-owned projections `hub_session_projection` (sessions + adapters + event
+count) and `hub_adapter_projection` (adapters + owning session) read this back.
+`export_trace(session_uid)` assembles a portable `{session, adapters, events}`
+document; `promote_trace(session_uid)` is the **promotion policy** — it enqueues
+the trace to the `outbox` (for outward sync via Phase 5) and marks the session
+promoted. CLI: `atdd state trace list | export --session … | promote --session …`.
+
+**#1096 alignment:** the Hub consumes this State Store as a domain (Hub object
+kinds / events / projections), rather than defining a foundational SQLite schema
+of its own. Hub runtime work tracks against #1096; this phase establishes the
+storage contract it builds on.
+
 ## Manifest import (Phase 4, #1183)
 
 `atdd state import-manifest` reads the `.atdd/manifest.yaml` `sessions` ledger and
