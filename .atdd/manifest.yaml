@@ -2910,3 +2910,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1201'
+  slug: provider-agnostic-state-sync-engine
+  file: null
+  issue_number: 1201
+  type: refactor
+  status: INIT
+  created: '2026-06-22'
+  archived: null
