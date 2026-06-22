@@ -34,6 +34,7 @@ from atdd.state.db import (
     current_version,
     init_state_store,
 )
+from atdd.state.manifest_import import ImportResult, import_manifest
 from atdd.state.migrations import CORE_MIGRATIONS, Migration, latest_version
 from atdd.state.paths import (
     AmbiguousControlRootError,
@@ -75,6 +76,8 @@ __all__ = [
     "Event",
     "EventStore",
     "EvidenceRow",
+    "ImportResult",
+    "import_manifest",
     "ExternalRef",
     "ExternalRefStore",
     "LayoutMode",

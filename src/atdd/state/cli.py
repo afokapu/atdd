@@ -8,8 +8,10 @@ Phase 1 ships two enforcement commands described in #1168:
   exit non-zero on a violation (e.g. a per-worktree State Store).
 - ``atdd state init`` — create (if needed) and migrate the State Store SQLite
   database at the resolved Control Root (#1181).
+- ``atdd state import-manifest`` — import ``.atdd/manifest.yaml`` operational
+  state into the State Store and write a backup (#1183).
 
-``atdd state migrate-layout`` and later-phase commands are #1168 Phases 3+.
+``atdd state migrate-layout`` and later-phase commands are #1168 Phases 5+.
 """
 from __future__ import annotations
 
@@ -47,6 +49,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     init = sub.add_parser("init", help="Create (if needed) and migrate the State Store SQLite database.")
     init.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+
+    imp = sub.add_parser("import-manifest",
+                         help="Import .atdd/manifest.yaml operational state into the State Store (#1183).")
+    imp.add_argument("--root", default=None, help="Starting directory (default: cwd).")
 
     return parser
 
@@ -144,6 +150,32 @@ def _cmd_init(root: Optional[str]) -> int:
     return 0
 
 
+def _cmd_import_manifest(root: Optional[str]) -> int:
+    start = _start_dir(root)
+    resolution, rc = _resolve_or_report(start)
+    if resolution is None:
+        return rc
+
+    from atdd.state.manifest_import import import_manifest  # local: keeps yaml off the hot path
+
+    try:
+        result = import_manifest(control_root=resolution.control_root)
+    except FileNotFoundError as exc:
+        _log.warning("manifest import found no manifest", extra={"error": str(exc)})
+        print(f"ERROR: {exc}")
+        return 1
+    print(f"Imported {result.imported} work item(s) ({result.external_refs} external ref(s)) "
+          f"into {result.db_path}")
+    print(f"Backup written: {result.backup_path}")
+    if result.skipped:
+        print(f"Skipped {result.skipped}: {'; '.join(result.skipped_reasons)}")
+    if result.collisions:
+        print(f"Duplicate issue numbers ({len(result.collisions)}; first-in-manifest wins the ref):")
+        for c in result.collisions:
+            print(f"  - {c}")
+    return 0
+
+
 def run(argv: Optional[Sequence[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -157,6 +189,8 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_layout_check(args.root)
     if args.op == "init":
         return _cmd_init(args.root)
+    if args.op == "import-manifest":
+        return _cmd_import_manifest(args.root)
 
     parser.print_help()
     return 2

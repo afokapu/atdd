@@ -150,8 +150,32 @@ Read-side **projections** (`src/atdd/state/projections.py`) are pure reads
 - `run_projection` — `run` objects with an event summary.
 - `evidence_projection` — `evidence` objects.
 
-Manifest import (Phase 4, #1183) and GitHub sync (Phase 5, #1184) build on these
-APIs.
+GitHub sync (Phase 5, #1184) builds on these APIs.
+
+## Manifest import (Phase 4, #1183)
+
+`atdd state import-manifest` reads the `.atdd/manifest.yaml` `sessions` ledger and
+writes each entry into the State Store **through the Phase-3 typed APIs** (never
+raw SQL):
+
+- each session → a `work_item` object keyed by its **slug** (the stable local
+  identity), with `status` → `state` and the remaining fields in JSON `data`;
+- the GitHub `issue_number` → an `external_ref` (`github`/`issue`) — a
+  projection, not the identity;
+- a backup is written to `.atdd/manifest.migrated.yaml`.
+
+Import is **idempotent** (upsert by slug) and **additive** — it does not yet stop
+manifest writes or reroute `atdd issue` through the store. That behavioural
+rewiring (route lifecycle reads/writes through the storage APIs; make the State
+Store authoritative; demote the manifest to a compatibility/projection) is a
+deliberate **follow-up** so the lifecycle everything depends on changes in
+isolation, after the store has been proven by import.
+
+**One GitHub issue maps to one work item.** When the manifest contains the same
+`issue_number` under multiple slugs (legitimate when one issue spawned several
+branches over time), the first-in-manifest-order slug keeps the external ref and
+the duplicates are **reported** (not silently reassigned) — see
+`ImportResult.collisions` and the CLI output.
 
 ## Field observation + resolution (#1177 → #1179)
 
