@@ -2868,3 +2868,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1192'
+  slug: y002-theater-live-smoke-and-suite-audit
+  file: null
+  issue_number: 1192
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
