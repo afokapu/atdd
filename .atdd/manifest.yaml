@@ -2876,3 +2876,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1193'
+  slug: atdd-author-validate-against-canonical-schema
+  file: null
+  issue_number: 1193
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
