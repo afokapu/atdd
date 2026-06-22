@@ -2816,3 +2816,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1183'
+  slug: state-store-manifest-import-and-compatibility
+  file: null
+  issue_number: 1183
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
