@@ -36,7 +36,9 @@ def _mk_worktree(path: Path) -> Path:
 
 
 def _mk_atdd(path: Path) -> Path:
+    # Real Control Root needs an initialized-root marker (#1179).
     (path / ".atdd").mkdir(parents=True, exist_ok=True)
+    (path / ".atdd" / "config.yaml").write_text("x\n", encoding="utf-8")
     return path
 
 

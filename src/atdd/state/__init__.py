@@ -33,6 +33,8 @@ from atdd.state.paths import (
     ControlRootResolution,
     LayoutMode,
     check_layout,
+    is_control_root,
+    is_scratch_atdd,
     resolve_control_root,
 )
 
@@ -42,5 +44,7 @@ __all__ = [
     "ControlRootResolution",
     "LayoutMode",
     "check_layout",
+    "is_control_root",
+    "is_scratch_atdd",
     "resolve_control_root",
 ]

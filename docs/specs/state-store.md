@@ -75,12 +75,23 @@ Implemented in `src/atdd/state/paths.py::resolve_control_root`. Order:
 
 1. `ATDD_CONTROL_ROOT` override (if set).
 2. Find the enclosing Git worktree root (nearest `.git` walking upward).
-3. worktree has `.atdd/` and parent does not → **single-repo**.
-4. parent has `.atdd/` and current is a child worktree → **sibling-worktree**.
-5. both parent and worktree `.atdd/` exist → **fail loudly** (`AmbiguousControlRootError`).
-6. otherwise walk upward for any `.atdd/`; if none → `ControlRootNotFoundError`.
+3. worktree is a Control Root and parent is not → **single-repo**.
+4. parent is a Control Root and current is a child worktree → **sibling-worktree**.
+5. both parent and worktree are Control Roots → **fail loudly** (`AmbiguousControlRootError`).
+6. otherwise walk upward for a Control Root; if none → `ControlRootNotFoundError`.
 
 Output: `control_root`, `git_worktree_root`, `layout_mode`, `state_store_path`.
+
+### What counts as a Control Root (#1179)
+
+"Control Root" means an **initialized** `.atdd/`, not merely a `.atdd/`
+directory. `is_control_root(dir)` is true only when the `.atdd/` carries an
+initialized-root signal — a marker file (`control-root.yaml` / `config.yaml` /
+`manifest.yaml`) or the `state/` directory. A **scratch-only** `.atdd/` holding
+just `cache/` / `runtime/` / `diagnostics/` (`is_scratch_atdd(dir)`) is ignored:
+it never shadows a real worktree Control Root and never triggers a false
+ambiguity. This is what lets the resolver work correctly in the flat
+sibling-worktree dev layout (see below).
 
 ## Commands (Phase 1)
 
@@ -93,13 +104,17 @@ Output: `control_root`, `git_worktree_root`, `layout_mode`, `state_store_path`.
 `atdd state init` / `migrate-layout` and the SQLite schema are deferred to
 #1168 Phase 2+.
 
-## Known field observation (#1177)
+## Field observation + resolution (#1177 → #1179)
 
 The standard ATDD development setup uses **flat sibling worktrees** under a
 common parent (`~/Github/atdd/main`, `~/Github/atdd/feat-*`, …). Tools that run
-with the parent as cwd can leave a **stray parent `.atdd/`** (e.g. only
-`cache/`, `diagnostics/`, `runtime/`). Because every git-tracked worktree also
-ships a full `.atdd/`, the resolver then reports this parent+child pair as
-*ambiguous* — which is correct per rule 5, and surfaces a real split-brain risk
-to clean up. A future refinement may distinguish a *real* Control Root (one with
-`state/` or `manifest.yaml`) from tool scratch; tracked as a #1168 follow-up.
+with the parent as cwd leave a **stray parent `.atdd/`** holding only `cache/`,
+`diagnostics/`, `runtime/`. Because every git-tracked worktree also ships a full
+`.atdd/` (with `manifest.yaml`, `config.yaml`), the original #1177 resolver
+reported this parent+child pair as *ambiguous*.
+
+**Resolved in #1179:** the stray parent is scratch (no Control Root marker), so
+the resolver now ignores it and resolves each worktree as **single-repo**.
+`atdd state doctor` prints a `Note: ignored scratch .atdd at …` diagnostic
+rather than failing. The genuine split-brain case (two *initialized* `.atdd/`)
+still fails loudly per rule 5.

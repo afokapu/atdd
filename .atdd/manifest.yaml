@@ -2775,6 +2775,16 @@ sessions:
   created: '2026-06-22'
   archived: null
   branch: feat/state-store-control-root-resolver
+- id: '1179'
+  slug: distinguish-real-control-root-from-scratch-atdd
+  file: null
+  issue_number: 1179
+  type: implementation
+  status: INIT
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/distinguish-real-control-root-from-scratch-atdd
 - id: '1147'
   slug: wagon-separability-granularity
   file: null
