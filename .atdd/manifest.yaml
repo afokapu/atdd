@@ -2782,3 +2782,11 @@ sessions:
   status: INIT
   created: '2026-06-21'
   archived: null
+- id: '1177'
+  slug: state-store-control-root-resolver
+  file: null
+  issue_number: 1177
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
