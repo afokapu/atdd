@@ -33,7 +33,7 @@ _SPEC = {
 
 def _sess(root, *args):
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(root)}
-    return subprocess.run([sys.executable, "-m", "atdd", "plan", "session", "--root", str(root), *args],
+    return subprocess.run([sys.executable, "-m", "atdd", "plan", "--root", str(root), *args],
                           cwd=str(root), env=env, capture_output=True, text=True, timeout=60)
 
 

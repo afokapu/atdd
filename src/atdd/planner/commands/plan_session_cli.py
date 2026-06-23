@@ -1,4 +1,4 @@
-"""`atdd plan session <op>` — the harness CLI that drives the gated decomposition
+"""`atdd plan <op>` — the harness CLI that drives the gated decomposition
 session (#1139 slice 4).
 
 The LLM/agent calls these ops between conversation turns; each op loads the
@@ -48,7 +48,7 @@ def _emit(payload: dict) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="atdd plan session",
+    p = argparse.ArgumentParser(prog="atdd plan",
                                 description="Drive the atdd plan gated decomposition session.")
     p.add_argument("--root", default=".", help="repo root the session persists under (default: cwd)")
     sub = p.add_subparsers(dest="op", required=True)
@@ -126,6 +126,6 @@ def run(argv: list[str]) -> int:
         s.save(root)
         return _emit(_state(s))
     except SessionGateError as exc:
-        logger.warning("atdd plan session gate refused op", extra={"op": getattr(args, "op", None), "error": str(exc)})
-        print(f"atdd plan session: {exc}", file=sys.stderr)
+        logger.warning("atdd plan gate refused op", extra={"op": getattr(args, "op", None), "error": str(exc)})
+        print(f"atdd plan: {exc}", file=sys.stderr)
         return 2

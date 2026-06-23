@@ -60,7 +60,7 @@ def test_working_context_includes_session_protocol_nodes_and_edges():
 
 def test_guidelines_cli_emits_context():
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(_REPO)}
-    r = subprocess.run([sys.executable, "-m", "atdd", "plan", "session", "--root", str(_REPO), "guidelines"],
+    r = subprocess.run([sys.executable, "-m", "atdd", "plan", "--root", str(_REPO), "guidelines"],
                        cwd=str(_REPO), env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
     doc = json.loads([ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip().startswith("{")][-1])

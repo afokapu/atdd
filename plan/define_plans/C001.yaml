@@ -1,72 +1,27 @@
-urn: "wmbt:define-plans:C001"
-step: "confirm"
-direction: "minimize"
-dimension: "likelihood"
-object_of_control: "invalid-json-summary-output"
-context_clarifier: "when --json is passed, the command emits a machine-readable stderr JSON object with sources and brief_out keys and must never include artifact_created, worktree, or branch fields because PLAN-1 owns no git mechanics"
-lens: "functional.effectiveness"
-statement: "minimize likelihood of invalid-json-summary-output when --json is passed by emitting a stderr JSON object with only sources and brief_out keys, no git-mechanic fields"
+urn: wmbt:define-plans:C001
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: pre-confirm-authoring
+context_clarifier: PlanSession.author refuses to write until the session has passed
+  the Confirm gate
+lens: functional.effectiveness
+statement: minimize likelihood of pre-confirm-authoring by writing no artifact before
+  the operator confirms the locked decomposition
 acceptances:
-  - identity:
-      urn: "acc:define-plans:C001-UNIT-001-json-output-has-correct-keys"
-      id: "AC-UNIT-001"
-      purpose: "`atdd plan --text \"x\" --json` emits valid JSON to stderr with a sources list and brief_out key"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "atdd plan is invoked with ['--text', 'x', '--json']"
-    when:
-      abstract: "The command completes and stderr is captured"
-    then:
-      abstract:
-        - "stderr contains valid JSON (json.loads succeeds)"
-        - "Parsed JSON has a 'sources' key whose value is a list"
-        - "Parsed JSON has a 'brief_out' key"
-        - "Parsed JSON does NOT have 'artifact_created', 'worktree', or 'branch' keys"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:define-plans:C001-UNIT-002-json-sources-reflect-parsed-input"
-      id: "AC-UNIT-002"
-      purpose: "The sources list in --json output matches the classified sources from the command invocation"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "atdd plan is invoked with ['docs/spec.md', '--text', 'note', '--json']"
-    when:
-      abstract: "stderr JSON is parsed"
-    then:
-      abstract:
-        - "sources list has exactly two entries"
-        - "One entry represents the file source (docs/spec.md)"
-        - "One entry represents the text source (note)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:define-plans:C001-SMOKE-001-json-keys-live"
-      id: "AC-SMOKE-001"
-      purpose: "Against the real CLI, --json emits a brief with the expected top-level keys"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A real checkout and the installed `atdd plan` CLI shell"
-    when:
-      abstract: "`atdd plan --text x --json` is run"
-    then:
-      abstract:
-        - "stdout is valid JSON with keys 'sources' and 'brief_out'"
-        - "The process exits 0"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-19"
+- identity:
+    urn: acc:define-plans:C001-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the C001 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

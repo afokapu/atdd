@@ -2864,3 +2864,27 @@ sessions:
   archived: null
   branch: feat/composed-no-orphan-extension-nodes
   train: 0003-author-substrate
+- id: '1209'
+  slug: plan-session-traceability-chain
+  file: null
+  issue_number: 1209
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-23'
+  archived: null
+  branch: refactor/plan-session-traceability-chain
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
+  train: 0001-self-compliance-validate
+- id: '1208'
+  slug: plan-canonical-session-retire-brief
+  file: null
+  issue_number: 1208
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-23'
+  archived: null
+  branch: refactor/plan-session-traceability-chain
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
+  train: 0001-self-compliance-validate
