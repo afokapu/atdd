@@ -2538,6 +2538,7 @@ sessions:
   status: INIT
   created: '2026-06-11'
   archived: null
+  branch: feat/two-way-decision-channel-behind-adapter-registry-seam
 - id: '1077'
   slug: producer-publishes-complete-gated-decision-payload
   file: null
@@ -2926,4 +2927,12 @@ sessions:
   type: implementation
   status: INIT
   created: '2026-06-22'
+  archived: null
+- id: '1208'
+  slug: plan-canonical-session-retire-brief
+  file: null
+  issue_number: 1208
+  type: refactor
+  status: INIT
+  created: '2026-06-23'
   archived: null
