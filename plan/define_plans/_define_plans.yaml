@@ -19,15 +19,14 @@ produce:
 consume: []
 
 features:
-  - urn: "feature:define-plans:atdd-plan"
+  - urn: "feature:define-plans:atdd-plan-session"
 
 wmbt:
-  total: 8
-  D001: "minimize effort of understanding-atdd-plan-flag-surface — clean argparse surface, no forbidden flags"
-  E001: "minimize likelihood of text-source-misclassification — --text arg yields type=text SourceItem"
-  E002: "minimize likelihood of file-source-misclassification — .md/.txt/.yaml/.yml/.json yields type=file SourceItem"
-  E003: "minimize likelihood of rich-doc-extraction-attempt — .pdf yields type=rich_doc with path only, no extraction"
-  E004: "minimize likelihood of codebase-source-misclassification — directory/. yields type=codebase SourceItem"
-  E005: "minimize likelihood of silent-exit-with-no-positional-args — no sources prints help and exits 2"
-  C001: "minimize likelihood of invalid-json-summary-output — --json emits stderr JSON with sources+brief_out only"
-  C002: "minimize likelihood of forbidden-import-in-plan-module — AST scan confirms no git/gh/coach/issue imports"
+  total: 7
+  D001: "minimize likelihood of session-without-main-job — Define gate requires a JTBD main-job before Locate opens"
+  L001: "minimize likelihood of unbound-source-capture — Locate binds captured sources to persisted session state"
+  P001: "minimize likelihood of unit-without-author-spec — Prepare unit carries kind, ref, and a valid atdd author spec"
+  C001: "minimize likelihood of pre-confirm-authoring — no artifact is written before the operator confirms"
+  C002: "minimize likelihood of step-advance-without-exit-condition — a step advances only when its exit condition holds"
+  E001: "minimize likelihood of author-dispatch-skip — Confirm invokes atdd author per locked unit"
+  Y001: "minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes through the elicit channel"

@@ -1,74 +1,27 @@
-urn: "wmbt:define-plans:D001"
-step: "define"
-direction: "minimize"
-dimension: "effort"
-object_of_control: "atdd-plan-flag-surface"
-context_clarifier: "when an operator queries `atdd plan --help` the output must list exactly the flags from PLAN-1 (sources, --text, --brief-out, --json, --quiet) with no --land, --prefix, or --skip-validate, and no public subcommands registered"
-lens: "functional.effectiveness"
-statement: "minimize effort of understanding-atdd-plan-flag-surface by shipping a clean single-phase argparse definition with exactly the PLAN-1 flags, no forbidden flags, and no public subcommands at src/atdd/planner/commands/plan.py"
+urn: wmbt:define-plans:D001
+step: define
+direction: minimize
+dimension: likelihood
+object_of_control: session-without-main-job
+context_clarifier: atdd plan session advance --step locate is refused until the main-job
+  (Define) is set on the session
+lens: functional.effectiveness
+statement: minimize likelihood of session-without-main-job advancing past Define by
+  requiring a JTBD main-job before the Locate gate opens
 acceptances:
-  - identity:
-      urn: "acc:define-plans:D001-UNIT-001-help-lists-allowed-flags"
-      id: "AC-UNIT-001"
-      purpose: "`atdd plan --help` output contains --text, --brief-out, --json, --quiet and does not contain --land, --prefix, or --skip-validate"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/planner/commands/plan.py is importable"
-        - "The argument parser is constructed via build_parser() or equivalent"
-    when:
-      abstract: "The parser's format_help() is called (or subprocess --help is captured)"
-    then:
-      abstract:
-        - "Output contains '--text'"
-        - "Output contains '--brief-out'"
-        - "Output contains '--json'"
-        - "Output contains '--quiet'"
-        - "Output does NOT contain '--land'"
-        - "Output does NOT contain '--prefix'"
-        - "Output does NOT contain '--skip-validate'"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:define-plans:D001-UNIT-002-no-public-subcommands"
-      id: "AC-UNIT-002"
-      purpose: "The `atdd plan` command has no public subcommands — calling `atdd plan foo` where foo is an unrecognized subcommand treats foo as a positional source, not a subcommand dispatch"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "The argument parser for atdd plan is constructed"
-    when:
-      abstract: "Parser structure is introspected for registered subparsers"
-    then:
-      abstract:
-        - "No _subparsers action is registered on the atdd plan parser (or subparsers list is empty)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:define-plans:D001-SMOKE-001-help-lists-flags"
-      id: "AC-SMOKE-001"
-      purpose: "Against the real `atdd plan` CLI, --help lists the allowed flags and exposes no subcommands"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A real checkout and the installed `atdd plan` CLI shell"
-    when:
-      abstract: "`atdd plan --help` is run via the installed CLI"
-    then:
-      abstract:
-        - "The help text lists --text, --brief-out, --json and --quiet"
-        - "No subcommand is exposed and the process exits 0"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-19"
+- identity:
+    urn: acc:define-plans:D001-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the D001 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

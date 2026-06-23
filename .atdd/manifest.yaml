@@ -2864,3 +2864,12 @@ sessions:
   archived: null
   branch: feat/composed-no-orphan-extension-nodes
   train: 0003-author-substrate
+- id: '1209'
+  slug: plan-session-traceability-chain
+  file: null
+  issue_number: 1209
+  type: refactor
+  status: INIT
+  created: '2026-06-23'
+  archived: null
+  branch: refactor/plan-session-traceability-chain

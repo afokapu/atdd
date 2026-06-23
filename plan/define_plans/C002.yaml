@@ -1,69 +1,27 @@
-urn: "wmbt:define-plans:C002"
-step: "confirm"
-direction: "minimize"
-dimension: "likelihood"
-object_of_control: "forbidden-import-in-plan-module"
-context_clarifier: "the plan.py module at src/atdd/planner/commands/plan.py must not import git, gh, subprocess for git ops, atdd.coach, or any atdd.*.commands.issue module — an AST scan confirms the isolation boundary is clean per the PLAN-1 contract"
-lens: "functional.effectiveness"
-statement: "minimize likelihood of forbidden-import-in-plan-module at src/atdd/planner/commands/plan.py by an AST import scan confirming git, gh, atdd.coach, and atdd.*.commands.issue are absent"
+urn: wmbt:define-plans:C002
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: step-advance-without-exit-condition
+context_clarifier: atdd plan session advance --step X is refused unless step X prerequisites
+  are satisfied; backtracking remains allowed
+lens: functional.effectiveness
+statement: minimize likelihood of step-advance-without-exit-condition by advancing
+  a step only when its exit condition holds
 acceptances:
-  - identity:
-      urn: "acc:define-plans:C002-UNIT-001-ast-scan-no-git-import"
-      id: "AC-UNIT-001"
-      purpose: "AST scan of plan.py finds no import of git, gh, or subprocess used for git operations"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/planner/commands/plan.py exists and is parseable by ast.parse()"
-    when:
-      abstract: "All import and from-import nodes are collected from the module AST"
-    then:
-      abstract:
-        - "No import name is 'git' or starts with 'git.'"
-        - "No import name is 'gh' or starts with 'gh.'"
-        - "No subprocess call contains a git subcommand string literal"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:define-plans:C002-UNIT-002-ast-scan-no-coach-import"
-      id: "AC-UNIT-002"
-      purpose: "AST scan of plan.py finds no import of atdd.coach or atdd.*.commands.issue modules"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/planner/commands/plan.py exists and is parseable by ast.parse()"
-    when:
-      abstract: "All import and from-import nodes are collected from the module AST"
-    then:
-      abstract:
-        - "No import name starts with 'atdd.coach'"
-        - "No import name matches the pattern 'atdd.*.commands.issue'"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:define-plans:C002-SMOKE-001-clean-import-live"
-      id: "AC-SMOKE-001"
-      purpose: "Against the real CLI, atdd plan runs end-to-end, proving the plan module imports with no git/coach runtime dependency"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A real checkout and the installed `atdd plan` CLI shell"
-    when:
-      abstract: "`atdd plan --text x` is run via the installed CLI"
-    then:
-      abstract:
-        - "The CLI executes end-to-end and exits 0 (the module imports cleanly without atdd.coach or git)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-19"
+- identity:
+    urn: acc:define-plans:C002-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the C002 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds
