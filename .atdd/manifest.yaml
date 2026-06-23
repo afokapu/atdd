@@ -1,6 +1,30 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1173'
+  slug: restore-interim-manual-version-bump
+  file: null
+  issue_number: 1173
+  type: cleanup
+  status: REFACTOR
+  created: '2026-06-21'
+  archived: null
+  branch: chore/restore-interim-manual-version-bump
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate
+  train: 0001-self-compliance-validate
+- id: '1169'
+  slug: stop-instructing-manual-version-bump
+  file: null
+  issue_number: 1169
+  type: cleanup
+  status: REFACTOR
+  created: '2026-06-21'
+  archived: null
+  branch: chore/stop-instructing-manual-version-bump
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate
+  train: 0001-self-compliance-validate
 - id: '1157'
   slug: substrate-binding
   file: null
@@ -1140,9 +1164,10 @@ sessions:
   file: null
   issue_number: 760
   type: implementation
-  status: INIT
+  status: COMPLETE
+  train: 0001-self-compliance-validate
   created: '2026-05-18'
-  archived: null
+  archived: '2026-06-19'
 - id: '759'
   slug: extract-planner-invariant-prompt-content
   file: null
@@ -2117,10 +2142,10 @@ sessions:
   file: null
   issue_number: 1054
   type: implementation
-  status: INIT
+  status: GREEN
   created: '2026-06-10'
   archived: null
-  branch: feat/bind-unbound-substrate-validators
+  train: 0001-self-compliance-validate
 - id: '1053'
   slug: coach-dashboard-worker-grid
   file: null
@@ -2538,7 +2563,6 @@ sessions:
   status: INIT
   created: '2026-06-11'
   archived: null
-  branch: feat/two-way-decision-channel-behind-adapter-registry-seam
 - id: '1077'
   slug: producer-publishes-complete-gated-decision-payload
   file: null
@@ -2731,6 +2755,96 @@ sessions:
   train: 0001-self-compliance-validate
   created: '2026-06-17'
   archived: null
+- id: '1171'
+  slug: atdd-plan-binds-issue-at-confirm
+  file: null
+  issue_number: 1171
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-06-21'
+  archived: null
+  branch: feat/atdd-plan-binds-issue-at-confirm
+- id: '1177'
+  slug: state-store-control-root-resolver
+  file: null
+  issue_number: 1177
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-control-root-resolver
+- id: '1179'
+  slug: distinguish-real-control-root-from-scratch-atdd
+  file: null
+  issue_number: 1179
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/distinguish-real-control-root-from-scratch-atdd
+- id: '1181'
+  slug: state-store-sqlite-schema-and-migrations
+  file: null
+  issue_number: 1181
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-sqlite-schema-and-migrations
+- id: '1182'
+  slug: state-store-storage-apis
+  file: null
+  issue_number: 1182
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-storage-apis
+- id: '1183'
+  slug: state-store-manifest-import-and-compatibility
+  file: null
+  issue_number: 1183
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-manifest-import-and-compatibility
+- id: '1184'
+  slug: state-store-github-provider-sync
+  file: null
+  issue_number: 1184
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-github-provider-sync
+- id: '1185'
+  slug: state-store-hub-trace-alignment
+  file: null
+  issue_number: 1185
+  type: implementation
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: feat/state-store-hub-trace-alignment
+- id: '1201'
+  slug: provider-agnostic-state-sync-engine
+  file: null
+  issue_number: 1201
+  type: refactor
+  status: REFACTOR
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-22'
+  archived: null
+  branch: refactor/provider-agnostic-state-sync-engine
 - id: '1147'
   slug: wagon-separability-granularity
   file: null
@@ -2750,23 +2864,30 @@ sessions:
   archived: null
   branch: feat/composed-no-orphan-extension-nodes
   train: 0003-author-substrate
-- id: '1169'
-  slug: stop-instructing-manual-version-bump
+- id: '1209'
+  slug: plan-session-traceability-chain
   file: null
-  issue_number: 1169
-  type: cleanup
-  status: INIT
-  created: '2026-06-21'
+  issue_number: 1209
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-23'
   archived: null
-- id: '1171'
-  slug: atdd-plan-binds-issue-at-confirm
+  branch: refactor/plan-session-traceability-chain
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
+  train: 0001-self-compliance-validate
+- id: '1208'
+  slug: plan-canonical-session-retire-brief
   file: null
-  issue_number: 1171
-  type: implementation
-  status: INIT
-  created: '2026-06-21'
+  issue_number: 1208
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-23'
   archived: null
-  branch: feat/atdd-plan-binds-issue-at-confirm
+  branch: refactor/plan-session-traceability-chain
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
+  train: 0001-self-compliance-validate
 - id: '1172'
   slug: state-store-owns-version-source-of-truth
   file: null
@@ -2775,77 +2896,6 @@ sessions:
   status: INIT
   created: '2026-06-21'
   archived: null
-- id: '1173'
-  slug: restore-interim-manual-version-bump
-  file: null
-  issue_number: 1173
-  type: cleanup
-  status: INIT
-  created: '2026-06-21'
-  archived: null
-- id: '1177'
-  slug: state-store-control-root-resolver
-  file: null
-  issue_number: 1177
-  type: implementation
-  status: INIT
-  created: '2026-06-22'
-  archived: null
-  branch: feat/state-store-control-root-resolver
-- id: '1179'
-  slug: distinguish-real-control-root-from-scratch-atdd
-  file: null
-  issue_number: 1179
-  type: implementation
-  status: INIT
-  created: '2026-06-22'
-  archived: null
-  branch: feat/distinguish-real-control-root-from-scratch-atdd
-- id: '1181'
-  slug: state-store-sqlite-schema-and-migrations
-  file: null
-  issue_number: 1181
-  type: implementation
-  status: INIT
-  created: '2026-06-22'
-  archived: null
-  branch: feat/state-store-sqlite-schema-and-migrations
-- id: '1182'
-  slug: state-store-storage-apis
-  file: null
-  issue_number: 1182
-  type: implementation
-  status: INIT
-  created: '2026-06-22'
-  archived: null
-  branch: feat/state-store-storage-apis
-- id: '1183'
-  slug: state-store-manifest-import-and-compatibility
-  file: null
-  issue_number: 1183
-  type: implementation
-  status: INIT
-  created: '2026-06-22'
-  archived: null
-  branch: feat/state-store-manifest-import-and-compatibility
-- id: '1184'
-  slug: state-store-github-provider-sync
-  file: null
-  issue_number: 1184
-  type: implementation
-  status: INIT
-  created: '2026-06-22'
-  archived: null
-  branch: feat/state-store-github-provider-sync
-- id: '1185'
-  slug: state-store-hub-trace-alignment
-  file: null
-  issue_number: 1185
-  type: implementation
-  status: INIT
-  created: '2026-06-22'
-  archived: null
-  branch: feat/state-store-hub-trace-alignment
 - id: '1188'
   slug: smoke-fixture-e012-decision-channel
   file: null
@@ -2911,15 +2961,6 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
-- id: '1201'
-  slug: provider-agnostic-state-sync-engine
-  file: null
-  issue_number: 1201
-  type: refactor
-  status: INIT
-  created: '2026-06-22'
-  archived: null
-  branch: refactor/provider-agnostic-state-sync-engine
 - id: '1203'
   slug: state-store-authoritative-work-item-lifecycle
   file: null
@@ -2927,20 +2968,4 @@ sessions:
   type: implementation
   status: INIT
   created: '2026-06-22'
-  archived: null
-- id: '1208'
-  slug: plan-canonical-session-retire-brief
-  file: null
-  issue_number: 1208
-  type: refactor
-  status: INIT
-  created: '2026-06-23'
-  archived: null
-- id: '1209'
-  slug: plan-session-traceability-chain
-  file: null
-  issue_number: 1209
-  type: refactor
-  status: INIT
-  created: '2026-06-23'
   archived: null

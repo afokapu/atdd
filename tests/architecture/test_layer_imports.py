@@ -53,6 +53,11 @@ FORBIDDEN_BY_LAYER = {
     "atdd.integrations.github": {
         "atdd.coach", "atdd.train", "atdd.runtime",
     },
+    # ATDD State Store (#1168) is the foundational operational-data layer: it may
+    # be imported by higher layers but must never import them (#1184 hardening).
+    "atdd.state": {
+        "atdd.coach", "atdd.train", "atdd.integrations", "atdd.runtime", "atdd.observer",
+    },
 }
 
 

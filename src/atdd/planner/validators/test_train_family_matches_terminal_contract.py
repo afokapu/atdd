@@ -8,25 +8,24 @@ A train's declared ``family`` MUST agree with its declared terminal contract:
 - ``family`` is OPTIONAL during the #1083 transition; a train without it is not
   flagged. Presence becomes required later.
 
-PENDING BINDING (#1054): the rule is declared as a convention node
-``planner.train.family-matches-terminal-contract`` (status: draft) but is not yet
-wired through ``bind_rule()`` / the disposition gate, because the legacy registry
-binder reads a ``rules:`` block and ``train.convention.yaml`` has none yet — that
-block is owned by #1054 (Bind Unbound Substrate Validators). When #1054 lands the
-train ``rules:`` block, add::
-
-    from atdd.coach.utils.rule_binding import bind_rule
-    from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
-    _RULE = bind_rule("planner.train.family-matches-terminal-contract")
-
-and route the integration violations through ``assert_disposition_satisfied``.
+BOUND (#1054): the rule ``planner.train.family-matches-terminal-contract`` is
+declared in ``train.convention.yaml``'s ``rules:`` block and wired through
+``bind_rule()`` + ``assert_disposition_satisfied`` (strict). Behaviour-preserving:
+the ``check_family_matches_terminal`` logic is unchanged; the integration
+violations now route through the disposition gate under the bound rule_id.
 """
 from __future__ import annotations
 
 from pathlib import Path
 from typing import List, Optional
 
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+
+_RULE = bind_rule("planner.train.family-matches-terminal-contract")
+_VALIDATOR_ID = "train_family_matches_terminal_contract"
 
 COMMIT_RECEIPT = "platform:acceptance:commit-receipt"
 VALID_FAMILIES = ("behavior", "delivery")
@@ -115,11 +114,14 @@ def test_check_flags_invalid_family():
 
 def test_real_trains_family_matches_terminal_contract():
     repo_root = find_repo_root()
-    violations = [
-        v
-        for t in _load_trains(repo_root)
-        if (v := check_family_matches_terminal(t)) is not None
-    ]
-    assert not violations, (
-        "family<->terminal-contract violations:\n  " + "\n  ".join(violations)
-    )
+    violations: List[Violation] = []
+    for t in _load_trains(repo_root):
+        detail = check_family_matches_terminal(t)
+        if detail:
+            violations.append(Violation(
+                rule_id=_RULE.rule_id, severity=_RULE.severity,
+                location=f"plan/_trains/{t.get('train_id', '<unknown>')}",
+                detail=detail,
+                fix_hint_ref=getattr(_RULE, "fix_hint_ref", None),
+            ))
+    assert_disposition_satisfied(validator_id=_VALIDATOR_ID, violations=violations)

@@ -50,7 +50,7 @@ def test_working_context_includes_session_protocol_nodes_and_edges():
     ctx = load_working_context(_REPO)
     g = ctx["guidelines"]
     for rid in ("planner.plan.session-lifecycle", "planner.plan.confirm-before-author",
-                "planner.plan.in-session-no-issue"):
+                "planner.plan.confirm-binds-an-issue"):
         assert rid in g, f"{rid} missing from working context"
         assert g[rid]["statement"]
     # the protocol-flow edge between the plan nodes is surfaced
@@ -60,7 +60,7 @@ def test_working_context_includes_session_protocol_nodes_and_edges():
 
 def test_guidelines_cli_emits_context():
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(_REPO)}
-    r = subprocess.run([sys.executable, "-m", "atdd", "plan", "session", "--root", str(_REPO), "guidelines"],
+    r = subprocess.run([sys.executable, "-m", "atdd", "plan", "--root", str(_REPO), "guidelines"],
                        cwd=str(_REPO), env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
     doc = json.loads([ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip().startswith("{")][-1])
@@ -69,7 +69,7 @@ def test_guidelines_cli_emits_context():
 
 def test_worked_example_authors_wagon_feature_and_wmbt(tmp_path):
     (tmp_path / "plan").mkdir()
-    s = PlanSession("worked", main_job="Listen to music while commuting")
+    s = PlanSession("worked", main_job="Listen to music while commuting", issue_ref="my-plan")
     s.advance(Step.LOCATE); s.sources.append({"type": "text", "value": "music app spec"})
     s.advance(Step.PREPARE)
     s.add_unit(Unit(kind="wagon", ref="stream-audio", spec={
@@ -106,7 +106,7 @@ def test_full_decomposition_all_five_kinds_with_keep_pivot_kill(tmp_path):
     (wagon/feature/wmbt/train/acceptance) and exercises keep + pivot + kill."""
     (tmp_path / "plan" / "_trains").mkdir(parents=True)
     (tmp_path / "plan" / "_trains.yaml").write_text("trains: {}\n", encoding="utf-8")
-    s = PlanSession("full", main_job="Listen to music while commuting")
+    s = PlanSession("full", main_job="Listen to music while commuting", issue_ref="my-plan")
     s.advance(Step.LOCATE); s.sources.append({"type": "text", "value": "spec"})
     s.advance(Step.PREPARE)
     s.add_unit(Unit(kind="wagon", ref="full-demo", spec={

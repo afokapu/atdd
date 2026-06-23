@@ -59,14 +59,20 @@ git:
 # Release Gate (MANDATORY) — to move to release.convention.yaml per #916
 release:
   mandatory: true
+  # INTERIM (see #1172): bump the version manually for now. The bump-on-merge
+  # automation (post-merge-lifecycle.yml) is currently NON-OPERATIONAL — its
+  # direct push to main is rejected by branch protection (GH006), so it has
+  # never successfully bumped. Until version handling moves to the State Store
+  # (#1168 / #1172), manual bumping is the working mechanism.
   change_class:
     PATCH: "bug fixes, docs, refactors, internal changes"
     MINOR: "new feature, new validator, new command, new convention (non-breaking)"
     MAJOR: "breaking API/CLI/schema/convention change or behavior removal"
   workflow:
-    - "Bump version in version file"
+    - "Bump version in pyproject.toml based on branch prefix + change class"
     - "Commit: 'Bump version to {version}'"
-    - "Merge PR; then: git tag v{version} on merge commit + git push origin --tags"
+    - "Merge PR; publish.yml tags + publishes from the version on main"
+  note: "Durable fix tracked in #1172 (State Store owns version source-of-truth); do not re-adopt the auto-bump until it is operational."
 
 # Issue Tracking (operator-facing CLI + the prohibition list — gh issue create /
 # gh pr create are forbidden because they bypass `atdd-issue` label-scoped

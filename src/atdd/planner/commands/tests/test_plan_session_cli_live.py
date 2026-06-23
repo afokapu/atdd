@@ -33,7 +33,7 @@ _SPEC = {
 
 def _sess(root, *args):
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(root)}
-    return subprocess.run([sys.executable, "-m", "atdd", "plan", "session", "--root", str(root), *args],
+    return subprocess.run([sys.executable, "-m", "atdd", "plan", "--root", str(root), *args],
                           cwd=str(root), env=env, capture_output=True, text=True, timeout=60)
 
 
@@ -44,7 +44,7 @@ def _state(r):
 
 def test_full_session_authors_valid_wagon_via_cli(tmp_path):
     (tmp_path / "plan").mkdir()
-    assert _state(_sess(tmp_path, "start", "--id", "s1", "--main-job", "Listen to music while commuting"))["step"] == "define"
+    assert _state(_sess(tmp_path, "start", "--id", "s1", "--main-job", "Listen to music while commuting", "--issue", "my-plan"))["step"] == "define"
     _sess(tmp_path, "advance", "--id", "s1", "--step", "locate")
     _sess(tmp_path, "source", "--id", "s1", "commute spec")
     _sess(tmp_path, "advance", "--id", "s1", "--step", "prepare")
@@ -79,7 +79,7 @@ def test_full_decomposition_all_five_kinds_keep_pivot_kill_via_cli(tmp_path):
     def U(kind, ref, spec):
         assert _sess(tmp_path, "unit", "--id", "f", "--kind", kind, "--ref", ref, "--spec", json.dumps(spec)).returncode == 0
 
-    _state(_sess(tmp_path, "start", "--id", "f", "--main-job", "Listen to music while commuting"))
+    _state(_sess(tmp_path, "start", "--id", "f", "--main-job", "Listen to music while commuting", "--issue", "my-plan"))
     _sess(tmp_path, "advance", "--id", "f", "--step", "locate"); _sess(tmp_path, "source", "--id", "f", "spec")
     _sess(tmp_path, "advance", "--id", "f", "--step", "prepare")
     U("wagon", "full-demo", {"wagon": "full-demo", "description": "the full demo wagon all kinds",

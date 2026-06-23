@@ -354,25 +354,21 @@ Reference: src/atdd/coach/conventions/issue.convention.yaml
 ## Release Gate (MANDATORY)
 
 <!--
-Every session MUST end with a version bump + matching git tag.
+INTERIM (see #1172): bump the version manually for now. The bump-on-merge automation
+(post-merge-lifecycle.yml) is currently NON-OPERATIONAL — its direct push to
+main is rejected by branch protection (GH006), so it has never successfully
+bumped. Until version handling moves to the State Store (#1168 / #1172), manual
+bumping is the working mechanism. Do NOT re-adopt the auto-bump until it works.
 
-Change Class:
+Change Class (branch prefix → bump):
 - PATCH: bug fixes, docs, refactors, internal changes
 - MINOR: new feature, new validator, new command, new convention (non-breaking)
 - MAJOR: breaking API/CLI/schema/convention change or behavior removal
-
-Rules:
-- Tag must match version exactly: v{version}
-- No tag without version bump
-- No version bump without tag
 -->
 
-- [ ] Determine change class: PATCH / MINOR / MAJOR
-- [ ] Bump version in version file (recommended: VERSION; sync any language manifests if used)
-- [ ] Commit: "Bump version to {version}"
-- [ ] Create tag: `git tag v{version}`
-- [ ] Push with tags: `git push origin {branch} --tags`
-- [ ] Record tag in Session Log: "Released: v{version}"
+- [ ] Determine change class from branch prefix: PATCH / MINOR / MAJOR
+- [ ] Bump the version in pyproject.toml; commit "Bump version to X.Y.Z"
+- [ ] Merge PR → publish.yml tags + publishes from the version on main
 
 ---
 

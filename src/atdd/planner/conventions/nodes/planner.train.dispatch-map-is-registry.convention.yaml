@@ -1,0 +1,10 @@
+schema_version: 1.0.0
+rule_id: planner.train.dispatch-map-is-registry
+kind: rule
+status: draft
+statement: The divergence dispatch map is a declared, schema-valid registry (artifact_urn
+  -> train_id) that the Station Master reads; routing is never an imperative in-code
+  map.
+terms:
+- term_id: dispatch_registry
+  text: ''
