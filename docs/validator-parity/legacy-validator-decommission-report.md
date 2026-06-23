@@ -1,6 +1,11 @@
 # Legacy Validator Decommission Report (#1207)
 
-Per-file decommission outcome for every legacy persona validator. No file is deleted in this phase — outcomes are recorded; the convention suite is authoritative and legacy runs in parallel as shims.
+Per-file *intended* decommission outcome for every legacy persona validator. **No
+file is deleted, shimmed, or removed** — these outcomes are PLANNED targets, not
+executed actions. **Legacy validators remain authoritative**; behavioral parity is
+not established (see `shadow-run-report.md`). **Decommission is BLOCKED** until the
+#1206 graph-traversal engine + shadow harness prove per-pair behavioral parity.
+The "outcome" column is the eventual plan, contingent on that gate.
 
 
 Total legacy validators accounted: **237**
