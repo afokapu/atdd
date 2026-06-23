@@ -2869,7 +2869,7 @@ sessions:
   file: null
   issue_number: 1209
   type: refactor
-  status: RED
+  status: GREEN
   created: '2026-06-23'
   archived: null
   branch: refactor/plan-session-traceability-chain
