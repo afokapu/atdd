@@ -46,8 +46,8 @@ entries:
     key lacks a behavioral_difference justification.
   proposed_family: schema
   proposed_template: node_schema_conformance
-  proposed_variant: dispatch-map-is-registry
-  proposed_target_path: src/atdd/validators/conventions/schema/test_dispatch-map-is-registry.py
+  proposed_variant: dispatch_map_is_registry
+  proposed_target_path: src/atdd/validators/conventions/schema/test_dispatch_map_is_registry.py
   parity_status: split
   priority: P0
   parity_notes: 'Two bound rules: dispatch-map-is-registry (schema/node_schema_conformance of the registry artifact) and dispatch-composite-key-exceptional
@@ -62,8 +62,8 @@ entries:
     contract/telemetry artifacts, or break cross-reference traceability.
   proposed_family: resolution
   proposed_template: artifact_reference_resolution
-  proposed_variant: draft-wagon-registry
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_draft-wagon-registry.py
+  proposed_variant: draft_wagon_registry
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_draft_wagon_registry.py
   parity_status: split
   priority: P0
   parity_notes: 'Bundles three questions: duplicate detection (uniqueness/scoped_identifier_uniqueness), artifact resolution
@@ -79,8 +79,8 @@ entries:
     with both consumer_reacted and drift_resolved.
   proposed_family: presence
   proposed_template: conditional_requirement
-  proposed_variant: feedback-loop-close-the-loop
-  proposed_target_path: src/atdd/validators/conventions/presence/test_feedback-loop-close-the-loop.py
+  proposed_variant: feedback_loop_close_the_loop
+  proposed_target_path: src/atdd/validators/conventions/presence/test_feedback_loop_close_the_loop.py
   parity_status: direct
   priority: P1
   parity_notes: 'Conditional requirement: IF feature kind == feedback-loop THEN a SMOKE acceptance must carry the close_the_loop
@@ -95,8 +95,8 @@ entries:
     WMBT<->acceptance layers.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: hierarchy-coverage
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_hierarchy-coverage.py
+  proposed_variant: hierarchy_coverage
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_hierarchy_coverage.py
   parity_status: direct
   priority: P1
   parity_notes: Bound rule every-wmbt-must-have is source_has_required_target; the docstring's full bidirectional sweep also
@@ -143,8 +143,8 @@ entries:
     more than one wagon (a cross-wagon cycle).
   proposed_family: acyclicity
   proposed_template: forbidden_cycle_absence
-  proposed_variant: no-cross-wagon-consume-cycle
-  proposed_target_path: src/atdd/validators/conventions/acyclicity/test_no-cross-wagon-consume-cycle.py
+  proposed_variant: no_cross_wagon_consume_cycle
+  proposed_target_path: src/atdd/validators/conventions/acyclicity/test_no_cross_wagon_consume_cycle.py
   parity_status: direct
   priority: P1
   parity_notes: Cycle detection over the produce->consume wagon graph; single acyclicity/forbidden_cycle_absence question
@@ -159,8 +159,8 @@ entries:
     any relationship-graph edge.
   proposed_family: coverage
   proposed_template: reachability_no_orphan
-  proposed_variant: no-orphan-nodes
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_no-orphan-nodes.py
+  proposed_variant: no_orphan_nodes
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_no_orphan_nodes.py
   parity_status: direct
   priority: P1
   parity_notes: Every convention node must be reachable as an edge endpoint; canonical reachability_no_orphan question over
@@ -204,8 +204,8 @@ entries:
     source.
   proposed_family: resolution
   proposed_template: artifact_reference_resolution
-  proposed_variant: plan-cross-refs
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_plan-cross-refs.py
+  proposed_variant: plan_cross_refs
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_plan_cross_refs.py
   parity_status: direct
   priority: P0
   parity_notes: Consume->produce artifact reference resolution across wagons/trains; canonical artifact_reference_resolution.
@@ -218,8 +218,8 @@ entries:
   legacy_failure_semantics: Fails if wagon slugs, train IDs, or WMBT IDs are not unique across the repository.
   proposed_family: uniqueness
   proposed_template: scoped_identifier_uniqueness
-  proposed_variant: plan-uniqueness
-  proposed_target_path: src/atdd/validators/conventions/uniqueness/test_plan-uniqueness.py
+  proposed_variant: plan_uniqueness
+  proposed_target_path: src/atdd/validators/conventions/uniqueness/test_plan_uniqueness.py
   parity_status: direct
   priority: P0
   parity_notes: Scoped identifier uniqueness for wagon slugs / train IDs / WMBT IDs; canonical scoped_identifier_uniqueness.
@@ -232,8 +232,8 @@ entries:
   legacy_failure_semantics: Fails if a contract/telemetry URN does not resolve to an actual directory/file on disk.
   proposed_family: resolution
   proposed_template: artifact_reference_resolution
-  proposed_variant: plan-urn-resolution
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_plan-urn-resolution.py
+  proposed_variant: plan_urn_resolution
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_plan_urn_resolution.py
   parity_status: direct
   priority: P0
   parity_notes: URN->filesystem artifact resolution for contracts/telemetry; canonical artifact_reference_resolution. No bind_rule
@@ -246,8 +246,8 @@ entries:
   legacy_failure_semantics: Fails if any wagon manifest in plan/ does not conform to wagon.schema.json.
   proposed_family: schema
   proposed_template: node_schema_conformance
-  proposed_variant: plan-wagons
-  proposed_target_path: src/atdd/validators/conventions/schema/test_plan-wagons.py
+  proposed_variant: plan_wagons
+  proposed_target_path: src/atdd/validators/conventions/schema/test_plan_wagons.py
   parity_status: direct
   priority: P0
   parity_notes: Per-wagon jsonschema conformance against wagon.schema.json; canonical node_schema_conformance. No bind_rule
@@ -262,8 +262,8 @@ entries:
     Popen agent command).
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: smoke-synthetic-fixture-bypass
-  proposed_target_path: src/atdd/validators/conventions/policy/test_smoke-synthetic-fixture-bypass.py
+  proposed_variant: smoke_synthetic_fixture_bypass
+  proposed_target_path: src/atdd/validators/conventions/policy/test_smoke_synthetic_fixture_bypass.py
   parity_status: direct
   priority: P2
   parity_notes: Forbidden-construct scan over SMOKE test file source (#855); a policy/forbidden_construct_absence guard on
@@ -278,8 +278,8 @@ entries:
     source root.
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: theme-archetype-alignment
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_theme-archetype-alignment.py
+  proposed_variant: theme_archetype_alignment
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_theme_archetype_alignment.py
   parity_status: direct
   priority: P1
   parity_notes: 'Two facts must agree: declared theme vs. actual archetype source root of the wagon''s implementation; canonical
@@ -293,8 +293,8 @@ entries:
   legacy_failure_semantics: Fails if any module under a commons-themed wagon's source tree imports atdd.coach.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: theme-commons-coach-boundary
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_theme-commons-coach-boundary.py
+  proposed_variant: theme_commons_coach_boundary
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_theme_commons_coach_boundary.py
   parity_status: direct
   priority: P1
   parity_notes: 'Import/layer boundary: commons wagons may not import atdd.coach; canonical allowed_boundary_crossing over
@@ -309,8 +309,8 @@ entries:
     (digits 0-4).
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: theme-must-be-canonical
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_theme-must-be-canonical.py
+  proposed_variant: theme_must_be_canonical
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_theme_must_be_canonical.py
   parity_status: direct
   priority: P0
   parity_notes: Theme token must be a member of the canonical vocabulary (retired digits 5-9 and undeclared themes rejected);
@@ -325,8 +325,8 @@ entries:
     theme.
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: theme-urn-namespace-matches
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_theme-urn-namespace-matches.py
+  proposed_variant: theme_urn_namespace_matches
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_theme_urn_namespace_matches.py
   parity_status: direct
   priority: P1
   parity_notes: 'Two facts must agree: produced-URN theme prefix vs. wagon''s declared theme; canonical resolved_fact_agreement
@@ -341,8 +341,8 @@ entries:
     by a config override.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: theme-zero-mandatory
-  proposed_target_path: src/atdd/validators/conventions/presence/test_theme-zero-mandatory.py
+  proposed_variant: theme_zero_mandatory
+  proposed_target_path: src/atdd/validators/conventions/presence/test_theme_zero_mandatory.py
   parity_status: direct
   priority: P1
   parity_notes: Mandatory presence of the commons floor (digit 0) in every resolved theme set regardless of override; required_field_presence
@@ -357,8 +357,8 @@ entries:
     artifact (commit-receipt => delivery).
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: train-family-matches-terminal-contract
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_train-family-matches-terminal-contract.py
+  proposed_variant: train_family_matches_terminal_contract
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_train_family_matches_terminal_contract.py
   parity_status: direct
   priority: P1
   parity_notes: 'Two facts must agree: declared train family vs. terminal-contract artifact; canonical resolved_fact_agreement
@@ -372,8 +372,8 @@ entries:
     or registry-grouping mismatch across trains.
   proposed_family: resolution
   proposed_template: direct_reference_resolution
-  proposed_variant: train-validation
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_train-validation.py
+  proposed_variant: train_validation
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_train_validation.py
   parity_status: split
   priority: P0
   parity_notes: 'Bundles many questions: wagon-reference resolution (direct_reference_resolution), theme numbering (sizing/grammar),
@@ -389,8 +389,8 @@ entries:
     a soft config threshold.'
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: wagon-coupling-complexity
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_wagon-coupling-complexity.py
+  proposed_variant: wagon_coupling_complexity
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_wagon_coupling_complexity.py
   parity_status: direct
   priority: P1
   parity_notes: Cardinality/threshold bound on a coupling metric over the produce->consume graph; advisory non-blocking (#1145).
@@ -405,8 +405,8 @@ entries:
     single-neighbor coupling.'
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: wagon-separability
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_wagon-separability.py
+  proposed_variant: wagon_separability
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_wagon_separability.py
   parity_status: direct
   priority: P1
   parity_notes: Threshold/bound on a cohesion-vs-coupling metric over the WMBT graph; advisory non-blocking (#1147). Canonical
@@ -420,8 +420,8 @@ entries:
     does not resolve.
   proposed_family: resolution
   proposed_template: reference_chain_resolution
-  proposed_variant: wagon-urn-chain
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_wagon-urn-chain.py
+  proposed_variant: wagon_urn_chain
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_wagon_urn_chain.py
   parity_status: direct
   priority: P0
   parity_notes: Recursive multi-hop URN chain reconciliation with no inference; canonical reference_chain_resolution. No bind_rule
@@ -435,8 +435,8 @@ entries:
     present in the wagon directory.
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: wmbt-consistency
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_wmbt-consistency.py
+  proposed_variant: wmbt_consistency
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_wmbt_consistency.py
   parity_status: direct
   priority: P1
   parity_notes: Declared WMBT references must agree with the filesystem WMBT YAML set (source of truth); canonical resolved_fact_agreement.
@@ -451,8 +451,8 @@ entries:
     via dated marker).
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: wmbt-has-smoke-acceptance
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_wmbt-has-smoke-acceptance.py
+  proposed_variant: wmbt_has_smoke_acceptance
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_wmbt_has_smoke_acceptance.py
   parity_status: direct
   priority: P1
   parity_notes: Every WMBT (source) must have at least one SMOKE acceptance (required target); canonical source_has_required_target
@@ -466,8 +466,8 @@ entries:
   legacy_failure_semantics: Fails if planner.wmbt.must-have-smoke-acceptance is not declared in its canonical home wmbt.convention.yaml.
   proposed_family: binding
   proposed_template: declaration_to_implementation_binding
-  proposed_variant: wmbt-smoke-acceptance-rule-registered
-  proposed_target_path: src/atdd/validators/conventions/binding/test_wmbt-smoke-acceptance-rule-registered.py
+  proposed_variant: wmbt_smoke_acceptance_rule_registered
+  proposed_target_path: src/atdd/validators/conventions/binding/test_wmbt_smoke_acceptance_rule_registered.py
   parity_status: superseded
   priority: P0
   parity_notes: Asserts a single rule_id is registered in its convention's rules block — a one-off instance of declaration_to_implementation_binding
@@ -481,8 +481,8 @@ entries:
     construction pattern.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: wmbt-vocabulary
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_wmbt-vocabulary.py
+  proposed_variant: wmbt_vocabulary
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_wmbt_vocabulary.py
   parity_status: direct
   priority: P0
   parity_notes: Controlled-vocabulary + statement-pattern conformance for WMBT fields (authorized step codes/directions/dimensions/lenses);
@@ -496,8 +496,8 @@ entries:
   legacy_failure_semantics: Fails when any acceptance YAML declares a disposition field (substrate owns disposition).
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: acceptance-disposition-absent
-  proposed_target_path: src/atdd/validators/conventions/policy/test_acceptance-disposition-absent.py
+  proposed_variant: acceptance_disposition_absent
+  proposed_target_path: src/atdd/validators/conventions/policy/test_acceptance_disposition_absent.py
   parity_status: direct
   priority: P1
   parity_notes: Pure forbidden-construct check over acceptance nodes; one bound rule, one target.
@@ -510,8 +510,8 @@ entries:
   legacy_failure_semantics: Fails when an acceptance declares neither harness.type nor both signal.metric and signal.threshold.
   proposed_family: presence
   proposed_template: conditional_requirement
-  proposed_variant: acceptance-measurable
-  proposed_target_path: src/atdd/validators/conventions/presence/test_acceptance-measurable.py
+  proposed_variant: acceptance_measurable
+  proposed_target_path: src/atdd/validators/conventions/presence/test_acceptance_measurable.py
   parity_status: direct
   priority: P1
   parity_notes: Conditional field requirement (one-of enforcement) on acceptance nodes.
@@ -524,8 +524,8 @@ entries:
   legacy_failure_semantics: Fails when an acceptance omits identity.phase or uses a value outside {RED,GREEN,SMOKE,REFACTOR}.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: acceptance-phase-declared
-  proposed_target_path: src/atdd/validators/conventions/presence/test_acceptance-phase-declared.py
+  proposed_variant: acceptance_phase_declared
+  proposed_target_path: src/atdd/validators/conventions/presence/test_acceptance_phase_declared.py
   parity_status: direct
   priority: P1
   parity_notes: Required field presence on acceptance node (enum value constraint is incidental).
@@ -550,8 +550,8 @@ entries:
   legacy_failure_semantics: Fails when an acceptance URN does not match acc:{wagon}:{wmbt}-{harness}-{NNN}[-{slug}] grammar.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: acceptance-urn-grammar
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_acceptance-urn-grammar.py
+  proposed_variant: acceptance_urn_grammar
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_acceptance_urn_grammar.py
   parity_status: direct
   priority: P0
   parity_notes: Core identifier grammar of acceptance URNs.
@@ -563,8 +563,8 @@ entries:
   legacy_failure_semantics: Fails when an artifact name violates the theme-based hierarchical colon/dot naming pattern.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: artifact-naming-grammar
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_artifact-naming-grammar.py
+  proposed_variant: artifact_naming_grammar
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_artifact_naming_grammar.py
   parity_status: direct
   priority: P0
   parity_notes: Identifier grammar conformance over artifact names.
@@ -576,8 +576,8 @@ entries:
   legacy_failure_semantics: Fails when a contract schema does not conform to the meta-schema / declared conventions.
   proposed_family: schema
   proposed_template: node_schema_conformance
-  proposed_variant: contract-schema-conformance
-  proposed_target_path: src/atdd/validators/conventions/schema/test_contract-schema-conformance.py
+  proposed_variant: contract_schema_conformance
+  proposed_target_path: src/atdd/validators/conventions/schema/test_contract_schema_conformance.py
   parity_status: direct
   priority: P0
   parity_notes: Node schema conformance of contract nodes against meta-schema.
@@ -590,8 +590,8 @@ entries:
     acceptance coverage.
   proposed_family: presence
   proposed_template: conditional_requirement
-  proposed_variant: contract-security-requirements
-  proposed_target_path: src/atdd/validators/conventions/presence/test_contract-security-requirements.py
+  proposed_variant: contract_security_requirements
+  proposed_target_path: src/atdd/validators/conventions/presence/test_contract_security_requirements.py
   parity_status: split
   priority: P1
   parity_notes: Bundles conditional field presence (auth/security) and SEC/RLS coverage; needs ≥2 targets.
@@ -603,8 +603,8 @@ entries:
   legacy_failure_semantics: Fails when contracts/ paths do not follow the {domain}/{resource} lowercase kebab-case pattern.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: contracts-path-grammar
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_contracts-path-grammar.py
+  proposed_variant: contracts_path_grammar
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_contracts_path_grammar.py
   parity_status: direct
   priority: P0
   parity_notes: Path/name grammar conformance for the contracts directory.
@@ -616,8 +616,8 @@ entries:
   legacy_failure_semantics: Fails when an acceptance has no corresponding test or coverage falls below minimum thresholds.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: coverage-adequacy
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_coverage-adequacy.py
+  proposed_variant: coverage_adequacy
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_coverage_adequacy.py
   parity_status: split
   priority: P1
   parity_notes: Combines per-acceptance target coverage with numeric threshold (cardinality) checks.
@@ -629,8 +629,8 @@ entries:
   legacy_failure_semantics: Fails when a Python test lacks the acceptance URN in both the header comment and the module docstring.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: dual-ac-reference
-  proposed_target_path: src/atdd/validators/conventions/presence/test_dual-ac-reference.py
+  proposed_variant: dual_ac_reference
+  proposed_target_path: src/atdd/validators/conventions/presence/test_dual_ac_reference.py
   parity_status: direct
   priority: P1
   parity_notes: Required presence of the acceptance reference in two declared locations of a test file.
@@ -643,8 +643,8 @@ entries:
     data.
   proposed_family: schema
   proposed_template: node_schema_conformance
-  proposed_variant: fixture-schema-conformance
-  proposed_target_path: src/atdd/validators/conventions/schema/test_fixture-schema-conformance.py
+  proposed_variant: fixture_schema_conformance
+  proposed_target_path: src/atdd/validators/conventions/schema/test_fixture_schema_conformance.py
   parity_status: split
   priority: P1
   parity_notes: Schema conformance of fixtures plus a separate realism/forbidden-data check.
@@ -658,8 +658,8 @@ entries:
     block.
   proposed_family: presence
   proposed_template: conditional_requirement
-  proposed_variant: hermetic-fake-contract-declared
-  proposed_target_path: src/atdd/validators/conventions/presence/test_hermetic-fake-contract-declared.py
+  proposed_variant: hermetic_fake_contract_declared
+  proposed_target_path: src/atdd/validators/conventions/presence/test_hermetic_fake_contract_declared.py
   parity_status: direct
   priority: P1
   parity_notes: 'Conditional requirement: permitted_fakes present implies hermetic block declared.'
@@ -673,8 +673,8 @@ entries:
     in the same WMBT.
   proposed_family: presence
   proposed_template: required_relationship_presence
-  proposed_variant: hermetic-live-smoke-pairing
-  proposed_target_path: src/atdd/validators/conventions/presence/test_hermetic-live-smoke-pairing.py
+  proposed_variant: hermetic_live_smoke_pairing
+  proposed_target_path: src/atdd/validators/conventions/presence/test_hermetic_live_smoke_pairing.py
   parity_status: direct
   priority: P1
   parity_notes: Requires a paired related acceptance node (relationship presence).
@@ -688,8 +688,8 @@ entries:
     Coverage Spec.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: hierarchy-coverage
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_hierarchy-coverage.py
+  proposed_variant: hierarchy_coverage
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_hierarchy_coverage.py
   parity_status: split
   priority: P1
   parity_notes: Bundles three distinct binding/coverage questions; needs separate targets per edge type.
@@ -701,8 +701,8 @@ entries:
   legacy_failure_semantics: Fails when tests share mutable state, have mis-scoped fixtures, or are not parallel-safe.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: test-isolation
-  proposed_target_path: src/atdd/validators/conventions/policy/test_test-isolation.py
+  proposed_variant: test_isolation
+  proposed_target_path: src/atdd/validators/conventions/policy/test_test_isolation.py
   parity_status: merged
   priority: P2
   parity_notes: Overlaps the bound no-polluting-patterns isolation check; should collapse into that target.
@@ -716,8 +716,8 @@ entries:
     real infra.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: live-smoke-no-self-skip
-  proposed_target_path: src/atdd/validators/conventions/policy/test_live-smoke-no-self-skip.py
+  proposed_variant: live_smoke_no_self_skip
+  proposed_target_path: src/atdd/validators/conventions/policy/test_live_smoke_no_self_skip.py
   parity_status: direct
   priority: P1
   parity_notes: Forbidden self-skip construct in live_smoke tests; one bound rule.
@@ -745,8 +745,8 @@ entries:
     commons.
   proposed_family: resolution
   proposed_template: artifact_reference_resolution
-  proposed_variant: metric-implementation-resolves
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_metric-implementation-resolves.py
+  proposed_variant: metric_implementation_resolves
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_metric_implementation_resolves.py
   parity_status: direct
   priority: P0
   parity_notes: Metric reference must resolve to an existing implementation artifact (file/function).
@@ -758,8 +758,8 @@ entries:
   legacy_failure_semantics: Fails when a contract requiring persistence has no corresponding database migration.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: migration-coverage
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_migration-coverage.py
+  proposed_variant: migration_coverage
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_migration_coverage.py
   parity_status: direct
   priority: P1
   parity_notes: Each persistence-requiring contract must have a migration target.
@@ -799,8 +799,8 @@ entries:
   legacy_failure_semantics: Fails when test code mutates shared git state outside tmp_path scope (bare-init-bad-cwd, core-bare-unscoped).
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: no-polluting-patterns
-  proposed_target_path: src/atdd/validators/conventions/policy/test_no-polluting-patterns.py
+  proposed_variant: no_polluting_patterns
+  proposed_target_path: src/atdd/validators/conventions/policy/test_no_polluting_patterns.py
   parity_status: direct
   priority: P1
   parity_notes: AST forbidden-construct scan; one bound rule, one target.
@@ -839,8 +839,8 @@ entries:
     functions/classes.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: python-test-naming
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_python-test-naming.py
+  proposed_variant: python_test_naming
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_python_test_naming.py
   parity_status: direct
   priority: P0
   parity_notes: Identifier/filename grammar conformance for Python test files.
@@ -852,8 +852,8 @@ entries:
   legacy_failure_semantics: Fails when red.convention.yaml does not reject tests outside the 4-layer structure.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: red-layer-structure
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_red-layer-structure.py
+  proposed_variant: red_layer_structure
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_red_layer_structure.py
   parity_status: split
   priority: P1
   parity_notes: General 4-layer path-structure check that subsumes the python+supabase layer variants.
@@ -865,8 +865,8 @@ entries:
   legacy_failure_semantics: Fails when Python tests are not under python/{wagon}/{feature}/tests/{layer}/.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: red-python-layer-structure
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_red-python-layer-structure.py
+  proposed_variant: red_python_layer_structure
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_red_python_layer_structure.py
   parity_status: direct
   priority: P1
   parity_notes: Path-layout grammar for the Python 4-layer test tree.
@@ -878,8 +878,8 @@ entries:
   legacy_failure_semantics: Fails when Supabase tests are not under supabase/functions/{wagon}/{feature}/tests/{layer}/.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: red-supabase-layer-structure
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_red-supabase-layer-structure.py
+  proposed_variant: red_supabase_layer_structure
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_red_supabase_layer_structure.py
   parity_status: direct
   priority: P1
   parity_notes: Path-layout grammar for the Supabase 4-layer test tree.
@@ -893,8 +893,8 @@ entries:
     <urn> header (bidirectional binding).'
   proposed_family: binding
   proposed_template: declaration_to_implementation_binding
-  proposed_variant: validator-binding-bidirectional
-  proposed_target_path: src/atdd/validators/conventions/binding/test_validator-binding-bidirectional.py
+  proposed_variant: validator_binding_bidirectional
+  proposed_target_path: src/atdd/validators/conventions/binding/test_validator_binding_bidirectional.py
   parity_status: direct
   priority: P0
   parity_notes: Bidirectional declaration↔implementation binding; foundational rule-validator correctness.
@@ -907,8 +907,8 @@ entries:
   legacy_failure_semantics: Fails when a security/abuse_case reference does not resolve bidirectionally to an anchored acceptance/test.
   proposed_family: resolution
   proposed_template: direct_reference_resolution
-  proposed_variant: security-ref-resolution
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_security-ref-resolution.py
+  proposed_variant: security_ref_resolution
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_security_ref_resolution.py
   parity_status: split
   priority: P0
   parity_notes: Bundles abuse_case reference resolution and pytest-anchor binding; needs resolution + binding targets.
@@ -921,8 +921,8 @@ entries:
     library.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: smoke-coverage
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_smoke-coverage.py
+  proposed_variant: smoke_coverage
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_smoke_coverage.py
   parity_status: split
   priority: P1
   parity_notes: Combines smoke-coverage requirement with a forbidden-mock-import policy check.
@@ -935,8 +935,8 @@ entries:
   legacy_failure_semantics: 'Fails when a Phase: SMOKE test substitutes collaborators via monkeypatch.setattr or lambda assignment.'
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: smoke-no-collaborator-substitution
-  proposed_target_path: src/atdd/validators/conventions/policy/test_smoke-no-collaborator-substitution.py
+  proposed_variant: smoke_no_collaborator_substitution
+  proposed_target_path: src/atdd/validators/conventions/policy/test_smoke_no_collaborator_substitution.py
   parity_status: direct
   priority: P1
   parity_notes: Forbidden-construct scan over SMOKE tests; one bound rule.
@@ -948,8 +948,8 @@ entries:
   legacy_failure_semantics: Fails when a telemetry/ file name violates the {signal-type}.{plane}[.{measure}].json pattern.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: telemetry-naming-grammar
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_telemetry-naming-grammar.py
+  proposed_variant: telemetry_naming_grammar
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_telemetry_naming_grammar.py
   parity_status: direct
   priority: P0
   parity_notes: Identifier/filename grammar for telemetry signal files.
@@ -962,8 +962,8 @@ entries:
     marker.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: train-backend-e2e-naming
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_train-backend-e2e-naming.py
+  proposed_variant: train_backend_e2e_naming
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_train_backend_e2e_naming.py
   parity_status: direct
   priority: P1
   parity_notes: Path/name grammar for backend E2E test files (marker presence is incidental).
@@ -975,8 +975,8 @@ entries:
   legacy_failure_semantics: Fails when the registered-train → E2E → smoke coverage chain is incomplete.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: train-completeness
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_train-completeness.py
+  proposed_variant: train_completeness
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_train_completeness.py
   parity_status: split
   priority: P1
   parity_notes: Superset chain that subsumes train-e2e-existence and train-route-smoke-coverage.
@@ -988,8 +988,8 @@ entries:
   legacy_failure_semantics: Fails when a train in plan/_trains.yaml has no E2E test file under e2e/{train_id}/.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: train-e2e-existence
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_train-e2e-existence.py
+  proposed_variant: train_e2e_existence
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_train_e2e_existence.py
   parity_status: direct
   priority: P1
   parity_notes: Each registered train must have an E2E test target.
@@ -1043,8 +1043,8 @@ entries:
     naming.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: train-route-smoke-coverage
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_train-route-smoke-coverage.py
+  proposed_variant: train_route_smoke_coverage
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_train_route_smoke_coverage.py
   parity_status: direct
   priority: P1
   parity_notes: Each registered train must have a smoke-test target.
@@ -1057,8 +1057,8 @@ entries:
     pattern.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: typescript-test-naming
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_typescript-test-naming.py
+  proposed_variant: typescript_test_naming
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_typescript_test_naming.py
   parity_status: direct
   priority: P0
   parity_notes: Identifier/filename grammar conformance for TypeScript test files.
@@ -1071,8 +1071,8 @@ entries:
     extension.
   proposed_family: presence
   proposed_template: conditional_requirement
-  proposed_variant: typescript-test-structure
-  proposed_target_path: src/atdd/validators/conventions/presence/test_typescript-test-structure.py
+  proposed_variant: typescript_test_structure
+  proposed_target_path: src/atdd/validators/conventions/presence/test_typescript_test_structure.py
   parity_status: split
   priority: P1
   parity_notes: Bundles required URN-header presence and a JSX⇒.test.tsx conditional extension rule.
@@ -1085,8 +1085,8 @@ entries:
     Phase/Layer values, journey-requires-Train, forbidden slugs).
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: urn-header-spec-v3
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_urn-header-spec-v3.py
+  proposed_variant: urn_header_spec_v3
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_urn_header_spec_v3.py
   parity_status: split
   priority: P0
   parity_notes: Bundles URN grammar with uniqueness, mutual-exclusion, enum and conditional-presence rules; needs multiple
@@ -1100,8 +1100,8 @@ entries:
     Python and frontend trees.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: commons-layer-purity
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_commons-layer-purity.py
+  proposed_variant: commons_layer_purity
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_commons_layer_purity.py
   parity_status: split
   priority: P2
   parity_notes: Architectural import-boundary check on consumer code (commons.convention.yaml); bundles domain purity + naming
@@ -1117,8 +1117,8 @@ entries:
   legacy_failure_semantics: Fails when TypeScript code exceeds cyclomatic, nesting, or length complexity thresholds.
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: complexity-typescript
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_complexity-typescript.py
+  proposed_variant: complexity_typescript
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_complexity_typescript.py
   parity_status: split
   priority: P1
   parity_notes: Three threshold (max-bound) rules; each is a cardinality_bounds variant so splits into per-metric targets.
@@ -1136,8 +1136,8 @@ entries:
     thresholds.
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: complexity-python
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_complexity-python.py
+  proposed_variant: complexity_python
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_complexity_python.py
   parity_status: split
   priority: P1
   parity_notes: Five threshold rules; each maps to a cardinality_bounds variant so splits into per-metric targets.
@@ -1151,8 +1151,8 @@ entries:
   legacy_failure_semantics: Fails when a composition root is missing or a consumer is not wired through the composition root.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: composition-root-completeness
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_composition-root-completeness.py
+  proposed_variant: composition_root_completeness
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_composition_root_completeness.py
   parity_status: split
   priority: P1
   parity_notes: Every consumer must have a wiring target (composition root); two rules (consumer + root) split into coverage
@@ -1166,8 +1166,8 @@ entries:
   legacy_failure_semantics: Fails when cross-wagon HTTP access does not go through the contract-driven http-client boundary.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: http-client-boundary
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_http-client-boundary.py
+  proposed_variant: http_client_boundary
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_http_client_boundary.py
   parity_status: direct
   priority: P2
   parity_notes: Single boundaries.convention rule constraining how the http-client boundary may be crossed.
@@ -1183,8 +1183,8 @@ entries:
   legacy_failure_semantics: Fails when entity/enum/naming/contract facts disagree between the Python and TypeScript representations.
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: cross-language-consistency
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_cross-language-consistency.py
+  proposed_variant: cross_language_consistency
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_cross_language_consistency.py
   parity_status: split
   priority: P1
   parity_notes: Same fact must agree across two language stacks; four rules split into per-fact coherence variants.
@@ -1197,8 +1197,8 @@ entries:
   legacy_failure_semantics: Fails when Python symbols are unreachable (orphaned) from any entrypoint.
   proposed_family: coverage
   proposed_template: reachability_no_orphan
-  proposed_variant: dead-code-python
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_dead-code-python.py
+  proposed_variant: dead_code_python
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_dead_code_python.py
   parity_status: direct
   priority: P1
   parity_notes: Reachability/orphan check on the Python call graph — maps cleanly to reachability_no_orphan.
@@ -1211,8 +1211,8 @@ entries:
   legacy_failure_semantics: Fails when TypeScript symbols are unreachable (orphaned) from any entrypoint.
   proposed_family: coverage
   proposed_template: reachability_no_orphan
-  proposed_variant: dead-code-typescript
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_dead-code-typescript.py
+  proposed_variant: dead_code_typescript
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_dead_code_typescript.py
   parity_status: direct
   priority: P1
   parity_notes: TypeScript parity of dead-code-python; reachability/orphan check maps to reachability_no_orphan.
@@ -1246,8 +1246,8 @@ entries:
   legacy_failure_semantics: Fails when integration tests assert DTO/Entity equivalence by object identity instead of ID comparison.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: dto-id-comparison
-  proposed_target_path: src/atdd/validators/conventions/policy/test_dto-id-comparison.py
+  proposed_variant: dto_id_comparison
+  proposed_target_path: src/atdd/validators/conventions/policy/test_dto_id_comparison.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids the `assert entity in dtos` antipattern (dto.convention.yaml) — single forbidden-construct rule.
@@ -1260,8 +1260,8 @@ entries:
   legacy_failure_semantics: Fails when duplicated code fragments are detected within a TypeScript layer.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: duplication-typescript
-  proposed_target_path: src/atdd/validators/conventions/policy/test_duplication-typescript.py
+  proposed_variant: duplication_typescript
+  proposed_target_path: src/atdd/validators/conventions/policy/test_duplication_typescript.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids intra-layer code duplication (TypeScript) — single forbidden-construct rule.
@@ -1274,8 +1274,8 @@ entries:
   legacy_failure_semantics: Fails when duplicated code fragments are detected within a Python layer.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: duplication-python
-  proposed_target_path: src/atdd/validators/conventions/policy/test_duplication-python.py
+  proposed_variant: duplication_python
+  proposed_target_path: src/atdd/validators/conventions/policy/test_duplication_python.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids intra-layer code duplication (Python) — single forbidden-construct rule.
@@ -1289,8 +1289,8 @@ entries:
   legacy_failure_semantics: Fails when API error responses use bare strings or violate the structured error-code format.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: error-response-shape
-  proposed_target_path: src/atdd/validators/conventions/policy/test_error-response-shape.py
+  proposed_variant: error_response_shape
+  proposed_target_path: src/atdd/validators/conventions/policy/test_error_response_shape.py
   parity_status: split
   priority: P2
   parity_notes: Bare-string rule is forbidden_construct_absence; code-format rule is closer to grammar — splits into policy
@@ -1304,8 +1304,8 @@ entries:
     every required method.
   proposed_family: presence
   proposed_template: required_relationship_presence
-  proposed_variant: frontend-composition-root
-  proposed_target_path: src/atdd/validators/conventions/presence/test_frontend-composition-root.py
+  proposed_variant: frontend_composition_root
+  proposed_target_path: src/atdd/validators/conventions/presence/test_frontend_composition_root.py
   parity_status: direct
   priority: P1
   parity_notes: 'SPEC-CODER-TRAIN-0001: composition-root node must exist and declare its required method surface — required_relationship_presence.'
@@ -1317,8 +1317,8 @@ entries:
   legacy_failure_semantics: Fails when frontend code uses innerHTML/dangerouslySetInnerHTML (XSS vector).
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: frontend-xss-innerhtml
-  proposed_target_path: src/atdd/validators/conventions/policy/test_frontend-xss-innerhtml.py
+  proposed_variant: frontend_xss_innerhtml
+  proposed_target_path: src/atdd/validators/conventions/policy/test_frontend_xss_innerhtml.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids a known-bad construct (innerHTML) per security.convention.yaml; emits SECURITY-XSS-001 Violation records.
@@ -1330,8 +1330,8 @@ entries:
   legacy_failure_semantics: Fails when a hook file exceeds max_lines and is not allowlisted.
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: hook-size-limit
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_hook-size-limit.py
+  proposed_variant: hook_size_limit
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_hook_size_limit.py
   parity_status: direct
   priority: P1
   parity_notes: 'SPEC-CODER-PAGE-0003: hook line-count upper bound with allowlist — cardinality_bounds.'
@@ -1343,8 +1343,8 @@ entries:
   legacy_failure_semantics: Fails when green.convention.yaml declares inconsistent layer names across stacks.
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: green-cross-stack-layer-names
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_green-cross-stack-layer-names.py
+  proposed_variant: green_cross_stack_layer_names
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_green_cross_stack_layer_names.py
   parity_status: direct
   priority: P1
   parity_notes: 'SPEC-CODER-CONV-0019: the same layer-name fact must agree across all stacks declared in the convention —
@@ -1357,8 +1357,8 @@ entries:
   legacy_failure_semantics: Fails when green.convention.yaml does not declare the clean-architecture layer dependency rules.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: green-layer-dependency-rules
-  proposed_target_path: src/atdd/validators/conventions/presence/test_green-layer-dependency-rules.py
+  proposed_variant: green_layer_dependency_rules
+  proposed_target_path: src/atdd/validators/conventions/presence/test_green_layer_dependency_rules.py
   parity_status: direct
   priority: P1
   parity_notes: 'SPEC-CODER-CONV-0018: asserts the convention node declares required dependency-rule fields — required_field_presence.'
@@ -1370,8 +1370,8 @@ entries:
   legacy_failure_semantics: Fails when backend.convention.yaml does not declare the Python 4-layer structure.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: green-python-four-layer
-  proposed_target_path: src/atdd/validators/conventions/presence/test_green-python-four-layer.py
+  proposed_variant: green_python_four_layer
+  proposed_target_path: src/atdd/validators/conventions/presence/test_green_python_four_layer.py
   parity_status: direct
   priority: P1
   parity_notes: 'SPEC-CODER-CONV-0015: asserts the convention node declares the required 4-layer Python structure fields.'
@@ -1384,8 +1384,8 @@ entries:
     logic.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: green-supabase-four-layer
-  proposed_target_path: src/atdd/validators/conventions/presence/test_green-supabase-four-layer.py
+  proposed_variant: green_supabase_four_layer
+  proposed_target_path: src/atdd/validators/conventions/presence/test_green_supabase_four_layer.py
   parity_status: split
   priority: P1
   parity_notes: 'SPEC-CODER-CONV-0017: 4-layer-structure presence plus the no-business-logic-in-index.ts rule — splits into
@@ -1418,8 +1418,8 @@ entries:
     hierarchy.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: design-hierarchy-coverage
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_design-hierarchy-coverage.py
+  proposed_variant: design_hierarchy_coverage
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_design_hierarchy_coverage.py
   parity_status: split
   priority: P1
   parity_notes: every-feature/every-implementation must-have rules are source_has_required_target; three rules split into
@@ -1448,8 +1448,8 @@ entries:
   legacy_failure_semantics: Fails on circular dependencies, outward import flow, or test-into-production imports across layers.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: import-boundaries
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_import-boundaries.py
+  proposed_variant: import_boundaries
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_import_boundaries.py
   parity_status: split
   priority: P2
   parity_notes: Import-flow boundary check; also bundles a circular-dependency check (acyclicity/forbidden_cycle_absence)
@@ -1463,8 +1463,8 @@ entries:
     grammar.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: init-file-urn-grammar
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_init-file-urn-grammar.py
+  proposed_variant: init_file_urn_grammar
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_init_file_urn_grammar.py
   parity_status: direct
   priority: P0
   parity_notes: Validates URN format component:{wagon}:{feature}:{name}:{side}:{layer} on init/barrel files — identifier_grammar_conformance
@@ -1478,8 +1478,8 @@ entries:
   legacy_failure_semantics: Fails when a Python except handler swallows the exception with no log and no re-raise.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: silent-exception-swallow-python
-  proposed_target_path: src/atdd/validators/conventions/policy/test_silent-exception-swallow-python.py
+  proposed_variant: silent_exception_swallow_python
+  proposed_target_path: src/atdd/validators/conventions/policy/test_silent_exception_swallow_python.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids the silent-swallow construct (logging.convention.yaml) — single forbidden-construct rule.
@@ -1491,8 +1491,8 @@ entries:
   legacy_failure_semantics: Fails when a TypeScript catch block swallows the error with no log and no re-throw.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: silent-exception-swallow-typescript
-  proposed_target_path: src/atdd/validators/conventions/policy/test_silent-exception-swallow-typescript.py
+  proposed_variant: silent_exception_swallow_typescript
+  proposed_target_path: src/atdd/validators/conventions/policy/test_silent_exception_swallow_typescript.py
   parity_status: direct
   priority: P2
   parity_notes: TypeScript parity (COACH-SILENT-SWALLOW-001); forbids the silent-swallow construct — single forbidden-construct
@@ -1506,8 +1506,8 @@ entries:
     element).
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: no-stub-presentation-returns
-  proposed_target_path: src/atdd/validators/conventions/policy/test_no-stub-presentation-returns.py
+  proposed_variant: no_stub_presentation_returns
+  proposed_target_path: src/atdd/validators/conventions/policy/test_no_stub_presentation_returns.py
   parity_status: direct
   priority: P2
   parity_notes: 'PRESENTATION-NOSTUB-00x: forbids stub render bodies; single concern with multiple detected patterns — one
@@ -1521,8 +1521,8 @@ entries:
     forbidden.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: page-directory-elimination
-  proposed_target_path: src/atdd/validators/conventions/policy/test_page-directory-elimination.py
+  proposed_variant: page_directory_elimination
+  proposed_target_path: src/atdd/validators/conventions/policy/test_page_directory_elimination.py
   parity_status: split
   priority: P2
   parity_notes: 'SPEC-CODER-PAGE-0001/0002/0005/0010/0011: forbids non-allowlisted page files plus migration-reference checks
@@ -1536,8 +1536,8 @@ entries:
     application uses JSX).
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: preact-layer-boundaries
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_preact-layer-boundaries.py
+  proposed_variant: preact_layer_boundaries
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_preact_layer_boundaries.py
   parity_status: split
   priority: P2
   parity_notes: 'SPEC-CODER-ARCH-PREACT-001..004: multiple per-layer crossing rules; splits into boundary variants.'
@@ -1550,8 +1550,8 @@ entries:
     composition integration rules.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: presentation-layer-compliance
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_presentation-layer-compliance.py
+  proposed_variant: presentation_layer_compliance
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_presentation_layer_compliance.py
   parity_status: split
   priority: P2
   parity_notes: Script-style validator bundling controller structure + pydantic/contract alignment + composition integration
@@ -1565,8 +1565,8 @@ entries:
   legacy_failure_semantics: Fails when a presentation-ratchet baseline entry has no paired SMOKE acceptance.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: presentation-ratchet-requires-smoke
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_presentation-ratchet-requires-smoke.py
+  proposed_variant: presentation_ratchet_requires_smoke
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_presentation_ratchet_requires_smoke.py
   parity_status: direct
   priority: P1
   parity_notes: Every ratchet entry must have a required SMOKE target — source_has_required_target.
@@ -1579,8 +1579,8 @@ entries:
     or file placement.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: python-clean-architecture
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_python-clean-architecture.py
+  proposed_variant: python_clean_architecture
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_python_clean_architecture.py
   parity_status: split
   priority: P2
   parity_notes: backend.convention.yaml clean-architecture enforcement; bundles per-layer crossing rules so splits into boundary
@@ -1595,8 +1595,8 @@ entries:
   legacy_failure_semantics: Fails when TypeScript maintainability index or comment ratio falls below thresholds.
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: quality-metrics-typescript
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_quality-metrics-typescript.py
+  proposed_variant: quality_metrics_typescript
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_quality_metrics_typescript.py
   parity_status: split
   priority: P1
   parity_notes: MI and comment-ratio threshold rules — each a cardinality_bounds variant.
@@ -1614,8 +1614,8 @@ entries:
     thresholds.
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: quality-metrics-python
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_quality-metrics-python.py
+  proposed_variant: quality_metrics_python
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_quality_metrics_python.py
   parity_status: split
   priority: P1
   parity_notes: Five quality-threshold rules (MI/comments/duplication/naming/file-length); predominantly cardinality_bounds,
@@ -1629,8 +1629,8 @@ entries:
   legacy_failure_semantics: Fails when query-count patterns indicate an N+1 access (query count exceeds bound).
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: query-count-nplus1
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_query-count-nplus1.py
+  proposed_variant: query_count_nplus1
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_query_count_nplus1.py
   parity_status: direct
   priority: P1
   parity_notes: Query-count upper-bound (N+1) check — cardinality_bounds, single rule.
@@ -1642,8 +1642,8 @@ entries:
   legacy_failure_semantics: Fails when routes import page components directly instead of rendering through TrainView.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: route-train-no-direct-page-import
-  proposed_target_path: src/atdd/validators/conventions/policy/test_route-train-no-direct-page-import.py
+  proposed_variant: route_train_no_direct_page_import
+  proposed_target_path: src/atdd/validators/conventions/policy/test_route_train_no_direct_page_import.py
   parity_status: direct
   priority: P2
   parity_notes: 'SPEC-CODER-PAGE-0004: forbids direct page-component imports in routes — single forbidden-construct rule.'
@@ -1656,8 +1656,8 @@ entries:
     missing from _wagons.yaml.
   proposed_family: resolution
   proposed_template: reference_chain_resolution
-  proposed_variant: route-train-wagon-chain
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_route-train-wagon-chain.py
+  proposed_variant: route_train_wagon_chain
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_route_train_wagon_chain.py
   parity_status: direct
   priority: P0
   parity_notes: Route -> Train -> Wagon multi-hop reference chain must resolve end-to-end — reference_chain_resolution (BOUNDARIES-ROUTE-COVERAGE-001..003).
@@ -1672,8 +1672,8 @@ entries:
   legacy_failure_semantics: Fails when code contains SQL-injection patterns, missing-auth handlers, or hardcoded secrets.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: code-security-antipatterns
-  proposed_target_path: src/atdd/validators/conventions/policy/test_code-security-antipatterns.py
+  proposed_variant: code_security_antipatterns
+  proposed_target_path: src/atdd/validators/conventions/policy/test_code_security_antipatterns.py
   parity_status: split
   priority: P2
   parity_notes: Three forbidden security constructs (sql-injection/missing-auth/hardcoded-secret); each a policy variant.
@@ -1686,8 +1686,8 @@ entries:
     not delegate wiring per the Station Master pattern.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: station-master-composition
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_station-master-composition.py
+  proposed_variant: station_master_composition
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_station_master_composition.py
   parity_status: split
   priority: P1
   parity_notes: Each wagon must have required composition delegation/direct-adapter targets; bundles three structural checks
@@ -1702,8 +1702,8 @@ entries:
   legacy_failure_semantics: Fails when code uses print statements or logs without the structured-logging shape.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: structured-logging-no-print
-  proposed_target_path: src/atdd/validators/conventions/policy/test_structured-logging-no-print.py
+  proposed_variant: structured_logging_no_print
+  proposed_target_path: src/atdd/validators/conventions/policy/test_structured_logging_no_print.py
   parity_status: split
   priority: P2
   parity_notes: no-print rule is forbidden_construct_absence; structured-logging-shape rule is a presence requirement — splits
@@ -1732,8 +1732,8 @@ entries:
     TrainRunner usage) is missing.
   proposed_family: presence
   proposed_template: required_relationship_presence
-  proposed_variant: train-infrastructure-present
-  proposed_target_path: src/atdd/validators/conventions/presence/test_train-infrastructure-present.py
+  proposed_variant: train_infrastructure_present
+  proposed_target_path: src/atdd/validators/conventions/presence/test_train_infrastructure_present.py
   parity_status: split
   priority: P1
   parity_notes: 'Train First-Class Spec: several required-infrastructure relationships must exist; splits into presence variants.'
@@ -1746,8 +1746,8 @@ entries:
     reference train IDs absent from the specs.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: train-urn-grammar
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_train-urn-grammar.py
+  proposed_variant: train_urn_grammar
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_train_urn_grammar.py
   parity_status: split
   priority: P0
   parity_notes: Primary check is train:{theme}:{train_id} URN grammar; also resolves train IDs to specs (resolution) — splits
@@ -1760,8 +1760,8 @@ entries:
   legacy_failure_semantics: Fails when a train YAML does not conform to the configured render-metadata JSON Schema.
   proposed_family: schema
   proposed_template: node_schema_conformance
-  proposed_variant: train-yaml-render-metadata
-  proposed_target_path: src/atdd/validators/conventions/schema/test_train-yaml-render-metadata.py
+  proposed_variant: train_yaml_render_metadata
+  proposed_target_path: src/atdd/validators/conventions/schema/test_train_yaml_render_metadata.py
   parity_status: direct
   priority: P0
   parity_notes: 'SPEC-CODER-TRAIN-0003: validates each train YAML node against a JSON Schema — node_schema_conformance.'
@@ -1774,8 +1774,8 @@ entries:
     or file placement.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: typescript-clean-architecture
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_typescript-clean-architecture.py
+  proposed_variant: typescript_clean_architecture
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_typescript_clean_architecture.py
   parity_status: split
   priority: P2
   parity_notes: TypeScript parity of python-clean-architecture; bundles per-layer crossing rules so splits into boundary variants.
@@ -1788,8 +1788,8 @@ entries:
     instead of coordinating through ports.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: usecase-structure
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_usecase-structure.py
+  proposed_variant: usecase_structure
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_usecase_structure.py
   parity_status: split
   priority: P2
   parity_notes: Primary rule is the no-direct-DB/port-coordination boundary; also bundles execute-method presence — splits
@@ -1803,8 +1803,8 @@ entries:
     export.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: wagon-boundaries-typescript
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_wagon-boundaries-typescript.py
+  proposed_variant: wagon_boundaries_typescript
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_wagon_boundaries_typescript.py
   parity_status: direct
   priority: P2
   parity_notes: Cross-wagon access must cross only via barrel exports — allowed_boundary_crossing (composition roots exempt).
@@ -1817,8 +1817,8 @@ entries:
     pytest pythonpath.
   proposed_family: boundary
   proposed_template: allowed_boundary_crossing
-  proposed_variant: wagon-boundaries-python
-  proposed_target_path: src/atdd/validators/conventions/boundary/test_wagon-boundaries-python.py
+  proposed_variant: wagon_boundaries_python
+  proposed_target_path: src/atdd/validators/conventions/boundary/test_wagon_boundaries_python.py
   parity_status: split
   priority: P2
   parity_notes: 'SPEC-BOUNDARIES-0001: qualified-import boundary plus packaging/pythonpath checks — primary is boundary, splits
@@ -1831,8 +1831,8 @@ entries:
   legacy_failure_semantics: Fails when a wagon's trains.ts is missing or does not export every required registration symbol.
   proposed_family: presence
   proposed_template: required_relationship_presence
-  proposed_variant: wagon-trains-export-shape
-  proposed_target_path: src/atdd/validators/conventions/presence/test_wagon-trains-export-shape.py
+  proposed_variant: wagon_trains_export_shape
+  proposed_target_path: src/atdd/validators/conventions/presence/test_wagon_trains_export_shape.py
   parity_status: direct
   priority: P1
   parity_notes: 'SPEC-CODER-TRAIN-0002: trains.ts must exist and declare every required export — required_relationship_presence.'
@@ -1927,8 +1927,8 @@ entries:
   legacy_failure_semantics: Fails if any coach.commit-trailers.* rule lacks a bind_rule binding to its implementation.
   proposed_family: binding
   proposed_template: declaration_to_implementation_binding
-  proposed_variant: commit-trailers-rule-binding
-  proposed_target_path: src/atdd/validators/conventions/binding/test_commit-trailers-rule-binding.py
+  proposed_variant: commit_trailers_rule_binding
+  proposed_target_path: src/atdd/validators/conventions/binding/test_commit_trailers_rule_binding.py
   parity_status: superseded
   priority: P0
   parity_notes: Per-family bind_rule binding assertion; absorbed by the generic declaration_to_implementation_binding archetype
@@ -1941,8 +1941,8 @@ entries:
   legacy_failure_semantics: Fails when package-data globs omit the convention nodes/schema the composition CLI must load.
   proposed_family: composition
   proposed_template: composed_graph_loads
-  proposed_variant: package-data-ships-convention-nodes
-  proposed_target_path: src/atdd/validators/conventions/composition/test_package-data-ships-convention-nodes.py
+  proposed_variant: package_data_ships_convention_nodes
+  proposed_target_path: src/atdd/validators/conventions/composition/test_package_data_ships_convention_nodes.py
   parity_status: direct
   priority: P0
   parity_notes: Guards that the shipped package data lets the composed convention graph load; maps to composed_graph_loads.
@@ -1956,8 +1956,8 @@ entries:
     YAML.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: no-duplicated-convention
-  proposed_target_path: src/atdd/validators/conventions/policy/test_no-duplicated-convention.py
+  proposed_variant: no_duplicated_convention
+  proposed_target_path: src/atdd/validators/conventions/policy/test_no_duplicated_convention.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids duplicated convention declarations in the template; forbidden-construct-absence over convention content.
@@ -2087,8 +2087,8 @@ entries:
     for its rule_id.
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: review-report-severity-matches-registry
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_review-report-severity-matches-registry.py
+  proposed_variant: review_report_severity_matches_registry
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_review_report_severity_matches_registry.py
   parity_status: direct
   priority: P1
   parity_notes: Two sources (review-report finding vs registry binding) must agree on severity/disposition; resolved_fact_agreement.
@@ -2153,8 +2153,8 @@ entries:
   legacy_failure_semantics: Fails when the coach.spawn.atdd-spawn-cli rule is not bound to a validator implementation.
   proposed_family: binding
   proposed_template: declaration_to_implementation_binding
-  proposed_variant: spawn-cli-rule-binding
-  proposed_target_path: src/atdd/validators/conventions/binding/test_spawn-cli-rule-binding.py
+  proposed_variant: spawn_cli_rule_binding
+  proposed_target_path: src/atdd/validators/conventions/binding/test_spawn_cli_rule_binding.py
   parity_status: superseded
   priority: P0
   parity_notes: Structural per-rule bind_rule assertion; absorbed by the generic declaration_to_implementation_binding archetype.
@@ -2286,8 +2286,8 @@ entries:
     and bind_rule does not resolve it.
   proposed_family: binding
   proposed_template: declaration_to_implementation_binding
-  proposed_variant: runtime-artifacts-rule-binding
-  proposed_target_path: src/atdd/validators/conventions/binding/test_runtime-artifacts-rule-binding.py
+  proposed_variant: runtime_artifacts_rule_binding
+  proposed_target_path: src/atdd/validators/conventions/binding/test_runtime_artifacts_rule_binding.py
   parity_status: superseded
   priority: P0
   parity_notes: Asserts the convention declares + binds the rule; absorbed by the generic declaration_to_implementation_binding
@@ -2300,8 +2300,8 @@ entries:
   legacy_failure_semantics: 'Smoke: fails if the live CLAUDE.md contains any ATDD_SKIP_* token.'
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: claude-md-no-bypass-token
-  proposed_target_path: src/atdd/validators/conventions/policy/test_claude-md-no-bypass-token.py
+  proposed_variant: claude_md_no_bypass_token
+  proposed_target_path: src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py
   parity_status: merged
   priority: P2
   parity_notes: Same forbidden-token question as r003 (coach.claude_md.no_bypass_advertising); smoke variant collapses into
@@ -2314,8 +2314,8 @@ entries:
   legacy_failure_semantics: Fails if CLAUDE.md contains any ATDD_SKIP_* env-var reference.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: claude-md-no-bypass-token
-  proposed_target_path: src/atdd/validators/conventions/policy/test_claude-md-no-bypass-token.py
+  proposed_variant: claude_md_no_bypass_token
+  proposed_target_path: src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py
   parity_status: merged
   priority: P2
   parity_notes: Duplicate of r003_unit_001 (no ATDD_SKIP token in CLAUDE.md); should collapse to one policy target.
@@ -2327,8 +2327,8 @@ entries:
   legacy_failure_semantics: Fails if CLAUDE.md does not reference docs/operator-emergency-bypass.md.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: claude-md-references-emergency-doc
-  proposed_target_path: src/atdd/validators/conventions/presence/test_claude-md-references-emergency-doc.py
+  proposed_variant: claude_md_references_emergency_doc
+  proposed_target_path: src/atdd/validators/conventions/presence/test_claude_md_references_emergency_doc.py
   parity_status: direct
   priority: P1
   parity_notes: Requires a mandatory pointer to be present in the rendered template; required_field_presence over CLAUDE.md
@@ -2341,8 +2341,8 @@ entries:
   legacy_failure_semantics: Fails if the upgrade-sync banner text contains '--force'.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: upgrade-banner-no-force
-  proposed_target_path: src/atdd/validators/conventions/policy/test_upgrade-banner-no-force.py
+  proposed_variant: upgrade_banner_no_force
+  proposed_target_path: src/atdd/validators/conventions/policy/test_upgrade_banner_no_force.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids advertising the destructive --force path in generated banner text; forbidden-construct-absence.
@@ -2354,8 +2354,8 @@ entries:
   legacy_failure_semantics: 'Smoke: fails if the live CLAUDE.md exceeds the 250-line budget.'
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: claude-md-line-budget
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude-md-line-budget.py
+  proposed_variant: claude_md_line_budget
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py
   parity_status: merged
   priority: P1
   parity_notes: Same line-count bound as r002 (coach.claude_md.size_budget); smoke variant collapses into one sizing target.
@@ -2367,8 +2367,8 @@ entries:
   legacy_failure_semantics: Fails if CLAUDE.md exceeds 250 lines.
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: claude-md-line-budget
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude-md-line-budget.py
+  proposed_variant: claude_md_line_budget
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py
   parity_status: merged
   priority: P1
   parity_notes: Duplicate of r002_unit_001 (CLAUDE.md <=250 lines); should collapse to one cardinality_bounds target.
@@ -2380,8 +2380,8 @@ entries:
   legacy_failure_semantics: Fails if the slimmed CLAUDE.md drops the required lifecycle/command pointer sections.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: claude-md-retains-lifecycle-pointers
-  proposed_target_path: src/atdd/validators/conventions/presence/test_claude-md-retains-lifecycle-pointers.py
+  proposed_variant: claude_md_retains_lifecycle_pointers
+  proposed_target_path: src/atdd/validators/conventions/presence/test_claude_md_retains_lifecycle_pointers.py
   parity_status: direct
   priority: P1
   parity_notes: Requires the mandatory lifecycle/command-pointer sections to be present after trim; required_field_presence.
@@ -2432,8 +2432,8 @@ entries:
   legacy_failure_semantics: Fails when the bypass-flag count in hook source exceeds the audited baseline of 4.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: bypass-inventory-baseline
-  proposed_target_path: src/atdd/validators/conventions/policy/test_bypass-inventory-baseline.py
+  proposed_variant: bypass_inventory_baseline
+  proposed_target_path: src/atdd/validators/conventions/policy/test_bypass_inventory_baseline.py
   parity_status: direct
   priority: P2
   parity_notes: Meta-guard forbidding new bypass flags above the audited baseline; forbidden-construct-absence (count guard).
@@ -2446,8 +2446,8 @@ entries:
     Bash entry.'
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: freedom-layer-no-forbidden-command
-  proposed_target_path: src/atdd/validators/conventions/policy/test_freedom-layer-no-forbidden-command.py
+  proposed_variant: freedom_layer_no_forbidden_command
+  proposed_target_path: src/atdd/validators/conventions/policy/test_freedom_layer_no_forbidden_command.py
   parity_status: merged
   priority: P2
   parity_notes: Live smoke of the same freedom-layer forbidden-command question as e032_unit_001; collapses into one policy
@@ -2460,8 +2460,8 @@ entries:
   legacy_failure_semantics: Fails when allowed_bash contains a command that also appears in forbidden_bash.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: freedom-layer-no-forbidden-command
-  proposed_target_path: src/atdd/validators/conventions/policy/test_freedom-layer-no-forbidden-command.py
+  proposed_variant: freedom_layer_no_forbidden_command
+  proposed_target_path: src/atdd/validators/conventions/policy/test_freedom_layer_no_forbidden_command.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids a forbidden_bash command appearing in allowed_bash on freedom_layer convention data; forbidden-construct-absence.
@@ -2474,8 +2474,8 @@ entries:
     is accepted.
   proposed_family: grammar
   proposed_template: identifier_grammar_conformance
-  proposed_variant: freedom-layer-bash-scope-grammar
-  proposed_target_path: src/atdd/validators/conventions/grammar/test_freedom-layer-bash-scope-grammar.py
+  proposed_variant: freedom_layer_bash_scope_grammar
+  proposed_target_path: src/atdd/validators/conventions/grammar/test_freedom_layer_bash_scope_grammar.py
   parity_status: direct
   priority: P0
   parity_notes: Allow-list entries must conform to the Bash(cmd:*) scoping grammar; identifier_grammar_conformance over convention
@@ -2557,8 +2557,8 @@ entries:
   legacy_failure_semantics: Fails when a convention rule (or its validator binding) lacks a fix_hint.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: rule-has-fix-hint
-  proposed_target_path: src/atdd/validators/conventions/presence/test_rule-has-fix-hint.py
+  proposed_variant: rule_has_fix_hint
+  proposed_target_path: src/atdd/validators/conventions/presence/test_rule_has_fix_hint.py
   parity_status: direct
   priority: P1
   parity_notes: Every rule node must carry a fix_hint field; required_field_presence over the convention graph.
@@ -2715,8 +2715,8 @@ entries:
     binding.
   proposed_family: binding
   proposed_template: declaration_to_implementation_binding
-  proposed_variant: no-hardcoded-rule-severity
-  proposed_target_path: src/atdd/validators/conventions/binding/test_no-hardcoded-rule-severity.py
+  proposed_variant: no_hardcoded_rule_severity
+  proposed_target_path: src/atdd/validators/conventions/binding/test_no_hardcoded_rule_severity.py
   parity_status: direct
   priority: P0
   parity_notes: Enforces that severity is derived from the rule binding, not hardcoded; declaration_to_implementation_binding.
@@ -2743,8 +2743,8 @@ entries:
   legacy_failure_semantics: Fails when a rule suppression refers to a rule that no longer exists (stale).
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: no-stale-suppressions
-  proposed_target_path: src/atdd/validators/conventions/policy/test_no-stale-suppressions.py
+  proposed_variant: no_stale_suppressions
+  proposed_target_path: src/atdd/validators/conventions/policy/test_no_stale_suppressions.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids stale rule-suppression constructs; forbidden-construct-absence over the rule graph.
@@ -2784,8 +2784,8 @@ entries:
     the validate-planner command.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: phase-machine-init-precommit-gate
-  proposed_target_path: src/atdd/validators/conventions/presence/test_phase-machine-init-precommit-gate.py
+  proposed_variant: phase_machine_init_precommit_gate
+  proposed_target_path: src/atdd/validators/conventions/presence/test_phase_machine_init_precommit_gate.py
   parity_status: direct
   priority: P1
   parity_notes: Requires the INIT.pre_commit_gate field to be present on the phase_machine convention node; required_field_presence.
@@ -2880,8 +2880,8 @@ entries:
   legacy_failure_semantics: 'Smoke: fails if the size_budget validator is not importable / does not pass against live CLAUDE.md.'
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: claude-md-line-budget
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude-md-line-budget.py
+  proposed_variant: claude_md_line_budget
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py
   parity_status: merged
   priority: P1
   parity_notes: Live smoke of the CLAUDE.md line-budget bound; same question as r002_unit_001 / e023; collapses into one sizing
@@ -2895,8 +2895,8 @@ entries:
   legacy_failure_semantics: Fails if the size_budget validator does not raise for CLAUDE.md over 250 lines.
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: claude-md-line-budget
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude-md-line-budget.py
+  proposed_variant: claude_md_line_budget
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py
   parity_status: direct
   priority: P1
   parity_notes: Canonical CLAUDE.md <=250-line cardinality bound (coach.claude_md.size_budget); the target variant other CLAUDE.md-size
@@ -2910,8 +2910,8 @@ entries:
   legacy_failure_semantics: Fails if the size_budget validator does not pass for CLAUDE.md within budget.
   proposed_family: sizing
   proposed_template: cardinality_bounds
-  proposed_variant: claude-md-line-budget
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude-md-line-budget.py
+  proposed_variant: claude_md_line_budget
+  proposed_target_path: src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py
   parity_status: merged
   priority: P1
   parity_notes: Pass-case of the same size_budget cardinality bound; collapses into the one sizing target.
@@ -2925,8 +2925,8 @@ entries:
     live CLAUDE.md.'
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: claude-md-no-bypass-token
-  proposed_target_path: src/atdd/validators/conventions/policy/test_claude-md-no-bypass-token.py
+  proposed_variant: claude_md_no_bypass_token
+  proposed_target_path: src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py
   parity_status: merged
   priority: P2
   parity_notes: Live smoke of the no-bypass-token question; same as r003_unit_001 / e022; collapses into one policy target.
@@ -2939,8 +2939,8 @@ entries:
   legacy_failure_semantics: Fails if the no_bypass_advertising validator does not flag an ATDD_SKIP_* token in CLAUDE.md.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: claude-md-no-bypass-token
-  proposed_target_path: src/atdd/validators/conventions/policy/test_claude-md-no-bypass-token.py
+  proposed_variant: claude_md_no_bypass_token
+  proposed_target_path: src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py
   parity_status: direct
   priority: P2
   parity_notes: Canonical no-ATDD_SKIP-token forbidden-construct rule (coach.claude_md.no_bypass_advertising); the target
@@ -2954,8 +2954,8 @@ entries:
   legacy_failure_semantics: Fails if the no_bypass_advertising validator does not pass for clean CLAUDE.md content.
   proposed_family: policy
   proposed_template: forbidden_construct_absence
-  proposed_variant: claude-md-no-bypass-token
-  proposed_target_path: src/atdd/validators/conventions/policy/test_claude-md-no-bypass-token.py
+  proposed_variant: claude_md_no_bypass_token
+  proposed_target_path: src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py
   parity_status: merged
   priority: P2
   parity_notes: Pass-case of the same no-bypass-token rule; collapses into the one policy target.
@@ -3033,8 +3033,8 @@ entries:
   legacy_failure_semantics: Fails when a convention rule lacks a disposition field.
   proposed_family: presence
   proposed_template: required_field_presence
-  proposed_variant: rule-has-disposition
-  proposed_target_path: src/atdd/validators/conventions/presence/test_rule-has-disposition.py
+  proposed_variant: rule_has_disposition
+  proposed_target_path: src/atdd/validators/conventions/presence/test_rule_has_disposition.py
   parity_status: direct
   priority: P1
   parity_notes: Every rule node must carry a disposition field; required_field_presence over the convention graph.
@@ -3046,8 +3046,8 @@ entries:
   legacy_failure_semantics: Fails when the rule-id registry is incoherent with the rules declared across conventions.
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: rule-id-registry-coherence
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_rule-id-registry-coherence.py
+  proposed_variant: rule_id_registry_coherence
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_rule_id_registry_coherence.py
   parity_status: direct
   priority: P1
   parity_notes: Registry must agree with the set of declared rules; resolved_fact_agreement between registry and conventions.
@@ -3059,8 +3059,8 @@ entries:
   legacy_failure_semantics: Fails when two rules share the same canonical rule id.
   proposed_family: uniqueness
   proposed_template: scoped_identifier_uniqueness
-  proposed_variant: rule-id-uniqueness
-  proposed_target_path: src/atdd/validators/conventions/uniqueness/test_rule-id-uniqueness.py
+  proposed_variant: rule_id_uniqueness
+  proposed_target_path: src/atdd/validators/conventions/uniqueness/test_rule_id_uniqueness.py
   parity_status: direct
   priority: P0
   parity_notes: Canonical rule ids must be unique across the convention graph; scoped_identifier_uniqueness.
@@ -3073,8 +3073,8 @@ entries:
   legacy_failure_semantics: Fails when a bind_rule(<id>) does not resolve to a declared rule, or a rule lacks a binding validator.
   proposed_family: binding
   proposed_template: declaration_to_implementation_binding
-  proposed_variant: rule-validator-binding
-  proposed_target_path: src/atdd/validators/conventions/binding/test_rule-validator-binding.py
+  proposed_variant: rule_validator_binding
+  proposed_target_path: src/atdd/validators/conventions/binding/test_rule_validator_binding.py
   parity_status: direct
   priority: P0
   parity_notes: Canonical bidirectional rule<->validator binding archetype; the broad validator that supersedes per-rule binding
@@ -3154,8 +3154,8 @@ entries:
   legacy_failure_semantics: Fails when contract and telemetry traceability records do not reconcile.
   proposed_family: coherence
   proposed_template: resolved_fact_agreement
-  proposed_variant: contract-telemetry-traceability
-  proposed_target_path: src/atdd/validators/conventions/coherence/test_contract-telemetry-traceability.py
+  proposed_variant: contract_telemetry_traceability
+  proposed_target_path: src/atdd/validators/conventions/coherence/test_contract_telemetry_traceability.py
   parity_status: direct
   priority: P1
   parity_notes: Contract and telemetry traceability facts must reconcile/agree; resolved_fact_agreement.
@@ -3167,8 +3167,8 @@ entries:
   legacy_failure_semantics: Fails on train-registry gaps (referenced trains not registered).
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: train-registry-completeness
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_train-registry-completeness.py
+  proposed_variant: train_registry_completeness
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_train_registry_completeness.py
   parity_status: direct
   priority: P1
   parity_notes: Every referenced train must have a registry entry; source_has_required_target over the train graph.
@@ -3206,8 +3206,8 @@ entries:
   legacy_failure_semantics: Fails when a URN does not trace/resolve through its expected chain of artifacts.
   proposed_family: resolution
   proposed_template: reference_chain_resolution
-  proposed_variant: urn-traceability
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_urn-traceability.py
+  proposed_variant: urn_traceability
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_urn_traceability.py
   parity_status: direct
   priority: P0
   parity_notes: URN references must resolve through their full traceability chain; reference_chain_resolution.
@@ -3219,8 +3219,8 @@ entries:
   legacy_failure_semantics: Fails when a wagon manifest's declared contract consumer does not match the contract schema.
   proposed_family: resolution
   proposed_template: artifact_reference_resolution
-  proposed_variant: contract-consumer-resolution
-  proposed_target_path: src/atdd/validators/conventions/resolution/test_contract-consumer-resolution.py
+  proposed_variant: contract_consumer_resolution
+  proposed_target_path: src/atdd/validators/conventions/resolution/test_contract_consumer_resolution.py
   parity_status: direct
   priority: P0
   parity_notes: A manifest's contract-consumer reference must resolve against the contract schema artifact; artifact_reference_resolution.
@@ -3272,8 +3272,8 @@ entries:
   legacy_failure_semantics: Fails when a required fixture is missing from the built wheel.
   proposed_family: coverage
   proposed_template: source_has_required_target
-  proposed_variant: wheel-fixture-completeness
-  proposed_target_path: src/atdd/validators/conventions/coverage/test_wheel-fixture-completeness.py
+  proposed_variant: wheel_fixture_completeness
+  proposed_target_path: src/atdd/validators/conventions/coverage/test_wheel_fixture_completeness.py
   parity_status: direct
   priority: P1
   parity_notes: Every required fixture must be shipped in the wheel; source_has_required_target (packaging completeness).

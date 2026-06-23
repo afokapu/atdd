@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 
 def test_variants_do_not_import_legacy(conventions_dir: Path) -> None:
-    variants = list(conventions_dir.glob("*/test_*.py"))
+    variants = [p for p in conventions_dir.glob("*/test_*.py") if p.parent.name != "tests"]
     assert variants, "no convention validator variants implemented yet"
     offenders = []
     for p in variants:

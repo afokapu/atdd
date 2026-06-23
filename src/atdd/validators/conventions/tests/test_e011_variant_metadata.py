@@ -15,7 +15,7 @@ import ast
 META = {"FAMILY","TEMPLATE","VARIANT","QUESTION","SELECTOR","TRAVERSAL","INVARIANT","AUTO_CAPTURE","FAILURE_EVIDENCE"}
 
 def _variant_files(conventions_dir: Path):
-    return [p for p in conventions_dir.glob("*/test_*.py")]
+    return [p for p in conventions_dir.glob("*/test_*.py") if p.parent.name != "tests"]
 
 def test_variants_declare_metadata(conventions_dir: Path) -> None:
     variants = _variant_files(conventions_dir)

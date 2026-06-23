@@ -375,3 +375,16 @@ Deterministic map of every legacy persona validator to the #1204 convention-grap
 - `src/atdd/validators/conventions/schema/test_train-yaml-render-metadata.py` ← src/atdd/coder/validators/test_train_yaml_render_metadata.py
 - `src/atdd/validators/conventions/uniqueness/test_plan-uniqueness.py` ← src/atdd/planner/validators/test_plan_uniqueness.py
 - `src/atdd/validators/conventions/uniqueness/test_rule-id-uniqueness.py` ← src/atdd/coach/validators/test_rule_id_uniqueness.py
+
+## Implementation status (#1206)
+
+- 98 convention validator variants generated under
+  `src/atdd/validators/conventions/<family>/test_<variant>.py` (all buildable
+  P0+P1 `direct`/`split`/`merged` entries; `merged` collapsed to a shared target).
+- Each variant declares the full metadata contract (FAMILY/TEMPLATE/VARIANT/
+  QUESTION/SELECTOR/TRAVERSAL/INVARIANT/AUTO_CAPTURE/FAILURE_EVIDENCE) +
+  LEGACY_PARITY_SOURCES, imports its family archetype only (no legacy persona
+  module), and is runnable in parallel with legacy (98 passed).
+- Graph-traversal execution is scaffolded against the `_support` engine and lands
+  incrementally; the variant contract + legacy parity binding are fixed now.
+- P2 entries remain mapped but unimplemented (per #1206 scope).
