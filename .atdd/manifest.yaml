@@ -2881,7 +2881,7 @@ sessions:
   file: null
   issue_number: 1208
   type: refactor
-  status: PLANNED
+  status: RED
   created: '2026-06-23'
   archived: null
   branch: refactor/plan-session-traceability-chain
