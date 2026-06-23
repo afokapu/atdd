@@ -1003,53 +1003,18 @@ Phase descriptions:
         ),
     )
 
-    # ----- atdd plan <source> ... -----
-    # PLAN-1 (#758): CLI shell for the planning brief entry point.
-    # Single-phase: parse args, classify sources, dispatch to brief renderer.
+    # ----- atdd plan <op> ... -----
+    # #1208/#1139: `atdd plan` IS the gated decomposition session. The session
+    # owns its own argparse (plan_session_cli); all `atdd plan ...` argv is
+    # intercepted before parse_args (see below) and forwarded to it. This stub
+    # exists only so `atdd --help` lists `plan`. The legacy PLAN-1 brief renderer
+    # (#758) is decommissioned.
     plan_parser = subparsers.add_parser(
         "plan",
-        help="Render a deterministic planning brief from source material (PLAN-1).",
-        description=(
-            "Render a deterministic planning brief from source material and exit.\n\n"
-            "Source detection:\n"
-            "  --text STR      Raw text inlined directly.\n"
-            "  file.md/.txt/.yaml/.yml/.json  File adapter (PLAN-6 reads content).\n"
-            "  file.pdf/other  Rich document: path referenced, no extraction.\n"
-            "  dir / .         Codebase evidence bundle (PLAN-6 traverses).\n\n"
-            "Exits 2 if no sources are supplied."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        help="Run the atdd plan gated decomposition session (Define→Locate→Prepare→Confirm→author).",
+        add_help=False,
     )
-    plan_parser.add_argument(
-        "sources",
-        nargs="*",
-        metavar="source",
-        help="Source paths to include in the brief.",
-    )
-    plan_parser.add_argument(
-        "--text",
-        metavar="TEXT",
-        dest="plan_text",
-        help="Raw text to inline as a source.",
-    )
-    plan_parser.add_argument(
-        "--brief-out",
-        metavar="PATH",
-        dest="plan_brief_out",
-        help="Write the rendered brief to PATH (default: stdout).",
-    )
-    plan_parser.add_argument(
-        "--json",
-        action="store_true",
-        dest="plan_json",
-        help="Emit a machine-readable JSON summary to stderr.",
-    )
-    plan_parser.add_argument(
-        "--quiet",
-        action="store_true",
-        dest="plan_quiet",
-        help="Suppress informational output.",
-    )
+    plan_parser.add_argument("plan_args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
 
     # ----- atdd session-template <issue-number> -----
     session_template_parser = subparsers.add_parser(
@@ -2027,13 +1992,14 @@ Phase descriptions:
         help=argparse.SUPPRESS  # Hide, use subcommand option instead
     )
 
-    # `atdd plan session <op> ...` — the gated decomposition-session harness (#1139)
-    # owns its own argparse (sub-flags like --id/--root/--step), so intercept before
-    # the brief-shell `plan` parser (which would reject them) and forward the remainder.
+    # `atdd plan <op> ...` — the gated decomposition session (#1139) IS `atdd plan`
+    # (#1208). It owns its own argparse (sub-flags like --id/--root/--step), so
+    # intercept ALL plan argv before parse_args and forward to it. The legacy
+    # PLAN-1 brief renderer is decommissioned; there is no brief surface to fall to.
     import sys as _sys
-    if _sys.argv[1:3] == ["plan", "session"]:
+    if _sys.argv[1:2] == ["plan"]:
         from atdd.planner.commands.plan_session_cli import run as _run_session
-        return _run_session(_sys.argv[3:])
+        return _run_session(_sys.argv[2:])
 
     args = parser.parse_args()
 
@@ -2609,19 +2575,9 @@ Phase descriptions:
         from atdd.state.cli import run as run_state
         return run_state(state_argv)
 
-    # atdd plan <source> ... (PLAN-1 — #758)
-    elif args.command == "plan":
-        import argparse as _argparse
-        from atdd.planner.commands.plan import run as _run_plan
-
-        plan_ns = _argparse.Namespace(
-            sources=list(getattr(args, "sources", []) or []),
-            text=getattr(args, "plan_text", None),
-            brief_out=getattr(args, "plan_brief_out", None),
-            json=getattr(args, "plan_json", False),
-            quiet=getattr(args, "plan_quiet", False),
-        )
-        return _run_plan(plan_ns)
+    # NOTE: `atdd plan ...` is intercepted before parse_args (see above) and
+    # routed to the gated decomposition session — there is no `command == "plan"`
+    # branch here. The legacy PLAN-1 brief renderer was decommissioned in #1208.
 
     # atdd judge ...  (O1 — #501)
     elif args.command == "judge":
