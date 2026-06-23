@@ -2869,7 +2869,10 @@ sessions:
   file: null
   issue_number: 1209
   type: refactor
-  status: PLANNED
+  status: RED
   created: '2026-06-23'
   archived: null
   branch: refactor/plan-session-traceability-chain
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
+  train: 0001-self-compliance-validate
