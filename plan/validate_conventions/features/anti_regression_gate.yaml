@@ -1,0 +1,28 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: persona-folder placement scanner
+      type: use_cases
+    domain:
+    - count: 0
+      rationale: reuses registry family set
+      type: value_objects
+    integration:
+    - count: 0
+      rationale: scans filesystem; no new contract
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected placement gate
+      type: controllers
+description: The CI guard that prevents new convention-graph validators under legacy
+  persona folders and keeps the convention suite on the authoritative validation path.
+sizing:
+  footprint_score: 3
+  footprint_size: S
+  wmbts: 1
+urn: feature:validate-conventions:anti-regression-gate
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E015

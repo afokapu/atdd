@@ -1,0 +1,62 @@
+action: defines the family/template catalogue, registry, and template contract, and
+  instantiates graph-question variants that select eligible nodes by metadata and
+  assert template-shaped failure evidence
+context: authoring-and-enforcing-convention-graph-validators, while-legacy-persona-validators-still-run
+description: 'Convention-graph validator family/template suite under src/atdd/validators/conventions/:
+  13 graph-question families and 22 reusable templates that ask executable questions
+  against the composed convention graph, backed by a machine-readable registry and
+  a typed template contract, with registry<->archetype conformance. Runs in parallel
+  with the legacy persona validators until parity (#1205/#1206) permits their decommissioning
+  (#1207).'
+features:
+- urn: feature:validate-conventions:family-template-catalogue
+- urn: feature:validate-conventions:registry-archetype-conformance
+- urn: feature:validate-conventions:legacy-parity-audit
+- urn: feature:validate-conventions:p0-graph-integrity-variants
+- urn: feature:validate-conventions:p1-parity-variants
+- urn: feature:validate-conventions:variant-metadata-conformance
+- urn: feature:validate-conventions:shadow-and-promote
+- urn: feature:validate-conventions:legacy-decommission
+- urn: feature:validate-conventions:anti-regression-gate
+goal: organize validators by graph-question family rather than persona so new convention
+  nodes are auto-captured by reusable templates, and prove parity before any legacy
+  decommissioning
+name: Validate Conventions
+outcome: src/atdd/validators/conventions/<family>/ exists with 13 families, 22 templates,
+  a registry, and a template contract; convention validators run in parallel with
+  legacy and become authoritative once parity is proven
+subject: agent:tester
+theme: commons
+urn: wagon:validate-conventions
+wagon: validate-conventions
+produce:
+- name: commons:validators:convention-family-registry
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:validators:convention-template-contract
+  contract: null
+  telemetry: null
+  to: external
+consume: []
+wmbt:
+  total: 19
+  E001: minimize likelihood of registry-family-template-mismatch — registry.yaml declares exactly the 13 canonical families and 22 templates
+  E002: minimize likelihood of registry-archetype-divergence — each family archetype.py exposes exactly the template ids registry.yaml assigns it
+  E003: minimize likelihood of incomplete-template-contract — template_contract.py defines all eight mandatory template metadata fields
+  E004: minimize likelihood of malformed-family-folder — every family folder contains README.md, archetype.py and fixtures.py
+  E005: minimize likelihood of legacy-validator-regression — legacy persona validator folders are unmoved and atdd validate behaviour is unchanged
+  E006: minimize likelihood of unaccounted-legacy-validator — every file under the four legacy validator roots appears in the parity map entries or the exclusion table
+  E007: minimize likelihood of invented-family-template — every mapped entry uses a canonical family and template from the #1204 registry
+  E008: minimize likelihood of invalid-parity-classification — every entry carries a parity_status from the seven-value enum and a priority of P0, P1 or P2
+  E009: minimize likelihood of unexplained-exclusion — every file in the exclusion table carries an explicit reason
+  E010: minimize likelihood of unbuilt-p0-variant — every P0 direct/split/merged/superseded entry has a target implementation or explicit superseded evidence
+  E011: minimize likelihood of variant-metadata-noncompliance — every variant references a registry family/template and declares the nine metadata fields including a legacy_parity_source
+  E012: minimize likelihood of unbuilt-p1-variant — every P1 parity entry is implemented or explicitly deferred with a recorded reason
+  E013: minimize likelihood of legacy-import-coupling — no target convention validator imports a legacy persona validator module as its source of truth
+  E014: minimize likelihood of parallel-run-collision — target convention validators and legacy persona validators run in parallel without collision
+  E015: minimize likelihood of persona-folder-convention-validator — CI rejects any new convention-graph validator added under a legacy persona validator folder
+  E016: minimize likelihood of unresolved-p0-shadow-gap — the shadow-run report shows zero unresolved P0 parity gaps before promotion
+  E017: minimize likelihood of unaccounted-decommission-outcome — the decommission report records an outcome for every legacy validator, one-to-one with the parity audit
+  E018: minimize likelihood of non-authoritative-convention-path — after promotion the convention validators run as the authoritative convention-graph enforcement path
+  Y001: minimize likelihood of unsafe-legacy-deletion — no legacy validator is deleted unless its parity status is direct/merged/split/superseded and its target implementation exists

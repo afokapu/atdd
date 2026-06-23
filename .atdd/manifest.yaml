@@ -2864,6 +2864,54 @@ sessions:
   archived: null
   branch: feat/composed-no-orphan-extension-nodes
   train: 0003-author-substrate
+- id: '1204'
+  slug: introduce-convention-validator-family-template-architecture
+  file: null
+  issue_number: 1204
+  type: refactor
+  status: PLANNED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:family-template-catalogue
+  train: 0001-self-compliance-validate
+- id: '1205'
+  slug: map-legacy-validators-to-convention-parity-matrix
+  file: null
+  issue_number: 1205
+  type: analysis
+  status: PLANNED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:legacy-parity-audit
+  train: 0001-self-compliance-validate
+- id: '1206'
+  slug: implement-convention-validator-variants-to-parity
+  file: null
+  issue_number: 1206
+  type: implementation
+  status: PLANNED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:p0-graph-integrity-variants
+  train: 0001-self-compliance-validate
+- id: '1207'
+  slug: decommission-legacy-persona-validators
+  file: null
+  issue_number: 1207
+  type: refactor
+  status: PLANNED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:shadow-and-promote
+  train: 0001-self-compliance-validate
 - id: '1209'
   slug: plan-session-traceability-chain
   file: null

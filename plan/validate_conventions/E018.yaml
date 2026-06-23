@@ -1,0 +1,28 @@
+urn: wmbt:validate-conventions:E018
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: non-authoritative-convention-path
+context_clarifier: after promotion the convention validators run as the authoritative
+  convention-graph enforcement path
+lens: functional.effectiveness
+statement: minimize likelihood of non-authoritative-convention-path by ensuring after
+  promotion the convention validators run as the authoritative convention-graph enforcement
+  path
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E018-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E018 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

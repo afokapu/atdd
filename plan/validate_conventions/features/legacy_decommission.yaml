@@ -1,0 +1,30 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: decommission outcome reconciler + safety guard
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: decommission outcome enum
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: decommission-report surface
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected decommission accounting
+      type: controllers
+description: Per-file decommission outcome (remove/shim/keep/move) for every legacy
+  validator plus docs/validator-parity/legacy-validator-decommission-report.md, with
+  a hard safety guard against unsafe deletion.
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 2
+urn: feature:validate-conventions:legacy-decommission
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E017
+- wmbt:validate-conventions:Y001

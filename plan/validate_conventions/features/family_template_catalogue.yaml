@@ -1,0 +1,31 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: family archetype loaders + registry reader in _support/
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: TemplateContract typed metadata in _support/template_contract.py
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: registry.yaml machine-readable family/template catalogue
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: no CLI surface; pytest-collected validators
+      type: controllers
+description: "The 13 family folders (presence...binding), each with README.md/archetype.py/fixtures.py,\
+  \ the _support helpers, registry.yaml, and _support/template_contract.py \u2014\
+  \ the architecture scaffold for convention-graph validators."
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 3
+urn: feature:validate-conventions:family-template-catalogue
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E001
+- wmbt:validate-conventions:E003
+- wmbt:validate-conventions:E004

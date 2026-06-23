@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E013
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: legacy-import-coupling
+context_clarifier: no target convention validator imports a legacy persona validator
+  module as its source of truth
+lens: functional.sustainability
+statement: minimize likelihood of legacy-import-coupling by ensuring no target convention
+  validator imports a legacy persona validator module as its source of truth
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E013-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E013 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds
