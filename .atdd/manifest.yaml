@@ -3017,3 +3017,11 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+- id: '1219'
+  slug: state-store-cross-session-tracker
+  file: null
+  issue_number: 1219
+  type: tracking
+  status: INIT
+  created: '2026-06-25'
+  archived: null
