@@ -2969,3 +2969,11 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1213'
+  slug: tester-convention-decomposition
+  file: null
+  issue_number: 1213
+  type: planning
+  status: INIT
+  created: '2026-06-25'
+  archived: null
