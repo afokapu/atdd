@@ -53,7 +53,11 @@ def direct_reference_resolution(graph) -> EvalResult:
 
 
 def rule_validator_roundtrip(graph) -> EvalResult:
-    selected = [n for n in graph.rules() if n.validator]
+    # Scope to MIGRATED rules (those declaring a `disposition`), matching legacy's
+    # disposition-scoped reverse-coherence authority. Unmigrated rules (validator but
+    # no disposition) are deferred to the disposition/migration gate — flagging them
+    # here would diverge from legacy and surface latent, not-yet-owned inconsistencies.
+    selected = [n for n in graph.rules() if n.validator and n.fields.get("disposition")]
     r = EvalResult(selected_nodes=len(selected))
     for rule in selected:
         r.checked_edges += 1

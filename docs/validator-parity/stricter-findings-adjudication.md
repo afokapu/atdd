@@ -20,6 +20,40 @@ classified before it counts as "better coverage" vs noise. Classes:
 | `scoped_identifier_uniqueness` sentinel is **rule-scoped** only | 1 | **real-gap (candidate)** | OPEN — legacy uniqueness spans 7 id-classes (wagon-slug, train-id, wmbt-id, feature-urn, contract-urn, telemetry-urn, produce-artifact; see `test_plan_uniqueness.py`); the convention sentinel covers rule-ids only. Needs additional uniqueness variants before the uniqueness family can claim full parity. NOT a parity improvement — a coverage gap in the convention layer. |
 | `declaration_to_implementation_binding` is **disposition-agnostic** vs legacy disposition-scoped | 1 | **semantics-divergence** | OPEN — legacy `test_every_enforced_rule_has_real_validator` only gates rules with `disposition ∈ {strict, suppress-and-clean, advisory}`; a no-disposition rule with a `validator:` is "unmigrated / out of scope" and routed to a different gate. The convention sentinel flags any rule whose `validator:` does not resolve, regardless of disposition. Discovered via the #1212 catch matrix (the `rule-validator-missing-impl` case is parity only after adding `disposition: strict`). Decide whether the binding family should mirror legacy's disposition scoping or remain intentionally stricter. |
 
+## Convention-only cells — adjudicated as NEW coverage (not FP, not parity)
+
+The catch matrix has two **convention-only** cells. Both are verified true positives
+where legacy structurally has **no** counterpart validator — i.e. new guarantees the
+convention graph adds, not false positives. They do not count toward parity (there is
+nothing to be at parity *with*), and they do not block decommission of the legacy
+validators they don't replace.
+
+| convention-only finding | class | verification |
+|---|---|---|
+| `composed_graph_loads` flags a malformed convention source; legacy `test_rule_id_uniqueness` tolerates it (loads silently / skips unparseable) | **new-coverage** | the injected file (`rules: [unterminated`) genuinely does not parse; legacy surfaces nothing — composition-integrity is a new guarantee |
+| `artifact_reference_resolution` flags a feature `references:` doc that does not resolve on disk; no legacy validator checks `feature.references` docs (legacy artifact resolution is contract/telemetry-URN→dir only) | **new-coverage** | the injected path (`docs/this-doc-does-not-exist-xyz.md`) genuinely does not exist; the closest legacy artifact-resolution test (`test_contract_urn_resolves_to_directory`) is silent on it |
+
+## Roundtrip sentinel — bug fix + scoping (during #1212 expansion)
+
+- **`bind_rule` extraction bug — FIXED.** The emits index matched only string-literal
+  `bind_rule("id")` and only scanned files under `/validators/`. Rules that bind via a
+  module constant (`_RULE = bind_rule(_RULE_ID)`) or whose binder lives outside
+  `/validators/` were missed → false "no emitter" roundtrip flags (e.g.
+  `planner.theme.theme-zero-mandatory`). `graph_loader` now resolves module-level string
+  constants and scans all `src/atdd/**/*.py` for binders.
+- **Roundtrip scoped to migrated (dispositioned) rules.** `rule_validator_roundtrip` now
+  selects only rules that declare a `disposition`, matching legacy's disposition-scoped
+  reverse-coherence authority (`test_every_enforced_rule_has_real_validator`). This keeps
+  the sentinel clean-baseline = 0 (94 rules selected, non-vacuous) without diverging from
+  legacy on unmigrated rules.
+- **Deferred real-gap surfaced:** `coach.launch-prompt.must-include-wagon-graph` declares
+  validator `launch_prompt_wagon_graph_guard::check_wagon_graph_rule`, but that guard never
+  calls `bind_rule` — the binding lives only in a unit test, and the rule carries
+  `suppress_mode` with **no `disposition:`** key, so both legacy and (now) the convention
+  roundtrip treat it as unmigrated/out-of-scope. **real-gap (candidate), deferred** —
+  revisit when that rule is migrated to a disposition; the declared validator should then
+  bind its own rule id.
+
 ## Measurement learnings (#1212 catch matrix)
 
 - **Counterpart pairing must match representation.** The `duplicate-wmbt-id` probe was

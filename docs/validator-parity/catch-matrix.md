@@ -8,9 +8,9 @@ injected fault), and is excluded from the parity count.
 
 ## Tally
 
-- cases: **7**
-- parity (both): **7**
-- convention-only (improvement or FP — adjudicate #1211): **0**
+- cases: **10**
+- parity (both): **8**
+- convention-only (improvement or FP — adjudicate #1211): **2**
 - legacy-only (coverage gap): **0**
 - neither (shared blind spot): **0**
 - inconclusive (legacy red on clean): **0**
@@ -27,8 +27,16 @@ injected fault), and is excluded from the parity count.
 | train-dangling-wagon-ref | resolution/direct_reference_resolution | 0 | yes | yes | yes | **both** |
 | feature-ref-dangling | resolution/reference_chain_resolution | 0 | yes | yes | yes | **both** |
 | rule-validator-missing-impl | binding/declaration_to_implementation_binding | 0 | yes | yes | yes | **both** |
+| malformed-convention-source | composition/composed_graph_loads | 0 | yes | no | yes | **convention-only** |
+| rule-validator-roundtrip-broken | binding/rule_validator_roundtrip | 0 | yes | yes | yes | **both** |
+| feature-doc-reference-dangling | resolution/artifact_reference_resolution | 0 | yes | no | yes | **convention-only** |
 
-> Corpus is seeded for cases with a legacy counterpart + injectable fault.
-> #1212 E027 expands to one fault per legacy rule. Decommission stays BLOCKED
-> until parity (both) is shown for every P0 pair with zero clean-repo FPs.
+> Corpus covers all 10 P0 sentinels. `both` = parity with the legacy
+> counterpart. `convention-only` here = NEW coverage (legacy has no counterpart
+> validator); each is adjudicated as improvement vs FP in
+> stricter-findings-adjudication.md — both current convention-only cells are
+> verified new-coverage, not FPs.
+> #1212 E027 expands further toward one fault per legacy rule. Decommission stays
+> BLOCKED until parity (both) is shown for every P0 pair a legacy validator owns,
+> with zero clean-repo FPs.
 

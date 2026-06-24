@@ -25,7 +25,9 @@ import yaml
 
 _log = logging.getLogger(__name__)
 
-_BIND_RULE_RE = re.compile(r'bind_rule\(\s*["\']([^"\']+)["\']')
+_BIND_RULE_RE = re.compile(r'bind_rule\(\s*([^)\n]+?)\s*[,)]')
+# module-level `_NAME = "literal"` so bind_rule(_RULE_ID) resolves, not just bind_rule("lit")
+_CONST_RE = re.compile(r'^[ \t]*([A-Za-z_]\w*)\s*=\s*["\']([^"\']+)["\']', re.M)
 
 
 @dataclass
@@ -161,17 +163,26 @@ def load_composed_graph(repo_root) -> ConventionGraph:
                         location=str(conv.relative_to(root)),
                         validator=rule.get("validator"), fields=rule))
 
-    # emitted rule_ids: bind_rule("<id>") across validator sources
+    # emitted rule_ids: bind_rule(<id>) across ALL src/atdd sources (binders can live
+    # in guards/commands/tests, not only under /validators/). Resolve string literals
+    # AND module-level string constants so bind_rule(_RULE_ID) is captured.
     vroot = root / "src" / "atdd"
     for py in vroot.rglob("*.py"):
-        if "/validators/" not in str(py):
-            continue
         try:
             txt = py.read_text(encoding="utf-8")
         except OSError:
             continue
-        g._validator_stems.add(py.stem)
-        for rid in _BIND_RULE_RE.findall(txt):
+        if "/validators/" in str(py):
+            g._validator_stems.add(py.stem)
+        consts = dict(_CONST_RE.findall(txt))
+        for arg in _BIND_RULE_RE.findall(txt):
+            arg = arg.strip()
+            if arg[:1] in ("'", '"'):
+                rid = arg.strip("'\"")
+            elif arg in consts:
+                rid = consts[arg]
+            else:
+                continue  # unresolvable (computed/imported) — skip
             g._emits.setdefault(rid, set()).add(str(py.relative_to(root)))
 
     return g

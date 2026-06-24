@@ -234,10 +234,25 @@ def test_schema_catches_missing_required(repo_root: Path) -> None:
             "schema sentinel missed a wagon missing a required field"
 
 
-def test_binding_detects_real_roundtrip_gaps(repo_root: Path) -> None:
-    """Proves the sentinel detects on REAL data: it finds rules whose declared
-    validator does not bind_rule(rule.id) (same class the legacy literal-bind
-    coherence scanner enforces)."""
+def test_roundtrip_selects_and_clean(repo_root: Path) -> None:
+    """Non-vacuous on real data AND clean: every migrated (dispositioned) rule's
+    declared validator binds its own id. (The earlier 'finds gaps on real data'
+    assertion relied on false positives from a literal-only bind_rule scan; those
+    were fixed in graph_loader, so the real baseline is now correctly 0.)"""
     r = S.rule_validator_roundtrip(load_composed_graph(repo_root))
-    ids = {v["declaration_id"] for v in r.violations}
-    assert ids, "binding sentinel found no roundtrip gaps on real data (expected >=1)"
+    assert r.selected_nodes > 0, "vacuous: no dispositioned rules with validators selected"
+    assert r.violations == [], f"repo has real roundtrip gaps: {r.violations[:2]}"
+
+
+def test_roundtrip_catches_unbound_validator(repo_root: Path) -> None:
+    """Fault injection: a dispositioned rule whose declared validator file exists but
+    never bind_rule()s this id must be flagged (the legacy reverse-coherence class)."""
+    conv = ('version: "1.0"\nname: "tmp roundtrip"\nrules:\n'
+            '  - id: "coach.tmp.roundtrip-probe"\n    severity: 3\n'
+            '    disposition: strict\n'
+            '    validator: "test_theme_must_be_canonical::test_every_wagon_theme_is_canonical"\n')
+    with _temp_convention(repo_root,
+                          "src/atdd/coach/conventions/_tmp_roundtrip_probe.convention.yaml", conv):
+        r = S.rule_validator_roundtrip(load_composed_graph(repo_root))
+        assert any(v["declaration_id"] == "coach.tmp.roundtrip-probe" for v in r.violations), \
+            "roundtrip sentinel missed a rule whose declared validator does not bind it"

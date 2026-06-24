@@ -149,6 +149,29 @@ CASES: List[Case] = [
                    '  - id: "coach.catchmatrix.binding-probe"\n    severity: 3\n'
                    '    disposition: strict\n'
                    '    validator: "test_nonexistent_catchmatrix_validator_file::test_x"\n')),
+    # Malformed convention source vs the legacy convention loader (composition load).
+    Case("malformed-convention-source", "composition/composed_graph_loads",
+         S.composed_graph_loads,
+         "src/atdd/coach/validators/test_rule_id_uniqueness.py",
+         tempfile=("src/atdd/coach/conventions/_tmp_catchmatrix_badyaml.convention.yaml",
+                   'version: "1.0"\nname: "catch-matrix malformed"\nrules: [unterminated\n')),
+    # Rule whose declared validator exists but never bind_rule()s it (forward roundtrip).
+    Case("rule-validator-roundtrip-broken", "binding/rule_validator_roundtrip",
+         S.rule_validator_roundtrip,
+         "src/atdd/coach/validators/test_rule_validator_binding.py::test_every_enforced_rule_has_real_validator",
+         tempfile=("src/atdd/coach/conventions/_tmp_catchmatrix_roundtrip.convention.yaml",
+                   'version: "1.0"\nname: "catch-matrix roundtrip"\nrules:\n'
+                   '  - id: "coach.catchmatrix.roundtrip-probe"\n    severity: 3\n'
+                   '    disposition: strict\n'
+                   '    validator: "test_theme_must_be_canonical::test_every_wagon_theme_is_canonical"\n')),
+    # Feature 'references' doc that does not resolve on disk. NO legacy counterpart
+    # validates feature.references docs -> structurally convention-only (NEW coverage,
+    # adjudicated as improvement after verifying the path truly does not resolve).
+    Case("feature-doc-reference-dangling", "resolution/artifact_reference_resolution",
+         S.artifact_reference_resolution,
+         "src/atdd/planner/validators/test_plan_urn_resolution.py::test_contract_urn_resolves_to_directory",
+         patch=("plan/govern_lifecycle/features/define_validator_report_and_persistence_materialization_contract.yaml",
+                "docs/coach-decomposition.md", "docs/this-doc-does-not-exist-xyz.md")),
 ]
 
 
@@ -192,7 +215,12 @@ def render(cells: List[Cell]) -> str:
                    f"{'no' if c.legacy_clean_red else 'yes'} | "
                    f"{'yes' if c.legacy_caught else 'no'} | "
                    f"{'yes' if c.convention_caught else 'no'} | **{c.verdict}** |")
-    out += ["\n> Corpus is seeded for cases with a legacy counterpart + injectable fault.",
-            "> #1212 E027 expands to one fault per legacy rule. Decommission stays BLOCKED",
-            "> until parity (both) is shown for every P0 pair with zero clean-repo FPs."]
+    out += ["\n> Corpus covers all 10 P0 sentinels. `both` = parity with the legacy",
+            "> counterpart. `convention-only` here = NEW coverage (legacy has no counterpart",
+            "> validator); each is adjudicated as improvement vs FP in",
+            "> stricter-findings-adjudication.md — both current convention-only cells are",
+            "> verified new-coverage, not FPs.",
+            "> #1212 E027 expands further toward one fault per legacy rule. Decommission stays",
+            "> BLOCKED until parity (both) is shown for every P0 pair a legacy validator owns,",
+            "> with zero clean-repo FPs."]
     return "\n".join(out) + "\n"
