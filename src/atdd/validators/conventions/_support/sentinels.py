@@ -11,9 +11,12 @@ explicitly declares an empty selection is expected.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import List
+
+_log = logging.getLogger(__name__)
 
 CANONICAL_THEMES = {"commons", "plan", "test", "code", "coach"}
 
@@ -190,9 +193,11 @@ def node_schema_conformance(graph) -> EvalResult:
                                  "schema_error_path": "/".join(str(x) for x in exc.absolute_path),
                                  "schema_error_message": exc.message[:120],
                                  "node_location": n.location})
-        except Exception:
-            # unresolved $ref / registry-needed schema — not a content violation; skip
-            pass
+        except Exception as exc:
+            # unresolved $ref / registry-needed schema — not a content violation.
+            # Log (never silently swallow); skip this node's schema check.
+            _log.info("schema check skipped (unresolved $ref/registry)",
+                      extra={"node": n.id, "kind": n.kind, "error": str(exc)[:120]})
     return r
 
 

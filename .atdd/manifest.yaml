@@ -2869,7 +2869,7 @@ sessions:
   file: null
   issue_number: 1211
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-06-24'
   archived: null
   branch: refactor/introduce-convention-validator-family-template-architecture

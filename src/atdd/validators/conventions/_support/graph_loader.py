@@ -15,12 +15,15 @@ The graph exposes nodes()/by_id()/by_kind()/refs_from()/rules()/emits().
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 _BIND_RULE_RE = re.compile(r'bind_rule\(\s*["\']([^"\']+)["\']')
 
@@ -79,7 +82,11 @@ def _safe_yaml(path: Path) -> dict:
     try:
         d = yaml.safe_load(path.read_text(encoding="utf-8"))
         return d if isinstance(d, dict) else {}
-    except yaml.YAMLError:
+    except yaml.YAMLError as exc:
+        # Tolerate malformed sources so composition continues; parse errors are
+        # reported separately by scan_parse_errors(). Log — never silently swallow.
+        _log.info("graph_loader skipped unparseable source",
+                  extra={"path": str(path), "error": str(exc).splitlines()[0][:120]})
         return {}
 
 
@@ -130,23 +137,19 @@ def load_composed_graph(repo_root) -> ConventionGraph:
                 g._add(Node(id=d.get("urn") or str(w), kind="wmbt",
                             location=str(w.relative_to(root)), package=slug, fields=d))
 
-    # trains (refs -> wagon urns)
-    trains = plan / "_trains.yaml"
-    if trains.exists():
-        d = _safe_yaml(trains)
-        def _walk(obj):
-            if isinstance(obj, dict):
-                if obj.get("train_id"):
-                    g._add(Node(id=f"train:{obj['train_id']}", kind="train",
-                                location="plan/_trains.yaml",
-                                refs=[f"wagon:{w}" for w in (obj.get("wagons") or [])],
-                                fields=obj))
-                for v in obj.values():
-                    _walk(v)
-            elif isinstance(obj, list):
-                for v in obj:
-                    _walk(v)
-        _walk(d)
+    # trains: load the conformant DETAIL files (plan/_trains/*.yaml), not the
+    # _trains.yaml index. refs = wagon participants (system:* terminals excluded).
+    tdir = plan / "_trains"
+    if tdir.is_dir():
+        for tf in sorted(tdir.glob("*.yaml")):
+            d = _safe_yaml(tf)
+            if not d.get("train_id"):
+                continue
+            g._add(Node(id=f"train:{d['train_id']}", kind="train",
+                        location=str(tf.relative_to(root)),
+                        refs=[p for p in (d.get("participants") or [])
+                              if isinstance(p, str) and p.startswith("wagon:")],
+                        fields=d))
 
     # rules from convention sources
     for conv in sorted((root / "src" / "atdd").rglob("*.convention.yaml")):
