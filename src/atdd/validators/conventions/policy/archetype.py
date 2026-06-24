@@ -30,12 +30,16 @@ operator document, not the convention graph, and are deferred to a separate issu
 """
 from __future__ import annotations
 
+import logging
+
 import re
 from datetime import date
 from pathlib import Path
 from typing import List, Mapping, Optional
 
 from .._support.template_contract import TemplateContract
+
+_log = logging.getLogger(__name__)
 
 TEMPLATES = [
     TemplateContract(
@@ -66,7 +70,8 @@ _SKIP_DIR_NAMES = frozenset({
 def _rel(root: Path, p: Path) -> str:
     try:
         return str(p.resolve().relative_to(root.resolve()))
-    except ValueError:
+    except ValueError as exc:
+        _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
         return str(p)
 
 
@@ -185,7 +190,8 @@ def _parse_until(raw: Optional[str]) -> Optional[date]:
         return None
     try:
         return date.fromisoformat(raw)
-    except ValueError:
+    except ValueError as exc:
+        _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
         return None
 
 
@@ -202,7 +208,8 @@ def _scan_no_stale_suppressions(graph, config=None) -> List[dict]:
             seen_files.add(path)
             try:
                 text = path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError) as exc:
+                _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
                 continue
             for lineno, line in enumerate(text.splitlines(), start=1):
                 for match in _MARKER_PATTERN.finditer(line):
@@ -235,7 +242,8 @@ def _read_freedom_layer(root: Path) -> Optional[Mapping]:
         return None
     try:
         data = yaml.safe_load(conv.read_text(encoding="utf-8"))
-    except yaml.YAMLError:
+    except yaml.YAMLError as exc:
+        _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
         return None
     if not isinstance(data, dict):
         return None
@@ -298,7 +306,8 @@ def _scan_bypass_inventory(graph, config=None) -> List[dict]:
             continue
         try:
             text = p.read_text(encoding="utf-8")
-        except OSError:
+        except OSError as exc:
+            _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
             continue
         seen: set = set()
         for match in _BYPASS_PATTERN.finditer(text):

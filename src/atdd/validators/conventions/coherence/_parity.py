@@ -7,6 +7,7 @@ faulted tree, so "both caught" is a genuine differential on identical input.
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import subprocess
 import sys
@@ -17,6 +18,8 @@ from atdd.coach.utils.repo import find_repo_root
 
 from .._support.graph_loader import load_composed_graph
 from .archetype import resolved_fact_agreement
+
+_log = logging.getLogger(__name__)
 
 
 def repo_root() -> Path:
@@ -89,5 +92,5 @@ def temp_paths(paths: Iterable[tuple]):
         for d in sorted(set(created_dirs), key=lambda x: len(x.parts), reverse=True):
             try:
                 d.rmdir()
-            except OSError:
-                pass
+            except OSError as exc:
+                _log.debug("parity cleanup left a non-empty dir", extra={"dir": str(d), "error": str(exc)})

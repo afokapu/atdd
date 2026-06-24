@@ -11,6 +11,10 @@ source tree imports ``atdd.coach`` (the forbidden boundary crossing).
 """
 from __future__ import annotations
 
+import contextlib
+import shutil
+import tempfile
+
 from pathlib import Path
 
 from .._support.graph_loader import ConventionGraph, load_composed_graph
@@ -55,3 +59,12 @@ def build_graph(root: Path, *specs: dict) -> ConventionGraph:
     for spec in specs:
         materialize_wagon(root, **spec)
     return load_composed_graph(root)
+
+
+@contextlib.contextmanager
+def fixtures_tmp():
+    d = tempfile.mkdtemp(prefix="boundary-fix-")
+    try:
+        yield Path(d)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)

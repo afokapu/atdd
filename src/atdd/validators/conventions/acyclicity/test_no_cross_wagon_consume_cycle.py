@@ -12,10 +12,6 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -28,6 +24,7 @@ from atdd.validators.conventions.acyclicity.archetype import (
     forbidden_cycle_absence,
 )
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions.acyclicity import _parity
 
 FAMILY = "acyclicity"
 TEMPLATE = "forbidden_cycle_absence"
@@ -41,10 +38,6 @@ FAILURE_EVIDENCE = ['cycle_path', 'edge_type', 'start_node', 'repeated_node']
 LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_no_cross_wagon_consume_cycle.py']
 
 
-LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_no_cross_wagon_consume_cycle.py"
-    "::test_no_cross_wagon_consume_cycle"
-)
 
 
 def _repo_root() -> Path:
@@ -55,47 +48,8 @@ def _repo_root() -> Path:
     raise RuntimeError("repo root not found")
 
 
-def _run_legacy(repo_root: Path) -> int:
-    """Run the legacy validator's live test as a subprocess; return its rc."""
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", LEGACY_NODEID, "-q", "-p", "no:cacheprovider"],
-        cwd=repo_root,
-        env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True,
-        text=True,
-    ).returncode
 
 
-@contextlib.contextmanager
-def _injected_cross_wagon_cycle(repo_root: Path):
-    """Inject a real on-disk cross-wagon produce/consume cycle into plan/.
-
-    Creates two temp wagon manifests (read by BOTH the composed graph loader and
-    the legacy ``load_manifests`` glob) where each consumes an artifact the other
-    produces — a strongly-connected component spanning two wagons. Reverted on exit.
-    """
-    specs = {
-        "zztmp_acy_alpha": ("zztmp-acy-alpha", "x:zz:from-alpha", "x:zz:from-beta"),
-        "zztmp_acy_beta": ("zztmp-acy-beta", "x:zz:from-beta", "x:zz:from-alpha"),
-    }
-    created = []
-    try:
-        for slug, (wagon, prod, cons) in specs.items():
-            d = repo_root / "plan" / slug
-            d.mkdir(parents=True, exist_ok=False)
-            man = d / f"_{slug}.yaml"
-            man.write_text(
-                f"wagon: {wagon}\n"
-                f"produce:\n  - name: {prod}\n"
-                f"consume:\n  - name: {cons}\n",
-                encoding="utf-8",
-            )
-            created.append(d)
-        yield ("zztmp-acy-alpha", "zztmp-acy-beta")
-    finally:
-        import shutil
-        for d in created:
-            shutil.rmtree(d, ignore_errors=True)
 
 
 def test_no_cross_wagon_consume_cycle_variant_contract() -> None:
@@ -144,9 +98,9 @@ def test_clean_baseline_real_graph_is_zero() -> None:
 # --- fault injection + legacy parity (BOTH must catch) ----------------------
 def test_fault_injection_legacy_parity() -> None:
     repo_root = _repo_root()
-    with _injected_cross_wagon_cycle(repo_root) as members:
+    with _parity.injected_cross_wagon_cycle(repo_root) as members:
         conv = forbidden_cycle_absence(load_composed_graph(repo_root))
-        legacy_rc = _run_legacy(repo_root)
+        legacy_rc = _parity.run_legacy(repo_root)
     conv_caught = any(set(members).issubset(set(v["cycle_path"])) for v in conv)
     legacy_caught = legacy_rc != 0
     assert conv_caught and legacy_caught, (
@@ -158,4 +112,4 @@ def test_fault_injection_legacy_parity() -> None:
 def test_clean_baseline_legacy_also_green() -> None:
     """Sanity: the legacy target is GREEN on the clean tree, so its red under
     injection is attributable to the fault (not a pre-existing failure)."""
-    assert _run_legacy(_repo_root()) == 0, "legacy target unexpectedly red on clean tree"
+    assert _parity.run_legacy(_repo_root()) == 0, "legacy target unexpectedly red on clean tree"

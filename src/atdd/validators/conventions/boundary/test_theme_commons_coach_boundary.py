@@ -16,16 +16,13 @@ validator module (the legacy parity check shells out via subprocess).
 """
 from __future__ import annotations
 
-import contextlib
-import os
-import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.boundary import fixtures
+from atdd.validators.conventions.boundary import _parity
 from atdd.validators.conventions.boundary.archetype import (
     DEFERRED_RETHEME_WAGONS,
     TEMPLATE_IDS,
@@ -43,10 +40,6 @@ INVARIANT = 'boundary_policy.allows(source, target, edge_type)'
 AUTO_CAPTURE = 'a new node is included if it declares ownership/package/layer metadata and participates in edges'
 FAILURE_EVIDENCE = ['source', 'target', 'edge_type', 'source_boundary', 'target_boundary', 'violated_policy']
 LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_theme_commons_coach_boundary.py']
-LEGACY_NODEID = (
-    'src/atdd/planner/validators/test_theme_commons_coach_boundary.py'
-    '::test_commons_wagons_do_not_import_coach'
-)
 
 _TEMPLATE = next(t for t in TEMPLATES if t.template_id == TEMPLATE)
 _CONFIG = VARIANT_CONFIGS[VARIANT]
@@ -75,7 +68,7 @@ def test_evidence_keys_subset_of_contract() -> None:
     """Every evidence dict's keys are a SUBSET of the template failure_evidence."""
     declared = set(_TEMPLATE.failure_evidence)
     root = _repo_root()
-    with fixtures_tmp() as tmp:
+    with fixtures.fixtures_tmp() as tmp:
         graph = fixtures.build_graph(tmp, fixtures.INVALID_FRAGMENTS["commons_wagon_imports_coach"])
         viols = _evaluate(graph)
     assert viols, "invalid fragment must yield a violation"
@@ -86,29 +79,22 @@ def test_evidence_keys_subset_of_contract() -> None:
 
 
 # --- fixtures (real ConventionGraph fragments) -----------------------------
-@contextlib.contextmanager
-def fixtures_tmp():
-    d = tempfile.mkdtemp(prefix="boundary-fix-")
-    try:
-        yield Path(d)
-    finally:
-        shutil.rmtree(d, ignore_errors=True)
 
 
 def test_valid_fragment_commons_no_coach_import_clean() -> None:
-    with fixtures_tmp() as tmp:
+    with fixtures.fixtures_tmp() as tmp:
         graph = fixtures.build_graph(tmp, fixtures.VALID_FRAGMENTS["commons_wagon_no_coach_import"])
         assert _evaluate(graph) == []
 
 
 def test_valid_fragment_coach_wagon_may_import_coach() -> None:
-    with fixtures_tmp() as tmp:
+    with fixtures.fixtures_tmp() as tmp:
         graph = fixtures.build_graph(tmp, fixtures.VALID_FRAGMENTS["coach_wagon_imports_coach"])
         assert _evaluate(graph) == []
 
 
 def test_invalid_fragment_commons_imports_coach_caught() -> None:
-    with fixtures_tmp() as tmp:
+    with fixtures.fixtures_tmp() as tmp:
         graph = fixtures.build_graph(tmp, fixtures.INVALID_FRAGMENTS["commons_wagon_imports_coach"])
         viols = _evaluate(graph)
     assert len(viols) == 1
@@ -124,7 +110,7 @@ def test_deferred_wagon_not_flagged() -> None:
     """A commons wagon importing coach but on the deferred list is excluded
     (parity with legacy drop_deferred)."""
     deferred_slug = sorted(DEFERRED_RETHEME_WAGONS)[0]
-    with fixtures_tmp() as tmp:
+    with fixtures.fixtures_tmp() as tmp:
         graph = fixtures.build_graph(
             tmp, {"wagon": deferred_slug, "theme": "commons", "imports_coach": True}
         )
@@ -140,13 +126,6 @@ def test_clean_baseline_real_graph_is_empty() -> None:
 
 
 # --- fault injection + legacy parity (BOTH must catch) ---------------------
-def _run_legacy(root: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", LEGACY_NODEID, "-q", "-p", "no:cacheprovider"],
-        cwd=str(root),
-        env={"PYTHONPATH": "src", "PATH": os.environ.get("PATH", "")},
-        capture_output=True, text=True,
-    )
 
 
 def test_fault_injection_convention_and_legacy_both_catch() -> None:
@@ -170,41 +149,25 @@ def test_fault_injection_convention_and_legacy_both_catch() -> None:
             break
     assert target_slug, "no clean commons wagon available for fault injection"
 
-    src_dir = root / "src" / "atdd" / target_slug.replace("-", "_")
-    fault = src_dir / "_boundary_fault_injection.py"
-
     # Pre-condition: both clean.
     assert _evaluate(load_composed_graph(root)) == []
-    pre = _run_legacy(root)
+    pre = _parity.run_legacy(root)
     assert pre.returncode == 0, f"legacy not green pre-injection:\n{pre.stdout}\n{pre.stderr}"
 
-    try:
-        src_dir.mkdir(parents=True, exist_ok=True)
-        fault.write_text("import atdd.coach  # injected boundary crossing\n", encoding="utf-8")
-
+    with _parity.injected_coach_import(root, target_slug):
         # Convention evaluator catches it.
         viols = _evaluate(load_composed_graph(root))
         assert any(v["source"].startswith(f"{target_slug}:") for v in viols), (
             f"convention evaluator missed injected crossing in {target_slug}: {viols}"
         )
-
         # Legacy validator (subprocess) ALSO catches it.
-        post = _run_legacy(root)
+        post = _parity.run_legacy(root)
         assert post.returncode != 0, (
             f"legacy did not catch injected crossing:\n{post.stdout}\n{post.stderr}"
         )
         assert target_slug in (post.stdout + post.stderr)
-    finally:
-        # Revert: remove exactly what we created.
-        if fault.exists():
-            fault.unlink()
-        # Remove the dir only if we created it and it's now empty.
-        try:
-            src_dir.rmdir()
-        except OSError:
-            pass
 
     # Post-condition: both green again.
     assert _evaluate(load_composed_graph(root)) == []
-    after = _run_legacy(root)
+    after = _parity.run_legacy(root)
     assert after.returncode == 0, f"legacy not green after revert:\n{after.stdout}\n{after.stderr}"

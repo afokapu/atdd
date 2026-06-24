@@ -1,7 +1,11 @@
 """Reusable graph-question archetype for the `composition` family (#1204)."""
 from __future__ import annotations
 
+import logging
+
 from .._support.template_contract import TemplateContract
+
+_log = logging.getLogger(__name__)
 
 TEMPLATES = [
     TemplateContract(
@@ -77,6 +81,7 @@ def _package_data_ships_convention_nodes(graph, config=None):
     try:
         pd = tomllib.loads(pyproject.read_text(encoding='utf-8'))['tool']['setuptools']['package-data']
     except (OSError, KeyError, tomllib.TOMLDecodeError) as exc:
+        _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
         return [{'source_file': 'pyproject.toml', 'package_id': None,
                  'parse_error': f'package-data unreadable: {str(exc).splitlines()[0][:120]}'}]
     out = []

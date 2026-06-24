@@ -16,6 +16,8 @@ as the legacy validator on the live corpus.
 """
 from __future__ import annotations
 
+import logging
+
 import re
 from itertools import combinations
 from typing import Dict, List, Optional, Set, Tuple
@@ -23,6 +25,8 @@ from typing import Dict, List, Optional, Set, Tuple
 import yaml
 
 from .._support.template_contract import TemplateContract
+
+_log = logging.getLogger(__name__)
 
 TEMPLATES = [
     TemplateContract(
@@ -48,7 +52,8 @@ def _wagon_config(root, key: str, default: int) -> int:
         cfg = yaml.safe_load((root / ".atdd" / "config.yaml").read_text()) or {}
         val = ((cfg.get("planner") or {}).get("wagon") or {}).get(key)
         return int(val) if val is not None else default
-    except Exception:
+    except Exception as exc:
+        _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
         return default
 
 

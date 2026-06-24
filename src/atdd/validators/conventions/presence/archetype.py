@@ -14,11 +14,15 @@ machine, feedback-loop suppression markers) read their source file through
 """
 from __future__ import annotations
 
+import logging
+
 import re
 
 import yaml
 
 from .._support.template_contract import TemplateContract
+
+_log = logging.getLogger(__name__)
 
 TEMPLATES = [
     TemplateContract(
@@ -100,7 +104,8 @@ def _read_yaml(graph, rel_path: str) -> dict:
     path = root / rel_path
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError) as exc:
+        _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -263,7 +268,8 @@ def _feature_suppressed(graph, feature) -> bool:
         return False
     try:
         text = (root / feature.location).read_text(encoding="utf-8")
-    except OSError:
+    except OSError as exc:
+        _log.debug("convention evaluator handled a recoverable error", extra={"error": str(exc)[:160]})
         return False
     for line in text.splitlines():
         if line.lstrip().startswith("kind:") and _FEEDBACK_LOOP_SUPPRESS_RE.search(line):
