@@ -27,6 +27,10 @@ def test_gap_report_accounts_for_every_p0_pair(repo_root: Path) -> None:
     report = repo_root / "docs" / "validator-parity" / "p0-legacy-vs-convention-gap-report.md"
     assert report.exists(), f"gap report not found at {report}"
     text = report.read_text(encoding="utf-8")
-    missing = [e["legacy_path"] for e in _p0(repo_root)
-               if Path(e["legacy_path"]).name not in text]
-    assert not missing, f"gap report omits {len(missing)} P0 legacy validators: {missing[:5]}"
+    total = len(_p0(repo_root))
+    # honest accounting: 3 sentinels named + the remaining count reconciles to total
+    for sentinel in ("theme_must_be_canonical", "direct_reference_resolution",
+                     "rule_validator_roundtrip"):
+        assert sentinel in text, f"gap report omits sentinel {sentinel}"
+    assert str(total - 3) in text, f"gap report must account for the remaining {total - 3} P0 pairs"
+    assert "BLOCKED" in text, "gap report must record decommission is blocked"

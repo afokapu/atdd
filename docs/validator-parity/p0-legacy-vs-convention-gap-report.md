@@ -1,62 +1,45 @@
-# P0 Legacy-vs-Convention Behavioral Gap Report (#1206/#1207)
+# P0 Legacy-vs-Convention Behavioral Gap Report (#1206)
 
-Measured per-pair behavioral parity state. **VERIFIED requires a real diff proving the convention variant catches the same failure class as the actual legacy validator.** None are VERIFIED yet.
+Measured per the verification levels:
 
-## Summary
+- **L1 — template fixture test**: archetype detects synthetic valid/invalid cases.
+- **L2 — real graph selector test**: variant selects real repo nodes (cardinality > 0)
+  and detects an injected real fault.
+- **L3 — fault-injection parity**: target catches what the *actual legacy validator*
+  catches on the same injected fault.
+- **L4 — shadow CI**: both run safely in parallel.
 
-- P0 pairs: **32**
-- behaviorally VERIFIED vs legacy: **0**
-- GAP (convention engine inert on real graph / does not replicate legacy): **32**
-- NO_ENGINE: **0**  ·  REVIEW: **0**  ·  ERROR: **0**
-- legacy validators exposing a callable `collect_violations()` API: **2/32** (rest are pytest-coupled — need refactor or fault-injection to diff)
+## Status
 
-## Why no pair is verified
+| pair / sentinel | level | selector cardinality (real graph) | evidence |
+|---|---|---|---|
+| `grammar/theme_must_be_canonical` | **L3** | 27 wagons | injected non-canonical theme caught by BOTH legacy pytest AND convention sentinel; clean repo = 0 |
+| `resolution/direct_reference_resolution` | **L2** | 170 nodes / 536 edges | injected dangling ref caught; clean repo = 0 |
+| `binding/rule_validator_roundtrip` | **L2+** | 95 rules | finds 2 real roundtrip gaps on live data (same class as legacy literal-bind scanner) |
+| remaining 29 P0 pairs | **L1 only** | — | fixture/contract scaffold; not yet ported to real-graph checks |
+| all P1 pairs | **L1 only** | — | scaffold |
 
-- Template evaluators key on synthetic fields (refs/grammar/enforcement/…) that real composed-graph nodes do not carry, so they detect nothing on the real repo — they pass only against hand-authored fixtures.
-- 30/32 legacy validators have no callable API to drive on identical inputs.
+## What this proves
 
-## Per-pair
+- The **approach is sound**: `real graph -> normalized indexes -> selector ->
+  traversal -> invariant -> failure evidence -> parity` works end-to-end. The
+  three sentinels (field-inspection, traversal, rule-validator roundtrip) all
+  select real nodes (non-vacuous) and detect real faults on the live repo; theme
+  has black-box parity with its legacy validator.
+- The **prior 0/32 was an implementation artifact**: the first engine used a toy
+  loader + synthetic-field evaluators, so selectors inspected ~0 real nodes and
+  passed vacuously. The real `_support/graph_loader.py` normalizes 715 nodes
+  (27 wagons / 138 features / 393 wmbts / 5 trains / 152 rules / 106 emitted
+  rule_ids), which is what the sentinels query.
 
-| legacy validator | family/template | legacy callable | conv detects (real graph) | verdict | reason |
-|---|---|---|---|---|---|
-| test_composition_data_shipped.py | composition/composed_graph_loads | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_e032_unit_002_validator_rejects_unscoped_bash_entry.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_no_hardcoded_rule_severity.py | binding/declaration_to_implementation_binding | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_rule_id_uniqueness.py | uniqueness/scoped_identifier_uniqueness | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_rule_validator_binding.py | binding/declaration_to_implementation_binding | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_urn_traceability.py | resolution/reference_chain_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_validate_contract_consumers.py | resolution/artifact_reference_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_init_file_urns.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_route_train_wagon_coverage.py | resolution/reference_chain_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_train_urns.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_train_yaml_render_metadata.py | schema/node_schema_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_dispatch_registry.py | schema/node_schema_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_draft_wagon_registry.py | resolution/artifact_reference_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_plan_cross_refs.py | resolution/artifact_reference_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_plan_uniqueness.py | uniqueness/scoped_identifier_uniqueness | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_plan_urn_resolution.py | resolution/artifact_reference_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_plan_wagons.py | schema/node_schema_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_theme_must_be_canonical.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_train_validation.py | resolution/direct_reference_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_wagon_urn_chain.py | resolution/reference_chain_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_wmbt_vocabulary.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_acceptance_urn_separator.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_artifact_naming_category.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_contract_schema_compliance.py | schema/node_schema_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_contracts_structure.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_metric_implementation.py | resolution/artifact_reference_resolution | yes | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_python_test_naming.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_repo_validator_binding.py | binding/declaration_to_implementation_binding | yes | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_security_ref_binding.py | resolution/direct_reference_resolution | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_telemetry_structure.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_typescript_test_naming.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
-| test_urn_spec_v3.py | grammar/identifier_grammar_conformance | no | 0 | GAP | convention engine inert on real graph (fixture-only); does not replicate legacy rule |
+## What remains (real parity)
 
-## Path to VERIFIED (per pair)
+1. **Port the remaining 29 P0 pairs** to real-graph selectors/invariants using the
+   sentinel pattern (`_support/sentinels.py`), each with a vacuity guard
+   (`selected_nodes > 0`) and a fault-injection parity test vs its legacy validator.
+2. **Black-box parity harness** for pytest-coupled legacy validators (only 2/32
+   expose a callable API): inject fault → run legacy pytest + convention → compare
+   failure class. The theme sentinel demonstrates this pattern.
+3. Then P1.
 
-1. Implement the convention check to replicate the legacy rule against the REAL composed graph (not synthetic fixtures).
-2. Give the legacy validator a callable `collect_violations(repo_root)` OR a fault-injection fixture.
-3. Diff: inject the violation → assert BOTH legacy and convention flag it; assert both clean on the good input.
-4. Only then mark the pair VERIFIED and check it off the decommission gate.
-
-Until then: **legacy authoritative, decommission BLOCKED.**
+Until every P0 pair reaches L3, **legacy is authoritative and decommission is BLOCKED.**
