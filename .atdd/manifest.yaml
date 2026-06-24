@@ -3025,3 +3025,11 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+- id: '1220'
+  slug: bind-state-store-invariants-to-node-validators
+  file: null
+  issue_number: 1220
+  type: implementation
+  status: INIT
+  created: '2026-06-25'
+  archived: null
