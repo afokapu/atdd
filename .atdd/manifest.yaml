@@ -2977,3 +2977,11 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+- id: '1214'
+  slug: tester-convention-classification
+  file: null
+  issue_number: 1214
+  type: analysis
+  status: INIT
+  created: '2026-06-25'
+  archived: null
