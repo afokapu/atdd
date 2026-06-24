@@ -17,7 +17,7 @@ classified before it counts as "better coverage" vs noise. Classes:
 | train `sequence.artifact` pattern (1-colon regex vs `commons:plan:manifest` 2-colon) | all trains | **schema-bug** | OPEN — `train.schema` artifact regex too strict for real 2+-segment artifacts; deferred (broader schema fix) |
 | feature `components` declares `adapters` (not in `feature.schema` enum) | 383 | **real-gap (candidate)** | OPEN — needs decision: extend enum vs. correct features; verify a sample is a true defect |
 | feature `description` constraint vs long prose | 107 | **schema-vs-content** | OPEN — decide whether the schema constraint is intended; legacy did not enforce |
-| `scoped_identifier_uniqueness` sentinel is **rule-scoped** only | 1 | **real-gap (candidate)** | OPEN — legacy uniqueness spans 7 id-classes (wagon-slug, train-id, wmbt-id, feature-urn, contract-urn, telemetry-urn, produce-artifact; see `test_plan_uniqueness.py`); the convention sentinel covers rule-ids only. Needs additional uniqueness variants before the uniqueness family can claim full parity. NOT a parity improvement — a coverage gap in the convention layer. |
+| `scoped_identifier_uniqueness` sentinel was **rule-scoped** only | 1 | **real-gap** | **RESOLVED** — generalized to all 7 legacy id-classes (operator chose full parity). See the per-class parity table below. |
 | `declaration_to_implementation_binding` is **disposition-agnostic** vs legacy disposition-scoped | 1 | **semantics-divergence** | OPEN — legacy `test_every_enforced_rule_has_real_validator` only gates rules with `disposition ∈ {strict, suppress-and-clean, advisory}`; a no-disposition rule with a `validator:` is "unmigrated / out of scope" and routed to a different gate. The convention sentinel flags any rule whose `validator:` does not resolve, regardless of disposition. Discovered via the #1212 catch matrix (the `rule-validator-missing-impl` case is parity only after adding `disposition: strict`). Decide whether the binding family should mirror legacy's disposition scoping or remain intentionally stricter. |
 
 ## Convention-only cells — adjudicated as NEW coverage (not FP, not parity)
@@ -32,6 +32,32 @@ validators they don't replace.
 |---|---|---|
 | `composed_graph_loads` flags a malformed convention source; legacy `test_rule_id_uniqueness` tolerates it (loads silently / skips unparseable) | **new-coverage** | the injected file (`rules: [unterminated`) genuinely does not parse; legacy surfaces nothing — composition-integrity is a new guarantee |
 | `artifact_reference_resolution` flags a feature `references:` doc that does not resolve on disk; no legacy validator checks `feature.references` docs (legacy artifact resolution is contract/telemetry-URN→dir only) | **new-coverage** | the injected path (`docs/this-doc-does-not-exist-xyz.md`) genuinely does not exist; the closest legacy artifact-resolution test (`test_contract_urn_resolves_to_directory`) is silent on it |
+| `scoped_identifier_uniqueness` catches a duplicate **train-id**; legacy `test_train_ids_are_unique` does not | **legacy-defect** | VERIFIED: the legacy test reads `trains_registry.get("trains", [])`, but the `trains_registry` fixture returns a dict keyed by theme (`{"commons": [...]}`), so `.get("trains")` is always `[]` — the legacy validator is **vacuous/dead**. The convention sentinel reads the real `plan/_trains.yaml` index and catches the dup. Convention provides the coverage legacy nominally claims but never delivered. |
+
+## Uniqueness — per-class parity (generalized sentinel, 7 id-classes)
+
+`scoped_identifier_uniqueness` now covers every id-class legacy `test_plan_uniqueness.py`
+enforces (1463 scope/identifier buckets, clean baseline 0). Declaration/index
+representations legacy reads (manifest `features[]`, `wmbt` dict keys, `_trains.yaml`
+index) are tracked in their own scopes so a feature appearing once in a file AND once in
+its manifest is not a false duplicate.
+
+| id-class | scope | matrix case | parity |
+|---|---|---|---|
+| rule-id | global | duplicate-rule-id | **both** |
+| wagon-slug | global | dup-wagon-slug | **both** |
+| produce-artifact | per wagon | dup-produce-artifact | **both** |
+| contract-urn | global | dup-contract-urn | **both** |
+| feature-urn | per wagon (decl + file) | dup-feature-urn | **both** |
+| train-id | global (index + detail) | dup-train-id | convention-only (**legacy validator is vacuous** — see above) |
+| wmbt-id | per wagon (decl + file) | — | not matrix-testable: manifest `wmbt` is a YAML **dict**, so duplicate keys are structurally impossible; legacy is structurally safe and the sentinel adds file-level coverage as a superset |
+| telemetry-urn | global | — | **dormant**: 0 telemetry URNs in the repo; both legacy and sentinel cover the class but there is no data to inject |
+
+**Decommission readiness (uniqueness):** the convention sentinel covers every class the
+legacy uniqueness validators do, at proven parity for the 5 classes with data + an
+injectable duplicate, plus real coverage for train-id (where legacy is vacuous) and
+file-level wmbt-id. The legacy `test_plan_uniqueness.py` family is a decommission
+candidate once the operator signs off on file-vs-declaration representation as authoritative.
 
 ## Roundtrip sentinel — bug fix + scoping (during #1212 expansion)
 

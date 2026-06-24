@@ -8,9 +8,9 @@ injected fault), and is excluded from the parity count.
 
 ## Tally
 
-- cases: **10**
-- parity (both): **8**
-- convention-only (improvement or FP — adjudicate #1211): **2**
+- cases: **15**
+- parity (both): **12**
+- convention-only (improvement or FP — adjudicate #1211): **3**
 - legacy-only (coverage gap): **0**
 - neither (shared blind spot): **0**
 - inconclusive (legacy red on clean): **0**
@@ -29,6 +29,11 @@ injected fault), and is excluded from the parity count.
 | rule-validator-missing-impl | binding/declaration_to_implementation_binding | 0 | yes | yes | yes | **both** |
 | malformed-convention-source | composition/composed_graph_loads | 0 | yes | no | yes | **convention-only** |
 | rule-validator-roundtrip-broken | binding/rule_validator_roundtrip | 0 | yes | yes | yes | **both** |
+| dup-wagon-slug | uniqueness/scoped_identifier_uniqueness | 0 | yes | yes | yes | **both** |
+| dup-produce-artifact | uniqueness/scoped_identifier_uniqueness | 0 | yes | yes | yes | **both** |
+| dup-contract-urn | uniqueness/scoped_identifier_uniqueness | 0 | yes | yes | yes | **both** |
+| dup-feature-urn | uniqueness/scoped_identifier_uniqueness | 0 | yes | yes | yes | **both** |
+| dup-train-id | uniqueness/scoped_identifier_uniqueness | 0 | yes | no | yes | **convention-only** |
 | feature-doc-reference-dangling | resolution/artifact_reference_resolution | 0 | yes | no | yes | **convention-only** |
 
 > Corpus covers all 10 P0 sentinels. `both` = parity with the legacy

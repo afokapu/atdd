@@ -48,10 +48,14 @@ class ConventionGraph:
     _by_id: Dict[str, Node] = field(default_factory=dict)
     _emits: Dict[str, Set[str]] = field(default_factory=dict)   # rule_id -> {validator file relpaths}
     _validator_stems: Set[str] = field(default_factory=set)     # {test_x, ...} present under validators/
+    _index_train_ids: List = field(default_factory=list)        # (train_id, location) from plan/_trains.yaml index
     root: Optional[Path] = None
 
     def validator_stems(self) -> Set[str]:
         return set(self._validator_stems)
+
+    def index_train_ids(self) -> List:
+        return list(self._index_train_ids)
 
     # --- normalized interface (what selectors/traversals query) ---
     def nodes(self) -> List[Node]:
@@ -152,6 +156,25 @@ def load_composed_graph(repo_root) -> ConventionGraph:
                         refs=[p for p in (d.get("participants") or [])
                               if isinstance(p, str) and p.startswith("wagon:")],
                         fields=d))
+
+    # train ids as declared in the INDEX (plan/_trains.yaml) — the representation
+    # legacy uniqueness reads, kept separate from the detail-file train nodes.
+    idx = plan / "_trains.yaml"
+    if idx.is_file():
+        d = _safe_yaml(idx)
+
+        def _walk(o):
+            if isinstance(o, dict):
+                tid = o.get("train_id")
+                if isinstance(tid, str):
+                    g._index_train_ids.append((tid, "plan/_trains.yaml"))
+                for v in o.values():
+                    _walk(v)
+            elif isinstance(o, list):
+                for v in o:
+                    _walk(v)
+
+        _walk(d.get("trains"))
 
     # rules from convention sources
     for conv in sorted((root / "src" / "atdd").rglob("*.convention.yaml")):

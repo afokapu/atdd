@@ -78,18 +78,64 @@ def rule_validator_roundtrip(graph) -> EvalResult:
 
 
 def scoped_identifier_uniqueness(graph) -> EvalResult:
-    """Rule ids must be globally unique across all convention sources."""
+    """Identifiers must be unique within their scope, across the 7 id-classes legacy
+    `test_plan_uniqueness` enforces: rule-id (global), wagon-slug (global),
+    train-id (global), wmbt-id (per wagon), feature-urn (per wagon),
+    contract-urn (global), telemetry-urn (global), produce-artifact (per wagon).
+    Per-wagon scopes key on the wagon package so the same id in two wagons is fine."""
     from collections import defaultdict
-    rules = graph.rules()
-    r = EvalResult(selected_nodes=len(rules))
-    seen = defaultdict(list)
-    for n in rules:
+    buckets = defaultdict(list)            # (cls, scope_instance, identifier) -> [locations]
+    kinds = defaultdict(set)               # same key -> {node kinds}
+
+    def add(cls, ident, location, scope_instance=None, kind=None):
+        if not ident:
+            return
+        key = (cls, scope_instance, ident)
+        buckets[key].append(location)
+        kinds[key].add(kind or cls)
+
+    for n in graph.rules():
+        add("rule-id", n.id, n.location, kind="rule")
+    for w in graph.by_kind("wagon"):
+        add("wagon-slug", w.fields.get("wagon") or w.package, w.location, kind="wagon")
+        for p in (w.fields.get("produce") or []):
+            if not isinstance(p, dict):
+                continue
+            add("produce-artifact", p.get("name"), w.location, scope_instance=w.package, kind="produce")
+            add("contract-urn", p.get("contract"), w.location, kind="contract")
+            add("telemetry-urn", p.get("telemetry"), w.location, kind="telemetry")
+    for t in graph.by_kind("train"):
+        add("train-id", t.fields.get("train_id"), t.location, kind="train")
+    for tid, loc in graph.index_train_ids():          # legacy's representation (index)
+        add("train-id-index", tid, loc, kind="train")
+    for m in graph.by_kind("wmbt"):
+        add("wmbt-id", m.id, m.location, scope_instance=m.package, kind="wmbt")
+    for f in graph.by_kind("feature"):
+        add("feature-urn", f.id, f.location, scope_instance=f.package, kind="feature")
+    # declaration representations legacy reads, kept in their own scopes so a feature
+    # appearing once in a file AND once in its manifest is NOT a false duplicate.
+    for w in graph.by_kind("wagon"):
+        for fref in (w.fields.get("features") or []):
+            furn = fref.get("urn") if isinstance(fref, dict) else fref
+            add("feature-urn-decl", furn, w.location, scope_instance=w.package, kind="feature-decl")
+        wmbt_sec = w.fields.get("wmbt")
+        if isinstance(wmbt_sec, dict):
+            for wid in wmbt_sec:
+                if wid != "total":
+                    add("wmbt-id-decl", wid, w.location, scope_instance=w.package, kind="wmbt-decl")
+        elif isinstance(wmbt_sec, list):
+            for item in wmbt_sec:
+                wid = item.get("id") if isinstance(item, dict) else item
+                add("wmbt-id-decl", wid, w.location, scope_instance=w.package, kind="wmbt-decl")
+
+    r = EvalResult(selected_nodes=len(buckets))
+    for (cls, scope_instance, ident), locs in buckets.items():
         r.checked_edges += 1
-        seen[n.id].append(n.location)
-    for rid, locs in seen.items():
         if len(locs) > 1:
-            r.violations.append({"duplicate_id": rid, "scope": "convention-rules",
-                                 "locations": sorted(locs), "node_kinds": ["rule"] * len(locs)})
+            scope = cls if scope_instance is None else f"{cls}@{scope_instance}"
+            r.violations.append({"duplicate_id": ident, "scope": scope,
+                                 "locations": sorted(locs),
+                                 "node_kinds": sorted(kinds[(cls, scope_instance, ident)])})
     return r
 
 

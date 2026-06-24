@@ -164,6 +164,33 @@ CASES: List[Case] = [
                    '  - id: "coach.catchmatrix.roundtrip-probe"\n    severity: 3\n'
                    '    disposition: strict\n'
                    '    validator: "test_theme_must_be_canonical::test_every_wagon_theme_is_canonical"\n')),
+    # --- uniqueness across all 7 legacy id-classes (generalized sentinel) ---
+    Case("dup-wagon-slug", "uniqueness/scoped_identifier_uniqueness",
+         S.scoped_identifier_uniqueness,
+         "src/atdd/planner/validators/test_plan_uniqueness.py::test_wagon_slugs_are_unique",
+         patch=("plan/validate_conventions/_validate_conventions.yaml",
+                "wagon: validate-conventions", "wagon: define-plans")),
+    Case("dup-produce-artifact", "uniqueness/scoped_identifier_uniqueness",
+         S.scoped_identifier_uniqueness,
+         "src/atdd/planner/validators/test_plan_uniqueness.py::test_produce_artifact_names_unique_per_wagon",
+         patch=("plan/author_atdd_substrate/_author_atdd_substrate.yaml",
+                "name: commons:author:author-spine", "name: commons:author:substrate-schemas")),
+    Case("dup-contract-urn", "uniqueness/scoped_identifier_uniqueness",
+         S.scoped_identifier_uniqueness,
+         "src/atdd/planner/validators/test_plan_uniqueness.py::test_contract_urns_unique_globally",
+         patch=("plan/govern_lifecycle/_govern_lifecycle.yaml",
+                "contract:commons:compliance:inventory", "contract:commons:compliance:gate")),
+    Case("dup-feature-urn", "uniqueness/scoped_identifier_uniqueness",
+         S.scoped_identifier_uniqueness,
+         "src/atdd/planner/validators/test_plan_uniqueness.py::test_feature_urns_unique_per_wagon",
+         patch=("plan/validate_conventions/_validate_conventions.yaml",
+                "feature:validate-conventions:p1-parity-variants",
+                "feature:validate-conventions:family-template-catalogue")),
+    Case("dup-train-id", "uniqueness/scoped_identifier_uniqueness",
+         S.scoped_identifier_uniqueness,
+         "src/atdd/planner/validators/test_plan_uniqueness.py::test_train_ids_are_unique",
+         patch=("plan/_trains.yaml",
+                "train_id: 0005-bind-substrate", "train_id: 0001-self-compliance-validate")),
     # Feature 'references' doc that does not resolve on disk. NO legacy counterpart
     # validates feature.references docs -> structurally convention-only (NEW coverage,
     # adjudicated as improvement after verifying the path truly does not resolve).
