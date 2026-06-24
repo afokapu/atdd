@@ -2993,3 +2993,11 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+- id: '1216'
+  slug: coder-convention-decomposition
+  file: null
+  issue_number: 1216
+  type: planning
+  status: INIT
+  created: '2026-06-25'
+  archived: null
