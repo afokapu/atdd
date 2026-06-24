@@ -14,9 +14,11 @@ Measured per the verification levels:
 | pair / sentinel | level | selector cardinality (real graph) | evidence |
 |---|---|---|---|
 | `grammar/theme_must_be_canonical` | **L3** | 27 wagons | injected non-canonical theme caught by BOTH legacy pytest AND convention sentinel; clean repo = 0 |
+| `uniqueness/scoped_identifier_uniqueness` | **L3** | 152 rules | injected duplicate rule-id caught by BOTH legacy `test_rule_id_uniqueness` AND convention sentinel; clean = 0 |
 | `resolution/direct_reference_resolution` | **L2** | 170 nodes / 536 edges | injected dangling ref caught; clean repo = 0 |
+| `resolution/reference_chain_resolution` | **L2** | 27 wagons / 505 hops | injected broken wagon→feature→wmbt hop caught; clean = 0 |
 | `binding/rule_validator_roundtrip` | **L2+** | 95 rules | finds 2 real roundtrip gaps on live data (same class as legacy literal-bind scanner) |
-| remaining 29 P0 pairs | **L1 only** | — | fixture/contract scaffold; not yet ported to real-graph checks |
+| remaining P0 pairs (declaration-binding, composed-graph-loads, identifier-grammar, artifact-resolution, node-schema) | **L1 only** | — | fixture/contract scaffold; not yet ported to real-graph checks |
 | all P1 pairs | **L1 only** | — | scaffold |
 
 ## What this proves

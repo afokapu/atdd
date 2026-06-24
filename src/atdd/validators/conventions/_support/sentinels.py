@@ -70,8 +70,48 @@ def rule_validator_roundtrip(graph) -> EvalResult:
     return r
 
 
+def scoped_identifier_uniqueness(graph) -> EvalResult:
+    """Rule ids must be globally unique across all convention sources."""
+    from collections import defaultdict
+    rules = graph.rules()
+    r = EvalResult(selected_nodes=len(rules))
+    seen = defaultdict(list)
+    for n in rules:
+        r.checked_edges += 1
+        seen[n.id].append(n.location)
+    for rid, locs in seen.items():
+        if len(locs) > 1:
+            r.violations.append({"duplicate_id": rid, "scope": "convention-rules",
+                                 "locations": sorted(locs), "node_kinds": ["rule"] * len(locs)})
+    return r
+
+
+def reference_chain_resolution(graph) -> EvalResult:
+    """Multi-hop wagon -> feature -> wmbt chains must resolve at every hop."""
+    ids = graph.ids()
+    wagons = [w for w in graph.by_kind("wagon") if w.refs]
+    r = EvalResult(selected_nodes=len(wagons))
+    for w in wagons:
+        for fref in w.refs:
+            r.checked_edges += 1
+            feat = graph.by_id(fref)
+            if feat is None:
+                r.violations.append({"start_node": w.id, "chain_path": [w.id, fref],
+                                     "failed_hop": fref, "missing_ref": fref})
+                continue
+            for wref in graph.refs_from(feat):
+                r.checked_edges += 1
+                if wref not in ids:
+                    r.violations.append({"start_node": w.id,
+                                         "chain_path": [w.id, fref, wref],
+                                         "failed_hop": wref, "missing_ref": wref})
+    return r
+
+
 SENTINELS = {
     "grammar/theme_must_be_canonical": theme_must_be_canonical,
     "resolution/direct_reference_resolution": direct_reference_resolution,
     "binding/rule_validator_roundtrip": rule_validator_roundtrip,
+    "uniqueness/scoped_identifier_uniqueness": scoped_identifier_uniqueness,
+    "resolution/reference_chain_resolution": reference_chain_resolution,
 }

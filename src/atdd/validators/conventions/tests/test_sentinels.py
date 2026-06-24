@@ -101,6 +101,62 @@ def test_binding_selects_real_rules(repo_root: Path) -> None:
     assert r.selected_nodes >= 50, f"expected many rules with validators, got {r.selected_nodes}"
 
 
+@contextlib.contextmanager
+def _temp_convention(repo_root: Path, rel: str, content: str):
+    p = repo_root / rel
+    p.write_text(content, encoding="utf-8")
+    try:
+        yield
+    finally:
+        p.unlink(missing_ok=True)
+
+
+# ---- uniqueness sentinel (rule-id uniqueness) ----
+def test_uniqueness_selects_real_rules_and_clean(repo_root: Path) -> None:
+    r = S.scoped_identifier_uniqueness(load_composed_graph(repo_root))
+    assert r.selected_nodes > 0 and r.selected_nodes >= 50, \
+        f"vacuous/low rule selection: {r.selected_nodes}"
+    assert r.violations == [], f"repo unexpectedly has duplicate rule ids: {r.violations[:2]}"
+
+
+def test_uniqueness_blackbox_parity_vs_legacy(repo_root: Path) -> None:
+    """Inject a duplicate rule id; BOTH legacy uniqueness validator and the
+    convention sentinel must catch it."""
+    dup = ('version: "1.0"\nname: "tmp parity dup"\nrules:\n'
+           '  - id: "planner.theme.must-be-canonical"\n    severity: 3\n'
+           '    validator: "x::y"\n')
+    rel = "src/atdd/coach/conventions/_tmp_parity_dup.convention.yaml"
+    legacy = "src/atdd/coach/validators/test_rule_id_uniqueness.py"
+    with _temp_convention(repo_root, rel, dup):
+        legacy_rc = subprocess.run(
+            [sys.executable, "-m", "pytest", legacy, "-q", "-p", "no:cacheprovider"],
+            cwd=repo_root, env={"PYTHONPATH": "src", "PATH": __import__("os").environ["PATH"]},
+            capture_output=True, text=True,
+        ).returncode
+        conv = S.scoped_identifier_uniqueness(load_composed_graph(repo_root))
+    legacy_caught = legacy_rc != 0
+    conv_caught = any(v["duplicate_id"] == "planner.theme.must-be-canonical"
+                      for v in conv.violations)
+    assert legacy_caught and conv_caught, (
+        f"parity break: legacy_caught={legacy_caught} convention_caught={conv_caught}")
+
+
+# ---- reference-chain sentinel (multi-hop traversal) ----
+def test_chain_selects_and_traverses_clean(repo_root: Path) -> None:
+    r = S.reference_chain_resolution(load_composed_graph(repo_root))
+    assert r.selected_nodes > 0 and r.checked_edges > 0, "vacuous: no chains walked"
+    assert r.violations == [], f"repo unexpectedly has broken ref chains: {r.violations[:2]}"
+
+
+def test_chain_catches_broken_hop(repo_root: Path) -> None:
+    with _patched(repo_root, WAGON,
+                  "- urn: feature:validate-conventions:family-template-catalogue",
+                  "- urn: feature:validate-conventions:family-template-catalogue\n- urn: feature:validate-conventions:GHOST-CHAIN"):
+        r = S.reference_chain_resolution(load_composed_graph(repo_root))
+        assert any(v["failed_hop"] == "feature:validate-conventions:GHOST-CHAIN"
+                   for v in r.violations), "chain sentinel missed a broken hop"
+
+
 def test_binding_detects_real_roundtrip_gaps(repo_root: Path) -> None:
     """Proves the sentinel detects on REAL data: it finds rules whose declared
     validator does not bind_rule(rule.id) (same class the legacy literal-bind
