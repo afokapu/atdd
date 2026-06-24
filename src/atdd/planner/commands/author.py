@@ -10,6 +10,7 @@ in follow-up slices.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import re
@@ -139,8 +140,15 @@ def create_convention_node(
     kind: str = "rule",
     status: str = "active",
     statement: str = "",
+    name: str | None = None,
     rationale: str | None = None,
     notes: str | None = None,
+    implementation: dict | None = None,
+    source: dict | None = None,
+    content: dict | None = None,
+    bidirectional: list | None = None,
+    metadata: dict | None = None,
+    parity: dict | None = None,
     terms: list | None = None,
     root: Path | str | None = None,
     path: Path | str | None = None,
@@ -163,19 +171,36 @@ def create_convention_node(
         home_root = str(root)
     validate_author_input(role, rule_id, path, home_root=home_root)
 
-    # spec §5.1 field order: ...statement, rationale, terms, notes.
+    # Emit in convention-node.schema property order; `terms` is required (always last).
+    # Rich fields (implementation/source/content/bidirectional/metadata/parity) are the
+    # full current model — emitted when provided so authored nodes are not "behind" the
+    # convention-graph engine (implementation.ref is the validator binding it reads).
     node: dict = {
         "schema_version": "1.0.0",
         "rule_id": rule_id,
         "kind": kind,
         "status": status,
-        "statement": statement,
     }
+    if name:
+        node["name"] = name
+    node["statement"] = statement
     if rationale:
         node["rationale"] = rationale
-    node["terms"] = terms or []
+    node["terms"] = terms or []          # spec §5.1: rationale -> terms -> notes
     if notes:
         node["notes"] = notes
+    if implementation:
+        node["implementation"] = implementation
+    if source:
+        node["source"] = source
+    if content:
+        node["content"] = content
+    if bidirectional:
+        node["bidirectional"] = bidirectional
+    if metadata:
+        node["metadata"] = metadata
+    if parity:
+        node["parity"] = parity
     validate_convention_node(node, path)
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -436,6 +461,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--term", action="append", default=[], dest="terms",
         help="a term as 'term_id=text' (repeatable)",
     )
+    cn.add_argument("--name", default=None, help="human-readable name")
+    cn.add_argument("--implementation", default=None,
+                    help="JSON object {type, ref} — the validator binding (ref = 'file::test')")
+    cn.add_argument("--content", default=None,
+                    help="JSON object: summary/normative_text/operational_guidance/examples/"
+                         "counter_examples/constraints/exceptions/fix_hint")
+    cn.add_argument("--bidirectional", default=None, help="JSON array of bidirectional refs")
+    cn.add_argument("--metadata", default=None,
+                    help="JSON object: aliases/severity/disposition/introduced_in/suppression_deadline")
+    cn.add_argument("--node-source", dest="node_source", default=None,
+                    help="JSON object: legacy_path/legacy_section/legacy_rule_id/legacy_sha/extraction_mode")
+    cn.add_argument("--parity", default=None,
+                    help="JSON object: *_preserved flags + reviewed_at (extraction parity)")
 
     rel = sub.add_parser("relationship", help="author a relationship edge")
     ctx_flags(rel)
@@ -641,9 +679,24 @@ def run(argv: list[str]) -> int:
             role = args.rule_id.split(".", 1)[0]  # extension: derive role from rule_id
         path = node_home(ctx, role, args.rule_id, root)
         try:
+            def _json_arg(field: str, raw):
+                if raw is None:
+                    return None
+                try:
+                    return json.loads(raw)
+                except (ValueError, TypeError) as exc:
+                    raise AuthorInputError(field, f"--{field} must be valid JSON: {exc}")
+
             create_convention_node(
                 role, args.rule_id, kind=args.kind, status=args.status,
-                statement=args.statement, rationale=args.rationale, notes=args.notes,
+                statement=args.statement, name=getattr(args, "name", None),
+                rationale=args.rationale, notes=args.notes,
+                implementation=_json_arg("implementation", getattr(args, "implementation", None)),
+                source=_json_arg("node-source", getattr(args, "node_source", None)),
+                content=_json_arg("content", getattr(args, "content", None)),
+                bidirectional=_json_arg("bidirectional", getattr(args, "bidirectional", None)),
+                metadata=_json_arg("metadata", getattr(args, "metadata", None)),
+                parity=_json_arg("parity", getattr(args, "parity", None)),
                 terms=_parse_terms(args.terms), path=path,
             )
         except AuthorInputError as exc:
