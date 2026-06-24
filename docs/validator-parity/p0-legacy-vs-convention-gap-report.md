@@ -18,7 +18,10 @@ Measured per the verification levels:
 | `resolution/direct_reference_resolution` | **L2** | 170 nodes / 536 edges | injected dangling ref caught; clean repo = 0 |
 | `resolution/reference_chain_resolution` | **L2** | 27 wagons / 505 hops | injected broken wagon→feature→wmbt hop caught; clean = 0 |
 | `binding/rule_validator_roundtrip` | **L2+** | 95 rules | finds 2 real roundtrip gaps on live data (same class as legacy literal-bind scanner) |
-| remaining P0 pairs (declaration-binding, composed-graph-loads, identifier-grammar, artifact-resolution, node-schema) | **L1 only** | — | fixture/contract scaffold; not yet ported to real-graph checks |
+| `binding/declaration_to_implementation_binding` | **L2** | 95 rules | injected rule→missing validator file caught; clean = 0 |
+| `grammar/identifier_grammar_conformance` | **L2** | 393 wmbts | injected malformed wmbt urn caught; clean = 0 |
+| `composition/composed_graph_loads` | **L2** | 715 nodes | injected unparseable convention source caught; clean = 0 |
+| remaining P0 pairs (artifact-resolution, node-schema) | **L1 only** | — | fixture/contract scaffold; not yet ported to real-graph checks |
 | all P1 pairs | **L1 only** | — | scaffold |
 
 ## What this proves

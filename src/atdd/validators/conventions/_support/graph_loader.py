@@ -42,6 +42,11 @@ class ConventionGraph:
     _nodes: List[Node] = field(default_factory=list)
     _by_id: Dict[str, Node] = field(default_factory=dict)
     _emits: Dict[str, Set[str]] = field(default_factory=dict)   # rule_id -> {validator file relpaths}
+    _validator_stems: Set[str] = field(default_factory=set)     # {test_x, ...} present under validators/
+    root: Optional[Path] = None
+
+    def validator_stems(self) -> Set[str]:
+        return set(self._validator_stems)
 
     # --- normalized interface (what selectors/traversals query) ---
     def nodes(self) -> List[Node]:
@@ -78,9 +83,27 @@ def _safe_yaml(path: Path) -> dict:
         return {}
 
 
+def scan_parse_errors(repo_root) -> List[dict]:
+    """Re-walk convention sources; report any that fail to parse (composition)."""
+    root = Path(repo_root)
+    errs: List[dict] = []
+    sources = []
+    plan = root / "plan"
+    if plan.is_dir():
+        sources += list(plan.rglob("*.yaml"))
+    sources += list((root / "src" / "atdd").rglob("*.convention.yaml"))
+    for p in sources:
+        try:
+            yaml.safe_load(p.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            errs.append({"source_file": str(p.relative_to(root)),
+                         "parse_error": str(exc).splitlines()[0][:120]})
+    return errs
+
+
 def load_composed_graph(repo_root) -> ConventionGraph:
     root = Path(repo_root)
-    g = ConventionGraph()
+    g = ConventionGraph(root=root)
     plan = root / "plan"
 
     # wagons / features / wmbts
@@ -144,6 +167,7 @@ def load_composed_graph(repo_root) -> ConventionGraph:
             txt = py.read_text(encoding="utf-8")
         except OSError:
             continue
+        g._validator_stems.add(py.stem)
         for rid in _BIND_RULE_RE.findall(txt):
             g._emits.setdefault(rid, set()).add(str(py.relative_to(root)))
 

@@ -108,8 +108,51 @@ def reference_chain_resolution(graph) -> EvalResult:
     return r
 
 
+def declaration_to_implementation_binding(graph) -> EvalResult:
+    """Every rule declaring a validator must point to a validator file that exists."""
+    stems = graph.validator_stems()
+    selected = [n for n in graph.rules() if n.validator]
+    r = EvalResult(selected_nodes=len(selected))
+    for rule in selected:
+        r.checked_edges += 1
+        stem = PurePosixPath(rule.validator.split("::", 1)[0]).name.removesuffix(".py")
+        if stem not in stems:
+            r.violations.append({"declaration_node": rule.id, "implementation_ref": rule.validator,
+                                 "missing_or_incompatible_implementation": stem,
+                                 "declaration_location": rule.location})
+    return r
+
+
+_WMBT_URN_RE = __import__("re").compile(r"^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$")
+
+
+def identifier_grammar_conformance(graph) -> EvalResult:
+    """Every WMBT urn must follow canonical grammar wmbt:<wagon>:<STEP><NNN>."""
+    selected = graph.by_kind("wmbt")
+    r = EvalResult(selected_nodes=len(selected))
+    for n in selected:
+        r.checked_edges += 1
+        if not _WMBT_URN_RE.match(str(n.id)):
+            r.violations.append({"node_id": n.id, "field": "urn", "value": n.id,
+                                 "grammar_name": "wmbt-urn", "parse_error": "does not match grammar"})
+    return r
+
+
+def composed_graph_loads(graph) -> EvalResult:
+    """All convention sources must parse into the composed graph (no load errors)."""
+    from .graph_loader import scan_parse_errors
+    errs = scan_parse_errors(graph.root)
+    r = EvalResult(selected_nodes=len(graph.nodes()))
+    for e in errs:
+        r.violations.append({"source_file": e["source_file"], "parse_error": e["parse_error"]})
+    return r
+
+
 SENTINELS = {
     "grammar/theme_must_be_canonical": theme_must_be_canonical,
+    "binding/declaration_to_implementation_binding": declaration_to_implementation_binding,
+    "grammar/identifier_grammar_conformance": identifier_grammar_conformance,
+    "composition/composed_graph_loads": composed_graph_loads,
     "resolution/direct_reference_resolution": direct_reference_resolution,
     "binding/rule_validator_roundtrip": rule_validator_roundtrip,
     "uniqueness/scoped_identifier_uniqueness": scoped_identifier_uniqueness,

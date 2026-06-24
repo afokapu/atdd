@@ -157,6 +157,53 @@ def test_chain_catches_broken_hop(repo_root: Path) -> None:
                    for v in r.violations), "chain sentinel missed a broken hop"
 
 
+# ---- declaration -> implementation binding (validator file exists) ----
+def test_decl_binding_selects_and_clean(repo_root: Path) -> None:
+    r = S.declaration_to_implementation_binding(load_composed_graph(repo_root))
+    assert r.selected_nodes >= 50, f"vacuous/low rule selection: {r.selected_nodes}"
+    assert r.violations == [], f"repo rule(s) point at missing validator files: {r.violations[:2]}"
+
+
+def test_decl_binding_catches_missing_impl(repo_root: Path) -> None:
+    conv = ('version: "1.0"\nname: "tmp missing impl"\nrules:\n'
+            '  - id: "tmp.parity.missing-impl"\n    severity: 3\n'
+            '    validator: "test_does_not_exist_zzz::test_x"\n')
+    with _temp_convention(repo_root, "src/atdd/coach/conventions/_tmp_missing_impl.convention.yaml", conv):
+        r = S.declaration_to_implementation_binding(load_composed_graph(repo_root))
+        assert any(v["declaration_node"] == "tmp.parity.missing-impl" for v in r.violations), \
+            "decl->impl sentinel missed a rule pointing at a nonexistent validator"
+
+
+# ---- identifier grammar (wmbt urn) ----
+def test_grammar_selects_and_clean(repo_root: Path) -> None:
+    r = S.identifier_grammar_conformance(load_composed_graph(repo_root))
+    assert r.selected_nodes >= 100, f"vacuous/low wmbt selection: {r.selected_nodes}"
+    assert r.violations == [], f"repo wmbt urn(s) violate grammar: {r.violations[:2]}"
+
+
+def test_grammar_catches_bad_urn(repo_root: Path) -> None:
+    bad = "urn: wmbt:validate-conventions:zzz\nstep: execute\n"
+    with _temp_convention(repo_root, "plan/validate_conventions/ZZTMP.yaml", bad):
+        r = S.identifier_grammar_conformance(load_composed_graph(repo_root))
+        assert any(v["value"] == "wmbt:validate-conventions:zzz" for v in r.violations), \
+            "grammar sentinel missed a malformed wmbt urn"
+
+
+# ---- composition (all sources parse) ----
+def test_composition_selects_and_clean(repo_root: Path) -> None:
+    r = S.composed_graph_loads(load_composed_graph(repo_root))
+    assert r.selected_nodes > 100, f"vacuous: composed graph has {r.selected_nodes} nodes"
+    assert r.violations == [], f"repo has unparseable convention sources: {r.violations[:2]}"
+
+
+def test_composition_catches_parse_error(repo_root: Path) -> None:
+    with _temp_convention(repo_root, "src/atdd/coach/conventions/_tmp_bad.convention.yaml",
+                          "name: [unterminated\n"):
+        r = S.composed_graph_loads(load_composed_graph(repo_root))
+        assert any("_tmp_bad" in v["source_file"] for v in r.violations), \
+            "composition sentinel missed an unparseable source"
+
+
 def test_binding_detects_real_roundtrip_gaps(repo_root: Path) -> None:
     """Proves the sentinel detects on REAL data: it finds rules whose declared
     validator does not bind_rule(rule.id) (same class the legacy literal-bind
