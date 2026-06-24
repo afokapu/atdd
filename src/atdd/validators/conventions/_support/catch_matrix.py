@@ -44,11 +44,18 @@ class Cell:
     name: str
     family_template: str
     clean_convention_flags: int
-    legacy_caught: bool
+    legacy_clean_red: bool        # legacy target already failing on the CLEAN tree
+    legacy_caught: bool           # legacy target failing on the FAULTED tree
     convention_caught: bool
     verdict: str = field(init=False)
 
     def __post_init__(self):
+        # A legacy target that is already red on the clean repo cannot be credited
+        # with "catching" the injected fault — its red is pre-existing, so the
+        # differential is inconclusive and may NOT be counted toward parity.
+        if self.legacy_clean_red:
+            self.verdict = "inconclusive (legacy red on clean)"
+            return
         self.verdict = {
             (True, True): "both",
             (True, False): "legacy-only",
@@ -104,6 +111,44 @@ CASES: List[Case] = [
                    'version: "1.0"\nname: "catch-matrix dup"\nrules:\n'
                    '  - id: "planner.theme.must-be-canonical"\n    severity: 3\n'
                    '    validator: "x::y"\n')),
+    # WMBT urn with an out-of-grammar step code (Z) vs the legacy urn<->step check.
+    Case("wmbt-urn-bad-step", "grammar/identifier_grammar_conformance",
+         S.identifier_grammar_conformance,
+         "src/atdd/planner/validators/test_wmbt_vocabulary.py::test_wmbt_urn_step_code_matches_step_field",
+         patch=("plan/validate_conventions/E001.yaml",
+                "urn: wmbt:validate-conventions:E001", "urn: wmbt:validate-conventions:Z001")),
+    # Wagon manifest with an unexpected top-level key vs wagon.schema additionalProperties:false.
+    Case("wagon-schema-extra-prop", "schema/node_schema_conformance",
+         S.node_schema_conformance,
+         "src/atdd/planner/validators/test_plan_wagons.py::test_wagon_manifest_matches_schema",
+         patch=("plan/validate_conventions/_validate_conventions.yaml",
+                "features:", "catchmatrix_unexpected_prop: true\nfeatures:")),
+    # Train participant pointing at a non-existent wagon vs legacy cross-ref resolution.
+    Case("train-dangling-wagon-ref", "resolution/direct_reference_resolution",
+         S.direct_reference_resolution,
+         "src/atdd/planner/validators/test_plan_cross_refs.py::test_trains_reference_valid_wagons",
+         patch=("plan/_trains/0001-self-compliance-validate.yaml",
+                '"wagon:validate-conventions"', '"wagon:does-not-exist-xyz"')),
+    # Dangling feature ref in a wagon manifest vs the legacy full URN-chain check.
+    Case("feature-ref-dangling", "resolution/reference_chain_resolution",
+         S.reference_chain_resolution,
+         "src/atdd/planner/validators/test_wagon_urn_chain.py::test_all_wagons_have_complete_chains",
+         patch=("plan/validate_conventions/_validate_conventions.yaml",
+                "feature:validate-conventions:family-template-catalogue",
+                "feature:validate-conventions:does-not-exist-xyz")),
+    # Rule declaring a validator with no real implementation file vs legacy binding check.
+    Case("rule-validator-missing-impl", "binding/declaration_to_implementation_binding",
+         S.declaration_to_implementation_binding,
+         "src/atdd/coach/validators/test_rule_validator_binding.py::test_every_enforced_rule_has_real_validator",
+         # disposition: strict places the rule inside legacy's *enforced* scope
+         # (the true counterpart). Without a disposition legacy treats it as
+         # "unmigrated / out of scope" — that scope divergence is recorded in the
+         # adjudication ledger rather than claimed as a stricter-coverage win.
+         tempfile=("src/atdd/coach/conventions/_tmp_catchmatrix_binding.convention.yaml",
+                   'version: "1.0"\nname: "catch-matrix binding"\nrules:\n'
+                   '  - id: "coach.catchmatrix.binding-probe"\n    severity: 3\n'
+                   '    disposition: strict\n'
+                   '    validator: "test_nonexistent_catchmatrix_validator_file::test_x"\n')),
 ]
 
 
@@ -112,10 +157,12 @@ def run_matrix(repo_root) -> List[Cell]:
     cells: List[Cell] = []
     for case in CASES:
         clean = len(case.sentinel(load_composed_graph(root)).violations)
+        legacy_clean_red = _legacy_caught(root, case.legacy_target)   # legacy on CLEAN tree
         with _inject(root, case):
             legacy = _legacy_caught(root, case.legacy_target)
             conv = _conv_caught(root, case.sentinel)
-        cells.append(Cell(case.name, case.family_template, clean, legacy, conv))
+        cells.append(Cell(case.name, case.family_template, clean,
+                          legacy_clean_red, legacy, conv))
     return cells
 
 
@@ -123,20 +170,26 @@ def render(cells: List[Cell]) -> str:
     from collections import Counter
     tally = Counter(c.verdict for c in cells)
     fp = sum(1 for c in cells if c.clean_convention_flags)
+    inconclusive = sum(1 for c in cells if c.legacy_clean_red)
     out = ["# Legacy-vs-Convention Catch Matrix (#1212)\n",
            "Differential measurement: each fault run through BOTH suites on identical input.\n",
+           "Each legacy target is also run on the CLEAN tree; a target already red on clean\n"
+           "is marked **inconclusive** (its red is pre-existing and cannot be credited to the\n"
+           "injected fault), and is excluded from the parity count.\n",
            "## Tally\n",
            f"- cases: **{len(cells)}**",
            f"- parity (both): **{tally['both']}**",
            f"- convention-only (improvement or FP — adjudicate #1211): **{tally['convention-only']}**",
            f"- legacy-only (coverage gap): **{tally['legacy-only']}**",
            f"- neither (shared blind spot): **{tally['neither']}**",
+           f"- inconclusive (legacy red on clean): **{inconclusive}**",
            f"- clean-repo false positives (convention flags on clean): **{fp}**\n",
            "## Cells\n",
-           "| case | family/template | clean-FP | legacy catches | convention catches | cell |",
-           "|---|---|---|---|---|---|"]
+           "| case | family/template | clean-FP | legacy green on clean | legacy catches fault | convention catches | cell |",
+           "|---|---|---|---|---|---|---|"]
     for c in cells:
         out.append(f"| {c.name} | {c.family_template} | {c.clean_convention_flags} | "
+                   f"{'no' if c.legacy_clean_red else 'yes'} | "
                    f"{'yes' if c.legacy_caught else 'no'} | "
                    f"{'yes' if c.convention_caught else 'no'} | **{c.verdict}** |")
     out += ["\n> Corpus is seeded for cases with a legacy counterpart + injectable fault.",
