@@ -1,9 +1,14 @@
-"""Canonical valid/invalid graph fragments for the `schema` family (#1204).
-
-Fixtures are seeded as scaffolding; concrete fragments are filled in as
-variants are implemented (#1206).
-"""
+"""Canonical valid/invalid graph fragments for the `schema` family (#1206)."""
 from __future__ import annotations
 
-VALID_FRAGMENTS: dict = {}
-INVALID_FRAGMENTS: dict = {}
+_S = {"id": "s1", "required": ["name"]}
+VALID_FRAGMENTS: dict = {
+    "node_schema_conformance": {
+        "schema_ok": {"nodes": [{"id": "n", "schema": _S, "fields": {"name": "x"}}]},
+    },
+}
+INVALID_FRAGMENTS: dict = {
+    "node_schema_conformance": {
+        "schema_missing_field": {"nodes": [{"id": "n", "schema": _S, "fields": {}}]},
+    },
+}

@@ -32,6 +32,23 @@ class TemplateContract:
     auto_capture: str
     failure_evidence: List[str]
 
+    def evaluate(self, graph) -> List[dict]:
+        """Execute this template's graph question against ``graph`` (a composed
+        graph or a fixture fragment) and return failure-evidence records.
+
+        Selector -> traversal -> invariant -> evidence is implemented per
+        template_id in ``_support.evaluators``. Each evidence dict's keys are a
+        subset of ``failure_evidence`` (the template contract).
+        """
+        from .evaluators import EVALUATORS
+
+        fn = EVALUATORS.get(self.template_id)
+        if fn is None:
+            raise NotImplementedError(
+                f"no evaluator implemented for template {self.template_id!r}"
+            )
+        return fn(graph)
+
 
 def field_names() -> List[str]:
     return [f.name for f in fields(TemplateContract)]

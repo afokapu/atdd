@@ -35,9 +35,10 @@ def _templates(family: str) -> dict:
     return {t.template_id: t for t in mod.TEMPLATES}
 
 
-def _fixtures(family: str):
+def _fixtures(family: str, template: str):
     mod = importlib.import_module(f"atdd.validators.conventions.{family}.fixtures")
-    return getattr(mod, "VALID_FRAGMENTS", {}), getattr(mod, "INVALID_FRAGMENTS", {})
+    return (getattr(mod, "VALID_FRAGMENTS", {}).get(template, {}),
+            getattr(mod, "INVALID_FRAGMENTS", {}).get(template, {}))
 
 
 def _p0_pairs(repo_root: Path) -> list:
@@ -57,7 +58,7 @@ def test_known_good_fixture_passes(repo_root: Path) -> None:
     checked = 0
     for e in _p0_pairs(repo_root):
         fam, tmpl = e["proposed_family"], e["proposed_template"]
-        valid, _ = _fixtures(fam)
+        valid, _ = _fixtures(fam, tmpl)
         tc = _templates(fam)[tmpl]
         for name, fragment in valid.items():
             violations = tc.evaluate(fragment)  # engine API
@@ -70,7 +71,7 @@ def test_known_bad_fixture_fails(repo_root: Path) -> None:
     checked = 0
     for e in _p0_pairs(repo_root):
         fam, tmpl = e["proposed_family"], e["proposed_template"]
-        _, invalid = _fixtures(fam)
+        _, invalid = _fixtures(fam, tmpl)
         tc = _templates(fam)[tmpl]
         for name, fragment in invalid.items():
             violations = tc.evaluate(fragment)
@@ -82,7 +83,7 @@ def test_known_bad_fixture_fails(repo_root: Path) -> None:
 def test_variant_emits_template_shaped_evidence(repo_root: Path) -> None:
     for e in _p0_pairs(repo_root):
         fam, tmpl = e["proposed_family"], e["proposed_template"]
-        _, invalid = _fixtures(fam)
+        _, invalid = _fixtures(fam, tmpl)
         tc = _templates(fam)[tmpl]
         allowed = set(tc.failure_evidence)
         for name, fragment in invalid.items():
@@ -98,7 +99,7 @@ def test_p0_target_catches_legacy_failure_class(repo_root: Path) -> None:
     gaps = []
     for e in _p0_pairs(repo_root):
         fam, tmpl = e["proposed_family"], e["proposed_template"]
-        _, invalid = _fixtures(fam)
+        _, invalid = _fixtures(fam, tmpl)
         tc = _templates(fam)[tmpl]
         if not invalid or not any(tc.evaluate(f) for f in invalid.values()):
             gaps.append(f"{e['legacy_path']} -> {e['proposed_target_path']}")

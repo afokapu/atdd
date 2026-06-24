@@ -16,25 +16,38 @@
   `LEGACY_PARITY_SOURCES`. (See `legacy-validator-map.yaml`.)
 - Target variants and legacy validators **run in parallel** without collision.
 
-## What is NOT true yet (behavioral)
+## Progress (P0 template engine — landed under #1206)
 
-- Target variants do **not** execute `selector -> traversal -> invariant ->
-  failure evidence` against the composed convention graph. The `_support` engine
-  (`convention_loader`, `graph_loader`, `node_index`, `rule_index`, `package_index`,
-  `assertions`, `report_adapter`) is **not implemented**; `archetype.py` modules
-  only expose template IDs/metadata, they do not evaluate.
-- A live fault-injection proves the gap: a non-canonical wagon theme is **caught by
-  the legacy** `theme.must-be-canonical` validator but the convention `grammar`
-  variant is **blind** (passes) — the same failure class is NOT yet caught by the target.
+- `_support/graph_loader.py` composes plan sources into a real node graph;
+  `_support/evaluators.py` implements the **8 P0 template engines**;
+  `TemplateContract.evaluate()` makes archetypes **executable** (selector →
+  traversal → invariant → evidence).
+- Per-family good/bad fixtures exist for the 6 P0 families; the fixture-backed
+  shadow harness (`tests/test_shadow_parity.py`, driven by `legacy-validator-map.yaml`)
+  is **green** — each P0 template catches a representative bad case and emits
+  template-shaped evidence.
+
+## What is STILL NOT established (behavioral parity vs legacy)
+
+- The shadow harness proves parity at the **template/fixture level**, NOT per
+  legacy-validator scenario. Fixtures are representative per template — they are
+  **not** cloned from each legacy validator's actual logic, and no real
+  **legacy-vs-convention diff on identical inputs** has been run.
+- P1 + the remaining 14 of 22 templates have **no engine yet**.
+- The live fault-injection gap still stands: legacy `theme.must-be-canonical`
+  catches a non-canonical wagon theme; wiring each variant to run against the live
+  graph is not done.
 
 ## Decommission gate (ALL must hold before ANY legacy removal)
 
-- [ ] #1206 graph-traversal engine implemented (`_support/*` executable)
-- [ ] every family `archetype.py` executes selector → traversal → invariant → evidence
-- [ ] per-family fixtures: known-good passes, known-bad fails
-- [ ] target variant emits template-shaped failure evidence
-- [ ] fixture-backed **shadow harness** (driven by `legacy-validator-map.yaml`) shows,
-      per pair, that the target catches the **same failure class** as legacy
-- [ ] zero unverified P0 pairs in the shadow harness gap report
+- [x] #1206 graph-traversal engine implemented — **P0 only** (8 of 22 templates)
+- [x] family `archetype.py` executes selector → traversal → invariant → evidence — **P0 only**
+- [x] per-family fixtures: known-good passes, known-bad fails — **P0 families only**
+- [x] target variant emits template-shaped failure evidence — **P0 only**
+- [ ] shadow harness shows, **per pair, that the target catches the same failure
+      class as the actual legacy validator** (real diff, not representative fixture)
+- [ ] every P0 *legacy* validator's specific scenario verified (not just its template)
+- [ ] P1 + remaining template engines implemented
+- [ ] zero unverified P0 pairs in a legacy-vs-convention gap report
 
 Until every box is checked, **legacy is authoritative and nothing is decommissioned.**

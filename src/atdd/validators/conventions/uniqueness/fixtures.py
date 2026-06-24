@@ -1,9 +1,15 @@
-"""Canonical valid/invalid graph fragments for the `uniqueness` family (#1204).
-
-Fixtures are seeded as scaffolding; concrete fragments are filled in as
-variants are implemented (#1206).
-"""
+"""Canonical valid/invalid graph fragments for the `uniqueness` family (#1206)."""
 from __future__ import annotations
 
-VALID_FRAGMENTS: dict = {}
-INVALID_FRAGMENTS: dict = {}
+VALID_FRAGMENTS: dict = {
+    "scoped_identifier_uniqueness": {
+        "unique": {"nodes": [{"id": "x", "scope": "s", "kind": "wmbt"},
+                             {"id": "y", "scope": "s", "kind": "wmbt"}]},
+    },
+}
+INVALID_FRAGMENTS: dict = {
+    "scoped_identifier_uniqueness": {
+        "dup": {"nodes": [{"id": "x", "scope": "s", "kind": "wmbt", "location": "a"},
+                          {"id": "x", "scope": "s", "kind": "wmbt", "location": "b"}]},
+    },
+}
