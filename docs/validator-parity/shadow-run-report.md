@@ -38,6 +38,14 @@
   catches a non-canonical wagon theme; wiring each variant to run against the live
   graph is not done.
 
+## Measured gap (P0)
+
+See `p0-legacy-vs-convention-gap-report.md`: **0 of 32 P0 pairs are behaviorally
+verified vs legacy.** All 32 are GAP — the template engines detect nothing on the
+real composed graph (they pass only against hand-authored fixtures), and only 2/32
+legacy validators expose a callable API to diff against. Real parity requires
+per-rule convention checks wired to the real graph + a diff per pair.
+
 ## Decommission gate (ALL must hold before ANY legacy removal)
 
 - [x] #1206 graph-traversal engine implemented — **P0 only** (8 of 22 templates)
