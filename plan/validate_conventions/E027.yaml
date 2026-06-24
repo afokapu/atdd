@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E027
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: missing-fault-corpus
+context_clarifier: a seeded realistic fault exists for each legacy rule alongside
+  a clean baseline
+lens: functional.effectiveness
+statement: minimize likelihood of missing-fault-corpus by seeding a realistic fault
+  for each legacy rule alongside a clean baseline
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E027-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E027 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

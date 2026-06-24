@@ -1,0 +1,26 @@
+urn: wmbt:validate-conventions:E030
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: clean-repo-false-positive
+context_clarifier: neither suite flags the clean baseline
+lens: functional.effectiveness
+statement: minimize likelihood of clean-repo-false-positive by requiring neither suite
+  to flag the clean baseline
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E030-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E030 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

@@ -1,0 +1,30 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: graph-query / parity / matrix logic
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: result/record dataclasses
+      type: value_objects
+    integration:
+    - count: 0
+      rationale: reads composed graph + reports
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected gate
+      type: controllers
+description: 'The contract every convention validator must satisfy: query the real
+  composed graph via normalized indexes and select eligible nodes non-vacuously.'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 3
+urn: feature:validate-conventions:convention-graph-query-contract
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E019
+- wmbt:validate-conventions:E020
+- wmbt:validate-conventions:E021

@@ -2217,7 +2217,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 19
+    total: 32
     E001: minimize likelihood of registry-family-template-mismatch — registry.yaml
       declares exactly the 13 canonical families and 22 templates
     E002: minimize likelihood of registry-archetype-divergence — each family archetype.py
@@ -2261,6 +2261,32 @@ wagons:
     Y001: minimize likelihood of unsafe-legacy-deletion — no legacy validator is deleted
       unless its parity status is direct/merged/split/superseded and its target implementation
       exists
+    E019: minimize likelihood of unnormalized-graph-node — composed graph exposes
+      id/kind/refs/theme/package/location on real nodes
+    E020: minimize likelihood of vacuous-variant-selection — every variant selects
+      >0 real nodes or declares an allowed-empty selection
+    E021: minimize likelihood of untemplated-failure-evidence — variant evidence keys
+      are a subset of its template failure_evidence
+    E022: minimize likelihood of unpaired-sentinel — every ported P0 variant has a
+      fault-injection parity test vs its legacy validator
+    E023: minimize likelihood of unverified-parity-claim — no P0 pair is parity-verified
+      without a passing legacy-vs-convention diff
+    E024: minimize likelihood of unadjudicated-stricter-finding — each convention-only
+      finding is classified real-gap/schema-bug/loader-bug
+    E025: minimize likelihood of train-representation-mismatch — train nodes loaded
+      from detail files conform to the train schema
+    E026: minimize likelihood of incomplete-harness-enum — the acceptance harness
+      enum includes smoke so SMOKE accs are not false-flagged
+    E027: minimize likelihood of missing-fault-corpus — a seeded fault exists per
+      legacy rule plus a clean baseline
+    E028: minimize likelihood of single-suite-run — each fault is run through both
+      legacy and convention suites on identical input
+    E029: minimize likelihood of unclassified-catch-outcome — each fault yields a
+      catch-matrix cell (both/convention-only/legacy-only/neither)
+    E030: minimize likelihood of clean-repo-false-positive — neither suite flags the
+      clean baseline
+    E031: minimize likelihood of unmeasured-parity-delta — a gap report quantifies
+      parity/improvements/regressions/false-positives from the matrix
   total: 0
   manifest: plan/validate_conventions/_validate_conventions.yaml
   path: plan/validate_conventions/

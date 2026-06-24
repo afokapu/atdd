@@ -2864,6 +2864,30 @@ sessions:
   archived: null
   branch: feat/composed-no-orphan-extension-nodes
   train: 0003-author-substrate
+- id: '1211'
+  slug: enforce-convention-graph-query-and-sentinel-parity-gates
+  file: null
+  issue_number: 1211
+  type: implementation
+  status: PLANNED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:convention-graph-query-contract
+  train: 0001-self-compliance-validate
+- id: '1212'
+  slug: differential-legacy-vs-convention-catch-matrix-harness
+  file: null
+  issue_number: 1212
+  type: implementation
+  status: PLANNED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:differential-catch-matrix-harness
+  train: 0001-self-compliance-validate
 - id: '1204'
   slug: introduce-convention-validator-family-template-architecture
   file: null

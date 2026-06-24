@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E025
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: train-representation-mismatch
+context_clarifier: train nodes are loaded from the train detail files so they conform
+  to the train schema
+lens: functional.effectiveness
+statement: minimize likelihood of train-representation-mismatch by loading train nodes
+  from the train detail files that conform to the train schema
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E025-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E025 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

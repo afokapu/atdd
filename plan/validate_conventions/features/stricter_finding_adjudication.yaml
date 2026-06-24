@@ -1,0 +1,31 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: graph-query / parity / matrix logic
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: result/record dataclasses
+      type: value_objects
+    integration:
+    - count: 0
+      rationale: reads composed graph + reports
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected gate
+      type: controllers
+description: 'Adjudicate convention findings that legacy does not flag: classify real-gap
+  vs schema-bug vs loader-bug; fix the train representation and the smoke harness-enum
+  gap.'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 3
+urn: feature:validate-conventions:stricter-finding-adjudication
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E024
+- wmbt:validate-conventions:E025
+- wmbt:validate-conventions:E026
