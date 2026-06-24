@@ -12,7 +12,15 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-from atdd.validators.conventions.coherence.archetype import TEMPLATE_IDS
+from atdd.validators.conventions.coherence import _parity
+from atdd.validators.conventions.coherence.archetype import (
+    TEMPLATE_IDS,
+    resolved_fact_agreement,
+)
+from atdd.validators.conventions.coherence.fixtures import (
+    INVALID_FRAGMENTS,
+    VALID_FRAGMENTS,
+)
 
 FAMILY = "coherence"
 TEMPLATE = "resolved_fact_agreement"
@@ -30,3 +38,41 @@ def test_wmbt_consistency_variant_contract() -> None:
     assert TEMPLATE in TEMPLATE_IDS, f"{TEMPLATE} not in coherence archetype"
     assert LEGACY_PARITY_SOURCES, "variant must record >=1 legacy parity source"
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
+
+
+# --- executable graph-question tests ---------------------------------------
+# PARITY: full subprocess differential. Clean baseline is 0 (every wagon's manifest
+# WMBT declarations agree with its on-disk WMBT files). The fault (declare a phantom
+# WMBT code Z999 in a manifest with no matching file) is caught by BOTH the
+# convention evaluator and the legacy target.
+_LEGACY_NODEID = (
+    "src/atdd/planner/validators/test_wmbt_consistency.py"
+    "::test_wagon_manifest_wmbt_codes_exist_as_files"
+)
+_MANIFEST = "plan/validate_conventions/_validate_conventions.yaml"
+
+
+def test_clean_baseline_is_zero() -> None:
+    assert _parity.conv_violations(VARIANT) == []
+
+
+def test_fault_injection_legacy_parity() -> None:
+    """Declare a phantom WMBT code with no file in a real manifest; assert BOTH the
+    convention evaluator and the legacy validator catch it; revert."""
+    root = _parity.repo_root()
+    with _parity.patch_file(root, _MANIFEST,
+                            "  E001:", "  Z999: phantom wmbt with no file\n  E001:"):
+        conv = _parity.conv_violations(VARIANT, root)
+        legacy = _parity.legacy_caught(_LEGACY_NODEID, root)
+    assert conv, "convention evaluator did not catch the phantom WMBT declaration"
+    assert legacy, "legacy validator did not catch the phantom WMBT declaration"
+    assert _parity.conv_violations(VARIANT, root) == [], "fault did not revert cleanly"
+
+
+def test_invalid_fragment_is_caught() -> None:
+    out = resolved_fact_agreement(INVALID_FRAGMENTS[VARIANT], {"variant": VARIANT})
+    assert len(out) == 1 and out[0]["actual_values"]["declared_only"] == ["E999"], out
+
+
+def test_valid_fragment_is_clean() -> None:
+    assert resolved_fact_agreement(VALID_FRAGMENTS[VARIANT], {"variant": VARIANT}) == []
