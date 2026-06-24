@@ -204,6 +204,36 @@ def test_composition_catches_parse_error(repo_root: Path) -> None:
             "composition sentinel missed an unparseable source"
 
 
+# ---- artifact reference resolution (file refs exist) ----
+def test_artifact_selects_and_clean(repo_root: Path) -> None:
+    r = S.artifact_reference_resolution(load_composed_graph(repo_root))
+    assert r.selected_nodes > 0 and r.checked_edges > 0, "vacuous: no artifact refs checked"
+    assert r.violations == [], f"repo has dangling artifact refs: {r.violations[:2]}"
+
+
+def test_artifact_catches_missing_file(repo_root: Path) -> None:
+    feat = ("urn: feature:validate-conventions:tmp-artifact\n"
+            "wagon: wagon:validate-conventions\nreferences:\n- docs/NONEXISTENT_ZZZ.md\n")
+    with _temp_convention(repo_root, "plan/validate_conventions/features/_tmp_artifact.yaml", feat):
+        r = S.artifact_reference_resolution(load_composed_graph(repo_root))
+        assert any(v["artifact_ref"] == "docs/NONEXISTENT_ZZZ.md" for v in r.violations), \
+            "artifact sentinel missed a dangling file reference"
+
+
+# ---- node schema conformance (wagon) ----
+def test_schema_selects_and_clean(repo_root: Path) -> None:
+    r = S.node_schema_conformance(load_composed_graph(repo_root))
+    assert r.selected_nodes > 0, "vacuous: no schema-validated nodes"
+    assert r.violations == [], f"repo wagon(s) violate wagon.schema: {r.violations[:2]}"
+
+
+def test_schema_catches_missing_required(repo_root: Path) -> None:
+    with _patched(repo_root, WAGON, "subject: agent:tester\n", ""):
+        r = S.node_schema_conformance(load_composed_graph(repo_root))
+        assert any(v["node_id"] == "wagon:validate-conventions" for v in r.violations), \
+            "schema sentinel missed a wagon missing a required field"
+
+
 def test_binding_detects_real_roundtrip_gaps(repo_root: Path) -> None:
     """Proves the sentinel detects on REAL data: it finds rules whose declared
     validator does not bind_rule(rule.id) (same class the legacy literal-bind

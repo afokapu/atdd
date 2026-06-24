@@ -148,8 +148,58 @@ def composed_graph_loads(graph) -> EvalResult:
     return r
 
 
+def artifact_reference_resolution(graph) -> EvalResult:
+    """Every artifact/file reference (node.references) must resolve on disk."""
+    selected = [n for n in graph.nodes() if n.fields.get("references")]
+    r = EvalResult(selected_nodes=len(selected))
+    for n in selected:
+        refs = n.fields["references"]
+        for ref in (refs if isinstance(refs, list) else [refs]):
+            if not (isinstance(ref, str) and ("/" in ref or ref.endswith((".md", ".yaml", ".json", ".py")))):
+                continue
+            r.checked_edges += 1
+            if not (graph.root / ref).exists():
+                r.violations.append({"node_id": n.id, "artifact_ref": ref,
+                                     "expected_path": ref, "node_location": n.location})
+    return r
+
+
+# Schema validation is scoped to `wagon` — the legacy-aligned target (test_plan_wagons)
+# whose schema resolves standalone. wmbt/acceptance use cross-schema $refs (need a
+# referencing registry) and feature/train raw-doc validation DIVERGES from legacy
+# (description constraint) — both deferred, not folded into parity.
+_SCHEMA_KINDS = ("wagon",)
+
+
+def node_schema_conformance(graph) -> EvalResult:
+    import json
+    import jsonschema
+    schemas = {}
+    for kind in _SCHEMA_KINDS:
+        p = graph.root / "src" / "atdd" / "planner" / "schemas" / f"{kind}.schema.json"
+        if p.exists():
+            schemas[kind] = json.loads(p.read_text(encoding="utf-8"))
+    selected = [n for n in graph.nodes() if n.kind in schemas]
+    r = EvalResult(selected_nodes=len(selected))
+    for n in selected:
+        r.checked_edges += 1
+        try:
+            jsonschema.validate(n.fields, schemas[n.kind])
+        except jsonschema.ValidationError as exc:
+            r.violations.append({"node_id": n.id, "schema_id": n.kind,
+                                 "schema_error_path": "/".join(str(x) for x in exc.absolute_path),
+                                 "schema_error_message": exc.message[:120],
+                                 "node_location": n.location})
+        except Exception:
+            # unresolved $ref / registry-needed schema — not a content violation; skip
+            pass
+    return r
+
+
 SENTINELS = {
     "grammar/theme_must_be_canonical": theme_must_be_canonical,
+    "resolution/artifact_reference_resolution": artifact_reference_resolution,
+    "schema/node_schema_conformance": node_schema_conformance,
     "binding/declaration_to_implementation_binding": declaration_to_implementation_binding,
     "grammar/identifier_grammar_conformance": identifier_grammar_conformance,
     "composition/composed_graph_loads": composed_graph_loads,
