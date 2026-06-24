@@ -2985,3 +2985,11 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+- id: '1215'
+  slug: atomize-core-tester-conventions
+  file: null
+  issue_number: 1215
+  type: migration
+  status: INIT
+  created: '2026-06-25'
+  archived: null
