@@ -142,7 +142,37 @@ def scoped_identifier_uniqueness(graph) -> List[dict]:
     return out
 
 
-EVALUATORS: Dict[str, Callable[[object], List[dict]]] = {
+# ---------------------------------------------------------------------------
+# CANONICAL execution: the real composed graph (graph_loader Node objects).
+# `EVALUATORS[template_id](graph, config)` runs selector -> traversal -> invariant
+# over the real graph and returns failure-evidence dicts. The proven real-graph
+# logic lives in `_support.sentinels`; these adapters expose it template-keyed.
+# ---------------------------------------------------------------------------
+def _real(sentinel_fn):
+    def _run(graph, config=None):
+        return sentinel_fn(graph).violations
+    return _run
+
+
+def _real_evaluators() -> Dict[str, Callable]:
+    from . import sentinels as S
+    return {
+        "identifier_grammar_conformance": _real(S.identifier_grammar_conformance),
+        "scoped_identifier_uniqueness": _real(S.scoped_identifier_uniqueness),
+        "node_schema_conformance": _real(S.node_schema_conformance),
+        "direct_reference_resolution": _real(S.direct_reference_resolution),
+        "artifact_reference_resolution": _real(S.artifact_reference_resolution),
+        "reference_chain_resolution": _real(S.reference_chain_resolution),
+        "declaration_to_implementation_binding": _real(S.declaration_to_implementation_binding),
+        "composed_graph_loads": _real(S.composed_graph_loads),
+        "emitted_identity_roundtrip": _real(S.rule_validator_roundtrip),
+    }
+
+
+# TRANSITIONAL: the dict-fragment evaluators above. Used only by family fixtures
+# that have not yet been migrated to the real-graph model. Removed per-template as
+# each family's fixtures.py adopts real-graph fragments (#1212 decommission build).
+_DICT_EVALUATORS: Dict[str, Callable[[object], List[dict]]] = {
     "direct_reference_resolution": direct_reference_resolution,
     "artifact_reference_resolution": artifact_reference_resolution,
     "reference_chain_resolution": reference_chain_resolution,
@@ -152,3 +182,26 @@ EVALUATORS: Dict[str, Callable[[object], List[dict]]] = {
     "declaration_to_implementation_binding": declaration_to_implementation_binding,
     "scoped_identifier_uniqueness": scoped_identifier_uniqueness,
 }
+
+# Back-compat alias (was the only registry); now the transitional dict path.
+EVALUATORS = _DICT_EVALUATORS
+
+
+def evaluate(template_id: str, graph, config=None) -> List[dict]:
+    """Dispatch a template's execution. The real composed graph is canonical;
+    a dict fragment routes to the transitional fixture path until that family's
+    fixtures are migrated to the real-graph model."""
+    from .graph_loader import ConventionGraph
+
+    if isinstance(graph, ConventionGraph):
+        fn = _real_evaluators().get(template_id)
+        if fn is None:
+            raise NotImplementedError(
+                f"no real-graph evaluator implemented for template {template_id!r}"
+            )
+        return fn(graph, config)
+
+    fn = _DICT_EVALUATORS.get(template_id)
+    if fn is None:
+        raise NotImplementedError(f"no evaluator implemented for template {template_id!r}")
+    return fn(graph)
