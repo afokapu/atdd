@@ -154,9 +154,16 @@ def _real(sentinel_fn):
     return _run
 
 
+# Families whose archetype.py may expose `REAL_EVALUATORS = {template_id: fn(graph, config)}`.
+# Discovery is decentralized so parallel workers each add their family's evaluator
+# WITHOUT editing this shared map (conflict-free fan-out).
+_FAMILIES = ("presence", "uniqueness", "resolution", "schema", "grammar", "composition",
+             "coverage", "sizing", "coherence", "acyclicity", "boundary", "policy", "binding")
+
+
 def _real_evaluators() -> Dict[str, Callable]:
     from . import sentinels as S
-    return {
+    reg: Dict[str, Callable] = {
         "identifier_grammar_conformance": _real(S.identifier_grammar_conformance),
         "scoped_identifier_uniqueness": _real(S.scoped_identifier_uniqueness),
         "node_schema_conformance": _real(S.node_schema_conformance),
@@ -167,6 +174,16 @@ def _real_evaluators() -> Dict[str, Callable]:
         "composed_graph_loads": _real(S.composed_graph_loads),
         "emitted_identity_roundtrip": _real(S.rule_validator_roundtrip),
     }
+    import importlib
+    for fam in _FAMILIES:
+        try:
+            mod = importlib.import_module(f"atdd.validators.conventions.{fam}.archetype")
+        except Exception:
+            continue
+        fam_reg = getattr(mod, "REAL_EVALUATORS", None)
+        if isinstance(fam_reg, dict):
+            reg.update(fam_reg)  # family-declared evaluators override/extend the built-ins
+    return reg
 
 
 # TRANSITIONAL: the dict-fragment evaluators above. Used only by family fixtures
