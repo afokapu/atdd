@@ -28,6 +28,9 @@ _log = logging.getLogger(__name__)
 _BIND_RULE_RE = re.compile(r'bind_rule\(\s*([^)\n]+?)\s*[,)]')
 # module-level `_NAME = "literal"` so bind_rule(_RULE_ID) resolves, not just bind_rule("lit")
 _CONST_RE = re.compile(r'^[ \t]*([A-Za-z_]\w*)\s*=\s*["\']([^"\']+)["\']', re.M)
+# top-level `def name(` so a single-node `implementation.ref` that is a bare function name
+# can be resolved to its owning validator module (#1212 a-fix).
+_DEF_RE = re.compile(r'^def\s+([A-Za-z_]\w*)', re.M)
 
 
 @dataclass
@@ -48,11 +51,18 @@ class ConventionGraph:
     _by_id: Dict[str, Node] = field(default_factory=dict)
     _emits: Dict[str, Set[str]] = field(default_factory=dict)   # rule_id -> {validator file relpaths}
     _validator_stems: Set[str] = field(default_factory=set)     # {test_x, ...} present under validators/
+    _validator_functions: Dict[str, Set[str]] = field(default_factory=dict)  # def name -> {owning stems}
     _index_train_ids: List = field(default_factory=list)        # (train_id, location) from plan/_trains.yaml index
     root: Optional[Path] = None
 
     def validator_stems(self) -> Set[str]:
         return set(self._validator_stems)
+
+    def validator_function_stems(self, func_name: str) -> Set[str]:
+        """Validator module stems that define a top-level `def <func_name>`.
+        Lets a single-node `implementation.ref` given as a bare function name resolve
+        to its owning validator module (#1212 a-fix)."""
+        return set(self._validator_functions.get(func_name, set()))
 
     def index_train_ids(self) -> List:
         return list(self._index_train_ids)
@@ -176,8 +186,11 @@ def load_composed_graph(repo_root) -> ConventionGraph:
 
         _walk(d.get("trains"))
 
-    # rules from convention sources
-    for conv in sorted((root / "src" / "atdd").rglob("*.convention.yaml")):
+    # rules from convention sources — TWO-PASS (#1212 a-fix).
+    # Pass 1: rules declared in `rules:[]` blocks (the legacy representation).
+    convs = sorted((root / "src" / "atdd").rglob("*.convention.yaml"))
+    loaded_rule_ids: Set[str] = set()
+    for conv in convs:
         d = _safe_yaml(conv)
         for rule in (d.get("rules") or []):
             if not isinstance(rule, dict) or not rule.get("id"):
@@ -185,6 +198,24 @@ def load_composed_graph(repo_root) -> ConventionGraph:
             g._add(Node(id=rule["id"], kind="rule",
                         location=str(conv.relative_to(root)),
                         validator=rule.get("validator"), fields=rule))
+            loaded_rule_ids.add(rule["id"])
+
+    # Pass 2: single-node convention files emitted by `atdd author`
+    # (`<role>/conventions/nodes/<rule_id>.convention.yaml`): top-level `rule_id`, NO
+    # `rules:` block. Skip any rule_id already loaded from a block — migration overlap is
+    # the SAME rule in two representations, not a duplicate. `validator` maps to
+    # `implementation.ref` (heterogeneous; resolved honestly by the binding sentinel).
+    for conv in convs:
+        d = _safe_yaml(conv)
+        rid = d.get("rule_id")
+        if not rid or d.get("rules") or rid in loaded_rule_ids:
+            continue
+        loaded_rule_ids.add(rid)
+        impl = d.get("implementation")
+        validator = impl.get("ref") if isinstance(impl, dict) else None
+        g._add(Node(id=rid, kind="rule",
+                    location=str(conv.relative_to(root)),
+                    validator=validator, fields=d))
 
     # emitted rule_ids: bind_rule(<id>) across ALL src/atdd sources (binders can live
     # in guards/commands/tests, not only under /validators/). Resolve string literals
@@ -197,6 +228,8 @@ def load_composed_graph(repo_root) -> ConventionGraph:
             continue
         if "/validators/" in str(py):
             g._validator_stems.add(py.stem)
+            for fn in _DEF_RE.findall(txt):
+                g._validator_functions.setdefault(fn, set()).add(py.stem)
         consts = dict(_CONST_RE.findall(txt))
         for arg in _BIND_RULE_RE.findall(txt):
             arg = arg.strip()

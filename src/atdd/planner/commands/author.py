@@ -474,6 +474,13 @@ def build_parser() -> argparse.ArgumentParser:
                     help="JSON object: legacy_path/legacy_section/legacy_rule_id/legacy_sha/extraction_mode")
     cn.add_argument("--parity", default=None,
                     help="JSON object: *_preserved flags + reviewed_at (extraction parity)")
+    # Variant scaffolding (#1212): when a registered (family, template) pair is
+    # given AND the rule carries an implementation binding, also scaffold the
+    # convention-graph variant so the new convention is enforced, not just declared.
+    cn.add_argument("--family", default=None,
+                    help="convention-graph family to scaffold a variant under (with --template)")
+    cn.add_argument("--template", default=None,
+                    help="family template the scaffolded variant instantiates (with --family)")
 
     rel = sub.add_parser("relationship", help="author a relationship edge")
     ctx_flags(rel)
@@ -566,6 +573,38 @@ def _parse_terms(raw_terms: list[str]) -> list[dict]:
         tid, _, text = raw.partition("=")
         out.append({"term_id": tid.strip(), "text": text.strip()})
     return out
+
+
+def _variant_request(args, implementation: dict | None) -> tuple[str, str, str] | None:
+    """Resolve+validate a variant scaffold request from convention-node args.
+
+    Returns ``(family, template, implementation_ref)`` when scaffolding is asked
+    for, ``None`` when no --family/--template was given. Raises
+    ``AuthorInputError`` (so the operator is told why) when the flags are
+    half-given or the rule carries no ``implementation.ref`` binding. Called
+    *before* the node is written so a bad request never leaves a stray node.
+    """
+    family = getattr(args, "family", None)
+    template = getattr(args, "template", None)
+    if family is None and template is None:
+        return None
+    if not (family and template):
+        raise AuthorInputError(
+            "family" if not family else "template",
+            "--family and --template must be given together to scaffold a variant",
+        )
+    ref = (implementation or {}).get("ref")
+    if not ref:
+        raise AuthorInputError(
+            "implementation",
+            "--family/--template scaffolding requires --implementation with a 'ref' "
+            "(the validator binding the variant enforces)",
+        )
+
+    from atdd.planner.commands.author_variant import validate_family_template
+
+    validate_family_template(family, template)  # reject unknown pair before any write
+    return family, template, ref
 
 
 def _config_extensions(root: Path) -> list[str]:
@@ -687,11 +726,13 @@ def run(argv: list[str]) -> int:
                 except (ValueError, TypeError) as exc:
                     raise AuthorInputError(field, f"--{field} must be valid JSON: {exc}")
 
+            implementation = _json_arg("implementation", getattr(args, "implementation", None))
+            variant_req = _variant_request(args, implementation)  # validate before any write
             create_convention_node(
                 role, args.rule_id, kind=args.kind, status=args.status,
                 statement=args.statement, name=getattr(args, "name", None),
                 rationale=args.rationale, notes=args.notes,
-                implementation=_json_arg("implementation", getattr(args, "implementation", None)),
+                implementation=implementation,
                 source=_json_arg("node-source", getattr(args, "node_source", None)),
                 content=_json_arg("content", getattr(args, "content", None)),
                 bidirectional=_json_arg("bidirectional", getattr(args, "bidirectional", None)),
@@ -699,11 +740,22 @@ def run(argv: list[str]) -> int:
                 parity=_json_arg("parity", getattr(args, "parity", None)),
                 terms=_parse_terms(args.terms), path=path,
             )
+            variant_path = None
+            if variant_req is not None:
+                from atdd.planner.commands.author_variant import scaffold_variant
+
+                family, template, ref = variant_req
+                variant_path = scaffold_variant(
+                    family=family, template=template, rule_id=args.rule_id,
+                    implementation_ref=ref, root=root,
+                )
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(path))
+        if variant_path is not None:
+            print(str(variant_path))
         return 0
 
     if args.cmd == "relationship":

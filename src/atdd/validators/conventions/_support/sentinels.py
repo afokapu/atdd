@@ -161,15 +161,51 @@ def reference_chain_resolution(graph) -> EvalResult:
     return r
 
 
+def _binding_ref_resolves(graph, ref, stems, rule_ids, seen) -> bool:
+    """Resolve a rule's implementation ref to a real validator, honestly handling the
+    three forms single-node (`atdd author`) nodes emit (#1212 a-fix):
+
+      - `module::function`  → the file stem must be a known validator stem.
+      - rule-id cross-ref   → another rule's id; resolves iff that rule exists and its
+                              own ref resolves (so the binding is real, just indirected).
+      - bare function name  → resolves to the validator module that defines `def <name>`.
+    """
+    if not ref:
+        return False
+    if "::" in ref:
+        stem = PurePosixPath(ref.split("::", 1)[0]).name.removesuffix(".py")
+        return stem in stems
+    # No "::": either a rule-id cross-reference or a bare function name.
+    # (1) Cross-ref to a loaded rule node → resolves iff that rule's own ref resolves.
+    if ref in rule_ids and ref not in seen:
+        target = graph.by_id(ref)
+        if target is not None and _binding_ref_resolves(
+                graph, target.validator, stems, rule_ids, seen | {ref}):
+            return True
+    # (2) Cross-ref to a rule that a real validator binds via `bind_rule(ref)` — proves
+    #     the referenced rule is enforced even if its declaration lives in a nested
+    #     `rules:` block the loader does not node-ify. Require a *validator* emitter.
+    if any(PurePosixPath(e).name.removesuffix(".py") in stems for e in graph.emits(ref)):
+        return True
+    # (3) Bare function name → the validator module that defines `def <name>`.
+    return bool(graph.validator_function_stems(ref))
+
+
 def declaration_to_implementation_binding(graph) -> EvalResult:
-    """Every rule declaring a validator must point to a validator file that exists."""
+    """Every rule declaring a validator must point to a validator that exists.
+
+    The ref may be `module::function`, a rule-id cross-reference, or a bare function
+    name (the three forms single-node author nodes emit); all three are resolved
+    honestly by `_binding_ref_resolves`. A ref that resolves to none of them is a REAL
+    unbound-implementation defect, not exempted."""
     stems = graph.validator_stems()
+    rule_ids = {n.id for n in graph.rules()}
     selected = [n for n in graph.rules() if n.validator]
     r = EvalResult(selected_nodes=len(selected))
     for rule in selected:
         r.checked_edges += 1
-        stem = PurePosixPath(rule.validator.split("::", 1)[0]).name.removesuffix(".py")
-        if stem not in stems:
+        if not _binding_ref_resolves(graph, rule.validator, stems, rule_ids, set()):
+            stem = PurePosixPath(rule.validator.split("::", 1)[0]).name.removesuffix(".py")
             r.violations.append({"declaration_node": rule.id, "implementation_ref": rule.validator,
                                  "missing_or_incompatible_implementation": stem,
                                  "declaration_location": rule.location})

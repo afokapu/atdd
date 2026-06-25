@@ -244,6 +244,46 @@ def test_roundtrip_selects_and_clean(repo_root: Path) -> None:
     assert r.violations == [], f"repo has real roundtrip gaps: {r.violations[:2]}"
 
 
+# ---- single-node ingestion (atdd author nodes are visible to the engine) (#1212) ----
+def test_single_node_authored_rules_in_graph(repo_root: Path) -> None:
+    """The two-pass loader must node-ify single-node `<role>/conventions/nodes/
+    <rule_id>.convention.yaml` files (top-level `rule_id`, no `rules:` block) as rule
+    nodes — not just `rules:[]` blocks. Proven by a known authored rule_id being
+    visible in g.rules(), and by the corpus growing well past the blocks-only count."""
+    g = load_composed_graph(repo_root)
+    rule_ids = {n.id for n in g.rules()}
+    assert "planner.feature.size-max-rule" in rule_ids, (
+        "single-node authored rule_id 'planner.feature.size-max-rule' is invisible to "
+        "the engine — two-pass single-node ingestion did not run")
+    # An authored anti_pattern node (no implementation/validator) is also ingested.
+    assert "planner.artifact-naming.anti-patterns" in rule_ids
+    # blocks-only baseline was 152; single-node ingestion lifts the corpus well past it.
+    assert len(rule_ids) >= 250, f"expected ~270 rules after ingestion, got {len(rule_ids)}"
+
+
+def test_single_node_migration_overlap_not_duplicated(repo_root: Path) -> None:
+    """A rule_id present BOTH in a `rules:[]` block and as a single-node file is the
+    same rule in two representations — pass 2 must skip it so it is not a duplicate."""
+    r = S.scoped_identifier_uniqueness(load_composed_graph(repo_root))
+    assert r.violations == [], (
+        f"migration-overlap rule_ids double-counted as duplicates: {r.violations[:3]}")
+
+
+def test_single_node_ref_variants_bind(repo_root: Path) -> None:
+    """The three single-node `implementation.ref` forms (module::function, rule-id
+    cross-reference, bare function name) must all resolve to a real validator — clean
+    binding baseline = 0, with no single-node node silently exempted."""
+    g = load_composed_graph(repo_root)
+    r = S.declaration_to_implementation_binding(g)
+    assert r.violations == [], (
+        f"single-node implementation.ref(s) do not bind to a real validator: "
+        f"{r.violations[:5]}")
+    # Confirm the resolver is actually exercised by a single-node node (not just blocks):
+    assert any(n.location.endswith(".convention.yaml") and "/nodes/" in n.location
+               and n.validator for n in g.rules()), \
+        "no single-node node with an implementation.ref was ingested"
+
+
 def test_roundtrip_catches_unbound_validator(repo_root: Path) -> None:
     """Fault injection: a dispositioned rule whose declared validator file exists but
     never bind_rule()s this id must be flagged (the legacy reverse-coherence class)."""
