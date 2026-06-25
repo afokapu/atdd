@@ -3041,3 +3041,11 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+- id: '1223'
+  slug: decommission-atdd-issue-command
+  file: null
+  issue_number: 1223
+  type: planning
+  status: INIT
+  created: '2026-06-25'
+  archived: null
