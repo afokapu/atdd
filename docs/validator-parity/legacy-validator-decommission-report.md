@@ -1,0 +1,251 @@
+# Legacy Validator Decommission Report (#1207)
+
+Per-file *intended* decommission outcome for every legacy persona validator. **No
+file is deleted, shimmed, or removed** — these outcomes are PLANNED targets, not
+executed actions. **Legacy validators remain authoritative**; behavioral parity is
+not established (see `shadow-run-report.md`). **Decommission is BLOCKED** until the
+#1206 graph-traversal engine + shadow harness prove per-pair behavioral parity.
+The "outcome" column is the eventual plan, contingent on that gate.
+
+
+Total legacy validators accounted: **237**
+
+| legacy validator | persona | status | priority | outcome |
+|---|---|---|---|---|
+| `src/atdd/planner/validators/test_custom_themes.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/planner/validators/test_custom_themes_schema.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/planner/validators/test_dispatch_registry.py` | planner | split | P0 | replace with convention variant `src/atdd/validators/conventions/schema/test_dispatch_map_is_registry.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_draft_wagon_registry.py` | planner | split | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_draft_wagon_registry.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_feedback_loop_smoke_closes_the_loop.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_feedback_loop_close_the_loop.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_hierarchy_coverage.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_hierarchy_coverage.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_issue_body_has_graph_context.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/planner/validators/test_issue_deps_have_classification_tags.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/planner/validators/test_no_cross_wagon_consume_cycle.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/acyclicity/test_no_cross_wagon_consume_cycle.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_no_orphan_nodes.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_no_orphan_nodes.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_plan_confirm_before_author.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/planner/validators/test_plan_confirm_binds_issue.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/planner/validators/test_plan_cross_refs.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_plan_cross_refs.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_plan_uniqueness.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/uniqueness/test_plan_uniqueness.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_plan_urn_resolution.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_plan_urn_resolution.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_plan_wagons.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/schema/test_plan_wagons.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_smoke_synthetic_fixture_bypass.py` | planner | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_smoke_synthetic_fixture_bypass.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_theme_archetype_alignment.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_theme_archetype_alignment.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_theme_commons_coach_boundary.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/boundary/test_theme_commons_coach_boundary.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_theme_must_be_canonical.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_theme_must_be_canonical.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_theme_urn_namespace_matches.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_theme_urn_namespace_matches.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_theme_zero_mandatory.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_theme_zero_mandatory.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_train_family_matches_terminal_contract.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_train_family_matches_terminal_contract.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_train_validation.py` | planner | split | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_train_validation.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_wagon_coupling_complexity.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_wagon_coupling_complexity.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_wagon_separability.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_wagon_separability.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_wagon_urn_chain.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_wagon_urn_chain.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_wmbt_consistency.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_wmbt_consistency.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py` | planner | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_wmbt_has_smoke_acceptance.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_wmbt_smoke_acceptance_rule_registered.py` | planner | superseded | P0 | superseded by broader archetype (`binding`); no one-off target |
+| `src/atdd/planner/validators/test_wmbt_vocabulary.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_wmbt_vocabulary.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_acceptance_disposition.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/policy/test_acceptance_disposition_absent.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_acceptance_measurable.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_acceptance_measurable.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_acceptance_phase.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_acceptance_phase_declared.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_acceptance_urn_filename_mapping.py` | tester | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/tester/validators/test_acceptance_urn_separator.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_acceptance_urn_grammar.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_artifact_naming_category.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_artifact_naming_grammar.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_contract_schema_compliance.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/schema/test_contract_schema_conformance.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_contract_security.py` | tester | split | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_contract_security_requirements.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_contracts_structure.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_contracts_path_grammar.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_coverage_adequacy.py` | tester | split | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_coverage_adequacy.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_dual_ac_reference.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_dual_ac_reference.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_fixture_validity.py` | tester | split | P1 | replace with convention variant `src/atdd/validators/conventions/schema/test_fixture_schema_conformance.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_hermetic_integration_contract.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_hermetic_fake_contract_declared.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_hermetic_live_smoke_pairing.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_hermetic_live_smoke_pairing.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_hierarchy_coverage.py` | tester | split | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_hierarchy_coverage.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_isolation.py` | tester | merged | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_test_isolation.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_live_smoke_execution.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/policy/test_live_smoke_no_self_skip.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_locale_coverage.py` | tester | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/tester/validators/test_metric_implementation.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_metric_implementation_resolves.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_migration_coverage.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_migration_coverage.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_migration_criteria.py` | tester | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/tester/validators/test_migration_generation.py` | tester | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/tester/validators/test_no_polluting_patterns.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/policy/test_no_polluting_patterns.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_presentation_has_behavioral_test.py` | tester | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/tester/validators/test_presentation_smoke_coverage.py` | tester | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/tester/validators/test_python_test_naming.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_python_test_naming.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_red_layer_validation.py` | tester | split | P1 | replace with convention variant `src/atdd/validators/conventions/grammar/test_red_layer_structure.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_red_python_layer_structure.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/grammar/test_red_python_layer_structure.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_red_supabase_layer_structure.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/grammar/test_red_supabase_layer_structure.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_repo_validator_binding.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/binding/test_validator_binding_bidirectional.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_security_ref_binding.py` | tester | split | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_security_ref_resolution.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_smoke_coverage.py` | tester | split | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_smoke_coverage.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_smoke_no_collaborator_substitution.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/policy/test_smoke_no_collaborator_substitution.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_telemetry_structure.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_telemetry_naming_grammar.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_train_backend_e2e.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/grammar/test_train_backend_e2e_naming.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_train_completeness.py` | tester | split | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_train_completeness.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_train_e2e_existence.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_train_e2e_existence.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_train_frontend_e2e.py` | tester | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/tester/validators/test_train_frontend_python.py` | tester | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/tester/validators/test_train_renders_content.py` | tester | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/tester/validators/test_train_route_smoke_coverage.py` | tester | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_train_route_smoke_coverage.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_typescript_test_naming.py` | tester | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_typescript_test_naming.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_typescript_test_structure.py` | tester | split | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_typescript_test_structure.py` (keep as shim during transition) |
+| `src/atdd/tester/validators/test_urn_spec_v3.py` | tester | split | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_urn_header_spec_v3.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_commons_structure.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_commons_layer_purity.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_complexity.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_complexity_python.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_complexity_typescript.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_complexity_typescript.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_composition_completeness.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_composition_root_completeness.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_contract_driven_http.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_http_client_boundary.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_cross_language_consistency.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_cross_language_consistency.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_dead_code_python.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_dead_code_python.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_dead_code_typescript.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_dead_code_typescript.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_design_system_compliance.py` | coder | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/coder/validators/test_dto_testing_patterns.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_dto_id_comparison.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_duplication_detector.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_duplication_python.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_duplication_detector_typescript.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_duplication_typescript.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_error_response_compliance.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_error_response_shape.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_frontend_composition_root.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_frontend_composition_root.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_frontend_security_patterns.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_frontend_xss_innerhtml.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_god_hook_elimination.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_hook_size_limit.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_green_cross_stack_layers.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_green_cross_stack_layer_names.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_green_layer_dependencies.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_green_layer_dependency_rules.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_green_python_layer_structure.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_green_python_four_layer.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_green_supabase_layer_structure.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_green_supabase_four_layer.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_gsap_layer_usage.py` | coder | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/coder/validators/test_hierarchy_coverage.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_design_hierarchy_coverage.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_i18n_runtime.py` | coder | extension_candidate | P2 | move to extension/workspace package (tracked separately) — keep for now |
+| `src/atdd/coder/validators/test_import_boundaries.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_import_boundaries.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_init_file_urns.py` | coder | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_init_file_urn_grammar.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_no_silent_exception_swallowing_python.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_silent_exception_swallow_python.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_no_silent_exception_swallowing_typescript.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_silent_exception_swallow_typescript.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_no_stub_presentation_returns.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_no_stub_presentation_returns.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_page_elimination.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_page_directory_elimination.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_preact_layer_boundaries.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_preact_layer_boundaries.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_presentation_convention.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_presentation_layer_compliance.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_presentation_ratchet_requires_smoke.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_presentation_ratchet_requires_smoke.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_python_architecture.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_python_clean_architecture.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_quality_metrics.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_quality_metrics_python.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_quality_metrics_typescript.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_quality_metrics_typescript.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_query_count.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_query_count_nplus1.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_route_train_compliance.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_route_train_no_direct_page_import.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_route_train_wagon_coverage.py` | coder | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_route_train_wagon_chain.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_security_patterns.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_code_security_antipatterns.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_station_master_pattern.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_station_master_composition.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_structured_logging.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_structured_logging_no_print.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_train_composition_smoke.py` | coder | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coder/validators/test_train_infrastructure.py` | coder | split | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_train_infrastructure_present.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_train_urns.py` | coder | split | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_train_urn_grammar.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_train_yaml_render_metadata.py` | coder | direct | P0 | replace with convention variant `src/atdd/validators/conventions/schema/test_train_yaml_render_metadata.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_typescript_architecture.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_typescript_clean_architecture.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_usecase_structure.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_usecase_structure.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_wagon_boundaries.py` | coder | split | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_wagon_boundaries_python.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_wagon_boundaries_typescript.py` | coder | direct | P2 | replace with convention variant `src/atdd/validators/conventions/boundary/test_wagon_boundaries_typescript.py` (keep as shim during transition) |
+| `src/atdd/coder/validators/test_wagon_trains_export_shape.py` | coder | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_wagon_trains_export_shape.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_C001_roundtrip.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_api_validators_marked_github_api.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_auto_phase_workflow_exists.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_branch_protection.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_canonical_role_naming.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_cleanup_command.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_commit_trailers_binding.py` | coach | superseded | P0 | superseded by broader archetype (`binding`); no one-off target |
+| `src/atdd/coach/validators/test_composition_data_shipped.py` | coach | direct | P0 | replace with convention variant `src/atdd/validators/conventions/composition/test_package_data_ships_convention_nodes.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_conductor_md_no_duplicated_convention.py` | coach | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_no_duplicated_convention.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_config_themes.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_core_bare_self_heal.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_custom_theme_validation.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d001_unit_001_six_schemas_exist.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d001_unit_002_fixtures_validate.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d002_unit_001_review_report_schema_committed.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d002_unit_001_runtime_layout_doc_committed.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d002_unit_002_pass_blocked_when_ac_not_covered.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d002_unit_003_pass_blocked_with_strict_finding.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d002_unit_004_rule_id_severity_matches_registry.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_review_report_severity_matches_registry.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_d003_unit_001_five_phase_reviewer_prompts.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d003_unit_001_validator_invocation_doc_committed.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_d004_unit_001_event_semantics_doc_complete.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_doctor_environment_diagnosis.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e001_unit_001_spawn_cli_launches_session.py` | coach | superseded | P0 | superseded by broader archetype (`binding`); no one-off target |
+| `src/atdd/coach/validators/test_e003_integration_001_block_verdict_fails_the_workflow.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e003_integration_002_annotate_verdict_passes_with_comment.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e003_unit_001_workflow_file_exists_with_correct_triggers.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e005_integration_001_init_emits_only_parseable_atdd_commands.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e005_integration_002_drift_validator_fires_in_validate_coach.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e005_smoke_001_real_validate_coach_runs_extended_drift_validator.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e005_unit_001_drift_scan_captures_all_atdd_lines.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e005_unit_002_drift_validator_flags_unknown_subcommand.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e009_runtime_artifacts_blocked.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e009_unit_001_convention_declares_runtime_artifacts_rule.py` | coach | superseded | P0 | superseded by broader archetype (`binding`); no one-off target |
+| `src/atdd/coach/validators/test_e022_smoke_001_live_claude_md_contains_no_atdd_skip_references.py` | coach | merged | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e022_unit_001_claude_md_contains_no_atdd_skip_references.py` | coach | merged | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e022_unit_002_claude_md_references_operator_emergency_bypass_doc.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_claude_md_references_emergency_doc.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e022_unit_003_upgrade_banner_does_not_suggest_force.py` | coach | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_upgrade_banner_no_force.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e023_smoke_001_live_claude_md_line_count_within_budget.py` | coach | merged | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e023_unit_001_claude_md_is_at_most_250_lines.py` | coach | merged | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e023_unit_002_claude_md_retains_atdd_lifecycle_and_command_pointers.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_claude_md_retains_lifecycle_pointers.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e024_smoke_001_live_operator_emergency_bypass_doc_present_and_correct.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e024_unit_001_operator_emergency_bypass_doc_exists.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e024_unit_002_operator_emergency_bypass_doc_documents_cli_not_env_var.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e026_bypass_inventory_guard.py` | coach | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_bypass_inventory_baseline.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e032_smoke_001_live_freedom_layer_passes_flipped_validator.py` | coach | merged | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_freedom_layer_no_forbidden_command.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e032_unit_001_validator_rejects_forbidden_command_in_allowlist.py` | coach | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_freedom_layer_no_forbidden_command.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e032_unit_002_validator_rejects_unscoped_bash_entry.py` | coach | direct | P0 | replace with convention variant `src/atdd/validators/conventions/grammar/test_freedom_layer_bash_scope_grammar.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_e032_unit_003_validator_is_language_agnostic_data_only.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e036_unit_003_shared_core_bare_baseline.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e056_smoke_001_real_gate_scopes_to_current_pr.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_e056_unit_001_pre_smoke_gate_pr_scope.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_enrich_wagon_registry.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_fix_hint_completeness.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_rule_has_fix_hint.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_github_client_mock_spec.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_hook_version_gate_honest_message.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_init_substrate_mode.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_init_themes_prompt.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_issue_advancement.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_issue_gate_completion.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_issue_validation.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_l003_smoke_001_dispatched_agent_bash_log_contains_no_atdd_skip_invocations.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_m002_smoke_001_live_observer_rules_pass_validator.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_m002_unit_spawn_non_interactive_validator.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_manifest_write_discipline.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_no_hardcoded_rule_severity.py` | coach | direct | P0 | replace with convention variant `src/atdd/validators/conventions/binding/test_no_hardcoded_rule_severity.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_no_red_phase_tests_in_consumer_entry_points.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_no_stale_suppressions.py` | coach | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_no_stale_suppressions.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_observer_universal_cospawn.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_open_issue_compliance.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_phase_machine_init_pre_commit_gate.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_phase_machine_init_precommit_gate.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_pr_base_branch.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_pr_closes_keyword_discipline.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_pr_mass_delete_guard.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_pr_merge_blocks_pre_smoke_close.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_pr_phase_alignment.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_pytest_invocation_form.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_r002_smoke_001_atdd_validate_coach_includes_size_budget_rule.py` | coach | merged | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_r002_unit_001_validator_fails_when_claude_md_exceeds_budget.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_r002_unit_002_validator_passes_when_claude_md_within_budget.py` | coach | merged | P1 | replace with convention variant `src/atdd/validators/conventions/sizing/test_claude_md_line_budget.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_r003_smoke_001_atdd_validate_coach_includes_no_bypass_advertising_rule.py` | coach | merged | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_r003_unit_001_validator_fails_when_claude_md_contains_atdd_skip_token.py` | coach | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_r003_unit_002_validator_passes_when_claude_md_is_clean.py` | coach | merged | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_claude_md_no_bypass_token.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_readonly_commands_no_writes.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_registry.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_release_versioning.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_required_label_set.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_review_gate_ci_safe.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_rule_disposition_required.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/presence/test_rule_has_disposition.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_rule_id_registry_coherence.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_rule_id_registry_coherence.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_rule_id_uniqueness.py` | coach | direct | P0 | replace with convention variant `src/atdd/validators/conventions/uniqueness/test_rule_id_uniqueness.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_rule_validator_binding.py` | coach | direct | P0 | replace with convention variant `src/atdd/validators/conventions/binding/test_rule_validator_binding.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_session_naming.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_spawn_non_interactive_validator.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_sync_theme_block.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_theme_scanner.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_toolkit_source_layout_assumptions.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_traceability.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coherence/test_contract_telemetry_traceability.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_train_registry.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_train_registry_completeness.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_unlabeled_open_issues.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_update_feature_paths.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_urn_traceability.py` | coach | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_urn_traceability.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_validate_contract_consumers.py` | coach | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_contract_consumer_resolution.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_validate_uses_live_source_in_checkout.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_validator_test_isolation.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_wagonless_graph_context_compliance.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_wheel_completeness.py` | coach | direct | P1 | replace with convention variant `src/atdd/validators/conventions/coverage/test_wheel_fixture_completeness.py` (keep as shim during transition) |
+| `src/atdd/coach/validators/test_workflow_consistency.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_workflow_template_command_drift.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_worktree_enforcement.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_y003_smoke_001_guard_catches_polluter.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_y003_unit_001_repo_root_bare_guard.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |

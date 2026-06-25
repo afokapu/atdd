@@ -12,6 +12,7 @@ participants:
   - "wagon:self-compliance-migration"
   - "wagon:security-patterns"
   - "wagon:enforce-structured-logging"
+  - "wagon:validate-conventions"
   - "system:atdd-cli"
 sequence:
   - step: 1
@@ -39,4 +40,9 @@ sequence:
     from: "wagon:govern-lifecycle"
     to: "system:atdd-cli"
     artifact: "commons:compliance:gate"
+  - step: 6
+    intent: "Establish the convention-graph validator family/template suite and reach legacy parity before decommissioning persona validators"
+    from: "wagon:validate-conventions"
+    to: "system:atdd-cli"
+    artifact: "commons:validators:convention-family-registry"
 status: planned

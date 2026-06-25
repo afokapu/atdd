@@ -13,6 +13,7 @@ trains:
       - self-compliance-migration
       - security-patterns
       - enforce-structured-logging
+      - validate-conventions
     - train_id: 0002-coach-drives-lifecycle
       description: Replace polling-and-trust with an event-driven, observer-augmented
         coach that drives the issue → merged-PR lifecycle (per atdd-coach-spec-v9.md).

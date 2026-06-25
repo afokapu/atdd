@@ -48,3 +48,9 @@ coach:
 gate:
   transitions:
     PLANNED->RED: true
+
+# Convention validator suite promotion (#1207): conventions/** is the
+# authoritative convention-graph enforcement path; legacy persona validators
+# run in parallel as compatibility shims during transition.
+validators:
+  conventions_authoritative: true

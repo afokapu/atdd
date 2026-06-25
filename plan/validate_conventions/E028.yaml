@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E028
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: single-suite-run
+context_clarifier: each seeded fault is run through both the legacy suite and the
+  convention suite on identical input
+lens: functional.effectiveness
+statement: minimize likelihood of single-suite-run by running each seeded fault through
+  both the legacy and convention suites on identical input
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E028-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E028 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

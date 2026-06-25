@@ -1,0 +1,28 @@
+urn: wmbt:validate-conventions:E011
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: variant-metadata-noncompliance
+context_clarifier: every implemented variant references a registry family/template
+  and declares the nine metadata fields including at least one legacy_parity_source
+lens: functional.effectiveness
+statement: minimize likelihood of variant-metadata-noncompliance by ensuring every
+  implemented variant references a registry family/template and declares the nine
+  metadata fields including a legacy_parity_source
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E011-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E011 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds
