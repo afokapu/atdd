@@ -188,3 +188,90 @@ def test_resolve_ignores_non_literal_bind_rule_args(fake_pkg: Path):
     # Variable references are not literals; the resolver tracks ONLY
     # literal string arguments.
     assert resolved.bound_rule_ids == set()
+
+
+# ---------------------------------------------------------------------------
+# convention-variant targets (#1207): a rule's validator/implementation.ref may
+# resolve to a convention-graph variant under
+# src/atdd/validators/conventions/<family>/<stem>.py via the
+# `conventions/<family>/<stem>::<func>` form. Such a target binds via parity/
+# execution, NOT a bind_rule literal — so is_convention is flagged and an empty
+# bound_rule_ids is acceptable.
+# ---------------------------------------------------------------------------
+def _write_convention_variant(pkg: Path, family: str, name: str, body: str) -> Path:
+    target = pkg / "validators" / "conventions" / family / f"{name}.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(textwrap.dedent(body).lstrip(), encoding="utf-8")
+    return target
+
+
+def test_resolve_convention_variant_target(fake_pkg: Path):
+    _write_convention_variant(
+        fake_pkg, "resolution", "test_train_registry_spec_exists",
+        '''
+        FAMILY = "resolution"
+        VARIANT = "train_registry_spec_exists"
+        LEGACY_PARITY_SOURCES = ["src/atdd/planner/validators/test_train_validation.py"]
+
+        def test_fault_injection():
+            assert True
+        ''',
+    )
+    resolved = resolve_validator(
+        archetype="planner",
+        validator_field="conventions/resolution/test_train_registry_spec_exists::test_fault_injection",
+    )
+    assert isinstance(resolved, ResolvedValidator)
+    assert resolved.is_convention is True
+    assert resolved.function_name == "test_fault_injection"
+    assert isinstance(resolved.function_node, ast.FunctionDef)
+    # Convention variants enforce via parity, not bind_rule — empty is OK.
+    assert resolved.bound_rule_ids == set()
+
+
+def test_resolve_convention_target_missing_file_raises(fake_pkg: Path):
+    with pytest.raises(ValidatorResolutionError):
+        resolve_validator(
+            archetype="planner",
+            validator_field="conventions/resolution/test_does_not_exist::test_x",
+        )
+
+
+def test_resolve_convention_target_missing_function_raises(fake_pkg: Path):
+    _write_convention_variant(
+        fake_pkg, "schema", "test_demo_variant",
+        '''
+        def test_present():
+            assert True
+        ''',
+    )
+    with pytest.raises(ValidatorResolutionError):
+        resolve_validator(
+            archetype="planner",
+            validator_field="conventions/schema/test_demo_variant::test_absent",
+        )
+
+
+# ---------------------------------------------------------------------------
+# reverse-coherence acceptance (#1207): an enforced rule whose `validator:` names
+# a convention variant binds via parity, so reverse coherence must NOT demand a
+# bind_rule literal. (Lives here, NOT under */validators/, so the rule_id literal
+# below is not scanned as a production emission by rule_id_registry_coherence.)
+# ---------------------------------------------------------------------------
+def test_convention_variant_target_satisfies_reverse_coherence(monkeypatch):
+    from atdd.coach.utils.rule_id_registry import RuleMetadata
+    import atdd.coach.validators.test_rule_validator_binding as binding
+
+    fake = {
+        "planner.train.registry": RuleMetadata(
+            rule_id="planner.train.registry",
+            convention_path=Path(
+                "src/atdd/planner/conventions/nodes/planner.train.registry.convention.yaml"
+            ),
+            description="registry entry -> spec file existence",
+            disposition="strict",
+            validator="conventions/resolution/test_train_validation::test_fault_injection_and_legacy_parity",
+        )
+    }
+    monkeypatch.setattr(binding, "build_registry", lambda: fake)
+    assert binding._build_violations() == []
