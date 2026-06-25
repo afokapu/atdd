@@ -3033,3 +3033,11 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+- id: '1221'
+  slug: schema-driven-authoring
+  file: null
+  issue_number: 1221
+  type: implementation
+  status: INIT
+  created: '2026-06-25'
+  archived: null
