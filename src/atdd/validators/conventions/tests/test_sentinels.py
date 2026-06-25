@@ -122,8 +122,14 @@ def test_uniqueness_selects_real_rules_and_clean(repo_root: Path) -> None:
 def test_uniqueness_blackbox_parity_vs_legacy(repo_root: Path) -> None:
     """Inject a duplicate rule id; BOTH legacy uniqueness validator and the
     convention sentinel must catch it."""
+    # Inject a duplicate of a rule that is still declared in a legacy monolith
+    # rules:[] block (NOT migrated to a nodes/ single-node file, #1225) — so the
+    # injected monolith duplicate lands in the SAME uniqueness scope as the
+    # original. Both the legacy validator (reads monolith blocks) and the
+    # convention sentinel (monolith-rule scope) must catch it.
+    _DUP_ID = "coach.commit-trailers.phase-required"
     dup = ('version: "1.0"\nname: "tmp parity dup"\nrules:\n'
-           '  - id: "planner.theme.must-be-canonical"\n    severity: 3\n'
+           f'  - id: "{_DUP_ID}"\n    severity: 3\n'
            '    validator: "x::y"\n')
     rel = "src/atdd/coach/conventions/_tmp_parity_dup.convention.yaml"
     legacy = "src/atdd/coach/validators/test_rule_id_uniqueness.py"
@@ -135,8 +141,7 @@ def test_uniqueness_blackbox_parity_vs_legacy(repo_root: Path) -> None:
         ).returncode
         conv = S.scoped_identifier_uniqueness(load_composed_graph(repo_root))
     legacy_caught = legacy_rc != 0
-    conv_caught = any(v["duplicate_id"] == "planner.theme.must-be-canonical"
-                      for v in conv.violations)
+    conv_caught = any(v["duplicate_id"] == _DUP_ID for v in conv.violations)
     assert legacy_caught and conv_caught, (
         f"parity break: legacy_caught={legacy_caught} convention_caught={conv_caught}")
 

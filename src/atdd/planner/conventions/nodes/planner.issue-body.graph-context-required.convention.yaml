@@ -11,3 +11,11 @@ terms:
   text: the body of an atdd parent issue
 - term_id: graph_context_section
   text: the populated Graph Context subsection of the issue body
+implementation:
+  type: validator
+  ref: test_issue_body_has_graph_context::test_issue_body_has_graph_context
+metadata:
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.50.0
+  suppression_deadline: "2026-12-31"

@@ -5,10 +5,3 @@ description: "Integrity rules for the convention-node relationship graph (src/at
 # Legacy rules-list registry consumed by bind_rule. The decomposed node form lives
 # at conventions/nodes/planner.relationship.no-orphan-nodes.convention.yaml (mirrors
 # the planner.wagon.no-consume-cycle dual declaration).
-rules:
-  - id: "planner.relationship.no-orphan-nodes"
-    severity: 3
-    disposition: strict
-    description: "Every convention node (any *.convention.yaml carrying a top-level rule_id, test fixtures and demo.* excluded) must appear as a source_ref or target_ref of at least one edge in the relationship graph. A node referenced by no edge is an orphan and is refused — the graph must cover every node, not merely have no dangling edges."
-    validator: "test_no_orphan_nodes::test_no_orphan_convention_nodes"
-    introduced_in: "3.119.0"

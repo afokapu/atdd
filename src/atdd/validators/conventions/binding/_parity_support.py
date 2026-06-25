@@ -66,11 +66,19 @@ def evaluate(template_id: str, variant: str, root: Path) -> List[dict]:
 def _rename_rule_id(conv_path: Path, rule_id: str):
     orig = conv_path.read_text(encoding="utf-8")
     quoted = f'"{rule_id}"'
-    if quoted not in orig:
+    # single-node nodes/ form: top-level `rule_id: <id>` (unquoted), anchored to a
+    # line start so it does not match the `  legacy_rule_id:` provenance field (#1225).
+    bare = f"\nrule_id: {rule_id}\n"
+    if quoted in orig:
+        broken = orig.replace(quoted, f'"{rule_id}-PARITYBROKEN"', 1)
+    elif bare in orig:
+        broken = orig.replace(bare, f"\nrule_id: {rule_id}-PARITYBROKEN\n", 1)
+    else:
         raise AssertionError(
-            f'rule id {quoted} not found verbatim in {conv_path} — convention drifted'
+            f'rule id {rule_id!r} not found (as "{rule_id}" or top-level rule_id:) '
+            f'in {conv_path} — convention drifted'
         )
-    conv_path.write_text(orig.replace(quoted, f'"{rule_id}-PARITYBROKEN"', 1), encoding="utf-8")
+    conv_path.write_text(broken, encoding="utf-8")
     try:
         yield
     finally:

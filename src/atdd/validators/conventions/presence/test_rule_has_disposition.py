@@ -33,18 +33,16 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_rule_disposition_requir
 
 
 _TC = {t.template_id: t for t in archetype.TEMPLATES}
-WMBT_CONVENTION = "src/atdd/planner/conventions/wmbt.convention.yaml"
-# An allowlisted (migration.completed) rule whose disposition we drop to inject the fault.
+# An enforceable rule (direct validator) whose disposition we drop to inject the
+# fault. Its authoritative home is its single-node nodes/ file (#1225), so the
+# fault is injected by dropping metadata.disposition there.
 _TARGET_RULE = "planner.wmbt.must-have-smoke-acceptance"
-_RULE_BLOCK = (
-    '  - id: "planner.wmbt.must-have-smoke-acceptance"\n'
-    '    severity: 3\n'
-    '    disposition: suppress-and-clean\n'
+WMBT_CONVENTION = (
+    "src/atdd/planner/conventions/nodes/"
+    "planner.wmbt.must-have-smoke-acceptance.convention.yaml"
 )
-_RULE_BLOCK_NO_DISP = (
-    '  - id: "planner.wmbt.must-have-smoke-acceptance"\n'
-    '    severity: 3\n'
-)
+_RULE_BLOCK = "  disposition: suppress-and-clean\n"
+_RULE_BLOCK_NO_DISP = ""
 LEGACY_NODEID = (
     "src/atdd/coach/validators/test_rule_disposition_required.py"
     "::test_rule_disposition_required"

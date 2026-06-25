@@ -142,7 +142,21 @@ def _collect_bind_rule_args(function_node: ast.FunctionDef) -> Set[str]:
 
 
 def _collect_module_bind_rule_args(tree: ast.Module) -> Set[str]:
-    """Module-level ``bind_rule(...)`` args (the typical pattern: ``_RULE = bind_rule("...")``)."""
+    """Module-level ``bind_rule(...)`` args. Resolves both literal args and the very
+    common module-level string-constant indirection
+    (``_RULE_ID = "..."`` ; ``_RULE = bind_rule(_RULE_ID)``)."""
+    # Module-level string constants: NAME -> "literal".
+    consts: dict = {}
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    consts[target.id] = node.value.value
+
     bound: Set[str] = set()
     for node in tree.body:
         for sub in ast.walk(node):
@@ -161,6 +175,8 @@ def _collect_module_bind_rule_args(tree: ast.Module) -> Set[str]:
             first = sub.args[0]
             if isinstance(first, ast.Constant) and isinstance(first.value, str):
                 bound.add(first.value)
+            elif isinstance(first, ast.Name) and first.id in consts:
+                bound.add(consts[first.id])
     return bound
 
 
