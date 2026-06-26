@@ -13,9 +13,6 @@ in parallel with legacy validators (imports no persona validator module).
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
@@ -35,11 +32,6 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_composition_data_shippe
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _CONFIG = {"variant": VARIANT}
-# Legacy nodeid whose green-on-clean / red-on-fault we measure for parity.
-_LEGACY_NODEID = (
-    "src/atdd/coach/validators/test_composition_data_shipped.py"
-    "::test_package_data_ships_core_nodes_and_schema"
-)
 # The exact package-data glob fragment the fault removes (first occurrence is the
 # coach.conventions nodes glob; must be present on the clean repo).
 _FAULT_GLOB = ', "nodes/*.yaml"'
@@ -54,15 +46,6 @@ def _convention_evidence(repo_root: Path):
     """Run the variant through the OFFICIAL path: real composed graph ->
     TemplateContract.evaluate(graph, config)."""
     return _template().evaluate(load_composed_graph(repo_root), config=_CONFIG)
-
-
-def _legacy_caught(repo_root: Path) -> bool:
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", _LEGACY_NODEID, "-q", "-p", "no:cacheprovider"],
-        cwd=repo_root, env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True, text=True,
-    ).returncode
-    return rc != 0
 
 
 @contextlib.contextmanager
@@ -100,14 +83,13 @@ def test_evidence_keys_subset_of_failure_evidence() -> None:
         assert set(record).issubset(allowed), f"evidence keys escape contract: {set(record) - allowed}"
 
 
-def test_fault_injection_legacy_parity() -> None:
-    # BOTH suites must be silent on the clean repo, then BOTH must catch the
-    # injected fault (dropped convention-node package-data glob). Real parity.
+def test_fault_injection() -> None:
+    # Legacy parity (verdict 'both') was proven against the legacy validator
+    # before it was decommissioned (#1207); the convention fault-injection is
+    # the live coverage.
     assert _convention_evidence(_REPO_ROOT) == [], "convention path must be clean on clean repo"
-    assert not _legacy_caught(_REPO_ROOT), "legacy must be green on clean repo"
     with _drop_package_data_glob(_REPO_ROOT):
         convention_caught = bool(_convention_evidence(_REPO_ROOT))
-        legacy_caught = _legacy_caught(_REPO_ROOT)
-    assert convention_caught and legacy_caught, (
-        f"parity failure: convention_caught={convention_caught} legacy_caught={legacy_caught}"
+    assert convention_caught, (
+        f"convention path must catch the injected fault: convention_caught={convention_caught}"
     )
