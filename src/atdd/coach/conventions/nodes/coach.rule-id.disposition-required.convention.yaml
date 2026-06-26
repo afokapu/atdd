@@ -6,7 +6,7 @@ name: Disposition required
 statement: Every declared rule must carry a disposition (strict | suppress-and-clean | advisory | documentation-only).
 implementation:
   type: validator
-  ref: test_rule_disposition_required::test_rule_disposition_required
+  ref: conventions/presence/test_rule_has_disposition::test_rule_has_disposition_catches_injected_fault
 source:
   legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
   legacy_section: rules
