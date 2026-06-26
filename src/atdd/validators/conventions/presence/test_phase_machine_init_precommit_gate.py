@@ -18,7 +18,7 @@ from atdd.validators.conventions.presence import archetype
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 
-from .conftest import legacy_catches, patched
+from .conftest import patched
 
 FAMILY = "presence"
 TEMPLATE = "required_field_presence"
@@ -36,10 +36,6 @@ _TC = {t.template_id: t for t in archetype.TEMPLATES}
 PHASE_MACHINE_CONVENTION = "src/atdd/coach/conventions/phase_machine.convention.yaml"
 _GATE_OK = 'pre_commit_gate: "atdd validate planner --local --skip-api"'
 _GATE_BROKEN = 'pre_commit_gate: "echo nope"'
-LEGACY_NODEID = (
-    "src/atdd/coach/validators/test_phase_machine_init_pre_commit_gate.py"
-    "::test_phase_machine_init_pre_commit_gate_invokes_validate_planner"
-)
 
 
 def _evaluate(graph) -> list:
@@ -66,13 +62,11 @@ def test_phase_machine_init_gate_catches_injected_fault(repo_root: Path) -> None
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
 
 
-def test_phase_machine_init_gate_legacy_parity(repo_root: Path) -> None:
-    """PARITY: BOTH catch. One injected fault (INIT.pre_commit_gate no longer runs
-    ``atdd validate planner``) is caught by the convention evaluator AND by the
-    legacy validator run via subprocess."""
+def test_phase_machine_init_gate_fault_injection(repo_root: Path) -> None:
+    """One injected fault (INIT.pre_commit_gate no longer runs ``atdd validate planner``)
+    is caught by the convention evaluator."""
+    # Legacy parity (verdict 'both') was proven against the legacy validator before it
+    # was decommissioned (#1207); the convention fault-injection is the live coverage.
     with patched(repo_root, PHASE_MACHINE_CONVENTION, _GATE_OK, _GATE_BROKEN):
         convention_caught = bool(_evaluate(load_composed_graph(repo_root)))
-        legacy_caught = legacy_catches(repo_root, LEGACY_NODEID)
-    assert convention_caught and legacy_caught, (
-        f"parity break: convention_caught={convention_caught} legacy_caught={legacy_caught}"
-    )
+    assert convention_caught, f"convention failed to catch fault: convention_caught={convention_caught}"
