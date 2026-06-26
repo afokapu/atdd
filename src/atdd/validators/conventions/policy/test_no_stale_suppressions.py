@@ -28,9 +28,6 @@ INVARIANT = 'forbidden match set is empty'
 AUTO_CAPTURE = 'usually explicit; a new node is included if it falls inside a policy scope'
 FAILURE_EVIDENCE = ['matched_construct', 'policy_id', 'location', 'reason', 'suggested_replacement']
 LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_no_stale_suppressions.py']
-_LEGACY_NODEID = (
-    'src/atdd/coach/validators/test_no_stale_suppressions.py::test_no_stale_suppressions'
-)
 
 
 def _template():
@@ -51,9 +48,15 @@ def test_clean_baseline_zero_on_real_graph() -> None:
     )
 
 
-def test_fault_injection_legacy_parity() -> None:
+def test_fault_injection() -> None:
     """Create a real file under src/atdd carrying a past-deadline suppression marker;
-    assert BOTH the convention evaluator and the legacy coach validator catch it."""
+    assert the convention evaluator catches it, then confirm clean after revert.
+
+    Legacy parity (verdict `both`) was proven against
+    test_no_stale_suppressions.py::test_no_stale_suppressions before that legacy
+    validator was decommissioned (#1207); coach.rule-id.stale-suppression now binds
+    its implementation.ref to this variant. The convention fault-injection is the
+    live coverage."""
     root = _parity.repo_root()
     inj = root / "src" / "atdd" / "_atdd1212_stale_suppression_parity.py"
     # Build the pragma at runtime so no contiguous `atdd:suppress(...)` literal
@@ -66,8 +69,5 @@ def test_fault_injection_legacy_parity() -> None:
         hit = [v for v in conv if v.get("location", "").endswith(f"{inj.name}:1")]
         assert hit, f"{VARIANT}: convention evaluator did not catch injected stale marker"
         assert "UNTIL=2000-01-01" in hit[0]["matched_construct"]
-        assert _parity.legacy_catches(_LEGACY_NODEID), (
-            "legacy coach validator did not catch the injected stale suppression"
-        )
 
     assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []
