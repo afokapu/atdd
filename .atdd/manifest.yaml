@@ -3050,3 +3050,12 @@ sessions:
   created: '2026-06-25'
   archived: null
   branch: refactor/registry-reads-single-node-rules
+- id: '1227'
+  slug: decommission-theme-train-validators
+  file: null
+  issue_number: 1227
+  type: implementation
+  status: INIT
+  created: '2026-06-26'
+  archived: null
+  branch: feat/decommission-theme-train-validators
