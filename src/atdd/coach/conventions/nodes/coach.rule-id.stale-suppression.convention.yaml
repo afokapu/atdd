@@ -7,7 +7,7 @@ statement: Inline `# atdd:suppress(<id>) UNTIL=<date>` markers must not carry a 
   the violation or extend the deadline.
 implementation:
   type: validator
-  ref: test_no_stale_suppressions::test_no_stale_suppressions
+  ref: conventions/policy/test_no_stale_suppressions::test_fault_injection
 source:
   legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
   legacy_section: rules

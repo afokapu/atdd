@@ -18,7 +18,7 @@ from atdd.validators.conventions.presence import archetype
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 
-from .conftest import legacy_catches, patched
+from .conftest import patched
 
 FAMILY = "presence"
 TEMPLATE = "required_field_presence"
@@ -43,10 +43,6 @@ WMBT_CONVENTION = (
 )
 _RULE_BLOCK = "  disposition: suppress-and-clean\n"
 _RULE_BLOCK_NO_DISP = ""
-LEGACY_NODEID = (
-    "src/atdd/coach/validators/test_rule_disposition_required.py"
-    "::test_rule_disposition_required"
-)
 
 
 def _evaluate(graph) -> list:
@@ -71,17 +67,8 @@ def test_rule_has_disposition_catches_injected_fault(repo_root: Path) -> None:
     assert any(v["node_id"] == _TARGET_RULE for v in violations)
     for v in violations:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
-
-
-def test_rule_has_disposition_legacy_parity(repo_root: Path) -> None:
-    """PARITY: BOTH catch. One injected fault (an allowlisted rule loses its
-    disposition) is caught by the convention evaluator AND by the legacy validator
-    (``test_rule_disposition_required``) run via subprocess."""
-    with patched(repo_root, WMBT_CONVENTION, _RULE_BLOCK, _RULE_BLOCK_NO_DISP):
-        convention_caught = any(
-            v["node_id"] == _TARGET_RULE for v in _evaluate(load_composed_graph(repo_root))
-        )
-        legacy_caught = legacy_catches(repo_root, LEGACY_NODEID)
-    assert convention_caught and legacy_caught, (
-        f"parity break: convention_caught={convention_caught} legacy_caught={legacy_caught}"
-    )
+    # Legacy parity (verdict `both`) was proven against
+    # test_rule_disposition_required.py::test_rule_disposition_required before that
+    # legacy validator was decommissioned (#1207); coach.rule-id.disposition-required
+    # now binds its implementation.ref to this variant. The clean-baseline +
+    # fault-injection above are the live coverage.

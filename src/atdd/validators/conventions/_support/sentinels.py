@@ -77,6 +77,13 @@ def rule_validator_roundtrip(graph) -> EvalResult:
     r = EvalResult(selected_nodes=len(selected))
     for rule in selected:
         r.checked_edges += 1
+        # A convention-variant enforcer (`conventions/<family>/<stem>::func`) binds via
+        # parity/execution on the composed graph, NOT a bind_rule literal (#1207). Its
+        # file+function existence is verified by declaration_to_implementation_binding
+        # and reverse coherence; the round-trip bind_rule-emitter requirement does not
+        # apply to it.
+        if rule.validator.startswith("conventions/"):
+            continue
         decl_stems = _declared_validator_stems(graph, rule.validator)
         # The declared validator may bind_rule the canonical id OR any of the rule's
         # aliases (a renamed/consolidated rule keeps old ids as aliases) — both
