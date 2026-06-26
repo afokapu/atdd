@@ -16,7 +16,6 @@ from atdd.validators.conventions.resolution.archetype import TEMPLATE_IDS
 from atdd.validators.conventions.resolution._parity import (
     evaluate_variant,
     inject_patch,
-    legacy_caught,
     repo_root,
 )
 
@@ -42,10 +41,6 @@ def test_draft_wagon_registry_variant_contract() -> None:
 # present in plan/_wagons.yaml (phantom reference).
 _REGISTRY = "plan/_wagons.yaml"
 _FAULT = ("from: wagon:freeze-runtime-contracts", "from: wagon:does-not-exist-xyz")
-_LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_draft_wagon_registry.py"
-    "::test_registry_consume_references_valid_wagons"
-)
 
 
 def test_clean_baseline_is_zero() -> None:
@@ -53,17 +48,16 @@ def test_clean_baseline_is_zero() -> None:
     assert evaluate_variant(TEMPLATE, VARIANT) == []
 
 
-def test_fault_injection_and_legacy_parity() -> None:
-    """Inject a phantom registry consume->wagon reference; BOTH the convention
-    path (variant evaluator: registry consume.from -> registry slug set) and the
-    legacy validator must catch it (parity = both)."""
+def test_fault_injection() -> None:
+    """Inject a phantom registry consume->wagon reference; the convention path
+    (variant evaluator: registry consume.from -> registry slug set) must catch it."""
+    # Legacy parity (verdict 'both') was proven against the legacy validator before
+    # it was decommissioned (#1207); the convention fault-injection is the live coverage.
     root = repo_root()
     with inject_patch(root, _REGISTRY, *_FAULT):
         evidence = evaluate_variant(TEMPLATE, VARIANT, root=root)
-        legacy = legacy_caught(root, _LEGACY_NODEID)
 
     assert evidence, "convention path did not catch the phantom registry consume ref"
     for record in evidence:
         assert set(record).issubset(FAILURE_EVIDENCE), record
-    assert legacy, "legacy validator did not catch the injected fault"
     assert evaluate_variant(TEMPLATE, VARIANT, root=root) == []
