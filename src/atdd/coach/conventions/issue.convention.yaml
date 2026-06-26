@@ -129,24 +129,9 @@ workflow:
   enforcement:
     principle: "Gate tests block progression until phase is complete"
 
-    sequence_rules:
-      - id: "WF-001"
-        rule: "MUST complete planner phase before tester phase"
-        check: "atdd/planner/validators/ PASS before writing contracts/tests"
-
-      - id: "WF-002"
-        rule: "MUST complete tester phase before coder phase"
-        check: "atdd/tester/validators/ PASS and RED tests fail before implementation"
-
-      - id: "WF-003"
-        rule: "MUST have RED test before writing implementation"
-        check: "Test file exists and fails before src file is created"
-        reference: "atdd/coder/conventions/green.convention.yaml:220"
-
-      - id: "WF-004"
-        rule: "MUST complete GREEN before REFACTOR"
-        check: "All tests pass before running coder validators"
-
+    # sequence_rules (WF-001..WF-004) migrated to the single-node rule
+    # coach.role.planner-tester-coder-sequence (which carries those ids as aliases);
+    # the plan-before-test / test-before-code gating now lives there (#1225).
     violation_handling:
       skip_planner: "BLOCKED - Cannot write tests without WMBT specifications"
       skip_tester: "BLOCKED - Cannot implement without failing tests"

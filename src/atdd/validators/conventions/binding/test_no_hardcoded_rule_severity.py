@@ -36,7 +36,11 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_no_hardcoded_rule_sever
 # Variant-specific binding under test (real convention + the rule the legacy
 # reverse-coherence binder asserts).
 RULE_ID = "coach.rule-id.no-hardcoded-rule-severity"
-CONVENTION = "src/atdd/coach/conventions/rule-id.convention.yaml"
+# Authoritative home is the single-node nodes/ file (#1225); the rule was migrated
+# out of the monolith rule-id.convention.yaml, so the rename-injection targets it there.
+CONVENTION = (
+    "src/atdd/coach/conventions/nodes/coach.rule-id.no-hardcoded-rule-severity.convention.yaml"
+)
 LEGACY_NODEID = (
     "src/atdd/coach/validators/test_no_hardcoded_rule_severity.py"
     "::test_no_hardcoded_rule_severity_in_migrated_validators"

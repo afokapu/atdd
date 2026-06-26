@@ -151,11 +151,23 @@ def _check_theme_zero_mandatory(graph) -> list:
     }]
 
 
+def _direct_validator(ref) -> bool:
+    """A DIRECT enforcer (a validator function / conventions variant), as opposed
+    to a rule-id cross-reference that delegates enforcement to another rule."""
+    return bool(ref) and (
+        ref.startswith("test_") or "::" in ref or ref.startswith("conventions/")
+    )
+
+
 def _check_rule_has_disposition(graph) -> list:
-    """Every rule declared in a migration-completed convention must carry a legal
-    ``disposition``. Scope mirrors the legacy validator
-    (``test_rule_disposition_required``): only conventions listed under
-    ``rule-id.convention.yaml::migration.completed`` are checked.
+    """Every ENFORCED rule must carry a legal ``disposition``. Scope mirrors the
+    legacy validator (``test_rule_disposition_required``) plus the single-node model
+    (#1225): a rule is in scope if its location is a ``migration.completed`` convention
+    (``rule-id.convention.yaml``), OR it is a single-node ``nodes/`` rule/constraint that
+    declares a DIRECT validator. Single-node nodes that delegate enforcement via a
+    rule-id cross-reference, or that are principle/family/doc kinds, legitimately omit
+    ``disposition`` and are skipped. Reads ``disposition`` from the top level OR from the
+    single-node ``metadata`` block.
     """
     allowlist = set(
         (_read_yaml(graph, _RULE_ID_CONVENTION).get("migration") or {}).get("completed")
@@ -163,9 +175,18 @@ def _check_rule_has_disposition(graph) -> list:
     )
     out = []
     for rule in graph.rules():
-        if rule.location not in allowlist:
+        is_single_node = "/conventions/nodes/" in rule.location
+        in_scope = rule.location in allowlist or (
+            is_single_node
+            and rule.fields.get("kind") in ("rule", "constraint")
+            and _direct_validator(rule.validator)
+        )
+        if not in_scope:
             continue
+        meta = rule.fields.get("metadata") or {}
         disp = rule.fields.get("disposition")
+        if disp is None:
+            disp = meta.get("disposition")
         if disp is None:
             out.append({"node_id": rule.id, "missing_field": "disposition",
                         "node_location": rule.location})

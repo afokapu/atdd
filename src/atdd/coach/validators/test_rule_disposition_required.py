@@ -75,12 +75,26 @@ def _missing_dispositions() -> List[Tuple[str, Path, str]]:
     registry = build_registry()
     offenders: List[Tuple[str, Path, str]] = []
 
+    def _direct_validator(ref) -> bool:
+        # A DIRECT enforcer (validator function / conventions variant), not a
+        # rule-id cross-reference that delegates enforcement to another rule.
+        return bool(ref) and (
+            ref.startswith("test_") or "::" in ref or ref.startswith("conventions/")
+        )
+
     # Index registry entries by their convention path's tail so we can match
     # the allowlist (which stores repo-relative paths) against absolute paths
-    # in the registry.
+    # in the registry. Since #1225 (registry reads nodes/ single-node files), also
+    # check enforceable single-node rules — those whose authoritative nodes/ home
+    # declares a DIRECT validator — so this gate stays meaningful after migrated
+    # rules move out of the monolith allowlist conventions.
     for rule_id, meta in registry.items():
         path_str = str(meta.convention_path)
-        if not any(path_str.endswith(allowed) for allowed in allowlist):
+        in_allowlist = any(path_str.endswith(allowed) for allowed in allowlist)
+        is_nodes_enforceable = (
+            "/conventions/nodes/" in path_str and _direct_validator(meta.validator)
+        )
+        if not (in_allowlist or is_nodes_enforceable):
             continue
         if meta.disposition is None:
             offenders.append((rule_id, meta.convention_path, "missing"))

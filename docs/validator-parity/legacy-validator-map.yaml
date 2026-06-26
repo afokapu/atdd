@@ -3345,6 +3345,8 @@ entries:
   priority: P2
   parity_notes: Git core.bare/workspace hermeticity guard; runtime tooling, not convention graph.
 excluded:
+- legacy_path: src/atdd/coach/validators/test_no_duplicate_rule_representation.py
+  reason: "New #1225 convention-era guard (single-authoritative-representation: no rule in both a monolith rules block and a nodes/ file). Not a legacy persona validator subject to convention-graph parity; retained, not decommissioned."
 - legacy_path: src/atdd/planner/validators/__init__.py
   reason: Package marker, not an executable validator.
 - legacy_path: src/atdd/planner/validators/conftest.py

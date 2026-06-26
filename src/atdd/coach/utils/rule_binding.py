@@ -238,6 +238,29 @@ def _walk_rules(
             yield from _walk_rules(item, path_parts + (str(idx),))
 
 
+def single_node_rule_dict(data):
+    """Map a nodes/ single-node convention file (top-level rule_id per
+    planner/schemas/author/convention-node.schema.json) onto the flat rule dict
+    that monolith rules:[] consumers expect (#1225). Returns None otherwise."""
+    if not isinstance(data, dict) or not data.get("rule_id") or data.get("rules"):
+        return None
+    meta = data.get("metadata") or {}
+    content = data.get("content") or {}
+    impl = data.get("implementation") or {}
+    return {
+        "id": data["rule_id"],
+        "severity": meta.get("severity"),
+        "description": data.get("statement") or data.get("name") or "",
+        "disposition": meta.get("disposition"),
+        "introduced_in": meta.get("introduced_in"),
+        "suppression_deadline": meta.get("suppression_deadline"),
+        "aliases": list(meta.get("aliases") or []),
+        "validator": impl.get("ref") if isinstance(impl, dict) else None,
+        "fix_hint": content.get("fix_hint") if isinstance(content, dict) else None,
+        "superseded_by": meta.get("superseded_by"),
+    }
+
+
 def extract_rules(
     file_path: Path,
 ) -> List[Tuple[Path, Tuple[str, ...], Dict]]:
@@ -252,7 +275,11 @@ def extract_rules(
         return []
     if data is None:
         return []
-    return [(file_path, p, r) for (p, r) in _walk_rules(data, ())]
+    rules = [(file_path, p, r) for (p, r) in _walk_rules(data, ())]
+    single_node = single_node_rule_dict(data)
+    if single_node is not None:
+        rules.append((file_path, ("single_node",), single_node))
+    return rules
 
 
 def find_convention_files(

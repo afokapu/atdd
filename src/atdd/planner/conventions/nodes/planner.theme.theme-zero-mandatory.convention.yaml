@@ -21,7 +21,10 @@ metadata:
   aliases:
   - PLANNER-THEME-ZERO-001
   severity: 4
-  disposition: block
+  # 'block' was a pre-existing authoring error (it is the gate BEHAVIOR that
+  # `strict` maps to, not a disposition value — schema enum is strict/
+  # suppress-and-clean/advisory/documentation-only). Corrected to strict (#1225).
+  disposition: strict
   introduced_in: 3.92.0
 parity:
   source_fragments_preserved: true

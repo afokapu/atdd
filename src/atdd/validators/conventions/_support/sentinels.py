@@ -52,22 +52,43 @@ def direct_reference_resolution(graph) -> EvalResult:
     return r
 
 
+def _disposition_of(node) -> str | None:
+    """A rule's disposition, whether declared top-level (monolith ``rules:`` block)
+    or nested under ``metadata`` (single-node ``nodes/`` file, #1225)."""
+    return node.fields.get("disposition") or (node.fields.get("metadata") or {}).get("disposition")
+
+
+def _declared_validator_stems(graph, ref: str) -> set:
+    """Owning module stem(s) for a rule's declared validator ``ref``. The ref is
+    heterogeneous (#1225 single-node): ``module::func`` / a ``conventions/<family>/
+    <stem>::func`` path / or a BARE function name (resolved to the module(s) that
+    define it via the graph's function index)."""
+    if "::" in ref or "/" in ref:
+        return {PurePosixPath(ref.split("::", 1)[0]).name.removesuffix(".py")}
+    stems = graph.validator_function_stems(ref)
+    return set(stems) if stems else {PurePosixPath(ref).name.removesuffix(".py")}
+
+
 def rule_validator_roundtrip(graph) -> EvalResult:
-    # Scope to MIGRATED rules (those declaring a `disposition`), matching legacy's
-    # disposition-scoped reverse-coherence authority. Unmigrated rules (validator but
-    # no disposition) are deferred to the disposition/migration gate — flagging them
-    # here would diverge from legacy and surface latent, not-yet-owned inconsistencies.
-    selected = [n for n in graph.rules() if n.validator and n.fields.get("disposition")]
+    # Scope to MIGRATED rules (those declaring a `disposition`, top-level OR nested
+    # under metadata for single-node nodes/ rules — #1225), matching legacy's
+    # disposition-scoped reverse-coherence authority.
+    selected = [n for n in graph.rules() if n.validator and _disposition_of(n)]
     r = EvalResult(selected_nodes=len(selected))
     for rule in selected:
         r.checked_edges += 1
-        decl_file = rule.validator.split("::", 1)[0]           # "test_x" or "test_x.py"
-        decl_stem = PurePosixPath(decl_file).name.removesuffix(".py")
-        emitters = graph.emits(rule.id)                         # files that bind_rule(rule.id)
-        emitted_by_decl = any(
-            PurePosixPath(e).name.removesuffix(".py") == decl_stem for e in emitters
-        )
-        if not emitted_by_decl:
+        decl_stems = _declared_validator_stems(graph, rule.validator)
+        # The declared validator may bind_rule the canonical id OR any of the rule's
+        # aliases (a renamed/consolidated rule keeps old ids as aliases) — both
+        # round-trip back to this rule.
+        ids = {rule.id} | {
+            a for a in ((rule.fields.get("metadata") or {}).get("aliases") or []) if isinstance(a, str)
+        }
+        emitters = set()
+        for rid in ids:
+            emitters |= graph.emits(rid)
+        emitter_stems = {PurePosixPath(e).name.removesuffix(".py") for e in emitters}
+        if not (decl_stems & emitter_stems):
             r.violations.append({
                 "declaration_id": rule.id,
                 "implementation_ref": rule.validator,

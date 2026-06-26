@@ -374,19 +374,6 @@ validation_rules:
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
-rules:
-  - id: "planner.feature.shape"
-    aliases: ["PLANNER-FEATURE-SHAPE-001"]
-    severity: 2
-    disposition: documentation-only
-    description: "Feature YAMLs declare urn, status, and a non-empty acceptance section"
-    introduced_in: "1.67.0"
-  - id: "planner.feature.wagon-link"
-    aliases: ["PLANNER-FEATURE-WAGON-LINK-001"]
-    severity: 2
-    disposition: documentation-only
-    description: "Each feature is registered under exactly one wagon's _features.yaml manifest"
-    introduced_in: "1.67.0"
 
 # =============================================================================
 # Feature kind field (issue #825)

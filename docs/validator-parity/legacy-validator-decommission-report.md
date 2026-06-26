@@ -12,6 +12,7 @@ Total legacy validators accounted: **237**
 
 | legacy validator | persona | status | priority | outcome |
 |---|---|---|---|---|
+| `src/atdd/coach/validators/test_no_duplicate_rule_representation.py` | coach | not_legacy | n/a | new #1225 convention-era guard (single-authoritative-representation); retained, not subject to decommission |
 | `src/atdd/planner/validators/test_custom_themes.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
 | `src/atdd/planner/validators/test_custom_themes_schema.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
 | `src/atdd/planner/validators/test_dispatch_registry.py` | planner | split | P0 | replace with convention variant `src/atdd/validators/conventions/schema/test_dispatch_map_is_registry.py` (keep as shim during transition) |

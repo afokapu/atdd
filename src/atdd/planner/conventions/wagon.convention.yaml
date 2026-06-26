@@ -286,39 +286,3 @@ artifact_transformation:
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
-rules:
-  - id: "planner.wagon.urn"
-    aliases: ["PLANNER-WAGON-URN-001"]
-    severity: 3
-    disposition: documentation-only
-    description: "Wagons declare a stable URN and live under plan/<wagon-slug>/ with the documented file layout"
-    introduced_in: "1.67.0"
-  - id: "planner.wagon.features"
-    aliases: ["PLANNER-WAGON-FEATURES-001"]
-    severity: 2
-    disposition: documentation-only
-    description: "Wagon _features.yaml lists every feature module and its current status"
-    introduced_in: "1.67.0"
-  - id: "planner.wagon.no-consume-cycle"
-    severity: 3
-    disposition: strict
-    description: "The directed wagon graph built from produce->consume artifact NAMES must be acyclic; no strongly-connected component may span more than one wagon (cross-wagon dependency cycle). Keyed on artifact name, not the nullable contract field."
-    validator: "test_no_cross_wagon_consume_cycle::test_no_cross_wagon_consume_cycle"
-    introduced_in: "3.118.0"
-  - id: "planner.wagon.complexity-model"
-    severity: 2
-    disposition: documentation-only
-    description: "Wagon sizing has two orthogonal axes: intrinsic footprint (size) and coupling complexity (separability). Complexity is super-linear in cross-wagon coupling, not additive in component count. Conceptual model behind no-consume-cycle (strict) and the advisory separability/granularity signals (Phase 2)."
-    introduced_in: "3.118.0"
-  - id: "planner.wagon.coupling-complexity"
-    severity: 2
-    disposition: advisory
-    description: "Advisory reporter: per-wagon coupling complexity = fan_in x fan_out over the produce->consume name graph (Henry-Kafura proxy); flags wagons above a soft config threshold (planner.wagon.coupling_complexity_threshold, default 6). Non-blocking — the runnable surface for the complexity model."
-    validator: "test_wagon_coupling_complexity::test_wagon_coupling_complexity_reported"
-    introduced_in: "3.118.0"
-  - id: "planner.wagon.separability"
-    severity: 2
-    disposition: advisory
-    description: "Advisory: a wagon should be separable — internal cohesion (intra-wagon shared-token WMBT edges) >= its tightest coupling to any single neighbor. Non-separable wagons emit a [MERGE] signal. Cohesion and coupling are measured on one WMBT shared-token graph (commensurable); vocabulary/min_shared/min-graph-size are config calibration knobs. Non-blocking."
-    validator: "test_wagon_separability::test_wagon_separability_reported"
-    introduced_in: "3.120.0"

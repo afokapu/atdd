@@ -11,3 +11,7 @@ terms:
   text: a supplementary section of a wagon document
 - term_id: heading_order
   text: the documented sequence the appendix headings must follow
+metadata:
+  severity: 1
+  disposition: documentation-only
+  introduced_in: 1.67.0

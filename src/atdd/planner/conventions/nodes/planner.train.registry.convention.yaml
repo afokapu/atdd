@@ -7,7 +7,7 @@ statement: 'Each train needs two files: a registry entry in plan/_trains.yaml an
   every registry entry MUST have a corresponding spec file.'
 implementation:
   type: validator
-  ref: test_train_files_exist_for_registry_entries
+  ref: test_train_validation::test_train_files_exist_for_registry_entries
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_section: registry
@@ -19,6 +19,12 @@ content:
   examples:
   - 'registry: plan/_trains.yaml (train_id, description, path, wagons summary)'
   - 'spec: plan/_trains/{train_id}.yaml (full workflow)'
+metadata:
+  severity: 3
+  # strict: the planner phase gate fails when a registry entry has no spec file
+  # (content.normative_text / SPEC-TRAIN-VAL-0003). Backfilled to complete this
+  # single-node authoring so the disposition gate manages it (#1225).
+  disposition: strict
 parity:
   source_fragments_preserved: true
   examples_preserved: true

@@ -3041,3 +3041,12 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+- id: '1225'
+  slug: registry-reads-single-node-rules
+  file: null
+  issue_number: 1225
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-25'
+  archived: null
+  branch: refactor/registry-reads-single-node-rules
