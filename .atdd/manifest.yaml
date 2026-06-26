@@ -3065,3 +3065,11 @@ sessions:
   status: INIT
   created: '2026-06-26'
   archived: null
+- id: '1229'
+  slug: decommission-special-case-validators
+  file: null
+  issue_number: 1229
+  type: implementation
+  status: INIT
+  created: '2026-06-26'
+  archived: null
