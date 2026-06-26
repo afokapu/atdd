@@ -3057,3 +3057,11 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+- id: '1227'
+  slug: decommission-theme-train-validators
+  file: null
+  issue_number: 1227
+  type: implementation
+  status: INIT
+  created: '2026-06-26'
+  archived: null
