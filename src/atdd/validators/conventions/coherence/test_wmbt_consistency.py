@@ -43,12 +43,8 @@ def test_wmbt_consistency_variant_contract() -> None:
 # --- executable graph-question tests ---------------------------------------
 # PARITY: full subprocess differential. Clean baseline is 0 (every wagon's manifest
 # WMBT declarations agree with its on-disk WMBT files). The fault (declare a phantom
-# WMBT code Z999 in a manifest with no matching file) is caught by BOTH the
-# convention evaluator and the legacy target.
-_LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_wmbt_consistency.py"
-    "::test_wagon_manifest_wmbt_codes_exist_as_files"
-)
+# WMBT code Z999 in a manifest with no matching file) is caught by the convention
+# evaluator.
 _MANIFEST = "plan/validate_conventions/_validate_conventions.yaml"
 
 
@@ -56,16 +52,16 @@ def test_clean_baseline_is_zero() -> None:
     assert _parity.conv_violations(VARIANT) == []
 
 
-def test_fault_injection_legacy_parity() -> None:
-    """Declare a phantom WMBT code with no file in a real manifest; assert BOTH the
-    convention evaluator and the legacy validator catch it; revert."""
+def test_fault_injection() -> None:
+    """Declare a phantom WMBT code with no file in a real manifest; assert the
+    convention evaluator catches it; revert."""
+    # Legacy parity (verdict 'both') was proven against the legacy validator before
+    # it was decommissioned (#1207); the convention fault-injection is the live coverage.
     root = _parity.repo_root()
     with _parity.patch_file(root, _MANIFEST,
                             "  E001:", "  Z999: phantom wmbt with no file\n  E001:"):
         conv = _parity.conv_violations(VARIANT, root)
-        legacy = _parity.legacy_caught(_LEGACY_NODEID, root)
     assert conv, "convention evaluator did not catch the phantom WMBT declaration"
-    assert legacy, "legacy validator did not catch the phantom WMBT declaration"
     assert _parity.conv_violations(VARIANT, root) == [], "fault did not revert cleanly"
 
 
