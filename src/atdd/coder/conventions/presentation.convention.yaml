@@ -5,25 +5,14 @@ description: "Presentation layer implementation patterns across Python, TypeScri
 # Structured rules (issue #389 Phase 3a) — top-level placement so the registry
 # walker discovers them; existing `architecture:`, `http_rest_api:`,
 # `cli_pattern:`, `validation:` blocks are preserved verbatim.
+# PARTIAL de-monolith (Phase A): the three core-agnostic presentation rules
+# (coder.presentation.layer-is-thin / controllers-never-call-domain /
+# response-models-live-in) were atomized into single-node files under
+# conventions/nodes/coder.presentation.*.convention.yaml (mirrors the
+# tester.acceptance-violation.* atomization); the registry now reads them there.
+# The gsap-*/i18n-* rules below are stack/extension-bound and stay in this
+# monolith — they migrate later in Phase B.
 rules:
-  - id: "coder.presentation.layer-is-thin"
-    aliases: ["PRESENTATION-THIN-001"]
-    severity: 3
-    disposition: documentation-only
-    description: "Presentation layer is thin — no business logic; controllers delegate to application use cases"
-    introduced_in: "1.66.0"
-  - id: "coder.presentation.controllers-never-call-domain"
-    aliases: ["PRESENTATION-THIN-002"]
-    severity: 3
-    disposition: documentation-only
-    description: "Controllers never call domain directly; flow is Controller → Use Case → Domain"
-    introduced_in: "1.66.0"
-  - id: "coder.presentation.response-models-live-in"
-    aliases: ["PRESENTATION-THIN-003"]
-    severity: 3
-    disposition: documentation-only
-    description: "Response models live in contract_dto and match contract JSON schemas"
-    introduced_in: "1.66.0"
   - id: "coder.presentation.gsap-layer"
     validator: "test_gsap_layer_usage::test_gsap_only_in_presentation_layer"
     aliases: ["PRESENTATION-GSAP-LAYER-001"]

@@ -1669,6 +1669,24 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
+  reason: peer presentation thin-layer guidance evaluated alongside the thin-layer principle
+  source_ref: coder.presentation.layer-is-thin
+  strength: minor
+  target_ref: coder.presentation.controllers-never-call-domain
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer presentation thin-layer guidance evaluated alongside the thin-layer principle
+  source_ref: coder.presentation.layer-is-thin
+  strength: minor
+  target_ref: coder.presentation.response-models-live-in
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
   reason: peer tester quality-gate checks evaluated alongside security auth coverage
   source_ref: tester.security.auth
   strength: minor
