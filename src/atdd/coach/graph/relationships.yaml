@@ -1818,6 +1818,33 @@ edges:
   strength: minor
   target_ref: coder.security.xss
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder GREEN-phase static-analysis quality gate (intra-layer duplication) evaluated alongside dead-code reachability
+  source_ref: coder.dead-code.reachability
+  strength: minor
+  target_ref: coder.duplication.no-structurally-identical-code
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer technology-governance gate (approved-alternative gating) evaluated alongside the layer-default selection rule
+  source_ref: coder.technology.new-components-default-to
+  strength: minor
+  target_ref: coder.technology.approved-alternatives-are-taken
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer technology-governance gate (SPEC-edit requirement for unapproved choices) evaluated alongside the layer-default selection rule
+  source_ref: coder.technology.new-components-default-to
+  strength: minor
+  target_ref: coder.technology.unapproved-technology-choices-require
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
