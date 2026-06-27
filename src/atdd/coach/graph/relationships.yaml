@@ -1683,6 +1683,24 @@ edges:
   strength: minor
   target_ref: tester.train.coverage
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder coverage conformance checks evaluated alongside feature-implementation coverage
+  source_ref: coder.coverage.every-feature-must-have
+  strength: minor
+  target_ref: coder.coverage.every-implementation-must-have
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder error-response conformance checks evaluated alongside bare-string detail
+  source_ref: coder.error-response.bare-string
+  strength: minor
+  target_ref: coder.error-response.code-format
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0

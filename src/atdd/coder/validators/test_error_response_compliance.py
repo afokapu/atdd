@@ -51,6 +51,11 @@ ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 ERROR_RESPONSE_CONVENTION = (
     ATDD_PKG_DIR / "coder" / "conventions" / "error-response.convention.yaml"
 )
+# Decomposed rule nodes (atomized per #1225 — registry now reads nodes/, the
+# monolith retains only descriptive sections).
+ERROR_RESPONSE_NODES_DIR = (
+    ATDD_PKG_DIR / "coder" / "conventions" / "nodes"
+)
 ERROR_RESPONSE_CONTRACT = (
     REPO_ROOT / "contracts" / "commons" / "error" / "response.schema.json"
 )
@@ -228,13 +233,35 @@ def test_error_response_convention_exists():
     )
 
     violations = []
-    required_keys = ["rules", "error_code_format", "phase_guidance"]
+    # Descriptive sections retained in the monolith.
+    required_keys = ["error_code_format", "phase_guidance"]
     for key in required_keys:
         if key not in content:
             violations.append(f"Missing required section: '{key}'")
 
     if content.get("convention_id") != "error-response":
         violations.append("convention_id must be 'error-response'")
+
+    # The rules were atomized into single-node files under nodes/ (#1225). Each
+    # required rule_id must resolve to a decomposed node carrying its rule_id.
+    required_rule_ids = [
+        "coder.error-response.bare-string",
+        "coder.error-response.code-format",
+    ]
+    for rule_id in required_rule_ids:
+        node_path = (
+            ERROR_RESPONSE_NODES_DIR / f"{rule_id}.convention.yaml"
+        )
+        if not node_path.exists():
+            violations.append(
+                f"Missing decomposed rule node: '{node_path}'"
+            )
+            continue
+        node = yaml.safe_load(node_path.read_text(encoding="utf-8"))
+        if node.get("rule_id") != rule_id:
+            violations.append(
+                f"Node '{node_path}' must declare rule_id '{rule_id}'"
+            )
 
     if violations:
         pytest.fail(
