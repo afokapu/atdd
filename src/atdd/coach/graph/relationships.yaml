@@ -1624,6 +1624,33 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
+  strength: minor
+  target_ref: tester.smoke.operator-observable-assertion
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
+  strength: minor
+  target_ref: tester.smoke.cross-component-handoff-gap
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
+  strength: minor
+  target_ref: tester.smoke.harness-subprocess-failed-crash
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
   reason: peer tester-coverage conformance checks evaluated alongside acceptance-test coverage
   source_ref: tester.coverage.every-acceptance-criterion-must
   strength: minor
