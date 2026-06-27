@@ -3068,3 +3068,12 @@ sessions:
   created: '2026-06-26'
   archived: null
   branch: feat/decommission-special-case-validators
+- id: '1215'
+  slug: atomize-tester-acceptance-violation
+  file: null
+  issue_number: 1215
+  type: migration
+  status: INIT
+  created: '2026-06-25'
+  archived: null
+  branch: feat/atomize-tester-acceptance-violation
