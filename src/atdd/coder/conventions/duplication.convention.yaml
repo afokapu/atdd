@@ -12,12 +12,12 @@ duplication:
     # ------------------------------------------------------------------
     # SPEC-CODER-DUP-0001: Intra-layer structural duplication
     # ------------------------------------------------------------------
+    # Rule identity for coder.duplication.no-structurally-identical-code
+    # (SPEC-CODER-DUP-0001) atomized to
+    # nodes/coder.duplication.no-structurally-identical-code.convention.yaml
+    # (Phase A; #1225 — nodes/ is authoritative). The operational config below
+    # is retained here because test_duplication_detector reads it directly.
     intra_layer_duplication:
-      id: "coder.duplication.no-structurally-identical-code"
-      aliases: ["SPEC-CODER-DUP-0001"]
-      disposition: documentation-only
-      description: "No structurally identical code fragments within the same architectural layer"
-      severity: warning
       language: python
       detection: ast
 
