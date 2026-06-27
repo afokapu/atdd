@@ -1737,6 +1737,24 @@ edges:
   strength: minor
   target_ref: coder.error-response.code-format
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder composition-completeness checks evaluated alongside composition-root reachability
+  source_ref: coder.refactor.composition-root
+  strength: minor
+  target_ref: coder.refactor.composition-consumer
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder REFACTOR-phase quality gates evaluated alongside composition-root reachability
+  source_ref: coder.refactor.composition-root
+  strength: minor
+  target_ref: coder.refactor.coach-ratchet-pres
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
