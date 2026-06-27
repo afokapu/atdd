@@ -1548,6 +1548,78 @@ edges:
   strength: important
   target_ref: planner.wmbt.step-code-vocabulary
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.acceptance-must-declare-phase
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.disposition-must-not-be-declared
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.hermetic-fake-must-declare-contract
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.live-smoke-acceptance-must-execute
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.metric-implementation-must-exist
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.validator-binding-must-be-bidirectional
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0

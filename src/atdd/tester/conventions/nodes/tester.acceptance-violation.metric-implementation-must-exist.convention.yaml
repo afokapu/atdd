@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.metric-implementation-must-exist
+kind: rule
+status: active
+name: Metric implementation must exist
+statement: When signal.metric is declared, a compute() implementation must exist in
+  either <repo>/.atdd/metrics/<metric>.py or src/atdd/runners/metrics/<metric>.py
+  (two-root lookup, repo-local takes precedence)
+terms:
+- term_id: metric_implementation
+  text: A declared signal.metric requires a compute() module in <repo>/.atdd/metrics/<metric>.py
+    or src/atdd/runners/metrics/<metric>.py, with the repo-local root taking precedence.
+implementation:
+  type: validator
+  ref: test_metric_implementation::test_every_signal_metric_has_compute_function
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.metric-implementation-must-exist
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Add the missing compute() in <repo>/.atdd/metrics/<name>.py, rename the
+    metric to match an existing implementation, or remove signal.metric and rely on
+    harness mode; the module must export compute(repo_root)->int|float|bool and passes(value,
+    threshold)->bool.
+  operational_guidance: 'recipe: metric-implementation'
+metadata:
+  severity: 4
+  disposition: strict
