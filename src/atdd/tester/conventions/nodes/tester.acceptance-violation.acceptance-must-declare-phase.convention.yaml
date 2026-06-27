@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.acceptance-must-declare-phase
+kind: rule
+status: active
+name: Acceptance must declare phase
+statement: Every acceptance in plan/ must declare identity.phase explicitly
+terms:
+- term_id: phase
+  text: The identity.phase field declares which ATDD lifecycle phase (RED|GREEN|SMOKE|REFACTOR)
+    an acceptance belongs to and is canonical for coach dispatch.
+implementation:
+  type: validator
+  ref: test_acceptance_phase::test_every_acceptance_declares_phase
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.acceptance-must-declare-phase
+  extraction_mode: high_fidelity
+content:
+  fix_hint: "Under the failing acceptances identity: block, add phase: <RED|GREEN|SMOKE|REFACTOR>;\
+    \ phase is canonical for coach dispatch (\xA78.1) and cannot be inferred from\
+    \ source kind."
+  operational_guidance: 'recipe: acceptance-phase'
+metadata:
+  severity: 4
+  disposition: strict

@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+rule_id: coder.performance.perf
+kind: rule
+status: active
+name: No DB calls inside loops
+statement: Database client calls (repository methods, direct DB calls, HTTP-to-DB
+  proxies) MUST NOT appear inside for/while/async-for loop bodies or comprehensions
+terms:
+- term_id: n_plus_one
+  text: An N+1 query is a database or HTTP-to-DB client call placed inside a loop
+    body or comprehension, issuing one query per item instead of a single batched
+    query.
+source:
+  legacy_path: src/atdd/coder/conventions/performance.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.performance.perf
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Refactor to batch queries outside the loop using bulk/batch repository
+    methods (e.g. find_many) so the loop consumes a single result set.
+metadata:
+  severity: 4
+  disposition: documentation-only
+  aliases:
+  - PERF-001

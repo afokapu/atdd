@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.acceptance-must-be-measurable
+kind: rule
+status: active
+name: Acceptance must be measurable
+statement: Every acceptance in plan/ must declare harness.type with a binding test,
+  OR signal.metric + signal.threshold (both fields required together), or both
+terms:
+- term_id: measurable
+  text: an acceptance is measurable when it declares a binding test (harness.type)
+    OR a metric+threshold (signal.metric + signal.threshold)
+implementation:
+  type: validator
+  ref: test_acceptance_measurable::test_every_acceptance_has_enforcement
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.acceptance-must-be-measurable
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Ensure the acceptance declares harness.type with an anchored test, or
+    signal.metric + signal.threshold together.
+  operational_guidance: 'recipe: acceptance-measurability'
+metadata:
+  severity: 4
+  disposition: strict

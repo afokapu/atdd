@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+rule_id: tester.coverage.every-acceptance-criterion-must
+kind: rule
+status: active
+name: Acceptance - Tests Coverage
+statement: Every acceptance criterion must have corresponding test(s)
+terms:
+- term_id: acceptance_criterion
+  text: A testable requirement URN in plan/ that must be referenced by at least one
+    test.
+source:
+  legacy_path: src/atdd/tester/conventions/coverage.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.coverage.every-acceptance-criterion-must
+  extraction_mode: high_fidelity
+bidirectional:
+- direction: acceptance -> test
+  requirement: Each acceptance URN must be referenced by at least one test
+  exceptions: acceptance_without_tests allow-list
+  validator: test_all_acceptances_have_tests
+metadata:
+  aliases:
+  - COVERAGE-TEST-3.1
+  disposition: documentation-only

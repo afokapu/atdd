@@ -1,0 +1,21 @@
+schema_version: 1.0.0
+rule_id: coder.dto.purity
+kind: rule
+status: active
+name: DTO purity
+statement: Domain models stay wagon-internal; cross-wagon traffic uses DTOs
+terms:
+- term_id: dto_purity
+  text: DTO purity means domain models remain wagon-internal while all cross-wagon
+    traffic crosses the boundary as pure DTOs.
+source:
+  legacy_path: src/atdd/coder/conventions/dto.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.dto.purity
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - DTO-PURITY-001
+  introduced_in: 1.67.0

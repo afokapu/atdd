@@ -1,0 +1,36 @@
+schema_version: 1.0.0
+rule_id: tester.test-isolation.no-polluting-patterns
+kind: rule
+status: active
+name: No polluting patterns
+statement: Test files must not contain AST-detectable bare-mode-init or unscoped-core-bare-config
+  patterns (Wave 12 contamination class)
+terms:
+- term_id: polluting_pattern
+  text: an AST-detectable test construct that mutates shared git state (bare-mode
+    init or unscoped core.bare config) outside a tmp_path scope.
+implementation:
+  type: validator
+  ref: test_no_polluting_patterns::test_repo_has_no_pollution_patterns
+source:
+  legacy_path: src/atdd/tester/conventions/test-isolation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.test-isolation.no-polluting-patterns
+  extraction_mode: high_fidelity
+content:
+  fix_hint: "Replace the offending pattern with a properly scoped equivalent:\n\n\
+    \  WRONG (bare-init with bad cwd):\n    subprocess.run(['git', 'init', '--bare',\
+    \ path], cwd=os.getcwd())\n\n  RIGHT (bare-init with tmp_path-derived path, no\
+    \ cwd= or cwd=tmp_path):\n    subprocess.run(['git', 'init', '--bare', str(tmp_path\
+    \ / 'repo.git')])\n    subprocess.run(['git', 'init', '--bare', str(tmp_path)],\
+    \ cwd=tmp_path)\n\n  WRONG (core.bare config with no isolation):\n    subprocess.run(['git',\
+    \ 'config', 'core.bare', 'true'])\n\n  RIGHT (core.bare config scoped via -C flag\
+    \ to tmp_path):\n    subprocess.run(['git', '-C', str(tmp_path), 'config', 'core.bare',\
+    \ 'true'])\n\n  RIGHT (core.bare config scoped via cwd= to tmp_path):\n    subprocess.run(['git',\
+    \ 'config', 'core.bare', 'true'], cwd=str(tmp_path))\n\n  RIGHT (worktree-scoped,\
+    \ always safe):\n    subprocess.run(['git', 'config', '--worktree', 'core.bare',\
+    \ 'true'])\n\nReference: CLAUDE.md worktree_config convention (#634 - use --worktree\n\
+    for per-worktree git config to avoid shared .git/config contamination)."
+metadata:
+  severity: 4
+  disposition: strict

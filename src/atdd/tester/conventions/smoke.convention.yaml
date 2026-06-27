@@ -360,12 +360,9 @@ behavioral_render:
       disposition: documentation-only
       description: "Train mounts but the rendered DOM is classified as stub-only (loader/skeleton/placeholder)."
       introduced_in: "1.64.5"
-    - id: "tester.smoke.harness-subprocess-failed-crash"
-      aliases: ["TESTER-RENDER-003"]
-      severity: 3
-      disposition: documentation-only
-      description: "Harness subprocess failed (crash, timeout, or schema-invalid stdout) when mounting the train."
-      introduced_in: "1.64.5"
+    # Phase A de-monolith (#1225): tester.smoke.harness-subprocess-failed-crash
+    # (TESTER-RENDER-003) moved to
+    # nodes/tester.smoke.harness-subprocess-failed-crash.convention.yaml (authoritative).
 
   ratchet:
     baseline_id: "train_renders_content"
@@ -428,26 +425,9 @@ presentation_smoke_rules:
 #
 # Nested under a sibling key — the top-level `rules:` slot holds the legacy
 # must/must_not prose block.
-collaborator_substitution_rules:
-  rules:
-    - id: "tester.smoke.no-collaborator-substitution"
-      severity: 4
-      disposition: suppress-and-clean
-      validator: "test_smoke_no_collaborator_substitution::test_smoke_tests_do_not_substitute_collaborators"
-      description: "A SMOKE-phase test must not substitute a production collaborator (monkeypatch.setattr, or assigning a locally-defined function/lambda over an object attribute) — that turns it into a unit test passing CI while exercising nothing real."
-      fix_hint: |
-        The flagged SMOKE test replaces a collaborator instead of driving the
-        real code path. Choose ONE:
-          - If it was never a smoke test: relabel it — change `# Phase:` and the
-            filename away from SMOKE (it is a unit/integration test, or
-            hermetic_integration per #690).
-          - If it should be smoke: remove the substitution and exercise the real
-            boundary (real subprocess / file / socket / DB).
-        Environment setup is allowed — monkeypatch.setenv / .delenv / .chdir /
-        .syspath_prepend do NOT trigger this rule.
-        Temporary escape: add an inline marker on the offending line:
-          # atdd:suppress(tester.smoke.no-collaborator-substitution) UNTIL=<YYYY-MM-DD>
-      introduced_in: "3.53.0"
+#
+# Phase A de-monolith (#1225): tester.smoke.no-collaborator-substitution moved
+# to nodes/tester.smoke.no-collaborator-substitution.convention.yaml (authoritative).
 
 # =============================================================================
 # Feedback-loop systems — close-the-loop assertion required (issue #825)
@@ -627,57 +607,11 @@ synthetic_fixture_anti_patterns:
         To suppress (pre-existing test during transition window):
           # atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=YYYY-MM-DD
 
-    - id: "tester.smoke.operator-observable-assertion"
-      severity: 3
-      disposition: documentation-only
-      introduced_in: "3.83.0"
-      description: |
-        The operator-observable-assertion mandate: SMOKE tests MUST assert on
-        operator-observable behavior — captured stdout, exit code, rendered pane
-        content, persistent DB row — not on intermediate-artifact-write events such
-        as output.log existence, output.log line content, or cli-return.jsonl file
-        write. The lived incident: #843 — the launcher swallowed pty output; E003-SMOKE
-        asserted on output.log content, which was written before the pty forwarding
-        path was ever exercised. The test passed; the operator saw nothing.
-        Tests that assert solely on output.log or other intermediate artifacts without
-        a paired assertion on the operator-visible channel produce false-positive green.
-      anti_patterns:
-        - pattern: "assert.*output.log"
-          description: "Asserting solely on output.log content without a paired stdout assertion"
-        - pattern: "assert.*cli-return.jsonl"
-          description: "Asserting on the cli-return file existence without verifying the consumer received the bytes"
-      fix_hint: |
-        Add an assertion on the operator-visible channel alongside the artifact assertion:
-          - Capture proc.stdout (stdout=subprocess.PIPE) and assert the sentinel appears.
-          - Assert exit code == 0 (operator can see the process succeeded).
-          - Query the DB if the feature writes to a database.
-        The artifact assertion (output.log) may be retained as a secondary assertion;
-        it must not be the ONLY assertion.
-
-    - id: "tester.smoke.cross-component-handoff-gap"
-      severity: 3
-      disposition: documentation-only
-      introduced_in: "3.83.0"
-      description: |
-        The cross-component-handoff mandate: when a feature has a producer→consumer
-        handoff, the SMOKE MUST exercise both the producer and the consumer in a single
-        test. A producer-only SMOKE test cannot detect bugs at the seam between the
-        producer and the consumer components. The lived incident: #824 cli-return
-        consumer was never wired; the producer wrote cli-return.jsonl entries and the
-        SMOKE passed green. No consumer drained the file — the handoff gap was invisible.
-        Features with a producer that writes to a queue, file, or channel that is
-        consumed by a separate component must have a single SMOKE that verifies both
-        ends of the handoff.
-      handoff_detection:
-        producer: "component that writes to a shared artifact (cli-return.jsonl, output.log, queue)"
-        consumer: "component that reads and acts on that shared artifact"
-        required: "single SMOKE test that asserts on both producer write AND consumer reaction"
-      fix_hint: |
-        Extend the SMOKE to include a consumer-side assertion:
-          - If the feature writes to cli-return.jsonl, assert that the shim's pty stdin
-            received the correction bytes (not just that the file was written).
-          - If the feature writes to a queue, assert that the queue consumer processed it.
-        See smoke.convention.yaml::feedback_loop for the canonical close-the-loop shape.
+    # Phase A de-monolith (#1225): tester.smoke.operator-observable-assertion and
+    # tester.smoke.cross-component-handoff-gap moved to
+    # nodes/tester.smoke.operator-observable-assertion.convention.yaml and
+    # nodes/tester.smoke.cross-component-handoff-gap.convention.yaml (authoritative).
+    # planner.smoke.synthetic-fixture-bypass (above) stays in the monolith (Phase B).
 
 feedback_loop_rules:
   rules:

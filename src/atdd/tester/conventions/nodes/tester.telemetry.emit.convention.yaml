@@ -1,0 +1,22 @@
+schema_version: 1.0.0
+rule_id: tester.telemetry.emit
+kind: rule
+status: active
+name: Telemetry emit assertion
+statement: Telemetry tests assert that the validator emits the expected events to
+  the configured sink
+terms:
+- term_id: emit
+  text: a validator publishing the expected telemetry events to the configured sink,
+    asserted by telemetry tests.
+source:
+  legacy_path: src/atdd/tester/conventions/telemetry.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.telemetry.emit
+  extraction_mode: high_fidelity
+metadata:
+  aliases:
+  - TESTER-TELEMETRY-EMIT-001
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.67.0

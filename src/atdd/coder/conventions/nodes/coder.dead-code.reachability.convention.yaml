@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: coder.dead-code.reachability
+kind: rule
+status: active
+name: Dead code reachability
+statement: Python source files must be reachable from a known entrypoint (composition
+  root, train, test, or registered exception)
+terms:
+- term_id: reachability
+  text: A Python source file is reachable when some graph root (composition root,
+    train, test file, or registered exception) transitively imports it through the
+    AST import graph.
+implementation:
+  type: validator
+  ref: test_dead_code_python::test_no_unreachable_python_files
+source:
+  legacy_path: src/atdd/coder/conventions/dead-code.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.dead-code.reachability
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Wire the file into a composition root, train, or test import chain, or
+    register it as a documented exception, so it is reachable from a graph root.
+metadata:
+  severity: 2
+  disposition: strict
+  aliases:
+  - DEAD-CODE-REACHABILITY-001
+  introduced_in: 1.67.0

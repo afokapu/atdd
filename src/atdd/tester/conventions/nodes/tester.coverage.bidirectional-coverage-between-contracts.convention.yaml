@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+rule_id: tester.coverage.bidirectional-coverage-between-contracts
+kind: rule
+status: active
+name: Contract - Wagon Coverage
+statement: Bidirectional coverage between contracts and wagon produce/consume
+terms:
+- term_id: bidirectional_coverage
+  text: A two-way reference invariant where every contract schema is referenced by
+    a wagon produce/consume and every produce/consume contract ref resolves to a schema
+    file.
+source:
+  legacy_path: src/atdd/tester/conventions/coverage.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.coverage.bidirectional-coverage-between-contracts
+  extraction_mode: high_fidelity
+bidirectional:
+- direction: contract -> wagon
+  requirement: Every contract schema must be referenced by produce/consume
+  exceptions: 'contracts_unreferenced allow-list or x-artifact-metadata.status: draft|external|deprecated'
+  validator: test_all_contracts_referenced
+- direction: wagon -> contract
+  requirement: Every produce/consume contract ref must have schema file
+  validator: test_all_contract_refs_exist
+metadata:
+  aliases:
+  - COVERAGE-TEST-3.2
+  disposition: documentation-only

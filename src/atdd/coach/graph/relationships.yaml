@@ -1548,6 +1548,303 @@ edges:
   strength: important
   target_ref: planner.wmbt.step-code-vocabulary
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.acceptance-must-declare-phase
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.disposition-must-not-be-declared
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.hermetic-fake-must-declare-contract
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.live-smoke-acceptance-must-execute
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.metric-implementation-must-exist
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
+  target_ref: tester.acceptance-violation.validator-binding-must-be-bidirectional
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
+  strength: minor
+  target_ref: tester.smoke.operator-observable-assertion
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
+  strength: minor
+  target_ref: tester.smoke.cross-component-handoff-gap
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
+  strength: minor
+  target_ref: tester.smoke.harness-subprocess-failed-crash
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-coverage conformance checks evaluated alongside acceptance-test coverage
+  source_ref: tester.coverage.every-acceptance-criterion-must
+  strength: minor
+  target_ref: tester.coverage.bidirectional-coverage-between-contracts
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-coverage conformance checks evaluated alongside acceptance-test coverage
+  source_ref: tester.coverage.every-acceptance-criterion-must
+  strength: minor
+  target_ref: tester.coverage.bidirectional-coverage-between-telemetry
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-coverage conformance checks evaluated alongside acceptance-test coverage
+  source_ref: tester.coverage.every-acceptance-criterion-must
+  strength: minor
+  target_ref: tester.coverage.tracking-manifest-must-be
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer dto contract-boundary guidance evaluated alongside DTO placement
+  source_ref: coder.dto.placement
+  strength: minor
+  target_ref: coder.dto.purity
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer dto contract-boundary guidance evaluated alongside DTO placement
+  source_ref: coder.dto.placement
+  strength: minor
+  target_ref: coder.dto.mapper
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer presentation thin-layer guidance evaluated alongside the thin-layer principle
+  source_ref: coder.presentation.layer-is-thin
+  strength: minor
+  target_ref: coder.presentation.controllers-never-call-domain
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer presentation thin-layer guidance evaluated alongside the thin-layer principle
+  source_ref: coder.presentation.layer-is-thin
+  strength: minor
+  target_ref: coder.presentation.response-models-live-in
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester quality-gate checks evaluated alongside security auth coverage
+  source_ref: tester.security.auth
+  strength: minor
+  target_ref: tester.security.input
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester quality-gate checks evaluated alongside security auth coverage
+  source_ref: tester.security.auth
+  strength: minor
+  target_ref: tester.test-isolation.no-polluting-patterns
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester quality-gate checks evaluated alongside security auth coverage
+  source_ref: tester.security.auth
+  strength: minor
+  target_ref: tester.telemetry.emit
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester quality-gate checks evaluated alongside security auth coverage
+  source_ref: tester.security.auth
+  strength: minor
+  target_ref: tester.train.coverage
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder coverage conformance checks evaluated alongside feature-implementation coverage
+  source_ref: coder.coverage.every-feature-must-have
+  strength: minor
+  target_ref: coder.coverage.every-implementation-must-have
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder error-response conformance checks evaluated alongside bare-string detail
+  source_ref: coder.error-response.bare-string
+  strength: minor
+  target_ref: coder.error-response.code-format
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder composition-completeness checks evaluated alongside composition-root reachability
+  source_ref: coder.refactor.composition-root
+  strength: minor
+  target_ref: coder.refactor.composition-consumer
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder REFACTOR-phase quality gates evaluated alongside composition-root reachability
+  source_ref: coder.refactor.composition-root
+  strength: minor
+  target_ref: coder.refactor.coach-ratchet-pres
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer frontend import-direction check evaluated alongside frontend layer-architecture boundaries
+  source_ref: coder.frontend.boundaries-fe-layers
+  strength: minor
+  target_ref: coder.frontend.boundaries-fe-imports
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer frontend presentation-quality gate (no-stub allowlist hygiene) evaluated alongside frontend layer-architecture boundaries
+  source_ref: coder.frontend.boundaries-fe-layers
+  strength: minor
+  target_ref: coder.frontend.allowlist-entry-must-include
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer consumer-code security anti-pattern gates (secret leakage and XSS-prone DOM sinks) evaluated alongside one another
+  source_ref: coder.security.xss
+  strength: minor
+  target_ref: coder.security.hardcoded-secret
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer consumer-code static-analysis anti-pattern gate (N+1 DB calls in loops) evaluated alongside the security XSS-sink gate
+  source_ref: coder.performance.perf
+  strength: minor
+  target_ref: coder.security.xss
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder GREEN-phase static-analysis quality gate (intra-layer duplication) evaluated alongside dead-code reachability
+  source_ref: coder.dead-code.reachability
+  strength: minor
+  target_ref: coder.duplication.no-structurally-identical-code
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer technology-governance gate (approved-alternative gating) evaluated alongside the layer-default selection rule
+  source_ref: coder.technology.new-components-default-to
+  strength: minor
+  target_ref: coder.technology.approved-alternatives-are-taken
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer technology-governance gate (SPEC-edit requirement for unapproved choices) evaluated alongside the layer-default selection rule
+  source_ref: coder.technology.new-components-default-to
+  strength: minor
+  target_ref: coder.technology.unapproved-technology-choices-require
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0

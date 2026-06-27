@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+rule_id: coder.refactor.coach-ratchet-pres
+kind: rule
+status: active
+name: Presentation ratchet requires recorded smoke evidence
+statement: Presentation-layer reduction >20% requires recorded smoke evidence
+rationale: 'Ratchet improvements (a "good thing" by metric) become a vector for regressions
+  when they touch presentation. Without a layer-aware gate, structural validators
+  report green even when behavior was removed. Past incident: 8 match features removed
+  during ratchet trimming; structural validators green; loss caught only by manual
+  smoke testing hours later (issue #358, replaces idea-issue #319).'
+terms:
+- term_id: ratchet_smoke_gate
+  text: A presentation-layer line reduction greater than 20% (or a deleted presentation
+    file, treated as 100% reduction) requires recorded smoke evidence before the SMOKE->REFACTOR
+    transition is allowed.
+implementation:
+  type: validator
+  ref: test_presentation_ratchet_requires_smoke::test_detects_25pct_reduction_in_presentation_tsx
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: ratchet_smoke_gate.rules
+  legacy_rule_id: coder.refactor.coach-ratchet-pres
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Record smoke evidence via `atdd validate coder --smoke-required <issue>`
+    (writes .atdd/smoke-evidence/<issue>.yaml, gitignored) before reducing a presentation
+    file by more than 20% — e.g. `atdd validate coder --smoke-required 1234` where <issue>
+    is the GitHub issue number this PR advances.
+  normative_text: applies_to */presentation/*.{tsx,ts,py}; threshold 0.20; gate blocks
+    SMOKE->REFACTOR transition until smoke evidence is recorded.
+  constraints: 'triggers: a single-PR presentation file shrinks more than 20% relative
+    to base; a presentation file is deleted entirely (treated as 100% reduction, Decision
+    #4).'
+metadata:
+  severity: 3
+  disposition: advisory
+  aliases:
+  - COACH-RATCHET-PRES-001

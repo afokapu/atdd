@@ -201,9 +201,17 @@ def test_e006_unit_001_convention_declares_hermetic_vocabularies() -> None:
     for legacy in ("unit", "integration", "e2e"):
         assert legacy in data["harness_types"], f"harness_types lost {legacy!r}"
 
-    # Both new rules are declared in acceptance-violation.convention.yaml.
-    violation_data = yaml.safe_load(_VIOLATION_CONVENTION.read_text(encoding="utf-8"))
-    declared_rule_ids = {r.get("id") for r in violation_data.get("rules", [])}
+    # Both new rules are declared under the acceptance-violation convention.
+    # Post-#1225 the rules were atomized into single-node files under nodes/;
+    # accept either the decomposed node form (new home) or a legacy inline
+    # rules: block (backward-compat) as the declaration site.
+    _nodes_dir = _VIOLATION_CONVENTION.parent / "nodes"
+    declared_rule_ids = {
+        (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("rule_id")
+        for p in _nodes_dir.glob("tester.acceptance-violation.*.convention.yaml")
+    }
+    violation_data = yaml.safe_load(_VIOLATION_CONVENTION.read_text(encoding="utf-8")) or {}
+    declared_rule_ids |= {r.get("id") for r in violation_data.get("rules", [])}
     assert _RULE_FIDELITY in declared_rule_ids
     assert _RULE_PAIRING in declared_rule_ids
 

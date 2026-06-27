@@ -168,16 +168,8 @@ references:
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
-rules:
-  - id: "tester.security.auth"
-    aliases: ["TESTER-SECURITY-AUTH-001"]
-    severity: 4
-    disposition: documentation-only
-    description: "Security-sensitive endpoints are covered by tests asserting auth and authorization"
-    introduced_in: "1.67.0"
-  - id: "tester.security.input"
-    aliases: ["TESTER-SECURITY-INPUT-001"]
-    severity: 4
-    disposition: documentation-only
-    description: "Input-validation tests assert rejection of malformed and adversarial payloads"
-    introduced_in: "1.67.0"
+# Legacy rules-list registry consumed by bind_rule. The decomposed node forms
+# live at conventions/nodes/tester.security.*.convention.yaml. Both
+# tester.security.auth and tester.security.input were atomized into single-node
+# files under nodes/ per the Phase A core-atomization slice; the registry now
+# reads them there.

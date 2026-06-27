@@ -12,21 +12,13 @@ contract_ref: "contracts/commons/error/response.schema.json"
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
-rules:
-  - id: "coder.error-response.bare-string"
-    validator: "test_error_response_compliance::test_error_response_contract_exists"
-    aliases: ["ERROR-BARE-STRING-001"]
-    severity: 4
-    disposition: strict
-    description: "HTTPException detail must be a structured dict matching the error response contract, not a bare string"
-    introduced_in: "1.67.0"
-  - id: "coder.error-response.code-format"
-    validator: "test_error_response_compliance::test_error_response_contract_exists"
-    aliases: ["ERROR-CODE-FORMAT-001"]
-    severity: 4
-    disposition: strict
-    description: "error_code values must follow UPPER_SNAKE_CASE convention matching ^[A-Z][A-Z0-9_]+$"
-    introduced_in: "1.67.0"
+# Legacy rules-list registry consumed by bind_rule. The decomposed node forms
+# live at conventions/nodes/coder.error-response.*.convention.yaml (mirrors the
+# tester.coverage.* dual declaration). Both coder.error-response rules were
+# atomized into single-node files under nodes/ per #1225; the registry now reads
+# them there. The descriptive sections below (legacy_rules, error_code_format,
+# phase_guidance, cross_references) are retained documentation and are NOT a
+# rules:[] block.
 
 # Legacy prose rules (pre-#394 — kept for documentation, not registry-walked)
 legacy_rules:

@@ -132,13 +132,16 @@ security:
 # =============================================================================
 # Top-level `rules:` array — registry-walkable. Mirrors canonical rule_ids
 # already emitted by validators alongside the legacy SPEC-CODER-SEC-* IDs above.
+#
+# Phase A (#1225) partial de-monolith: the core-agnostic rules
+#   coder.security.xss            → nodes/coder.security.xss.convention.yaml
+#   coder.security.hardcoded-secret → nodes/coder.security.hardcoded-secret.convention.yaml
+# have been atomized to single-node files (now authoritative; bind_rule /
+# build_registry read nodes/). The remaining top-level rules below
+# (sql-injection, missing-auth) and the nested `security:` EXT block above
+# (no-raw-sql-string, fastapi-routes-must-have, no-hardcoded-secrets-aws,
+# no-innerhtml-or-dangerouslysetinnerhtml) are intentionally LEFT in place.
 rules:
-  - id: "coder.security.xss"
-    aliases: ["SECURITY-XSS-001"]
-    severity: 5
-    disposition: documentation-only
-    description: "No innerHTML or dangerouslySetInnerHTML in frontend code (use safe DOM APIs)"
-    introduced_in: "1.67.0"
   - id: "coder.security.sql-injection"
     validator: "test_security_patterns::test_no_raw_sql_concatenation"
     aliases: ["SECURITY-SQL-INJECTION-001"]
@@ -152,11 +155,4 @@ rules:
     severity: 5
     disposition: strict
     description: "FastAPI route handlers must include a Depends(auth_fn) parameter"
-    introduced_in: "1.67.0"
-  - id: "coder.security.hardcoded-secret"
-    validator: "test_security_patterns::test_no_raw_sql_concatenation"
-    aliases: ["SECURITY-HARDCODED-SECRET-001"]
-    severity: 5
-    disposition: strict
-    description: "No hardcoded credentials, AWS keys, private keys, or API tokens in source files"
     introduced_in: "1.67.0"

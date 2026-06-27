@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.validator-binding-must-be-bidirectional
+kind: rule
+status: active
+name: Validator binding must be bidirectional
+statement: When harness.type is declared, an anchored test must exist whose headers
+  match the acceptance
+terms:
+- term_id: bidirectional_binding
+  text: A declared harness.type must be matched by an anchored test whose header block
+    (URN/Acceptance/WMBT/Phase/Layer) references the acceptance, forming a two-way
+    binding.
+implementation:
+  type: validator
+  ref: test_repo_validator_binding::test_validator_binding_is_bidirectional
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.validator-binding-must-be-bidirectional
+  extraction_mode: high_fidelity
+content:
+  fix_hint: 'Add the standard test header block (# URN / # Acceptance / # WMBT or
+    # Train / # Phase / # Layer) at the top of the test file, or fix the test to anchor
+    at the right acceptance.'
+  operational_guidance: 'recipe: acceptance-test-headers'
+metadata:
+  severity: 3
+  disposition: strict

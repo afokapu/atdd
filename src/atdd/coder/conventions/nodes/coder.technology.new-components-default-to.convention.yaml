@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+rule_id: coder.technology.new-components-default-to
+kind: rule
+status: active
+name: New components default to layer default
+statement: New components default to the technology.<layer>.default for their layer;
+  deviations declare an approved alternative
+terms:
+- term_id: layer_default
+  text: technology.<layer>.default is the canonical technology a new component adopts
+    for its architectural layer unless an approved alternative is declared
+source:
+  legacy_path: src/atdd/coder/conventions/technology.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.technology.new-components-default-to
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Adopt the technology.<layer>.default for the component layer, or declare
+    an approved alternative with its use_when justification.
+metadata:
+  aliases:
+  - COACH-TECH-STACK-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.66.0

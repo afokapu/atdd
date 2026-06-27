@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved
+kind: rule
+status: active
+name: Security rule must have acceptance ref resolved
+statement: Every abuse_case in feature.yaml::security.abuse_cases[] must have acceptance_ref
+  pointing at a real acceptance whose rule passes
+terms:
+- term_id: acceptance_ref
+  text: The acceptance_ref on a security abuse_case must point at a real acceptance
+    in plan/ whose rule passes, binding the threat to a concrete contract.
+implementation:
+  type: validator
+  ref: test_security_ref_binding::test_every_abuse_case_resolves
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved
+  extraction_mode: high_fidelity
+content:
+  fix_hint: In the failing feature.yaml security.abuse_cases[], author the missing
+    acceptance (and its test), update acceptance_ref to an existing covering acceptance,
+    or remove the abuse_case if the threat is out of scope.
+  operational_guidance: 'recipe: security-acceptance-binding'
+metadata:
+  severity: 4
+  disposition: strict
