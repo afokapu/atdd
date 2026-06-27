@@ -25,7 +25,8 @@ source:
 content:
   fix_hint: Record smoke evidence via `atdd validate coder --smoke-required <issue>`
     (writes .atdd/smoke-evidence/<issue>.yaml, gitignored) before reducing a presentation
-    file by more than 20%.
+    file by more than 20% — e.g. `atdd validate coder --smoke-required 1234` where <issue>
+    is the GitHub issue number this PR advances.
   normative_text: applies_to */presentation/*.{tsx,ts,py}; threshold 0.20; gate blocks
     SMOKE->REFACTOR transition until smoke evidence is recorded.
   constraints: 'triggers: a single-PR presentation file shrinks more than 20% relative

@@ -41,7 +41,11 @@ PHASE_3A_FILES = [
     "coder/conventions/commons.convention.yaml",
     "coder/conventions/design.convention.yaml",
     "coder/conventions/presentation.convention.yaml",
-    "coder/conventions/technology.convention.yaml",
+    # technology.convention.yaml: its governance rules were atomized into single-node
+    # nodes/coder.technology.*.convention.yaml (Phase A decomposition); the monolith
+    # now carries only the (extension-bound) stack tree. The rules-array requirement
+    # is satisfied by the nodes/ home (verified by no-orphan + registry), so the
+    # monolith file is no longer in this retrofit list.
     "coder/conventions/train.convention.yaml",
     "coach/conventions/naming.convention.yaml",
 ]
