@@ -1651,6 +1651,24 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
+  reason: peer dto contract-boundary guidance evaluated alongside DTO placement
+  source_ref: coder.dto.placement
+  strength: minor
+  target_ref: coder.dto.purity
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer dto contract-boundary guidance evaluated alongside DTO placement
+  source_ref: coder.dto.placement
+  strength: minor
+  target_ref: coder.dto.mapper
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
   reason: peer tester quality-gate checks evaluated alongside security auth coverage
   source_ref: tester.security.auth
   strength: minor

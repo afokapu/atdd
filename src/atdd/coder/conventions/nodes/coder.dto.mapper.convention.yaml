@@ -1,0 +1,21 @@
+schema_version: 1.0.0
+rule_id: coder.dto.mapper
+kind: rule
+status: active
+name: DTO mapper
+statement: Mappers between domain entities and DTOs live in the integration layer
+terms:
+- term_id: dto_mapper
+  text: A DTO mapper is a bidirectional conversion (domain entity <-> DTO) that lives
+    in the wagon integration layer, never in domain.
+source:
+  legacy_path: src/atdd/coder/conventions/dto.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.dto.mapper
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - DTO-MAPPER-001
+  introduced_in: 1.67.0
