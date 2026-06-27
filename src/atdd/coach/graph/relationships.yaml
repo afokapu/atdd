@@ -1620,6 +1620,33 @@ edges:
   strength: minor
   target_ref: tester.acceptance-violation.validator-binding-must-be-bidirectional
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-coverage conformance checks evaluated alongside acceptance-test coverage
+  source_ref: tester.coverage.every-acceptance-criterion-must
+  strength: minor
+  target_ref: tester.coverage.bidirectional-coverage-between-contracts
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-coverage conformance checks evaluated alongside acceptance-test coverage
+  source_ref: tester.coverage.every-acceptance-criterion-must
+  strength: minor
+  target_ref: tester.coverage.bidirectional-coverage-between-telemetry
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer tester-coverage conformance checks evaluated alongside acceptance-test coverage
+  source_ref: tester.coverage.every-acceptance-criterion-must
+  strength: minor
+  target_ref: tester.coverage.tracking-manifest-must-be
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
