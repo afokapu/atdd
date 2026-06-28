@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+rule_id: coder.composition.every-file-has-a-consumer
+kind: principle
+status: active
+name: Every source file has a downstream consumer
+statement: Every implementation file in a source layer MUST be consumed by at least
+  one valid downstream consumer or composition root; candidate consumer layers are
+  filtered to the layers that actually exist, so intentionally partial features are
+  not flagged as unwired.
+terms:
+- term_id: composition_completeness
+  text: "no intra-feature vertical slice is left dangling \u2014 each source file\
+    \ is reached by a consumer in an allowed downstream layer or by the feature composition\
+    \ root"
+source:
+  legacy_path: src/atdd/coder/conventions/composition.convention.yaml
+  legacy_section: composition.principle
+  legacy_rule_id: SPEC-CODER-COMP-0001/0002/0003
+  extraction_mode: high_fidelity
+content:
+  summary: Stack-neutral composition-completeness principle. Per-stack repo roots
+    (web/src, python, supabase/functions), composition-root patterns, and the AST/import
+    detectors (SPEC-CODER-COMP-0001..0004) are workspace realization.
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.66.0

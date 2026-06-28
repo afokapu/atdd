@@ -3095,3 +3095,12 @@ sessions:
   created: '2026-06-28'
   archived: null
   branch: feat/atomize-coder-careful-pass
+- id: '1218'
+  slug: atomize-coder-synthesize-id
+  file: null
+  issue_number: 1218
+  type: migration
+  status: INIT
+  created: '2026-06-28'
+  archived: null
+  branch: feat/atomize-coder-synthesize-id

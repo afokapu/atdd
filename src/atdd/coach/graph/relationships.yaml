@@ -1917,6 +1917,42 @@ edges:
   strength: important
   target_ref: coder.boundaries.no-cross-wagon-imports
   type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: domain purity is the inner endpoint of the inward dependency-direction boundary (the domain depends on nothing outward)
+  source_ref: coder.commons.domain-layer-purity
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: naming the shared layer commons is part of the same layer-organization discipline
+  source_ref: coder.commons.shared-code-named-commons
+  strength: minor
+  target_ref: coder.backend.code-is-organized
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: composition completeness is part of organizing a feature into wired layers
+  source_ref: coder.composition.every-file-has-a-consumer
+  strength: minor
+  target_ref: coder.backend.code-is-organized
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the composition root reaching every layer is what makes each source file have a consumer
+  source_ref: coder.composition.root-reaches-all-layers
+  strength: important
+  target_ref: coder.composition.every-file-has-a-consumer
+  type: refines
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
