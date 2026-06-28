@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+rule_id: coder.backend.imports-respect-dependency-allowed
+kind: rule
+status: active
+name: Imports respect the allowed dependency direction
+statement: Imports respect dependency.allowed_edges (presentation->application->domain;
+  integration->application->domain)
+terms:
+- term_id: dependency_direction
+  text: 'the canonical inward dependency rule: outer layers may import inner, never
+    the reverse'
+source:
+  legacy_path: src/atdd/coder/conventions/backend.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.backend.imports-respect-dependency-allowed
+  extraction_mode: high_fidelity
+content:
+  summary: canonical inward dependency-direction principle (SHARED node referenced
+    by commons/composition/train/design)
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - BOUNDARIES-LAYER-003
+  introduced_in: 1.66.0
