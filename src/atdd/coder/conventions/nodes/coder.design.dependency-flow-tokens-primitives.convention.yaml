@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+rule_id: coder.design.dependency-flow-tokens-primitives
+kind: rule
+status: active
+name: Design-system dependency flow is one-way
+statement: 'Dependency flow: tokens <- primitives <- components <- templates (mirrors
+  principles.DS-05)'
+terms:
+- term_id: design_flow
+  text: the one-way design-system layering tokens<-primitives<-components<-templates
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.dependency-flow-tokens-primitives
+  extraction_mode: high_fidelity
+content:
+  summary: design-system hierarchy principle (stack-neutral)
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - DESIGN-HIERARCHY-002
+  introduced_in: 1.66.0

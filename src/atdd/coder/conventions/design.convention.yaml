@@ -12,24 +12,10 @@ design_system:
   # grammar. The legacy DS-NN/AP-DS-NN entries below are preserved verbatim
   # — renaming is out of scope (Out-of-Scope per issue #389).
   rules:
-    - id: "coder.design.tokens-are-pure-values"
-      aliases: ["DESIGN-HIERARCHY-001"]
-      severity: 3
-      disposition: documentation-only
-      description: "Tokens are pure values — no widgets, no logic (mirrors principles.DS-01)"
-      introduced_in: "1.66.0"
-    - id: "coder.design.dependency-flow-tokens-primitives"
-      aliases: ["DESIGN-HIERARCHY-002"]
-      severity: 3
-      disposition: documentation-only
-      description: "Dependency flow: tokens ← primitives ← components ← templates (mirrors principles.DS-05)"
-      introduced_in: "1.66.0"
-    - id: "coder.design.wagons-import-from-design"
-      aliases: ["DESIGN-HIERARCHY-003"]
-      severity: 3
-      disposition: documentation-only
-      description: "Wagons import from design_system; design_system never imports from wagons (mirrors principles.DS-06)"
-      introduced_in: "1.66.0"
+    # The 3 stack-neutral design-hierarchy principles (tokens-are-pure-values,
+    # dependency-flow-tokens-primitives, wagons-import-from-design) were atomized into
+    # single-node files under conventions/nodes/ (Phase A). The Flutter-specific
+    # extract/detector rules below stay here for the extension migration.
     - id: "coder.design.extract-to-design-system"
       aliases: ["DESIGN-HIERARCHY-004"]
       severity: 2
