@@ -3086,3 +3086,12 @@ sessions:
   created: '2026-06-25'
   archived: null
   branch: feat/atomize-coder-shared-nodes
+- id: '1218'
+  slug: atomize-coder-careful-pass
+  file: null
+  issue_number: 1218
+  type: migration
+  status: INIT
+  created: '2026-06-28'
+  archived: null
+  branch: feat/atomize-coder-careful-pass

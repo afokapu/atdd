@@ -1881,6 +1881,24 @@ edges:
   strength: important
   target_ref: coder.backend.imports-respect-dependency-allowed
   type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the coder train composition root realizes the planner's production-implementation train spec
+  source_ref: coder.train.production-composition-cargo-zero-drift
+  strength: important
+  target_ref: planner.train.production-implementation
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: cargo-only wagon communication (no direct cross-wagon imports) is the wagon-level expression of the inward dependency-direction boundary
+  source_ref: coder.train.production-composition-cargo-zero-drift
+  strength: minor
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
