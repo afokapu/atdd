@@ -3077,3 +3077,12 @@ sessions:
   created: '2026-06-25'
   archived: null
   branch: feat/atomize-tester-acceptance-violation
+- id: '1218'
+  slug: atomize-coder-shared-nodes
+  file: null
+  issue_number: 1218
+  type: migration
+  status: INIT
+  created: '2026-06-25'
+  archived: null
+  branch: feat/atomize-coder-shared-nodes
