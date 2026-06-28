@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+rule_id: coder.design.wagons-import-from-design
+kind: rule
+status: active
+name: Wagons import from the design system, never the reverse
+statement: Wagons import from design_system; design_system never imports from wagons
+  (mirrors principles.DS-06)
+terms:
+- term_id: design_boundary
+  text: 'the one-way boundary: wagons depend on design_system, never the reverse'
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.wagons-import-from-design
+  extraction_mode: high_fidelity
+content:
+  summary: design-system hierarchy principle (stack-neutral)
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - DESIGN-HIERARCHY-003
+  introduced_in: 1.66.0

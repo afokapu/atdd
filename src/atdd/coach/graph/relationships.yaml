@@ -1845,6 +1845,42 @@ edges:
   strength: minor
   target_ref: coder.technology.unapproved-technology-choices-require
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the 4-layer organization is realized by the inward dependency-direction rule
+  source_ref: coder.backend.code-is-organized
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: pure-value tokens are the base of the design-system dependency flow
+  source_ref: coder.design.tokens-are-pure-values
+  strength: important
+  target_ref: coder.design.dependency-flow-tokens-primitives
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the design-system one-way flow is a specialization of the inward dependency-direction principle
+  source_ref: coder.design.dependency-flow-tokens-primitives
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: wagons->design_system one-way import is a specialization of the inward dependency-direction principle
+  source_ref: coder.design.wagons-import-from-design
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: refines
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
