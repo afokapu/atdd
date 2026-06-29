@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: tester-core-atomize
+  slug: tester-core-atomize
+  file: null
+  issue_number: null
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-29'
+  archived: null
+  branch: tester-core-atomize
 - id: '1173'
   slug: restore-interim-manual-version-bump
   file: null
