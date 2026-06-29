@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+rule_id: tester.contract.core-fields-only-no-ui
+kind: constraint
+status: active
+name: Contracts hold core fields only, no UI
+statement: Contract schemas MUST contain only core domain fields and remain UI-agnostic;
+  presentation-only fields live in frontend extensions that reference the contract
+  and never flow back into it.
+terms:
+- term_id: frontend_extension
+  text: A frontend-side type that extends a contract with UI-only fields and references
+    the contract $id, without modifying the contract schema.
+source:
+  legacy_path: src/atdd/tester/conventions/contract.convention.yaml
+  legacy_section: composite_contracts
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: Contracts stay backend-compatible and stable by excluding UI props (icon,
+    color, tokenKey, i18nKey, ariaKey). Frontends extend contract types with UI fields
+    in frontend code; those extensions must not backflow into the schema. Forbidden-field
+    list and web/ location are frontend specifics.
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 3.137.0

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+rule_id: tester.contract.semver-governs-compatibility
+kind: rule
+status: active
+name: SemVer governs contract compatibility
+statement: "Contract evolution is governed by semantic versioning \u2014 backward-incompatible\
+  \ changes require a MAJOR bump \u2014 across a draft to active to deprecated to\
+  \ retired lifecycle."
+terms:
+- term_id: lifecycle_stage
+  text: A contract maturity state (draft 0.x.x, active 1.x.x+, deprecated, retired)
+    that gates compatibility guarantees.
+source:
+  legacy_path: src/atdd/tester/conventions/contract.convention.yaml
+  legacy_section: contract_versioning
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: MAJOR for breaking changes (remove/rename/retypes/semantic change), MINOR
+    for backward-compatible additions, PATCH for non-functional changes. Contracts
+    progress draft->active->deprecated->retired with versioning rules enforced once
+    active. version_in_data parsing, database_migrations, and enforcement test paths
+    are workspace.
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.137.0

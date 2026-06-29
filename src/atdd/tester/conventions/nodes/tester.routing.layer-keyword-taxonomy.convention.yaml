@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+rule_id: tester.routing.layer-keyword-taxonomy
+kind: rule
+status: active
+name: Layer-keyword routing taxonomy
+statement: A test is routed to its architectural layer (presentation, application,
+  domain, or integration) by matching acceptance-criteria keywords and phrasing within
+  its backend or frontend context.
+terms:
+- term_id: layer
+  text: One of the four architectural layers (presentation, application, domain, integration)
+    a test is assigned to.
+source:
+  legacy_path: src/atdd/tester/conventions/routing.convention.yaml
+  legacy_section: test_routing_rules / routing_examples
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: backend/frontend x presentation/application/domain/integration keyword-and-pattern
+    taxonomy classifies which layer a test belongs to from its acceptance wording
+    (e.g. endpoint/HTTP -> presentation, workflow/orchestrate -> application, business
+    rule/calculation -> domain, database/persistence -> integration). The concrete
+    python/supabase/web path mapping (tester.routing.path) is workspace.
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 3.137.0

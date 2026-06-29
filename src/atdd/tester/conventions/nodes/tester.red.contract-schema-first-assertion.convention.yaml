@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+rule_id: tester.red.contract-schema-first-assertion
+kind: rule
+status: active
+name: Contract schema is the first assertion
+statement: When a test exercises external I/O, the contract schema is the source of
+  truth and schema validation MUST be the first assertion, before business-logic assertions.
+terms:
+- term_id: external_io
+  text: Data crossing an architecture boundary (HTTP response/request, DB row, event
+    payload, websocket message) that a contract schema governs.
+source:
+  legacy_path: src/atdd/tester/conventions/red.convention.yaml
+  legacy_section: contract_schema_validation
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: Schemas are the single source of truth for data contracts at architecture
+    boundaries. Tests validate external I/O against the contract schema as the primary
+    (first) assertion so contract drift fails before downstream logic. Schema-loading
+    snippets and the Draft-07 toolchain are workspace mechanics.
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.137.0

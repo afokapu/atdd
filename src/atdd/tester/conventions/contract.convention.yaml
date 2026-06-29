@@ -2,6 +2,24 @@ version: "2.0"
 name: "Contract Convention"
 description: "Rules for contract schema structure and metadata. For artifact naming rules, see artifact-naming.convention.yaml"
 
+# =============================================================================
+# Atomized to conventions/nodes/ (core tester convention decomposition, #1215)
+# =============================================================================
+# The protocol-level rules in this file were atomized into single-node core
+# conventions under conventions/nodes/ (the single source of truth):
+#   - tester.contract.planner-defines-what-tester-implements-how (was § agent_responsibilities)
+#   - tester.contract.schema-is-source-of-truth                  (was § schema_structure)
+#   - tester.contract.core-fields-only-no-ui                     (was § composite_contracts)
+#   - tester.contract.semver-governs-compatibility               (was § contract_versioning)
+#   - tester.contract.bidirectional-wagon-linkage                (was § artifact_metadata
+#                                                                  + validation.bidirectional_linkage)
+# Those normative sections have been removed here to avoid a competing copy.
+# The remaining content is workspace mechanics (persistence_traceability,
+# directory_structure, generation_workflow, api_structure, schema/metadata
+# validation patterns) and legacy_redirect naming authority (owned by the
+# planner artifact-naming convention), retained pending relocation to workspace
+# packages.
+
 # Naming Authority
 naming_authority:
   convention: "atdd/planner/conventions/artifact-naming.convention.yaml"
@@ -9,295 +27,6 @@ naming_authority:
     For artifact naming rules ($id format, URN pattern, theme taxonomy, separator semantics,
     physical file mapping), refer to artifact-naming.convention.yaml. This convention focuses
     exclusively on contract schema structure and metadata requirements.
-
-# Agent Responsibilities
-agent_responsibilities:
-  planner:
-    role: "Creates wagon/feature manifests in plan/ with produce/consume interfaces"
-    output: "Wagon YAML files with artifact declarations"
-    location: "plan/{wagon}/_<wagon>.yaml"
-
-  tester:
-    role: "Generates contract schemas from planner interfaces"
-    input: "Wagon produce/consume artifacts"
-    output: "Contract JSON schema files"
-    location: "contracts/{theme}/{domain}/{aspect}.schema.json"
-    note: "Full 3-level structure: theme/domain/aspect"
-
-  principle: "Planner defines WHAT (interfaces), Tester implements HOW (contracts)"
-
-# Schema Structure (Root Truth)
-schema_structure:
-  description: "Contract schemas follow this structure. Schema is the source of truth."
-
-  required_fields:
-    core:
-      - "$schema"      # JSON Schema draft-07
-      - "$id"          # {theme}:{path}:{resource} (hierarchy with colons, NO "contract:" prefix, NO version)
-      - "title"        # PascalCase name
-      - "description"  # Purpose description
-      - "version"      # Semantic version (1.0.0) - separate field, NOT in $id
-      - "type"         # Always "object"
-      - "x-artifact-metadata"
-
-    metadata_required:
-      - "domain"       # From artifact name (before colon)
-      - "resource"     # From artifact name (after colon)
-      - "version"      # Semantic version
-      - "hash"         # SHA-256 content hash
-      - "producer"     # wagon:{name} from wagon produce[]
-      - "consumers"    # Array of wagon:{name} from consume[] (can be empty array)
-      - "dependencies" # Array of contract:{name} this depends on (can be empty array)
-      - "api"          # HTTP method, path, auth
-      - "traceability" # Links to wagon/features (MANDATORY)
-
-    traceability_required:
-      - "wagon_ref"    # Path to wagon manifest (MANDATORY)
-      - "feature_refs" # Array of feature URNs (MANDATORY, at least 1)
-      - "acceptance_refs" # Array of acceptance URNs (optional)
-
-  id_vs_urn:
-    schema_id: "{theme}(:{path})*:{resource}"
-    schema_id_examples:
-      - "commons:ux:foundations:color"
-      - "match:dilemma:current"
-      - "mechanic:timebank:exhausted"
-    urn: "contract:{theme}(:{path})*:{resource}"
-    urn_examples:
-      - "contract:commons:ux:foundations:color"
-      - "contract:match:dilemma:current"
-    note: |
-      $id in schema: NO "contract:" prefix (e.g., commons:ux:foundations:color)
-      URN in wagon manifests: WITH "contract:" prefix (e.g., contract:commons:ux:foundations:color)
-
-      Hierarchy (colons) for path depth, mirrors filesystem structure.
-      Version is separate field, NOT in $id.
-
-      Examples:
-        File: contracts/commons/ux/foundations/color.schema.json
-        $id:  commons:ux:foundations:color
-        URN:  contract:commons:ux:foundations:color
-
-    properties:
-      version:
-        type: "string"
-        pattern: "^\\d+\\.\\d+\\.\\d+$"
-        description: "Semantic version"
-
-      additionalProperties: false
-
-  id_format:
-    pattern: "{theme}(:{path})*:{resource}"
-    description: "Hierarchical identifier with colons for path segments, NO 'contract:' prefix, mirrors filesystem structure"
-    examples:
-      - "commons:ux:foundations:color"
-      - "mechanic:timebank:exhausted"
-      - "match:dilemma:current"
-      - "player:session:active"
-
-  template:
-    location: "atdd/tester/schemas/contract.tmpl.json"
-    purpose: "Template with placeholders for generating new contracts"
-
-  meta_schema:
-    location: "atdd/tester/schemas/contract.schema.json"
-    purpose: "Meta-schema that validates common structure of all contracts"
-
-# Composite Contracts (Frontend Extensions)
-composite_contracts:
-  description: |
-    Some contracts define core domain truth while frontends extend them with UI-only
-    fields. Contracts must remain UI-agnostic; extensions live in frontend code.
-
-  rules:
-    core_only:
-      requirement: "Contract schemas must contain only core domain fields (no UI props)"
-      examples_forbidden: ["icon", "color", "tokenKey", "i18nKey", "ariaKey"]
-      rationale: "Keep contracts stable and backend-compatible"
-
-    frontend_extension:
-      requirement: "Frontend may extend contract types with UI-specific fields"
-      location: "web/src/commons/domain/"
-      note: "Extensions must not backflow into contract schema"
-
-    traceability:
-      requirement: "Frontend extensions must reference the contract $id via @contract"
-      format: "@contract {schema_id}"
-      example: "@contract commons:domain:catalog"
-      applies_to: "TypeScript files in web/src/commons/domain/"
-
-# Contract Versioning and Lifecycle
-contract_versioning:
-  description: "Semantic versioning strategy for contract maturity and backward compatibility tracking"
-
-  semantic_versioning:
-    format: "MAJOR.MINOR.PATCH (e.g., 0.1.0, 1.2.3, 2.0.0)"
-    rules:
-      major:
-        when: "Breaking changes that require code updates"
-        examples:
-          - "Remove required field"
-          - "Change field type (string → number)"
-          - "Change field semantics/meaning"
-          - "Rename field"
-          - "Change $id structure"
-        version_bump: "v1.5.2 → v2.0.0"
-        backward_compatible: false
-        app_impact: "MUST handle both old and new formats"
-
-      minor:
-        when: "Backward-compatible additions"
-        examples:
-          - "Add optional field"
-          - "Add new enum value"
-          - "Expand validation (make less strict)"
-          - "Add new operation to API"
-        version_bump: "v1.2.3 → v1.3.0"
-        backward_compatible: true
-        app_impact: "Old apps ignore new fields, new apps get bonus data"
-
-      patch:
-        when: "Non-functional changes (no schema impact)"
-        examples:
-          - "Fix description/documentation"
-          - "Fix examples"
-          - "Update metadata (traceability, testing refs)"
-          - "Improve error messages"
-        version_bump: "v1.2.3 → v1.2.4"
-        backward_compatible: true
-        app_impact: "None - documentation only"
-
-  lifecycle_stages:
-    draft:
-      version_range: "0.x.x"
-      governance_status: "draft"
-      description: "Contract under active development, structure may change"
-      created_by: "planner (scaffolded) or tester (initial schema)"
-      iteration_rule: "Field additions/changes increment MINOR (0.1.0 → 0.2.0)"
-      stability: "Unstable - do not use in production code"
-      graduation: "Promote to v1.0.0 when schema is stable and tested"
-
-    active:
-      version_range: "1.x.x+"
-      governance_status: "active"
-      description: "Stable contract in production use"
-      created_by: "tester (promotes from draft)"
-      compatibility_guarantee: "Semantic versioning rules enforced"
-      breaking_changes: "Require major version bump (v1.x → v2.0)"
-      stability: "Stable - safe for production use"
-
-    deprecated:
-      version_range: "Any stable version"
-      governance_status: "deprecated"
-      description: "Contract sunset warning - will be retired"
-      migration_path: "Must document replacement contract"
-      timeline: "Provide deprecation timeline (e.g., 6 months)"
-      stability: "Stable but discouraged - migrate to replacement"
-
-    retired:
-      version_range: "Any stable version"
-      governance_status: "retired"
-      description: "Contract no longer supported"
-      breaking_change: "Yes - consumers must migrate"
-      stability: "Unsupported - do not use"
-
-  version_in_data:
-    description: "Runtime data should include version field for backward compatibility"
-    field_name: "_version"
-    format: "String with major version (e.g., '1', '2') or full semver (e.g., '1.0.0')"
-    purpose: "Allow application code to handle multiple contract versions in JSONB storage"
-
-    example:
-      v1_data:
-        _version: "1"
-        id: "abc123"
-        amount: "100"  # string in v1
-
-      v2_data:
-        _version: "2"
-        id: "abc123"
-        amount: 100  # number in v2
-        currency: "USD"  # new field in v2
-
-    application_handling:
-      description: "App reads _version field to parse data correctly"
-      code_example: |
-        def parse_transaction(data: dict) -> Transaction:
-            version = data.get("_version", "1")  # default to v1 for old records
-
-            if version == "1":
-                return Transaction(
-                    id=data["id"],
-                    amount=int(data["amount"])  # convert string to int
-                )
-            else:  # version 2+
-                return Transaction(
-                    id=data["id"],
-                    amount=data["amount"],  # already int
-                    currency=data.get("currency", "USD")  # new field
-                )
-
-  database_migrations:
-    description: "Contract version changes vs database schema migrations"
-    principle: "JSONB storage decouples contract evolution from database migrations"
-
-    no_migration_needed:
-      - scenario: "Add optional field to contract"
-        contract_version: "v1.2.0"
-        reason: "Old records lack field, app provides default"
-
-      - scenario: "Change field type (string → int)"
-        contract_version: "v2.0.0"
-        reason: "JSONB stores both, app handles per _version"
-
-      - scenario: "Remove field"
-        contract_version: "v2.0.0"
-        reason: "Old records still have it in JSONB (ignored)"
-
-    migration_required:
-      - scenario: "New contract introduced"
-        contract_version: "v0.1.0"
-        migration: "CREATE TABLE if persistent entity"
-
-      - scenario: "Add query index on JSONB field"
-        contract_version: "Any"
-        migration: "CREATE INDEX idx_name ON table ((data->>'field'))"
-
-      - scenario: "Extract frequently-queried field to column"
-        contract_version: "Any"
-        migration: "ALTER TABLE ADD COLUMN status TEXT GENERATED ALWAYS AS (data->>'status') STORED"
-
-  version_changelog:
-    description: "Maintain CHANGELOG.md for each major contract"
-    location: "contracts/{theme}/{domain}/{aspect}/CHANGELOG.md"
-    format: "Keep-a-Changelog style"
-    example: |
-      # Changelog - match:dilemma:current
-
-      ## [2.0.0] - 2025-11-15
-      ### Changed
-      - BREAKING: `timeout_ms` changed from string to integer
-
-      ## [1.1.0] - 2025-10-20
-      ### Added
-      - Added optional `theme` field to presentation object
-
-      ## [1.0.0] - 2025-10-01
-      ### Changed
-      - Promoted from draft to stable
-
-      ## [0.2.0] - 2025-09-15
-      ### Added
-      - Added `selection_metadata` object
-
-  enforcement:
-    validation: "Platform tests enforce version format and governance.status presence"
-    test_location: "tests/platform_validation/test_contract_versioning.py"
-    rules:
-      - "version field MUST be present and match semver pattern"
-      - "governance.status MUST be present"
-      - "0.x.x contracts MUST have status='draft'"
-      - "1.x.x+ contracts MUST have status='active', 'deprecated', or 'retired'"
 
 # Persistence Traceability
 persistence_traceability:
@@ -470,48 +199,6 @@ persistence_traceability:
         - "Contract persistence.table matches database table"
         - "Migration file exists"
         - "Table comment references contract"
-
-# Artifact Metadata Structure
-artifact_metadata:
-  description: "x-artifact-metadata captures wagon linkage and governance"
-
-  required_fields:
-    identity:
-      - domain       # From artifact name (before colon)
-      - resource     # From artifact name (after colon)
-      - version      # Semantic version
-      - hash         # SHA-256 content hash
-
-    lifecycle:
-      - producer     # wagon:{name} from wagon produce[]
-      - consumers    # Array of wagon:{name} from consume[] references (MANDATORY)
-      - dependencies # Array of contract:{name} this depends on (MANDATORY - can be empty array)
-
-    api:
-      - method       # GET|POST|PUT|DELETE (inferred)
-      - path         # REST endpoint pattern
-
-    traceability:
-      - wagon_ref    # Path to wagon manifest (MANDATORY)
-      - feature_refs # Array of feature URNs (MANDATORY - at least 1)
-      - acceptance_refs # Array of acceptance URNs (optional)
-
-  optional_fields:
-    - telemetry_refs    # Links to telemetry signals
-    - governance        # Status, stability
-    - persistence       # Database storage configuration (REQUIRED for persistent entities)
-    - testing           # Optional test metadata for documentation
-    - extensions        # Domain-specific metadata
-
-  rationale: |
-    All contracts MUST have complete traceability to:
-    - Enable bidirectional navigation (code → plan, plan → code)
-    - Support impact analysis for changes
-    - Enforce test coverage requirements
-    - Maintain governance and audit trails
-
-    Empty arrays are acceptable for consumers/dependencies when none exist,
-    but the fields must be present to make the absence explicit.
 
 # Directory Structure
 directory_structure:
@@ -969,10 +656,6 @@ validation:
     producer_format: "^wagon:[a-z\\-]+$"
     consumer_format: "^(wagon|external):[a-z\\-]+$"
     dependency_format: "^contract:[a-z_]+:[a-z_]+(\\.[a-z_]+)?$"
-
-  bidirectional_linkage:
-    wagon_to_contract: "Wagon produce[].urn resolves to contract $id"
-    contract_to_wagon: "Contract producer references existing wagon"
 
   meta_validation:
     rule: "Contract schema validation is centralized in atdd/tester/audits"
