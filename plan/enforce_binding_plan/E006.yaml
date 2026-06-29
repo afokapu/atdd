@@ -1,0 +1,32 @@
+urn: wmbt:enforce-binding-plan:E006
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: undecided-rematerialization
+context_clarifier: 'the chosen vendor-vs-lock path has an automated check: delete-and-rebuild-from-lock,
+  or vendored-trees-present-and-digest-matched against substrate.lock.yaml'
+lens: functional.effectiveness
+statement: minimize likelihood of undecided-rematerialization by ensuring the vendor-vs-lock
+  path is decided and carries an automated check, defaulting to tracked copies plus
+  a digest guard
+acceptances:
+- given:
+    abstract:
+    - the installed substrate with substrate.lock.yaml and the vendored .atdd/{extensions,workspaces}
+      trees
+    - 'the recorded D-5 decision (default: tracked copies + digest guard)'
+  harness:
+    category: integration
+    type: smoke
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify the vendor-vs-lock re-materialization decision has an automated
+      check (V6)
+    urn: acc:enforce-binding-plan:E006-SMOKE-001-rematerialization
+  then:
+    abstract:
+    - "the chosen path has a passing automated check \u2014 either delete-a-vendored-copy-and-rebuild-from-lock,\
+      \ or vendored-trees-present-and-digest-matched against substrate.lock.yaml"
+  when:
+    abstract: the chosen re-materialization check runs

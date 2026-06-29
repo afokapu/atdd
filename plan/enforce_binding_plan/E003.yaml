@@ -1,0 +1,31 @@
+urn: wmbt:enforce-binding-plan:E003
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unenforced-commit
+context_clarifier: demonstrated on a clean fixture commit that passes and a dirty
+  fixture commit that is blocked locally and red in CI, no-op when no bound conventions,
+  honoring ci=true
+lens: functional.effectiveness
+statement: minimize likelihood of unenforced-commit by ensuring a commit triggers
+  the binding-plan scan via a hook and CI job that gates the commit and build
+acceptances:
+- given:
+    abstract:
+    - a clean ATDD checkout with the binding-plan commit hook and CI job installed
+    - a dirty fixture introducing print() into a non-exempt production path
+  harness:
+    category: integration
+    type: smoke
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify the binding-plan scan fires on commit and gates the build (V3)
+    urn: acc:enforce-binding-plan:E003-SMOKE-001-run-on-commit
+  then:
+    abstract:
+    - the clean commit triggers the scan and passes (exit 0)
+    - the dirty commit is blocked locally and red in CI
+    - the hook no-ops cleanly when there are no bound conventions and honors CI=true
+  when:
+    abstract: a commit is made on each tree and CI runs the binding-plan job
