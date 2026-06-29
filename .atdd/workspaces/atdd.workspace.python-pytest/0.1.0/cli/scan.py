@@ -10,7 +10,7 @@ verdict is the consumer's job (core ``disposition_gate``).
 ================================  CLI CONTRACT  ================================
 
 INVOCATION
-    python3 scan.py [--impl <implementation_id>] [<scan_root> ...]
+    python3 scan.py [--impl <implementation_id>] [--impls-root <dir>] [<scan_root> ...]
 
 INPUT
     env ATDD_SCAN_ROOTS     JSON array of path strings — the consumer
@@ -53,13 +53,20 @@ from pathlib import Path
 _WS = Path(__file__).resolve().parent.parent  # atdd.workspace.python-pytest/
 sys.path.insert(0, str(_WS / "adapter"))
 
+import yaml  # noqa: E402  (already a hard dep of the adapter's discover.py)
+
 import discover as discover_mod  # noqa: E402
 import run as run_mod  # noqa: E402
 
 IMPLS_ROOT = _WS / "implementations"
 DEFAULT_IMPL = "coder.logging.print"
-# The v1.1 report-emitting enforcement collected for the print impl.
-REPORT_TEST = "test_logging_print_report.py"
+# Per-impl manifest field naming the runnable v1.1 report-emitting test (the
+# detector's structured report channel). Resolved from each implementation's
+# atdd.implementation.yaml so the CLI runs EVERY bound detector — not one
+# hardcoded report filename (issue #1238 V1: generalize-cli). Each impl already
+# ships exactly such a test (it scans ATDD_SCAN_ROOTS and writes the RAW v1.1
+# report to ATDD_VIOLATIONS_REPORT); this field just declares which one.
+REPORT_FIELD = "report"
 
 
 def _scan_roots(argv_roots: list[str]) -> list[str]:
@@ -73,6 +80,27 @@ def _scan_roots(argv_roots: list[str]) -> list[str]:
     except json.JSONDecodeError:
         return []
     return [str(n) for n in names] if isinstance(names, list) else []
+
+
+def _report_test_name(manifest_path: Path) -> str | None:
+    """Resolve the impl's declared v1.1 report-emitting test (manifest ``report:``).
+
+    Alongside its detector ``entrypoint:`` module, each implementation declares the
+    runnable pytest file that scans ``ATDD_SCAN_ROOTS`` and writes the RAW v1.1
+    report to ``ATDD_VIOLATIONS_REPORT``. The CLI runs THAT per-impl test rather
+    than a single hardcoded filename, so every bound detector executes instead of
+    25 of 26 exiting 2 "report test missing" (issue #1238 V1). Reuses each impl's
+    EXISTING report channel — no detection logic is reimplemented here.
+
+    Returns None when the manifest is unreadable or declares no ``report:`` — the
+    caller then exits 2 (honest run-health failure, not a silent clean pass).
+    """
+    try:
+        data = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return None
+    name = data.get(REPORT_FIELD)
+    return str(name) if name else None
 
 
 def _exclude_globs() -> list[str] | None:
@@ -89,8 +117,12 @@ def _exclude_globs() -> list[str] | None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="CW-Phase 0 python-pytest provider CLI")
     ap.add_argument("--impl", default=os.environ.get("ATDD_IMPL_ID", DEFAULT_IMPL))
+    ap.add_argument("--impls-root", default=str(IMPLS_ROOT),
+                    help="root to discover implementations under (default: the provider's)")
     ap.add_argument("scan_roots", nargs="*")
     args = ap.parse_args(argv)
+
+    impls_root = Path(args.impls_root)
 
     roots = _scan_roots(args.scan_roots)
     if not roots:
@@ -98,16 +130,21 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     # Resolution via the real provider contract: discover the implementation.
-    found = discover_mod.discover_implementations(IMPLS_ROOT)
+    found = discover_mod.discover_implementations(impls_root)
     impl = next((i for i in found if i.implementation_id == args.impl), None)
     if impl is None:
         ids = ", ".join(sorted(i.implementation_id for i in found))
-        print(f"provider-cli: impl {args.impl!r} not discoverable under {IMPLS_ROOT} "
+        print(f"provider-cli: impl {args.impl!r} not discoverable under {impls_root} "
               f"(found: {ids})", file=sys.stderr)
         return 2
 
     impl_dir = impl.manifest_path.parent
-    test_path = impl_dir / REPORT_TEST
+    report_name = _report_test_name(impl.manifest_path)
+    if not report_name:
+        print(f"provider-cli: impl {impl.implementation_id!r} declares no "
+              f"{REPORT_FIELD!r} (v1.1 report test) in {impl.manifest_path}", file=sys.stderr)
+        return 2
+    test_path = impl_dir / report_name
     if not test_path.is_file():
         print(f"provider-cli: v1.1 report test {test_path} missing", file=sys.stderr)
         return 2

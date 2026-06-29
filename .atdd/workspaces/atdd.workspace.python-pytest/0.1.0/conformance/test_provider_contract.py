@@ -10,6 +10,8 @@ channel + scan-mount) sections so back-compat is visible at a glance.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -17,11 +19,15 @@ from pathlib import Path
 import pytest
 
 # Import the provider adapter (sibling ../adapter) without packaging it.
-_ADAPTER = Path(__file__).resolve().parent.parent / "adapter"
+_PROVIDER = Path(__file__).resolve().parent.parent
+_ADAPTER = _PROVIDER / "adapter"
 sys.path.insert(0, str(_ADAPTER))
 
 import discover as discover_mod  # noqa: E402
 import run as run_mod  # noqa: E402
+
+_CLI = _PROVIDER / "cli" / "scan.py"
+_IMPLS_ROOT = _PROVIDER / "implementations"
 
 
 def _impl_manifest(impl_id: str, contract_version: str) -> str:
@@ -214,3 +220,107 @@ def test_run_injects_scan_roots_and_excludes(tmp_path: Path) -> None:
 
     assert result.ran
     assert result.passed  # the in-subprocess assertions held
+
+
+# ── V1: the CLI runs EVERY bound detector, not one hardcoded report test ──────
+#
+# Issue #1238 generalize-cli. The provider CLI used to hardcode a single report
+# filename (``test_logging_print_report.py``), so 25 of 26 bound detectors exited
+# 2 "report test missing". The CLI now resolves each impl's declared ``report:``
+# test from its manifest. These tests assert the WHOLE bound set runs: for every
+# discovered implementation id, the CLI over a benign scan root must NOT exit 2
+# and must emit a JSON list (possibly empty) — 0 of N "report test missing".
+
+
+def _discovered_impl_ids() -> list[str]:
+    """The bound set, sourced from the implementations/ manifests the CLI runs."""
+    found = discover_mod.discover_implementations(_IMPLS_ROOT)
+    return sorted(i.implementation_id for i in found)
+
+
+def _run_cli(impl_id: str, scan_root: Path) -> subprocess.CompletedProcess:
+    """Invoke the real provider CLI as core would — env contract, no imports."""
+    env = {
+        **os.environ,
+        "ATDD_SCAN_ROOTS": json.dumps([str(scan_root)]),
+        "ATDD_IMPL_ID": impl_id,
+    }
+    return subprocess.run(
+        [sys.executable, str(_CLI)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def test_bound_set_is_nonempty_and_discoverable() -> None:
+    """Sanity: there is a bound set to enforce (guards a silently-empty sweep)."""
+    ids = _discovered_impl_ids()
+    assert ids, "no implementations discovered under implementations/"
+    assert "coder.logging.print" in ids  # the original Phase-0 detector survives
+
+
+@pytest.mark.parametrize("impl_id", _discovered_impl_ids())
+def test_cli_runs_every_bound_detector(impl_id: str, tmp_path: Path) -> None:
+    """Each bound detector RUNS via the CLI: never exit 2, always a JSON list.
+
+    A benign scan root (one trivially-clean .py) is enough — the contract here is
+    run-health, not a specific verdict. ``exit 2`` is the "report test missing" /
+    usage failure the generalization must eliminate for all but a real misconfig.
+    """
+    benign = tmp_path / "benign.py"
+    benign.write_text("x = 1\n")
+
+    proc = _run_cli(impl_id, tmp_path)
+
+    assert proc.returncode != 2, (
+        f"{impl_id} exited 2 (report test missing / usage) — generalize-cli "
+        f"regression:\n{proc.stderr}"
+    )
+    assert proc.returncode == 0, f"{impl_id} unexpected exit {proc.returncode}:\n{proc.stderr}"
+    parsed = json.loads(proc.stdout)  # raises if stdout is not valid JSON
+    assert isinstance(parsed, list), f"{impl_id} stdout is not a JSON list: {proc.stdout!r}"
+    for rec in parsed:  # any records present must be RAW v1.1 shape
+        assert set(rec) >= {"rule_id", "file", "line", "col", "evidence", "source_line"}
+
+
+def test_cli_missing_report_field_exits_2(tmp_path: Path) -> None:
+    """A misconfigured impl (no ``report:``) still fails honestly with exit 2.
+
+    Run-health exit-code semantics are preserved: a real resolution failure is a
+    2, not a fake-green empty list. Proven against a throwaway impl with no
+    declared report test, discovered from a temp implementations/ root.
+    """
+    impl = tmp_path / "impls" / "broken"
+    impl.mkdir(parents=True)
+    (impl / "atdd.implementation.yaml").write_text(
+        textwrap.dedent(
+            """\
+            kind: implementation
+            implementation_id: ext.broken
+            targets_workspace: atdd.workspace.python-pytest
+            contract_version: "1.1.0"
+            entrypoint: broken.py
+            """
+        )
+    )
+    scan_root = tmp_path / "scan"
+    scan_root.mkdir()
+    (scan_root / "benign.py").write_text("x = 1\n")
+
+    # Point the CLI's discovery at the temp root via argv so we don't touch the
+    # real bound set; ATDD_IMPL_ID selects the broken impl.
+    env = {
+        **os.environ,
+        "ATDD_SCAN_ROOTS": json.dumps([str(scan_root)]),
+        "ATDD_IMPL_ID": "ext.broken",
+    }
+    proc = subprocess.run(
+        [sys.executable, str(_CLI), "--impls-root", str(impl.parent), str(scan_root)],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert proc.returncode == 2
+    assert "report" in proc.stderr.lower()
+    assert proc.stdout.strip() == ""  # stdout stays empty so json.loads is safe

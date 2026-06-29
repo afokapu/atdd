@@ -18,3 +18,9 @@ emits_rule_ids:
 # smoke-evidence gate (.atdd/smoke-evidence/<issue>.yaml) is applied DOWNSTREAM by
 # the consumer, never here.
 entrypoint: presentation_ratchet.py
+
+# The runnable v1.1 report-emitting test the provider CLI collects: it scans
+# ATDD_SCAN_ROOTS and writes the RAW {rule_id,file,line,col,evidence,source_line}
+# report to ATDD_VIOLATIONS_REPORT. Declared (not hardcoded) so cli/scan.py runs
+# THIS impl's detector — issue #1238 V1 generalize-cli.
+report: test_presentation_ratchet.py

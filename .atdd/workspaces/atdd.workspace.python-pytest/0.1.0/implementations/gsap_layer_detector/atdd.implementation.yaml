@@ -18,3 +18,9 @@ emits_rule_ids:
 # collects; it scans ATDD_SCAN_ROOTS and writes the RAW structured violation
 # report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT apply disposition.
 entrypoint: gsap_layer.py
+
+# The runnable v1.1 report-emitting test the provider CLI collects: it scans
+# ATDD_SCAN_ROOTS and writes the RAW {rule_id,file,line,col,evidence,source_line}
+# report to ATDD_VIOLATIONS_REPORT. Declared (not hardcoded) so cli/scan.py runs
+# THIS impl's detector — issue #1238 V1 generalize-cli.
+report: test_gsap_layer.py
