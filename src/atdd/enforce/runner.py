@@ -241,6 +241,21 @@ def _adapt_location(raw: dict) -> str:
     return str(raw.get("location", file or "."))
 
 
+def _records_for_rule(raw: list[dict], rule_id: str) -> list[dict]:
+    """Keep only RAW records whose ``rule_id`` matches the bound convention.
+
+    A multi-rule detector emits SEVERAL rule_ids from one run (e.g. the
+    complexity detector emits cyclomatic/nesting/length/params/cognitive; the
+    security detector emits sql-injection/missing-auth/hardcoded-secret). Each
+    bound convention must be judged on its OWN violations, not the detector's
+    whole output — otherwise a sibling rule is credited (or blamed) for another
+    rule's findings. v1.1 records always carry ``rule_id``; the v1.0.0 fallback
+    record sets ``rule_id == implementation_id`` (which equals the bound
+    convention for the single-rule print detector), so it matches too.
+    """
+    return [r for r in raw if r.get("rule_id") == rule_id]
+
+
 def _verdict_for_rule(meta: RuleMetadata, raw: list[dict]) -> str:
     """Non-raising disposition verdict (D-2): strict/suppress-and-clean fail on
     any violation; advisory always passes."""
@@ -326,6 +341,9 @@ def enforce(
             policy.scan_excludes,
             policy.graph_roots,
         )
+        # A multi-rule detector emits several rule_ids in one run; judge this
+        # bound convention only on its own rule_id's records.
+        raw = _records_for_rule(raw, rule_id)
         status = _verdict_for_rule(meta, raw)
         locations = [_adapt_location(r) for r in raw]
         verdicts.append(
