@@ -1,6 +1,17 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1223'
+  slug: issue-schema-json
+  file: null
+  issue_number: 1223
+  type: implementation
+  status: INIT
+  created: '2026-06-29'
+  archived: null
+  branch: feat/issue-schema-json
+  feature: feature:author-atdd-substrate:author-issue-body
+  train: 0003-author-substrate
 - id: tester-core-atomize
   slug: tester-core-atomize
   file: null
