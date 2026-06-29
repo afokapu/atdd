@@ -3121,6 +3121,10 @@ sessions:
   status: INIT
   created: '2026-06-29'
   archived: null
+  branch: feat/group-substrate-cli-verbs
+  wagon: admit-substrate
+  feature: feature:admit-substrate:substrate-cli-grouping
+  train: 0004-admit-substrate
 - id: '1238'
   slug: lock-driven-extension-enforcement-runner-enforce-the-binding-plan-on-commit-ci
   file: null
