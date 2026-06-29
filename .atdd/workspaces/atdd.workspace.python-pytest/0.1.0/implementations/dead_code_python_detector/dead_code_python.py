@@ -25,10 +25,16 @@ DECOUPLED FROM CORE (every adaptation, per task §3):
   * ``find_repo_root`` + the hardcoded ``REPO_ROOT/python`` scan  -> REMOVED.
     Scan scope is supplied explicitly via ``ATDD_SCAN_ROOTS`` (§2); each scan
     root doubles as the package-resolution anchor (core's ``PYTHON_DIR`` role).
-  * pyproject ``[project.scripts]`` CLI-entry-point roots  -> NOT PORTED. That is
-    consumer SCAN-POLICY (it reads the repo's pyproject.toml); the hermetic
-    detector keeps only convention roots (composition.py, wagon.py, conftest.py,
-    __init__.py, test files) + the composition.py -> wagon ``src/`` subtree reach.
+  * pyproject ``[project.scripts]`` CLI-entry-point roots  -> READ FROM THE ENV
+    CONTRACT, not parsed here. The pyproject parse stays consumer SCAN-POLICY: the
+    core enforce layer (src/atdd/enforce/runner.py) resolves the scanned tree's
+    ``[project.scripts]`` modules to ABSOLUTE file paths and forwards them as the
+    ``ATDD_GRAPH_ROOTS`` JSON array. The hermetic detector READS that array and
+    unions any path falling within a scan root into its graph roots — mirroring
+    core's ``find_cli_entry_points()`` (test_dead_code_python.py L296-331) without
+    re-implementing the TOML parse. Convention roots (composition.py, wagon.py,
+    conftest.py, __init__.py, test files) + the composition.py -> wagon ``src/``
+    subtree reach still apply on top.
   * ratchet baseline  -> NOT PORTED. Ratchet/baseline is a downstream consumer
     disposition concern (PHASE05-PROOF §6); the detector emits RAW unreachable
     files and the consumer applies ``strict`` (any unreachable -> FAIL).
@@ -39,6 +45,8 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import json
+import os
 from collections import deque
 from pathlib import Path
 
@@ -48,6 +56,40 @@ RULE_DEAD_CODE_PY = "coder.dead-code.reachability"  # disposition: strict
 # Files that are always graph roots by convention.
 ROOT_FILENAMES = frozenset({"composition.py", "wagon.py", "conftest.py"})
 TEST_DIRS = frozenset({"test", "tests"})
+
+# Env channel: entry-point graph roots supplied by the core enforce layer.
+# A JSON array of ABSOLUTE entry-point module file paths resolved from the
+# scanned tree's pyproject ``[project.scripts]`` (src/atdd/enforce/runner.py).
+# The detector READS this contract; it never parses pyproject itself.
+ENV_GRAPH_ROOTS = "ATDD_GRAPH_ROOTS"
+
+
+def graph_roots_from_env() -> set[Path]:
+    """Entry-point graph roots from the ``ATDD_GRAPH_ROOTS`` env contract.
+
+    Mirrors core's ``find_cli_entry_points()`` (test_dead_code_python.py
+    L296-331), which adds the pyproject ``[project.scripts]`` module files as
+    graph roots — but the TOML parse stays core-side SCAN-POLICY. Core forwards
+    the resolved ABSOLUTE file paths as a JSON array; this reads them back.
+    Tolerates unset / empty / malformed -> no extra roots (mirrors how the report
+    test reads ``ATDD_SCAN_ROOTS`` / ``ATDD_SCAN_EXCLUDES``).
+    """
+    raw = os.environ.get(ENV_GRAPH_ROOTS)
+    if not raw:
+        return set()
+    try:
+        paths = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return set()
+    if not isinstance(paths, list):
+        return set()
+    out: set[Path] = set()
+    for p in paths:
+        try:
+            out.add(Path(str(p)).resolve())
+        except (OSError, ValueError):
+            continue
+    return out
 
 
 def is_test_file(file_path: Path) -> bool:
@@ -214,6 +256,19 @@ def scan_root(root: Path, exclude_globs: list[str] | None = None) -> list[dict]:
 
     graph = build_file_import_graph(python_files, root=root)
     roots = {f for f in python_files if is_root_file(f)}
+
+    # Entry-point graph roots from the core enforce layer (ATDD_GRAPH_ROOTS):
+    # absolute pyproject ``[project.scripts]`` module files. Union any that fall
+    # within THIS scan root — mirrors core's find_cli_entry_points(), closing the
+    # parity gap where an entry-point-only-reachable module was falsely flagged.
+    env_graph_roots = graph_roots_from_env()
+    if env_graph_roots:
+        by_resolved = {f.resolve(): f for f in python_files}
+        for entry in env_graph_roots:
+            match = by_resolved.get(entry)
+            if match is not None:
+                roots.add(match)
+
     if not roots:
         return []
 

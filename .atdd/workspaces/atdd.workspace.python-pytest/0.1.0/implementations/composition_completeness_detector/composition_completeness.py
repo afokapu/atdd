@@ -12,12 +12,25 @@ PYTHON stack (both rule_ids disposition `strict`):
 ONE run carries TWO distinct rule_ids — the v1.1 multi-rule output channel
 (PROVIDER-CONTRACT-v1.1.md §3).
 
-SCOPE (honest): this is the PYTHON realization only. Core's validator also covers
-the TypeScript and Supabase stacks (tsconfig path-alias resolution, barrel
-re-exports). Per the documented `-python` / `-typescript` provider split
-(PHASE05-PROOF §6.4), the TS/Supabase realizations are SEPARATE detectors in a
-separate workspace package and are out of scope for this wave. The obligation
-node is stack-agnostic; this detector is the Python leg.
+SCOPE: all THREE stacks the core validator covers — PYTHON, TypeScript, and
+Supabase — are realized here, matching the legacy oracle which enforces the same
+rule_id across every stack (``test_composition_completeness.py`` ::
+``analyze_python_repo`` / ``analyze_typescript_repo`` for ``stack=typescript``
+and ``stack=supabase``). An earlier wave shipped only the Python leg, dropping
+the TypeScript and Supabase realizations — a parity regression (the same
+``coder.refactor.composition-consumer`` obligation went unenforced for those
+stacks). The TS/Supabase legs are now ported and bound here.
+
+PARITY NOTE — TS vs Supabase: the core convention gives BOTH stacks the IDENTICAL
+``layer_rules`` (application→presentation, integration→application,
+domain→{application,integration,presentation}), and ``analyze_typescript_repo``
+emits ONLY ``coder.refactor.composition-consumer`` (no composition-root check for
+the non-python stacks). Because ``composition`` is never an allowed consumer
+layer for these stacks, the supabase-vs-typescript differences (``index.ts``
+treated as the composition root / the ``detect_layer`` ``index.ts``→composition
+rule) never change the consumer-rule verdict. The two are therefore realized by a
+single non-python (TypeScript-family) graph leg over each scan root, with both a
+TypeScript-shaped and a Supabase-shaped fixture proving the rule fires for each.
 
 PROVENANCE — ported from core
     src/atdd/coder/validators/test_composition_completeness.py
@@ -38,12 +51,18 @@ DECOUPLED FROM CORE (every adaptation, per task §3):
     ``{rule_id, file, line, col, evidence, source_line}`` (§3.2). The core
     ``location = feature_id/file_rel`` + ``detail`` (with spec_id) are preserved
     inside ``file`` (scan-root-relative path) and ``evidence``.
-  * ``find_repo_root`` + ``ScanRoot`` + ``is_excluded_fixture`` dual-dir scan
-    -> REMOVED. Each ``ATDD_SCAN_ROOTS`` entry is a python stack root and is used
-    as BOTH the discovery root and the import root (the consumer ``python/`` case,
-    ``import_prefix=""``). The toolkit ``src/atdd`` dogfood carve-out and the
-    negative-fixture self-trigger guard were consumer scan-policy, not detector
-    logic (§2).
+  * ``find_repo_root`` + ``ScanRoot`` dual-dir scan -> REMOVED. Each
+    ``ATDD_SCAN_ROOTS`` entry is a stack root used as BOTH the discovery root and
+    the import root (the consumer ``python/`` / ``web/src`` / ``supabase/functions``
+    case, ``import_prefix=""``). The toolkit ``src/atdd`` dogfood carve-out was
+    consumer scan-policy, not detector logic (§2).
+  * ``is_excluded_fixture`` self-trigger guard -> PORTED (was previously dropped).
+    The negative fixtures under this detector's ``fixtures/`` tree are
+    intentionally broken; when a REAL tree is scanned they must never be
+    discovered as features (or they would self-trigger the very violations they
+    exist to test, #958). The guard is disabled only when the scan root is ITSELF
+    inside the fixtures tree (the dogfood self-tests deliberately root the
+    analyzer at a fixture), exactly as the legacy ``find_feature_dirs`` does.
   * The ``composition.convention.yaml`` ``layer_rules`` / ``composition_root_rule``
     -> VENDORED as the module constants ``PY_LAYER_RULES`` / ``ROOT_SPEC_ID``
     below (copied verbatim from the convention, blob dae07ff4caa21cac), so the
@@ -56,6 +75,8 @@ Pure stdlib (``ast``, ``pathlib``) — no third-party or core imports.
 from __future__ import annotations
 
 import ast
+import json
+import re
 from collections import deque
 from pathlib import Path
 
@@ -64,6 +85,9 @@ RULE_ROOT = "coder.refactor.composition-root"          # disposition: strict
 
 LAYER_NAMES = ("domain", "application", "integration", "presentation")
 PY_CONNECTOR_FILES = {"__init__.py"}
+TS_CONNECTOR_FILES = {"index.ts", "index.tsx", "types.ts"}
+TS_FILE_SUFFIXES = (".ts", ".tsx")
+TEST_FILE_SUFFIXES = (".test.ts", ".test.tsx", ".spec.ts")
 
 # Vendored from composition.convention.yaml -> composition.stacks.python (verbatim).
 # Each rule: a source layer and the set of layers a valid consumer may live in.
@@ -77,13 +101,43 @@ PY_LAYER_RULES = (
 )
 ROOT_SPEC_ID = "SPEC-CODER-COMP-0004"  # composition_root_rule.spec_id
 
+# Vendored from composition.convention.yaml -> composition.stacks.typescript and
+# .supabase (verbatim). The two stacks share IDENTICAL layer_rules and neither
+# admits ``composition`` as a consumer layer; see the module PARITY NOTE.
+TS_LAYER_RULES = (
+    {"spec_id": "SPEC-CODER-COMP-0001", "source_layer": "application",
+     "consumer_layers": ("presentation",)},
+    {"spec_id": "SPEC-CODER-COMP-0002", "source_layer": "integration",
+     "consumer_layers": ("application",)},
+    {"spec_id": "SPEC-CODER-COMP-0003", "source_layer": "domain",
+     "consumer_layers": ("application", "integration", "presentation")},
+)
+SUPABASE_LAYER_RULES = TS_LAYER_RULES  # identical per the convention
+
+# The negative-fixtures tree marker (legacy ``_toolkit_roots.FIXTURES_MARKER``,
+# adapted to this detector's layout). A path under this marker is an intentionally
+# broken fixture that must not be discovered as a real feature.
+FIXTURES_MARKER = "composition_completeness_detector/fixtures"
+
 
 # ── graph + layer helpers (ported behavior-for-behavior) ──────────────────────
+
+
+def is_excluded_fixture(path: Path) -> bool:
+    """True when *path* sits under this detector's negative-fixtures tree.
+
+    Ported from legacy ``_toolkit_roots.is_excluded_fixture``: the fixtures are
+    intentionally broken and must never be discovered as real features when a
+    real tree is scanned (#958).
+    """
+    return FIXTURES_MARKER in path.as_posix()
 
 
 def is_test_file(path: Path) -> bool:
     name = path.name
     if name.startswith("test_") or name.endswith("_test.py"):
+        return True
+    if name.endswith(TEST_FILE_SUFFIXES):
         return True
     return any(part in {"test", "tests", "test_fixtures"} for part in path.parts)
 
@@ -99,13 +153,17 @@ def graph_file_excluded(path: Path) -> bool:
 def candidate_source_file(path: Path) -> bool:
     if graph_file_excluded(path):
         return False
-    if path.name in PY_CONNECTOR_FILES:
+    if path.name in PY_CONNECTOR_FILES or path.name in TS_CONNECTOR_FILES:
         return False
     return True
 
 
 def detect_layer(path: Path) -> str:
-    if path.name in {"composition.py", "wagon.py"}:
+    name = path.name
+    if name in {"composition.py", "wagon.py"}:
+        return "composition"
+    # supabase edge-function entry point is the composition root for that stack.
+    if name == "index.ts" and "supabase" in path.parts and "functions" in path.parts:
         return "composition"
     for layer in LAYER_NAMES:
         if layer in path.parts:
@@ -139,66 +197,98 @@ def build_reverse_graph(graph: dict) -> dict:
 
 
 class FeatureContext:
-    def __init__(self, root: Path, feature_dir: Path, layer_files: dict, root_files: list):
+    def __init__(self, root: Path, feature_dir: Path, layer_files: dict,
+                 root_files: list, stack: str = "python"):
         self.root = root
         self.feature_dir = feature_dir
         self.layer_files = layer_files
         self.root_files = root_files
+        self.stack = stack
 
     @property
     def feature_id(self) -> str:
         return str(self.feature_dir.relative_to(self.root))
 
 
-def feature_dir_for_layer_dir(layer_dir: Path) -> Path | None:
-    # python layout: {wagon}/{feature}/src/{layer}/
-    if layer_dir.parent.name != "src":
-        return None
-    return layer_dir.parent.parent
+def feature_layer_root(feature_dir: Path, stack: str) -> Path:
+    # python nests layers under {feature}/src/{layer}; ts/supabase put them
+    # directly under {feature}/{layer}.
+    return feature_dir / "src" if stack == "python" else feature_dir
 
 
-def find_feature_dirs(root: Path) -> set:
+def feature_dir_for_layer_dir(layer_dir: Path, stack: str) -> Path | None:
+    if stack == "python":
+        # python layout: {wagon}/{feature}/src/{layer}/
+        if layer_dir.parent.name != "src":
+            return None
+        return layer_dir.parent.parent
+    # ts/supabase layout: {wagon}/{feature}/{layer}/
+    return layer_dir.parent
+
+
+def find_feature_dirs(root: Path, stack: str = "python") -> set:
     feature_dirs: set = set()
     if not root.exists():
         return feature_dirs
+    # Skip negative fixtures only when the scanned root is a REAL tree — the
+    # dogfood self-tests intentionally root the analyzer inside fixtures (#958).
+    skip_fixtures = not is_excluded_fixture(root)
     for layer in LAYER_NAMES:
         for layer_dir in root.rglob(layer):
             if not layer_dir.is_dir():
                 continue
-            feature_dir = feature_dir_for_layer_dir(layer_dir)
+            feature_dir = feature_dir_for_layer_dir(layer_dir, stack)
             if feature_dir is None or feature_dir == root:
+                continue
+            # Negative fixtures self-trigger — never discover them as features.
+            if skip_fixtures and is_excluded_fixture(feature_dir):
                 continue
             feature_dirs.add(feature_dir)
     return feature_dirs
 
 
-def root_files_for_feature(feature_dir: Path) -> list:
+def root_files_for_feature(feature_dir: Path, stack: str = "python") -> list:
+    if stack == "python":
+        roots = []
+        for name in ("composition.py", "wagon.py"):
+            candidate = feature_dir / name
+            if candidate.exists():
+                roots.append(candidate)
+        return roots
+    if stack == "supabase":
+        candidate = feature_dir / "index.ts"
+        return [candidate] if candidate.exists() else []
+    # typescript: page / container orchestration roots.
     roots = []
-    for name in ("composition.py", "wagon.py"):
-        candidate = feature_dir / name
-        if candidate.exists():
-            roots.append(candidate)
+    presentation_dir = feature_dir / "presentation"
+    if presentation_dir.exists():
+        roots.extend(sorted(presentation_dir.glob("*Page.tsx")))
+        roots.extend(sorted(presentation_dir.glob("*Container.tsx")))
     return roots
 
 
-def build_feature_contexts(root: Path) -> list:
+def build_feature_contexts(root: Path, stack: str = "python") -> list:
     contexts: list = []
-    for feature_dir in sorted(find_feature_dirs(root)):
+    for feature_dir in sorted(find_feature_dirs(root, stack)):
         layer_files: dict = {}
-        layer_root = feature_dir / "src"
+        layer_root = feature_layer_root(feature_dir, stack)
         for layer in LAYER_NAMES:
             files: list = []
             layer_dir = layer_root / layer
             if layer_dir.exists():
-                for file_path in sorted(layer_dir.rglob("*.py")):
+                pattern = "*.py" if stack == "python" else "*"
+                for file_path in sorted(layer_dir.rglob(pattern)):
                     if not file_path.is_file():
+                        continue
+                    if stack != "python" and file_path.suffix not in TS_FILE_SUFFIXES:
                         continue
                     if graph_file_excluded(file_path):
                         continue
                     files.append(file_path)
             layer_files[layer] = files
         contexts.append(FeatureContext(root, feature_dir, layer_files,
-                                       root_files_for_feature(feature_dir)))
+                                       root_files_for_feature(feature_dir, stack),
+                                       stack=stack))
     return contexts
 
 
@@ -215,9 +305,13 @@ class PythonImportRef:
 def collect_python_files(root: Path) -> list:
     if not root.exists():
         return []
+    # Exclude negative fixtures only when scanning a REAL tree (#958).
+    skip_fixtures = not is_excluded_fixture(root)
     return sorted(
         p for p in root.rglob("*.py")
-        if p.is_file() and not graph_file_excluded(p)
+        if p.is_file()
+        and not graph_file_excluded(p)
+        and not (skip_fixtures and is_excluded_fixture(p))
     )
 
 
@@ -324,6 +418,132 @@ def build_python_graph(root: Path) -> dict:
     return graph
 
 
+# ── typescript / supabase import graph (ported behavior-for-behavior) ─────────
+
+
+class TypeScriptEdge:
+    def __init__(self, module: str, is_type_only: bool, is_reexport: bool):
+        self.module = module
+        self.is_type_only = is_type_only
+        self.is_reexport = is_reexport
+
+
+def typescript_edges(file_path: Path) -> list:
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    statements = re.findall(r"(?:^|\n)\s*(?:import|export)[\s\S]*?;", content)
+    edges: list = []
+    for statement in statements:
+        module_match = re.search(r"from\s+['\"]([^'\"]+)['\"]", statement)
+        if not module_match:
+            continue
+        stripped = statement.strip()
+        edges.append(TypeScriptEdge(
+            module=module_match.group(1),
+            is_type_only=stripped.startswith("import type") or stripped.startswith("export type"),
+            is_reexport=stripped.startswith("export"),
+        ))
+    return edges
+
+
+def load_tsconfig_paths(root: Path) -> list:
+    """Parse ``tsconfig.json`` ``compilerOptions.paths`` into (alias, targets, base)."""
+    tsconfig_path = Path(root) / "tsconfig.json"
+    if not tsconfig_path.exists():
+        return []
+    try:
+        data = json.loads(tsconfig_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    compiler_options = data.get("compilerOptions", {})
+    base_url = compiler_options.get("baseUrl", ".")
+    base_dir = (Path(root) / base_url).resolve()
+    path_map = compiler_options.get("paths", {})
+    aliases: list = []
+    for alias, targets in path_map.items():
+        if isinstance(targets, list):
+            aliases.append((alias, [str(t) for t in targets], base_dir))
+    return aliases
+
+
+def match_alias(alias: str, module: str) -> str | None:
+    if "*" not in alias:
+        return "" if module == alias else None
+    prefix, suffix = alias.split("*", 1)
+    if not module.startswith(prefix):
+        return None
+    if suffix and not module.endswith(suffix):
+        return None
+    end = len(module) - len(suffix) if suffix else len(module)
+    return module[len(prefix):end]
+
+
+def candidate_typescript_paths(base_path: Path, all_files: set) -> set:
+    candidates: set = set()
+    if base_path.suffix in TS_FILE_SUFFIXES:
+        if base_path in all_files:
+            candidates.add(base_path)
+        return candidates
+    for target in (
+        base_path.with_suffix(".ts"),
+        base_path.with_suffix(".tsx"),
+        base_path / "index.ts",
+        base_path / "index.tsx",
+    ):
+        if target in all_files:
+            candidates.add(target)
+    return candidates
+
+
+def resolve_typescript_import(source_file: Path, module: str, all_files: set,
+                              aliases) -> set:
+    if module.startswith("."):
+        return candidate_typescript_paths((source_file.parent / module).resolve(), all_files)
+    for alias, targets, base_dir in aliases:
+        wildcard = match_alias(alias, module)
+        if wildcard is None:
+            continue
+        resolved: set = set()
+        for target in targets:
+            target_path = target.replace("*", wildcard)
+            resolved.update(candidate_typescript_paths((base_dir / target_path).resolve(), all_files))
+        if resolved:
+            return resolved
+    return set()
+
+
+def collect_typescript_files(root: Path) -> list:
+    if not root.exists():
+        return []
+    skip_fixtures = not is_excluded_fixture(root)
+    files: list = []
+    for suffix in TS_FILE_SUFFIXES:
+        files.extend(root.rglob(f"*{suffix}"))
+    return sorted(
+        p for p in files
+        if p.is_file()
+        and not graph_file_excluded(p)
+        and not (skip_fixtures and is_excluded_fixture(p))
+    )
+
+
+def build_typescript_graph(root: Path) -> dict:
+    ts_files = collect_typescript_files(root)
+    all_files = set(ts_files)
+    aliases = load_tsconfig_paths(root)
+    graph: dict = {file_path: set() for file_path in ts_files}
+    for file_path in ts_files:
+        for edge in typescript_edges(file_path):
+            if edge.is_type_only:  # type-only imports are not composition evidence
+                continue
+            graph[file_path].update(
+                resolve_typescript_import(file_path, edge.module, all_files, aliases)
+            )
+    return graph
+
+
 # ── violation emitters (ported; emit RAW v1.1 dicts) ──────────────────────────
 
 
@@ -359,9 +579,10 @@ def local_consumer_candidates(feature: FeatureContext, allowed_layers: set) -> s
     return candidates
 
 
-def feature_rule_violations(root: Path, feature: FeatureContext, reverse_graph: dict) -> list:
+def feature_rule_violations(root: Path, feature: FeatureContext, reverse_graph: dict,
+                            rules=PY_LAYER_RULES) -> list:
     violations: list = []
-    for rule in PY_LAYER_RULES:
+    for rule in rules:
         spec_id = rule["spec_id"]
         source_layer = rule["source_layer"]
         allowed_layers = set(rule["consumer_layers"])
@@ -424,27 +645,62 @@ def python_composition_root_violations(root: Path, feature: FeatureContext, grap
     }]
 
 
-# ── public scan API (the v1.1 contract surface) ───────────────────────────────
+# ── per-stack scan legs ───────────────────────────────────────────────────────
 
 
-def scan_root(root: Path, exclude_globs: list[str] | None = None) -> list[dict]:
-    """Scan one python stack ``root`` and return RAW v1.1 violation dicts.
-
-    Discovery root == import root == ``root`` (the consumer ``python/`` case).
-    Emits both ``RULE_CONSUMER`` (unwired layer files) and ``RULE_ROOT``
-    (composition.py that misses an existing layer).
-    """
-    root = Path(root)
-    features = build_feature_contexts(root)
+def scan_python(root: Path) -> list[dict]:
+    """Python leg: emits RULE_CONSUMER (unwired layer files) and RULE_ROOT
+    (composition.py missing an existing layer)."""
+    features = build_feature_contexts(root, "python")
     if not features:
         return []
     graph = build_python_graph(root)
     reverse = build_reverse_graph(graph)
     violations: list = []
     for feature in features:
-        violations.extend(feature_rule_violations(root, feature, reverse))
+        violations.extend(feature_rule_violations(root, feature, reverse, PY_LAYER_RULES))
     for feature in features:
         violations.extend(python_composition_root_violations(root, feature, graph))
+    return violations
+
+
+def scan_typescript_family(root: Path) -> list[dict]:
+    """TypeScript + Supabase leg (a single non-python pass — see module PARITY
+    NOTE: both stacks share the identical consumer ``layer_rules`` and neither
+    runs a composition-root check, so one graph leg realizes both).
+
+    Mirrors legacy ``analyze_typescript_repo``: build the TS import graph
+    (relative + tsconfig-alias resolution, value imports / re-exports as edges,
+    type-only imports ignored) and emit ONLY RULE_CONSUMER for source-layer files
+    with no valid downstream consumer.
+    """
+    features = build_feature_contexts(root, "typescript")
+    if not features:
+        return []
+    graph = build_typescript_graph(root)
+    reverse = build_reverse_graph(graph)
+    violations: list = []
+    for feature in features:
+        violations.extend(feature_rule_violations(root, feature, reverse, TS_LAYER_RULES))
+    return violations
+
+
+# ── public scan API (the v1.1 contract surface) ───────────────────────────────
+
+
+def scan_root(root: Path, exclude_globs: list[str] | None = None) -> list[dict]:
+    """Scan one stack ``root`` and return RAW v1.1 violation dicts.
+
+    Discovery root == import root == ``root``. Runs every stack leg the legacy
+    oracle covers — python (RULE_CONSUMER + RULE_ROOT) and the TypeScript/Supabase
+    family (RULE_CONSUMER) — so the same obligation is enforced across all three
+    stacks. A leg whose shape is absent under ``root`` discovers no features and
+    contributes nothing.
+    """
+    root = Path(root)
+    violations: list = []
+    violations.extend(scan_python(root))
+    violations.extend(scan_typescript_family(root))
     return violations
 
 

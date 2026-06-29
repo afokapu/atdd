@@ -72,6 +72,55 @@ def test_records_are_full_v1_1_shape() -> None:
         assert isinstance(item["source_line"], str)
 
 
+# ── TypeScript + Supabase legs (parity with the legacy non-python oracle) ──────
+
+
+def test_typescript_application_without_value_consumer_is_flagged() -> None:
+    """An application file consumed by presentation only via ``import type`` has no
+    valid value consumer -> flagged (legacy analyze_typescript_repo parity)."""
+    v = detector.scan_root(_HERE / "fixtures" / "typescript_dirty")
+    consumer = [x for x in v if x["rule_id"] == detector.RULE_CONSUMER]
+    assert any("useForecast.ts" in x["file"] for x in consumer), v
+    # TS/Supabase emit only the consumer rule — never the composition-root rule.
+    assert all(x["rule_id"] == detector.RULE_CONSUMER for x in v)
+    # type-only consumption is not evidence, but value-consumed files are clean.
+    assert not any("ForecastGateway.ts" in x["file"] for x in consumer)
+    assert not any("forecast.ts" in x["file"] for x in consumer)
+
+
+def test_supabase_integration_without_application_consumer_is_flagged() -> None:
+    """A supabase integration file never imported by the application layer is
+    flagged (integration->application, SPEC-CODER-COMP-0002) — legacy parity."""
+    v = detector.scan_root(_HERE / "fixtures" / "supabase_dirty")
+    consumer = [x for x in v if x["rule_id"] == detector.RULE_CONSUMER]
+    assert any("ChargeGateway.ts" in x["file"] for x in consumer), v
+    assert all(x["rule_id"] == detector.RULE_CONSUMER for x in v)
+    # the application hook IS value-consumed by presentation -> not flagged.
+    assert not any("useCharge.ts" in x["file"] for x in consumer)
+
+
+def test_type_only_imports_are_not_composition_evidence() -> None:
+    edges = detector.typescript_edges  # pure helper
+    import tempfile
+
+    with tempfile.NamedTemporaryFile("w", suffix=".ts", delete=False) as fh:
+        fh.write('import type { X } from "./x";\nimport { y } from "./y";\n')
+        name = fh.name
+    found = edges(Path(name))
+    type_only = [e for e in found if e.is_type_only]
+    value = [e for e in found if not e.is_type_only]
+    assert len(type_only) == 1 and type_only[0].module == "./x"
+    assert len(value) == 1 and value[0].module == "./y"
+
+
+def test_is_excluded_fixture_guard_is_present() -> None:
+    """The self-trigger guard exists and matches this detector's fixtures tree."""
+    assert detector.is_excluded_fixture(
+        Path("a/composition_completeness_detector/fixtures/x/domain/y.py")
+    ) is True
+    assert detector.is_excluded_fixture(Path("consumer/python/feat/src/domain/y.py")) is False
+
+
 # ── 2. emission (writes the RAW report; does NOT decide disposition) ───────────
 
 

@@ -16,19 +16,41 @@ value. The Python two-root lookup (substrate spec v12 §4.5, recipe
     1. <root>/.atdd/metrics/<name>.py        (consumer-authored; takes precedence)
     2. <root>/src/atdd/runners/metrics/<name>.py   (toolkit-shipped commons)
 
-and the module MUST export top-level ``compute`` and ``passes`` callables. A
-declared metric with no such module — or a module missing ``compute``/``passes`` —
-is a measurability hole that would let an acceptance pass vacuously.
+and the module MUST import cleanly and export a top-level CALLABLE named
+``compute``. A declared metric with no such module — a module that fails to
+import, or one that does not export a callable ``compute`` — is a measurability
+hole that would let an acceptance pass vacuously.
+
+RESOLUTION IS IMPORT-BASED (parity with core, NOT a ``^def compute`` regex).
+The legacy oracle (``atdd.runners.metric_runner.discover_metric_module``, used by
+``test_metric_implementation.collect_violations``) decides "resolvable" by:
+  1. the candidate file existing,
+  2. importing cleanly (import-time errors → treated as ABSENT → flagged), and
+  3. exporting ``callable(getattr(module, "compute", None))``.
+``passes`` is OPTIONAL — the conformance oracle never required it (the metric
+runner owns the ``passes`` semantic, and many metrics are upper/lower-bound
+checked elsewhere). An earlier extension build regressed this to a pair of
+``^def compute`` / ``^def passes`` regexes, which (a) FALSELY flagged a metric
+whose ``compute`` is a lambda, an imported name, or any non-``def`` callable,
+(b) FALSELY required a ``passes`` symbol core never required, and (c) MISSED
+modules that exist but fail to import (a regex sees the text, an import sees the
+error). This module restores the import + ``callable`` resolution so it matches
+the legacy verdict site-for-site. First RESOLVABLE candidate wins; a candidate
+that exists but fails to import / lacks a callable ``compute`` falls through to
+the next root, exactly as ``discover_metric_module`` does.
 
 This detector inspects the consumer's acceptance declarations (``*.yaml``) and the
 two metric lookup roots, all under the supplied ``ATDD_SCAN_ROOTS``.
 
 PROVENANCE — derived from core
     src/atdd/tester/conventions/metric-implementation.recipe.yaml (the two-root
-    lookup + compute()/passes() signature) and
+    lookup) and
     src/atdd/tester/validators/test_metric_implementation.py
-        :: test_every_signal_metric_has_compute_function (in spirit).
-    The ``atdd.coach.*`` substrate couplings were REMOVED.
+        :: test_every_signal_metric_has_compute_function, which delegates
+    resolution to ``atdd.runners.metric_runner.discover_metric_module``
+    (import + ``callable(compute)``). That resolution is RE-IMPLEMENTED here in
+    pure stdlib (``importlib.util``); the ``atdd.coach.*`` substrate couplings
+    were REMOVED.
 
 DECOUPLED FROM CORE (the 4 couplings, per task GOTCHAS):
   * ``bind_rule(...)``  ->  module-level ``RULE_METRIC_IMPLEMENTATION_MUST_EXIST``
@@ -41,15 +63,17 @@ DECOUPLED FROM CORE (the 4 couplings, per task GOTCHAS):
   * ``assert_disposition_satisfied`` (the disposition gate)  ->  OMITTED. The
     detector emits RAW violations; strict enforcement is the consumer's decision.
 
-Pure stdlib (``re``, ``pathlib``) — no third-party (no PyYAML) or core imports.
-The minimal block/inline ``signal.metric`` scan avoids a YAML dependency and keeps
-accurate line numbers for the v1.1 report.
+Pure stdlib (``re``, ``importlib``, ``pathlib``) — no third-party (no PyYAML) or
+core imports. The minimal block/inline ``signal.metric`` scan avoids a YAML
+dependency and keeps accurate line numbers for the v1.1 report.
 """
 from __future__ import annotations
 
 import fnmatch
+import importlib.util
 import re
 from pathlib import Path
+from types import ModuleType
 
 # The CORE convention rule_id this detector realizes (NOT a new node).
 RULE_METRIC_IMPLEMENTATION_MUST_EXIST = (
@@ -65,8 +89,6 @@ METRIC_LOOKUP_ROOTS = (
 _SIGNAL_OPEN = re.compile(r"^(\s*)signal:\s*$")
 _METRIC_LINE = re.compile(r"""^(\s*)metric:\s*["']?([A-Za-z0-9_.\-]+)["']?\s*$""")
 _INLINE_METRIC = re.compile(r"""signal:\s*\{[^}]*?metric:\s*["']?([A-Za-z0-9_.\-]+)""")
-_COMPUTE_DEF = re.compile(r"^def\s+compute\s*\(", re.MULTILINE)
-_PASSES_DEF = re.compile(r"^def\s+passes\s*\(", re.MULTILINE)
 
 
 # ---------------------------------------------------------------------------
@@ -113,20 +135,53 @@ def find_metric_declarations(source: str) -> list[tuple[int, str, str]]:
     return found
 
 
-def metric_module_ok(scan_root: Path, name: str) -> bool:
-    """True if a backing ``compute``/``passes`` module for ``name`` exists.
+def _load_module_from_path(path: Path) -> ModuleType | None:
+    """Import ``path`` as an isolated module by file location, or ``None``.
 
-    Walks the two lookup roots (consumer first, toolkit second); the first file
-    found wins. The module must define top-level ``compute`` and ``passes``.
+    Mirrors ``atdd.runners.metric_runner._load_module_from_path``: a unique spec
+    name keeps two consumers' same-named modules from shadowing each other via
+    ``sys.modules``, and ANY import-time error (ImportError, SyntaxError, a
+    raising top-level statement, …) is swallowed to ``None`` so the caller treats
+    the module as absent — exactly how the legacy oracle flags a broken metric.
+    """
+    try:
+        unique_name = (
+            f"_atdd_metric_{path.parent.name}_{path.stem}_{abs(hash(str(path.resolve())))}"
+        )
+        spec = importlib.util.spec_from_file_location(unique_name, str(path))
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    except Exception:
+        # Import-time failure → the metric is unresolvable → caller flags it.
+        return None
+
+
+def metric_module_ok(scan_root: Path, name: str) -> bool:
+    """True if a backing module for ``name`` resolves to a callable ``compute``.
+
+    Walks the two lookup roots (consumer first, toolkit second). For each that
+    EXISTS, the module must import cleanly AND export a ``callable`` named
+    ``compute``; a candidate that fails either check FALLS THROUGH to the next
+    root (it does not shadow a good toolkit module). ``passes`` is NOT required.
+
+    This is the import + ``callable`` resolution the legacy oracle uses
+    (``discover_metric_module``), not a ``^def compute`` regex — so a lambda /
+    imported / otherwise non-``def`` ``compute`` resolves, a ``passes``-less
+    module resolves, and a module that exists but fails to import is flagged.
     """
     for rel in METRIC_LOOKUP_ROOTS:
         candidate = Path(scan_root) / rel / f"{name}.py"
-        if candidate.is_file():
-            try:
-                text = candidate.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                return False
-            return bool(_COMPUTE_DEF.search(text) and _PASSES_DEF.search(text))
+        if not candidate.is_file():
+            continue
+        module = _load_module_from_path(candidate)
+        if module is None:
+            continue  # exists but fails to import → treat as absent
+        if not callable(getattr(module, "compute", None)):
+            continue  # exists/imports but no callable compute → treat as absent
+        return True
     return False
 
 

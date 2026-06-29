@@ -17,10 +17,13 @@ Per §1 the provider emits RAW facts only: this test writes the report and
 passes. It NEVER asserts ``violations == []`` — that would be the provider
 silently applying ``strict``. The disposition verdict is the consumer's job.
 
-NOTE: ``logging_print.scan_path`` has no ``ATDD_SCAN_EXCLUDES`` support (the
-v1.0.0 detector predates it); excludes are accepted by the contract but ignored
-by this print detector. The structured_logging detector is the exclude-aware
-sibling. This is documented as a Phase-0 gap, not papered over here.
+NOTE: ``logging_print.scan_path`` honors ``ATDD_SCAN_EXCLUDES`` (§2). This
+report path now forwards ``_exclude_globs()`` into the detector — mirroring the
+exclude-aware structured_logging sibling and the enforcement test
+(``test_logging_print.py``). Previously this report path called
+``scan_path(root)`` with NO excludes, so a contract-excluded file (e.g. a
+``*/generated/*`` tree) was still emitted into the structured report — a false
+positive the enforcement path did not have. That parity gap is now closed.
 """
 from __future__ import annotations
 
@@ -37,6 +40,7 @@ _HERE = Path(__file__).resolve().parent
 
 CONTRACT_VERSION = "1.1.0"
 ENV_SCAN_ROOTS = "ATDD_SCAN_ROOTS"
+ENV_SCAN_EXCLUDES = "ATDD_SCAN_EXCLUDES"
 ENV_REPORT = "ATDD_VIOLATIONS_REPORT"
 
 
@@ -58,6 +62,23 @@ def _scan_roots() -> list[Path]:
         p = Path(n)
         roots.append(p if p.is_absolute() else (_HERE / p))
     return roots
+
+
+def _exclude_globs() -> list[str]:
+    """Parse ``ATDD_SCAN_EXCLUDES`` (JSON list) — the §2 exclusion-glob channel.
+
+    Mirrors the enforcement test (``test_logging_print.py``) and the
+    structured_logging sibling so this report path obeys the SAME scan-mount
+    inputs the provider injects. Absent/malformed -> no excludes.
+    """
+    raw = os.environ.get(ENV_SCAN_EXCLUDES)
+    if not raw:
+        return []
+    try:
+        globs = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    return [str(g) for g in globs] if isinstance(globs, list) else []
 
 
 def _to_v11_record(root: Path, raw: dict) -> dict:
@@ -85,12 +106,45 @@ def _to_v11_record(root: Path, raw: dict) -> dict:
     }
 
 
+def test_exclude_globs_drop_excluded_files_from_report() -> None:
+    """A contract-excluded file is NOT emitted into the structured report.
+
+    This pins the parity fix (PHASE0-PROOF G2 on the report path): scanning the
+    excludable fixture tree with no excludes emits BOTH print sites; forwarding
+    ``["generated/*"]`` (as ``_exclude_globs`` does from ATDD_SCAN_EXCLUDES,
+    fnmatch-ed against each file's path relative to the scan base) must drop the
+    generated one and keep the top-level one — the same verdict the enforcement
+    path (test_logging_print.py) already produces.
+    """
+    tree = _HERE / "fixtures" / "excludable"
+
+    no_excludes = [_to_v11_record(tree, raw) for raw in detector.scan_path(tree)]
+    files = {r["file"] for r in no_excludes}
+    assert any(f.startswith("app.py") for f in files)
+    assert any(f.startswith("generated/legacy.py") for f in files)
+
+    excluded = [
+        _to_v11_record(tree, raw)
+        for raw in detector.scan_path(tree, ["generated/*"])
+    ]
+    excl_files = {r["file"] for r in excluded}
+    assert not any(f.startswith("generated/legacy.py") for f in excl_files), (
+        f"excluded path leaked into the report: {excl_files}"
+    )
+    assert any(f.startswith("app.py") for f in excl_files)
+
+
 def test_emit_raw_v11_report() -> None:
-    """Scan ``ATDD_SCAN_ROOTS`` and write the RAW v1.1 report; do NOT decide."""
+    """Scan ``ATDD_SCAN_ROOTS`` and write the RAW v1.1 report; do NOT decide.
+
+    Honors ``ATDD_SCAN_EXCLUDES`` so excluded paths are not emitted into the
+    report — parity with the enforcement test and the structured_logging sibling.
+    """
     roots = _scan_roots()
+    excludes = _exclude_globs()
     violations: list[dict] = []
     for root in roots:
-        for raw in detector.scan_path(root):  # reuse the REAL detector
+        for raw in detector.scan_path(root, excludes):  # reuse the REAL detector
             violations.append(_to_v11_record(root, raw))
 
     report_path = os.environ.get(ENV_REPORT)

@@ -1,0 +1,36 @@
+# PARITY fixture for import-based compute resolution (matches legacy
+# discover_metric_module). Four acceptances, each declaring a signal.metric:
+#
+#   lambda_rate    -> backed by a module whose `compute` is a LAMBDA (no `def`,
+#                     no `passes`)            -> RESOLVES (not flagged)
+#   imported_rate  -> backed by a module whose `compute` is an IMPORTED name
+#                                              -> RESOLVES (not flagged)
+#   nopasses_rate  -> backed by a `def compute` module with NO `passes`
+#                                              -> RESOLVES (not flagged)
+#   broken_rate    -> backed by a module that FAILS TO IMPORT
+#                                              -> FLAGGED (the only violation)
+#
+# A `^def compute` / `^def passes` regex would FALSELY flag the first three and
+# MISS the fourth. Import + callable() resolution flags exactly `broken_rate`.
+feature: payments-resolution
+acceptances:
+  - id: acc:res:E030-METRIC-001-lambda
+    statement: lambda compute resolves
+    signal:
+      metric: lambda_rate
+      threshold: 0.5
+  - id: acc:res:E031-METRIC-002-imported
+    statement: imported compute resolves
+    signal:
+      metric: imported_rate
+      threshold: 0.5
+  - id: acc:res:E032-METRIC-003-nopasses
+    statement: compute without passes resolves
+    signal:
+      metric: nopasses_rate
+      threshold: 0.5
+  - id: acc:res:E033-METRIC-004-broken
+    statement: import failure is caught
+    signal:
+      metric: broken_rate
+      threshold: 0.5

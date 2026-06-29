@@ -64,14 +64,64 @@ def test_signal_block_closes_on_dedent() -> None:
     assert detector.find_metric_declarations(src) == []
 
 
-def test_module_ok_requires_compute_and_passes(tmp_path) -> None:
+def test_module_ok_requires_callable_compute_only(tmp_path) -> None:
+    """A callable ``compute`` is required; ``passes`` is OPTIONAL (legacy parity).
+
+    The legacy oracle (``discover_metric_module``) resolves on
+    ``callable(compute)`` and never required ``passes``. An earlier regex build
+    required BOTH ``^def compute`` and ``^def passes``; this pins the corrected
+    contract.
+    """
     mdir = tmp_path / ".atdd" / "metrics"
     mdir.mkdir(parents=True)
     (mdir / "good.py").write_text("def compute(r):\n    return 0\ndef passes(v,t):\n    return True\n")
+    (mdir / "nopasses.py").write_text("def compute(r):\n    return 0\n")
     (mdir / "nocompute.py").write_text("def passes(v,t):\n    return True\n")
     assert detector.metric_module_ok(tmp_path, "good") is True
+    # compute present, passes absent -> RESOLVES (passes not required).
+    assert detector.metric_module_ok(tmp_path, "nopasses") is True
+    # compute absent -> not resolved, regardless of passes.
     assert detector.metric_module_ok(tmp_path, "nocompute") is False
     assert detector.metric_module_ok(tmp_path, "missing") is False
+
+
+def test_module_ok_resolves_non_def_callable_compute(tmp_path) -> None:
+    """``compute`` as a lambda or an imported name resolves (a regex would not)."""
+    mdir = tmp_path / ".atdd" / "metrics"
+    mdir.mkdir(parents=True)
+    (mdir / "lam.py").write_text("compute = lambda r: 0\n")
+    (mdir / "imp.py").write_text("from statistics import fmean as compute\n")
+    assert detector.metric_module_ok(tmp_path, "lam") is True
+    assert detector.metric_module_ok(tmp_path, "imp") is True
+
+
+def test_module_ok_flags_import_failure(tmp_path) -> None:
+    """A module that exists but fails to import is treated as ABSENT (flagged).
+
+    The regressed regex saw the ``def compute`` text and considered it present;
+    the legacy oracle imports, so an import-time error means unresolvable.
+    """
+    mdir = tmp_path / ".atdd" / "metrics"
+    mdir.mkdir(parents=True)
+    (mdir / "boom.py").write_text(
+        "import _atdd_nonexistent_dependency_xyz\ndef compute(r):\n    return 0\n"
+    )
+    assert detector.metric_module_ok(tmp_path, "boom") is False
+
+
+def test_module_ok_falls_through_broken_repo_to_toolkit(tmp_path) -> None:
+    """A broken repo-local module must not shadow a good toolkit module.
+
+    Matches ``discover_metric_module``: a candidate that exists but fails to
+    import / lacks a callable ``compute`` falls through to the next lookup root.
+    """
+    repo = tmp_path / ".atdd" / "metrics"
+    repo.mkdir(parents=True)
+    (repo / "m.py").write_text("import _atdd_nonexistent_dependency_xyz\n")
+    toolkit = tmp_path / "src" / "atdd" / "runners" / "metrics"
+    toolkit.mkdir(parents=True)
+    (toolkit / "m.py").write_text("def compute(r):\n    return 0\n")
+    assert detector.metric_module_ok(tmp_path, "m") is True
 
 
 def test_toolkit_lookup_root_is_honored(tmp_path) -> None:
@@ -79,6 +129,14 @@ def test_toolkit_lookup_root_is_honored(tmp_path) -> None:
     mdir.mkdir(parents=True)
     (mdir / "shipped.py").write_text("def compute(r):\n    return 0\ndef passes(v,t):\n    return True\n")
     assert detector.metric_module_ok(tmp_path, "shipped") is True
+
+
+def test_resolution_fixture_flags_only_the_broken_metric() -> None:
+    """The parity fixture: lambda/imported/no-passes compute all RESOLVE; only the
+    import-failure metric is flagged — the verdict the legacy oracle produces."""
+    v = detector.scan_root(_HERE / "fixtures" / "resolution")
+    names = sorted(item["evidence"].split("'")[1] for item in v)
+    assert names == ["broken_rate"], f"expected only broken_rate flagged, got {names}"
 
 
 def test_clean_fixture_has_no_violations() -> None:

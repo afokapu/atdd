@@ -68,6 +68,47 @@ def test_init_files_are_never_flagged() -> None:
     assert all(not item["file"].endswith("__init__.py") for item in v)
 
 
+# ── 1b. ATDD_GRAPH_ROOTS parity (PARITY-AUDIT-26 row 1) ───────────────────────
+#
+# The ``entrypoint`` fixture has one convention root (composition.py, reaches
+# only itself), an entry-point module app.py, and lib.py imported ONLY by app.py.
+# Legacy (test_dead_code_python.py::find_cli_entry_points, L296-331) adds the
+# pyproject [project.scripts] module files as graph roots and does NOT flag them;
+# the core enforce layer now forwards those resolved absolute paths to the
+# detector via ATDD_GRAPH_ROOTS. These two tests are the load-bearing control:
+# the SAME fixture flips verdict purely on the presence of the env var, proving
+# the env contract — not anything else — gates entry-point reachability.
+
+_ENTRYPOINT = _HERE / "fixtures" / "entrypoint"
+
+
+def test_entrypoint_module_flagged_without_graph_roots(monkeypatch) -> None:
+    # WITHOUT the env contract: app.py (entry point) and lib.py (reachable only
+    # through it) are unreachable from convention roots -> falsely flagged dead.
+    monkeypatch.delenv(detector.ENV_GRAPH_ROOTS, raising=False)
+    files = {item["file"] for item in detector.scan_root(_ENTRYPOINT)}
+    assert files == {"app.py", "lib.py"}
+
+
+def test_entrypoint_module_not_flagged_with_graph_roots(monkeypatch) -> None:
+    # WITH the entry-point module's absolute path in ATDD_GRAPH_ROOTS (exactly
+    # what core's runner forwards): app.py becomes a graph root and lib.py is
+    # reachable through it -> neither flagged. Matches legacy verdict.
+    entry = _ENTRYPOINT / "app.py"
+    monkeypatch.setenv(detector.ENV_GRAPH_ROOTS, json.dumps([str(entry)]))
+    files = {item["file"] for item in detector.scan_root(_ENTRYPOINT)}
+    assert files == set()
+
+
+def test_graph_roots_from_env_tolerates_malformed(monkeypatch) -> None:
+    # Unset / empty / non-JSON / non-list -> no extra roots (never raises).
+    monkeypatch.delenv(detector.ENV_GRAPH_ROOTS, raising=False)
+    assert detector.graph_roots_from_env() == set()
+    for bad in ("", "   ", "{not json", '"a string"', "123"):
+        monkeypatch.setenv(detector.ENV_GRAPH_ROOTS, bad)
+        assert detector.graph_roots_from_env() == set()
+
+
 # ── 2. emission (writes the RAW report; does NOT decide disposition) ───────────
 
 
