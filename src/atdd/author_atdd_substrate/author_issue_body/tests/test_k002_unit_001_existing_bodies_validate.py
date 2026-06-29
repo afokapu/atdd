@@ -13,9 +13,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from atdd.coach.commands.issue_template import check_body_sections, check_placeholders
-
-from ._helpers import get_validate_issue_body, legacy_compliant_body
+from ._helpers import (
+    get_validate_issue_body,
+    legacy_compliant_body,
+    legacy_missing_sections,
+    legacy_placeholder_hits,
+)
 
 _FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -31,7 +34,7 @@ def test_k002_unit_001_existing_bodies_validate():
 
     for body in _sample_bodies():
         # Precondition: each sample is compliant under TODAY's legacy E019 gate.
-        legacy_ok = not check_body_sections(body) and not check_placeholders(body)
+        legacy_ok = not legacy_missing_sections(body) and not legacy_placeholder_hits(body)
         assert legacy_ok, "fixture is not legacy-compliant; not a valid back-compat sample"
 
         # Back-compat guarantee: the schema gate accepts it too (same verdict).

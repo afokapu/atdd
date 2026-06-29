@@ -15,9 +15,11 @@ from pathlib import Path
 
 import pytest
 
-from atdd.coach.commands.issue_template import check_body_sections, check_placeholders
-
-from ._helpers import get_validate_issue_body
+from ._helpers import (
+    get_validate_issue_body,
+    legacy_missing_sections,
+    legacy_placeholder_hits,
+)
 
 _FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -33,7 +35,7 @@ def test_k002_smoke_001_real_issue_bodies_validate():
         body = path.read_text(encoding="utf-8")
 
         # This fixture is a real body that passes the legacy gate today.
-        legacy_ok = not check_body_sections(body) and not check_placeholders(body)
+        legacy_ok = not legacy_missing_sections(body) and not legacy_placeholder_hits(body)
         assert legacy_ok, f"{path.name} is not legacy-compliant; recapture it"
 
         # No compliant body passing legacy E019 is newly rejected by the schema.
