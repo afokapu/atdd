@@ -11,9 +11,12 @@ none of issue_template.PLACEHOLDER_STRINGS — compliant by construction.
 """
 from __future__ import annotations
 
-from atdd.coach.commands.issue_template import PLACEHOLDER_STRINGS
-
-from ._helpers import get_create_issue_body, get_validate_issue_body, sample_spec
+from ._helpers import (
+    PLACEHOLDER_PROBES,
+    get_create_issue_body,
+    get_validate_issue_body,
+    sample_spec,
+)
 
 
 def test_e006_unit_001_emits_schema_valid_body():
@@ -32,5 +35,5 @@ def test_e006_unit_001_emits_schema_valid_body():
     assert "### Mirror Across Agents" in body
 
     # Zero placeholder traps.
-    leaked = [p for p in PLACEHOLDER_STRINGS if p in body]
+    leaked = [p for p in PLACEHOLDER_PROBES if p in body]
     assert leaked == [], f"emitted body still carries placeholders: {leaked}"

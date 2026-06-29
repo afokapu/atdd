@@ -12,12 +12,12 @@ guard, so the three surfaces can never drift apart.
 """
 from __future__ import annotations
 
-from atdd.coach.commands.issue_template import (
-    REQUIRED_SUBSECTIONS,
-    load_required_sections,
+from ._helpers import (
+    get_create_issue_body,
+    load_issue_schema,
+    required_section_set,
+    sample_spec,
 )
-
-from ._helpers import get_create_issue_body, load_issue_schema, sample_spec
 
 
 def _schema_required_sections(schema: dict) -> set[str]:
@@ -32,8 +32,8 @@ def test_c011_unit_001_tri_directional_drift_guard():
 
     schema_sections = _schema_required_sections(schema)
 
-    # Surface 1 vs 2: schema required == E019 gate required (H2 + H3).
-    gate_sections = set(load_required_sections()) | set(REQUIRED_SUBSECTIONS)
+    # Surface 1 vs 2: schema required == E019 gate required (H2 minus optional + H3).
+    gate_sections = required_section_set()
     assert schema_sections == gate_sections, (
         "schema required-sections drifted from E019 gate required-sections:\n"
         f"  only in schema: {sorted(schema_sections - gate_sections)}\n"

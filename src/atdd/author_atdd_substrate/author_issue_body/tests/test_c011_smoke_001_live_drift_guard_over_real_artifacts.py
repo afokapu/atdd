@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from atdd.coach.commands.issue_template import (
-    REQUIRED_SUBSECTIONS,
-    load_required_sections,
+from ._helpers import (
+    get_create_issue_body,
+    load_issue_schema,
+    required_section_set,
+    sample_spec,
 )
-
-from ._helpers import get_create_issue_body, load_issue_schema, sample_spec
 
 
 @pytest.mark.smoke
@@ -26,8 +26,9 @@ def test_c011_smoke_001_live_drift_guard_over_real_artifacts():
     # Real artifact 1: the shipped schema.
     schema_sections = set(load_issue_schema().get("required", []))
 
-    # Real artifact 2: the real coach gate.
-    gate_sections = set(load_required_sections()) | set(REQUIRED_SUBSECTIONS)
+    # Real artifact 2: the real coach gate's required-section set (read from
+    # PARENT-ISSUE-TEMPLATE.md, the source load_required_sections() parses).
+    gate_sections = required_section_set()
 
     # Real artifact 3: the real generator's emitted body.
     body = get_create_issue_body()(sample_spec())
