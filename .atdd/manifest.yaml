@@ -3118,7 +3118,7 @@ sessions:
   file: null
   issue_number: 1239
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-06-29'
   archived: null
   branch: feat/group-substrate-cli-verbs
