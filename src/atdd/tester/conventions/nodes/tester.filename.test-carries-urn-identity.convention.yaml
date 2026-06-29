@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+rule_id: tester.filename.test-carries-urn-identity
+kind: rule
+status: active
+name: Test carries URN identity
+statement: 'A test file''s authoritative identity is its explicit URN header (a test:
+  URN, with Acceptance:/WMBT: lines for acceptance tests or a Train: line for journey
+  tests), not its filename.'
+terms:
+- term_id: test_urn
+  text: 'The explicit test: URN declared in a test file header that serves as its
+    canonical, filename-independent identity.'
+source:
+  legacy_path: src/atdd/tester/conventions/filename.convention.yaml
+  legacy_section: test_file_header
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: Filenames are derived for human discoverability but identity comes from
+    the in-file URN header, enabling bidirectional acceptance<->test traceability
+    even if a file is renamed or moved. Comment-syntax variants and the structural|behavioral
+    Assertion marker are workspace/design-candidate concerns.
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 3.137.0

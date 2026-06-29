@@ -1953,6 +1953,87 @@ edges:
   strength: important
   target_ref: coder.composition.every-file-has-a-consumer
   type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer RED-phase test-authoring conventions evaluated alongside fail-first
+  source_ref: tester.red.test-must-fail-first
+  strength: minor
+  target_ref: tester.red.behavioral-assertion-required
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer RED-phase test-authoring conventions evaluated alongside fail-first
+  source_ref: tester.red.test-must-fail-first
+  strength: minor
+  target_ref: tester.red.contract-schema-first-assertion
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer RED-phase test-authoring conventions evaluated alongside fail-first
+  source_ref: tester.red.test-must-fail-first
+  strength: minor
+  target_ref: tester.red.spec-enforced-test-doubles
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer test-identity-and-placement conventions evaluated alongside URN identity
+  source_ref: tester.filename.test-carries-urn-identity
+  strength: minor
+  target_ref: tester.filename.test-placed-in-owning-feature
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
+  source_ref: tester.contract.schema-is-source-of-truth
+  strength: minor
+  target_ref: tester.contract.planner-defines-what-tester-implements-how
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
+  source_ref: tester.contract.schema-is-source-of-truth
+  strength: minor
+  target_ref: tester.contract.core-fields-only-no-ui
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
+  source_ref: tester.contract.schema-is-source-of-truth
+  strength: minor
+  target_ref: tester.contract.semver-governs-compatibility
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
+  source_ref: tester.contract.schema-is-source-of-truth
+  strength: minor
+  target_ref: tester.contract.bidirectional-wagon-linkage
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer test-organization guidance — layer routing evaluated alongside feature colocation
+  source_ref: tester.filename.test-placed-in-owning-feature
+  strength: minor
+  target_ref: tester.routing.layer-keyword-taxonomy
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
