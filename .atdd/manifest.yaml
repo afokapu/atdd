@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1223
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-06-29'
   archived: null
   branch: feat/issue-schema-json
