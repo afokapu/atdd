@@ -51,10 +51,12 @@ from atdd.enforce.resolution import (
     resolve_provider,
 )
 
-# The vendored report-test channel name the python-pytest provider keys runnable
-# detectors off (cli/scan.py REPORT_TEST). Until the workspace CLI generalizes
-# (D-1), only impls shipping this file are runnable over consumer code.
-_PROVIDER_REPORT_TEST = "test_logging_print_report.py"
+# Per-impl manifest field naming the runnable v1.1 report-emitting test (the
+# detector's structured report channel). Mirrors the vendored ``cli/scan.py``
+# ``REPORT_FIELD`` (#1238 V1 / generalize-cli): the runner resolves the report
+# test from each implementation's manifest rather than keying off one hardcoded
+# filename, so every bound detector is runnable — not just ``coder.logging.print``.
+_PROVIDER_REPORT_FIELD = "report"
 
 
 class EnforceUsageError(Exception):
@@ -148,7 +150,14 @@ def _candidate_roots(substrate_home: Path) -> list[Path]:
 # Provider invocation (the subprocess boundary — V5)
 # --------------------------------------------------------------------------- #
 def _impl_has_report_channel(substrate_home: Path, implementation_id: str) -> bool:
-    """True iff the vendored impl ships the provider's v1.1 report-test channel."""
+    """True iff the vendored impl ships a v1.1 report-test channel.
+
+    Reads the impl manifest's ``report:`` field and checks the named test file is
+    present next to the manifest — the exact runnable-detection the vendored
+    ``cli/scan.py`` performs (``_report_test_name`` + ``test_path.is_file()``).
+    Replacing the prior hardcoded ``test_logging_print_report.py`` lets all 26
+    bound detectors run, not just ``coder.logging.print`` (#1238 V1).
+    """
     ws_root = substrate_home / ".atdd" / "workspaces"
     if not ws_root.is_dir():
         return False
@@ -157,8 +166,12 @@ def _impl_has_report_channel(substrate_home: Path, implementation_id: str) -> bo
             data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError):
             continue
-        if data.get("implementation_id") == implementation_id:
-            return (manifest.parent / _PROVIDER_REPORT_TEST).is_file()
+        if data.get("implementation_id") != implementation_id:
+            continue
+        report = data.get(_PROVIDER_REPORT_FIELD)
+        if not report:
+            return False
+        return (manifest.parent / str(report)).is_file()
     return False
 
 
@@ -167,12 +180,23 @@ def _invoke_provider(
     implementation_id: str,
     scan_roots: list[str],
     scan_excludes: list[str],
+    graph_roots: Optional[list[str]] = None,
 ) -> list[dict]:
     """Subprocess the provider CLI over ``scan_roots``; parse RAW v1.1 JSON.
 
     Core NEVER imports the provider — the only contract is "run a CLI, read the
     v1.1 JSON array off stdout". A non-zero provider exit is a run/usage failure
     of the provider itself (stdout empty), raised rather than mis-read as clean.
+
+    ``graph_roots`` (the consumer's resolved CLI entry-point module files) are
+    forwarded as ``ATDD_GRAPH_ROOTS`` for reachability detectors that consume
+    explicit extra roots. KNOWN GAP (#1238 / docs/PARITY-AUDIT-26.md REGRESSION
+    #3): the enforce layer supplies them, but the vendored python-pytest
+    dead-code detector does not yet READ ``ATDD_GRAPH_ROOTS`` — that detector-side
+    consumption awaits the extension re-vendor. Forwarding it now means parity
+    closes the moment the fixed detector is re-vendored, with no further core
+    change. (We cannot patch the vendored detector here: it is digest-locked by
+    ``.atdd/substrate.lock.yaml`` and re-vendoring is the convergence step.)
     """
     env = {
         **os.environ,
@@ -181,6 +205,8 @@ def _invoke_provider(
     }
     if scan_excludes:
         env["ATDD_SCAN_EXCLUDES"] = json.dumps([str(e) for e in scan_excludes])
+    if graph_roots:
+        env["ATDD_GRAPH_ROOTS"] = json.dumps([str(r) for r in graph_roots])
     proc = subprocess.run(
         [sys.executable, str(provider.provider_cli_path)],
         env=env,
@@ -293,7 +319,13 @@ def enforce(
                 ) from exc
         provider = provider_cache[cache_key]
 
-        raw = _invoke_provider(provider, impl_id, policy.scan_roots, policy.scan_excludes)
+        raw = _invoke_provider(
+            provider,
+            impl_id,
+            policy.scan_roots,
+            policy.scan_excludes,
+            policy.graph_roots,
+        )
         status = _verdict_for_rule(meta, raw)
         locations = [_adapt_location(r) for r in raw]
         verdicts.append(

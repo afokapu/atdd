@@ -37,7 +37,12 @@ _FILE_LINE_COL = re.compile(r"[^\s:]+\.py:\d+:\d+")
 def _write_consumer(root, body: str) -> None:
     pkg = root / "src" / "app"
     pkg.mkdir(parents=True, exist_ok=True)
-    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    # The package __init__ imports the module so it is reachable from a graph
+    # root — a realistic, self-consistent clean consumer. (An __init__ that does
+    # NOT import its sibling leaves the module genuinely unreachable, which the
+    # dead-code.reachability rule correctly flags now that all 26 bound detectors
+    # actually run; the "clean" fixture must be clean under the full bound set.)
+    (pkg / "__init__.py").write_text("from .handler import handle\n", encoding="utf-8")
     (pkg / "handler.py").write_text(body, encoding="utf-8")
 
 

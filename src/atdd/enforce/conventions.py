@@ -22,7 +22,7 @@ Two provider-agnostic concerns the runner needs, both pure data:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -35,6 +35,61 @@ _log = logging.getLogger(__name__)
 # docstring of the cw prototype): ATDD's own ``print``s are product output.
 _TOOLKIT_CLI_EXEMPT_RULES = frozenset({"coder.logging.print"})
 _TOOLKIT_CLI_EXEMPT_RELPATH = "src/atdd"
+
+# Per-rule DEFAULT exclusion globs — the legacy convention/validator exclusion
+# carves the hermetic detectors relocated onto the caller (#1238 V4 parity, the
+# "systemic relocation" cross-cutting finding 0 of docs/PARITY-AUDIT-26.md).
+# Without re-supplying them here the extension OVER-SCANS relative to the legacy
+# in-core validator (false positives in tests/migrations/validators/fixtures).
+# Each list is ported VERBATIM from its legacy source (cited); the vendored
+# detectors honor ``ATDD_SCAN_EXCLUDES`` (fnmatch against the scan-root-relative
+# path), so these globs reproduce the legacy carve without touching the detector.
+_RULE_DEFAULT_EXCLUDES: dict[str, tuple[str, ...]] = {
+    # src/atdd/coder/conventions/security.convention.yaml
+    #   security.rules.sql_injection.exclusions (verbatim)
+    "coder.security.sql-injection": (
+        "**/tests/**",
+        "**/test_*.py",
+        "**/conftest.py",
+        "**/migrations/**",
+    ),
+    # src/atdd/coder/conventions/duplication.convention.yaml
+    #   duplication.rules.intra_layer_duplication.exclusions (verbatim)
+    "coder.duplication.no-intra-layer-code-python": (
+        "**/tests/**",
+        "**/test_*.py",
+        "**/conftest.py",
+        "**/__init__.py",
+        "**/__pycache__/**",
+        "**/migrations/**",
+        "**/validators/**",
+        "**/templates/**",
+    ),
+    # src/atdd/coder/validators/test_no_silent_exception_swallowing_python.py
+    #   _is_excluded() — the relocated ``/fixtures/`` carve (the test-file/init
+    #   carves are already applied by the detector's own test-file skip). The
+    #   legacy substring ``"/fixtures/" in path`` becomes the scan-root-relative
+    #   glob that bites any nested fixtures tree.
+    "coder.logging.coach-silent-swallow": (
+        "**/fixtures/**",
+    ),
+    # src/atdd/coder/validators/test_query_count.py
+    #   find_python_files()/scan_query_count() — the relocated ``/migrations/``
+    #   carve (legacy substring ``"/migrations/" in path``).
+    "coder.refactor.nplus1": (
+        "**/migrations/**",
+    ),
+}
+
+# Rules whose reachability graph needs the consumer's CLI entry-point modules as
+# extra graph ROOTS (not excludes): a module reachable only via a console script
+# is not dead. Legacy ``find_cli_entry_points`` (test_dead_code_python.py L296)
+# read pyproject ``[project.scripts]``; the hermetic detector dropped it
+# ("NOT PORTED", dead_code_python.py docstring). The enforce layer re-supplies
+# the resolved entry-point module files as scan-policy ``graph_roots`` so the
+# detector stays hermetic (it consumes explicit roots, it does not parse
+# pyproject itself). See docs/PARITY-AUDIT-26.md row 1 / REGRESSION #3.
+_ENTRY_POINT_ROOT_RULES = frozenset({"coder.dead-code.reachability"})
 
 
 @dataclass(frozen=True)
@@ -112,6 +167,89 @@ class ScanPolicy:
     scan_excludes: list[str]   # repo-relative globs, verbatim
     exempt: bool = False       # whole rule exempt for this repo (e.g. print over src/atdd)
     exempt_reason: str = ""
+    # Extra graph ROOTS (absolute file paths) the reachability detector must treat
+    # as live entry points — e.g. pyproject ``[project.scripts]`` modules. Empty
+    # for every rule that does not use reachability roots.
+    graph_roots: list[str] = field(default_factory=list)
+
+
+def _parse_pyproject_script_modules(repo_root: Path) -> list[str]:
+    """Extract ``[project.scripts]`` entry-point module paths from pyproject.toml.
+
+    Ported VERBATIM from the legacy ``find_cli_entry_points``
+    (src/atdd/coder/validators/test_dead_code_python.py L296-331): a minimal
+    line scanner that reads the ``[project.scripts]`` table and takes the module
+    path before the ``:`` of each ``name = "module.path:attr"`` entry. Returns
+    dotted module strings (e.g. ``atdd.cli``).
+    """
+    pyproject = repo_root / "pyproject.toml"
+    if not pyproject.is_file():
+        return []
+    try:
+        content = pyproject.read_text(encoding="utf-8")
+    except OSError as exc:
+        _log.warning(
+            "unreadable pyproject.toml — no entry-point roots",
+            extra={"path": str(pyproject), "error": str(exc)},
+        )
+        return []
+    in_scripts = False
+    modules: list[str] = []
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped == "[project.scripts]":
+            in_scripts = True
+            continue
+        if in_scripts:
+            if stripped.startswith("["):
+                break
+            if "=" in stripped:
+                _, value = stripped.split("=", 1)
+                value = value.strip().strip('"').strip("'")
+                module = value.split(":")[0]
+                if module:
+                    modules.append(module)
+    return modules
+
+
+def _resolve_module_to_files(module: str, anchors: Sequence[Path]) -> list[Path]:
+    """Resolve a dotted module to existing ``<anchor>/path.py`` or package init."""
+    rel = Path(*module.split("."))
+    out: list[Path] = []
+    for anchor in anchors:
+        py = (anchor / rel).with_suffix(".py")
+        if py.is_file():
+            out.append(py.resolve())
+        init = anchor / rel / "__init__.py"
+        if init.is_file():
+            out.append(init.resolve())
+    return out
+
+
+def compute_graph_roots(
+    repo_root: Path, rule_id: str, resolved_roots: Sequence[Path]
+) -> list[str]:
+    """Resolve CLI entry-point module files for a reachability rule (else ``[]``).
+
+    The enforce layer parses the SCANNED tree's pyproject ``[project.scripts]``
+    and resolves each entry module to a file under the scan roots (and the repo
+    root, for a flat layout). Those files are the graph roots the legacy
+    reachability validator seeded from console scripts; supplying them keeps the
+    detector hermetic while restoring parity (REGRESSION #3).
+    """
+    if rule_id not in _ENTRY_POINT_ROOT_RULES:
+        return []
+    modules = _parse_pyproject_script_modules(repo_root)
+    if not modules:
+        return []
+    anchors = list(dict.fromkeys([*resolved_roots, repo_root]))
+    roots: list[str] = []
+    for module in modules:
+        for f in _resolve_module_to_files(module, anchors):
+            s = str(f)
+            if s not in roots:
+                roots.append(s)
+    return roots
 
 
 def compute_scan_policy(
@@ -151,12 +289,14 @@ def compute_scan_policy(
         chosen_roots = default_roots
 
     excludes = _dedupe(
-        default_excludes
+        list(_RULE_DEFAULT_EXCLUDES.get(rule_id, ()))
+        + default_excludes
         + _as_str_list(role_cfg.get("excludes"))
         + _as_str_list(rule_cfg.get("excludes"))
     )
 
     resolved = [_resolve_root(repo_root, r) for r in chosen_roots]
+    graph_roots = compute_graph_roots(repo_root, rule_id, resolved)
 
     exempt = False
     exempt_reason = ""
@@ -176,6 +316,7 @@ def compute_scan_policy(
         scan_excludes=excludes,
         exempt=exempt,
         exempt_reason=exempt_reason,
+        graph_roots=graph_roots,
     )
 
 
