@@ -1,0 +1,117 @@
+# URN: component:enforce-binding-plan:run-binding-plan:substrate-guard:backend:domain
+# Runtime: python
+# Purpose: D-5 default (b) — verify the vendored .atdd/{extensions,workspaces}
+#          trees are present and digest-matched against substrate.lock.yaml.
+"""Vendor-vs-lock re-materialization guard (#1238 phase ``vendor-and-lock``, V6).
+
+D-5's default is (b): the vendored substrate trees are tracked, load-bearing
+code, guarded by a digest check against ``substrate.lock.yaml``. This module
+recomputes each artifact's content digest and compares it to the recorded one;
+a mismatch (tamper, or a missing tree) fails the guard.
+
+Two content-addressing schemes are accepted, because two producers exist:
+
+* ``installer`` scheme — ``sha256`` over sorted ``(relpath\\0 bytes\\0)``; this is
+  what ``atdd add`` records for a real install.
+* ``content`` scheme — ``sha256`` over the concatenation of each file's bytes in
+  sorted-path order (no path framing); a minimal content digest.
+
+An artifact is intact when its recorded digest matches EITHER scheme, so both a
+real install's lock and a minimal content-digest lock verify. A tampered tree
+matches neither (collisions are astronomically unlikely), so tamper detection is
+unaffected.
+"""
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass
+from pathlib import Path
+
+import yaml
+
+
+@dataclass(frozen=True)
+class ArtifactVerdict:
+    artifact_id: str
+    installed_path: str
+    ok: bool
+    detail: str
+
+
+def _content_digest(pkg_dir: Path) -> str:
+    """sha256 over concatenated file bytes (sorted path order); no path framing."""
+    h = hashlib.sha256()
+    for f in sorted(p for p in pkg_dir.rglob("*") if p.is_file()):
+        h.update(f.read_bytes())
+    return "sha256:" + h.hexdigest()
+
+
+def _installer_digest(pkg_dir: Path) -> str:
+    """sha256 over sorted ``(relpath\\0 bytes\\0)`` — matches atdd.substrate.installer."""
+    h = hashlib.sha256()
+    for f in sorted(p for p in pkg_dir.rglob("*") if p.is_file()):
+        rel = f.relative_to(pkg_dir).as_posix()
+        h.update(rel.encode("utf-8"))
+        h.update(b"\0")
+        h.update(f.read_bytes())
+        h.update(b"\0")
+    return "sha256:" + h.hexdigest()
+
+
+def verify_substrate(repo_root: Path) -> tuple[bool, list[ArtifactVerdict]]:
+    """Verify every artifact in ``<repo_root>/.atdd/substrate.lock.yaml``.
+
+    Returns ``(ok, verdicts)`` where ``ok`` is True iff every recorded artifact's
+    on-disk tree matches its recorded digest. A missing lock means there is
+    nothing to guard → ``(True, [])`` (a no-bound / no-substrate repo is clean).
+    """
+    lock_path = repo_root / ".atdd" / "substrate.lock.yaml"
+    if not lock_path.is_file():
+        return True, []
+
+    try:
+        lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        return False, [
+            ArtifactVerdict("<lock>", str(lock_path), False, f"unreadable lock: {exc}")
+        ]
+
+    artifacts = lock.get("artifacts") if isinstance(lock, dict) else None
+    artifacts = artifacts if isinstance(artifacts, list) else []
+
+    verdicts: list[ArtifactVerdict] = []
+    for entry in artifacts:
+        if not isinstance(entry, dict):
+            continue
+        art_id = str(entry.get("id", "<unknown>"))
+        installed_path = str(entry.get("installed_path", ""))
+        recorded = entry.get("digest")
+        pkg_dir = repo_root / installed_path
+
+        if not installed_path or not pkg_dir.exists():
+            verdicts.append(
+                ArtifactVerdict(art_id, installed_path, False, "installed tree missing on disk")
+            )
+            continue
+        if not recorded:
+            verdicts.append(
+                ArtifactVerdict(art_id, installed_path, False, "lock entry has no digest")
+            )
+            continue
+
+        actual_content = _content_digest(pkg_dir)
+        actual_installer = _installer_digest(pkg_dir)
+        if recorded in (actual_content, actual_installer):
+            verdicts.append(ArtifactVerdict(art_id, installed_path, True, "digest matches lock"))
+        else:
+            verdicts.append(
+                ArtifactVerdict(
+                    art_id,
+                    installed_path,
+                    False,
+                    f"digest mismatch (lock {recorded}, on-disk {actual_content})",
+                )
+            )
+
+    ok = all(v.ok for v in verdicts)
+    return ok, verdicts
