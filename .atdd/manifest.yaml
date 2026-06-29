@@ -4,7 +4,7 @@ sessions:
 - id: tester-core-atomize
   slug: tester-core-atomize
   file: null
-  issue_number: null
+  issue_number: 1215
   type: implementation
   status: REFACTOR
   created: '2026-06-29'
