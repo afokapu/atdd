@@ -1,0 +1,71 @@
+schema_version: 1.1.0
+rule_id: coder.boundaries.xlang-entity
+kind: rule
+status: active
+name: Domain entities exist consistently across languages
+statement: A domain entity declared by a contract schema MUST have a corresponding class implementation in
+  each language stack that the codebase ships (Python and Dart), so a contract entity is never realized in
+  one runtime but silently absent from another. This is the language-agnostic obligation owned by the coder
+  extension. The stack-specific detector that enforces it (a pytest scan comparing contract `$id` entities
+  against extracted Python and Dart class names) is the python-pytest workspace implementation referenced
+  below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.boundaries.xlang-entity
+content:
+  summary: An agnostic "entities are implemented everywhere" obligation. The realization extracts class
+    names from Python (`class X`) and Dart (`class X`) sources and entity names from contract
+    `*.schema.json` `$id`s, then for each contract entity (normalized to PascalCase) flags the languages
+    in which no matching class exists. It emits a SYNTHETIC, aggregate location (`contracts/<entity>`, no
+    per-source line) because the fact is "this entity is missing in language L", not a single offending
+    line.
+  normative_text: |
+    A contract entity that exists in Python but not Dart (or vice-versa) is a cross-language drift bug: the
+    two stacks no longer agree on the domain model. The obligation: every contract entity is implemented in
+    every shipped language. WHICH names count as a match and HOW classes are extracted is delegated to the
+    per-stack detector; for the python-pytest realization it is regex class extraction plus PascalCase
+    normalization with substring tolerance. Because the violation is an aggregate cross-file fact with no
+    single source line, it carries a synthetic location and an empty `source_line`; per-site suppression
+    markers therefore cannot apply, which is why this rule is dispositioned `advisory` (issue #395) — it
+    warns and informs rather than hard-failing on a markerless synthetic site.
+  fix_hint: |
+    Implement the missing entity in the language it is absent from, or remove the contract if the entity is
+    retired:
+      contracts/score.schema.json declares "Score" → present in python/ as `class Score` but absent in lib/
+      → add a Dart `class Score` (or delete the contract). Keep the domain model in lockstep across stacks.
+    This rule is `advisory`: it surfaces cross-language entity drift as a warning (synthetic, markerless
+    location) rather than a suppressible per-site failure.
+  exceptions:
+    - If neither Python nor Dart classes are found, or there are no contract entities, the scan is inert
+      (nothing to compare).
+    - Cross-cutting wire-shape contracts whose operations use wildcard (`/*`) paths are skipped — they
+      define envelopes, not domain entities.
+metadata:
+  aliases:
+    - BOUNDARIES-XLANG-ENTITY-001
+    - SPEC-CODER-CONSISTENCY-0001
+  severity: 3
+  disposition: advisory
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/boundaries.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.boundaries.xlang-entity
+  legacy_sha: d6ae50723bb39a07
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: contract_entity
+  text: an entity name derived from a contract `*.schema.json` `$id` (the segment after the last `:`, with
+    `.`→`_`), normalized to PascalCase for matching against class names.
+- term_id: synthetic_location
+  text: an aggregate `contracts/<entity>` location with empty `source_line`, used because the violation is
+    a cross-file "missing in language L" fact rather than a single offending source line.
+- term_id: advisory_disposition
+  text: the routing decision (per issue 395) that markerless synthetic-location cross-language facts warn
+    and pass rather than hard-fail, since per-site suppression cannot apply to them.

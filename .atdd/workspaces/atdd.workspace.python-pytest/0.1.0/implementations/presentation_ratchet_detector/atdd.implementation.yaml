@@ -1,0 +1,20 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.refactor.coach-ratchet-pres
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes.
+realizes_convention: coder.refactor.coach-ratchet-pres
+
+# Single rule_id (no multi-rule fan-out for this validator).
+emits_rule_ids:
+  - coder.refactor.coach-ratchet-pres  # disposition: advisory + smoke-evidence gate
+
+# DOES NOT CLEANLY FIT THE SCAN-MOUNT MODEL: the input is a GIT DIFF, not a
+# directory snapshot. The diff facts the resolver computes from git are mounted as
+# a reductions.json manifest inside the scan root (path/before_lines/after_lines/
+# issue). The detector reads that manifest and emits RAW reductions; the
+# smoke-evidence gate (.atdd/smoke-evidence/<issue>.yaml) is applied DOWNSTREAM by
+# the consumer, never here.
+entrypoint: presentation_ratchet.py

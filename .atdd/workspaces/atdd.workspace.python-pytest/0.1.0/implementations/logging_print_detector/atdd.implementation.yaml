@@ -1,0 +1,15 @@
+schema_version: "1.0.0"
+kind: implementation
+implementation_id: coder.logging.print
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.0.0"
+
+# Back-reference to the agnostic obligation this detector realizes. The
+# convention node lives in atdd.extension.coder; this implementation is the
+# python-pytest realization of it (DESIGN §5 open-decision 1 two-layer model).
+realizes_convention: coder.logging.print
+
+# The pure detector module. test_logging_print.py is the runnable enforcement
+# the provider's `pytest` command collects; on exit-code 1 the run adapter maps
+# this run to a violation keyed by implementation_id (== the convention rule_id).
+entrypoint: logging_print.py

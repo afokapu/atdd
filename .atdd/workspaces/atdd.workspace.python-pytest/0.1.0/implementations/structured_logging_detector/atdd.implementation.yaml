@@ -1,0 +1,23 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.logging.structured
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes. The
+# convention node lives in atdd.extension.coder; this implementation is the
+# python-pytest realization of it (two-layer model).
+realizes_convention: coder.logging.structured
+
+# This detector emits a SECOND rule_id too (coder.logging.print, the strict
+# sibling), exercising the v1.1 multi-rule output channel — declared here so the
+# resolver knows one run can surface more than the primary realizes_convention.
+emits_rule_ids:
+  - coder.logging.structured   # disposition: suppress-and-clean
+  - coder.logging.print        # disposition: strict
+
+# The pure detector module. test_structured_logging.py is the runnable enforcement
+# the provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS and writes
+# the RAW structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel).
+# It does NOT apply disposition — that is the downstream consumer's job.
+entrypoint: structured_logging.py

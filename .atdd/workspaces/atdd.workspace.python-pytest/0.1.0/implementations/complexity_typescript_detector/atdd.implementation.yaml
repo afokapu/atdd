@@ -1,0 +1,28 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.refactor.complexity-cyclomatic-typescript
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector primarily realizes.
+realizes_convention: coder.refactor.complexity-cyclomatic-typescript
+
+# One run surfaces THREE rule_ids — all strict — exercising the v1.1 multi-rule
+# output channel. Declared so the resolver knows one run emits more than the
+# primary realizes_convention. Each obligation node's implementation.ref points
+# back at this shared implementation_id.
+emits_rule_ids:
+  - coder.refactor.complexity-cyclomatic-typescript  # disposition: strict (cyclomatic > 10)
+  - coder.refactor.complexity-nesting-typescript     # disposition: strict (nesting depth > 4)
+  - coder.refactor.complexity-length-typescript      # disposition: strict (function LOC > 50)
+
+# SCOPE: TypeScript/TSX stack. This is a PYTHON detector that inspects TS source
+# via regex + brace matching (no TS runtime), exactly like the Wave-1 dead-code /
+# gsap TS detectors. Each -typescript node `refines` its language-neutral Python
+# sibling (coder.refactor.complexity-{cyclomatic,nesting,length}).
+
+# test_complexity_typescript_detector.py is the runnable enforcement the
+# provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS and writes the
+# RAW structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It
+# does NOT apply disposition.
+entrypoint: complexity_typescript.py

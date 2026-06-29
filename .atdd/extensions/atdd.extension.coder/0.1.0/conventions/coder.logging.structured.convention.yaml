@@ -1,0 +1,71 @@
+schema_version: 1.1.0
+rule_id: coder.logging.structured
+kind: rule
+status: active
+name: Logger calls must carry structured context
+statement: When production application code emits an observability event through a structured logger,
+  the call MUST attach a structured-context payload (the language's keyword/argument channel for
+  correlation ids, request scope, and other key/value context) rather than logging a bare message
+  string. This is the language-agnostic obligation owned by the coder extension. The stack-specific
+  detector that enforces it (a pytest/AST scan for logger method calls lacking the `extra=` keyword in
+  non-test Python production code) is the python-pytest workspace implementation referenced below — the
+  obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.logging.structured
+content:
+  summary: An agnostic "log with structured context, not a bare string" obligation. The Python
+    realization forbids `logger.info("msg")` without an `extra={...}` context dict; other stacks realize
+    the same obligation with their own structured-context channel under their own workspace detector.
+  normative_text: |
+    A logging call in shippable application code must carry machine-readable context alongside its
+    message so the event is queryable, correlatable, and redactable in production observability. A bare
+    message string (no structured context) degrades to an unstructured log line that cannot be filtered
+    by request/correlation scope. The obligation is "logger calls carry structured context"; WHICH
+    channel supplies that context and HOW it is detected is delegated to the per-stack detector. For
+    Python that channel is the stdlib `logging` `extra={...}` keyword and the detector is an AST scan
+    (`ast.Call` on a known logger receiver whose method is a logging level and whose keywords lack
+    `extra`).
+  fix_hint: |
+    Attach a structured-context dict to the logging call:
+      logger.info("user created")  ->  logger.info("user created", extra={"user_id": uid})
+    Promote the salient identifiers (user/request/correlation ids, resource keys) into `extra=` so the
+    event is queryable. If a pre-existing bare call cannot be cleaned immediately, this rule's
+    disposition is `suppress-and-clean`: stamp the offending line with an inline marker
+    `# atdd:suppress(coder.logging.structured) UNTIL=<YYYY-MM-DD>` to absorb it on a deadline while the
+    backlog is burned down. New bare calls are not suppressible by default and fail.
+  exceptions:
+    - Test code is out of scope — test files (`test_*.py`, `*/tests/`) log freely without `extra=`.
+    - Re-export shims (`__init__.py`) are excluded from the scan.
+    - Pre-existing bare calls carrying a valid inline `# atdd:suppress(coder.logging.structured)` marker
+      are absorbed by the `suppress-and-clean` disposition (applied by the coach/consumer layer, NOT by
+      the workspace detector — the detector emits the RAW violation regardless of marker).
+metadata:
+  aliases:
+    - LOGGING-STRUCTURED-001
+  severity: 2
+  disposition: suppress-and-clean
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/logging.convention.yaml
+  legacy_section: canonical_rules.rules
+  legacy_rule_id: coder.logging.structured
+  legacy_sha: b5999f8489b06e20
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: structured_context
+  text: a machine-readable key/value payload attached to a log event (Python stdlib `logging`
+    `extra={...}`, structured-logger fields, JS logger context object) carrying correlation ids, request
+    scope, and resource keys so the event is queryable and redactable.
+- term_id: bare_log_call
+  text: a logging-level call (`logger.info/debug/warning/error/critical/exception/log`) on a known
+    logger receiver that supplies no structured-context channel — only a message string.
+- term_id: production_code
+  text: shippable application code under the scanned source roots, excluding test files, `__init__.py`
+    shims, and exempt surfaces.

@@ -1,0 +1,22 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.logging.coach-silent-swallow
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes. The
+# convention node lives in atdd.extension.coder; this implementation is the
+# python-pytest realization of it (two-layer model).
+realizes_convention: coder.logging.coach-silent-swallow
+
+# Single rule_id (disposition suppress-and-clean). The detector emits RAW
+# violations including suppress-marked handlers; absorbing markers is the
+# downstream consumer's disposition decision, not the workspace detector's.
+emits_rule_ids:
+  - coder.logging.coach-silent-swallow   # disposition: suppress-and-clean
+
+# The pure detector module. test_silent_swallow.py is the runnable enforcement the
+# provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS and writes the
+# RAW structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It
+# does NOT apply disposition.
+entrypoint: silent_swallow.py

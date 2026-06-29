@@ -1,0 +1,29 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.refactor.complexity-cyclomatic
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector primarily realizes.
+realizes_convention: coder.refactor.complexity-cyclomatic
+
+# One run surfaces FIVE rule_ids — all strict — exercising the v1.1 multi-rule
+# output channel. Declared so the resolver knows one run emits more than the
+# primary realizes_convention. Each obligation node's implementation.ref points
+# back at this shared implementation_id.
+emits_rule_ids:
+  - coder.refactor.complexity-cyclomatic  # disposition: strict (cyclomatic complexity > 10)
+  - coder.refactor.complexity-nesting     # disposition: strict (nesting depth > 4)
+  - coder.refactor.complexity-length      # disposition: strict (function length LOC > 50)
+  - coder.refactor.complexity-params      # disposition: strict (parameter count > 6)
+  - coder.refactor.complexity-cognitive   # disposition: strict (cognitive complexity > 15)
+
+# SCOPE: python stack only. The TypeScript realization of the (cyclomatic /
+# nesting / length) subset is a SEPARATE detector (complexity_typescript_detector)
+# whose -typescript nodes `refines` these language-neutral siblings.
+
+# test_complexity_detector.py is the runnable enforcement the provider's `pytest`
+# command collects; it scans ATDD_SCAN_ROOTS and writes the RAW structured
+# violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT apply
+# disposition.
+entrypoint: complexity.py

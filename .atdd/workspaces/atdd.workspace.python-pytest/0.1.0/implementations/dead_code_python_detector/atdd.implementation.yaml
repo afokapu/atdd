@@ -1,0 +1,22 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.dead-code.reachability
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes. The
+# convention node lives in atdd.extension.coder; this implementation is the
+# python-pytest realization of it (two-layer model).
+realizes_convention: coder.dead-code.reachability
+
+# Single rule_id (disposition strict). The detector emits RAW unreachable-file
+# violations; the strict verdict (any unreachable -> FAIL) and any ratchet
+# baseline are downstream consumer disposition concerns, not the detector's.
+emits_rule_ids:
+  - coder.dead-code.reachability   # disposition: strict
+
+# The pure detector module. test_dead_code_python.py is the runnable enforcement
+# the provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS (each root is
+# a package-resolution anchor) and writes the RAW structured violation report to
+# ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT apply disposition.
+entrypoint: dead_code_python.py

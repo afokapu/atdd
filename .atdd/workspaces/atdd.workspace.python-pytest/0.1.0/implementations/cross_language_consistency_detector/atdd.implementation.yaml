@@ -1,0 +1,34 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.boundaries.xlang-entity
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector primarily realizes.
+realizes_convention: coder.boundaries.xlang-entity
+
+# One run surfaces FOUR rule_ids with MIXED disposition — exercising the v1.1
+# multi-rule output channel AND a mixed downstream verdict (advisory + strict).
+# Declared so the resolver knows one run emits more than the primary
+# realizes_convention.
+emits_rule_ids:
+  - coder.boundaries.xlang-entity    # disposition: advisory (entity missing in some stack)
+  - coder.boundaries.xlang-enum      # disposition: strict   (enum members differ across stacks)
+  - coder.boundaries.xlang-naming    # disposition: strict   (shared base, divergent suffixes)
+  - coder.boundaries.xlang-contract  # disposition: advisory (contract implemented nowhere)
+
+# SCOPE: reads Python (python/), Dart (lib/), and contract schemas (contracts/)
+# as TEXT (regex + json) under each scan root — no language toolchain. The
+# Supabase/TypeScript leg of the same agnostic obligation is a separate detector
+# in a separate workspace package; not in this wave.
+#
+# HONEST CAVEAT: violations are AGGREGATE cross-file facts emitted at SYNTHETIC
+# locations (contracts/<entity>, enums/<name>, naming/<base>) with empty
+# source_line — there is no per-site offending line. This is why entity/contract
+# are dispositioned `advisory` (issue #395): per-site suppression cannot apply.
+
+# test_cross_language_consistency.py is the runnable enforcement the provider's
+# `pytest` command collects; it scans ATDD_SCAN_ROOTS and writes the RAW
+# structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does
+# NOT apply disposition.
+entrypoint: cross_language_consistency.py

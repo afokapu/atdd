@@ -1,0 +1,19 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.presentation.i18n-config
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector primarily realizes.
+realizes_convention: coder.presentation.i18n-config
+
+# One run surfaces a SECOND rule_id (coder.presentation.i18n-switcher) too — both
+# strict — exercising the v1.1 multi-rule output channel.
+emits_rule_ids:
+  - coder.presentation.i18n-config    # disposition: strict (i18n config hardcodes locales)
+  - coder.presentation.i18n-switcher  # disposition: strict (switcher hardcodes locales)
+
+# test_i18n_runtime.py is the runnable enforcement the provider's `pytest` command
+# collects; it scans ATDD_SCAN_ROOTS and writes the RAW structured violation
+# report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT apply disposition.
+entrypoint: i18n_runtime.py

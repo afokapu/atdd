@@ -1,0 +1,83 @@
+schema_version: 1.0.0
+extension_id: atdd.extension.coder
+version: 0.1.0
+kind: extension
+role: coder
+flow_wagon: validate-source-surface
+feature: coder-extension-conventions
+owns:
+  conventions:
+  - conventions/coder.boundaries.http-client.convention.yaml
+  - conventions/coder.boundaries.xlang-contract.convention.yaml
+  - conventions/coder.boundaries.xlang-entity.convention.yaml
+  - conventions/coder.boundaries.xlang-enum.convention.yaml
+  - conventions/coder.boundaries.xlang-naming.convention.yaml
+  - conventions/coder.dead-code.reachability-typescript.convention.yaml
+  - conventions/coder.dead-code.reachability.convention.yaml
+  - conventions/coder.design.foundations.convention.yaml
+  - conventions/coder.design.hierarchy-import.convention.yaml
+  - conventions/coder.design.orphan-export.convention.yaml
+  - conventions/coder.design.orphan-ui.convention.yaml
+  - conventions/coder.design.primitives.convention.yaml
+  - conventions/coder.design.token-color.convention.yaml
+  - conventions/coder.design.token-hardcoded.convention.yaml
+  - conventions/coder.duplication.no-intra-layer-code-python.convention.yaml
+  - conventions/coder.duplication.no-intra-layer-code-typescript.convention.yaml
+  - conventions/coder.error-response.bare-string.convention.yaml
+  - conventions/coder.error-response.code-format.convention.yaml
+  - conventions/coder.logging.coach-silent-swallow.convention.yaml
+  - conventions/coder.logging.print.convention.yaml
+  - conventions/coder.logging.structured.convention.yaml
+  - conventions/coder.performance.perf.convention.yaml
+  - conventions/coder.presentation.gsap-commons.convention.yaml
+  - conventions/coder.presentation.gsap-layer.convention.yaml
+  - conventions/coder.presentation.i18n-config.convention.yaml
+  - conventions/coder.presentation.i18n-switcher.convention.yaml
+  - conventions/coder.refactor.coach-ratchet-pres.convention.yaml
+  - conventions/coder.refactor.complexity-cognitive.convention.yaml
+  - conventions/coder.refactor.complexity-cyclomatic-typescript.convention.yaml
+  - conventions/coder.refactor.complexity-cyclomatic.convention.yaml
+  - conventions/coder.refactor.complexity-length-typescript.convention.yaml
+  - conventions/coder.refactor.complexity-length.convention.yaml
+  - conventions/coder.refactor.complexity-nesting-typescript.convention.yaml
+  - conventions/coder.refactor.complexity-nesting.convention.yaml
+  - conventions/coder.refactor.complexity-params.convention.yaml
+  - conventions/coder.refactor.composition-consumer.convention.yaml
+  - conventions/coder.refactor.composition-root.convention.yaml
+  - conventions/coder.refactor.nplus1.convention.yaml
+  - conventions/coder.refactor.quality-comments-typescript.convention.yaml
+  - conventions/coder.refactor.quality-comments.convention.yaml
+  - conventions/coder.refactor.quality-duplication.convention.yaml
+  - conventions/coder.refactor.quality-file-length.convention.yaml
+  - conventions/coder.refactor.quality-mi-typescript.convention.yaml
+  - conventions/coder.refactor.quality-mi.convention.yaml
+  - conventions/coder.refactor.quality-naming.convention.yaml
+  - conventions/coder.security.hardcoded-secret.convention.yaml
+  - conventions/coder.security.missing-auth.convention.yaml
+  - conventions/coder.security.sql-injection.convention.yaml
+  relationships:
+  - relationships.yaml
+  implementations: []
+  schemas: []
+  gates: []
+  scopes: []
+depends_on:
+  core:
+  - atdd.core.convention-node-schema
+  - atdd.core.relationship-schema
+  - atdd.core.workspace-schema
+  - atdd.core.implementation-schema
+  - atdd.core.violation-output-schema
+  workspaces:
+  - id: atdd.workspace.python-pytest
+    contract: ^1.0.0
+  - id: atdd.workspace.typescript
+    contract: ^1.0.0
+  - id: atdd.workspace.dart-flutter
+    contract: ^1.0.0
+  - id: atdd.workspace.supabase
+    contract: ^1.0.0
+  - id: atdd.workspace.fastapi
+    contract: ^1.0.0
+removal_policy:
+  allowed_if_no_external_dependents: true

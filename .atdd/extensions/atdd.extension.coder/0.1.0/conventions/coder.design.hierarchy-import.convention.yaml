@@ -1,0 +1,67 @@
+schema_version: 1.1.0
+rule_id: coder.design.hierarchy-import
+kind: rule
+status: active
+name: Design-system layers import only downward in the hierarchy
+statement: A design-system file MUST import only from layers below it in the hierarchy (tokens ←
+  primitives ← components ← templates) and MUST NOT reach out into feature wagons, so the dependency flow
+  stays one-directional and the system stays wagon-agnostic. This is the language-agnostic obligation
+  owned by the coder extension. The stack-specific detector that enforces it (a pytest/regex scan of
+  design-system files for upward and outward imports) is the python-pytest workspace implementation
+  referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.design.primitives
+content:
+  summary: An agnostic "design-system dependency flow is one-directional" obligation. The web realization
+    flags three import faults inside `maintain-ux` — primitives importing components or templates,
+    components importing templates, and any design-system file importing from a feature wagon (a `@/` or
+    `../` path that is neither a `maintain-ux` path nor framework/relative-within). It is realized by the
+    same multi-rule detector as the rest of the design-system family (declared via that implementation's
+    `emits_rule_ids`).
+  normative_text: |
+    The design system is a layered hierarchy — tokens ← primitives ← components ← templates — and a shared
+    wagon that feature wagons depend on, never the reverse. An upward import (primitive → component) or an
+    outward import (design system → wagon) breaks the hierarchy and creates a cycle or a leaky abstraction
+    that couples the system to a feature. The obligation: design-system files import only downward and
+    never into wagons. WHICH import forms count as upward or outward is delegated to the per-stack
+    detector; for the web stack: primitives must not import `../components` / `../templates`, components
+    must not import `../templates`, and no `maintain-ux` file may import a `@/` or `../` path that leaves
+    `maintain-ux` (framework imports such as `preact` / `@preact` and relative-within paths are allowed).
+  fix_hint: |
+    Keep design-system imports flowing downward and inside the system:
+      maintain-ux/primitives/Box.tsx  ->  import { Card } from '../components/Card'   ->  FORBIDDEN
+      maintain-ux/components/Card.tsx ->  import { Box } from '../primitives'         ->  allowed
+    Move shared logic down a layer (or into foundations) instead of importing up, and never import a
+    feature wagon from the design system. This rule is `strict`: an upward or outward design-system import
+    is not suppressible and fails.
+  exceptions:
+    - Relative imports that stay inside `maintain-ux` and framework imports (`preact`, `@preact`,
+      `@/maintain-ux/*`) are allowed.
+    - Downward imports (components → primitives → foundations) are the intended flow and are never flagged.
+    - Test files are out of scope.
+metadata:
+  aliases:
+    - DESIGN-HIERARCHY-IMPORT-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.hierarchy-import
+  legacy_sha: 21bedcb7d74cfb18
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: layer_hierarchy
+  text: the design-system dependency order tokens ← primitives ← components ← templates; imports may only
+    flow downward (toward tokens).
+- term_id: outward_import
+  text: an import from a design-system file into a feature wagon (a `@/` or `../` path that leaves
+    `maintain-ux`); forbidden because the design system must stay wagon-agnostic.

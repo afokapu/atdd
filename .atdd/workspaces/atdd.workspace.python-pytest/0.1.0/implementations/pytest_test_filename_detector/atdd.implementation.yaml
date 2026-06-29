@@ -1,0 +1,26 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: tester.filename.urn
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the obligation this detector realizes. Unlike the tester
+# detectors that realize a CORE node (e.g. no_collaborator_substitution_detector),
+# this one realizes the EXTENSION obligation node authored in this decomposition:
+# atdd.extension.tester/conventions/tester.filename.urn.convention.yaml — the
+# per-stack FILENAME rendering of a test's acceptance/test URN. The package
+# validator reports it as "realizes extension node tester.filename.urn".
+realizes_convention: tester.filename.urn
+
+# Single rule_id — the EXTENSION node id (disposition documentation-only). The
+# detector emits RAW violations (mis-named intended-test files) INCLUDING any
+# inline-suppressed sites; whether the advisory signal blocks is the downstream
+# consumer's disposition decision, not the workspace detector's.
+emits_rule_ids:
+  - tester.filename.urn   # disposition: documentation-only
+
+# The pure detector module. test_pytest_test_filename.py is the runnable
+# enforcement the provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS
+# (TEST directories) and writes the RAW structured violation report to
+# ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT apply disposition.
+entrypoint: pytest_test_filename.py
