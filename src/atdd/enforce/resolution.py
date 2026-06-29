@@ -18,12 +18,15 @@ a range ``^X.Y.Z`` is satisfied by a provider contract ``V`` iff
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 WORKSPACE_MANIFEST = "atdd.workspace.yaml"
 PROVIDER_CLI_RELPATH = ("cli", "scan.py")
@@ -88,7 +91,13 @@ def contract_satisfies(provider_version: str, requires_contract: str) -> bool:
     bmaj, bmin, bpat = _parse_caret_base(requires_contract)
     try:
         pmaj, pmin, ppat = _parse_semver(provider_version)
-    except ValueError:
+    except ValueError as exc:
+        # A malformed provider version is treated as incompatible (one bad
+        # manifest can't sink resolution) — surfaced so it is not silent.
+        _log.warning(
+            "ignoring malformed provider contract_version",
+            extra={"contract_version": str(provider_version), "error": str(exc)},
+        )
         return False
     return pmaj == bmaj and (bmin, bpat) <= (pmin, ppat)
 

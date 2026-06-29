@@ -24,10 +24,13 @@ unaffected.
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -72,6 +75,10 @@ def verify_substrate(repo_root: Path) -> tuple[bool, list[ArtifactVerdict]]:
     try:
         lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
+        _log.warning(
+            "unreadable substrate lock",
+            extra={"lock_path": str(lock_path), "error": str(exc)},
+        )
         return False, [
             ArtifactVerdict("<lock>", str(lock_path), False, f"unreadable lock: {exc}")
         ]

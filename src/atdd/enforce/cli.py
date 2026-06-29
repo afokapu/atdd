@@ -20,8 +20,11 @@ The commit hook / CI job invokes this same primitive and gates on its exit code.
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 from typing import Optional, Sequence
+
+_log = logging.getLogger(__name__)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -73,6 +76,7 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         try:
             ok, report = conformance(repo_root)
         except EnforceUsageError as exc:
+            _log.warning("enforce conformance usage error", extra={"error": str(exc)})
             print(f"atdd enforce: {exc}")
             return 2
         print(report)
@@ -81,6 +85,7 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
     try:
         result = enforce(repo_root, path_override=args.paths)
     except EnforceUsageError as exc:
+        _log.warning("enforce usage error", extra={"error": str(exc)})
         print(f"atdd enforce: {exc}")
         return 2
 

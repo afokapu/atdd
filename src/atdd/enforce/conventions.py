@@ -21,11 +21,14 @@ Two provider-agnostic concerns the runner needs, both pure data:
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 # Rules that exempt the toolkit's own CLI source tree. Mirrors the legacy
 # in-core ``coder.logging.print`` exemption of ``src/atdd`` (V4 / scan_policy
@@ -62,7 +65,11 @@ def rule_metadata(substrate_home: Path, rule_id: str) -> RuleMetadata:
         return RuleMetadata(rule_id=rule_id, severity=None, disposition="strict")
     try:
         data = yaml.safe_load(node.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError) as exc:
+        _log.warning(
+            "unreadable convention node — defaulting to strict",
+            extra={"node": str(node), "rule_id": rule_id, "error": str(exc)},
+        )
         return RuleMetadata(rule_id=rule_id, severity=None, disposition="strict")
     meta = data.get("metadata") if isinstance(data, dict) else None
     meta = meta if isinstance(meta, dict) else {}
@@ -95,11 +102,8 @@ def _resolve_root(repo_root: Path, root: str) -> Path:
 
 
 def _is_within(path: Path, base: Path) -> bool:
-    try:
-        path.relative_to(base)
-        return True
-    except ValueError:
-        return False
+    # is_relative_to (3.9+) is a pure predicate — no exception-as-control-flow.
+    return path == base or path.is_relative_to(base)
 
 
 @dataclass(frozen=True)
