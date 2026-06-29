@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1238'
+  slug: extension-enforcement-runner
+  file: null
+  issue_number: 1238
+  type: implementation
+  status: INIT
+  created: '2026-06-29'
+  archived: null
+  branch: feat/extension-enforcement-runner
+  wagon: enforce-binding-plan
+  feature: feature:enforce-binding-plan:run-binding-plan
+  train: 0001-self-compliance-validate
 - id: tester-core-atomize
   slug: tester-core-atomize
   file: null
