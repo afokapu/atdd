@@ -3047,7 +3047,7 @@ sessions:
   file: null
   issue_number: 1203
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-06-22'
   archived: null
   train: 0002-coach-drives-lifecycle
