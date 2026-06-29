@@ -1,0 +1,21 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.duplication.no-intra-layer-code-typescript
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes. The
+# convention node lives in atdd.extension.coder; this implementation is the
+# python-pytest realization of it (two-layer model). NOTE: the detector runtime
+# is still python-pytest — it inspects TypeScript SOURCE via regex normalization,
+# it does not execute TS. The obligation is the TS sibling of the Python rule.
+realizes_convention: coder.duplication.no-intra-layer-code-typescript
+
+emits_rule_ids:
+  - coder.duplication.no-intra-layer-code-typescript   # disposition: strict
+
+# The pure detector module. test_duplication_typescript.py is the runnable
+# enforcement the provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS
+# and writes the RAW structured violation report to ATDD_VIOLATIONS_REPORT
+# (v1.1 channel). It does NOT apply disposition — that is the consumer's job.
+entrypoint: duplication_typescript.py

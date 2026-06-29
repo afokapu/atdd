@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+artifacts:
+- id: atdd.extension.coder
+  kind: extension
+  version: 0.1.0
+  digest: sha256:6042f540e335241cc40bd830725981b8d6fce2a0cfb266a627ca7b15e6691e11
+  installed_path: .atdd/extensions/atdd.extension.coder/0.1.0
+  enabled: true
+  workspaces:
+  - id: atdd.workspace.python-pytest
+  - id: atdd.workspace.typescript
+  - id: atdd.workspace.dart-flutter
+  - id: atdd.workspace.supabase
+  - id: atdd.workspace.fastapi
+- id: atdd.extension.tester
+  kind: extension
+  version: 0.1.0
+  digest: sha256:08d6c17b125d23f0ff6b5ce847c3eb0c74edb9f3b2aacab001889ec92f049d66
+  installed_path: .atdd/extensions/atdd.extension.tester/0.1.0
+  enabled: true
+  workspaces:
+  - id: atdd.workspace.python-pytest
+  - id: atdd.workspace.typescript
+  - id: atdd.workspace.supabase
+  - id: atdd.workspace.fastapi
+- id: atdd.workspace.python-pytest
+  kind: workspace
+  version: 0.1.0
+  digest: sha256:f2c6a2dd043c623b739593b9f0e648487856ad0381e141f45cd1343c76208f55
+  installed_path: .atdd/workspaces/atdd.workspace.python-pytest/0.1.0
+  enabled: true

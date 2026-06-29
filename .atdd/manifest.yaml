@@ -13,6 +13,15 @@ sessions:
   wagon: enforce-binding-plan
   feature: feature:enforce-binding-plan:run-binding-plan
   train: 0001-self-compliance-validate
+- id: install-extensions
+  slug: install-extensions
+  file: null
+  issue_number: null
+  type: implementation
+  status: RED
+  created: '2026-06-29'
+  archived: null
+  branch: install-extensions
 - id: tester-core-atomize
   slug: tester-core-atomize
   file: null

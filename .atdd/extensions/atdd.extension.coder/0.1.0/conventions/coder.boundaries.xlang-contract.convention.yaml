@@ -1,0 +1,71 @@
+schema_version: 1.1.0
+rule_id: coder.boundaries.xlang-contract
+kind: rule
+status: active
+name: API contracts are honored by at least one implementation
+statement: Every domain entity declared by a contract schema MUST have at least one implementing class in
+  some shipped language stack (Python or Dart); a contract with NO implementation anywhere is an
+  unimplemented promise and MUST be flagged, so the contract surface and the code do not silently diverge.
+  This is the language-agnostic obligation owned by the coder extension. The stack-specific detector that
+  enforces it (a pytest scan checking each contract `$id` entity for any matching Python or Dart class) is
+  the python-pytest workspace implementation referenced below — the obligation is agnostic, the detector is
+  not.
+implementation:
+  type: validator
+  ref: coder.boundaries.xlang-entity
+content:
+  summary: An agnostic "no orphaned contracts" obligation. The realization extracts contract `$id` entities
+    and checks whether ANY Python or Dart class matches (PascalCase-normalized, substring-tolerant); a
+    contract entity with zero implementations in every stack is flagged. It emits a synthetic
+    `contracts/<entity>` location (no per-source line) because the fact is "this contract is implemented
+    nowhere", not a single offending line.
+  normative_text: |
+    A contract entity that no code implements is a dangling interface — consumers may rely on a shape that
+    nothing produces. The obligation: every contract entity is honored by at least one implementation in
+    some stack. WHICH classes count as honoring and HOW they are matched is delegated to the per-stack
+    detector; for the python-pytest realization it is the union of Python and Dart class matches against
+    the normalized entity name. Because the violation is an aggregate cross-file fact with no single source
+    line, it carries a synthetic location and empty `source_line`; per-site suppression cannot apply, which
+    is why this rule is dispositioned `advisory` (issue #395) — it warns rather than hard-failing on a
+    markerless synthetic site. (Distinct from xlang-entity: this fires only when NO stack implements the
+    entity, whereas xlang-entity fires when SOME but not ALL stacks do.)
+  fix_hint: |
+    Implement the contract in at least one stack, or retire the contract:
+      contracts/trophy.schema.json declares "Trophy" but no `class Trophy` exists in python/ or lib/
+      → add an implementation in one stack, or delete the contract if the entity was never built.
+    This rule is `advisory`: it surfaces unimplemented contracts as a warning (synthetic, markerless
+    location) rather than a suppressible per-site failure.
+  exceptions:
+    - A contract entity implemented in at least one stack (Python OR Dart) is honored and not flagged — full
+      cross-stack parity is the stricter xlang-entity rule's concern, not this one.
+    - Cross-cutting wire-shape contracts whose operations use wildcard (`/*`) paths are skipped — they
+      define envelopes, not domain entities.
+metadata:
+  aliases:
+    - BOUNDARIES-XLANG-CONTRACT-001
+    - SPEC-CODER-CONSISTENCY-0004
+  severity: 3
+  disposition: advisory
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/boundaries.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.boundaries.xlang-contract
+  legacy_sha: d6ae50723bb39a07
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: honored_contract
+  text: a contract entity for which at least one Python or Dart class matches the normalized entity name;
+    honored contracts are not flagged.
+- term_id: orphaned_contract
+  text: a contract entity with zero matching classes in every stack — the flagged "implemented nowhere"
+    fact, reported at a synthetic `contracts/<entity>` location.
+- term_id: distinct_from_entity_rule
+  text: xlang-contract fires only when NO stack implements the entity; xlang-entity fires when SOME but not
+    all stacks do — the two rules partition the cross-language coverage gap.

@@ -1,0 +1,24 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.refactor.nplus1
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes. The
+# convention node lives in atdd.extension.coder; this implementation is the
+# python-pytest realization of it (two-layer model).
+realizes_convention: coder.refactor.nplus1
+
+# Single rule_id (disposition strict). The detector emits RAW violations; the
+# strict verdict and any ratchet baseline are downstream consumer concerns.
+# Note: the inline `# noqa: N+1` marker is a DETECTION exemption inside the
+# detector (it is NOT an atdd:suppress disposition marker, and strict rules ignore
+# suppress markers downstream) — see the detector module docstring + PHASE05 §6.
+emits_rule_ids:
+  - coder.refactor.nplus1   # disposition: strict
+
+# The pure detector module. test_query_count.py is the runnable enforcement the
+# provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS and writes the
+# RAW structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). No
+# disposition.
+entrypoint: query_count.py

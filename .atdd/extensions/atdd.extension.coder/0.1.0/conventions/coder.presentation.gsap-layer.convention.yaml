@@ -1,0 +1,69 @@
+schema_version: 1.1.0
+rule_id: coder.presentation.gsap-layer
+kind: rule
+status: active
+name: Animation libraries are confined to the presentation layer
+statement: When production frontend code imports a UI animation library (the stack's GSAP-class
+  motion dependency), that import MUST occur only within a feature's presentation layer; the domain,
+  application, and integration layers MUST NOT import it. This is the language-agnostic obligation owned
+  by the coder extension. The stack-specific detector that enforces it (a pytest/regex scan for GSAP
+  imports in non-presentation TypeScript files under a web source root) is the python-pytest workspace
+  implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.presentation.gsap-layer
+content:
+  summary: An agnostic "animation belongs to the view layer" obligation. The web realization forbids
+    `import ... from "gsap"` (and `@gsap/*`, dynamic import, CJS require, type-only forms) anywhere other
+    than `{wagon}/{feature}/presentation/**`; other stacks realize the same layer-purity obligation for
+    their own motion dependency under their own workspace detector.
+  normative_text: |
+    GSAP (and equivalent animation/motion libraries) is approved for frontend animation but must be
+    constrained to the presentation layer to preserve layer purity and prevent architectural drift.
+    Importing an animation library into domain/application/integration code couples business logic to a
+    view concern, making those layers untestable in isolation and leaking rendering detail upward. The
+    obligation is "animation imports live only in presentation"; WHICH library token is matched and HOW
+    it is detected is delegated to the per-stack detector. For the web stack the tokens are
+    `gsap` / `gsap/*` / `@gsap/*` across ESM, type-only, dynamic-`import()`, and CJS-`require` forms, and
+    the detector is a regex scan that reads layer membership from the `{wagon}/{feature}/{layer}/...`
+    path under the scanned web source root.
+  fix_hint: |
+    Move the animation usage into the presentation layer:
+      web/src/<wagon>/<feature>/application/useThing.ts  (imports gsap)   ->  FORBIDDEN
+      web/src/<wagon>/<feature>/presentation/ThingView.tsx (imports gsap) ->  allowed
+    Drive animation from a presentation component/hook and pass plain data down from application code, so
+    domain/application/integration stay free of view-library imports. This rule is `strict`: a new
+    non-presentation GSAP import is not suppressible and fails.
+  exceptions:
+    - Presentation-layer files (`{wagon}/{feature}/presentation/**`) may import the animation library
+      freely — that is the intended home.
+    - Test code is out of scope (test trees are excluded by the scan-policy exclusions passed in).
+metadata:
+  aliases:
+    - PRESENTATION-GSAP-LAYER-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/presentation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.presentation.gsap-layer
+  legacy_sha: 64ab65fcb9c704df
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: animation_library
+  text: a frontend motion/animation dependency (the web stack's `gsap`, `gsap/*`, `@gsap/*`) used to
+    drive view transitions; the agnostic obligation confines it to the view layer, each stack's detector
+    binds the concrete import token.
+- term_id: presentation_layer
+  text: the view layer of a feature, located at `{wagon}/{feature}/presentation/**` under the scanned web
+    source root; the only layer permitted to import an animation library.
+- term_id: production_code
+  text: shippable frontend source under the scanned web roots, excluding test trees and other exempt
+    surfaces supplied as scan exclusions.

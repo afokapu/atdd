@@ -1,0 +1,24 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.error-response.bare-string
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the primary agnostic obligation this detector realizes. The
+# convention node lives in atdd.extension.coder; this implementation is the
+# python-pytest realization of it (two-layer model). The detector also emits the
+# sibling .code-format rule from the SAME run (see emits_rule_ids).
+realizes_convention: coder.error-response.bare-string
+
+# This detector emits TWO peer rule_ids of the error-response convention from one
+# run, exercising the v1.1 multi-rule output channel — declared here so the
+# resolver knows one run surfaces more than the primary realizes_convention.
+emits_rule_ids:
+  - coder.error-response.bare-string   # disposition: strict
+  - coder.error-response.code-format   # disposition: strict
+
+# The pure detector module. test_error_response.py is the runnable enforcement
+# the provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS and writes
+# the RAW structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel).
+# It does NOT apply disposition — that is the downstream consumer's job.
+entrypoint: error_response.py

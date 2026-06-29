@@ -1,0 +1,31 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.refactor.quality-mi
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector primarily realizes.
+realizes_convention: coder.refactor.quality-mi
+
+# ONE run surfaces FIVE rule_ids — all strict — exercising the v1.1 multi-rule
+# output channel. Declared so the resolver knows one run emits more than the
+# primary realizes_convention.
+emits_rule_ids:
+  - coder.refactor.quality-mi           # disposition: strict (radon MI < 20)
+  - coder.refactor.quality-comments     # disposition: strict (comment ratio < 10%)
+  - coder.refactor.quality-duplication  # disposition: strict (>=5-stmt cross-file dup)
+  - coder.refactor.quality-naming       # disposition: strict (lowercase class / const)
+  - coder.refactor.quality-file-length  # disposition: strict (file > 500 lines)
+
+# SCOPE: python stack only. The TypeScript MI/comments realizations are a SEPARATE
+# detector (quality_metrics_typescript_detector); not this implementation.
+
+# SUBSTRATE: quality-mi depends on the third-party `radon` package (as in core).
+# When radon is unavailable the MI leg emits nothing (faithful 100.0 fallback);
+# the other four rules are pure stdlib.
+
+# test_quality_metrics.py is the runnable enforcement the provider's `pytest`
+# command collects; it scans ATDD_SCAN_ROOTS and writes the RAW structured
+# violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT apply
+# disposition — that is the downstream consumer's job.
+entrypoint: quality_metrics.py

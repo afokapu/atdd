@@ -1,0 +1,26 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: tester.smoke.no-collaborator-substitution
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes. Unlike the
+# coder implementations (whose convention nodes were migrated into
+# atdd.extension.coder), the tester OBLIGATION stays in CORE as an agnostic ATDD
+# methodology node (tester.smoke.no-collaborator-substitution). This detector is
+# the python-pytest REALIZATION of that core node — it is NOT a new node and does
+# NOT live in atdd.extension.tester. The package validator reports it as
+# "realizes core node(s)".
+realizes_convention: tester.smoke.no-collaborator-substitution
+
+# Single rule_id — the existing CORE id (disposition suppress-and-clean). The
+# detector emits RAW violations INCLUDING suppress-marked sites; absorbing markers
+# is the downstream consumer's disposition decision, not the workspace detector's.
+emits_rule_ids:
+  - tester.smoke.no-collaborator-substitution   # disposition: suppress-and-clean
+
+# The pure detector module. test_no_collaborator_substitution.py is the runnable
+# enforcement the provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS
+# (TEST directories) and writes the RAW structured violation report to
+# ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT apply disposition.
+entrypoint: no_collaborator_substitution.py

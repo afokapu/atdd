@@ -1,0 +1,26 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.security.sql-injection
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector primarily realizes.
+realizes_convention: coder.security.sql-injection
+
+# One run surfaces THREE rule_ids — all strict — exercising the v1.1 multi-rule
+# output channel. Declared so the resolver knows one run emits more than the
+# primary realizes_convention.
+emits_rule_ids:
+  - coder.security.sql-injection     # disposition: strict (dynamic SQL in a sink call)
+  - coder.security.missing-auth      # disposition: strict (route without Depends(<auth_fn>))
+  - coder.security.hardcoded-secret  # disposition: strict (secret literal in source)
+
+# SCOPE: python stack only (AST for SQL/auth, regex for secrets). The TypeScript
+# XSS sibling (coder.security.xss) is a separate detector in a separate workspace
+# package (the documented -python/-typescript provider split); not in this wave.
+
+# test_security_patterns.py is the runnable enforcement the provider's `pytest`
+# command collects; it scans ATDD_SCAN_ROOTS and writes the RAW structured
+# violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT apply
+# disposition.
+entrypoint: security_patterns.py

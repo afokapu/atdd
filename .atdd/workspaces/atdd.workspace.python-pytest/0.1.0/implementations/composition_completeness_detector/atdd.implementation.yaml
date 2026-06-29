@@ -1,0 +1,24 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.refactor.composition-consumer
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector primarily realizes.
+realizes_convention: coder.refactor.composition-consumer
+
+# One run surfaces a SECOND rule_id (coder.refactor.composition-root) too — both
+# strict — exercising the v1.1 multi-rule output channel.
+emits_rule_ids:
+  - coder.refactor.composition-consumer  # disposition: strict (unwired layer file)
+  - coder.refactor.composition-root      # disposition: strict (composition.py misses a layer)
+
+# SCOPE: python stack only. The TypeScript/Supabase realizations of the same
+# agnostic obligation are separate detectors in a separate workspace package
+# (the documented -python/-typescript provider split); not in this wave.
+
+# test_composition_completeness.py is the runnable enforcement the provider's
+# `pytest` command collects; it scans ATDD_SCAN_ROOTS and writes the RAW
+# structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does
+# NOT apply disposition.
+entrypoint: composition_completeness.py

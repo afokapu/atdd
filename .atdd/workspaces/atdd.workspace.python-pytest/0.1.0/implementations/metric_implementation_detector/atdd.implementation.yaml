@@ -1,0 +1,28 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: tester.acceptance-violation.metric-implementation-must-exist
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes. Like
+# no_collaborator_substitution_detector (and UNLIKE the coder implementations),
+# the OBLIGATION stays in CORE as an agnostic ATDD methodology node
+# (tester.acceptance-violation.metric-implementation-must-exist, disposition
+# strict, severity 4). This detector is the python-pytest REALIZATION of that core
+# node — it is NOT a new node and does NOT live in atdd.extension.tester. The
+# package validator reports it as "realizes core node(s)".
+realizes_convention: tester.acceptance-violation.metric-implementation-must-exist
+
+# Single rule_id — the existing CORE id (disposition strict). The PRINCIPLE (a
+# declared signal.metric must have a backing compute() implementation) is core; the
+# two-root Python lookup (.atdd/metrics/<name>.py | src/atdd/runners/metrics/<name>.py)
+# + compute()/passes() signature is the python-specific mechanism realized here.
+emits_rule_ids:
+  - tester.acceptance-violation.metric-implementation-must-exist   # disposition: strict
+
+# The pure detector module. test_metric_implementation.py is the runnable
+# enforcement the provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS
+# (project roots holding acceptances + the metric lookup dirs) and writes the RAW
+# structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does NOT
+# apply disposition.
+entrypoint: metric_implementation.py

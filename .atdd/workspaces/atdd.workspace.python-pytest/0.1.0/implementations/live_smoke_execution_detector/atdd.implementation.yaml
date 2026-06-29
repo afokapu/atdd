@@ -1,0 +1,26 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: tester.acceptance-violation.live-smoke-acceptance-must-execute
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector realizes. The tester
+# OBLIGATION stays in CORE as an agnostic ATDD methodology node
+# (tester.acceptance-violation.live-smoke-acceptance-must-execute); this detector
+# is the python-pytest REALIZATION of that core node — NOT a new node, and NOT
+# content under atdd.extension.tester. The package validator reports it as
+# "realizes core node(s)".
+realizes_convention: tester.acceptance-violation.live-smoke-acceptance-must-execute
+
+# Single rule_id — the existing CORE id (disposition strict). The detector EMITS
+# the RAW self-skip-site list; the strict verdict (any self-skip -> FAIL) is the
+# downstream consumer's disposition decision, not the workspace detector's.
+emits_rule_ids:
+  - tester.acceptance-violation.live-smoke-acceptance-must-execute   # disposition: strict
+
+# The pure detector module. test_live_smoke_execution.py is the runnable
+# enforcement the provider's `pytest` command collects; it scans ATDD_SCAN_ROOTS
+# (TEST directories), gates on the in-file `# execution_kind: live_smoke` header,
+# and writes the RAW structured violation report to ATDD_VIOLATIONS_REPORT (v1.1
+# channel). It does NOT apply disposition.
+entrypoint: live_smoke_execution.py

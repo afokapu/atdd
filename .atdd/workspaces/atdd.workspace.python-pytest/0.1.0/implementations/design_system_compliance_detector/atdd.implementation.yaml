@@ -1,0 +1,32 @@
+schema_version: "1.1.0"
+kind: implementation
+implementation_id: coder.design.primitives
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# Back-reference to the agnostic obligation this detector primarily realizes.
+realizes_convention: coder.design.primitives
+
+# One run surfaces SEVEN distinct rule_ids — all `strict` — exercising the v1.1
+# multi-rule output channel (PROVIDER-CONTRACT-v1.1.md §3). One core validator
+# (test_design_system_compliance.py) bound all seven via bind_rule(...); this is
+# the single detector that emits them.
+emits_rule_ids:
+  - coder.design.primitives       # disposition: strict (presentation w/o DS import)
+  - coder.design.token-color      # disposition: strict (raw hex/rgba literal)
+  - coder.design.orphan-export    # disposition: strict (DS export with no consumer)
+  - coder.design.foundations      # disposition: strict (DS primitive w/ raw pixels)
+  - coder.design.hierarchy-import # disposition: strict (DS layer hierarchy break)
+  - coder.design.token-hardcoded  # disposition: strict (wagon hardcoded spacing/etc)
+  - coder.design.orphan-ui        # disposition: strict (any JSX tsx w/o DS import)
+
+# SCOPE: web/TypeScript stack only — the regex/text detection mirrors core's
+# web/src + maintain-ux scan. The obligations are language-agnostic; this detector
+# is the web leg (other stacks would realize the same obligations under their own
+# workspace detector, per the documented per-stack provider split).
+
+# test_design_system_compliance.py is the runnable enforcement the provider's
+# `pytest` command collects; it scans ATDD_SCAN_ROOTS and writes the RAW
+# structured violation report to ATDD_VIOLATIONS_REPORT (v1.1 channel). It does
+# NOT apply disposition.
+entrypoint: design_system_compliance.py

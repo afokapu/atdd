@@ -1,0 +1,75 @@
+schema_version: 1.1.0
+rule_id: tester.filename.urn
+kind: rule
+status: active
+name: Test files are named deterministically from their acceptance/test URN
+statement: >-
+  A test file MUST be named deterministically from its acceptance/test URN so the file is both traceable to
+  its acceptance and discoverable by the stack's test runner. This is the stack-bound tester obligation owned
+  by the tester extension (the agnostic test-IDENTITY-comes-from-the-URN-header invariant stays in CORE; what
+  stays here is the per-stack FILENAME rendering of that URN). The python-pytest realization — a test file
+  that is plainly a test (it carries a line-leading `# URN test` identity header or defines `test_*`
+  functions) MUST be named so pytest collects it, i.e. `test_<...>.py` / `<...>_test.py` — is the
+  python-pytest workspace detector referenced below; the obligation is stack-bound, the detector is
+  python-specific.
+implementation:
+  type: validator
+  ref: tester.filename.urn
+content:
+  summary: >-
+    A "test files follow the URN-derived naming pattern" obligation. The python realization scans each
+    `*.py` in the supplied TEST roots, decides whether the file is intended as a test (a line-leading
+    `# URN test` identity header, or a top-level `def test_*`), and flags any intended test whose filename
+    is NOT collectable by pytest (does not start with `test_` and does not end with `_test.py`). A mis-named
+    test file is a silent green gap — pytest never collects it, so it passes CI by never running.
+  normative_text: |
+    Test filenames are derived from the acceptance URN `acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]` so that
+    acceptance criteria and their test implementations map bidirectionally and tooling can discover tests
+    deterministically. The IDENTITY of a test comes from its explicit `# URN: test:...` header (a CORE
+    invariant, owned elsewhere); the FILENAME is the per-language rendering of that URN.
+
+    For the python/pytest stack the rendering is `test_{wmbt_lower}_{harness_lower}_{nnn}_{slug_snake}.py`
+    — and, critically, the file MUST carry the `test_` prefix (or the `_test.py` suffix) so pytest's default
+    collection finds it. WHICH per-language pattern applies, and HOW the URN is transformed into the
+    filename, is delegated to the per-stack detector. dart/typescript/go/java/kotlin renderings are owned by
+    their own workspace packages, NOT by python-pytest.
+  fix_hint: |
+    Rename the flagged file to a pytest-collectable name derived from its acceptance URN, e.g.
+    `acc:maintain-ux:C004-E2E-019-user-connection` -> `test_c004_e2e_019_user_connection.py`. A python test
+    file MUST start with `test_` (or end with `_test.py`); otherwise pytest silently skips it and the test
+    never runs. This rule is `documentation-only`: the detector emits the RAW mis-named-test list as an
+    advisory signal; whether it blocks is the downstream consumer's disposition decision, never the
+    detector's.
+  exceptions:
+    - Non-test `*.py` files (no `# URN` test header and no top-level `def test_*`) are out of scope —
+      helpers, fixtures, conftest, and product modules are not flagged.
+    - Files already collectable by pytest (`test_*.py` or `*_test.py`) pass.
+    - Per-language renderings other than python (dart/ts/go/java/kotlin) are owned by their own workspace
+      packages and are not checked by the python-pytest detector.
+metadata:
+  aliases:
+    - TESTER-FILENAME-URN-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/tester/conventions/filename.convention.yaml
+  legacy_section: "languages.python / slug_transformations / rules[tester.filename.urn]"
+  legacy_rule_id: tester.filename.urn
+  legacy_sha: ef17a7d951f91f0d
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-29'
+terms:
+- term_id: test_urn_header
+  text: >-
+    the explicit `# URN: test:{wagon}:{feature}:{WMBT}-{HARNESS}-{NNN}-{slug}` comment that carries a test
+    file's authoritative identity (V3); its presence (line-leading) marks a `*.py` as an intended test.
+- term_id: pytest_collectable_name
+  text: >-
+    a filename pytest collects by default — one starting with `test_` or ending with `_test.py`; an intended
+    test that is not pytest-collectable is silently never run.
