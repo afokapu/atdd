@@ -42,6 +42,8 @@ coverage.xml
 .atdd/runtime/
 # ATDD State Store — local operational SQLite DB (#1168); never git-tracked.
 .atdd/state/
+# Manifest import backup written on first authoritative store read (#1183/#1203); local-only.
+.atdd/manifest.migrated.yaml
 .scratch/
 
 # Presentation ratchet smoke evidence — local/CI artifact, not git history.

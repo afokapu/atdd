@@ -322,14 +322,44 @@ class IssueManager:
                 ),
             )
 
-    def _manifest_train(self, issue_number: int) -> Optional[str]:
-        """Return the train assigned to *issue_number* from the local manifest.
+    def _store_work_item_field(
+        self, issue_number: int, field: str
+    ) -> Optional[str]:
+        """Read a work-item field (``status``/``train``/``branch``) from the State Store.
 
-        The manifest is the sole source for train lineage past PLANNED (#1051,
-        decommission Projects v2). Looks up ``issues.<n>.train`` first, then any
-        ``train`` recorded on the matching ``sessions`` entry. Returns None when
-        the manifest is absent or no train is recorded.
+        #1203 Phase 1 (shadow reads): the State Store is the read source for
+        work-item lifecycle state, resolved by GitHub issue number through the
+        ``external_refs`` projection. The reader auto-imports the manifest into
+        the store on first read when the store is empty (Decision #3), so callers
+        normally get the value from the store. Returns ``None`` on any store
+        unavailability so the caller falls back to the manifest — never raises.
         """
+        try:
+            from atdd.state.work_item_reader import WorkItemReader
+
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                value = getattr(reader, field)(issue_number)
+            return str(value) if value else None
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store read unavailable; falling back to manifest",
+                extra={"issue": issue_number, "field": field, "error": str(exc)},
+            )
+            return None
+
+    def _manifest_train(self, issue_number: int) -> Optional[str]:
+        """Return the train assigned to *issue_number*.
+
+        #1203 Phase 1: reads shadow through the State Store first (the
+        authoritative read source), then fall back to the local manifest —
+        ``issues.<n>.train`` first, then any ``train`` recorded on the matching
+        ``sessions`` entry. The manifest remains the sole source for train
+        lineage past PLANNED (#1051, decommission Projects v2). Returns None when
+        no train is recorded anywhere.
+        """
+        from_store = self._store_work_item_field(issue_number, "train")
+        if from_store:
+            return from_store
         if not self.manifest_file.exists():
             return None
         manifest = self._load_manifest()
@@ -344,11 +374,16 @@ class IssueManager:
         return None
 
     def _manifest_branch(self, issue_number: int) -> Optional[str]:
-        """Return the branch recorded for *issue_number* from the local manifest.
+        """Return the branch recorded for *issue_number*.
 
-        Replaces the retired Projects v2 ``ATDD Branch`` read (#1051). Looks up
-        the matching ``sessions`` entry first, then ``issues.<n>.branch``.
+        #1203 Phase 1: reads shadow through the State Store first, then fall back
+        to the local manifest — the matching ``sessions`` entry first, then
+        ``issues.<n>.branch``. Replaces the retired Projects v2 ``ATDD Branch``
+        read (#1051).
         """
+        from_store = self._store_work_item_field(issue_number, "branch")
+        if from_store:
+            return from_store
         if not self.manifest_file.exists():
             return None
         manifest = self._load_manifest()
