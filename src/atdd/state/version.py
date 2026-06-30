@@ -102,7 +102,11 @@ def emit(conn: sqlite3.Connection) -> str:
     """
     try:
         return current(conn)
-    except VersionError:
+    except VersionError as exc:
+        _log.info(
+            "no release version resolvable; using local fallback",
+            extra={"fallback": LOCAL_FALLBACK_VERSION, "reason": str(exc)},
+        )
         return LOCAL_FALLBACK_VERSION
 
 

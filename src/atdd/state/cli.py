@@ -232,6 +232,7 @@ def _cmd_version(args) -> int:
             try:
                 current = ver.current(conn)
             except ver.VersionError as exc:
+                _log.warning("version show: no release version", extra={"error": str(exc)})
                 print(f"ERROR: {exc}")
                 return 1
             from atdd.state.projections import release_projection
@@ -244,6 +245,8 @@ def _cmd_version(args) -> int:
             try:
                 new = ver.bump(conn, args.change_class, pr=args.pr)
             except ver.VersionError as exc:
+                _log.warning("version bump failed", extra={"error": str(exc),
+                                                           "change_class": args.change_class})
                 print(f"ERROR: {exc}")
                 return 1
             print(f"Bumped release version to {new} ({args.change_class})")
