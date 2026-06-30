@@ -3278,7 +3278,7 @@ sessions:
   file: null
   issue_number: 1254
   type: refactor
-  status: RED
+  status: GREEN
   train: 0002-coach-drives-lifecycle
   created: '2026-06-30'
   archived: null
