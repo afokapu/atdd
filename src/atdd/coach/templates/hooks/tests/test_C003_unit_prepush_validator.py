@@ -322,8 +322,8 @@ def test_repo_validate_leg_is_opt_in_via_prepush_full() -> None:
         "the full `atdd repo validate` traversal must be opt-in via ATDD_PREPUSH_FULL=1 "
         "(deferred to CI by default); the guard is missing from the pre-push hook."
     )
-    assert text.index("ATDD_PREPUSH_FULL") < text.index("atdd repo validate"), (
-        "the ATDD_PREPUSH_FULL guard must precede (wrap) the `atdd repo validate` call."
+    assert text.index("ATDD_PREPUSH_FULL") < text.index("atdd repo validate >&2"), (
+        "the ATDD_PREPUSH_FULL guard must precede (wrap) the `atdd repo validate` invocation."
     )
 
 

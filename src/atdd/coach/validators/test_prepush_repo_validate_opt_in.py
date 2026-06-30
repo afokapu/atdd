@@ -151,11 +151,12 @@ def test_full_repo_validate_is_gated_behind_opt_in_flag() -> None:
         "pre-push hook must gate the full `atdd repo validate` traversal behind "
         "ATDD_PREPUSH_FULL=1 (it is deferred to CI by default)."
     )
-    # The opt-in guard must appear before the full traversal invocation.
+    # The opt-in guard must appear before the full traversal *invocation*
+    # (`atdd repo validate >&2`), not merely the explanatory comment.
     flag_idx = text.index("ATDD_PREPUSH_FULL")
-    validate_idx = text.index("atdd repo validate")
-    assert flag_idx < validate_idx, (
-        "the ATDD_PREPUSH_FULL guard must wrap (precede) the `atdd repo validate` call."
+    invocation_idx = text.index("atdd repo validate >&2")
+    assert flag_idx < invocation_idx, (
+        "the ATDD_PREPUSH_FULL guard must wrap (precede) the `atdd repo validate` invocation."
     )
 
 
