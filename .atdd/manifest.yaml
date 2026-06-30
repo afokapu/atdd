@@ -10,6 +10,9 @@ sessions:
   created: '2026-06-30'
   archived: null
   branch: feat/interlocking-authoring-path
+  train: 0003-author-substrate
+  wagon: author-plan-substrate
+  feature: feature:author-plan-substrate:author-interlocking
 - id: '1263'
   slug: decommission-preflight-classifier
   file: null
