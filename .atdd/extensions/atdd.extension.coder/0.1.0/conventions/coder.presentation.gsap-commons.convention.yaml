@@ -1,0 +1,63 @@
+schema_version: 1.1.0
+rule_id: coder.presentation.gsap-commons
+kind: rule
+status: active
+name: Animation libraries must not be referenced from commons modules
+statement: Production frontend shared/commons modules MUST NOT import a UI animation library (the stack's
+  GSAP-class motion dependency) at all, because commons has no presentation layer to legitimately host
+  view-motion code. This is the language-agnostic obligation owned by the coder extension. The
+  stack-specific detector that enforces it (a pytest/regex scan for GSAP imports anywhere under the web
+  commons tree) is the python-pytest workspace implementation referenced below — the obligation is
+  agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.presentation.gsap-layer
+content:
+  summary: An agnostic "commons stays motion-free" obligation, the commons-specific companion to
+    `coder.presentation.gsap-layer`. The web realization forbids any `gsap` / `gsap/*` / `@gsap/*` import
+    under `web/src/commons/**` (no presentation sub-layer exists there); other stacks realize the same
+    purity obligation for their shared module under their own workspace detector.
+  normative_text: |
+    Shared `commons` modules are imported by every layer of every feature; allowing an animation library
+    there would let view-motion concerns leak into domain/application/integration code transitively,
+    defeating the layer-purity guarantee of `coder.presentation.gsap-layer`. Because commons currently
+    carries no presentation sub-layer, the obligation here is absolute: NO animation-library import is
+    permitted anywhere under commons. WHICH library token is matched and HOW it is detected is delegated
+    to the per-stack detector (web: `gsap` / `gsap/*` / `@gsap/*` across ESM, type-only, dynamic-import,
+    and CJS-require forms, scanned under the commons subtree of the web source root).
+  fix_hint: |
+    Remove the animation-library import from commons and relocate the motion code into the consuming
+    feature's presentation layer:
+      web/src/commons/anim/tween.ts        (imports gsap)  ->  FORBIDDEN
+      web/src/<wagon>/<feature>/presentation/*.tsx          ->  host the animation here instead
+    Keep commons limited to framework-agnostic, view-free utilities. This rule is `strict`: a new GSAP
+    import under commons is not suppressible and fails.
+  exceptions:
+    - If commons ever grows a real `presentation/` sub-layer, that surface would be governed by
+      `coder.presentation.gsap-layer` instead; today no such carve-out exists, so commons is GSAP-free.
+    - Test code is out of scope (excluded via the scan-policy exclusions passed in).
+metadata:
+  aliases:
+    - PRESENTATION-GSAP-COMMONS-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/presentation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.presentation.gsap-commons
+  legacy_sha: 64ab65fcb9c704df
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: commons_module
+  text: a shared frontend module under `web/src/commons/**` imported across features and layers; it
+    carries no presentation sub-layer and therefore admits no animation-library import.
+- term_id: animation_library
+  text: a frontend motion/animation dependency (the web stack's `gsap`, `gsap/*`, `@gsap/*`); forbidden
+    in commons by this rule, confined to presentation elsewhere by `coder.presentation.gsap-layer`.

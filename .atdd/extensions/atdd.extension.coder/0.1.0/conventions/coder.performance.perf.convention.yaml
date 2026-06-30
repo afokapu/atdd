@@ -1,0 +1,44 @@
+schema_version: 1.1.0
+rule_id: coder.performance.perf
+kind: principle
+status: active
+name: Production code does not issue per-item IO inside a loop
+statement: Production application code MUST NOT perform per-item IO — database queries, network/HTTP
+  round trips, or other unbounded external calls — inside a loop body or comprehension; such work scales
+  request latency and resource load linearly with collection size. This is the language-agnostic
+  performance obligation owned by the coder extension; its concrete detectors (e.g. the N+1 query scan)
+  specialize it per stack. The obligation is agnostic; the detectors are not.
+content:
+  summary: An agnostic "no per-item IO inside iteration" performance principle. Batch, hoist, or join the
+    IO out of the loop so the work is O(1) round trips rather than O(N). Concrete realizations (the N+1
+    database-query detector, and future IO-in-loop detectors) reference this principle.
+  normative_text: |
+    Per-item IO inside iteration is the canonical performance regression: one query/request per element
+    turns an O(1) operation into O(N) round trips. The remedy is always the same shape — batch the IO out
+    of the loop (an IN(...)/batch API, a JOIN, a dataloader, or a single bulk request). This principle is
+    documentation-only at the agnostic layer; enforcement is delegated to per-stack detector rules that
+    specialize it (currently coder.refactor.nplus1 for database client calls in Python).
+metadata:
+  aliases:
+    - PERFORMANCE-PERF-001
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: principles
+  legacy_rule_id: coder.performance.perf
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: per_item_io
+  text: an IO operation (database query, network/HTTP call, filesystem or other external round trip)
+    executed once per element of an enclosing loop or comprehension, producing O(N) round trips.
+- term_id: batching
+  text: restructuring per-item IO into a single bounded operation outside the loop — a batch/IN query, a
+    JOIN, a dataloader, or one bulk request — so cost does not scale with collection size.

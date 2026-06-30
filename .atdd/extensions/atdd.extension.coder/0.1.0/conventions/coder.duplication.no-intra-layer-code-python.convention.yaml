@@ -1,0 +1,80 @@
+schema_version: 1.1.0
+rule_id: coder.duplication.no-intra-layer-code-python
+kind: rule
+status: active
+name: No intra-layer structural code duplication in Python
+statement: When two Python production files are classified to the SAME architectural layer
+  (domain / application / presentation / integration), the layer MUST NOT contain a structurally
+  identical code fragment of meaningful size duplicated across DIFFERENT files. This is the
+  language-agnostic "no copy-paste within a layer" obligation owned by the coder extension. The
+  stack-specific detector that enforces it (an AST-subtree-hashing scan that normalizes away names
+  and literals, slides a window of >= 5 statements, and reports same-layer cross-file collisions) is
+  the python-pytest workspace implementation referenced below — the obligation is agnostic, the
+  detection algorithm is not.
+implementation:
+  type: validator
+  ref: coder.duplication.no-intra-layer-code-python
+content:
+  summary: An agnostic "do not copy-paste structurally identical logic within one architectural
+    layer" obligation. The Python realization hashes normalized AST subtrees (names -> VAR, literals
+    -> 0/"") over a sliding window of >= 5 statements and flags fragments that recur across different
+    files of the same layer; other stacks realize the same obligation with their own structural
+    fingerprint under their own workspace detector.
+  normative_text: |
+    Copy-pasted logic within a single architectural layer is a maintenance hazard: a fix applied to
+    one copy silently rots the others. The obligation is "no structurally identical fragment is
+    duplicated across different files of the same layer". WHICH fingerprint identifies "structurally
+    identical" and HOW files are classified to a layer is delegated to the per-stack detector. For
+    Python the fingerprint is a SHA-256 over normalized AST subtrees (variable Names rewritten to a
+    sentinel, numeric/string Constants zeroed) for each sliding window of >= 5 consecutive
+    statements at module top level (after the standard header-boilerplate prefix is stripped — issue
+    #960) and inside every function/method body; a collision of the same hash across two different
+    files in the same layer is a violation. Same-file repetition is out of scope (often intentional).
+  fix_hint: |
+    Extract the duplicated fragment into a single shared helper, base class, or module within the
+    layer and call it from both sites:
+      # before: identical 6-statement block copy-pasted in domain/a.py and domain/b.py
+      # after:  one helper in domain/_shared.py imported by both
+    Standard file-header boilerplate (module docstring + import block + leading module constants) is
+    NOT counted as duplication, so two small value objects that only share a header are never
+    flagged. This rule's disposition is `strict`: new structurally-identical fragments fail the gate
+    and are not suppressible by default.
+  exceptions:
+    - Test code is out of scope — test files (`test_*.py`, `*/tests/`, `conftest.py`) are excluded.
+    - Package shims (`__init__.py`), `migrations/`, `templates/`, and the validator surface itself
+      (`validators/`) are excluded from the scan.
+    - Files classified to layer `unknown` (no recognizable layer segment in their path) are not
+      compared.
+    - Same-file fragment repetition is not flagged; only cross-file collisions within a layer are.
+    - Standard leading header boilerplate (docstring + imports + leading module constants) is
+      stripped before comparison and never counts as duplication (issue #960).
+metadata:
+  aliases:
+    - DUPLICATION-PY-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/duplication.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.duplication.no-intra-layer-code-python
+  legacy_sha: a80b36ae8900275d
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: architectural_layer
+  text: the role a file plays in clean architecture — domain, application, presentation, or
+    integration — inferred from path segments (e.g. `/domain/`, `/use_cases/`, `/controllers/`,
+    `/adapters/`); files with no recognizable layer segment classify as `unknown` and are excluded.
+- term_id: structural_fingerprint
+  text: a hash that captures code shape while ignoring identifiers and literal values, so a renamed
+    or re-valued copy still collides; for Python a SHA-256 over normalized AST subtrees (Names ->
+    `VAR`, numeric/string Constants -> `0`/`""`).
+- term_id: code_fragment
+  text: a sliding window of N consecutive statements (default N=5) at module top level (after the
+    header prefix) or within a function/method body, the unit compared for cross-file duplication.

@@ -1,0 +1,74 @@
+schema_version: 1.1.0
+rule_id: coder.dead-code.reachability
+kind: rule
+status: active
+name: Python source files must be reachable from a graph root
+statement: Every production Python source file MUST be reachable from at least one graph root (a test
+  file, composition root, package shim, or registered entry point) by following the static import graph.
+  This is the language-agnostic obligation owned by the coder extension. The stack-specific detector that
+  enforces it (a pytest/AST scan that builds the file-level import graph and BFS-walks it from the
+  convention roots, reporting files no root transitively imports) is the python-pytest workspace
+  implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.dead-code.reachability
+content:
+  summary: An agnostic "all production source is reachable from an entry point" obligation. The Python
+    realization builds an AST import graph over the scanned roots and flags any `*.py` file (other than
+    structural `__init__.py`) that no graph root reaches; other stacks realize the same obligation over
+    their own module/import system under their own workspace detector.
+  normative_text: |
+    Dead (unreachable) code confuses readers, inflates maintenance burden, and hides rot. A file is
+    "alive" when some graph root transitively imports it (forward) or it is imported by a reachable file
+    (reverse). Graph roots are test files (`test_*.py`, `*_test.py`, files under `test/`/`tests/`),
+    `composition.py`, `wagon.py`, `conftest.py`, and `__init__.py` package shims; a `composition.py`
+    additionally reaches its sibling `src/` subtree (dependency-injection wiring the static tracer cannot
+    follow). The obligation is "every file is reachable from a root"; HOW roots are enumerated and the
+    graph is walked is delegated to the per-stack detector. For Python the detector is an AST scan that
+    resolves `import`/`from ... import` edges against the scan root as the package anchor.
+  fix_hint: |
+    Make the file reachable, or remove it:
+      * import it from a composition root / the public `__init__.py` re-export surface, or
+      * cover it with a test that imports it, or
+      * if it is a genuine entry point the tracer cannot see (CLI script, plugin), register it as a root
+        via consumer scan-policy, or
+      * delete the dead file.
+    This rule's disposition is `strict`: there is no inline-suppression marker. Pre-existing dead code in
+    a consumer repo is held flat by a downstream ratchet baseline (a consumer/coach concern), not by the
+    workspace detector — the detector always emits the RAW unreachable-file list.
+  exceptions:
+    - Test code is itself a graph ROOT (not excluded) — test files anchor reachability.
+    - Package shims (`__init__.py`) are never reported as dead code — they are structural.
+    - CLI entry points registered in packaging config (e.g. pyproject `[project.scripts]`) are roots;
+      enumerating them from repo packaging is consumer SCAN-POLICY, supplied to the detector, not baked
+      into it.
+    - Cache dirs (`__pycache__`) and excluded globs (`ATDD_SCAN_EXCLUDES`) are out of scope.
+metadata:
+  aliases:
+    - DEAD-CODE-REACHABILITY-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/dead-code.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.dead-code.reachability
+  legacy_sha: 819ab6f232fb9a84
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: graph_root
+  text: a file that anchors reachability analysis — a test file, `composition.py`, `wagon.py`,
+    `conftest.py`, `__init__.py` shim, or a registered CLI/plugin entry point. All files reachable from a
+    root are "alive".
+- term_id: reachable_file
+  text: a source file that some graph root transitively imports (forward edge) or that is imported by a
+    reachable file (reverse edge); the union of forward and reverse BFS from the roots.
+- term_id: production_code
+  text: shippable `*.py` application code under the scanned source roots, excluding `__pycache__` and
+    excluded globs; `__init__.py` shims are scanned for edges but never reported as dead.

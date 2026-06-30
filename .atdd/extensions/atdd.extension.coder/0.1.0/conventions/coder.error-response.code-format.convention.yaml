@@ -1,0 +1,67 @@
+schema_version: 1.1.0
+rule_id: coder.error-response.code-format
+kind: rule
+status: active
+name: Error codes must be UPPER_SNAKE_CASE enum identifiers
+statement: When production code emits an `error_code` value in an error response, that value MUST be
+  an enum-style identifier in UPPER_SNAKE_CASE (matching `^[A-Z][A-Z0-9_]+$`), NOT a freeform,
+  lowercase, or hyphenated string. This is the language-agnostic "error codes are stable enum
+  identifiers" obligation owned by the coder extension (the sibling of coder.error-response.bare-
+  string). The stack-specific detector that enforces it (a scan of error_code string literals
+  in Python production code) is the python-pytest workspace implementation referenced below
+  — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.error-response.code-format
+content:
+  summary: An agnostic "error_code is a machine-stable UPPER_SNAKE_CASE identifier" obligation. The
+    Python realization flags any error_code string-literal value that does not match
+    `^[A-Z][A-Z0-9_]+$` (e.g. `bad_input`, `error 404`, `badRequest`); other stacks realize the same
+    obligation against their own error envelope under their own workspace detector.
+  normative_text: |
+    Error codes are the stable, machine-readable classification clients branch on; freeform prose
+    ("Something went wrong"), lowercase, camelCase, or hyphenated codes break that contract. The
+    obligation is "every emitted error_code matches the UPPER_SNAKE_CASE enum pattern
+    `^[A-Z][A-Z0-9_]+$`". WHICH framework emits the code and HOW it is detected is delegated to the
+    per-stack detector. For Python the detector is a regex over source text matching an
+    `"error_code": "<value>"` literal; a value failing the UPPER_SNAKE_CASE pattern is a violation.
+  fix_hint: |
+    Rewrite the error_code value as an UPPER_SNAKE_CASE constant:
+      "error_code": "bad_input"   -> "error_code": "INVALID_INPUT"
+      "error_code": "error 404"   -> "error_code": "RESOURCE_NOT_FOUND"
+    Prefer namespacing codes by wagon/domain (e.g. `TIMEBANK_EXPIRED`, `AUTH_TOKEN_MISSING`) and
+    define them as constants per domain module. This rule's disposition is `strict`: new
+    non-conforming error codes fail the gate and are not suppressible by default.
+  exceptions:
+    - Non-production surfaces are out of scope — `__pycache__/` is skipped; the detector only scans
+      the supplied production roots.
+    - Only string-literal error_code values are matched; dynamically built codes are
+      outside this textual scan's reach.
+metadata:
+  aliases:
+    - ERROR-CODE-FORMAT-001
+  severity: 4
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/error-response.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.error-response.code-format
+  legacy_sha: d1c942f990076b93
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: error_code
+  text: the stable, machine-readable classification field of a structured error response that clients
+    branch on (e.g. `INVALID_INPUT`, `RESOURCE_NOT_FOUND`).
+- term_id: upper_snake_case
+  text: an identifier matching `^[A-Z][A-Z0-9_]+$` — an initial uppercase letter followed by
+    uppercase letters, digits, and underscores; the required shape for an enum-style error_code.
+- term_id: production_code
+  text: shippable application code under the scanned source roots, excluding bytecode caches and
+    non-shipped surfaces.
