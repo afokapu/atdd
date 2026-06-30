@@ -296,14 +296,51 @@ class IssueManager:
         if sha:
             print(f"  Committed manifest update ({sha[:8]})")
 
-    def _update_manifest_status(self, issue_number: int, status: str) -> None:
-        """Mirror a successful GitHub status transition into the local manifest.
+    def _store_set_status(self, issue_number: int, status: str) -> bool:
+        """Write the lifecycle phase to the State Store (#1203 Phase 2, authoritative).
 
-        Matches the session entry by issue_number and rewrites its ``status`` field.
-        A missing manifest or a manifest without a matching session is a no-op —
-        transitions for unregistered issues are valid (e.g. issues created outside
-        the atdd CLI) and must not crash the lifecycle.
+        Resolves issue_number → work-item slug via the GitHub ``external_ref`` and
+        sets the object ``state`` through the storage API (no raw SQL — within the
+        #1220 boundaries). Returns True on a store write, False if the store is
+        unavailable or the issue is not yet in the store; the caller's manifest
+        mirror still runs (dual-write keeps the manifest projection valid until it
+        is fully demoted). Never raises — the GitHub transition must not be lost.
         """
+        try:
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.store import StateStore
+            from atdd.state.work_item_reader import WorkItemReader
+
+            # WorkItemReader auto-imports the manifest on first read when the store
+            # is empty, so the work item exists before we resolve + write it.
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                obj = reader.get(issue_number)
+            if obj is None:
+                return False
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                StateStore(conn).objects.set_state(obj.uid, status)
+            finally:
+                conn.close()
+            return True
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store status write unavailable; manifest mirror still applies",
+                extra={"issue": issue_number, "status": status, "error": str(exc)},
+            )
+            return False
+
+    def _update_manifest_status(self, issue_number: int, status: str) -> None:
+        """Record a successful GitHub status transition.
+
+        #1203 Phase 2: the State Store is authoritative for the work-item phase —
+        this writes the store first, then mirrors the manifest ``sessions`` entry
+        (a compatibility projection, retained until the manifest is fully demoted).
+        A missing manifest or a manifest without a matching session is a no-op for
+        the mirror — transitions for unregistered issues are valid (e.g. issues
+        created outside the atdd CLI) and must not crash the lifecycle.
+        """
+        self._store_set_status(issue_number, status)
         if not self.manifest_file.exists():
             return
         manifest = self._load_manifest()
