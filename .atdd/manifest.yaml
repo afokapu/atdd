@@ -1,6 +1,25 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1207'
+  slug: decommission-tier1-batch1
+  file: null
+  issue_number: 1207
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-30'
+  archived: null
+  branch: refactor/decommission-tier1-batch1
+- id: '1220'
+  slug: bind-state-store-invariants-to-node-validators
+  file: null
+  issue_number: 1220
+  type: implementation
+  status: SMOKE
+  created: '2026-06-30'
+  archived: null
+  branch: feat/bind-state-store-invariants-to-node-validators
+  train: 0002-coach-drives-lifecycle
 - id: '1242'
   slug: phase-aware-validator-binding
   file: null
@@ -3192,14 +3211,6 @@ sessions:
   type: implementation
   status: INIT
   created: '2026-06-25'
-  archived: null
-- id: '1220'
-  slug: bind-state-store-invariants-to-node-validators
-  file: null
-  issue_number: 1220
-  type: implementation
-  status: INIT
-  created: '2026-06-24'
   archived: null
 - id: '1219'
   slug: state-store-cross-session-tracker

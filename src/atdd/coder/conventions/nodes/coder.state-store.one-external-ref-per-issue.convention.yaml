@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: coder.state-store.one-external-ref-per-issue
+kind: rule
+status: active
+name: One external ref per issue
+statement: A provider reference (e.g. a GitHub issue number) maps to exactly one work item.
+  The external_refs schema enforces this structurally with UNIQUE (provider, ref_kind, ref_value),
+  so the same provider ref cannot be linked to two work items — the import-collision rule that
+  manifest import relies on (keep the first claimant, report the duplicate, never silently re-link).
+implementation:
+  type: validator
+  ref: test_state_store_invariants::test_one_external_ref_per_issue
+content:
+  normative_text: src/atdd/state/migrations.py must declare UNIQUE (provider, ref_kind, ref_value)
+    on the external_refs table, guaranteeing one provider ref resolves to one object_uid.
+  fix_hint: Restore the UNIQUE (provider, ref_kind, ref_value) constraint in the external_refs
+    CREATE TABLE. Identity collisions must surface at link time, not be resolved by overwriting an
+    existing mapping.
+metadata:
+  severity: 4
+  disposition: strict
+  introduced_in: 3.142.0
+terms:
+- term_id: external_ref
+  text: a row linking a provider's identifier (provider + ref_kind + ref_value) to a single local
+    work item (object_uid).
+- term_id: import_collision
+  text: when two manifest entries claim the same provider ref; the store keeps the first and
+    reports the duplicate rather than re-linking.
