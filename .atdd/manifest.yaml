@@ -3381,7 +3381,7 @@ sessions:
   file: null
   issue_number: 1275
   type: implementation
-  status: RED
+  status: SMOKE
   train: 0001-self-compliance-validate
   created: '2026-06-30'
   archived: null
