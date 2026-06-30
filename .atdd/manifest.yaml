@@ -3110,9 +3110,10 @@ sessions:
   file: null
   issue_number: 1203
   type: implementation
-  status: INIT
+  status: GREEN
   created: '2026-06-22'
   archived: null
+  train: 0002-coach-drives-lifecycle
 - id: '1225'
   slug: registry-reads-single-node-rules
   file: null
