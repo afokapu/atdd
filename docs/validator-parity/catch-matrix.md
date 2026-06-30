@@ -8,9 +8,9 @@ injected fault), and is excluded from the parity count.
 
 ## Tally
 
-- cases: **15**
+- cases: **14**
 - parity (both): **12**
-- convention-only (improvement or FP — adjudicate #1211): **3**
+- convention-only (improvement or FP — adjudicate #1211): **2**
 - legacy-only (coverage gap): **0**
 - neither (shared blind spot): **0**
 - inconclusive (legacy red on clean): **0**
@@ -34,7 +34,12 @@ injected fault), and is excluded from the parity count.
 | dup-contract-urn | uniqueness/scoped_identifier_uniqueness | 0 | yes | yes | yes | **both** |
 | dup-feature-urn | uniqueness/scoped_identifier_uniqueness | 0 | yes | yes | yes | **both** |
 | dup-train-id | uniqueness/scoped_identifier_uniqueness | 0 | yes | no | yes | **convention-only** |
-| feature-doc-reference-dangling | resolution/artifact_reference_resolution | 0 | yes | no | yes | **convention-only** |
+
+> NOTE (#1207): the `feature-doc-reference-dangling` convention-only case was removed
+> when its negative-control legacy oracle (test_plan_urn_resolution.py) was retired.
+> The feature.references doc-resolution coverage is still ENFORCED by the
+> resolution/plan_urn_resolution variant; only its parity *measurement* (which needs a
+> live legacy probe) was dropped — case count 15→14, convention-only 3→2.
 
 > Corpus covers all 10 P0 sentinels. `both` = parity with the legacy
 > counterpart. `convention-only` here = NEW coverage (legacy has no counterpart
