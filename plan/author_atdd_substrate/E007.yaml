@@ -1,0 +1,89 @@
+urn: "wmbt:author-atdd-substrate:E007"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "convention-node-validation-metadata"
+context_clarifier: "when authoring a convention node, the writer may attach an optional top-level convention-node-validation-metadata block (family/template/variant/phase/enforcement/subject_kind/selector/traversal/invariant/failure_evidence/config) that declares which validator family/template enforces the node; the block is OPTIONAL (existing nodes without it stay valid), its family and (family,template) are checked against src/atdd/validators/conventions/registry.yaml, invalid JSON is rejected before any write, and it never carries concrete runtime state (train_id, route-selection state, Cargo contents, rendered digest, TrainResult values)"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of schema-valid convention-node-validation-metadata when authoring a convention node (optional block, family/(family,template) checked against registry.yaml, invalid JSON rejected, no concrete runtime state), without changing bind_rule semantics"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:E007-UNIT-001-emits-validation-and-stays-optional"
+      id: "AC-UNIT-001"
+      purpose: "create_convention_node accepts and emits a top-level validation block; nodes authored without validation remain schema-valid and bind_rule semantics are unchanged"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid convention-node input plus an optional validation block with a registry-registered (family, template) and a subject_kind of interlocking or runtime-boundary"
+    when:
+      abstract: "create_convention_node(..., validation=<block>) is called, and separately called with no validation"
+    then:
+      abstract:
+        - "The authored node carries the top-level validation block verbatim and validates against convention-node.schema.json"
+        - "A node authored without validation still validates against convention-node.schema.json"
+        - "subject_kind values interlocking and runtime-boundary are accepted"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-atdd-substrate:E007-UNIT-002-rejects-bad-validation-before-write"
+      id: "AC-UNIT-002"
+      purpose: "invalid validation JSON, an unknown family, an unregistered (family, template) pair, and concrete runtime state are rejected before any file is written"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A convention-node input plus a validation block that is either malformed JSON, names an unknown family, names an unregistered (family, template) pair, or embeds concrete runtime state (train_id/route-selection/Cargo/digest/TrainResult)"
+    when:
+      abstract: "the validation block is authored via create_convention_node / the CLI --validation flag"
+    then:
+      abstract:
+        - "An AuthorInputError (or non-zero CLI exit) is raised with the offending field"
+        - "No convention-node file is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-atdd-substrate:E007-UNIT-003-graph-loader-exposes-validation"
+      id: "AC-UNIT-003"
+      purpose: "the composed graph loader exposes the authored validation block on Node.fields for a single-node convention file"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A single-node convention file authored with a top-level validation block under conventions/nodes/"
+    when:
+      abstract: "load_composed_graph(repo_root) composes the graph"
+    then:
+      abstract:
+        - "The rule Node for that file exposes the validation block on Node.fields['validation']"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-atdd-substrate:E007-SMOKE-001-cli-writes-validation"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author convention-node --validation '{...}'` writes a schema-valid node carrying the validation block in a real checkout, no manual patching"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author convention-node --core --role planner --rule-id ... --validation '{\"family\":...,\"template\":...,\"subject_kind\":\"interlocking\"}' is run"
+    then:
+      abstract:
+        - "A schema-valid convention node is written carrying the top-level validation block"
+        - "Running the CLI with malformed --validation JSON exits non-zero and writes no node"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
