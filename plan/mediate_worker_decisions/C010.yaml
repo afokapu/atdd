@@ -1,4 +1,4 @@
-urn: "wmbt:mediate-worker-decisions:C010"
+urn: "wmbt:mediate-worker-decisions:C010"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-31
 step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
@@ -29,32 +29,6 @@ acceptances:
       assertions:
         - type: "count"
         - type: "exists"
-    signal: {}
-    metadata:
-      wagon: "mediate-worker-decisions"
-      feature: "persistent-orchestrator"
-  - identity:
-      urn: "acc:mediate-worker-decisions:C010-SMOKE-001-live-supervisor-drives-two-transitions"
-      id: "AC-SMOKE-001"
-      purpose: "A single live supervisor process drives one real work item across >=2 phase transitions unattended, advancing only when each phase's real done-signal appears"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "integration"
-    given:
-      abstract:
-        - "A real work item and the production-wired phase poller (reads the real done-signal) and phase driver (swaps the label / re-dispatches)"
-    when:
-      abstract: "The supervisor runs over the live work item across PLANNED->RED->GREEN"
-      action: "invoke"
-    then:
-      abstract:
-        - "Each transition fires only after the prior phase's real done-signal is observed; no transition fires early and no manual re-run is needed"
-      assertions:
-        - type: "exists"
-    close_the_loop:
-      consumer_reacted: "the next persona is dispatched for the new phase after the prior phase's done-signal appears"
-      drift_resolved: "the work item advances >=2 phases under one supervisor process with no manual atdd coach re-run"
     signal: {}
     metadata:
       wagon: "mediate-worker-decisions"

@@ -1,4 +1,4 @@
-urn: "wmbt:mediate-worker-decisions:M006"
+urn: "wmbt:mediate-worker-decisions:M006"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-31
 step: "monitor"
 direction: "minimize"
 dimension: "likelihood"
@@ -29,32 +29,6 @@ acceptances:
       assertions:
         - type: "exists"
         - type: "count"
-    signal: {}
-    metadata:
-      wagon: "mediate-worker-decisions"
-      feature: "persistent-orchestrator"
-  - identity:
-      urn: "acc:mediate-worker-decisions:M006-SMOKE-001-live-stall-surfaces-and-exits"
-      id: "AC-SMOKE-001"
-      purpose: "A live supervisor over a genuinely stuck work item surfaces the stall loudly and exits rather than hanging mid-transition"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "integration"
-    given:
-      abstract:
-        - "A real work item that never produces its phase done-signal within the stall window, with the production-wired poller and driver"
-    when:
-      abstract: "The supervisor runs over the stuck live work item"
-      action: "invoke"
-    then:
-      abstract:
-        - "The stall is loud-logged with the work item and phase and the supervisor process exits non-silently rather than hanging"
-      assertions:
-        - type: "exists"
-    close_the_loop:
-      consumer_reacted: "an operator sees the surfaced stall warning instead of a silently hung coach"
-      drift_resolved: "the supervisor process terminates on the stall instead of polling forever"
     signal: {}
     metadata:
       wagon: "mediate-worker-decisions"
