@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1238
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-06-29'
   archived: null
   branch: feat/extension-enforcement-runner
