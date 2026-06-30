@@ -484,9 +484,31 @@ Boundary recap:
 
 ```text
 atdd author    creates compliant substrate artifacts  (extension by default; --core protected)
+atdd substrate admits / binds / inspects the local substrate (add/remove/bind/capabilities/list)
 atdd validate  verifies substrate artifacts
 atdd gate      decides whether a validation failure blocks
 ```
+
+### Managing the substrate — `atdd substrate`
+
+The substrate-management verbs are grouped under one noun. `atdd substrate`
+operates on the local install ledger (`.atdd/substrate.lock.yaml` +
+`.atdd/binding.lock.yaml`), which covers both `atdd.extension.*` and
+`atdd.workspace.*` packages:
+
+```text
+atdd substrate add <ref|--path>    admit an extension/workspace into the local substrate
+atdd substrate remove <id>         withdraw an admitted artifact (refuses dependents unless --force)
+atdd substrate bind [--check]      compose the runtime binding plan from the locked substrate
+atdd substrate capabilities        show conventions gated by bound implementations vs legacy-fallback
+atdd substrate list                list the installed substrate from the lockfile
+```
+
+The flat `atdd add` / `remove` / `bind` / `capabilities` verbs and
+`atdd list --substrate` remain as **deprecated-but-working** aliases (they print
+a deprecation notice pointing at the grouped form); their removal is the breaking
+`4.0.0` step tracked in #1207. `atdd enforce` and `atdd validate` stay top-level
+— they are the CI/operator hot path, not substrate administration.
 
 ---
 

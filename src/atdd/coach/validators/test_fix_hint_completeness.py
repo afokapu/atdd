@@ -234,12 +234,18 @@ def collect_py_hints() -> List[Hint]:
 # Deprecation registry (parsed from cli.py _deprecation_warning callsites)
 # ---------------------------------------------------------------------------
 def build_deprecation_registry(cli_source: Optional[str] = None) -> dict:
-    """Map ``"atdd <head>"`` → canonical replacement string.
+    """Map deprecated CLI form → canonical replacement string.
 
     Reads ``_deprecation_warning("<old>", "<new>")`` callsites from
-    ``src/atdd/cli.py``.  The "head" is the first two whitespace-separated
+    ``src/atdd/cli.py``.  The key is normally the first two whitespace-separated
     tokens of the deprecated form (e.g. ``"atdd update"``); the validator
-    matches Fix:-hint commands by head so flag/arg drift doesn't matter.
+    matches Fix:-hint commands by head so positional-arg drift doesn't matter.
+
+    Exception — *flag-qualified* deprecations.  When only a flag variant of an
+    otherwise-still-valid subcommand is deprecated (the token immediately after
+    ``atdd <sub>`` starts with ``-``, e.g. ``"atdd list --substrate"`` where
+    bare ``atdd list`` remains the issue-listing command), the key keeps that
+    flag so C2 does not false-match the still-valid bare subcommand.
     """
     if cli_source is None:
         try:
@@ -250,9 +256,17 @@ def build_deprecation_registry(cli_source: Optional[str] = None) -> dict:
     for m in _DEPRECATION_CALL_RE.finditer(cli_source):
         old = m.group("old").strip()
         new = m.group("new").strip()
-        head = " ".join(old.split()[:2])
-        if head and head not in out:
-            out[head] = new
+        tokens = old.split()
+        head = " ".join(tokens[:2])
+        # Flag-qualified deprecation: keep the flag in the key so the bare
+        # subcommand (still valid) is not flagged. Positional placeholders
+        # (``<N>``) after the subcommand keep the wholesale head key.
+        if len(tokens) >= 3 and tokens[2].startswith("-"):
+            key = f"{head} {tokens[2]}"
+        else:
+            key = head
+        if key and key not in out:
+            out[key] = new
     return out
 
 
@@ -349,14 +363,24 @@ def audit_c1_placeholder_resolution(text: str) -> List[str]:
 def audit_c2_no_deprecation_contradiction(
     text: str, registry: dict
 ) -> Optional[Tuple[str, str]]:
-    """Return ``(deprecated_head, canonical_replacement)`` or None."""
+    """Return ``(deprecated_form, canonical_replacement)`` or None."""
     # Look for an `atdd <sub>` head literally appearing in the hint.
     m = re.search(r'\batdd\s+([a-z][a-z0-9-]*)', text)
     if not m:
         return None
-    head = f"atdd {m.group(1)}"
+    sub = m.group(1)
+    head = f"atdd {sub}"
+    # Wholesale-subcommand deprecation: the bare `atdd <sub>` is itself gone.
     if head in registry:
         return (head, registry[head])
+    # Flag-qualified deprecation (e.g. `atdd list --substrate`): a contradiction
+    # only when that flag is also present — bare `atdd list` stays valid.
+    for key, new in registry.items():
+        parts = key.split()
+        if len(parts) >= 3 and parts[1] == sub and parts[2].startswith("-"):
+            flag = parts[2]
+            if re.search(rf'\batdd\s+{re.escape(sub)}\b.*{re.escape(flag)}', text):
+                return (key, new)
     return None
 
 

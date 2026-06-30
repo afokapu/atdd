@@ -1,0 +1,40 @@
+urn: wmbt:admit-substrate:E002
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: grouped-verb-parity
+context_clarifier: 'grouping is purely a CLI surface change: `atdd substrate add/remove/bind/capabilities/list`
+  must dispatch to the exact same handler functions the flat verbs call today, so
+  for any input the exit code and the resulting `.atdd/substrate.lock.yaml` / `.atdd/binding.lock.yaml`
+  effects are identical to the flat form'
+lens: functional.effectiveness
+statement: maximize likelihood of grouped-verb-parity by routing `atdd substrate {add,remove,bind,capabilities,list}`
+  to the same handlers as the flat verbs, so exit codes and lock-file effects are
+  identical
+acceptances:
+- given:
+    abstract:
+    - A temp project and a real on-disk valid extension package
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: '`atdd substrate add --path <pkg>` then `atdd substrate list` behave
+      identically to the flat verbs: add installs to the versioned home + writes a
+      digest-pinned lock, list renders the locked entry'
+    urn: acc:admit-substrate:E002-SMOKE-001-grouped-add-list-parity
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-06-29'
+  then:
+    abstract:
+    - substrate add exits zero and creates `.atdd/extensions/<id>/<version>/` with
+      a populated `.atdd/substrate.lock.yaml` carrying a sha256 digest
+    - substrate list exits zero and prints the locked artifact id and its sha256 digest
+    - the exit codes and lock-file effects match the flat `atdd add` / `atdd list
+      --substrate` form
+  when:
+    abstract: '`atdd substrate add --path <pkg>` then `atdd substrate list` are invoked
+      as subprocesses'
