@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1276'
+  slug: planner-naming-validators
+  file: null
+  issue_number: 1276
+  type: implementation
+  status: PLANNED
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-naming-validators
+  train: 0001-self-compliance-validate
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
 - id: '1265'
   slug: interlocking-authoring-path
   file: null

@@ -4,7 +4,7 @@ description: "The atdd plan gated decomposition session (#1139): Define\u2192Loc
   Prepare\u2192Confirm\u2192author lifecycle, the confirm-before-author boundary,\
   \ and post-confirm dispatch to atdd author per locked unit."
 sizing:
-  wmbts: 7
+  wmbts: 10
   footprint_score: 5
   footprint_size: S
 wmbts:
@@ -13,7 +13,10 @@ wmbts:
 - wmbt:define-plans:P001
 - wmbt:define-plans:C001
 - wmbt:define-plans:C002
+- wmbt:define-plans:C003
+- wmbt:define-plans:C004
 - wmbt:define-plans:E001
+- wmbt:define-plans:E002
 - wmbt:define-plans:Y001
 components:
   backend:
