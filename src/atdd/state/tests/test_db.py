@@ -44,11 +44,11 @@ def test_apply_migrations_creates_all_core_tables(tmp_path):
     conn = connect(tmp_path / "s.sqlite")
     try:
         applied = apply_migrations(conn)
-        assert applied == [1]
+        assert applied == [1, 2]                      # v1 core_tables + v2 release_kind (#1172)
         names = _table_names(conn)
         assert _CORE_TABLES.issubset(names)
         assert "schema_migrations" in names
-        assert current_version(conn) == latest_version() == 1
+        assert current_version(conn) == latest_version() == 2
     finally:
         conn.close()
 
@@ -56,11 +56,11 @@ def test_apply_migrations_creates_all_core_tables(tmp_path):
 def test_apply_migrations_is_idempotent(tmp_path):
     conn = connect(tmp_path / "s.sqlite")
     try:
-        assert apply_migrations(conn) == [1]
+        assert apply_migrations(conn) == [1, 2]
         assert apply_migrations(conn) == []          # nothing pending the second time
-        # exactly one bookkeeping row for v1
+        # one bookkeeping row per applied migration
         rows = conn.execute("SELECT version FROM schema_migrations").fetchall()
-        assert [r["version"] for r in rows] == [1]
+        assert [r["version"] for r in rows] == [1, 2]
     finally:
         conn.close()
 
@@ -133,7 +133,7 @@ def test_state_init_is_idempotent(tmp_path):
     conn = connect(db)
     try:
         rows = conn.execute("SELECT version FROM schema_migrations").fetchall()
-        assert [r["version"] for r in rows] == [1]
+        assert [r["version"] for r in rows] == [1, 2]
     finally:
         conn.close()
 
@@ -165,5 +165,5 @@ def test_state_init_cli_live(tmp_path):
     assert r.returncode == 0, r.stderr
     out = r.stdout + r.stderr
     assert "initialized" in out
-    assert "Schema version: 1" in out
+    assert "Schema version: 2" in out
     assert (repo / ".atdd" / "state" / "state.sqlite").is_file()
