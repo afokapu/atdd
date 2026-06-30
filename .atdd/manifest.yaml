@@ -3174,3 +3174,11 @@ sessions:
   status: INIT
   created: '2026-07-01'
   archived: null
+- id: '1283'
+  slug: extend-verb-lexicon
+  file: null
+  issue_number: 1283
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
