@@ -3415,3 +3415,5 @@ excluded:
   reason: 'non-test_ helper module: shared pytest fixtures for validator tests'
 - legacy_path: src/atdd/coder/validators/test_state_store_invariants.py
   reason: "New #1220 convention-era guard: node-bound validators for the State Store (#1168) invariants, bound to the coder.state-store.* convention nodes (target architecture). Not a legacy persona validator subject to convention-graph parity; retained, not decommissioned."
+- legacy_path: src/atdd/coder/validators/test_state_store_sot_boundary.py
+  reason: "New #1274 convention-era guard: node-bound validator for the operational-state-vs-authored-definition SoT boundary, bound to coder.state-store.operational-vs-definition-sot. Not a legacy persona validator subject to convention-graph parity; retained, not decommissioned."
