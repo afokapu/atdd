@@ -20,7 +20,12 @@ from atdd.planner.commands.plan_session import (
     PlanSession, SessionGateError, Step, Unit, Verdict,
 )
 
-GOOD = ["make-choice", "track-stock", "authenticate-user", "configure-match"]
+# GOOD incl. the common action verbs rounded out by the lexicon extension (#1283)
+# — route/preview/respond were legitimately-named but falsely rejected at confirm.
+GOOD = [
+    "make-choice", "track-stock", "authenticate-user", "configure-match",
+    "route-request", "preview-changes", "respond-event",
+]
 BAD = ["respond-and-preview", "route-to-mode", "mode-select", "blitz"]
 
 
