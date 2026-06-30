@@ -283,6 +283,18 @@ artifact_transformation:
   note: "Full artifact transformation patterns defined in artifact.convention.yaml"
 
 
+# Foundational verb-object naming enforcement (#1276)
+# wagon slugs must be verb-object; the rule planner.wagon.name-is-verb-object
+# (nodes/planner.wagon.name-is-verb-object.convention.yaml) enforces it at the
+# atdd plan Confirm gate and under atdd validate planner. The verb lexicon is
+# shared from feature.convention.yaml artifact_seeds.verb_selection. Brand /
+# proper-noun slugs allowed to bypass verb-object MUST be listed explicitly here
+# (never implicit); each entry is the full kebab-case slug, e.g. a mode name.
+verb_object_enforcement:
+  rule: planner.wagon.name-is-verb-object
+  verb_lexicon_source: "conventions:planner:feature#/artifact_seeds/verb_selection"
+  brand_exceptions: []
+
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================

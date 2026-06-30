@@ -22,11 +22,14 @@ features:
   - urn: "feature:define-plans:atdd-plan-session"
 
 wmbt:
-  total: 7
+  total: 10
   D001: "minimize likelihood of session-without-main-job — Define gate requires a JTBD main-job before Locate opens"
   L001: "minimize likelihood of unbound-source-capture — Locate binds captured sources to persisted session state"
   P001: "minimize likelihood of unit-without-author-spec — Prepare unit carries kind, ref, and a valid atdd author spec"
   C001: "minimize likelihood of pre-confirm-authoring — no artifact is written before the operator confirms"
   C002: "minimize likelihood of step-advance-without-exit-condition — a step advances only when its exit condition holds"
+  C003: "minimize likelihood of confirm-lock-with-non-verb-object-wagon-name — Confirm blocks a kept wagon whose slug is not verb-object"
+  C004: "minimize likelihood of confirm-lock-with-non-verb-object-feature-name — Confirm blocks a kept feature whose slug is not verb-object"
   E001: "minimize likelihood of author-dispatch-skip — Confirm invokes atdd author per locked unit"
+  E002: "minimize likelihood of unenforced-foundational-naming-rule — verb-object naming is validator-backed and bound"
   Y001: "minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes through the elicit channel"
