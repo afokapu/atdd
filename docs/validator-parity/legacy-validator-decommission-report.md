@@ -12,6 +12,7 @@ Total legacy validators accounted: **237**
 
 | legacy validator | persona | status | priority | outcome |
 |---|---|---|---|---|
+| `src/atdd/coach/validators/test_transport_realizes_mediation.py` | coach | not_legacy | n/a | new #1268 enforcement test: the `coach.substrate.transport-realizes-mediation` forcing rule (a transport/orchestration provider must realize `dispatch-verifies-channel-live` or admission refuses it); retained, not subject to decommission |
 | `src/atdd/coach/validators/test_no_duplicate_rule_representation.py` | coach | not_legacy | n/a | new #1225 convention-era guard (single-authoritative-representation); retained, not subject to decommission |
 | `src/atdd/coder/validators/test_state_store_invariants.py` | coder | not_legacy | n/a | new #1220 convention-era guard: node-bound State Store (#1168) invariant validators on coder.state-store.* nodes; retained, not subject to decommission |
 | `src/atdd/coder/validators/test_state_store_sot_boundary.py` | coder | not_legacy | n/a | new #1274 convention-era guard: node-bound validator for the operational-vs-definition SoT boundary; retained, not subject to decommission |

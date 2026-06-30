@@ -80,6 +80,14 @@ edges:
   target_ref: coach.execution.atomic-registry-write
   type: runs_alongside
 - confidence: 1.0
+  control: internal
+  foundation: finish_to_start
+  reason: the realizes mechanism is how a workspace provider proves it satisfies a core obligation; admission resolving the realizes edge is what enforces dispatch-verifies-channel-live
+  source_ref: coach.extension.realization-mapping
+  strength: critical
+  target_ref: coach.execution.dispatch-verifies-channel-live
+  type: enables
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
@@ -232,6 +240,15 @@ edges:
   strength: minor
   target_ref: coach.source-layout.no-toolkit-self-layout-assumption
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: 'the forcing check is what operationalizes the obligation: admission refuses any transport/orchestration provider that does not realize dispatch-verifies-channel-live, so the obligation is enforced rather than merely documented'
+  source_ref: coach.substrate.transport-realizes-mediation
+  strength: critical
+  target_ref: coach.execution.dispatch-verifies-channel-live
+  type: enables
 - confidence: 1.0
   constraint: mandatory
   control: internal

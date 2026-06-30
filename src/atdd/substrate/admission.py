@@ -109,6 +109,12 @@ def validate_and_compose(
     if core_ids is None:
         core_ids = compose.installed_core_node_ids()
 
+    # Forcing rule (#1268): any package declaring the decision-mediation /
+    # agent-session-transport capability MUST realize the dispatch-verifies-channel-live
+    # obligation; admission refuses it otherwise. Runs for every kind (capabilities are
+    # a workspace-provider concern), before the extension-only realizes/compose step.
+    compose.validate_transport_realizes_mediation(pkg, core_ids)
+
     composed: dict = {}
     if pkg["kind"] == "extension":
         compose.validate_realizes(pkg, core_ids)  # raises on bad realization

@@ -10,6 +10,16 @@ sessions:
   created: '2026-06-30'
   archived: null
   branch: feat/state-store-sot-boundary-operational-vs-definitions
+- id: '1268'
+  slug: enforce-dispatch-verifies-channel-live
+  file: null
+  issue_number: 1268
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/enforce-dispatch-verifies-channel-live
+  train: 0002-coach-drives-lifecycle
 - id: '1265'
   slug: interlocking-authoring-path
   file: null

@@ -3345,6 +3345,8 @@ entries:
   priority: P2
   parity_notes: Git core.bare/workspace hermeticity guard; runtime tooling, not convention graph.
 excluded:
+- legacy_path: src/atdd/coach/validators/test_transport_realizes_mediation.py
+  reason: "New #1268 enforcement test: the coach.substrate.transport-realizes-mediation forcing rule (a transport/orchestration-capability provider must realize the dispatch-verifies-channel-live obligation, or admission refuses it). Binds new convention nodes via bind_rule; not a legacy persona validator subject to convention-graph parity. Retained, not decommissioned."
 - legacy_path: src/atdd/coach/validators/test_no_duplicate_rule_representation.py
   reason: "New #1225 convention-era guard (single-authoritative-representation: no rule in both a monolith rules block and a nodes/ file). Not a legacy persona validator subject to convention-graph parity; retained, not decommissioned."
 - legacy_path: src/atdd/coach/validators/test_prepush_repo_validate_opt_in.py
