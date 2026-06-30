@@ -3191,3 +3191,12 @@ sessions:
   status: INIT
   created: '2026-07-01'
   archived: null
+  branch: chore/reconcile-closed-phase-labels
+- id: '1285'
+  slug: fix-stuck-dynamic-version-release
+  file: null
+  issue_number: 1285
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
