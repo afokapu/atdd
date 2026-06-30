@@ -35,10 +35,12 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_e009_unit_001_conventio
 
 RULE_ID = "coach.pr.runtime-artifacts-blocked"
 CONVENTION = "src/atdd/coach/conventions/pr.convention.yaml"
-LEGACY_NODEID = (
-    "src/atdd/coach/validators/test_e009_unit_001_convention_declares_runtime_artifacts_rule.py"
-    "::test_bind_rule_resolves"
-)
+
+# Legacy parity oracle RETIRED (#1207): the legacy validator
+# `test_e009_unit_001_convention_declares_runtime_artifacts_rule.py` was deleted
+# once `both`-parity was proven (see docs/validator-parity/family-parity-report.md,
+# binding family = 4/4 both). `LEGACY_PARITY_SOURCES` is kept as the provenance
+# record of where this coverage originated.
 
 
 def test_runtime_artifacts_rule_binding_variant_contract() -> None:
@@ -52,6 +54,8 @@ def test_runtime_artifacts_rule_binding_clean_baseline() -> None:
     P.assert_clean_baseline(VARIANT, P.repo_root())
 
 
-def test_runtime_artifacts_rule_binding_legacy_parity() -> None:
-    result = P.assert_fault_parity(VARIANT, CONVENTION, RULE_ID, LEGACY_NODEID, P.repo_root())
-    assert result["verdict"] == "both"
+def test_runtime_artifacts_rule_binding_fault_injection() -> None:
+    # Legacy oracle retired (#1207): coverage now lives solely in this convention
+    # variant. Inject the binding break and assert the convention path catches it.
+    result = P.assert_fault_convention_only(VARIANT, CONVENTION, RULE_ID, P.repo_root())
+    assert result["convention_flags"] >= 1
