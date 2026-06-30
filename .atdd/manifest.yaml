@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1263
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-06-30'
   archived: null
   branch: feat/decommission-preflight-classifier
