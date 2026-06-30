@@ -16,6 +16,7 @@ features:
   - urn: "feature:author-plan-substrate:author-feature"
   - urn: "feature:author-plan-substrate:author-wmbt"
   - urn: "feature:author-plan-substrate:author-train"
+  - urn: "feature:author-plan-substrate:author-interlocking"
   - urn: "feature:author-plan-substrate:author-acceptance"
 
 produce:
@@ -49,7 +50,7 @@ consume:
     from: "wagon:author-atdd-substrate"
 
 wmbt:
-  total: 12
+  total: 13
   C001: "minimize likelihood of the plan-artifact author guard accepting a malformed slug, URN, step-code, or a path escaping plan/"
   E001: "maximize likelihood of schema-valid wagon-manifest creation under the canonical plan/<slug>/_<slug>.yaml home"
   C002: "minimize likelihood of accepting a structurally invalid wagon manifest"
@@ -62,3 +63,4 @@ wmbt:
   E005: "maximize likelihood of schema-valid acceptance append into an existing wmbt file's acceptances[]"
   C006: "minimize likelihood of accepting a malformed acceptance"
   E006: "minimize likelihood of an unbound-train-validator by adding a train.convention.yaml rules: block and binding the train validators (executable-train family + dispatch rules), behaviour-preserving"
+  E007: "maximize likelihood of a schema-valid interlocking-artifact-write under plan/_trains/_interlockings/<id>.yaml: derive ONLY the digests via the single-source-of-truth stamp (per-route expected_sequence_digest + whole-doc content_digest), dedup-insert the registry entry, idempotent re-stamp, clean refusal (no partial write) on a missing route train, satisfying the real #1249 Confirm gate"

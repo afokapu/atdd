@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1265'
+  slug: interlocking-authoring-path
+  file: null
+  issue_number: 1265
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/interlocking-authoring-path
 - id: '1251'
   slug: runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
   file: null
