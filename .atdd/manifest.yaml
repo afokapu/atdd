@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1248'
+  slug: planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
+  file: null
+  issue_number: 1248
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
 - id: '1242'
   slug: phase-aware-validator-binding
   file: null
