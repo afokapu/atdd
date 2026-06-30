@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Train Interlocking Registry Schema",
+  "description": "Schema for plan/_trains/_interlockings.yaml — the registry of train interlockings (issue #1248). Mirrors the plan/_trains.yaml train registry: a thin index pointing at the canonical plan/_trains/_interlockings/<id>.yaml documents. The interlocking files remain authoritative; this registry is discovery metadata only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "interlockings"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Registry schema version."
+    },
+    "interlockings": {
+      "type": "array",
+      "description": "Registered interlockings.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["interlocking_id", "path"],
+        "properties": {
+          "interlocking_id": {
+            "type": "string",
+            "pattern": "^interlocking:[a-z][a-z0-9-]*$"
+          },
+          "path": {
+            "type": "string",
+            "description": "Canonical path to the interlocking YAML relative to repo root (plan/_trains/_interlockings/<id>.yaml)."
+          },
+          "theme": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "checked", "stale"]
+          }
+        }
+      }
+    }
+  }
+}

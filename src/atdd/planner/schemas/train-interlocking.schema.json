@@ -1,0 +1,393 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Train Interlocking Schema",
+  "description": "Schema for a train interlocking: the train-domain route-control artifact (issue #1248, parent #1246). The interlocking YAML is authoritative for the guarded route space; each executable route maps to exactly one numbered linear train variant. Mermaid/SVG/coverage outputs are derived projections, never sources of truth. Core validates shape only; semantic cross-checks (digit/train agreement, lifeline resolution, guard-ref existence) and Station Master reachability live in the Python API and downstream validators.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "interlocking_id",
+    "title",
+    "theme",
+    "status",
+    "source",
+    "entrypoint",
+    "route_resolution",
+    "lifelines",
+    "messages",
+    "routes"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the interlocking schema this document targets."
+    },
+    "interlocking_id": {
+      "type": "string",
+      "pattern": "^interlocking:[a-z][a-z0-9-]*$",
+      "description": "Stable interlocking identifier: interlocking:<kebab-case-name>."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "description": "Human-readable display name for the interlocking."
+    },
+    "theme": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Kebab-case theme this interlocking belongs to (mirrors train theme semantics)."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "checked", "stale"],
+      "description": "Authoring lifecycle state of the interlocking artifact."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "content_digest"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Canonical path to this interlocking YAML relative to repo root (plan/_trains/_interlockings/<id>.yaml)."
+        },
+        "content_digest": {
+          "type": "string",
+          "description": "sha256 (hex) of the normalized interlocking content, or a placeholder during authoring."
+        }
+      }
+    },
+    "entrypoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exposed", "actions", "reason"],
+      "description": "Declared reachability surface so extension validators never infer reachability from filenames. Core validates shape only; Station Master reachability is enforced in atdd-extensions#27.",
+      "properties": {
+        "exposed": {
+          "type": "boolean",
+          "description": "Whether this interlocking is reachable via a Station Master action."
+        },
+        "actions": {
+          "type": "array",
+          "description": "Station Master action names (NOT train IDs) that route into this interlocking.",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "enum": [
+            null,
+            "internal-transition-only",
+            "library-only",
+            "planned-not-exposed"
+          ],
+          "description": "Required when exposed is false; must be null when exposed is true."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "exposed": { "const": true } } },
+          "then": {
+            "properties": {
+              "actions": { "minItems": 1 },
+              "reason": { "const": null }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "exposed": { "const": false } } },
+          "then": {
+            "properties": {
+              "actions": { "maxItems": 0 },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "internal-transition-only",
+                  "library-only",
+                  "planned-not-exposed"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "route_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["fail_on_multiple_match", "first_priority"],
+          "description": "Explicit route-resolution strategy. No implicit order-based resolution is allowed. fail_on_multiple_match fails closed when >1 route matches; first_priority picks the lowest unique numeric priority."
+        }
+      }
+    },
+    "lifelines": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Declared participants (sequence-diagram lifelines). Message endpoints must resolve to one of these.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref"],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "pattern": "^(wagon|user|system):[a-z][a-z0-9-]*$",
+            "description": "Lifeline reference: wagon:<id>, user:<role>, or system:<source>."
+          }
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "description": "Declared messages between lifelines. Carries payload contract identity only, never Cargo runtime data.",
+      "items": { "$ref": "#/definitions/message" }
+    },
+    "fragments": {
+      "type": "array",
+      "description": "Combined fragments (alt/opt) carrying guarded sub-paths.",
+      "items": { "$ref": "#/definitions/fragment" }
+    },
+    "invariants": {
+      "type": "array",
+      "description": "Declarative invariants that must hold across the interlocking.",
+      "items": { "$ref": "#/definitions/invariant" }
+    },
+    "residuals": {
+      "type": "array",
+      "description": "Structural obligations that have no honest flow representation and are discharged by a named validator.",
+      "items": { "$ref": "#/definitions/residual" }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Guarded routes. Each executable route maps to exactly one numbered linear train variant with a matching category digit.",
+      "items": { "$ref": "#/definitions/route" }
+    }
+  },
+  "definitions": {
+    "participant_ref": {
+      "type": "string",
+      "pattern": "^(wagon|user|system):[a-z][a-z0-9-]*$"
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "from", "to", "intent", "payload"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^msg:[a-z][a-z0-9-]*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["boundary", "self", "control"],
+          "description": "boundary = between two distinct lifelines; self = a lifeline to itself; control = a control-flow note."
+        },
+        "from": { "$ref": "#/definitions/participant_ref" },
+        "to": { "$ref": "#/definitions/participant_ref" },
+        "intent": {
+          "type": "string",
+          "minLength": 5
+        },
+        "feature_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^feature:[a-z][a-z0-9-]*$"
+          }
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Payload contract identity ONLY. Never carries Cargo runtime contents or artifact_data values.",
+          "properties": {
+            "contract": {
+              "type": ["string", "null"],
+              "pattern": "^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$",
+              "description": "Contract identity in domain:resource form (e.g. match:result). Null when there is no payload."
+            },
+            "no_payload_reason": {
+              "type": ["string", "null"],
+              "minLength": 3,
+              "description": "Required (non-null) when contract is null."
+            }
+          },
+          "anyOf": [
+            {
+              "properties": { "contract": { "type": "string" } },
+              "required": ["contract"]
+            },
+            {
+              "properties": { "no_payload_reason": { "type": "string" } },
+              "required": ["no_payload_reason"]
+            }
+          ]
+        }
+      }
+    },
+    "fragment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "guards"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^frag:[a-z][a-z0-9-]*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["alt", "opt"]
+        },
+        "acceptance_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^acceptance:[a-z][a-z0-9-]*$"
+          }
+        },
+        "guards": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/guard" }
+        }
+      }
+    },
+    "guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "expression"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^guard:[a-z][a-z0-9-]*$"
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declarative, side-effect-free guard expression. Operators: == != < <= > >= and or not exists(field) in. No raw Python eval, no function calls except exists(), no imports/IO/mutation."
+        }
+      }
+    },
+    "invariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "expression"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^inv:[a-z][a-z0-9-]*$"
+        },
+        "wmbt_ref": {
+          "type": "string",
+          "pattern": "^wmbt:[a-z][a-z0-9-]*$"
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Declarative invariant expression (same grammar as guards)."
+        }
+      }
+    },
+    "residual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "reason"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^residual:[a-z][a-z0-9-]*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["structural", "behavioral", "temporal"]
+        },
+        "acceptance_ref": {
+          "type": "string",
+          "pattern": "^acceptance:[a-z][a-z0-9-]*$"
+        },
+        "validator_ref": {
+          "type": "string",
+          "description": "Path to the validator that discharges this residual obligation."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 5
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_id",
+        "category",
+        "category_digit",
+        "priority",
+        "guard_ref",
+        "train_id",
+        "train_path",
+        "projection"
+      ],
+      "properties": {
+        "route_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["nominal", "error", "alternate", "exception"]
+        },
+        "category_digit": {
+          "type": "string",
+          "enum": ["0", "1", "2", "3"],
+          "description": "Category digit; must agree with category and with the train_id's second digit (cross-checked in validate_interlocking)."
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Numeric priority. Under first_priority resolution, priorities must be unique."
+        },
+        "guard_ref": {
+          "type": "string",
+          "pattern": "^guard:[a-z][a-z0-9-]*$",
+          "description": "Reference to a guard declared in fragments[].guards[]."
+        },
+        "train_id": {
+          "type": "string",
+          "pattern": "^\\d{4}-[a-z0-9-]+$",
+          "description": "Target linear train this route selects."
+        },
+        "train_path": {
+          "type": "string",
+          "description": "Canonical path to the target train YAML (plan/_trains/<train_id>.yaml)."
+        },
+        "projection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["expected_sequence_digest"],
+          "properties": {
+            "expected_sequence_digest": {
+              "type": "string",
+              "description": "sha256 (hex) of the normalized route projection (the target train's linear sequence over the projected fields)."
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["step", "intent", "from", "to", "artifact"]
+              },
+              "description": "Ordered projection fields. Defaults to [step, intent, from, to, artifact] when omitted."
+            }
+          }
+        }
+      }
+    }
+  }
+}
