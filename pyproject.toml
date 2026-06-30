@@ -75,6 +75,10 @@ exclude = ["atdd.*.validators.fixtures*"]
 "atdd.coach.prompts" = ["**/*.yaml"]
 "atdd.coach.conventions" = ["*.yaml", "nodes/*.yaml"]
 "atdd.coach.overlays" = ["*.md"]
+# #1275: ship the relationship graph so `atdd plan guidelines` can surface
+# protocol-flow edges in consumer repos (graph/ is not a package; the glob
+# reaches into it from the atdd.coach package root).
+"atdd.coach" = ["graph/*.yaml"]
 "atdd.planner.conventions" = ["*.yaml", "nodes/*.yaml"]
 "atdd.planner.schemas" = ["*.json", "author/*.json"]
 "atdd.tester.conventions" = ["*.yaml"]
