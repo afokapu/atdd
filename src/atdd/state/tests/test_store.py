@@ -63,7 +63,9 @@ def test_object_list_filters_by_kind_and_delete(store):
     store.objects.upsert("wi-1", "work_item")
     store.objects.upsert("run-1", "run")
     assert {o.uid for o in store.objects.list(kind="work_item")} == {"wi-1"}
-    assert len(store.objects.list()) == 2
+    # The store seeds a singleton `release` object (#1172 migration v2), so the
+    # unfiltered list also carries it alongside the two created here.
+    assert {o.uid for o in store.objects.list()} == {"wi-1", "run-1", "release"}
     assert store.objects.delete("wi-1") is True
     assert store.objects.get("wi-1") is None
     assert store.objects.delete("wi-1") is False
