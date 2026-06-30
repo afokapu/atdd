@@ -61,8 +61,13 @@ def test_obligation_is_a_shipped_core_node() -> None:
 
 
 def test_transport_capability_without_realizes_is_refused() -> None:
-    """NEGATIVE: a transport provider lacking the realizes edge is refused (the rule
-    this validator binds — ``coach.substrate.transport-realizes-mediation``)."""
+    """NEGATIVE: a transport provider lacking the realizes edge is refused.
+
+    Refusing it enforces BOTH the forcing rule ``coach.substrate.transport-realizes-mediation``
+    AND the obligation ``coach.execution.dispatch-verifies-channel-live`` it operationalizes
+    (a provider that does not realize the obligation cannot be admitted)."""
+    bind_rule("coach.substrate.transport-realizes-mediation")
+    bind_rule("coach.execution.dispatch-verifies-channel-live")
     with pytest.raises(C.CompositionError, match="does not realizes"):
         C.validate_transport_realizes_mediation(_pkg(_UNMEDIATED), _core_ids())
 
