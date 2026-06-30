@@ -8,10 +8,20 @@ the authoritative current value in ``data.version``; every bump records a
 - :func:`current`               — the authoritative current version string.
 - :func:`next_from_change_class` — the next version for a PATCH/MINOR/MAJOR bump
   (no write).
-- :func:`bump`                  — apply a bump: write the object + append the
-  event; returns the new version.
-- :func:`publish_release`       — record the publication intent: an external_ref
-  for the git tag + an outbox row the GitHub extension drains to tag + publish.
+- :func:`bump`                  — apply a bump: write the object, append the
+  ``version_bumped`` event, AND emit a **provider-neutral** ``version_decided``
+  outbox signal carrying ``{version, change_class}``; returns the new version.
+
+**Provider-neutral core boundary (#1172 design doc §2/§3; #1171 local-first).**
+Core owns the *number* and the *decision* only. On a bump it enqueues a neutral
+``version_decided`` outbox message — the operation name and payload name no
+provider, no PyPI, no "tag"/"publish", and core writes no git/github ref. The
+publication side-effect (create the git tag, publish to the ecosystem, and write
+the tag back as an ``external_ref``) lives **entirely in the release extension**
+that drains the outbox; none of it is in this module. The outbox ``provider`` is
+a configured value (a keyword-only parameter defaulting to ``"github"``, mirroring
+:func:`atdd.state.hub.promote_trace`); *this* repo configures github, another
+stack passes its own.
 
 Change-class semantics match ``CLAUDE.md::release.change_class``:
 ``PATCH`` (bug/docs/refactor), ``MINOR`` (new feature, non-breaking), ``MAJOR``
@@ -25,7 +35,7 @@ import sqlite3
 from typing import Optional, Tuple
 
 from atdd.state.projections import RELEASE_UID, VERSION_BUMPED_EVENT
-from atdd.state.store import EventStore, ExternalRefStore, ObjectStore, SyncStore
+from atdd.state.store import EventStore, ObjectStore, SyncStore
 
 _log = logging.getLogger(__name__)
 
@@ -35,10 +45,15 @@ RELEASE_KIND = "release"
 #: ``build_meta_shim``). PEP 440 local version segment.
 LOCAL_FALLBACK_VERSION = "0.0.0+local"
 
-#: Publication routing (#1172 step 5): the GitHub extension drains this outbox.
-PUBLISH_PROVIDER = "github"
-PUBLISH_OPERATION = "tag_and_publish"
-PUBLISH_REF_KIND = "tag"
+#: Provider-neutral decision signal (#1172 design doc §2/§3). Core enqueues this
+#: on a bump; the release extension drains it to tag + publish. The operation
+#: name and its payload (``{version, change_class}``) name no provider and no
+#: publish mechanics — that coupling lives in the extension, never in core.
+VERSION_DECIDED_OPERATION = "version_decided"
+#: Default outbox provider — a *configured* value, not provider logic baked into
+#: core. Mirrors :func:`atdd.state.hub.promote_trace`'s ``provider="github"``
+#: default; this repo configures github, other stacks pass their own.
+DEFAULT_PROVIDER = "github"
 
 _CHANGE_CLASSES = ("PATCH", "MINOR", "MAJOR")
 
@@ -116,45 +131,39 @@ def next_from_change_class(conn: sqlite3.Connection, change_class: str) -> str:
     return _next(major, minor, patch, change_class)
 
 
-def bump(conn: sqlite3.Connection, change_class: str, *, pr: Optional[str] = None) -> str:
-    """Apply a version bump: write the release object and append a ``version_bumped`` event.
+def bump(conn: sqlite3.Connection, change_class: str, *, pr: Optional[str] = None,
+         provider: str = DEFAULT_PROVIDER) -> str:
+    """Apply a version bump and emit the provider-neutral decision signal.
 
-    Returns the new version. The object write is the authoritative state change;
-    the event is the audit trail (``{from,to,change_class,pr}``).
+    Three effects, in order:
+
+    1. **Authoritative state change** — upsert the release object's ``version``.
+    2. **Audit trail** — append a ``version_bumped`` event (``{from,to,change_class,pr}``).
+    3. **Neutral decision signal** — enqueue a ``version_decided`` outbox message
+       carrying only ``{version, change_class}`` (#1172 design doc §2/§3). Core
+       *decides* and stops here; the release extension drains this outbox to
+       create the tag + publish + write the tag ref back. Core names no provider's
+       publish mechanics: the operation + payload are neutral; only the outbox
+       routing ``provider`` is a configured value (default :data:`DEFAULT_PROVIDER`).
+
+    Returns the new version.
     """
+    cls = change_class.upper()
     from_version = current(conn)
     to_version = next_from_change_class(conn, change_class)
     ObjectStore(conn).upsert(RELEASE_UID, RELEASE_KIND, data={"version": to_version})
     EventStore(conn).append(
         VERSION_BUMPED_EVENT,
         object_uid=RELEASE_UID,
-        payload={"from": from_version, "to": to_version,
-                 "change_class": change_class.upper(), "pr": pr},
+        payload={"from": from_version, "to": to_version, "change_class": cls, "pr": pr},
+    )
+    outbox_id = SyncStore(conn).enqueue_outbox(
+        provider, VERSION_DECIDED_OPERATION,
+        {"version": to_version, "change_class": cls},
     )
     _log.info(
-        "release version bumped",
-        extra={"from": from_version, "to": to_version,
-               "change_class": change_class.upper(), "pr": pr},
+        "release version bumped; version_decided signal enqueued",
+        extra={"from": from_version, "to": to_version, "change_class": cls,
+               "pr": pr, "provider": provider, "outbox_id": outbox_id},
     )
     return to_version
-
-
-def publish_release(conn: sqlite3.Connection, version: Optional[str] = None) -> int:
-    """Record publication intent for ``version`` (default: :func:`current`).
-
-    Links the git tag as an external_ref and enqueues a ``tag_and_publish`` outbox
-    row. Core *decides*; the GitHub extension's release-worker drains the outbox to
-    create the tag + publish to PyPI (the publication side effect lives in the
-    provider extension, not core). Returns the outbox row id.
-    """
-    version = version or current(conn)
-    tag = f"v{version}"
-    ExternalRefStore(conn).link(RELEASE_UID, PUBLISH_PROVIDER, PUBLISH_REF_KIND, tag)
-    outbox_id = SyncStore(conn).enqueue_outbox(
-        PUBLISH_PROVIDER, PUBLISH_OPERATION, {"version": version, "tag": tag}
-    )
-    _log.info(
-        "release publication enqueued",
-        extra={"version": version, "tag": tag, "outbox_id": outbox_id},
-    )
-    return outbox_id

@@ -6,8 +6,9 @@
 """#1172 — the State Store as the release-version source of truth.
 
 Covers current/emit/next_from_change_class/bump semantics, the version_bumped
-event audit trail, the publish_release outbox enqueue, the release_projection
-read view, and the no-store fallback contract shared with the build hook.
+event audit trail, the provider-neutral ``version_decided`` outbox signal emitted
+on a bump (#1172 design-doc §2/§3 boundary), the release_projection read view,
+and the no-store fallback contract shared with the build hook.
 """
 from __future__ import annotations
 
@@ -75,7 +76,7 @@ def test_emit_falls_back_when_no_release_object(conn):
 
 
 # --------------------------------------------------------------------------- #
-# bump — writes object + appends event
+# bump — writes object + appends event + emits the neutral decision signal
 # --------------------------------------------------------------------------- #
 def test_bump_writes_object_and_appends_event(conn):
     new = ver.bump(conn, "MINOR", pr="1172")
@@ -118,26 +119,54 @@ def test_release_projection_none_without_object(conn):
 
 
 # --------------------------------------------------------------------------- #
-# publish_release — outbox enqueue (core decides, extension publishes)
+# version_decided — provider-neutral decision signal (core decides, extension
+# publishes). Pins the #1172 design-doc §2/§3 boundary: core names no provider's
+# publish mechanics — operation + payload are neutral; only outbox routing is
+# provider-configured.
 # --------------------------------------------------------------------------- #
-def test_publish_release_enqueues_outbox_and_links_tag(conn):
-    ver.bump(conn, "MINOR")                          # -> 3.150.0
-    outbox_id = ver.publish_release(conn)
-    assert isinstance(outbox_id, int)
+def test_bump_emits_neutral_version_decided_signal(conn):
+    ver.bump(conn, "MINOR", pr="1172")               # -> 3.150.0
 
     store = StateStore(conn)
     pending = store.sync.pending_outbox()
     assert len(pending) == 1
     msg = pending[0]
-    assert msg.provider == "github"
-    assert msg.operation == "tag_and_publish"
-    assert msg.payload == {"version": "3.150.0", "tag": "v3.150.0"}
 
-    ref = store.external_refs.resolve("github", "tag", "v3.150.0")
-    assert ref is not None and ref.object_uid == "release"
+    # Operation name is neutral — NOT "tag_and_publish"/"publish"/anything provider-y.
+    assert msg.operation == ver.VERSION_DECIDED_OPERATION == "version_decided"
+    # Payload carries ONLY {version, change_class} — no "tag", no provider ref.
+    assert msg.payload == {"version": "3.150.0", "change_class": "MINOR"}
+    assert "tag" not in msg.payload
 
 
-def test_publish_release_accepts_explicit_version(conn):
-    ver.publish_release(conn, "9.9.9")
-    pending = StateStore(conn).sync.pending_outbox()
-    assert pending[0].payload == {"version": "9.9.9", "tag": "v9.9.9"}
+def test_core_writes_no_git_tag_external_ref(conn):
+    """The git-tag external_ref is the extension's inbox writeback, never core's."""
+    ver.bump(conn, "MINOR")                          # -> 3.150.0
+    store = StateStore(conn)
+    # Core must NOT have linked any release/tag ref on a bump.
+    assert store.external_refs.resolve("github", "tag", "v3.150.0") is None
+    assert store.external_refs.for_object("release") == []
+
+
+def test_core_names_no_publish_mechanics(conn):
+    """Source-level guard: core's signal names no provider publish mechanics.
+
+    Core may *route* to a configured provider, but it must not (a) name a publish
+    operation, nor (b) use :class:`ExternalRefStore` — the git-tag writeback that
+    is the extension's inbox job, never core's.
+    """
+    import inspect
+    src = inspect.getsource(ver)
+    assert "tag_and_publish" not in src
+    assert "ExternalRefStore" not in src        # core writes no provider ref
+    assert ver.VERSION_DECIDED_OPERATION == "version_decided"
+
+
+def test_bump_outbox_provider_is_configurable(conn):
+    """`provider` is a configured routing value, not provider logic baked into core."""
+    ver.bump(conn, "PATCH", provider="npmjs")
+    msg = StateStore(conn).sync.pending_outbox()[0]
+    assert msg.provider == "npmjs"
+    # Operation + payload stay neutral regardless of routing target.
+    assert msg.operation == "version_decided"
+    assert "tag" not in msg.payload
