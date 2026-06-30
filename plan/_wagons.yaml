@@ -1300,6 +1300,13 @@ wagons:
       branch) and failing the strict coach.pr.merge-blocks-on-pre-smoke-close disposition
       only on that PR's own violation, while still scanning and logging every offender
       so each remains blocked on its own CI (#1165)
+    E057: 'minimize likelihood of planned-only-issues-blocked-from-pushing-because-the-bidirectional-binding-forward-pass-requires-an-anchored-test-before-the-owning-issue-has-reached-red
+      by phasing test_repo_validator_binding.collect_violations: a new owning_issue_phase()
+      + phase_machine-grounded pre-test comparison in _acceptance_walker reads .atdd/manifest.yaml
+      sessions[] keyed by wagon (fail-closed) so a harness acceptance with no anchored
+      test is exempt only while its owning issue is at INIT/PLANNED and fires exactly
+      as today from RED onward, leaving the reverse (orphan-test) pass and the rule
+      id/severity/disposition unchanged (#1242)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
