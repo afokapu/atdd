@@ -23,8 +23,11 @@ into the evaluation context by the caller.
 """
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any, List, Mapping, Tuple
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["GuardSyntaxError", "parse_guard", "evaluate_guard"]
 
@@ -285,6 +288,17 @@ def _compare(op: str, left: Any, right: Any) -> bool:
         if op == ">=":
             return bool(left >= right)
     except TypeError:
+        # Ordering across incomparable types (e.g. number vs string) is a
+        # deliberate non-match, not a crash — but record it so the swallow is
+        # observable rather than silent.
+        logger.debug(
+            "guard ordering comparison on incomparable types treated as non-match",
+            extra={
+                "op": op,
+                "left_type": type(left).__name__,
+                "right_type": type(right).__name__,
+            },
+        )
         return False
     raise GuardSyntaxError(f"unknown comparison operator {op!r}")  # pragma: no cover
 
