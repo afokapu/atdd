@@ -3165,3 +3165,12 @@ sessions:
   status: INIT
   created: '2026-07-01'
   archived: null
+  branch: chore/version-sot-store-projection-implementation
+- id: '1282'
+  slug: graduate-dispatch-daemon-attach-escalate
+  file: null
+  issue_number: 1282
+  type: tracking
+  status: INIT
+  created: '2026-07-01'
+  archived: null
