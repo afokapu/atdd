@@ -3156,3 +3156,12 @@ sessions:
   status: INIT
   created: '2026-06-30'
   archived: null
+  branch: feat/state-store-sot-boundary-operational-vs-definitions
+- id: '1281'
+  slug: version-sot-store-projection-implementation
+  file: null
+  issue_number: 1281
+  type: tracking
+  status: INIT
+  created: '2026-07-01'
+  archived: null
