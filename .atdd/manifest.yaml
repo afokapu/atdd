@@ -3182,3 +3182,12 @@ sessions:
   status: INIT
   created: '2026-07-01'
   archived: null
+  branch: feat/extend-verb-lexicon
+- id: '1284'
+  slug: reconcile-closed-phase-labels
+  file: null
+  issue_number: 1284
+  type: cleanup
+  status: INIT
+  created: '2026-07-01'
+  archived: null
