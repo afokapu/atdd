@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1276'
+  slug: planner-naming-validators
+  file: null
+  issue_number: 1276
+  type: implementation
+  status: SMOKE
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-naming-validators
+  train: 0001-self-compliance-validate
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
 - id: '1268'
   slug: enforce-dispatch-verifies-channel-live
   file: null
@@ -3388,3 +3400,13 @@ sessions:
   train: 0002-coach-drives-lifecycle
   created: '2026-06-30'
   archived: null
+- id: '1275'
+  slug: plan-guidelines-consumer
+  file: null
+  issue_number: 1275
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-06-30'
+  archived: null
+  branch: fix/plan-guidelines-consumer

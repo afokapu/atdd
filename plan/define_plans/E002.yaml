@@ -1,0 +1,29 @@
+urn: wmbt:define-plans:E002
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unenforced-foundational-naming-rule
+context_clarifier: planner.wagon.name-is-verb-object and planner.feature.name-is-verb-object
+  exist as bound rules (metadata.disposition strict, validation.enforcement confirm-blocking)
+  discoverable by bind_rule and executed by atdd validate planner
+lens: functional.effectiveness
+statement: minimize likelihood of unenforced-foundational-naming-rule by backing foundational
+  verb-object naming with bound, confirm-blocking validators run under atdd validate planner
+acceptances:
+- identity:
+    urn: acc:define-plans:E002-SMOKE-001-naming-rules-bound-and-run
+    id: AC-SMOKE-001
+    purpose: The two verb-object rules are bound and their validators run under atdd validate planner
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the atdd CLI
+  when:
+    abstract: atdd validate planner --local is run and bind_rule resolves each rule_id
+  then:
+    abstract:
+    - test_wagon_name_is_verb_object and test_feature_name_is_verb_object are collected
+    - bind_rule resolves planner.wagon.name-is-verb-object and planner.feature.name-is-verb-object

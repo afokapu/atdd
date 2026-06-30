@@ -1,0 +1,30 @@
+urn: wmbt:define-plans:C004
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: confirm-lock-with-non-verb-object-feature-name
+context_clarifier: PlanSession.confirm refuses to lock when a kept feature unit's slug
+  is not verb-object (first kebab-case token absent from the convention verb lexicon,
+  or a single-token slug), unless the whole slug is an explicit brand exception
+lens: functional.effectiveness
+statement: minimize likelihood of confirm-lock-with-non-verb-object-feature-name by
+  blocking Confirm when a kept feature slug violates planner.feature.name-is-verb-object
+acceptances:
+- identity:
+    urn: acc:define-plans:C004-SMOKE-001-feature-verb-object-blocks-at-confirm
+    id: AC-SMOKE-001
+    purpose: Confirm blocks a non-verb-object feature name and locks a verb-object one
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the atdd CLI
+    - a plan session at the Confirm step with one kept feature unit
+  when:
+    abstract: the session attempts to confirm with feature urn "feature:manage-users:respond-and-preview"
+  then:
+    abstract:
+    - confirm is refused (SessionGateError / non-zero) and the session stays unlocked
+    - re-running with a verb-object feature "feature:manage-users:make-choice" locks the session
