@@ -2912,6 +2912,7 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+  branch: chore/two-way-channel-autonomous-loop-not-closing-live
 - id: '1191'
   slug: safety-path-dangerous-escalate-no-live-coverage
   file: null
@@ -2969,6 +2970,7 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
+  branch: feat/state-store-authoritative-work-item-lifecycle
 - id: '1213'
   slug: tester-convention-decomposition
   file: null
@@ -3033,6 +3035,7 @@ sessions:
   status: INIT
   created: '2026-06-25'
   archived: null
+  branch: feat/bind-state-store-invariants-to-node-validators
 - id: '1221'
   slug: schema-driven-authoring
   file: null
@@ -3072,4 +3075,49 @@ sessions:
   type: implementation
   status: INIT
   created: '2026-06-26'
+  archived: null
+  branch: feat/decommission-special-case-validators
+- id: '1247'
+  slug: schema-authoring-add-convention-node-validation-metadata-for-interlocking-rules
+  file: null
+  issue_number: 1247
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/schema-authoring-add-convention-node-validation-metadata-for-interlocking-rules
+- id: '1248'
+  slug: planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
+  file: null
+  issue_number: 1248
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
+- id: '1249'
+  slug: planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
+  file: null
+  issue_number: 1249
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
+- id: '1251'
+  slug: runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
+  file: null
+  issue_number: 1251
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
+- id: '1265'
+  slug: interlocking-authoring-path
+  file: null
+  issue_number: 1265
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
   archived: null
