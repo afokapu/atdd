@@ -122,3 +122,26 @@ def test_create_work_item_unregistered_store_unavailable_is_false(tmp_path):
     # No .atdd at all → store cannot resolve a control root → graceful False.
     mgr = IssueManager(target_dir=tmp_path / "no-atdd-here")
     assert mgr._store_create_work_item(1, "x", status="INIT", data={}) is False
+
+
+def test_archive_writes_store_complete_and_archived_date(tmp_path):
+    mgr = _init_repo(tmp_path)
+
+    # The store-authoritative portion of _archive_github: terminal phase + the
+    # archived date land in the store (resolved by the github external_ref).
+    mgr._store_set_status(1203, "COMPLETE")
+    mgr._store_update_fields(1203, {"archived": "2026-06-30"})
+
+    store = _store(tmp_path)
+    ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "1203")
+    obj = store.objects.get(ref.object_uid)
+    assert obj.state == "COMPLETE"
+    assert obj.data["archived"] == "2026-06-30"
+
+
+def test_archive_store_writes_are_noop_for_unregistered_issue(tmp_path):
+    mgr = _init_repo(tmp_path)
+    # An issue with no work item / external_ref: both store writes are graceful
+    # no-ops — the GitHub close + manifest archive record still apply.
+    assert mgr._store_set_status(987654, "COMPLETE") is False
+    assert mgr._store_update_fields(987654, {"archived": "2026-06-30"}) is False

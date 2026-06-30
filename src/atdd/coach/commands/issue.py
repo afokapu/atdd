@@ -1575,6 +1575,14 @@ class IssueManager:
         # COMPLETE is carried by the atdd:COMPLETE label (REST) + the manifest
         # archive record below (#1051) — no Projects v2 board write.
 
+        # #1203 Phase 2: the State Store is authoritative for the work-item
+        # lifecycle — record the archive there first (terminal COMPLETE phase +
+        # the archived date), then mirror the manifest below. Both calls degrade
+        # to a logged no-op if the store is unavailable; the GitHub close +
+        # manifest record below still apply.
+        self._store_set_status(issue_number, "COMPLETE")
+        self._store_update_fields(issue_number, {"archived": date.today().isoformat()})
+
         # Update manifest
         manifest = self._load_manifest()
         for s in manifest.get("sessions", []):
