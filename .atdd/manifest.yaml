@@ -3398,3 +3398,13 @@ sessions:
   train: 0002-coach-drives-lifecycle
   created: '2026-06-30'
   archived: null
+- id: '1275'
+  slug: plan-guidelines-consumer
+  file: null
+  issue_number: 1275
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-06-30'
+  archived: null
+  branch: fix/plan-guidelines-consumer
