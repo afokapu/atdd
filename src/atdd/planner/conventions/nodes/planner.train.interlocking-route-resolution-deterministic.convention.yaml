@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-route-resolution-deterministic
+kind: constraint
+status: active
+name: Interlocking route resolution deterministic
+statement: Route resolution strategy is explicit and deterministic; ambiguous matching
+  routes fail closed unless unique priority is declared.
+terms:
+- term_id: route_resolution
+  text: allowed strategies are fail_on_multiple_match, or first_priority with unique
+    integer priorities
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_interlocking_route_resolution_strategy_declared
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: coherence
+  template: resolved_fact_agreement
+  variant: planner_train_interlocking_route_resolution_deterministic
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - strategy
+  - route_ids
+  - priorities
+  - reason

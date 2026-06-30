@@ -45,6 +45,21 @@ TEMPLATES = [
         auto_capture='a new node is included if it declares coverage requirements',
         failure_evidence=['source_node', 'required_target_kind', 'required_path', 'actual_targets'],
     ),
+    # train-interlocking projection coverage (#1249 / parent #1246). Asks: does
+    # every element of a SOURCE space (executable guard paths; WMBT obligations)
+    # project onto a target (a train route; a surface/residual)? Each source item
+    # must be covered exactly once or be an explicit structural residual.
+    TemplateContract(
+        family_id='coverage',
+        template_id='projection_covers_source',
+        question='Does every element of the source space project onto exactly one covered target (or an explicit residual)?',
+        selector='subjects declaring a source space that must project onto a target space (e.g. interlocking guards/WMBTs)',
+        traversal='subject -> source items -> projection -> covered target | structural residual',
+        invariant='every source item is covered once or explicitly classified as a structural residual',
+        auto_capture='a subject is included only when it declares a projection this template knows',
+        failure_evidence=['interlocking_id', 'guard_id', 'route_id', 'coverage_status',
+                          'wmbt_ref', 'surface_kind', 'residual_id'],
+    ),
 ]
 
 TEMPLATE_IDS = [t.template_id for t in TEMPLATES]
@@ -234,7 +249,98 @@ def _reachability_no_orphan(graph, config: Optional[dict] = None) -> List[dict]:
     return _no_orphan_nodes(graph)
 
 
+# ---------------------------------------------------------------------------
+# template: projection_covers_source  (#1249 / parent #1246)
+#
+# Two interlocking variants over the canonical-home artifacts:
+#   planner_train_interlocking_guard_coverage       -> every executable guard
+#       path maps to exactly one route, unless declared a structural residual.
+#   planner_train_interlocking_wmbt_surface_or_residual -> every WMBT obligation
+#       (an invariant's wmbt_ref) surfaces or is an explicit structural residual.
+# Both auto-capture: they fire only when a repo declares interlockings, so the
+# clean repo (no interlockings) stays at 0.
+# ---------------------------------------------------------------------------
+def _interlocking_guard_coverage(graph) -> List[dict]:
+    from atdd.planner.interlocking import InterlockingError, load_interlocking
+    from atdd.planner.interlocking.discovery import iter_interlocking_paths
+
+    root = graph.root
+    if root is None:
+        return []
+    out: List[dict] = []
+    for path in iter_interlocking_paths(root):
+        try:
+            il = load_interlocking(path)
+        except InterlockingError:
+            continue  # shape failures are owned by the schema family, not coverage
+        routed_guards = {r.guard_ref: r.route_id for r in il.routes}
+        residual_guards = {
+            rsd.id for rsd in il.residuals if rsd.kind == "structural"
+        }
+        for guard_id in il.guard_index():
+            if guard_id in routed_guards:
+                continue
+            if guard_id in residual_guards:
+                continue
+            out.append({"interlocking_id": il.interlocking_id, "guard_id": guard_id,
+                        "route_id": None, "coverage_status": "uncovered"})
+    return out
+
+
+def _interlocking_wmbt_surface_or_residual(graph) -> List[dict]:
+    from atdd.planner.interlocking import InterlockingError, load_interlocking
+    from atdd.planner.interlocking.discovery import iter_interlocking_paths
+
+    root = graph.root
+    if root is None:
+        return []
+    out: List[dict] = []
+    for path in iter_interlocking_paths(root):
+        try:
+            il = load_interlocking(path)
+        except InterlockingError:
+            continue
+        surfaced = {inv.wmbt_ref for inv in il.invariants if inv.wmbt_ref}
+        for msg in il.messages:
+            surfaced.update(msg.feature_refs)
+        residual_wmbts = {
+            rsd.id for rsd in il.residuals if rsd.kind == "structural"
+        }
+        # An obligation is unsurfaced only when an invariant names a wmbt_ref that
+        # is never carried by another surface and is not a declared residual.
+        for inv in il.invariants:
+            ref = inv.wmbt_ref
+            if not ref:
+                continue
+            if ref in surfaced:
+                continue
+            if ref in residual_wmbts:
+                continue
+            out.append({"interlocking_id": il.interlocking_id, "wmbt_ref": ref,
+                        "surface_kind": "invariant", "residual_id": None,
+                        "coverage_status": "unsurfaced"})
+    return out
+
+
+_PROJECTION_VARIANTS = {
+    'planner_train_interlocking_guard_coverage': _interlocking_guard_coverage,
+    'planner_train_interlocking_wmbt_surface_or_residual': _interlocking_wmbt_surface_or_residual,
+}
+
+
+def _projection_covers_source(graph, config: Optional[dict] = None) -> List[dict]:
+    variant = (config or {}).get('variant')
+    fn = _PROJECTION_VARIANTS.get(variant)
+    if fn is None:
+        raise ValueError(
+            f"unknown coverage projection_covers_source variant {variant!r}; "
+            f"expected one of {sorted(_PROJECTION_VARIANTS)}"
+        )
+    return fn(graph)
+
+
 REAL_EVALUATORS = {
     'source_has_required_target': _source_has_required_target,
     'reachability_no_orphan': _reachability_no_orphan,
+    'projection_covers_source': _projection_covers_source,
 }

@@ -1,0 +1,32 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-projection-equivalence
+kind: constraint
+status: active
+name: Interlocking projection equivalence
+statement: A referenced train sequence must equal the interlocking route projection
+  by step, intent, from, to, and artifact.
+terms:
+- term_id: projection_equivalence
+  text: the referenced train sequence equals the route projection by step, intent,
+    from, to, and artifact
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_train_sequence_matches_interlocking_projection
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: coherence
+  template: resolved_fact_agreement
+  variant: planner_train_interlocking_projection_equivalence
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - route_id
+  - train_id
+  - step
+  - field
+  - expected
+  - actual

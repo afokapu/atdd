@@ -23,6 +23,20 @@ TEMPLATES = [
         auto_capture='a new node is included if it declares `schema`',
         failure_evidence=['node_id', 'schema_id', 'schema_error_path', 'schema_error_message', 'node_location'],
     ),
+    # train-interlocking entrypoint-shape presence (#1249 / parent #1246). The
+    # interlocking artifact declares whether it is runtime-exposed and which
+    # Station Master actions reach it; this template asserts the conditional
+    # shape (exposed -> actions; not exposed -> reason) is structurally present.
+    TemplateContract(
+        family_id='schema',
+        template_id='required_field_presence',
+        question='Does each declaring subject carry the conditionally-required fields its shape demands?',
+        selector='subjects that declare a conditional field-presence shape (e.g. interlocking entrypoint)',
+        traversal='subject -> declared shape -> required-field set under the active condition',
+        invariant='every conditionally-required field is present and non-empty',
+        auto_capture='a subject is included only when it declares a shape this template knows',
+        failure_evidence=['interlocking_id', 'exposed', 'actions', 'reason', 'field_path'],
+    ),
 ]
 
 TEMPLATE_IDS = [t.template_id for t in TEMPLATES]
@@ -87,6 +101,16 @@ def _node_schema_conformance(graph, config=None):
     return S.node_schema_conformance(graph).violations
 
 
+# NOTE: the schema-family ``required_field_presence`` template (the interlocking
+# entrypoint-shape presence rule, #1249) is intentionally NOT exposed in
+# ``REAL_EVALUATORS``. The shared evaluator registry (``_support.evaluators``) is
+# keyed by template_id alone, and the ``presence`` family already owns a
+# ``required_field_presence`` evaluator — registering a second under the same key
+# would shadow it. The executable enforcement of the entrypoint-shape rule lives
+# in the planner validator ``test_sequence_diagram_sanity`` (via
+# ``planner.interlocking.sanity.entrypoint_shape_violations``), which is the
+# rule's bound ``implementation.ref``. The TemplateContract above documents the
+# template's intent for the registry/roundtrip catalogue.
 REAL_EVALUATORS = {
     "node_schema_conformance": _node_schema_conformance,
 }

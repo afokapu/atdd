@@ -2083,6 +2083,132 @@ edges:
   strength: important
   target_ref: coder.state-store.one-external-ref-per-issue
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: interlocking artifacts live beside the train registry they index
+  source_ref: planner.train.interlocking-home
+  strength: important
+  target_ref: planner.train.registry
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: entrypoint shape is declared on an interlocking in the canonical home
+  source_ref: planner.train.interlocking-entrypoint-shape
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: route category agreement presupposes the homed interlocking
+  source_ref: planner.train.interlocking-route-category-matches-train-id
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: guard grammar is declared on a homed interlocking
+  source_ref: planner.train.interlocking-guard-grammar
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: deterministic resolution presupposes the homed interlocking
+  source_ref: planner.train.interlocking-route-resolution-deterministic
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: guard coverage is proven against the route to train projection
+  source_ref: planner.train.interlocking-guard-coverage
+  strength: important
+  target_ref: planner.train.interlocking-projection-equivalence
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: projection equivalence presupposes the homed interlocking
+  source_ref: planner.train.interlocking-projection-equivalence
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: message payload typing is declared on a homed interlocking
+  source_ref: planner.train.interlocking-message-payload-typed
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a typed payload contract must resolve to a schema body
+  source_ref: planner.train.interlocking-payload-contract-body-required
+  strength: important
+  target_ref: planner.train.interlocking-message-payload-typed
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: fragment and acceptance binding presupposes the homed interlocking
+  source_ref: planner.train.interlocking-fragment-acceptance-binding
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: WMBT surfacing presupposes the homed interlocking
+  source_ref: planner.train.interlocking-wmbt-surface-or-residual
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a structural residual is the explicit escape hatch for WMBT surfacing
+  source_ref: planner.train.interlocking-structural-residual-explicit
+  strength: important
+  target_ref: planner.train.interlocking-wmbt-surface-or-residual
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the no-cargo boundary applies to homed interlockings
+  source_ref: planner.train.interlocking-does-not-carry-cargo
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: Confirm gates a train-bearing plan on interlocking sanity
+  source_ref: planner.plan.confirm-requires-interlocking-sanity
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0

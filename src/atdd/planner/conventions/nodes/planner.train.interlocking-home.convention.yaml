@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-home
+kind: rule
+status: active
+name: Interlocking home
+statement: Interlocking artifacts live under plan/_trains/_interlockings/ and are
+  registered in plan/_trains/_interlockings.yaml.
+terms:
+- term_id: interlocking_home
+  text: interlocking artifacts live under plan/_trains/_interlockings/ with a registry
+    index at plan/_trains/_interlockings.yaml
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_interlocking_home_under_trains
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: presence
+  template: required_field_presence
+  variant: planner_train_interlocking_home
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - path
+  - expected_home
+  - actual_home
