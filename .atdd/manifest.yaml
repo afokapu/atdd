@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1276
   type: implementation
-  status: PLANNED
+  status: SMOKE
   created: '2026-06-30'
   archived: null
   branch: feat/planner-naming-validators
