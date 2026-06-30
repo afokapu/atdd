@@ -20,12 +20,13 @@ _VALIDATION = {
 
 
 def test_loader_exposes_node_fields_validation(tmp_path):
+    # the loader walks <repo_root>/src/atdd, so author the node into that home
     create_convention_node(
         "planner", _RID,
         statement="An interlocking projection must equal its declared route table.",
         terms=[{"term_id": "interlocking", "text": "route-control model"}],
         validation=_VALIDATION,
-        root=tmp_path,
+        root=tmp_path / "src" / "atdd",
     )
     graph = load_composed_graph(tmp_path)
     node = graph.by_id(_RID)
