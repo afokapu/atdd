@@ -300,3 +300,36 @@ def test_prepush_passes_when_validator_succeeds(
         f"pre-push must exit 0 when validator passes; "
         f"rc={result.returncode}\nstderr={result.stderr}"
     )
+
+
+# ---------------------------------------------------------------------------
+# #1254: the heavy `atdd repo validate` URN-graph traversal is trimmed from the
+# LOCAL pre-push RUN_REPO leg — deferred to CI by default, opt-in via
+# ATDD_PREPUSH_FULL=1. Source-text guards (the executable behavioral coverage
+# lives in the CI-collected
+# src/atdd/coach/validators/test_prepush_repo_validate_opt_in.py).
+# ---------------------------------------------------------------------------
+
+
+def test_repo_validate_leg_is_opt_in_via_prepush_full() -> None:
+    """#1254: the full `atdd repo validate` traversal in the RUN_REPO leg must be
+    guarded by ATDD_PREPUSH_FULL, not invoked unconditionally."""
+    text = HOOK_PATH.read_text(encoding="utf-8")
+    assert "atdd repo validate" in text, (
+        "RUN_REPO leg removed entirely — expected an opt-in guard, not removal."
+    )
+    assert "ATDD_PREPUSH_FULL" in text, (
+        "the full `atdd repo validate` traversal must be opt-in via ATDD_PREPUSH_FULL=1 "
+        "(deferred to CI by default); the guard is missing from the pre-push hook."
+    )
+    assert text.index("ATDD_PREPUSH_FULL") < text.index("atdd repo validate"), (
+        "the ATDD_PREPUSH_FULL guard must precede (wrap) the `atdd repo validate` call."
+    )
+
+
+def test_repo_validate_trim_introduces_no_skip_bypass() -> None:
+    """#1254: the trim adds an opt-IN flag; it must not introduce any ATDD_SKIP_* bypass."""
+    text = HOOK_PATH.read_text(encoding="utf-8")
+    assert "ATDD_SKIP_PREPUSH" not in text and "ATDD_SKIP_REPO" not in text, (
+        "ATDD_PREPUSH_FULL adds validation; it must not be paired with an ATDD_SKIP_* bypass."
+    )
