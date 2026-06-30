@@ -35,10 +35,6 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_e009_unit_001_conventio
 
 RULE_ID = "coach.pr.runtime-artifacts-blocked"
 CONVENTION = "src/atdd/coach/conventions/pr.convention.yaml"
-LEGACY_NODEID = (
-    "src/atdd/coach/validators/test_e009_unit_001_convention_declares_runtime_artifacts_rule.py"
-    "::test_bind_rule_resolves"
-)
 
 
 def test_runtime_artifacts_rule_binding_variant_contract() -> None:
@@ -52,6 +48,7 @@ def test_runtime_artifacts_rule_binding_clean_baseline() -> None:
     P.assert_clean_baseline(VARIANT, P.repo_root())
 
 
-def test_runtime_artifacts_rule_binding_legacy_parity() -> None:
-    result = P.assert_fault_parity(VARIANT, CONVENTION, RULE_ID, LEGACY_NODEID, P.repo_root())
-    assert result["verdict"] == "both"
+def test_runtime_artifacts_rule_binding_convention_fault() -> None:
+    # Legacy parity oracle retired (#1207); the variant's own real-graph fault
+    # injection is the live coverage. LEGACY_PARITY_SOURCES kept as provenance.
+    P.assert_fault_convention_only(VARIANT, CONVENTION, RULE_ID, P.repo_root())
