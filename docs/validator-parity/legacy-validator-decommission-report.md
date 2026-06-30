@@ -28,6 +28,8 @@ Total legacy validators accounted: **237**
 | `src/atdd/planner/validators/test_plan_confirm_before_author.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
 | `src/atdd/planner/validators/test_plan_confirm_binds_issue.py` | planner | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
 | `src/atdd/planner/validators/test_plan_cross_refs.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_plan_cross_refs.py` (keep as shim during transition) |
+| `src/atdd/planner/validators/test_sequence_diagram_sanity.py` | planner | new_not_legacy | n/a | NEW in #1249 (parent #1246): train-interlocking sanity validators; not a legacy validator, retained not decommissioned |
+| `src/atdd/planner/validators/test_confirm_interlocking_sanity.py` | planner | new_not_legacy | n/a | NEW in #1249 (parent #1246): Confirm-gate interlocking sanity; not a legacy validator, retained not decommissioned |
 | `src/atdd/planner/validators/test_plan_uniqueness.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/uniqueness/test_plan_uniqueness.py` (keep as shim during transition) |
 | `src/atdd/planner/validators/test_plan_urn_resolution.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/resolution/test_plan_urn_resolution.py` (keep as shim during transition) |
 | `src/atdd/planner/validators/test_plan_wagons.py` | planner | direct | P0 | replace with convention variant `src/atdd/validators/conventions/schema/test_plan_wagons.py` (keep as shim during transition) |
