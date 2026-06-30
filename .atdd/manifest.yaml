@@ -3273,3 +3273,11 @@ sessions:
   status: GREEN
   created: '2026-06-18'
   archived: null
+- id: '1254'
+  slug: prepush-trim-repo-validate-leg
+  file: null
+  issue_number: 1254
+  type: refactor
+  status: INIT
+  created: '2026-06-30'
+  archived: null
