@@ -109,7 +109,10 @@ def _run_pre_push(
         "ATDD_SKIP_VERSION_GATE": "1",
         "ATDD_SKIP_BARE_CHECK": "1",
         "PATH": f"{fake_atdd_dir}:{os.environ['PATH']}",
-        # deliberately NOT CI=true: the validator section must run
+        # The validator section is auto-skipped when CI=true (CI runs the full
+        # suite). On a CI runner os.environ already carries CI=true, which would
+        # skip the very section under test — clear it so the section runs.
+        "CI": "",
     }
     if extra_env:
         env.update(extra_env)
@@ -275,7 +278,10 @@ def test_smoke_real_git_push_of_plan_change_skips_full_traversal(tmp_path: Path)
         "ATDD_SKIP_VERSION_GATE": "1",
         "ATDD_SKIP_BARE_CHECK": "1",
         "PATH": f"{fake_dir}:{os.environ['PATH']}",
-        # NOT CI=true — the validator section must run through real push plumbing
+        # Clear CI: the validator section is auto-skipped when CI=true, and a CI
+        # runner already exports CI=true — which would skip the section under
+        # test. We want it to run through real push plumbing.
+        "CI": "",
     }
     result = subprocess.run(
         ["git", "-C", str(local), "push", "origin", "feat/1254-smoke"],
