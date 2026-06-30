@@ -3147,3 +3147,12 @@ sessions:
   status: INIT
   created: '2026-06-30'
   archived: null
+  branch: feat/mandatory-three-path-review-for-authored-issues
+- id: '1274'
+  slug: state-store-sot-boundary-operational-vs-definitions
+  file: null
+  issue_number: 1274
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
