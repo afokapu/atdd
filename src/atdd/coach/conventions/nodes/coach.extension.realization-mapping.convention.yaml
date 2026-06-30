@@ -1,6 +1,6 @@
 schema_version: 1.0.0
 rule_id: coach.extension.realization-mapping
-kind: rule
+kind: principle
 status: active
 name: Cross-package linkage is declared through realizes
 statement: An extension declares cross-package linkage to core via realizes mappings
@@ -8,17 +8,16 @@ statement: An extension declares cross-package linkage to core via realizes mapp
   are not authored as raw relationship edges, and depends_on.targets.coach_nodes is
   derived from realizes.
 rationale: The substrate composes packages against core by resolving each realizes.core_node
-  to a shipped core node (validate_realizes). Making this a normative, bound rule
-  documents the mechanism extensions must use and is the basis for forcing a provider
-  to realize core obligations (e.g. dispatch-verifies-channel-live).
+  to a shipped core node. This documents the mechanism extensions must use; the planner
+  substrate's validate_realizes enforces well-formedness, and the strict rule
+  coach.substrate.transport-realizes-mediation forces a transport provider to realize
+  the dispatch-verifies-channel-live obligation. Documentation-only here because the
+  enforcement lives in the planner substrate, not a coach validator.
 terms:
 - term_id: realizes
   text: an extension-manifest mapping {extension_node, core_node} asserting the extension
     node satisfies a shipped core node; the sole cross-package linkage
-implementation:
-  type: validator
-  ref: test_c007_unit_001_realization_gate::test_unresolved_core_node_is_refused
 metadata:
   severity: 3
-  disposition: strict
+  disposition: documentation-only
   introduced_in: 4.0.0
