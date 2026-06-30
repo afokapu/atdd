@@ -10,6 +10,7 @@ in follow-up slices.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import logging
 import os
@@ -314,6 +315,7 @@ _PLAN_ROOT = "plan"
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 _WMBT_CODE_RE = re.compile(r"^[DLPCEMYRK][0-9]{3}$")
 _TRAIN_ID_RE = re.compile(r"^[0-9]{4}-[a-z][a-z0-9-]*$")
+_IL_ID_RE = re.compile(r"^interlocking:[a-z][a-z0-9-]*$")
 _PLAN_URN_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(:[A-Za-z0-9-]+)*$")
 
 # Wagon manifest required header fields (consume + wmbt are defaulted by the
@@ -490,14 +492,121 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
 
     per_train.parent.mkdir(parents=True, exist_ok=True)
     if not per_train.exists():
-        _write_yaml(per_train, {
+        train_doc: dict = {
             "train_id": tid,
             "title": spec.get("title", tid),
             "description": spec.get("description", ""),
             "participants": [f"wagon:{w}" for w in spec.get("wagons", [])],
             "status": "planned",
-        })
+        }
+        # Adjacent seam (#1265): carry the optional #1248 interlocking back-ref so a
+        # train authored as a route's target self-describes its owning interlocking.
+        # Pure traceability — it never alters train linearity (train.schema
+        # `source_interlocking`). The Confirm gate (#1249) reads the same shape off
+        # the kept unit's spec to bind the interlocking it must validate.
+        src_il = spec.get("source_interlocking")
+        if isinstance(src_il, dict) and src_il.get("interlocking_id") and src_il.get("route_id"):
+            train_doc["source_interlocking"] = {
+                "interlocking_id": src_il["interlocking_id"],
+                "route_id": src_il["route_id"],
+            }
+        _write_yaml(per_train, train_doc)
     return per_train
+
+
+def validate_interlocking_spec(spec: dict) -> None:
+    """Reject a structurally invalid interlocking spec before any write (WMBT E007)."""
+    iid = spec.get("interlocking_id", "")
+    if not _IL_ID_RE.match(iid or ""):
+        raise AuthorInputError(
+            "interlocking_id",
+            f"invalid interlocking_id {iid!r}; expected interlocking:<kebab-slug>",
+        )
+    for field in ("schema_version", "title", "theme", "status",
+                  "entrypoint", "route_resolution", "lifelines", "routes"):
+        if field not in spec or spec[field] in (None, "", []):
+            raise AuthorInputError(field, f"interlocking spec missing required field {field!r}")
+
+
+# Canonical interlocking field order (mirrors train-interlocking.schema.json top
+# level). `_write_yaml` uses sort_keys=False, so byte-determinism of the authored
+# artifact depends on constructing the dict in exactly this order.
+_IL_FIELD_ORDER: tuple[str, ...] = (
+    "schema_version", "interlocking_id", "title", "theme", "status",
+    "source", "entrypoint", "route_resolution", "lifelines", "messages",
+    "fragments", "invariants", "residuals", "routes",
+)
+
+
+def _insert_interlocking_registry(
+    registry_path: Path, iid: str, rel_path: str, theme, status
+) -> None:
+    """Dedup-insert (or update) the interlocking's thin registry entry, sorted by
+    interlocking_id (shape per train-interlocking-registry.schema.json)."""
+    registry: dict = {}
+    if registry_path.exists():
+        registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    registry.setdefault("version", "1.0")
+    entries = registry.setdefault("interlockings", [])
+    entry: dict = {"interlocking_id": iid, "path": rel_path}
+    if theme:
+        entry["theme"] = theme
+    if status in ("draft", "checked", "stale"):
+        entry["status"] = status
+    existing = next(
+        (e for e in entries if isinstance(e, dict) and e.get("interlocking_id") == iid),
+        None,
+    )
+    if existing is None:
+        entries.append(entry)
+    else:
+        existing.update(entry)
+    entries.sort(key=lambda e: e.get("interlocking_id", "") if isinstance(e, dict) else "")
+    _write_yaml(registry_path, registry)
+
+
+def create_interlocking(spec: dict, *, root: Path | str | None = None) -> Path:
+    """Author an interlocking: stamp derived digests + write the schema-valid
+    artifact under the canonical home + dedup-insert its registry entry (WMBT E007).
+
+    The control body (guards/entrypoint/routes/strategy/messages/fragments/
+    invariants/residuals) is human-authored input carried through verbatim; the
+    command derives ONLY ``source.content_digest`` and each route's
+    ``expected_sequence_digest`` via the single-source-of-truth stamp primitive.
+    Precondition: every ``route.train_path`` train YAML already exists on disk —
+    a missing train raises ``InterlockingError`` before any file is written."""
+    from atdd.planner.interlocking import stamp_interlocking_digests
+
+    validate_interlocking_spec(spec)
+    iid = spec["interlocking_id"]
+    slug = iid.split(":", 1)[-1]
+    plan = _plan_root(root)
+    repo_root = plan.parent
+    rel_path = f"plan/_trains/_interlockings/{slug}.yaml"
+    il_path = plan / "_trains" / "_interlockings" / f"{slug}.yaml"
+    registry_path = plan / "_trains" / "_interlockings.yaml"
+    validate_plan_author_input(slug, iid, il_path, plan_root=str(plan))
+
+    # Build the document in the pinned field order. source.content_digest + each
+    # route's expected_sequence_digest are placeholders here; stamp derives them.
+    doc: dict = {}
+    for fld in _IL_FIELD_ORDER:
+        if fld == "source":
+            doc["source"] = {"path": rel_path, "content_digest": "PENDING"}
+        elif fld in spec:
+            doc[fld] = copy.deepcopy(spec[fld])
+    for route in doc.get("routes", []):
+        if isinstance(route, dict):
+            route.setdefault("projection", {}).setdefault("expected_sequence_digest", "PENDING")
+
+    # Stamp BEFORE any write — a missing route train raises here, leaving no file.
+    stamped = stamp_interlocking_digests(doc, repo_root)
+
+    _write_yaml(il_path, stamped)
+    _insert_interlocking_registry(
+        registry_path, iid, rel_path, spec.get("theme"), spec.get("status")
+    )
+    return il_path
 
 
 def create_acceptance(wmbt_urn: str, block: dict, *, root: Path | str | None = None) -> Path:
@@ -647,7 +756,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Plan-layer kinds — spec-driven (rich nested shape: produce[], components{},
     # wmbts[], acceptances[]). The spec file holds the same input dict the
     # create_<kind> functions accept; #1139 (atdd plan) writes it per locked unit.
-    for _kind in ("wagon", "feature", "wmbt", "train"):
+    for _kind in ("wagon", "feature", "wmbt", "train", "interlocking"):
         pk = sub.add_parser(_kind, help=f"author a {_kind} (plan layer)")
         pk.add_argument("--spec", required=True, help="path to a YAML/JSON file with the kind's input dict")
         pk.add_argument("--root", default=None, help="repo root the plan/ home resolves against (default: cwd)")
@@ -807,7 +916,8 @@ def run(argv: list[str]) -> int:
 
     # Plan-layer kinds write under plan/ (not core/extension), so they need no
     # authoring-context resolution — dispatch before resolve_context.
-    if args.cmd in ("wagon", "feature", "wmbt", "train", "acceptance"):
+    if args.cmd in ("wagon", "feature", "wmbt", "train", "interlocking", "acceptance"):
+        from atdd.planner.interlocking import InterlockingError
         try:
             spec = yaml.safe_load(Path(args.spec).read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
@@ -823,10 +933,17 @@ def run(argv: list[str]) -> int:
                 out = create_wmbt(spec, root=args.root)
             elif args.cmd == "train":
                 out = create_train(spec, root=args.root)
+            elif args.cmd == "interlocking":
+                out = create_interlocking(spec, root=args.root)
             else:  # acceptance
                 out = create_acceptance(args.wmbt_urn, spec, root=args.root)
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        except InterlockingError as exc:
+            logger.warning("atdd author interlocking precondition unmet",
+                           extra={"error": str(exc)})
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(out))
