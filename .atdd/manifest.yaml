@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1265'
+  slug: interlocking-authoring-path
+  file: null
+  issue_number: 1265
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-30'
+  archived: null
+  branch: feat/interlocking-authoring-path
+  train: 0003-author-substrate
+  wagon: author-plan-substrate
+  feature: feature:author-plan-substrate:author-interlocking
 - id: '1263'
   slug: decommission-preflight-classifier
   file: null
@@ -61,7 +73,7 @@ sessions:
   created: '2026-06-30'
   archived: null
   branch: refactor/decommission-tier1-batch1
-- id: '1207-batch2'
+- id: 1207-batch2
   slug: decommission-tier1-batch2
   file: null
   issue_number: 1207
