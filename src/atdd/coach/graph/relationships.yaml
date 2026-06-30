@@ -243,6 +243,15 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_start
+  reason: 'the forcing check is what operationalizes the obligation: admission refuses any transport/orchestration provider that does not realize dispatch-verifies-channel-live, so the obligation is enforced rather than merely documented'
+  source_ref: coach.substrate.transport-realizes-mediation
+  strength: critical
+  target_ref: coach.execution.dispatch-verifies-channel-live
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: start_to_start
   reason: the phase machine is the canonical home the template must point at, not duplicate
   source_ref: coach.template.no-duplicated-convention
