@@ -19,7 +19,7 @@ content:
 metadata:
   severity: 3
   disposition: strict
-  introduced_in: 3.139.0
+  introduced_in: 3.140.0
 terms:
 - term_id: storage_api
   text: the public surface of atdd.state (store, projections) through which all callers read and

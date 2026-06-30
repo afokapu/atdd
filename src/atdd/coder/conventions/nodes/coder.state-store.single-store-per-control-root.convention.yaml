@@ -19,7 +19,7 @@ content:
 metadata:
   severity: 4
   disposition: strict
-  introduced_in: 3.139.0
+  introduced_in: 3.140.0
 terms:
 - term_id: control_root
   text: the directory that owns the single State Store for a family of sibling worktrees.
