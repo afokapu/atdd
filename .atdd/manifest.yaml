@@ -3357,6 +3357,16 @@ sessions:
   status: GREEN
   created: '2026-06-18'
   archived: null
+- id: 1203-phase2
+  slug: state-store-phase2-authoritative-writes
+  file: null
+  issue_number: 1203
+  type: implementation
+  status: GREEN
+  created: '2026-06-30'
+  archived: null
+  train: 0002-coach-drives-lifecycle
+  branch: feat/state-store-phase2-authoritative-writes
 - id: '1254'
   slug: prepush-trim-repo-validate-leg
   file: null
