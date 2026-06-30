@@ -1,0 +1,61 @@
+urn: "wmbt:mediate-worker-decisions:M006"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-supervisor-stall-going-unsurfaced-instead-of-loud-logged-and-exited"
+context_clarifier: "when the current phase's done signal does not appear within the configured stall threshold of consecutive polls (the work item is stuck mid phase and not progressing) the orchestrator loop must surface the stall loudly with a warning naming the work item and current phase and exit the loop rather than polling forever in silence; a routine run that keeps progressing across transitions never trips the stall path"
+lens: "functional.availability"
+statement: "minimize likelihood of a supervisor stall going unsurfaced instead of loud logged and exited"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:M006-UNIT-001-stall-is-loud-logged-and-exits"
+      id: "AC-UNIT-001"
+      purpose: "When a phase's done-signal never appears, after the stall threshold of consecutive polls the supervisor emits a WARNING naming the work item and phase, exits the loop, and never advances the phase driver"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake phase poller that always reports the same non-terminal phase with the done-signal absent (a stuck work item)"
+        - "A recording phase driver, a captured supervisor logger, and an injected (no-op) sleeper"
+    when:
+      abstract: "The supervisor runs over the stuck work item"
+      action: "invoke"
+    then:
+      abstract:
+        - "A WARNING-or-higher record naming the work item and the stuck phase is emitted on the supervisor logger after the stall threshold polls"
+        - "The phase driver is never advanced and the run returns a stalled outcome rather than looping forever"
+      assertions:
+        - type: "exists"
+        - type: "count"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "persistent-orchestrator"
+  - identity:
+      urn: "acc:mediate-worker-decisions:M006-SMOKE-001-live-stall-surfaces-and-exits"
+      id: "AC-SMOKE-001"
+      purpose: "A live supervisor over a genuinely stuck work item surfaces the stall loudly and exits rather than hanging mid-transition"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "A real work item that never produces its phase done-signal within the stall window, with the production-wired poller and driver"
+    when:
+      abstract: "The supervisor runs over the stuck live work item"
+      action: "invoke"
+    then:
+      abstract:
+        - "The stall is loud-logged with the work item and phase and the supervisor process exits non-silently rather than hanging"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "an operator sees the surfaced stall warning instead of a silently hung coach"
+      drift_resolved: "the supervisor process terminates on the stall instead of polling forever"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "persistent-orchestrator"
