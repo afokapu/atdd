@@ -10,6 +10,18 @@ sessions:
   created: '2026-06-30'
   archived: null
   branch: feat/interlocking-authoring-path
+- id: '1263'
+  slug: decommission-preflight-classifier
+  file: null
+  issue_number: 1263
+  type: implementation
+  status: SMOKE
+  created: '2026-06-30'
+  archived: null
+  branch: feat/decommission-preflight-classifier
+  wagon: validate-conventions
+  feature: feature:validate-conventions:legacy-decommission
+  train: 0001-self-compliance-validate
 - id: '1251'
   slug: runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
   file: null
