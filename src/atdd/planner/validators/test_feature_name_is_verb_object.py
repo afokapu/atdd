@@ -1,4 +1,7 @@
 # URN: component:atdd-plan-core:naming:FeatureNameIsVerbObject:backend:tests
+# Acceptance: acc:define-plans:C004-SMOKE-001-feature-verb-object-blocks-at-confirm
+# WMBT: wmbt:define-plans:C004
+# Phase: SMOKE
 # Runtime: python
 # Purpose: Foundational feature naming (verb-object) is validator-backed and blocks at Confirm (#1276).
 """Validators for ``planner.feature.name-is-verb-object`` (#1276).

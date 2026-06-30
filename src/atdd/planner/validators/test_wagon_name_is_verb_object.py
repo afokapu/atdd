@@ -1,4 +1,9 @@
 # URN: component:atdd-plan-core:naming:WagonNameIsVerbObject:backend:tests
+# Acceptance: acc:define-plans:C003-SMOKE-001-wagon-verb-object-blocks-at-confirm
+# Acceptance: acc:define-plans:C003-SMOKE-002-cli-exit-nonzero-on-naming-refusal
+# Acceptance: acc:define-plans:E002-SMOKE-001-naming-rules-bound-and-run
+# WMBT: wmbt:define-plans:C003
+# Phase: SMOKE
 # Runtime: python
 # Purpose: Foundational wagon naming (verb-object) is validator-backed and blocks at Confirm (#1276).
 """Validators for ``planner.wagon.name-is-verb-object`` (#1276).
