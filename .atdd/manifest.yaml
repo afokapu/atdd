@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1265
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-06-30'
   archived: null
   branch: feat/interlocking-authoring-path
@@ -70,7 +70,7 @@ sessions:
   created: '2026-06-30'
   archived: null
   branch: refactor/decommission-tier1-batch1
-- id: '1207-batch2'
+- id: 1207-batch2
   slug: decommission-tier1-batch2
   file: null
   issue_number: 1207
