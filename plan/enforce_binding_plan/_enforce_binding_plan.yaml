@@ -26,6 +26,8 @@ subject: agent:operator
 theme: commons
 urn: wagon:enforce-binding-plan
 wagon: enforce-binding-plan
+features:
+  - urn: "feature:enforce-binding-plan:run-binding-plan"
 produce:
 - name: commons:enforce:lock-resolver
   contract: null
