@@ -1,0 +1,72 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.composition-consumer
+kind: rule
+status: active
+name: Every layer file has a valid downstream consumer
+statement: Within a feature, each implementation file in a source layer (domain, application, or
+  integration) MUST be consumed by at least one valid downstream consumer drawn from the layer's
+  permitted consumer set (per the composition layer rules), so that intra-feature vertical slices are
+  fully wired and no implementation is left orphaned. This is the language-agnostic obligation owned by
+  the coder extension. The stack-specific detector that enforces it (a pytest/AST import-graph scan that
+  checks each layer file for an upstream consumer in an allowed layer) is the python-pytest workspace
+  implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.composition-consumer
+content:
+  summary: An agnostic "no unwired layer files" obligation. The python realization builds an
+    import-reachability graph for each feature and flags a domain/application/integration file that has
+    zero upstream consumers among its permitted layers (e.g. an application file imported by neither a
+    presentation file nor the composition root) when local consumer candidates exist. Existing-layers-only
+    filtering avoids false positives on intentionally partial features.
+  normative_text: |
+    Every implementation file in a source layer should be consumed by at least one valid downstream
+    consumer or composition root; an unwired file is dead weight that signals an incomplete vertical
+    slice. Candidate consumer layers are filtered by existing-layers-only at validation time, so a
+    missing higher layer does not create a false positive for an intentionally partial feature. The
+    permitted consumer set per source layer (verbatim from the composition convention): application ->
+    {presentation, composition}; integration -> {application, composition}; domain -> {application,
+    integration, presentation, composition}. WHICH import forms count and HOW reachability is computed is
+    delegated to the per-stack detector. For the python stack the detector resolves `ast` imports
+    (including feature-local layer imports) into a file graph, then checks each source file for an
+    upstream consumer in an allowed layer.
+  fix_hint: |
+    Wire the orphaned file into a valid consumer, or remove it:
+      src/application/orphan_use_case.py  (imported by nothing)  ->  import it from a presentation
+      controller or from the feature's composition.py, OR delete it if it is genuinely unused.
+    A file is only flagged when local consumer candidates exist (the allowed consumer layers are present
+    in the feature) — partial features do not over-fail. This rule is `strict`: a newly unwired layer
+    file is not suppressible and fails.
+  exceptions:
+    - Existing-layers-only — if none of a source layer's permitted consumer layers exist yet in the
+      feature, the file is not flagged (intentionally partial features are allowed).
+    - Connector/barrel files (`__init__.py`) and test trees are excluded from the graph.
+    - Cross-feature consumption is allowed — a consumer in another feature satisfies the rule.
+metadata:
+  aliases:
+    - REFACTOR-COMPOSITION-CONSUMER-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.composition-consumer
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: source_layer
+  text: a feature layer that holds implementation files subject to the consumer rule — domain,
+    application, or integration (presentation is a consumer, not a checked source layer here).
+- term_id: valid_consumer
+  text: an upstream file that imports the target (directly or transitively) and lives in one of the
+    target layer's permitted consumer layers, including the feature composition root.
+- term_id: existing_layers_only
+  text: the filter that restricts the permitted-consumer set to layers that actually exist in the
+    feature, so intentionally partial features are not failed for absent higher layers.

@@ -1,0 +1,64 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.quality-naming
+kind: rule
+status: active
+name: Python identifiers follow consistent naming conventions
+statement: Python identifiers MUST follow consistent PEP 8 naming conventions — classes in PascalCase and
+  module-level constants in UPPER_CASE — so that the codebase reads predictably during the REFACTOR phase.
+  This is the language-agnostic obligation owned by the coder extension. The stack-specific detector that
+  enforces it (a pytest pattern scan for lowercase class declarations and module-level lowercase
+  constant-style assignments) is the python-pytest workspace implementation referenced below; the
+  obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.quality-mi
+content:
+  summary: An agnostic "names are consistent" obligation. The python realization scans each file for class
+    declarations whose name starts lowercase (should be PascalCase) and module-level assignments whose
+    lowercase snake_case target looks like it should be an UPPER_CASE constant. It is realized by the
+    multi-rule quality-metrics detector alongside quality-mi, quality-comments, quality-duplication, and
+    quality-file-length.
+  normative_text: |
+    Naming conventions: classes in PascalCase, functions and variables in snake_case, constants in
+    UPPER_CASE. The detector flags two concrete patterns: (1) a `class` whose name begins with a lowercase
+    letter — it should be PascalCase; and (2) a module-level (non-indented) assignment whose target is a
+    lowercase name containing an underscore and whose right-hand side is a literal (string, number, or
+    list) — it reads as a constant and should be UPPER_CASE. The pytest special variable `pytest_plugins`
+    is exempt (it must be lowercase). WHICH identifier forms are checked and HOW is delegated to the
+    per-stack detector.
+  fix_hint: |
+    Rename to the conventional case: `class widget:` -> `class Widget:`; a module-level `max_retries = 5`
+    that is really a constant -> `MAX_RETRIES = 5`. If a lowercase module-level binding is genuinely a
+    variable rather than a constant, the underscore-plus-literal heuristic still flags it — move it into a
+    function scope or give it a non-constant shape. This rule is `strict`: a newly mis-cased identifier is
+    not suppressible and fails.
+  exceptions:
+    - The pytest special variable `pytest_plugins` must be lowercase and is exempt from the constant check.
+    - Only module-level (non-indented) assignments are checked for the constant convention; locals inside
+      functions/classes are not flagged.
+    - Module-level UPPER_CASE assignments are already correct and pass.
+metadata:
+  aliases:
+    - REFACTOR-QUALITY-NAMING-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.quality-naming
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: pascal_case_class
+  text: a class name written with a leading capital and internal capitals (e.g. `OrderRepository`); a
+    class whose name starts lowercase violates the rule.
+- term_id: upper_case_constant
+  text: a module-level constant named in all caps with underscores (e.g. `MAX_RETRIES`); a lowercase
+    snake_case module assignment to a literal is flagged as a mis-cased constant.

@@ -1,0 +1,68 @@
+schema_version: 1.1.0
+rule_id: coder.boundaries.xlang-naming
+kind: rule
+status: active
+name: Naming conventions are consistent across languages
+statement: A shared concept MUST carry the same architectural suffix across language stacks — a base name
+  modelled as `FooEntity` in one stack and `FooModel` in another is a naming-convention drift that MUST be
+  flagged, so the same concept is not spelled with divergent role suffixes across runtimes. This is the
+  language-agnostic obligation owned by the coder extension. The stack-specific detector that enforces it
+  (a pytest scan that buckets Python and Dart class names by architectural suffix and flags a shared base
+  spelled with different suffixes) is the python-pytest workspace implementation referenced below — the
+  obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.boundaries.xlang-entity
+content:
+  summary: An agnostic "consistent role suffixes across stacks" obligation. The realization buckets Python
+    and Dart class names by their architectural suffix (`Entity`, `Model`, `DTO`, `Service`, `Repository`)
+    keyed on the remaining base name, then flags any base that appears with one suffix in Python and a
+    DIFFERENT suffix in Dart. It emits a synthetic `naming/<base>` location naming the two divergent
+    suffixes.
+  normative_text: |
+    The same domain concept spelled `PlayerEntity` in Python and `PlayerModel` in Dart signals the two
+    stacks have diverged on naming role conventions; readers and tooling can no longer assume a 1:1 mapping.
+    The obligation: a shared base name uses the same role suffix in every stack. WHICH suffixes are tracked
+    and HOW bases are extracted is delegated to the per-stack detector; for the python-pytest realization
+    it strips a fixed suffix set off each class name and compares the Python and Dart suffix buckets for a
+    shared base. This rule is `strict`: a base name with conflicting suffixes across stacks fails.
+  fix_hint: |
+    Pick one role suffix for the concept and use it in both stacks:
+      Python  class PlayerEntity   Dart  class PlayerModel   # ❌ same base, different suffix
+      → rename one so both read `PlayerEntity` (or both `PlayerModel`). Keep role suffixes aligned across
+      runtimes for shared concepts.
+    This rule is `strict`: a cross-language naming-suffix conflict is not suppressible and fails.
+  exceptions:
+    - Only the tracked architectural suffixes (`Entity`, `Model`, `DTO`, `Service`, `Repository`) are
+      compared; a base spelled with the SAME suffix in both stacks is consistent and not flagged.
+    - The rule requires classes in both stacks; if either Python or Dart has no classes there is nothing to
+      compare.
+metadata:
+  aliases:
+    - BOUNDARIES-XLANG-NAMING-001
+    - SPEC-CODER-CONSISTENCY-0003
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/boundaries.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.boundaries.xlang-naming
+  legacy_sha: d6ae50723bb39a07
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: architectural_suffix
+  text: one of the tracked role suffixes (`Entity`, `Model`, `DTO`, `Service`, `Repository`) stripped from
+    a class name to obtain the comparable base.
+- term_id: shared_base
+  text: a base name (class name minus its architectural suffix) that appears in both the Python and Dart
+    suffix buckets; only shared bases can produce a suffix-conflict violation.
+- term_id: suffix_conflict
+  text: a shared base spelled with one tracked suffix in Python and a different tracked suffix in Dart — the
+    flagged drift, reported at a synthetic `naming/<base>` location.

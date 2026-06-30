@@ -1,0 +1,67 @@
+schema_version: 1.1.0
+rule_id: coder.security.sql-injection
+kind: rule
+status: active
+name: No raw SQL string concatenation in execute calls
+statement: A database sink call (`.execute` / `.executemany` / `.raw` / `.execute_sql`) MUST NOT receive a
+  SQL statement built by f-string interpolation or `+` string concatenation; parameterized queries MUST be
+  used instead, so user-controlled data can never alter query structure. This is the language-agnostic
+  obligation owned by the coder extension. The stack-specific detector that enforces it (a pytest/AST scan
+  that flags a SQL keyword appearing inside a dynamically built string passed to a sink method) is the
+  python-pytest workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.security.sql-injection
+content:
+  summary: An agnostic "no SQL injection via dynamic query strings" obligation. The python realization
+    walks each module's AST for `obj.execute(...)`-style sink calls and flags any argument that is an
+    f-string (`ast.JoinedStr`) or `+` concatenation (`ast.BinOp`/`Add`) whose constant parts contain a SQL
+    keyword (SELECT/INSERT/UPDATE/DELETE/DROP/ALTER/CREATE). A plain constant string argument is NOT
+    flagged — parameterized queries pass.
+  normative_text: |
+    SQL assembled by interpolation or concatenation lets attacker-controlled values change the shape of the
+    query; the only safe construction is a static query string plus bound parameters. The obligation: no
+    dynamic string carrying a SQL keyword may reach a database sink method. WHICH call shapes count as
+    sinks and HOW the dynamic string is recognized is delegated to the per-stack detector; for python it is
+    an `ast` walk that matches the configured sink methods (`execute`, `executemany`, `raw`,
+    `execute_sql`) and inspects `JoinedStr` / `BinOp(Add)` arguments for the configured SQL keywords.
+  fix_hint: |
+    Replace the dynamic string with a parameterized query:
+      cursor.execute("SELECT * FROM users WHERE name = '" + name + "'")   # ❌ FORBIDDEN
+      cursor.execute("SELECT * FROM users WHERE name = ?", (name,))       # ✅ parameterized
+    Pass user data as bound parameters, never by building the SQL text. This rule is `strict`: a newly
+    introduced dynamic-SQL sink call is not suppressible and fails.
+  exceptions:
+    - A sink call whose SQL argument is a single static constant string (no interpolation/concatenation) is
+      not flagged — it carries no injected data.
+    - Test trees, conftest, and migration scripts are excluded by the consumer's scan policy (excludes),
+      not by the detector.
+metadata:
+  aliases:
+    - SECURITY-SQL-INJECTION-001
+    - SPEC-CODER-SEC-0001
+  severity: 4
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/security.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.security.sql-injection
+  legacy_sha: a63b6862a146e7df
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: sink_method
+  text: a call whose attribute name is one of the configured database execution methods (`execute`,
+    `executemany`, `raw`, `execute_sql`); the argument to such a call is what the rule inspects.
+- term_id: dynamic_sql_string
+  text: a SQL-keyword-bearing string built at runtime via f-string interpolation (`ast.JoinedStr`) or `+`
+    concatenation (`ast.BinOp` with `ast.Add`) — as opposed to a single static constant.
+- term_id: parameterized_query
+  text: the safe construction — a static SQL string plus separately bound parameters — that satisfies the
+    obligation and is never flagged.

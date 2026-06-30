@@ -1,0 +1,6 @@
+{
+  "_comment": "CRUX: the SAME 25% presentation reduction as the dirty fixture, but smoke evidence IS recorded (.atdd/smoke-evidence/358.yaml present). The detector still emits ONE NON-EMPTY raw violation (it never reads evidence); the consumer's smoke-evidence gate absorbs it -> PASS. The verdict flips entirely downstream.",
+  "reductions": [
+    { "path": "web/src/match/presentation/MatchPage.tsx", "before_lines": 200, "after_lines": 150, "issue": 358 }
+  ]
+}

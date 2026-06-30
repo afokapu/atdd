@@ -1,0 +1,60 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.complexity-params
+kind: rule
+status: active
+name: Python function parameter count stays under threshold
+statement: Every Python function MUST keep its parameter count below the threshold (default < 6, excluding
+  self / cls) so that a function with too many parameters — a sign of poor abstraction or a function doing
+  too much — is surfaced. This is the language-agnostic obligation owned by the coder extension. The
+  stack-specific detector that enforces it (a pytest scan parsing each function signature) is the
+  python-pytest workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.complexity-cyclomatic
+content:
+  summary: An agnostic "no over-parameterized function" obligation. The python realization parses each
+    function's signature, counts the comma-separated parameters excluding self / cls, and flags any
+    function with more than 6. It is realized by the same multi-rule complexity detector as the four sibling
+    coder.refactor.complexity-* rules (via that implementation's emits_rule_ids).
+  normative_text: |
+    Too many parameters indicate a function doing too much, a missing abstraction (the arguments want to be
+    an object), and a function that is hard to call and test. The obligation: each function's parameter
+    count stays below the configured threshold (default < 6). HOW parameters are counted is delegated to
+    the per-stack detector; for python it parses the signature's comma-separated parameter list and filters
+    out the implicit self / cls receivers, exactly as core does.
+  fix_hint: |
+    Reduce the flagged function's parameter count:
+      * group related parameters into a parameter object / dataclass,
+      * split the function so each variant takes fewer arguments,
+      * push optional configuration into a settings object.
+    This rule is `strict`: a function over the parameter threshold is not suppressible and fails.
+    Pre-existing counts in a consumer repo are held flat by a downstream ratchet baseline (a consumer/coach
+    concern), not the workspace detector — the detector always emits the RAW over-threshold function list.
+  exceptions:
+    - The implicit receivers self and cls are never counted.
+    - The threshold (default 6) is configurable; the obligation is "below the configured threshold".
+metadata:
+  aliases:
+    - COMPLEXITY-PARAMS-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.complexity-params
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: parameter_count
+  text: the number of declared parameters in a function signature, excluding the implicit self / cls
+    receivers.
+- term_id: parameter_threshold
+  text: the configured maximum parameter count a function may have (default 6); the obligation is to stay
+    below it.

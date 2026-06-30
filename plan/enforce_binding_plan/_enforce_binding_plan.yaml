@@ -1,0 +1,72 @@
+action: reads binding.lock.yaml, and for every disposition:bound convention resolves
+  (workspace_id, implementation_id, contract_version), resolves the vendored provider
+  CLI, subprocesses it over the scan roots (never imports it), adapts raw v1.1 violation
+  JSON to the disposition-gate violation shape (severity joined from the convention
+  node), evaluates the disposition non-raising, aggregates per-rule verdicts into
+  one process exit code, and gates the commit/build via a hook + CI job
+context: the-install-is-real-but-inert, bindings-and-provider-ship-but-no-shipped-code-joins-them-over-the-binding-plan
+description: 'Lock-driven consumer-enforcement runner: a shipped `atdd enforce` verb
+  that reads binding.lock.yaml and, per disposition:bound convention, resolves its
+  workspace provider, subprocesses the provider CLI over the consumer''s scan roots,
+  bridges the raw v1.1 violation JSON through the disposition gate to a single aggregate
+  verdict + process exit code, and runs on every commit and in CI. The consumer-facing
+  counterpart to the producer-side decomposition wagons (#1213/#1215/#1218); coexists
+  with the legacy in-core validators until #1207 severs them. Phase-1 provider-CLI
+  generalization ships externally in atdd.workspace.python-pytest (DONE), not here.'
+goal: "ship the missing enforcement join between the provider half (cli/scan.py) and\
+  \ the verdict half (disposition gate) over the binding plan, so every bound convention\
+  \ is enforced over consumer code with a correct aggregate exit code \u2014 the live\
+  \ enforcement path #1207 needs to retire each legacy in-core validator"
+name: Enforce Binding Plan
+outcome: a shipped `atdd enforce` verb + verdict bridge + scan policy + commit/CI
+  gate that runs all bound rules end-to-end, exits 0/1/2 by verdict, holds dogfood
+  parity on src/atdd (incl the coder.logging.print exemption), keeps core provider-agnostic,
+  and records the vendor-vs-lock re-materialization decision
+subject: agent:operator
+theme: commons
+urn: wagon:enforce-binding-plan
+wagon: enforce-binding-plan
+features:
+  - urn: "feature:enforce-binding-plan:run-binding-plan"
+produce:
+- name: commons:enforce:lock-resolver
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:enforce:provider-scan-runner
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:enforce:verdict-bridge
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:enforce:scan-policy
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:enforce:enforce-cli
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:enforce:commit-ci-gate
+  contract: null
+  telemetry: null
+  to: external
+consume: []
+wmbt:
+  E001: "minimize likelihood of unrunnable-bound-rule \u2014 every disposition:bound\
+    \ convention in binding.lock.yaml runs its detector end-to-end, 0 of 26 emit 'report\
+    \ test missing'"
+  E002: "minimize likelihood of incorrect-aggregate-exit-code \u2014 one `atdd enforce`\
+    \ exits 0 iff all non-skipped bound rules pass, 1 if any strict rule fails, 2\
+    \ only on usage error"
+  E003: "minimize likelihood of unenforced-commit \u2014 a commit triggers the binding-plan\
+    \ scan (hook + CI) that gates the commit/build"
+  E004: "minimize likelihood of dogfood-parity-drift \u2014 runner verdicts over src/atdd\
+    \ match the legacy in-core validators incl the coder.logging.print exemption"
+  E005: "minimize likelihood of boundary-import-violation \u2014 core never imports\
+    \ a provider module and the provider CLI never imports core"
+  E006: "minimize likelihood of undecided-rematerialization \u2014 the vendor-vs-lock\
+    \ path is decided and has an automated check"
+  total: 6

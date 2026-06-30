@@ -1,0 +1,72 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.coach-ratchet-pres
+kind: rule
+status: active
+name: Presentation-layer reduction >20% requires recorded smoke evidence
+statement: When a change set reduces a presentation-layer file's line count by more than 20% relative to
+  the merge base (a full deletion counting as 100%), recorded smoke evidence MUST exist for the
+  governing issue before the SMOKE->REFACTOR transition is allowed; otherwise the reduction is gated.
+  This is the language-agnostic obligation owned by the coder extension. The stack-specific detector that
+  enforces it (a pytest scan over a mounted git-diff manifest for `*/presentation/*.{tsx,ts,py}` files
+  past the threshold) is the python-pytest workspace implementation referenced below — the obligation is
+  agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.coach-ratchet-pres
+content:
+  summary: An agnostic "mechanical trimming of the view layer must be smoke-verified" obligation. The
+    realization flags any `*/presentation/*.{tsx,ts,py}` file whose line count dropped >20% in a change
+    set and, absent recorded smoke evidence for the issue, gates the SMOKE->REFACTOR transition. The
+    ratchet rewards line/duplication reduction WITHOUT semantic verification, and presentation lines map
+    to user-visible features — so this layer-aware gate guards against silently removed behavior.
+  normative_text: |
+    The refactor ratchet treats line-count / duplication reduction as improvement, but presentation files
+    are uniquely sensitive because lines often correspond to user-visible features. Past incident
+    (core issue #358, replacing #319): 8 match features were removed during ratchet trimming, structural
+    validators stayed green, and the loss was caught only by manual smoke testing hours later. The
+    obligation: a >20% presentation reduction (deletion = 100%, Decision #4) requires recorded smoke
+    evidence for the governing issue, located at `.atdd/smoke-evidence/<issue>.yaml` (gitignored;
+    local/CI evidence, not git history — Decision #3). WHICH files count and HOW the deltas are computed
+    is delegated to the per-stack detector; for python-pytest the diff facts are supplied as a mounted
+    `reductions.json` manifest and the threshold predicate is `(before - after) / before > 0.20`.
+  fix_hint: |
+    Before reducing a presentation file by >20%, smoke-test the affected feature and record evidence:
+      atdd validate coder --smoke-required <issue>
+    which writes `.atdd/smoke-evidence/<issue>.yaml`. With evidence recorded for the issue, the
+    reduction is absorbed and the SMOKE->REFACTOR transition proceeds. Severity is 3 (Decision #5):
+    advisory + gate, not stop-the-world — the past incident took hours to find, not weeks.
+  exceptions:
+    - A reduction at or below 20% is allowed without evidence (the 20% threshold is exclusive).
+    - New files (before_lines = 0) and growth are not reductions and are never flagged.
+    - Non-presentation files (domain/application/integration) are out of scope for this rule.
+    - A reduction whose issue has recorded smoke evidence is absorbed by the gate (applied by the
+      coach/consumer layer, NOT by the workspace detector — the detector emits the RAW reduction
+      regardless of evidence).
+metadata:
+  aliases:
+    - COACH-RATCHET-PRES-001
+  severity: 3
+  disposition: advisory
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: ratchet_smoke_gate.rules
+  legacy_rule_id: coder.refactor.coach-ratchet-pres
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: presentation_reduction
+  text: a presentation-layer file (`*/presentation/*.{tsx,ts,py}`) whose line count dropped by more than
+    20% relative to the merge base in a single change set; a full deletion is a 100% reduction.
+- term_id: smoke_evidence
+  text: a recorded attestation that the trimmed feature was manually smoke-tested, stored at
+    `.atdd/smoke-evidence/<issue>.yaml`; its presence (for the governing issue) absorbs the reduction.
+- term_id: advisory_gate
+  text: the disposition for this rule — severity 3, advisory rather than blocking, but gating the
+    SMOKE->REFACTOR transition until smoke evidence is recorded.

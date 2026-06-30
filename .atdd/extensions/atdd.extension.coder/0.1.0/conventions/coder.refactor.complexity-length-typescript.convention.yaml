@@ -1,0 +1,65 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.complexity-length-typescript
+kind: rule
+status: active
+name: TypeScript function length stays under threshold
+statement: Every TypeScript/TSX function MUST keep its lines of code below the threshold (default <= 50 LOC,
+  excluding blank and comment lines; parity with the Python rule) so that a single function does not grow
+  long enough to violate the single-responsibility principle. This is the TypeScript-stack realization of
+  the language-neutral coder.refactor.complexity-length obligation owned by the coder extension. The
+  stack-specific detector that enforces it (a regex scan counting code lines per function body — no
+  AST/tree-sitter) is the python-pytest workspace implementation referenced below — the obligation is
+  agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.complexity-cyclomatic-typescript
+content:
+  summary: The TypeScript sibling of coder.refactor.complexity-length. The realization is a PYTHON detector
+    that inspects TS source by regex + brace matching (no TypeScript runtime), extracting each function body
+    and counting its lines of code (excluding blank lines and // or /* */ comment lines), flagging any
+    function longer than 50 LOC. It is realized by the same multi-rule TS complexity detector as the two
+    sibling coder.refactor.complexity-*-typescript rules (via that implementation's emits_rule_ids).
+  normative_text: |
+    Long functions violate the single-responsibility principle and are hard to test; the obligation mirrors
+    the Python one (default threshold <= 50 LOC). HOW lines are counted is delegated to the per-stack
+    detector; for the TS stack it counts every non-blank line of the extracted function body that is not a
+    // line comment or inside a /* */ block comment. This realization needs no TypeScript runtime; it runs
+    under the python-pytest provider, distinct from a future node/vitest TS workspace for validators that
+    require real TS semantics.
+  fix_hint: |
+    Shorten the flagged function by decomposition:
+      * extract cohesive blocks into well-named helper functions or components,
+      * move distinct responsibilities into separate functions / hooks,
+      * remove dead or duplicated lines.
+    This rule is `strict`: a function over the length threshold is not suppressible and fails. Pre-existing
+    length in a consumer repo is held flat by a downstream ratchet baseline (a consumer/coach concern), not
+    the workspace detector — the detector always emits the RAW over-threshold function list.
+  exceptions:
+    - Blank lines and // or /* */ comment lines are not counted toward the length.
+    - Test files (*.test.ts(x) / *.spec.ts(x)) and vendored/build dirs are outside the scan.
+    - The threshold (default 50) is configurable; the obligation is "at or below the configured threshold".
+metadata:
+  aliases:
+    - COMPLEXITY-LENGTH-TS-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.complexity-length-typescript
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: function_length_ts
+  text: the count of lines of code in a TypeScript function body, excluding blank lines and // or /* */
+    comment lines.
+- term_id: length_threshold
+  text: the configured maximum lines of code a TS function may have (default 50, parity with the Python
+    rule); the obligation is to stay at or below it.

@@ -1,0 +1,29 @@
+urn: wmbt:enforce-binding-plan:E005
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: boundary-import-violation
+context_clarifier: an import-discipline guard over the shipped runner asserts no atdd.workspace.*
+  import in core and no atdd.* core import in the workspace CLI
+lens: functional.effectiveness
+statement: minimize likelihood of boundary-import-violation by ensuring the core `atdd
+  enforce` verb never imports a provider module and the provider CLI never imports
+  core
+acceptances:
+- given:
+    abstract:
+    - the shipped runner source tree and the vendored workspace provider CLI
+  harness:
+    category: integration
+    type: smoke
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify boundary discipline holds in a real checkout (V5)
+    urn: acc:enforce-binding-plan:E005-SMOKE-001-boundary
+  then:
+    abstract:
+    - no atdd.workspace.* import appears in the core enforce verb
+    - no atdd.* core import appears in the workspace CLI
+  when:
+    abstract: the import-discipline guard (grep/AST) runs over both sides

@@ -1,0 +1,10 @@
+# GREEN fixture: an acceptance declaring signal.metric: latency_p95, with a
+# backing compute()/passes() module present at .atdd/metrics/latency_p95.py
+# -> RAW = [] -> strict verdict PASS.
+feature: checkout-latency
+acceptances:
+  - id: acc:checkout:E019-METRIC-001-latency-budget
+    statement: Verify checkout p95 latency stays within budget
+    signal:
+      metric: latency_p95
+      threshold: 200

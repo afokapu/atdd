@@ -1,0 +1,66 @@
+schema_version: 1.1.0
+rule_id: coder.design.primitives
+kind: rule
+status: active
+name: Presentation components compose design-system primitives
+statement: A presentation-layer UI component that renders markup MUST compose at least one design-system
+  import (primitive, component, or foundation) rather than building entirely from raw platform elements,
+  so the presentation layer stays themed and consistent through the shared design system. This is the
+  language-agnostic obligation owned by the coder extension. The stack-specific detector that enforces it
+  (a pytest/regex scan of presentation-layer `.tsx` files for any design-system import) is the
+  python-pytest workspace implementation referenced below — the obligation is agnostic, the detector is
+  not.
+implementation:
+  type: validator
+  ref: coder.design.primitives
+content:
+  summary: An agnostic "the view layer is built from the design system" obligation. The web realization
+    flags any presentation-layer `.tsx` file that renders JSX (`return <...`) yet imports nothing from
+    `maintain-ux` (primitives / components / foundations). It is realized by the same multi-rule detector
+    as the rest of the design-system family (declared via that implementation's `emits_rule_ids`).
+  normative_text: |
+    Presentation components are the seam where the design system is applied; a presentation component that
+    renders markup but pulls in zero design-system imports bypasses the shared primitives entirely,
+    producing unthemed, inconsistent UI that drifts from the system. The obligation: a presentation
+    component that renders markup must compose at least one design-system import. WHICH import paths count
+    as design-system imports and HOW rendering is detected is delegated to the per-stack detector; for the
+    web stack the design-system import set is the `maintain-ux` primitive/component/foundation paths and
+    rendering is a `return <` JSX scan over presentation-layer `.tsx` files.
+  fix_hint: |
+    Compose the presentation component from the design system:
+      web/src/<wagon>/<feature>/presentation/View.tsx  (renders raw <div> only)  ->  FORBIDDEN
+      import { Box } from '@/maintain-ux/primitives'    // ...then render <Box>   ->  allowed
+    Pull a primitive/component/foundation from the design system instead of building the view entirely
+    from raw platform elements. This rule is `strict`: a presentation component with zero design-system
+    imports is not suppressible and fails.
+  exceptions:
+    - Non-rendering presentation files (no JSX `return <`) are not flagged — only components that actually
+      render markup are required to compose the design system.
+    - Test files and design-system-internal (`maintain-ux/`) files are out of scope (excluded by the scan
+      policy passed in).
+metadata:
+  aliases:
+    - DESIGN-PRIMITIVES-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.primitives
+  legacy_sha: 21bedcb7d74cfb18
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: presentation_layer
+  text: the view layer of a feature (web `{wagon}/{feature}/presentation/**`) that renders markup; the
+    only layer this rule checks for design-system composition.
+- term_id: design_system_import
+  text: an import from the shared design system (web `maintain-ux` primitives / components / foundations,
+    via `@/maintain-ux/*`, `@maintain-ux/*`, or relative `../primitives` / `../components` /
+    `../foundations` paths).

@@ -1,0 +1,14 @@
+# RED fixture: an acceptance declaring signal.metric: error_rate with NO backing
+# compute()/passes() module in either lookup root -> RAW = 1 -> strict verdict FAIL.
+# A second acceptance uses inline signal form for the same gap, proving inline
+# detection; it points at a module that is also absent.
+feature: payments-reliability
+acceptances:
+  - id: acc:payments:E020-METRIC-001-error-rate
+    statement: Verify payment error rate stays within budget
+    signal:
+      metric: error_rate
+      threshold: 0.01
+  - id: acc:payments:E021-METRIC-002-timeout-rate
+    statement: Verify payment timeout rate stays within budget
+    signal: {metric: timeout_rate, threshold: 0.02}

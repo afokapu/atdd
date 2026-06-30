@@ -1,0 +1,62 @@
+schema_version: 1.1.0
+rule_id: coder.design.token-color
+kind: rule
+status: active
+name: UI files reference color tokens, not raw color literals
+statement: A UI file MUST reference design-system color tokens rather than embedding raw color literals
+  (hex or rgba) inline, so theming stays centralized and consistent. This is the language-agnostic
+  obligation owned by the coder extension. The stack-specific detector that enforces it (a pytest/regex
+  scan of UI files for raw `#rrggbb` / `rgba()` literals outside token references) is the python-pytest
+  workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.design.primitives
+content:
+  summary: An agnostic "colors come from tokens" obligation. The web realization flags raw six-digit hex
+    literals (excluding common neutrals `#ffffff` / `#000000` / `#1a1a1a`) and `rgba()` calls in UI
+    `.tsx` files, skipping import lines, comments, and lines that already reference a `colors.` token. It
+    is realized by the same multi-rule detector as the rest of the design-system family (declared via that
+    implementation's `emits_rule_ids`).
+  normative_text: |
+    Color is a design token: when a UI file hardcodes a hex or rgba literal it forks the palette away from
+    the centralized theme, so a future re-theme silently misses it. The obligation: UI color values come
+    from design tokens, not inline literals. WHICH literal forms are matched and WHICH neutrals are
+    tolerated is delegated to the per-stack detector; for the web stack it matches six-digit hex and
+    `rgba()` in `.tsx` files, allows the common black/white/near-black neutrals, and ignores lines that
+    already reference a `colors.` token. A per-file cap of three sites is applied at detection time
+    (reporting ergonomics, copied from core) — it is not a disposition decision.
+  fix_hint: |
+    Replace the raw literal with a design token:
+      const style = { color: '#3a7bd5' }                 ->  FORBIDDEN
+      import { colors } from '@/maintain-ux/foundations'  // const style = { color: colors.accent }
+    Pull the color from the foundations token set so a single source defines the palette. This rule is
+    `strict`: a raw color literal in a UI file is not suppressible and fails.
+  exceptions:
+    - Common neutrals (`#ffffff`, `#000000`, `#1a1a1a` and the `#fff` / `#000` shorthands) are tolerated.
+    - Lines that already reference a `colors.` token, import lines, and comments are not flagged.
+    - Design-system-internal (`maintain-ux/`) files and test files are out of scope.
+metadata:
+  aliases:
+    - DESIGN-TOKEN-COLOR-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.token-color
+  legacy_sha: 21bedcb7d74cfb18
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: color_token
+  text: a named color value defined in the design-system foundations (referenced via a `colors.` accessor)
+    that centralizes the palette.
+- term_id: raw_color_literal
+  text: an inline color value embedded directly in source — a six-digit hex (`#rrggbb`) or an `rgba()`
+    call — that bypasses the token set.

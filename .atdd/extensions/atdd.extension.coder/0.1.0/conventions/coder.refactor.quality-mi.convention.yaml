@@ -1,0 +1,65 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.quality-mi
+kind: rule
+status: active
+name: Python modules meet a minimum maintainability index
+statement: Every Python source module of non-trivial size MUST have a maintainability index (MI) at or
+  above the SEI/Microsoft "maintainable" threshold of 20, so that REFACTOR-phase code stays readable and
+  changeable rather than degrading into unmaintainable complexity. This is the language-agnostic obligation
+  owned by the coder extension. The stack-specific detector that enforces it (a pytest scan computing
+  radon's standard MI — Halstead volume + cyclomatic complexity + LOC + comments — per file) is the
+  python-pytest workspace implementation referenced below; the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.quality-mi
+content:
+  summary: An agnostic "modules stay maintainable" obligation. The python realization runs radon's
+    `mi_visit(source, multi=True)` over each module of >= 10 lines and flags any whose MI falls below 20.
+    It is realized by the multi-rule quality-metrics detector (declared via that implementation's
+    `emits_rule_ids`) alongside quality-comments, quality-duplication, quality-naming, and
+    quality-file-length.
+  normative_text: |
+    The maintainability index is the SEI/Visual Studio composite of Halstead volume, cyclomatic
+    complexity, lines of code, and comment percentage on a 0-100 scale: MI >= 20 is "maintainable",
+    10 <= MI < 20 is "moderate", MI < 10 is "unmaintainable". The obligation is that each non-trivial
+    module clears 20. WHICH MI formula and HOW it is computed is delegated to the per-stack detector;
+    for python it is radon's `mi_visit` with `multi=True`. SUBSTRATE NOTE (faithful to core): the python
+    detector depends on the third-party `radon` package and, exactly as core, returns MI=100.0
+    (don't-penalize) for any file it cannot compute — including when radon is not installed — so an
+    environment without radon emits no MI violations rather than failing spuriously. Files under 10 lines
+    are not measured.
+  fix_hint: |
+    Raise the module's maintainability index above 20: reduce cyclomatic complexity (split large
+    functions, flatten nested branches), shrink Halstead volume (fewer distinct operators/operands per
+    unit), and add explanatory comments/docstrings. A single oversized, densely-branching module is the
+    usual cause — extract cohesive helpers. This rule is `strict`: a module below the MI threshold is not
+    suppressible and fails.
+  exceptions:
+    - Very small files (< 10 lines) are not measured — too little signal for a meaningful MI.
+    - When the MI backend cannot parse/score a file (or is unavailable), MI defaults to 100.0 (no
+      violation) — the detector never penalizes a file it cannot measure.
+metadata:
+  aliases:
+    - REFACTOR-QUALITY-MI-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.quality-mi
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: maintainability_index
+  text: the SEI/Microsoft 0-100 composite metric (Halstead volume + cyclomatic complexity + LOC +
+    comment ratio) where >= 20 is considered maintainable; computed for python via radon's `mi_visit`.
+- term_id: dont_penalize_fallback
+  text: the behavior (preserved verbatim from core) of returning MI=100.0 for any file the backend
+    cannot score — a parse error or an absent radon dependency yields no violation, never a false fail.
