@@ -1,0 +1,69 @@
+urn: "wmbt:author-atdd-substrate:C010"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "invalid-issue-body"
+context_clarifier: "when checking an issue body, the schema-driven validator must reject a body that is missing a required section or the required `### Graph Context` H3, or whose Metadata Status value is outside the shared phase enum — superseding the issue_template string-grep (PLACEHOLDER_STRINGS / REQUIRED_SUBSECTIONS) with validation against issue.schema.json"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting an invalid-issue-body (missing required section / missing Graph Context / out-of-enum Status) by validating against issue.schema.json instead of greping strings"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C010-UNIT-001-rejects-missing-graph-context"
+      id: "AC-UNIT-001"
+      purpose: "validate_issue_body rejects a body missing a required section or the required `### Graph Context` subsection, checked against issue.schema.json"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue body with the `### Graph Context` subsection (or another required section) removed"
+    when:
+      abstract: "validate_issue_body(body) is called against issue.schema.json"
+    then:
+      abstract:
+        - "Validation fails"
+        - "The failure names the missing required section (sourced from the schema, not a hard-coded REQUIRED_SUBSECTIONS list)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-29"
+  - identity:
+      urn: "acc:author-atdd-substrate:C010-UNIT-002-rejects-out-of-enum-status"
+      id: "AC-UNIT-002"
+      purpose: "validate_issue_body rejects a Metadata Status value outside the shared phase enum, exercising the single shared vocabulary"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An otherwise-compliant issue body whose Metadata Status is set to a value not in the phase enum (e.g. DONE)"
+    when:
+      abstract: "validate_issue_body(body) is called against issue.schema.json"
+    then:
+      abstract:
+        - "Validation fails on the Status enum"
+        - "The accepted Status set equals the phase_machine phases (INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, COMPLETE, BLOCKED, OBSOLETE) — the same vocabulary the State-Store work-item state carries"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-29"
+  - identity:
+      urn: "acc:author-atdd-substrate:C010-SMOKE-001-cli-rejects-tampered-body"
+      id: "AC-SMOKE-001"
+      purpose: "Verify the schema-driven gate, run via the installed CLI in a real checkout, rejects a tampered (Graph-Context-removed) issue body with a non-zero exit"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and an issue body with the `### Graph Context` subsection removed"
+    when:
+      abstract: "the schema-driven compliance check is run over the tampered body via the installed CLI"
+    then:
+      abstract:
+        - "The CLI exits non-zero"
+        - "The output names the missing required section sourced from issue.schema.json (not a hard-coded list)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-29"

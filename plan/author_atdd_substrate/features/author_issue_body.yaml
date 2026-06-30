@@ -1,0 +1,30 @@
+urn: "feature:author-atdd-substrate:author-issue-body"
+wagon: "wagon:author-atdd-substrate"
+description: "Authoring of the ATDD issue body as a schema-valid data artifact governed by a new src/atdd/planner/schemas/author/issue.schema.json (peer of convention-node/gate/relationship/scope). Adds an `atdd author issue` writer that emits a compliant-by-construction body (Graph Context + Mirror present, zero placeholders) in schema property order via the #1221 schema->argparse mapper; re-expresses the coach E019 string-grep compliance gate (issue_template.py / test_issue_validation.py) as schema validation; a tri-directional drift-guard pins generator fields == schema properties == E019 required sections; and existing compliant GitHub bodies still validate (back-compat). Child of #1221 (schema-driven authoring) applied to the issue artifact; the body's Metadata Status/Type enums reuse the single shared phase vocabulary the #1203 State-Store work-item record also carries (no fork)."
+sizing:
+  wmbts: 4
+  footprint_score: 8
+  footprint_size: "M"
+wmbts:
+  - "wmbt:author-atdd-substrate:E006"
+  - "wmbt:author-atdd-substrate:C010"
+  - "wmbt:author-atdd-substrate:C011"
+  - "wmbt:author-atdd-substrate:K002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author issue subcommand (schema->argparse, #1221)"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "create_issue_body() write path; validate_issue_body() schema-driven gate superseding the E019 string-grep"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "IssueBody (Metadata Status/Type enums + required sections); IssueBodySchema (the canonical issue.schema.json loaded as the single source of required sections)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "issue.schema.json loader/projector shared by generator, gate, and drift-guard"
