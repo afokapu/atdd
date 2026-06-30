@@ -12,6 +12,10 @@ write; they are added one writer at a time as the rerouting lands.
 """
 from __future__ import annotations
 
+import json
+import subprocess
+from types import SimpleNamespace
+
 import yaml
 
 from atdd.coach.commands.issue import IssueManager
@@ -145,3 +149,33 @@ def test_archive_store_writes_are_noop_for_unregistered_issue(tmp_path):
     # no-ops — the GitHub close + manifest archive record still apply.
     assert mgr._store_set_status(987654, "COMPLETE") is False
     assert mgr._store_update_fields(987654, {"archived": "2026-06-30"}) is False
+
+
+def test_reconcile_backfill_creates_store_work_item_and_ref(tmp_path, monkeypatch):
+    mgr = _init_repo(tmp_path)
+
+    # Fake `gh issue list` → one open atdd-issue absent from the manifest.
+    gh_payload = json.dumps([
+        {"number": 5151, "title": "feat(atdd): brand new reconciled thing (#5151)",
+         "state": "open", "createdAt": "2026-06-30T00:00:00Z",
+         "labels": [{"name": "atdd-issue"}, {"name": "atdd:RED"}]},
+    ])
+
+    def fake_run(*args, **kwargs):
+        return SimpleNamespace(returncode=0, stdout=gh_payload, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    # The manifest commit is irrelevant to this assertion; tmp_path is not a git
+    # repo, so make the mirror commit a no-op.
+    monkeypatch.setattr(mgr, "_commit_manifest_change", lambda *a, **k: None)
+
+    assert mgr.reconcile() == 0
+
+    # Store is authoritative: the backfilled work item + its github external_ref
+    # exist, with the phase derived from the atdd:RED label.
+    store = _store(tmp_path)
+    ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "5151")
+    assert ref is not None
+    obj = store.objects.get(ref.object_uid)
+    assert obj.kind == "work_item"
+    assert obj.state == "RED"

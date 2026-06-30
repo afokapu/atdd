@@ -2526,7 +2526,7 @@ class IssueManager:
             created_raw = issue.get("createdAt", "")
             created = created_raw[:10] if created_raw else str(date.today())
 
-            sessions.append({
+            session_entry = {
                 "id": str(number),
                 "slug": slug,
                 "file": None,
@@ -2535,7 +2535,15 @@ class IssueManager:
                 "status": status,
                 "created": created,
                 "archived": None,
-            })
+            }
+            # #1203 Phase 2: the State Store is authoritative — create the
+            # backfilled work item there first (slug + github external_ref),
+            # keeping the manifest session entry below as a mirror.
+            self._store_create_work_item(
+                number, slug, status=status,
+                data={k: v for k, v in session_entry.items() if k not in ("slug", "status")},
+            )
+            sessions.append(session_entry)
             registered.add(number)
             added += 1
             print(f"  Backfilled: #{number} {slug}")
