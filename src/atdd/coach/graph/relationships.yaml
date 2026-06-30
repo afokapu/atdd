@@ -1,4 +1,41 @@
 edges:
+# Foundational verb-object naming enforcement (#1276)
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the verb-object name rule enforces the verb-object preference of the wagon URN grammar
+  source_ref: planner.wagon.name-is-verb-object
+  strength: important
+  target_ref: planner.wagon.urn-naming
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the wagon name rule draws its leading-verb lexicon from the verb-selection table
+  source_ref: planner.wagon.name-is-verb-object
+  strength: important
+  target_ref: planner.feature.verb-selection-by-artifact-type
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the verb-object name rule enforces the verb-object preference of the feature URN grammar
+  source_ref: planner.feature.name-is-verb-object
+  strength: important
+  target_ref: planner.feature.urn-naming
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the feature name rule draws its leading-verb lexicon from the verb-selection table
+  source_ref: planner.feature.name-is-verb-object
+  strength: important
+  target_ref: planner.feature.verb-selection-by-artifact-type
+  type: requires
 - confidence: 1.0
   constraint: discretionary
   control: internal

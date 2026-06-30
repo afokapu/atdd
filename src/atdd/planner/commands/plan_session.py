@@ -188,6 +188,13 @@ class PlanSession:
             assert_kept_train_interlocking_sanity,
         )
         assert_kept_train_interlocking_sanity(self, root)
+        # Foundational verb-object naming for kept wagon/feature units (#1276).
+        # Runs BEFORE the lock so a non-verb-object name raises and leaves the
+        # session unlocked (atomicity, same contract as interlocking sanity).
+        from atdd.planner.commands.confirm_naming import (
+            assert_kept_wagon_feature_naming,
+        )
+        assert_kept_wagon_feature_naming(self, root)
         self.locked = True
 
     def author(self, author_fn) -> list:

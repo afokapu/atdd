@@ -1,0 +1,37 @@
+schema_version: 1.0.0
+rule_id: planner.feature.name-is-verb-object
+kind: rule
+status: active
+name: Feature name is verb-object
+statement: A feature slug (the 3rd segment of feature:<wagon>:<name>) must be verb-object
+  — kebab-case, at least two tokens, the leading token a verb from the convention verb
+  lexicon, and no connective tokens. Brand or proper-noun slugs must be listed explicitly
+  in feature.convention.yaml verb_object_enforcement.brand_exceptions; an implicit
+  exception is a violation.
+terms:
+- term_id: feature_verb_object
+  text: the verb-object naming rule for a feature slug
+  values:
+    lexicon_source: conventions:planner:feature#/artifact_seeds/verb_selection
+    examples_ok:
+    - make-choice
+    - authenticate-user
+    examples_bad:
+    - respond-and-preview
+    - route-to-mode
+implementation:
+  type: validator
+  ref: test_feature_name_is_verb_object::test_confirm_blocks_non_verb_object_feature
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: format
+  template: naming_pattern
+  variant: planner_feature_name_is_verb_object
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: feature
+  failure_evidence:
+  - feature_urn
+  - reason
