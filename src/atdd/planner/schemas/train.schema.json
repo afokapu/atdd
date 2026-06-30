@@ -67,6 +67,28 @@
         "description": "Train reference in format: train:{train_id}"
       }
     },
+    "source_interlocking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interlocking_id", "route_id"],
+      "description": "OPTIONAL back-reference to the interlocking route this train was generated from or justified by (issue #1248). Pure traceability — it must NOT alter train linearity and is NOT a second execution source. The interlocking remains authoritative for the guarded route space; this train remains the single runtime-executable linear path.",
+      "properties": {
+        "interlocking_id": {
+          "type": "string",
+          "pattern": "^interlocking:[a-z][a-z0-9-]*$",
+          "description": "The owning interlocking (interlocking:<kebab-name>)."
+        },
+        "route_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "The route within the interlocking that maps to this train."
+        },
+        "projection_digest": {
+          "type": "string",
+          "description": "Optional sha256 of the normalized route projection for drift detection."
+        }
+      }
+    },
     "participants": {
       "type": "array",
       "description": "Wagons, users, and systems involved in this train",
