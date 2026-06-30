@@ -22,6 +22,15 @@ sessions:
   wagon: author-atdd-substrate
   feature: feature:author-atdd-substrate:author-convention-node
   train: 0003-author-substrate
+- id: '1207'
+  slug: decommission-tier1-batch1
+  file: null
+  issue_number: 1207
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-30'
+  archived: null
+  branch: refactor/decommission-tier1-batch1
 - id: '1220'
   slug: bind-state-store-invariants-to-node-validators
   file: null
