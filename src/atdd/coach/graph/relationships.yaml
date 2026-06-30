@@ -2034,6 +2034,55 @@ edges:
   strength: minor
   target_ref: tester.routing.layer-keyword-taxonomy
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the State Store layering rule is a specific application of the canonical inward
+    dependency-direction principle
+  source_ref: coder.state-store.core-imports-no-providers
+  strength: critical
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a provider-agnostic sync engine depends on the store core importing no provider layer
+  source_ref: coder.state-store.sync-engine-provider-agnostic
+  strength: important
+  target_ref: coder.state-store.core-imports-no-providers
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: routing persistence through the storage APIs keeps the store boundary clean alongside the
+    layering rule
+  source_ref: coder.state-store.no-raw-sql-at-call-sites
+  strength: important
+  target_ref: coder.state-store.core-imports-no-providers
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: external-ref uniqueness and the no-raw-SQL boundary are co-held storage-integrity rules
+    owned inside the store
+  source_ref: coder.state-store.one-external-ref-per-issue
+  strength: important
+  target_ref: coder.state-store.no-raw-sql-at-call-sites
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: single-store-per-control-root and one-external-ref-per-issue jointly protect operational
+    state from split-brain divergence
+  source_ref: coder.state-store.single-store-per-control-root
+  strength: important
+  target_ref: coder.state-store.one-external-ref-per-issue
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0

@@ -1,0 +1,27 @@
+schema_version: 1.1.0
+rule_id: coder.state-store.single-store-per-control-root
+kind: rule
+status: active
+name: Single store per control root
+statement: In sibling-worktree mode there must be exactly ONE State Store, located at the Control
+  Root; no child git worktree may carry its own .atdd/state/state.sqlite (that would be split-brain
+  operational state). The check_layout guard implements this rule and must be wired into the state
+  CLI (doctor / layout) so the layout is actually validated, not silently unenforced.
+implementation:
+  type: validator
+  ref: test_state_store_invariants::test_single_store_per_control_root
+content:
+  normative_text: check_layout must be defined in src/atdd/state/paths.py and invoked by the state
+    CLI (src/atdd/state/cli.py). Removing the guard or its wiring is a violation.
+  fix_hint: Keep check_layout(control_root) defined in state/paths.py and called from the doctor and
+    layout CLI commands. A per-worktree store must be refused (run `atdd state migrate-layout`), never
+    tolerated as a second source of truth.
+metadata:
+  severity: 4
+  disposition: strict
+  introduced_in: 3.142.0
+terms:
+- term_id: control_root
+  text: the directory that owns the single State Store for a family of sibling worktrees.
+- term_id: split_brain
+  text: two independent State Stores under one control root, producing divergent operational state.
