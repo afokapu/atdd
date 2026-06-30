@@ -15,6 +15,9 @@ terms:
     examples_ok:
     - resolve-dilemmas
     - manage-users
+    - route-request
+    - preview-changes
+    - respond-event
     examples_bad:
     - mode-select
     - blitz
