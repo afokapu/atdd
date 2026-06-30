@@ -1,0 +1,110 @@
+urn: "wmbt:author-plan-substrate:E007"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "interlocking-artifact-write"
+context_clarifier: "when authoring an interlocking, the control body (guards/entrypoint/routes/strategy/messages/fragments/invariants/residuals) is human-authored input and the command derives ONLY the digests by composing the existing #1248 digest math (per-route expected_sequence_digest + whole-doc content_digest), so the stamp is the single source of truth and byte-matches what the #1249 Confirm gate recomputes; each route.train_path train must already exist on disk or the write is refused with no partial artifact"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a schema-valid interlocking-artifact-write under the canonical plan/_trains/_interlockings/<id>.yaml home (digests stamped from the on-disk trains, registry dedup-insert, idempotent re-stamp, clean refusal on a missing route train)"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:E007-UNIT-001-stamp-composes-digests"
+      id: "AC-UNIT-001"
+      purpose: "the stamp primitive derives each route's expected_sequence_digest and the whole-doc content_digest by composing the #1248 digest math, byte-matching what the gate's build_coverage recomputes"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid interlocking doc with placeholder digests and its route trains present on disk"
+    when:
+      abstract: "stamp_interlocking_digests(doc, root) is called"
+    then:
+      abstract:
+        - "Each route.projection.expected_sequence_digest equals route_projection_digest(project_route_to_train_sequence(...))"
+        - "source.content_digest equals normalized_interlocking_digest of the route-stamped doc"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-plan-substrate:E007-UNIT-002-missing-train-clean-error"
+      id: "AC-UNIT-002"
+      purpose: "a route whose train_path is absent on disk raises a clean InterlockingError and writes no partial artifact"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An interlocking spec whose route train_path does not exist on disk"
+    when:
+      abstract: "create_interlocking(spec, root) is called"
+    then:
+      abstract:
+        - "InterlockingError is raised"
+        - "No interlocking artifact file was written (no partial write)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-plan-substrate:E007-UNIT-003-idempotent-restamp"
+      id: "AC-UNIT-003"
+      purpose: "authoring the same interlocking twice on unchanged inputs is byte-identical (idempotent)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid interlocking spec with its route trains present"
+    when:
+      abstract: "create_interlocking is run twice with no input change"
+    then:
+      abstract:
+        - "The second write produces a byte-for-byte identical artifact and registry"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-plan-substrate:E007-INTEGRATION-001-real-confirm-gate-zero-rows"
+      id: "AC-INTEGRATION-001"
+      purpose: "the anchor: an authored interlocking attached to a kept train unit satisfies the REAL #1249 Confirm gate (assert_kept_train_interlocking_sanity + interlocking_violations + validate_interlocking all 0 rows), and a deliberately mis-stamped route digest makes the gate FAIL"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real PlanSession with a kept train unit whose spec declares source_interlocking, and an interlocking authored via create_interlocking"
+    when:
+      abstract: "the #1249 Confirm-gate body runs over the kept train unit"
+    then:
+      abstract:
+        - "assert_kept_train_interlocking_sanity returns without raising"
+        - "sanity.interlocking_violations and validate_interlocking both return 0 rows"
+        - "a direct-train-only plan is a no-op for authoring and still passes the gate"
+        - "corrupting a route's expected_sequence_digest makes the gate raise SessionGateError"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-plan-substrate:E007-SMOKE-001-cli-authors-interlocking"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author interlocking --spec` writes a schema-valid artifact + deduped registry entry against the real CLI in a checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout, the installed atdd CLI, and the route trains already authored on disk"
+    when:
+      abstract: "atdd author interlocking --spec is run with a valid interlocking spec"
+    then:
+      abstract:
+        - "plan/_trains/_interlockings/<id>.yaml is written and loads via load_interlocking"
+        - "plan/_trains/_interlockings.yaml gains the interlocking_id entry"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"

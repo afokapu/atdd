@@ -59,6 +59,7 @@ from .projections import (
     render_mermaid,
 )
 from .routing import RouteResolutionError, evaluate_interlocking_route, matching_routes
+from .stamp import stamp_interlocking_digests
 from .validate import validate_interlocking
 from .violations import Violation
 
@@ -77,6 +78,7 @@ __all__ = [
     "normalized_interlocking_digest",
     "route_projection_digest",
     "canonicalize",
+    "stamp_interlocking_digests",
     # projections / routing helpers
     "build_coverage",
     "render_mermaid",
