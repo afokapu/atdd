@@ -65,5 +65,61 @@ class PersistentOrchestrator:
         self._log = logger or _LOG
 
     def run(self) -> RunOutcome:
-        """Supervise the work item until it reaches a terminal phase or stalls."""
-        raise NotImplementedError("PersistentOrchestrator.run is implemented in GREEN")
+        """Supervise the work item until it reaches a terminal phase or stalls.
+
+        Each pass: poll the current phase/done-signal; stop on a terminal phase;
+        advance ONLY when the current phase's done-signal is present (WMBT C010);
+        otherwise count a no-progress poll and, once the stall threshold is hit,
+        loud-log and exit rather than hang mid-transition (WMBT M006).
+        """
+        last_phase: Optional[str] = None
+        polls_without_progress = 0
+        transitions = 0
+
+        while True:
+            snap = self._poller.poll(self._work_item_id)
+
+            if self._config.is_terminal(snap.phase):
+                self._log.info(
+                    "work-item %s reached terminal phase %s after %d transition(s)",
+                    self._work_item_id,
+                    snap.phase,
+                    transitions,
+                )
+                return RunOutcome(
+                    work_item_id=self._work_item_id,
+                    final_phase=snap.phase,
+                    stalled=False,
+                    transitions=transitions,
+                )
+
+            # A phase change is progress: reset the stall counter for the new phase.
+            if snap.phase != last_phase:
+                last_phase = snap.phase
+                polls_without_progress = 0
+
+            if snap.done_signal:
+                # The done-signal IS present — and only here do we advance (C010).
+                self._driver.advance(self._work_item_id, snap.phase)
+                transitions += 1
+                polls_without_progress = 0
+            else:
+                polls_without_progress += 1
+                if polls_without_progress >= self._config.stall_threshold:
+                    # Stuck mid-phase: surface it loudly and exit (M006) — the
+                    # fire-and-forget coach used to hang here in silence.
+                    self._log.warning(
+                        "STALL — work-item %s stuck in phase %s for %d poll(s) "
+                        "without a done-signal; surfacing and exiting",
+                        self._work_item_id,
+                        snap.phase,
+                        polls_without_progress,
+                    )
+                    return RunOutcome(
+                        work_item_id=self._work_item_id,
+                        final_phase=snap.phase,
+                        stalled=True,
+                        transitions=transitions,
+                    )
+
+            self._sleeper.sleep(self._config.poll_interval_s)
