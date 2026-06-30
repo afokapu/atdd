@@ -1,0 +1,66 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.complexity-nesting
+kind: rule
+status: active
+name: Python function nesting depth stays under threshold
+statement: Every Python function MUST keep its maximum block-nesting depth below the threshold (default < 4)
+  so that deeply nested control flow does not make a function hard to read and test. This is the
+  language-agnostic obligation owned by the coder extension. The stack-specific detector that enforces it (a
+  pytest indentation scan that measures the deepest control block of each function) is the python-pytest
+  workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.complexity-cyclomatic
+content:
+  summary: An agnostic "no deeply nested function" obligation. The python realization extracts each
+    function body and measures its maximum nesting depth from indentation (4 spaces == 1 level), counting a
+    block keyword (if / elif / else / for / while / with / try / except / finally / def / class) as opening
+    a new level, flagging any function deeper than 4. It is realized by the same multi-rule complexity
+    detector as the four sibling coder.refactor.complexity-* rules (via that implementation's
+    emits_rule_ids).
+  normative_text: |
+    Deep nesting forces a reader to hold many active conditions in mind at once; it makes code hard to
+    read, hard to test, and error-prone. The obligation: each function's maximum nesting depth stays below
+    the configured threshold (default < 4 levels). HOW depth is measured is delegated to the per-stack
+    detector; for python it is an indentation pass that maps every 4 spaces of relative indent to one
+    level and treats a line ending in ":" that begins with a block keyword (if / elif / else / for / while
+    / with / try / except / finally / def / class) as introducing a nested block.
+  fix_hint: |
+    Flatten the flagged function:
+      * use guard clauses / early returns to remove an outer level,
+      * extract a deeply nested block into its own function,
+      * invert conditions to reduce the deepest branch.
+    This rule is `strict`: a function over the nesting threshold is not suppressible and fails. Pre-existing
+    depth in a consumer repo is held flat by a downstream ratchet baseline (a consumer/coach concern), not
+    the workspace detector — the detector always emits the RAW over-threshold function list.
+  exceptions:
+    - The threshold (default 4) is configurable; the obligation is "below the configured threshold".
+    - Blank lines and comment-only lines do not affect the measured depth.
+metadata:
+  aliases:
+    - COMPLEXITY-NESTING-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.complexity-nesting
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: nesting_depth
+  text: the maximum number of enclosing control blocks at any point in a function, measured from
+    indentation (4 spaces == 1 level).
+- term_id: block_keyword
+  text: a statement that opens a nested block — if / elif / else / for / while / with / try / except /
+    finally / def / class — recognized by a trailing ":".
+- term_id: nesting_threshold
+  text: the configured maximum nesting depth a function may have (default 4); the obligation is to stay
+    below it.

@@ -13,6 +13,7 @@ participants:
   - "wagon:security-patterns"
   - "wagon:enforce-structured-logging"
   - "wagon:validate-conventions"
+  - "wagon:enforce-binding-plan"
   - "system:atdd-cli"
 sequence:
   - step: 1
@@ -45,4 +46,9 @@ sequence:
     from: "wagon:validate-conventions"
     to: "system:atdd-cli"
     artifact: "commons:validators:convention-family-registry"
+  - step: 7
+    intent: "Enforce the binding plan over consumer code: per bound convention resolve its provider, scan, bridge to an aggregate verdict + exit code on commit and in CI"
+    from: "wagon:enforce-binding-plan"
+    to: "system:atdd-cli"
+    artifact: "commons:enforce:enforce-cli"
 status: planned

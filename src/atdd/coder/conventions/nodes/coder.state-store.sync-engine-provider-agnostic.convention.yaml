@@ -20,7 +20,7 @@ content:
 metadata:
   severity: 3
   disposition: strict
-  introduced_in: 3.140.0
+  introduced_in: 3.142.0
 terms:
 - term_id: sync_provider_seam
   text: the interface (#1201) behind which a concrete backend (e.g. the github extension)

@@ -1,0 +1,51 @@
+urn: "wmbt:author-atdd-substrate:E006"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "issue-body-creation"
+context_clarifier: "when authoring an issue body, the writer must emit a body from src/atdd/planner/schemas/author/issue.schema.json that carries every required H2 section plus the required H3 `### Graph Context` and `### Mirror Across Agents`, with no placeholder strings, in schema property order, so the result validates against issue.schema.json by construction"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of schema-valid issue-body-creation when authoring from issue.schema.json (Graph Context + Mirror present, zero placeholders)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:E006-UNIT-001-emits-schema-valid-body"
+      id: "AC-UNIT-001"
+      purpose: "create_issue_body emits a body that validates against issue.schema.json with Graph Context + Mirror present and zero placeholders"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid issue spec (title, Status drawn from the phase enum, Type, archetypes, scope) and the canonical issue.schema.json"
+    when:
+      abstract: "create_issue_body(spec) is called"
+    then:
+      abstract:
+        - "The emitted body validates against issue.schema.json"
+        - "The body contains the required `### Graph Context` and `### Mirror Across Agents` H3 subsections"
+        - "The body contains none of issue_template.PLACEHOLDER_STRINGS"
+        - "Sections are emitted in issue.schema.json property order"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-29"
+  - identity:
+      urn: "acc:author-atdd-substrate:E006-SMOKE-001-cli-emits-gate-passing-body"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author issue` writes a body that passes the compliance gate in a real checkout, no manual patching"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author issue --title <t> --type implementation --status INIT ... is run"
+    then:
+      abstract:
+        - "A schema-valid issue body is written to stdout / the target path"
+        - "The emitted body passes the schema-driven compliance gate (the validate_issue_body / E019 check) with no manual edits"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-29"

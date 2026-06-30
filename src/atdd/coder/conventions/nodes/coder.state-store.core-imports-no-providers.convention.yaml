@@ -21,7 +21,7 @@ content:
 metadata:
   severity: 3
   disposition: strict
-  introduced_in: 3.140.0
+  introduced_in: 3.142.0
 terms:
 - term_id: foundational_layer
   text: a package other layers may import but which imports none of them, so it carries no

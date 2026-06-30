@@ -19,6 +19,15 @@ from pathlib import Path
 
 import yaml
 
+# Issue-body authoring (#1223). Re-exported here so the public author surface is
+# `atdd.planner.commands.author.create_issue_body` / `.validate_issue_body`
+# (peers of create_convention_node). The module is planner-side and coach-free
+# (planner.theme.commons-coach-boundary, #970).
+from atdd.planner.commands.author_issue import (  # noqa: F401
+    create_issue_body,
+    validate_issue_body,
+)
+
 logger = logging.getLogger(__name__)
 
 # The four ATDD convention-owning roles. `reviewer` is a spawn persona, not a
@@ -531,6 +540,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="per-trigger gate file (default: src/atdd/coach/gates/<trigger-name>.yaml)",
     )
 
+    # `issue` — author / validate a GitHub issue BODY from issue.schema.json
+    # (#1223). Peer of the other authored kinds; schema-driven generation +
+    # the schema-driven compliance gate (--check). Planner-side + coach-free.
+    iss = sub.add_parser("issue", help="author a schema-valid issue body (or --check one)")
+    iss.add_argument("--title", default=None, help="issue title (the H1 + Problem Statement subject)")
+    iss.add_argument("--type", default="implementation", dest="issue_type",
+                     help="issue Type (e.g. implementation, bug, refactor)")
+    iss.add_argument("--status", default="INIT",
+                     help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...)")
+    iss.add_argument("--branch", default=None, help="the issue's worktree branch")
+    iss.add_argument("--train", default=None, help="train id the issue belongs to")
+    iss.add_argument("--feature", default=None, help="feature urn the issue lands")
+    iss.add_argument("--check", default=None, metavar="PATH",
+                     help="validate an existing body file against issue.schema.json (no generation)")
+
     # Plan-layer kinds — spec-driven (rich nested shape: produce[], components{},
     # wmbts[], acceptances[]). The spec file holds the same input dict the
     # create_<kind> functions accept; #1139 (atdd plan) writes it per locked unit.
@@ -661,6 +685,35 @@ def run(argv: list[str]) -> int:
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(pkg))
+        return 0
+
+    # `issue` authors/validates a body string (stdout); it writes no file and
+    # needs no authoring-context resolution — dispatch before resolve_context.
+    if args.cmd == "issue":
+        if args.check is not None:
+            try:
+                body = Path(args.check).read_text(encoding="utf-8")
+            except OSError as exc:
+                logger.warning("atdd author issue cannot read --check", extra={"path": args.check, "error": str(exc)})
+                print(f"atdd author issue: cannot read {args.check}: {exc}", file=sys.stderr)
+                return 2
+            violations = validate_issue_body(body)
+            if violations:
+                print(f"atdd author issue: {args.check} is not schema-valid:", file=sys.stderr)
+                for v in violations:
+                    print(f"  - {v}", file=sys.stderr)
+                return 1
+            print(f"atdd author issue: {args.check} is schema-valid")
+            return 0
+        spec = {
+            "title": args.title,
+            "status": args.status,
+            "type": args.issue_type,
+            "branch": args.branch,
+            "train": args.train,
+            "feature": args.feature,
+        }
+        print(create_issue_body({k: v for k, v in spec.items() if v is not None}))
         return 0
 
     # Plan-layer kinds write under plan/ (not core/extension), so they need no

@@ -19,7 +19,7 @@ content:
 metadata:
   severity: 4
   disposition: strict
-  introduced_in: 3.140.0
+  introduced_in: 3.142.0
 terms:
 - term_id: external_ref
   text: a row linking a provider's identifier (provider + ref_kind + ref_value) to a single local

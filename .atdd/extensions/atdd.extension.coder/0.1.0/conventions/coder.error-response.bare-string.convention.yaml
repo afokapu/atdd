@@ -1,0 +1,72 @@
+schema_version: 1.1.0
+rule_id: coder.error-response.bare-string
+kind: rule
+status: active
+name: HTTP error details must be structured, not bare strings
+statement: When production code raises an HTTP error, the error detail MUST be a structured payload
+  conforming to the commons error-response contract ({status_code, error_code, message, details?}),
+  NOT a bare message string. This is the language-agnostic "errors are structured" obligation owned
+  by the coder extension. The stack-specific detector that enforces it (a scan for FastAPI
+  `HTTPException(... detail="...")` / `detail=f"..."` bare-string arguments in Python production code)
+  is the python-pytest workspace implementation referenced below — the obligation is agnostic, the
+  detector is not.
+implementation:
+  type: validator
+  ref: coder.error-response.bare-string
+content:
+  summary: An agnostic "HTTP error responses carry a structured, machine-readable body" obligation.
+    The Python realization forbids `raise HTTPException(status_code=..., detail="bad request")` (a
+    bare string) and requires `detail={...}` matching the error-response contract; other stacks
+    realize the same obligation with their own error envelope under their own workspace detector.
+  normative_text: |
+    A bare string error detail cannot be parsed, classified, or localized by clients — it degrades
+    error handling to substring matching. The obligation is "the error detail is a structured object
+    carrying at least status_code, error_code, and message" (per the commons:error:response
+    contract). WHICH framework raises the error and HOW the bare string is detected is delegated to
+    the per-stack detector. For Python the detector is a regex over source text matching an
+    `HTTPException( ... detail = <string-or-fstring-literal> )` call; each such site is a violation.
+  fix_hint: |
+    Replace the bare string with a structured detail dict matching the error-response contract:
+      raise HTTPException(status_code=400, detail="Missing name")
+      ->
+      raise HTTPException(status_code=400, detail={
+          "status_code": 400, "error_code": "INVALID_INPUT",
+          "message": "Missing required field: name"})
+    Promote the human message into `message`, classify the failure with an UPPER_SNAKE_CASE
+    `error_code` (see coder.error-response.code-format), and put debugging context under `details`.
+    This rule's disposition is `strict`: new bare-string error details fail the gate and are not
+    suppressible by default.
+  exceptions:
+    - Non-production surfaces are out of scope — `__pycache__/` is skipped; the detector only scans
+      the supplied production roots.
+    - Only `HTTPException` call sites carrying a bare string / f-string `detail=` are matched; a
+      `detail={...}` dict (the correct form) is never flagged.
+metadata:
+  aliases:
+    - ERROR-BARE-STRING-001
+  severity: 4
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/error-response.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.error-response.bare-string
+  legacy_sha: d1c942f990076b93
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: structured_error_response
+  text: an HTTP error body conforming to the commons:error:response contract — an object with
+    required `status_code`, `error_code`, `message` and an optional `details` object — so clients can
+    classify and handle errors programmatically.
+- term_id: bare_string_detail
+  text: an `HTTPException(...)` whose `detail=` argument is a plain string or f-string literal rather
+    than a structured dict — the anti-pattern this rule forbids.
+- term_id: production_code
+  text: shippable application code under the scanned source roots, excluding bytecode caches and
+    non-shipped surfaces.

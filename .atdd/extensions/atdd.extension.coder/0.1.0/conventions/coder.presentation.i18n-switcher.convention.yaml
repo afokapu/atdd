@@ -1,0 +1,64 @@
+schema_version: 1.1.0
+rule_id: coder.presentation.i18n-switcher
+kind: rule
+status: active
+name: Language switcher sources its locale list from the shared manifest
+statement: A frontend language/locale switcher component MUST source the list of selectable locales from
+  the shared supported-locale list (the manifest-backed `SUPPORTED_LOCALES`), rather than declaring its
+  own hardcoded locale/options array. This is the language-agnostic obligation owned by the coder
+  extension. The stack-specific detector that enforces it (a pytest/regex scan of the language-switcher
+  component for a hardcoded locale array that does not reference the shared list) is the python-pytest
+  workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.presentation.i18n-config
+content:
+  summary: An agnostic "the locale switcher reflects the manifest" obligation, the UI companion to
+    `coder.presentation.i18n-config`. The web realization locates a `LanguageSwitcher`/`LocaleSwitcher`
+    component and flags a hardcoded `locales`/`languages`/`options = [...]` array that does not reference
+    `SUPPORTED_LOCALES`, the manifest, or the i18n config; other stacks realize it against their own
+    switcher surface.
+  normative_text: |
+    The set of locales a user can switch between must equal the application's supported locales — which
+    live in the manifest. A switcher that hardcodes its own option list drifts from the manifest: users
+    can select unsupported locales, or supported locales never appear in the picker. The obligation is
+    "the switcher renders the shared locale list"; WHICH component is the switcher and HOW the hardcoding
+    is detected is delegated to the per-stack detector. For the web stack the detector locates the
+    switcher among known component paths (with a `*LanguageSwitcher*.tsx` / `*LocaleSwitcher*.tsx` glob
+    fallback) and flags a literal locale/options array not accompanied by a `SUPPORTED_LOCALES` /
+    `getSupportedLocales` / manifest / i18n-config / `useLocales` reference.
+  fix_hint: |
+    Render the switcher options from the shared supported-locale list:
+      const options = [{ locale: 'en', label: 'English' }, ...]        ->  FORBIDDEN
+      import { SUPPORTED_LOCALES } from '../i18nConfig'                 ->  map SUPPORTED_LOCALES to options
+    Derive labels from the manifest entries so adding a locale to the manifest automatically populates the
+    picker. This rule is `strict`: a new hardcoded locale array in a switcher is not suppressible and fails.
+  exceptions:
+    - A switcher that references the shared `SUPPORTED_LOCALES` / manifest / i18n config (even alongside a
+      literal array) is absolved.
+    - If no language/locale switcher component exists, the rule is inert (nothing to check).
+metadata:
+  aliases:
+    - PRESENTATION-I18N-SWITCHER-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/presentation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.presentation.i18n-switcher
+  legacy_sha: 64ab65fcb9c704df
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: language_switcher
+  text: a frontend component (`LanguageSwitcher`/`LocaleSwitcher`) that lets users choose the active
+    locale; its selectable options must come from the shared supported-locale list, not a local literal.
+- term_id: shared_locale_list
+  text: the manifest-backed `SUPPORTED_LOCALES` (or `getSupportedLocales()`) exposed via the i18n config;
+    the single source the switcher must read so the picker never drifts from the manifest.

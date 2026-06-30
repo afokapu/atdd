@@ -1,0 +1,76 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.nplus1
+kind: rule
+status: active
+name: No database client calls inside loop bodies or comprehensions
+statement: Production application code MUST NOT issue a database client call (or HTTP-as-DB-proxy call)
+  inside a loop body or comprehension — the classic N+1 query pattern that turns O(1) into O(N) round
+  trips. This is the language-agnostic obligation owned by the coder extension. The stack-specific
+  detector that enforces it (a pytest/AST scan for known DB/ORM/cursor/Supabase method calls — or HTTP
+  verbs on known HTTP modules — nested inside `for`/`while`/`async for` or list/set/dict/generator
+  comprehensions) is the python-pytest workspace implementation referenced below — the obligation is
+  agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.nplus1
+content:
+  summary: An agnostic "do not query inside a loop" obligation. The Python realization flags any DB
+    client method (repository/ORM/cursor/Supabase) or HTTP-as-DB call appearing inside an iteration
+    construct; other stacks realize the same obligation over their own DB clients and loop constructs.
+  normative_text: |
+    Issuing a query per item instead of one batched query is the N+1 anti-pattern: it scales request
+    latency and DB load linearly with collection size and is a top production performance regression. The
+    threshold is zero — ANY DB client call inside a loop or comprehension is flagged. DB calls are
+    recognized by method name (`execute`, `fetch*`, `find*`, `insert*`, `update_*`, `delete_*`, `upsert`,
+    `save`, `aggregate`, Supabase `table`/`from_`/`rpc`, cursor `cursor`/`mogrify`); HTTP verbs
+    (`get`/`post`/...) are flagged only when called on a known HTTP module (`requests`/`httpx`/`aiohttp`)
+    used as a DB proxy. The obligation is "no query inside a loop"; WHICH clients count and HOW iteration
+    is detected is delegated to the per-stack detector.
+  fix_hint: |
+    Batch the query out of the loop:
+      for user_id in user_ids:
+          user = repo.find_one(user_id)     # N+1 — one query per item
+          ...
+    becomes
+      users = repo.find_many(user_ids)      # one batched query
+      for user in users:
+          ...
+    Use an `IN (...)` / batch API, a JOIN, or a dataloader. This rule's disposition is `strict`; there is
+    no `atdd:suppress` marker. A genuinely intentional in-loop call may carry an inline `# noqa: N+1`
+    marker on its line — this is a DETECTION exemption applied by the detector (the call is not treated
+    as a violation at all), NOT a downstream suppress-and-clean disposition.
+  exceptions:
+    - Test code is out of scope — test files (`test_*.py`, `*/tests/`, `*/test/`).
+    - Re-export shims (`__init__.py`) are excluded from the scan.
+    - Migration directories (`*/migrations/*`) are out of scope — supplied as a consumer exclude-glob
+      (`ATDD_SCAN_EXCLUDES`), not hardcoded in the detector.
+    - A specific in-loop call may be exempted at DETECTION time with an inline `noqa N+1` line-comment
+      marker on the call's line (core parity; this is not an atdd-suppress disposition marker).
+metadata:
+  aliases:
+    - REFACTOR-NPLUS1-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.nplus1
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: n_plus_one
+  text: a DB (or HTTP-as-DB) client call executed once per item of an enclosing loop/comprehension,
+    issuing O(N) round trips where one batched query (O(1)) would suffice.
+- term_id: db_client_call
+  text: an attribute call whose method is a known database/ORM/cursor/Supabase operation, or an HTTP
+    verb invoked on a known HTTP module (`requests`/`httpx`/`aiohttp`) used as a data source.
+- term_id: iteration_construct
+  text: a `for`/`while`/`async for` statement or a list/set/dict comprehension or generator expression —
+    any construct whose body executes per element.

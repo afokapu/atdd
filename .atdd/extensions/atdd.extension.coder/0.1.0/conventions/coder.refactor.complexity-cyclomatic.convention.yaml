@@ -1,0 +1,68 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.complexity-cyclomatic
+kind: rule
+status: active
+name: Python function cyclomatic complexity stays under threshold
+statement: Every Python function MUST keep its cyclomatic complexity below the threshold (default < 10) so
+  that the number of independent paths through any one function stays testable and comprehensible. This is
+  the language-agnostic obligation owned by the coder extension. The stack-specific detector that enforces
+  it (a pytest regex scan that extracts each function body and counts decision points) is the python-pytest
+  workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.complexity-cyclomatic
+content:
+  summary: An agnostic "no over-branched function" obligation. The python realization extracts each
+    function body (regex) and computes cyclomatic complexity as 1 + the count of decision keywords (if,
+    elif, for, while, except, case) plus boolean operators (and / or) appearing in condition lines,
+    flagging any function whose score exceeds 10. It is realized by the same multi-rule complexity detector
+    as the four sibling coder.refactor.complexity-* rules (declared via that implementation's
+    emits_rule_ids); functions with fewer than 3 code lines are skipped, mirroring core.
+  normative_text: |
+    Cyclomatic complexity measures the count of independent paths through a function; a high score signals
+    code that is hard to test, hard to understand, and more defect-prone. The obligation: each function's
+    cyclomatic complexity stays below the configured threshold (industry-standard default < 10). WHICH
+    constructs count as decision points and HOW the score is computed is delegated to the per-stack
+    detector; for python it is a regex pass that adds one per decision keyword (if / elif / for / while /
+    except / case) and one per boolean operator (and / or) in a condition line, atop a base path of 1.
+    Trivial functions (under 3 code lines) are not scored.
+  fix_hint: |
+    Reduce the branching of the flagged function:
+      * extract nested decision blocks into named helper functions,
+      * replace long if/elif ladders with a dispatch table or polymorphism,
+      * collapse compound boolean conditions into well-named predicates.
+    This rule is `strict`: a function over the cyclomatic threshold is not suppressible and fails. A
+    consumer that must hold a pre-existing count flat does so with a downstream ratchet baseline (a
+    consumer/coach concern), not the workspace detector — the detector always emits the RAW over-threshold
+    function list.
+  exceptions:
+    - Functions with fewer than 3 code lines are not scored (too small to be meaningfully complex).
+    - The threshold (default 10) is configurable; the obligation is "below the configured threshold".
+metadata:
+  aliases:
+    - COMPLEXITY-CYCLOMATIC-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.complexity-cyclomatic
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: cyclomatic_complexity
+  text: the count of independent paths through a function, computed as 1 plus the number of decision
+    points (branch keywords and boolean operators in conditions).
+- term_id: decision_point
+  text: a construct that introduces a branch — if / elif / for / while / except / case, plus each and / or
+    appearing in a condition line.
+- term_id: complexity_threshold
+  text: the configured maximum cyclomatic complexity a function may have (industry-standard default 10);
+    the obligation is to stay below it.
