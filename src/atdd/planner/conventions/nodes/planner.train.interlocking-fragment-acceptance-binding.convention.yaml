@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-fragment-acceptance-binding
+kind: constraint
+status: active
+name: Interlocking fragment acceptance binding
+statement: Every guarded alt/opt fragment binds to acceptance(s), and flow-branch
+  acceptances bind back to guards/fragments.
+terms:
+- term_id: fragment_binding
+  text: every guarded alt/opt fragment binds to acceptances and flow-branch acceptances
+    bind back to guards/fragments
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_guarded_fragments_bind_acceptances
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: coverage
+  template: source_has_required_target
+  variant: planner_train_interlocking_fragment_acceptance_binding
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - fragment_id
+  - guard_id
+  - acceptance_ref
+  - missing_side
