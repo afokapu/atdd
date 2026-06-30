@@ -101,52 +101,16 @@ def _node_schema_conformance(graph, config=None):
     return S.node_schema_conformance(graph).violations
 
 
-def _interlocking_entrypoint_shape(graph) -> list:
-    """variant ``schema/planner_train_interlocking_entrypoint_shape`` (#1249).
-
-    Selector  -> interlocking artifacts under the canonical home (auto-captured:
-                 present only when a repo declares interlockings).
-    Traversal -> artifact -> entrypoint -> conditional required-field set.
-    Invariant -> exposed==true requires >=1 action; exposed==false requires a reason.
-    Evidence  -> a SUBSET of the template's failure_evidence.
-    """
-    from atdd.planner.interlocking import InterlockingError, load_interlocking
-    from atdd.planner.interlocking.discovery import iter_interlocking_paths
-
-    root = graph.root
-    if root is None:
-        return []
-    out = []
-    for path in iter_interlocking_paths(root):
-        try:
-            il = load_interlocking(path)
-        except InterlockingError as exc:
-            # Shape-invalid artifacts fail closed: the entrypoint cannot be read.
-            out.append({"interlocking_id": str(path.relative_to(root)),
-                        "field_path": "entrypoint", "reason": str(exc)[:160]})
-            continue
-        ep = il.entrypoint
-        if ep.exposed and len(ep.actions) < 1:
-            out.append({"interlocking_id": il.interlocking_id, "exposed": True,
-                        "actions": list(ep.actions),
-                        "field_path": "entrypoint.actions"})
-        if not ep.exposed and not ep.reason:
-            out.append({"interlocking_id": il.interlocking_id, "exposed": False,
-                        "reason": ep.reason, "field_path": "entrypoint.reason"})
-    return out
-
-
-def _required_field_presence(graph, config=None):
-    """Dispatch the ``required_field_presence`` template by variant (#1249)."""
-    variant = (config or {}).get("variant") if config else None
-    if variant == "planner_train_interlocking_entrypoint_shape":
-        return _interlocking_entrypoint_shape(graph)
-    raise NotImplementedError(
-        f"schema/required_field_presence: unknown variant {variant!r}"
-    )
-
-
+# NOTE: the schema-family ``required_field_presence`` template (the interlocking
+# entrypoint-shape presence rule, #1249) is intentionally NOT exposed in
+# ``REAL_EVALUATORS``. The shared evaluator registry (``_support.evaluators``) is
+# keyed by template_id alone, and the ``presence`` family already owns a
+# ``required_field_presence`` evaluator — registering a second under the same key
+# would shadow it. The executable enforcement of the entrypoint-shape rule lives
+# in the planner validator ``test_sequence_diagram_sanity`` (via
+# ``planner.interlocking.sanity.entrypoint_shape_violations``), which is the
+# rule's bound ``implementation.ref``. The TemplateContract above documents the
+# template's intent for the registry/roundtrip catalogue.
 REAL_EVALUATORS = {
     "node_schema_conformance": _node_schema_conformance,
-    "required_field_presence": _required_field_presence,
 }
