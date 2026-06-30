@@ -3130,3 +3130,11 @@ sessions:
   status: INIT
   created: '2026-06-30'
   archived: null
+- id: '1272'
+  slug: atdd-author-issue-publishes-to-store
+  file: null
+  issue_number: 1272
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
