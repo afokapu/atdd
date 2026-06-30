@@ -1,4 +1,5 @@
 # URN: test:validate-conventions:grammar-variants:freedom_layer_bash_scope_grammar
+# Acceptance: acc:spawn-agents:E032-SMOKE-001-live-freedom-layer-passes-flipped-validator
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration
@@ -25,9 +26,6 @@ the semantic origin only.
 """
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
@@ -67,15 +65,6 @@ def _evaluate(repo_root):
     return _template().evaluate(graph, config={"variant": VARIANT})
 
 
-def _legacy_caught(repo_root, nodeid) -> bool:
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=repo_root, env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True, text=True,
-    ).returncode
-    return rc != 0
-
-
 # --- contract --------------------------------------------------------------
 def test_freedom_layer_bash_scope_grammar_variant_contract() -> None:
     assert TEMPLATE in TEMPLATE_IDS, f"{TEMPLATE} not in grammar archetype"
@@ -108,11 +97,16 @@ def test_clean_baseline_zero_on_real_repo() -> None:
     assert _evaluate(_REPO_ROOT) == []
 
 
-# --- fault injection + legacy parity ---------------------------------------
-def test_fault_injection_convention_and_legacy_both_catch(tmp_path) -> None:
+# --- fault injection (convention-only) -------------------------------------
+def test_fault_injection_convention_catches(tmp_path) -> None:
     """Inject an unscoped Bash allow-list entry into the real convention source;
-    BOTH the convention path (real composed graph) and the legacy real-data
-    validator (E032 live smoke) must catch it. Revert afterwards."""
+    the convention path (real composed graph) must catch it. Revert afterwards.
+
+    Legacy parity oracle retired (#1207): parity to the E032 live smoke was
+    already proven/recorded (family-parity-report); the legacy anchored test is
+    decommissioned. LEGACY_PARITY_SOURCES kept as provenance. This variant's
+    own clean-baseline + fault-injection are the live coverage, and it now
+    carries the re-anchored acc:spawn-agents:E032-SMOKE-001 header."""
     conv = _REPO_ROOT / _SESSION_CONVENTION_REL
     original = conv.read_text(encoding="utf-8")
     # A bare, unscoped Bash entry — the canonical E032 fault.
@@ -127,14 +121,8 @@ def test_fault_injection_convention_and_legacy_both_catch(tmp_path) -> None:
         assert conv_evidence, "convention path missed the unscoped Bash entry"
         assert any(e["value"] == "Bash" for e in conv_evidence), conv_evidence
         assert all(set(e) <= set(FAILURE_EVIDENCE) for e in conv_evidence)
-
-        legacy_caught = _legacy_caught(_REPO_ROOT, LEGACY_PARITY_SOURCES[0])
-        assert legacy_caught, (
-            "legacy E032 live smoke did not catch the injected unscoped entry"
-        )
     finally:
         conv.write_text(original, encoding="utf-8")
 
-    # Parity proven only if the clean tree is silent for BOTH afterwards.
+    # Clean tree is silent again after revert.
     assert _evaluate(_REPO_ROOT) == []
-    assert not _legacy_caught(_REPO_ROOT, LEGACY_PARITY_SOURCES[0])
