@@ -91,3 +91,34 @@ def test_update_fields_still_mirrors_manifest(tmp_path):
     doc = yaml.safe_load((tmp_path / ".atdd" / "manifest.yaml").read_text())
     entry = next(s for s in doc["sessions"] if s["issue_number"] == 1203)
     assert entry["branch"] == "feat/foo"
+
+
+def test_register_issue_creates_store_work_item_and_ref(tmp_path):
+    mgr = _init_repo(tmp_path)
+
+    mgr._register_issue_in_manifest(4242, "brand-new-thing", train="0009")
+
+    store = _store(tmp_path)
+    ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "4242")
+    assert ref is not None and ref.object_uid == "brand-new-thing"
+    obj = store.objects.get("brand-new-thing")
+    assert obj.kind == "work_item"
+    assert obj.state == "INIT"
+    assert obj.data["train"] == "0009"
+
+
+def test_create_work_item_preserves_existing_state_on_reregister(tmp_path):
+    mgr = _init_repo(tmp_path)
+    # #1203 already exists at GREEN (imported from the manifest on first store touch).
+    mgr._store_set_status(1203, "SMOKE")
+    # Re-registering must not reset the live phase back to INIT.
+    mgr._store_create_work_item(1203, "state-store-authoritative", status="INIT", data={"train": "0002"})
+
+    store = _store(tmp_path)
+    assert store.objects.get("state-store-authoritative").state == "SMOKE"
+
+
+def test_create_work_item_unregistered_store_unavailable_is_false(tmp_path):
+    # No .atdd at all → store cannot resolve a control root → graceful False.
+    mgr = IssueManager(target_dir=tmp_path / "no-atdd-here")
+    assert mgr._store_create_work_item(1, "x", status="INIT", data={}) is False

@@ -1035,13 +1035,58 @@ class IssueManager:
             project_id=github_config.get("project_id"),
         )
 
+    def _store_create_work_item(
+        self, issue_number: int, slug: str, *, status: Optional[str], data: Dict[str, Any]
+    ) -> bool:
+        """Create/register a work item in the State Store (#1203 Phase 2).
+
+        Upserts the work item keyed by ``slug`` and links its GitHub issue number as
+        the authoritative ``external_ref`` (storage APIs only — no raw SQL, within the
+        #1220 boundaries; the link's ON CONFLICT keeps one ref per issue). Preserves an
+        existing object's lifecycle ``state`` and merges into its ``data`` so a
+        re-registration never clobbers live phase. Returns True on a store write, False
+        if the store is unavailable. Never raises.
+        """
+        try:
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+            from atdd.state.store import StateStore
+
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                store = StateStore(conn)
+                existing = store.objects.get(slug)
+                state = existing.state if existing is not None else status
+                merged = {**(existing.data if existing is not None else {}), **data}
+                store.objects.upsert(slug, WORK_ITEM_KIND, state=state, data=merged)
+                store.external_refs.link(
+                    slug, GITHUB_PROVIDER, "issue", str(issue_number),
+                    data={"source": "atdd-issue"},
+                )
+            finally:
+                conn.close()
+            return True
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store work-item create unavailable; manifest registration still applies",
+                extra={"issue": issue_number, "slug": slug, "error": str(exc)},
+            )
+            return False
+
     def _register_issue_in_manifest(
         self,
         issue_number: int,
         slug: str,
         train: Optional[str] = None,
     ) -> None:
-        """Register a newly published issue in the local .atdd/manifest.yaml and commit atomically."""
+        """Register a newly published issue.
+
+        #1203 Phase 2: writes the work item to the State Store first (authoritative),
+        then mirrors the manifest ``issues.<n>`` record (a compatibility projection).
+        """
+        self._store_create_work_item(
+            issue_number, slug, status="INIT", data={"train": train}
+        )
         if not self.manifest_file.exists():
             return
         manifest = self._load_manifest()
@@ -1316,6 +1361,12 @@ class IssueManager:
         if "sessions" not in manifest:
             manifest["sessions"] = []
         manifest["sessions"].append(issue_entry)
+        # #1203 Phase 2: the State Store is authoritative — record the new work item
+        # there too (slug + github external_ref), keeping the manifest as a mirror.
+        self._store_create_work_item(
+            parent_number, slug, status="INIT",
+            data={k: v for k, v in issue_entry.items() if k not in ("slug", "status")},
+        )
         self._save_manifest(manifest)
         # Registration must land or fail loudly — never a silent exit-0 with an
         # unregistered issue (#738). _commit_manifest_change(strict=True) for the
