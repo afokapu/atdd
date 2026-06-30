@@ -182,12 +182,14 @@ jobs:
       # owns the value (migration v2), `atdd state version bump --class …`
       # advances it, and the in-tree build backend projects it at build time
       # (`pyproject` is `dynamic = ["version"]`, no `version =` line to push or
-      # conflict on). Publication (git tag + PyPI) is decided in core
-      # (`atdd.state.version.publish_release` → `tag_and_publish` outbox) and
-      # PUBLISHED by the GitHub release extension that drains the outbox.
+      # conflict on). The version *decision* is made in core: `atdd state version
+      # bump` writes the `release` object and emits a PROVIDER-NEUTRAL
+      # `version_decided` outbox message (`{version, change_class}`) — core names
+      # no tag/publish/PyPI. Publication (git tag + PyPI) is PERFORMED by the
+      # GitHub release extension that drains that neutral outbox message.
       #
       # TODO(#1172 step 5 — follow-up): wire the GitHub release-worker to drain
-      # the `tag_and_publish` outbox so tagging/publishing is automated end to
+      # the `version_decided` outbox so tagging/publishing is automated end to
       # end in CI. Until then the Publish workflow only acts when a State Store
       # release version is resolvable (it skips the `0.0.0+local` fallback), and
       # the operator coordinates the release. Do NOT re-introduce the GH006
@@ -220,8 +222,8 @@ jobs:
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           if [ -z "$VERSION" ] || [ "$VERSION" = "0.0.0+local" ]; then
             # No State Store release version resolvable in CI (#1172): publication
-            # is pending the GitHub release-worker draining the tag_and_publish
-            # outbox / operator coordination. Do not announce a PyPI version.
+            # is pending the GitHub release-worker draining core's neutral
+            # version_decided outbox / operator coordination. Do not announce a PyPI version.
             RELEASE_LINE="Release version is owned by the State Store (#1172); publication is handled by the release extension."
           else
             RELEASE_LINE=$(printf 'Publishing to PyPI: atdd==%s' "$VERSION")

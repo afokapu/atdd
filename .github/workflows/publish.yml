@@ -37,8 +37,8 @@ jobs:
       # (no committed store) it returns the `0.0.0+local` fallback — which is NOT
       # a publishable version, so we skip tag/build/publish rather than push a
       # bogus tag. Automated CI publication is pending the GitHub release-worker
-      # that drains the `tag_and_publish` outbox (#1172 step 5 follow-up); until
-      # then the operator coordinates the release.
+      # that drains core's neutral `version_decided` outbox (#1172 step 5
+      # follow-up); until then the operator coordinates the release.
       - name: Resolve release version from State Store (#1172)
         id: resolve
         run: |
@@ -49,7 +49,7 @@ jobs:
             2>/dev/null || echo "0.0.0+local")
           echo "Resolved release version: $VERSION"
           if [ -z "$VERSION" ] || [ "$VERSION" = "0.0.0+local" ]; then
-            echo "::warning title=publish skipped::No State Store release version resolvable in CI (got '${VERSION}'). Tag + PyPI publish skipped — pending the GitHub release-worker that drains the tag_and_publish outbox (#1172 step 5). The operator must publish this release."
+            echo "::warning title=publish skipped::No State Store release version resolvable in CI (got '${VERSION}'). Tag + PyPI publish skipped — pending the GitHub release-worker that drains core's neutral version_decided outbox (#1172 step 5). The operator must publish this release."
             echo "publishable=false" >> "$GITHUB_OUTPUT"
           else
             echo "TAG=${PREFIX}${VERSION}" >> "$GITHUB_ENV"
