@@ -3278,6 +3278,6 @@ sessions:
   file: null
   issue_number: 1254
   type: refactor
-  status: INIT
+  status: PLANNED
   created: '2026-06-30'
   archived: null
