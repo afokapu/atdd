@@ -1,15 +1,6 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
-- id: '1207'
-  slug: decommission-tier1-batch1
-  file: null
-  issue_number: 1207
-  type: implementation
-  status: REFACTOR
-  created: '2026-06-30'
-  archived: null
-  branch: refactor/decommission-tier1-batch1
 - id: '1242'
   slug: phase-aware-validator-binding
   file: null
