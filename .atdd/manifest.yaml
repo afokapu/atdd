@@ -3121,3 +3121,12 @@ sessions:
   status: INIT
   created: '2026-06-30'
   archived: null
+  branch: feat/interlocking-authoring-path
+- id: '1270'
+  slug: decommission-manifest-mirror
+  file: null
+  issue_number: 1270
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
