@@ -13,6 +13,16 @@ sessions:
   wagon: author-atdd-substrate
   feature: feature:author-atdd-substrate:author-convention-node
   train: 0003-author-substrate
+- id: '1220'
+  slug: bind-state-store-invariants-to-node-validators
+  file: null
+  issue_number: 1220
+  type: implementation
+  status: SMOKE
+  created: '2026-06-30'
+  archived: null
+  branch: feat/bind-state-store-invariants-to-node-validators
+  train: 0002-coach-drives-lifecycle
 - id: '1242'
   slug: phase-aware-validator-binding
   file: null
@@ -3103,9 +3113,10 @@ sessions:
   file: null
   issue_number: 1203
   type: implementation
-  status: INIT
+  status: GREEN
   created: '2026-06-22'
   archived: null
+  train: 0002-coach-drives-lifecycle
 - id: '1225'
   slug: registry-reads-single-node-rules
   file: null
@@ -3204,14 +3215,6 @@ sessions:
   type: implementation
   status: INIT
   created: '2026-06-25'
-  archived: null
-- id: '1220'
-  slug: bind-state-store-invariants-to-node-validators
-  file: null
-  issue_number: 1220
-  type: implementation
-  status: INIT
-  created: '2026-06-24'
   archived: null
 - id: '1219'
   slug: state-store-cross-session-tracker
