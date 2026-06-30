@@ -1,0 +1,27 @@
+schema_version: 1.1.0
+rule_id: coder.state-store.sync-engine-provider-agnostic
+kind: rule
+status: active
+name: Sync engine is provider-agnostic
+statement: The State Store sync engine (src/atdd/state/sync_engine.py) must name no concrete
+  provider ("github", "gitlab", etc.). The engine drives a provider-agnostic core loop;
+  provider specifics plug in behind the SyncProvider seam (#1201). A provider-name literal in
+  the engine re-couples the core to one backend and breaks the agnostic contract.
+implementation:
+  type: validator
+  ref: test_state_store_invariants::test_sync_engine_provider_agnostic
+content:
+  normative_text: No string literal in sync_engine.py may equal a concrete provider name
+    (case-insensitive). Provider identity belongs to the SyncProvider implementation, not the
+    engine.
+  fix_hint: Move the provider-specific branch into a SyncProvider implementation and have the
+    engine dispatch through the provider interface. The engine should read provider identity
+    from injected configuration, never hardcode a backend name.
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.139.0
+terms:
+- term_id: sync_provider_seam
+  text: the interface (#1201) behind which a concrete backend (e.g. the github extension)
+    plugs in, keeping the engine core agnostic.

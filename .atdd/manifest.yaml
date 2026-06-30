@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1220'
+  slug: bind-state-store-invariants-to-node-validators
+  file: null
+  issue_number: 1220
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/bind-state-store-invariants-to-node-validators
 - id: tester-core-atomize
   slug: tester-core-atomize
   file: null

@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: coder.state-store.core-imports-no-providers
+kind: rule
+status: active
+name: State Store core imports no providers
+statement: The State Store (atdd.state) is a foundational layer and must not import the
+  upper layers atdd.coach, atdd.train, atdd.integrations, atdd.runtime, or atdd.observer.
+  Providers and orchestration depend inward on the store, never the reverse — the store
+  stays agnostic so any provider (the github extension, a future one, or none) can sync
+  against it.
+implementation:
+  type: validator
+  ref: test_state_store_invariants::test_state_core_imports_no_providers
+content:
+  normative_text: No module under src/atdd/state/ may import atdd.coach/train/integrations/runtime/observer
+    (directly or as a submodule). This supersedes the interim atdd.state entry in
+    tests/architecture/test_layer_imports.py, surfacing the rule in `atdd validate`.
+  fix_hint: Invert the dependency — pass the data the store needs as plain arguments, or move
+    the coupling into the calling layer (coach/train/integrations). The store exposes storage
+    APIs; upper layers consume them, not the other way around.
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.139.0
+terms:
+- term_id: foundational_layer
+  text: a package other layers may import but which imports none of them, so it carries no
+    orchestration or provider coupling.
