@@ -49,7 +49,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 7
+    total: 11
     D001: maximize likelihood of schema-valid substrate intent and lock by defining
       canonical substrate.yaml / substrate.lock.yaml / registry-index schemas and
       validating both files against them
@@ -69,6 +69,18 @@ wagons:
     C004: minimize likelihood of breaking a depended-on artifact by refusing removal
       when other admitted artifacts depend on it (unless --force) and pruning shared
       workspaces only with --prune
+    E002: maximize likelihood of grouped-verb-parity by routing `atdd substrate {add,remove,bind,capabilities,list}`
+      to the same handlers as the flat verbs, so exit codes and lock-file effects
+      are identical
+    C005: minimize likelihood of flat-verb-regression by keeping `atdd add/remove/bind/capabilities`
+      and `list --substrate` working as deprecated aliases that emit a stderr deprecation
+      notice naming the grouped form
+    L002: maximize likelihood of grouped-command-discoverability by listing the five
+      `atdd substrate` subcommands in its help and marking the flat verbs deprecated
+      in the top-level help
+    C006: minimize likelihood of stale-flat-verb-docs by documenting `atdd substrate
+      ...` as the canonical form in the README and synced agent docs, with no doc
+      presenting a flat substrate verb as primary
   total: 0
   manifest: plan/admit_substrate/_admit_substrate.yaml
   path: plan/admit_substrate/
@@ -1302,6 +1314,13 @@ wagons:
       branch) and failing the strict coach.pr.merge-blocks-on-pre-smoke-close disposition
       only on that PR's own violation, while still scanning and logging every offender
       so each remains blocked on its own CI (#1165)
+    E057: 'minimize likelihood of planned-only-issues-blocked-from-pushing-because-the-bidirectional-binding-forward-pass-requires-an-anchored-test-before-the-owning-issue-has-reached-red
+      by phasing test_repo_validator_binding.collect_violations: a new owning_issue_phase()
+      + phase_machine-grounded pre-test comparison in _acceptance_walker reads .atdd/manifest.yaml
+      sessions[] keyed by wagon (fail-closed) so a harness acceptance with no anchored
+      test is exempt only while its owning issue is at INIT/PLANNED and fires exactly
+      as today from RED onward, leaving the reverse (orphan-test) pass and the rule
+      id/severity/disposition unchanged (#1242)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
