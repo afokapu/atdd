@@ -65,3 +65,29 @@ def test_update_status_still_mirrors_manifest(tmp_path):
     doc = yaml.safe_load((tmp_path / ".atdd" / "manifest.yaml").read_text())
     entry = next(s for s in doc["sessions"] if s["issue_number"] == 1203)
     assert entry["status"] == "SMOKE"
+
+
+def test_update_fields_writes_store_authoritatively(tmp_path):
+    mgr = _init_repo(tmp_path)
+
+    mgr._update_manifest_fields(1203, {"branch": "feat/foo", "train": "0003"})
+
+    store = _store(tmp_path)
+    ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "1203")
+    obj = store.objects.get(ref.object_uid)
+    assert obj.data["branch"] == "feat/foo"
+    assert obj.data["train"] == "0003"
+    assert obj.state == "GREEN"  # state preserved across a data merge
+
+
+def test_update_fields_unregistered_issue_is_noop_not_crash(tmp_path):
+    mgr = _init_repo(tmp_path)
+    assert mgr._store_update_fields(999999, {"branch": "feat/x"}) is False
+
+
+def test_update_fields_still_mirrors_manifest(tmp_path):
+    mgr = _init_repo(tmp_path)
+    mgr._update_manifest_fields(1203, {"branch": "feat/foo"})
+    doc = yaml.safe_load((tmp_path / ".atdd" / "manifest.yaml").read_text())
+    entry = next(s for s in doc["sessions"] if s["issue_number"] == 1203)
+    assert entry["branch"] == "feat/foo"

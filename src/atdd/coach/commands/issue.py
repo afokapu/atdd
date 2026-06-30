@@ -431,15 +431,52 @@ class IssueManager:
         branch = entry.get("branch")
         return str(branch) if branch else None
 
+    def _store_update_fields(self, issue_number: int, fields: Dict[str, Any]) -> bool:
+        """Merge work-item metadata (branch/train/...) into the State Store.
+
+        #1203 Phase 2: resolves issue_number → slug via the github external_ref and
+        merges ``fields`` into the work item's ``data`` bag (preserving its kind and
+        lifecycle ``state``) through ``ObjectStore.upsert`` — storage API, no raw SQL,
+        within the #1220 boundaries. Returns True on a store write, False if the store
+        is unavailable or the issue is not in the store. Never raises.
+        """
+        try:
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.store import StateStore
+            from atdd.state.work_item_reader import WorkItemReader
+
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                obj = reader.get(issue_number)
+            if obj is None:
+                return False
+            merged = {**obj.data, **fields}
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                StateStore(conn).objects.upsert(
+                    obj.uid, obj.kind, state=obj.state, data=merged
+                )
+            finally:
+                conn.close()
+            return True
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store field write unavailable; manifest mirror still applies",
+                extra={"issue": issue_number, "fields": sorted(fields), "error": str(exc)},
+            )
+            return False
+
     def _update_manifest_fields(
         self, issue_number: int, fields: Dict[str, Any]
     ) -> None:
-        """Mirror text metadata (branch/train/...) into the local manifest.
+        """Record work-item metadata (branch/train/...).
 
-        Writes onto the matching ``sessions`` entry and the ``issues.<n>``
-        record so both views stay consistent. A missing manifest is a no-op —
-        transitions for issues created outside the atdd CLI remain valid.
+        #1203 Phase 2: the State Store is authoritative — this writes the store
+        first (merging into the work item's ``data``), then mirrors the manifest
+        ``sessions`` entry and the ``issues.<n>`` record (a compatibility
+        projection). A missing manifest is a no-op for the mirror — transitions
+        for issues created outside the atdd CLI remain valid.
         """
+        self._store_update_fields(issue_number, fields)
         if not self.manifest_file.exists():
             return
         manifest = self._load_manifest()
