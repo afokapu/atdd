@@ -1,0 +1,67 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.quality-mi-typescript
+kind: rule
+status: active
+name: TypeScript modules meet a minimum maintainability index
+statement: Every TypeScript/TSX source module of non-trivial size MUST have an approximate maintainability
+  index at or above the "maintainable" threshold of 20, in parity with the Python rule, so that frontend
+  code stays readable and changeable during the REFACTOR phase. This is the TypeScript facet of the
+  language-agnostic maintainability obligation owned by the coder extension. The stack-specific detector
+  that enforces it (a pytest scan computing the SEI MI formula with a REGEX-approximated Halstead volume —
+  no radon, no tree-sitter) is the python-pytest workspace implementation referenced below; the obligation
+  is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.quality-mi-typescript
+content:
+  summary: The TypeScript realization of the "modules stay maintainable" obligation. Because there is no
+    AST/radon dependency for TS, the MI is approximated with the SEI formula over a regex-estimated
+    Halstead volume, a regex cyclomatic-complexity proxy, LOC, and comment ratio; modules of >= 10 lines
+    scoring below 20 are flagged. It is realized by the multi-rule TS quality-metrics detector alongside
+    quality-comments-typescript.
+  normative_text: |
+    Same threshold as the Python counterpart (MI >= 20, SEI "maintainable"). The TS detector has no AST
+    parser or tree-sitter, so it APPROXIMATES the SEI formula
+    `MI = 171 - 5.2*ln(V) - 0.23*CC - 16.2*ln(LOC) + 50*sin(sqrt(2.4*CM))` with a regex-estimated Halstead
+    volume V (operator/operand token counts), a regex cyclomatic-complexity proxy CC averaged over an
+    estimated function count, lines of code LOC (comments stripped), and comment ratio CM. The result is
+    directionally correct and comparable across files in one codebase — sufficient for the threshold check.
+    Files under 10 lines are not measured. This is a pure-regex, pure-stdlib computation (unlike the
+    radon-backed Python MI rule it refines).
+  fix_hint: |
+    Raise the module's approximate MI above 20: split large/branchy components and hooks into smaller
+    units, reduce the operator/operand density per unit, and add comments/JSDoc. A single oversized,
+    heavily-branching `.ts`/`.tsx` module is the usual cause. This rule is `strict`: a module below the MI
+    threshold is not suppressible and fails.
+  exceptions:
+    - Very small files (< 10 lines) are not measured.
+    - Test and spec files (`*.test.ts(x)`, `*.spec.ts(x)`, `__tests__/`) and vendored/build directories are
+      out of scope.
+    - The MI is an approximation (no AST) — it is calibrated for relative comparison within a codebase, not
+      as an absolute cross-tool MI.
+metadata:
+  aliases:
+    - REFACTOR-QUALITY-MI-TS-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.quality-mi-typescript
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: approximate_mi
+  text: the SEI maintainability-index formula computed for TypeScript with a regex-estimated Halstead
+    volume and cyclomatic-complexity proxy (no AST/radon); directionally correct and comparable within a
+    codebase, thresholded at 20.
+- term_id: regex_halstead_volume
+  text: an estimate of Halstead volume from regex operator/operand token counts over comment-stripped
+    source, standing in for the AST-based volume the Python rule gets from radon.

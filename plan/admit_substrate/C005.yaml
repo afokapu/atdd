@@ -1,0 +1,37 @@
+urn: wmbt:admit-substrate:C005
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: flat-verb-regression
+context_clarifier: 'grouping must not break existing callers: the flat `atdd add/remove/bind/capabilities`
+  verbs and `atdd list --substrate` must keep working with identical behaviour, while
+  emitting a deprecation notice to stderr that names the `atdd substrate ...` replacement,
+  so the unmodified existing SMOKE tests stay green and operators are guided to the
+  grouped form'
+lens: functional.sustainability
+statement: minimize likelihood of flat-verb-regression by keeping `atdd add/remove/bind/capabilities`
+  and `list --substrate` working as deprecated aliases that emit a stderr deprecation
+  notice naming the grouped form
+acceptances:
+- given:
+    abstract:
+    - A temp project and a real on-disk valid extension package
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: the flat `atdd add` still succeeds and emits a stderr deprecation notice
+      naming `atdd substrate add`, with stdout unchanged
+    urn: acc:admit-substrate:C005-SMOKE-001-flat-verb-deprecation-warns
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-06-29'
+  then:
+    abstract:
+    - add exits zero and installs to the versioned home exactly as before
+    - stderr contains a deprecation notice naming `atdd substrate add`
+    - the deprecation notice does not appear on stdout (it is routed to stderr)
+  when:
+    abstract: the deprecated flat `atdd add --path <pkg>` is invoked as a subprocess

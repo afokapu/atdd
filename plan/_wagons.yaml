@@ -49,7 +49,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 7
+    total: 11
     D001: maximize likelihood of schema-valid substrate intent and lock by defining
       canonical substrate.yaml / substrate.lock.yaml / registry-index schemas and
       validating both files against them
@@ -69,6 +69,18 @@ wagons:
     C004: minimize likelihood of breaking a depended-on artifact by refusing removal
       when other admitted artifacts depend on it (unless --force) and pruning shared
       workspaces only with --prune
+    E002: maximize likelihood of grouped-verb-parity by routing `atdd substrate {add,remove,bind,capabilities,list}`
+      to the same handlers as the flat verbs, so exit codes and lock-file effects
+      are identical
+    C005: minimize likelihood of flat-verb-regression by keeping `atdd add/remove/bind/capabilities`
+      and `list --substrate` working as deprecated aliases that emit a stderr deprecation
+      notice naming the grouped form
+    L002: maximize likelihood of grouped-command-discoverability by listing the five
+      `atdd substrate` subcommands in its help and marking the flat verbs deprecated
+      in the top-level help
+    C006: minimize likelihood of stale-flat-verb-docs by documenting `atdd substrate
+      ...` as the canonical form in the README and synced agent docs, with no doc
+      presenting a flat substrate verb as primary
   total: 0
   manifest: plan/admit_substrate/_admit_substrate.yaml
   path: plan/admit_substrate/
@@ -123,9 +135,13 @@ wagons:
     contract: null
     telemetry: null
     to: external
+  - name: commons:author:issue-body-command
+    contract: null
+    telemetry: null
+    to: external
   consume: []
   wmbt:
-    total: 19
+    total: 23
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -166,6 +182,16 @@ wagons:
     E005: maximize likelihood of a faithful composed protocol view by materializing
       realizes as derived edges with the provenance triple in composed mode only,
       source-only in core mode, never executing runtime
+    E006: maximize likelihood of schema-valid issue-body creation when authoring from
+      issue.schema.json (Graph Context + Mirror present, zero placeholders)
+    C010: minimize likelihood of accepting an invalid issue body (missing required
+      section / missing Graph Context / out-of-enum Status) by validating against
+      issue.schema.json instead of greping strings
+    C011: minimize likelihood of schema-generator-gate drift by asserting issue.schema.json
+      properties == create_issue_body fields == E019 required sections
+    K002: minimize likelihood of existing-compliant-body validation regression by
+      asserting today's compliant issue bodies validate against issue.schema.json
+      (back-compat)
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
@@ -875,6 +901,77 @@ wagons:
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
+- wagon: enforce-binding-plan
+  description: 'Lock-driven consumer-enforcement runner: a shipped `atdd enforce`
+    verb that reads binding.lock.yaml and, per disposition:bound convention, resolves
+    its workspace provider, subprocesses the provider CLI over the consumer''s scan
+    roots, bridges the raw v1.1 violation JSON through the disposition gate to a single
+    aggregate verdict + process exit code, and runs on every commit and in CI. The
+    consumer-facing counterpart to the producer-side decomposition wagons (#1213/#1215/#1218);
+    coexists with the legacy in-core validators until #1207 severs them. Phase-1 provider-CLI
+    generalization ships externally in atdd.workspace.python-pytest (DONE), not here.'
+  theme: commons
+  subject: agent:operator
+  context: the-install-is-real-but-inert, bindings-and-provider-ship-but-no-shipped-code-joins-them-over-the-binding-plan
+  action: reads binding.lock.yaml, and for every disposition:bound convention resolves
+    (workspace_id, implementation_id, contract_version), resolves the vendored provider
+    CLI, subprocesses it over the scan roots (never imports it), adapts raw v1.1 violation
+    JSON to the disposition-gate violation shape (severity joined from the convention
+    node), evaluates the disposition non-raising, aggregates per-rule verdicts into
+    one process exit code, and gates the commit/build via a hook + CI job
+  goal: 'ship the missing enforcement join between the provider half (cli/scan.py)
+    and the verdict half (disposition gate) over the binding plan, so every bound
+    convention is enforced over consumer code with a correct aggregate exit code —
+    the live enforcement path #1207 needs to retire each legacy in-core validator'
+  outcome: a shipped `atdd enforce` verb + verdict bridge + scan policy + commit/CI
+    gate that runs all bound rules end-to-end, exits 0/1/2 by verdict, holds dogfood
+    parity on src/atdd (incl the coder.logging.print exemption), keeps core provider-agnostic,
+    and records the vendor-vs-lock re-materialization decision
+  produce:
+  - name: commons:enforce:lock-resolver
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:provider-scan-runner
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:verdict-bridge
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:scan-policy
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:enforce-cli
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:commit-ci-gate
+    contract: null
+    telemetry: null
+    to: external
+  consume: []
+  wmbt:
+    E001: minimize likelihood of unrunnable-bound-rule — every disposition:bound convention
+      in binding.lock.yaml runs its detector end-to-end, 0 of 26 emit 'report test
+      missing'
+    E002: minimize likelihood of incorrect-aggregate-exit-code — one `atdd enforce`
+      exits 0 iff all non-skipped bound rules pass, 1 if any strict rule fails, 2
+      only on usage error
+    E003: minimize likelihood of unenforced-commit — a commit triggers the binding-plan
+      scan (hook + CI) that gates the commit/build
+    E004: minimize likelihood of dogfood-parity-drift — runner verdicts over src/atdd
+      match the legacy in-core validators incl the coder.logging.print exemption
+    E005: minimize likelihood of boundary-import-violation — core never imports a
+      provider module and the provider CLI never imports core
+    E006: minimize likelihood of undecided-rematerialization — the vendor-vs-lock
+      path is decided and has an automated check
+    total: 6
+  total: 0
+  manifest: plan/enforce_binding_plan/_enforce_binding_plan.yaml
+  path: plan/enforce_binding_plan/
 - wagon: enforce-structured-logging
   description: Enforce structured logging and prohibit print() in non-CLI production
     Python code
@@ -1288,6 +1385,13 @@ wagons:
       branch) and failing the strict coach.pr.merge-blocks-on-pre-smoke-close disposition
       only on that PR's own violation, while still scanning and logging every offender
       so each remains blocked on its own CI (#1165)
+    E057: 'minimize likelihood of planned-only-issues-blocked-from-pushing-because-the-bidirectional-binding-forward-pass-requires-an-anchored-test-before-the-owning-issue-has-reached-red
+      by phasing test_repo_validator_binding.collect_violations: a new owning_issue_phase()
+      + phase_machine-grounded pre-test comparison in _acceptance_walker reads .atdd/manifest.yaml
+      sessions[] keyed by wagon (fail-closed) so a harness acceptance with no anchored
+      test is exempt only while its owning issue is at INIT/PLANNED and fires exactly
+      as today from RED onward, leaving the reverse (orphan-test) pass and the rule
+      id/severity/disposition unchanged (#1242)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

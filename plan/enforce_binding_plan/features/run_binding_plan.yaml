@@ -1,0 +1,45 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'lock-driven enforcement: read binding.lock, per bound rule resolve
+        provider, scan, bridge to a verdict and aggregate'
+      type: use_cases
+    - count: 1
+      rationale: scan policy resolving per-rule roots/excludes incl the src/atdd print
+        exemption (rule>role>default)
+      type: policies
+    domain:
+    - count: 1
+      rationale: aggregate verdict + per-rule disposition outcome mapped to the 0/1/2
+        process exit code
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: 'subprocess client for the vendored provider CLI plus the single
+        lock/config accessor isolating #1168'
+      type: clients
+    - count: 1
+      rationale: adapter reshaping raw v1.1 violation JSON to the disposition-gate
+        violation shape, joining severity from the node
+      type: mappers
+    presentation:
+    - count: 1
+      rationale: the operator-facing `atdd enforce` verb (argparse) that runs the
+        binding-plan scan
+      type: controllers
+description: The lock-driven `atdd enforce` verb + raw-JSON->disposition->aggregate-verdict->exit-code
+  bridge over the binding plan (phases 2-5).
+sizing:
+  footprint_score: 6
+  footprint_size: S
+  wmbts: 6
+urn: feature:enforce-binding-plan:run-binding-plan
+wagon: wagon:enforce-binding-plan
+wmbts:
+- wmbt:enforce-binding-plan:E001
+- wmbt:enforce-binding-plan:E002
+- wmbt:enforce-binding-plan:E003
+- wmbt:enforce-binding-plan:E004
+- wmbt:enforce-binding-plan:E005
+- wmbt:enforce-binding-plan:E006

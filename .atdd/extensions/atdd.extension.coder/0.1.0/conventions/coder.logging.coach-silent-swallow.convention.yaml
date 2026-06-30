@@ -1,0 +1,82 @@
+schema_version: 1.1.0
+rule_id: coder.logging.coach-silent-swallow
+kind: rule
+status: active
+name: Exception handlers must observably react, never silently swallow
+statement: When production application code catches an exception, the handler MUST observably react —
+  emit an observability event through a logger OR re-raise (re-raise or raise-from) — rather than
+  silently swallowing the failure by returning a value or doing nothing. This is the language-agnostic
+  obligation owned by the coder extension. The stack-specific detector that enforces it (a pytest/AST
+  scan for try/except handlers with no log call, no raise, that either return a value or are an empty
+  `pass`) is the python-pytest workspace implementation referenced below — the obligation is agnostic,
+  the detector is not.
+implementation:
+  type: validator
+  ref: coder.logging.coach-silent-swallow
+content:
+  summary: An agnostic "an exception handler must observably react, never silently swallow" obligation.
+    The Python realization forbids a `try/except` whose handler neither logs nor raises and either
+    returns a value or is a bare `pass`; other stacks realize the same obligation over their own
+    try/catch construct under their own workspace detector.
+  normative_text: |
+    A caught exception in shippable application code must turn into an observable signal: a structured
+    log event, or a re-raise that lets the failure propagate. A handler that swallows the exception and
+    returns a (non-error) value — or does nothing at all (`except: pass`) — converts a loud failure into
+    invisible data corruption. The obligation is "handlers observably react"; WHICH reaction (log vs
+    raise) and HOW it is detected is delegated to the per-stack detector. For Python the detector is an
+    AST scan: a `try` whose `except` handler body contains no logging call (`logger`/`log`/`logging` X)
+    and no `raise`, AND either contains an explicit `return` or is a single `pass`.
+  fix_hint: |
+    Make the handler observably react:
+      try:
+          return match_creator.create(player_id).id
+      except Exception:        # silent swallow — no log, no raise
+          return ""
+    becomes
+      try:
+          return match_creator.create(player_id).id
+      except Exception as e:
+          logger.warning("match_creator failed", extra={"player_id": player_id, "error": str(e)})
+          raise                # re-raise, OR log + structured fallback
+    If a pre-existing swallow cannot be cleaned immediately, this rule's disposition is
+    `suppress-and-clean`: stamp the offending `except` line with an inline marker
+    `# atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=<YYYY-MM-DD>` to absorb it on a deadline
+    while the backlog is burned down. New silent swallows are not suppressible by default and fail.
+  exceptions:
+    - Test code is out of scope — test files (`test_*.py`, `*_test.py`, `*/tests/`, `*/test/`) and
+      `conftest.py` legitimately suppress exceptions for assertion patterns.
+    - Fixture directories (`*/fixtures/*`) hold intentional violations for validator testing.
+    - Re-export shims (`__init__.py`) are excluded from the scan.
+    - A handler that does something non-trivial (assignment/call) but neither returns nor is a bare
+      `pass` is NOT flagged (core parity — the canonical incident shape is a returning handler).
+    - Pre-existing handlers carrying a valid inline `# atdd:suppress(coder.logging.coach-silent-swallow)`
+      marker are absorbed by the `suppress-and-clean` disposition (applied by the coach/consumer layer,
+      NOT by the workspace detector — the detector emits the RAW violation regardless of marker).
+metadata:
+  aliases:
+    - COACH-SILENT-SWALLOW-001
+  severity: 4
+  disposition: suppress-and-clean
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/logging.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.logging.coach-silent-swallow
+  legacy_sha: b5999f8489b06e20
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: silent_swallow
+  text: a `try/except` (try/catch) whose handler body has no logging call and no `raise`, and which
+    either returns a value or is a single `pass` — suppressing the failure with no observable signal.
+- term_id: observable_reaction
+  text: a logging-level call on a known logger receiver (`logger`/`log`/`logging`/`self.logger` X) or a
+    `raise` statement in the handler body, making the caught failure visible in production observability.
+- term_id: production_code
+  text: shippable application code under the scanned source roots, excluding test files, `conftest.py`,
+    `__init__.py` shims, and fixture directories.

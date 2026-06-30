@@ -1,0 +1,137 @@
+urn: "wmbt:govern-lifecycle:E057"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "planned-only-issues-blocked-from-pushing-because-the-bidirectional-binding-forward-pass-requires-an-anchored-test-before-the-owning-issue-has-reached-red"
+context_clarifier: >
+  When a brand-new plan-only issue sits at PLANNED, its acceptances are authored (declaring
+  harness.type) but their anchored tests are not written until the RED transition. The forward
+  pass of test_repo_validator_binding::test_validator_binding_is_bidirectional emits
+  tester.acceptance-violation.validator-binding-must-be-bidirectional unconditionally for every
+  harness acceptance lacking a test — never consulting the owning issue's phase — so the first
+  (PLANNED) push is rejected and the operator is forced to reach for the prohibited `atdd
+  emergency`. The fix phases the forward pass: it requires the anchored test only once the owning
+  issue has reached RED+ (exempting INIT/PLANNED), reading the issue's current phase from the
+  authoritative .atdd/manifest.yaml sessions[] (the #1168 State Store's import source), keyed by
+  wagon, fail-closed. The reverse (orphan-test) pass and the rule's id/severity/disposition are
+  unchanged; the invariant is correctly phased, not weakened.
+lens: "functional.effectiveness"
+statement: >
+  minimize likelihood of planned-only-issues-blocked-from-pushing-because-the-bidirectional-binding-forward-pass-requires-an-anchored-test-before-the-owning-issue-has-reached-red
+  by adding owning_issue_phase() and a phase_machine-grounded pre-test comparison to
+  _acceptance_walker.py that reads .atdd/manifest.yaml sessions[] keyed by wagon (fail-closed),
+  and guarding the forward-pass Violation in test_repo_validator_binding.collect_violations so an
+  acceptance with harness.type but no anchored test is exempt only while its owning issue is at
+  INIT or PLANNED and fires exactly as today from RED onward, leaving the reverse pass unchanged
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E057-UNIT-001-phase-order-marks-init-planned-pre-test"
+      id: "AC-UNIT-001"
+      purpose: "the phase-order comparison ranks INIT and PLANNED as pre-test (strictly before RED) and RED/GREEN/SMOKE/REFACTOR/COMPLETE plus BLOCKED/OBSOLETE/unknown as not-pre-test, using the order declared in phase_machine.convention.yaml"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "_acceptance_walker exposes a pre-test phase predicate whose order is sourced from src/atdd/coach/conventions/phase_machine.convention.yaml (INIT < PLANNED < RED < GREEN < SMOKE < REFACTOR < COMPLETE)"
+    when:
+      abstract: "the predicate is evaluated for each phase token and for an unknown token"
+    then:
+      abstract:
+        - "INIT and PLANNED return True (pre-test: the anchored test is not yet due)"
+        - "RED, GREEN, SMOKE, REFACTOR and COMPLETE return False"
+        - "BLOCKED, OBSOLETE and any unknown/None token return False (fail-closed: require the test)"
+    metadata:
+      author: "atdd:phase-aware-binding"
+      created: "2026-06-29"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E057-INTEGRATION-001-forward-pass-exempts-pre-red-owner"
+      id: "AC-INTEGRATION-001"
+      purpose: "collect_violations() does NOT emit a binding violation for a harness acceptance with no anchored test when every manifest session for its wagon is at INIT or PLANNED"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A hermetic repo root with plan/<wagon>/<WMBT>.yaml holding one acceptance that declares harness.type and has no anchored test file"
+        - "A .atdd/manifest.yaml whose only session for that wagon has status PLANNED"
+    when:
+      abstract: "collect_violations(repo_root) is invoked"
+    then:
+      abstract:
+        - "Zero tester.acceptance-violation.validator-binding-must-be-bidirectional violations are returned"
+        - "The same fixture with status INIT also returns zero violations"
+    metadata:
+      author: "atdd:phase-aware-binding"
+      created: "2026-06-29"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E057-INTEGRATION-002-forward-pass-still-fires-for-red-plus-owner"
+      id: "AC-INTEGRATION-002"
+      purpose: "collect_violations() STILL emits the binding violation for a harness acceptance lacking a test when the owning wagon has a session at RED+ (invariant not weakened), and also when the wagon is unmapped or the manifest is absent (fail-closed)"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A hermetic repo root with plan/<wagon>/<WMBT>.yaml holding one acceptance with harness.type and no anchored test"
+        - "Variant A: a .atdd/manifest.yaml whose session for that wagon is at RED (or REFACTOR/COMPLETE)"
+        - "Variant B: no .atdd/manifest.yaml at all (wagon unmapped)"
+    when:
+      abstract: "collect_violations(repo_root) is invoked for each variant"
+    then:
+      abstract:
+        - "Variant A returns exactly one tester.acceptance-violation.validator-binding-must-be-bidirectional violation naming the acceptance URN"
+        - "Variant B returns exactly one such violation (fail-closed when ownership/phase cannot be determined)"
+    metadata:
+      author: "atdd:phase-aware-binding"
+      created: "2026-06-29"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E057-INTEGRATION-003-reverse-pass-orphan-detection-unchanged"
+      id: "AC-INTEGRATION-003"
+      purpose: "the reverse pass (a test header anchoring to an acc:* URN that resolves to no acceptance) fires independent of phase or manifest — the phase-aware change touches the forward pass only"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A hermetic repo root whose plan/ contains no acceptance for acc:foo-wagon:Z999-UNIT-001"
+        - "A test file carrying '# Acceptance: acc:foo-wagon:Z999-UNIT-001' in its header block"
+        - "Run with and without a .atdd/manifest.yaml whose session for foo-wagon is PLANNED"
+    when:
+      abstract: "collect_violations(repo_root) is invoked for both manifest states"
+    then:
+      abstract:
+        - "Both states return a tester.acceptance-violation.validator-binding-must-be-bidirectional violation whose detail names acc:foo-wagon:Z999-UNIT-001 and the orphan test path"
+        - "The PLANNED manifest does not suppress the reverse-pass violation"
+    metadata:
+      author: "atdd:phase-aware-binding"
+      created: "2026-06-29"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E057-SMOKE-001-real-tester-suite-runs-phase-aware-binding-green"
+      id: "AC-SMOKE-001"
+      purpose: "running the real binding validator over this repo after the phase-aware refinement still reports zero violations (no regression for the live plan/ whose RED+ acceptances all bind), and the new phase-aware test module is collected by the real tester suite (eats own dog food)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "test_repo_validator_binding.collect_violations carries the phase-aware forward pass"
+        - "test_phase_aware_validator_binding.py is registered under src/atdd/tester/validators/tests/"
+    when:
+      abstract: "collect_violations(<repo_root>) is invoked on this repository and the tester validator suite collects the phase-aware module"
+    then:
+      abstract:
+        - "collect_violations(repo_root) returns an empty list (the live repo's RED+ acceptances still bind; reverse pass clean)"
+        - "pytest collects test_phase_aware_validator_binding.py and its anchored tests run (not skipped) against hermetic fixtures"
+    metadata:
+      author: "atdd:phase-aware-binding"
+      created: "2026-06-29"

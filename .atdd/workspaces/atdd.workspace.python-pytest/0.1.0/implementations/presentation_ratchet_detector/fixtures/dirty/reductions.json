@@ -1,0 +1,6 @@
+{
+  "_comment": "RED: a presentation file shrank 200 -> 150 lines (25% > 20%) and there is NO smoke evidence recorded for issue 358. Detector emits ONE raw violation; the consumer's smoke-evidence gate fails it.",
+  "reductions": [
+    { "path": "web/src/match/presentation/MatchPage.tsx", "before_lines": 200, "after_lines": 150, "issue": 358 }
+  ]
+}

@@ -1,0 +1,34 @@
+urn: wmbt:enforce-binding-plan:E002
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: incorrect-aggregate-exit-code
+context_clarifier: a clean tree exits 0, a tree with one coder.logging.print violation
+  exits 1 naming the rule at file:line:col, and a malformed config exits 2
+lens: functional.effectiveness
+statement: minimize likelihood of incorrect-aggregate-exit-code by ensuring a single
+  `atdd enforce` exits 0 iff every non-skipped bound rule passes, 1 if any strict
+  rule fails, and 2 only on usage or wiring error
+acceptances:
+- given:
+    abstract:
+    - 'the smoke fixtures: a clean tree, a tree with one coder.logging.print violation,
+      and a malformed config'
+    - the installed atdd CLI
+  harness:
+    category: integration
+    type: smoke
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify the single-command aggregate exit-code verdict against the smoke
+      fixtures (V2)
+    urn: acc:enforce-binding-plan:E002-SMOKE-001-exit-code
+  then:
+    abstract:
+    - the clean tree exits 0
+    - the one-violation tree exits 1 with coder.logging.print named at file:line:col
+    - the malformed config exits 2
+  when:
+    abstract: a single `atdd enforce` invocation scans the consumer code for all bound
+      rules

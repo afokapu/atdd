@@ -1,0 +1,66 @@
+schema_version: 1.1.0
+rule_id: coder.design.foundations
+kind: rule
+status: active
+name: Design-system primitives compose foundations, not raw values
+statement: A design-system primitive or component that uses spatial values MUST compose them from the
+  design-system foundations rather than embedding raw pixel literals, so the design system is itself
+  consistent. This is the language-agnostic obligation owned by the coder extension. The stack-specific
+  detector that enforces it (a pytest/regex scan of primitive/component files for raw `NNpx` literals
+  without a foundations import) is the python-pytest workspace implementation referenced below — the
+  obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.design.primitives
+content:
+  summary: An agnostic "the design system eats its own foundations" obligation. The web realization flags
+    any `maintain-ux/primitives` or `maintain-ux/components` `.tsx` file that contains a raw multi-digit
+    pixel literal (an `"16px"` or `24px` value on a style property) yet does not import from
+    `../foundations` / `./foundations`. It
+    is realized by the same multi-rule detector as the rest of the design-system family (declared via that
+    implementation's `emits_rule_ids`).
+  normative_text: |
+    The design system can only deliver consistency if it is built from its own foundations; a primitive
+    that hardcodes a raw pixel value reintroduces exactly the drift the system exists to remove. The
+    obligation: a primitive/component that uses spatial values composes them from foundations rather than
+    raw literals. WHICH literal forms are matched and WHAT counts as a foundations import is delegated to
+    the per-stack detector; for the web stack it matches two-or-more-digit `px` literals in
+    primitive/component `.tsx` files and treats a `../foundations` / `./foundations` import as satisfying
+    the rule (a file that imports foundations is trusted to source its values there).
+  fix_hint: |
+    Compose the value from foundations instead of hardcoding it:
+      maintain-ux/primitives/Box.tsx  ->  const style = { padding: '24px' }            ->  FORBIDDEN
+      import { spacing } from '../foundations'   //  const style = { padding: spacing.md }  ->  allowed
+    Pull spacing/sizing from the foundations tokens so the design system stays internally consistent. This
+    rule is `strict`: a raw pixel literal in a primitive/component without a foundations import fails.
+  exceptions:
+    - A primitive/component that imports from `../foundations` / `./foundations` is not flagged even if a
+      literal is present (it is trusted to source its values from foundations).
+    - Single-digit pixel literals are not matched (only two-or-more-digit `px` values are flagged).
+    - Files outside `maintain-ux/primitives` and `maintain-ux/components`, and test files, are out of
+      scope.
+metadata:
+  aliases:
+    - DESIGN-FOUNDATIONS-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.foundations
+  legacy_sha: 21bedcb7d74cfb18
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: foundations
+  text: the lowest design-system layer holding pure values (spacing, radii, motion, color tokens) that
+    primitives and components compose; the web home is `maintain-ux/foundations`.
+- term_id: raw_pixel_literal
+  text: a hardcoded multi-digit `px` value embedded in a primitive/component (an `"16px"` or `24px` style
+    value) that bypasses the foundations token set.
