@@ -41,6 +41,21 @@ KINDS: tuple[str, ...] = (
 )
 STATUSES: tuple[str, ...] = ("draft", "active", "deprecated")
 
+# Canonical (extensible) subject kinds a convention-node `validation` block may
+# control (#1247). The schema keeps `subject_kind` an open string so new kinds
+# need no schema change; this tuple documents the known set for tooling.
+VALIDATION_SUBJECT_KINDS: tuple[str, ...] = (
+    "train", "interlocking", "rendered-diagram", "plan-session", "runtime-boundary",
+)
+
+# Forbidden key tokens inside a `validation` block (#1247 boundary rules):
+# concrete runtime facts (a one-off train_id, route-selection state, Cargo
+# contents, a rendered digest, or TrainResult values) belong in generated
+# artifacts, traces, or validator evidence — never in convention metadata.
+_FORBIDDEN_VALIDATION_KEY_TOKENS: tuple[str, ...] = (
+    "train_id", "route_selection", "cargo", "digest", "train_result",
+)
+
 # rule_id: dot-separated lowercase kebab segments, role-prefixed.
 _RULE_ID_RE = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
 # term_id: semantic snake_case; numbered ids (T1/T2/T3) are forbidden (§D005).
@@ -126,6 +141,11 @@ def validate_convention_node(node: dict, path: Path) -> None:
                 f"numbered (T1/T2/T3 forbidden — §D005)",
             )
 
+    # Optional `validation` metadata (#1247): when present it must be a JSON
+    # object with a registry-resolvable family/template and no runtime state.
+    if "validation" in node and node["validation"] is not None:
+        validate_validation_metadata(node["validation"])
+
     # §D006 term-count heuristic — warn, never block.
     n = len(node["terms"])
     if 8 <= n <= 10:
@@ -134,6 +154,66 @@ def validate_convention_node(node: dict, path: Path) -> None:
         print(
             f"atdd author: warning — {n} terms; likely too large unless justified (§D006)",
             file=sys.stderr,
+        )
+
+
+def _reject_runtime_state(obj, *, _path: str = "validation") -> None:
+    """Reject any key carrying concrete runtime state, anywhere in the block.
+
+    Walks the ``validation`` block recursively; raises ``AuthorInputError`` (field
+    ``"validation"``) when a key name matches a forbidden runtime token (#1247).
+    """
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            norm = str(key).lower().replace("-", "_")
+            if any(tok in norm for tok in _FORBIDDEN_VALIDATION_KEY_TOKENS):
+                raise AuthorInputError(
+                    "validation",
+                    f"validation must not carry concrete runtime state (forbidden "
+                    f"key {key!r} at {_path}); a concrete train_id, route-selection "
+                    f"state, Cargo contents, rendered digest, or TrainResult value "
+                    f"belongs in generated artifacts, traces, or validator evidence "
+                    f"— not convention metadata (#1247)",
+                )
+            _reject_runtime_state(value, _path=f"{_path}.{key}")
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            _reject_runtime_state(item, _path=f"{_path}[{i}]")
+
+
+def validate_validation_metadata(validation) -> None:
+    """Validate an optional convention-node ``validation`` block (#1247).
+
+    Enforces the boundary rules: it must be a JSON object; it must not embed
+    concrete runtime state; and when ``family`` (and optionally ``template``) is
+    given they must resolve against ``validators/conventions/registry.yaml``.
+    Raises ``AuthorInputError`` (with ``.field``) on the first violation.
+    """
+    if not isinstance(validation, dict):
+        raise AuthorInputError("validation", "validation must be a JSON object")
+
+    _reject_runtime_state(validation)
+
+    family = validation.get("family")
+    template = validation.get("template")
+    if family is None:
+        return  # family/template are optional; nothing left to resolve
+
+    # Lazy import: author_variant imports AuthorInputError from this module.
+    from atdd.planner.commands.author_variant import load_registry
+
+    families = load_registry()
+    if family not in families:
+        raise AuthorInputError(
+            "family",
+            f"unknown convention family {family!r}; registered: "
+            f"{', '.join(sorted(families))}",
+        )
+    if template is not None and template not in families[family]:
+        raise AuthorInputError(
+            "template",
+            f"template {template!r} is not registered under family {family!r}; "
+            f"templates: {', '.join(families[family]) or '(none)'}",
         )
 
 
@@ -158,6 +238,7 @@ def create_convention_node(
     bidirectional: list | None = None,
     metadata: dict | None = None,
     parity: dict | None = None,
+    validation: dict | None = None,
     terms: list | None = None,
     root: Path | str | None = None,
     path: Path | str | None = None,
@@ -210,6 +291,8 @@ def create_convention_node(
         node["metadata"] = metadata
     if parity:
         node["parity"] = parity
+    if validation:
+        node["validation"] = validation
     validate_convention_node(node, path)
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -483,6 +566,12 @@ def build_parser() -> argparse.ArgumentParser:
                     help="JSON object: legacy_path/legacy_section/legacy_rule_id/legacy_sha/extraction_mode")
     cn.add_argument("--parity", default=None,
                     help="JSON object: *_preserved flags + reviewed_at (extraction parity)")
+    cn.add_argument("--validation", default=None,
+                    help="JSON object (#1247): optional validator-family intent — "
+                         "family/template/variant, phase/enforcement, subject_kind, "
+                         "selector/traversal/invariant, failure_evidence, config. "
+                         "family/(family,template) checked against registry.yaml; "
+                         "must carry no concrete runtime state")
     # Variant scaffolding (#1212): when a registered (family, template) pair is
     # given AND the rule carries an implementation binding, also scaffold the
     # convention-graph variant so the new convention is enforced, not just declared.
@@ -791,6 +880,7 @@ def run(argv: list[str]) -> int:
                 bidirectional=_json_arg("bidirectional", getattr(args, "bidirectional", None)),
                 metadata=_json_arg("metadata", getattr(args, "metadata", None)),
                 parity=_json_arg("parity", getattr(args, "parity", None)),
+                validation=_json_arg("validation", getattr(args, "validation", None)),
                 terms=_parse_terms(args.terms), path=path,
             )
             variant_path = None

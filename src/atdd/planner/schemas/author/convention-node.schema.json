@@ -87,6 +87,28 @@
       }
     },
 
+    "validation": {
+      "type": "object",
+      "description": "Optional validator-family intent metadata (#1247). Declares which validator family/template/variant enforces this node, plus its phase/enforcement/subject_kind and machine-readable selector/traversal/invariant intent, failure-evidence keys, and static config. OPTIONAL and backward-compatible (existing nodes without it stay valid). Carries declarative intent only — never concrete runtime state (no train_id, route-selection state, Cargo contents, rendered digest, or TrainResult values).",
+      "additionalProperties": true,
+      "properties": {
+        "family": {"type": "string", "description": "convention validator family (validated against validators/conventions/registry.yaml)"},
+        "template": {"type": "string", "description": "registered template id under the selected family"},
+        "variant": {"type": "string", "description": "variant id instantiating the template"},
+        "phase": {"enum": ["RED", "GREEN", "SMOKE", "REFACTOR", "CONFIRM"]},
+        "enforcement": {"enum": ["advisory", "strict", "confirm-blocking"]},
+        "subject_kind": {
+          "type": "string",
+          "description": "the kind of subject the rule controls. Canonical kinds: train | interlocking | rendered-diagram | plan-session | runtime-boundary. Extensible (string, not a closed enum) so new subject kinds can be declared without a schema change."
+        },
+        "selector": {"type": "string", "description": "machine-readable selector for the controlled subjects"},
+        "traversal": {"type": "string", "description": "machine-readable traversal the validator walks"},
+        "invariant": {"type": "string", "description": "machine-readable invariant the validator asserts"},
+        "failure_evidence": {"type": "array", "items": {"type": "string"}, "description": "evidence field names a failing check should surface"},
+        "config": {"type": "object", "description": "static, variant-specific configuration (no concrete runtime facts)"}
+      }
+    },
+
     "terms": {
       "type": "array",
       "minItems": 1,
