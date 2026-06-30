@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1251'
+  slug: runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
+  file: null
+  issue_number: 1251
+  type: implementation
+  status: RED
+  created: '2026-06-30'
+  archived: null
+  branch: feat/runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
 - id: '1249'
   slug: planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
   file: null
