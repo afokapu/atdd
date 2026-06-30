@@ -98,10 +98,29 @@ CREATE INDEX idx_outbox_status ON outbox(status);
 """
 
 
+#: Seed version for the singleton ``release`` object (#1172). This is the value
+#: current on ``main`` when migration v2 was authored; it is a *baseline*, not a
+#: live value — subsequent bumps update ``data.version`` and append
+#: ``version_bumped`` events (see :mod:`atdd.state.version`). A fresh store starts
+#: here; a build over a never-bumped store therefore reports this version.
+RELEASE_SEED_VERSION = "3.149.0"
+
+#: #1172 — register the singleton ``release`` object that owns the source-of-truth
+#: version. Reuses the existing ``objects`` table (NO new table); the ``release``
+#: kind is just a value in ``objects.kind``. ``ON CONFLICT(uid) DO NOTHING`` keeps
+#: an already-present/imported release object intact (idempotent re-seed).
+_RELEASE_KIND_SQL = f"""
+INSERT INTO objects (uid, kind, state, data)
+VALUES ('release', 'release', NULL, '{{"version": "{RELEASE_SEED_VERSION}"}}')
+ON CONFLICT(uid) DO NOTHING;
+"""
+
+
 #: Ordered, append-only core migrations. NEVER edit an applied migration in place
 #: — add a new one with the next version number.
 CORE_MIGRATIONS: List[Migration] = [
     Migration(version=1, name="core_tables", sql=_CORE_TABLES_SQL),
+    Migration(version=2, name="release_kind", sql=_RELEASE_KIND_SQL),
 ]
 
 

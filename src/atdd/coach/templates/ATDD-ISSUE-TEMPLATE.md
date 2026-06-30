@@ -354,21 +354,24 @@ Reference: src/atdd/coach/conventions/issue.convention.yaml
 ## Release Gate (MANDATORY)
 
 <!--
-INTERIM (see #1172): bump the version manually for now. The bump-on-merge automation
-(post-merge-lifecycle.yml) is currently NON-OPERATIONAL — its direct push to
-main is rejected by branch protection (GH006), so it has never successfully
-bumped. Until version handling moves to the State Store (#1168 / #1172), manual
-bumping is the working mechanism. Do NOT re-adopt the auto-bump until it works.
+#1172 (SHIPPED): the release version lives in the State Store (singleton
+`release` object, migration v2) and is projected at build time by the in-tree
+backend — `pyproject.toml` is `dynamic = ["version"]` (no `version =` line to
+hand-edit or conflict on). The GH006 direct-push auto-bump is RETIRED.
+Bump with `atdd state version bump --class PATCH|MINOR|MAJOR`. CI publication
+(release-worker draining core's neutral version_decided outbox) is the remaining
+#1172 follow-up; until it lands the release is operator-coordinated. Do NOT re-adopt
+the GH006 auto-bump or a hand-edited pyproject version.
 
-Change Class (branch prefix → bump):
+Change Class:
 - PATCH: bug fixes, docs, refactors, internal changes
 - MINOR: new feature, new validator, new command, new convention (non-breaking)
 - MAJOR: breaking API/CLI/schema/convention change or behavior removal
 -->
 
-- [ ] Determine change class from branch prefix: PATCH / MINOR / MAJOR
-- [ ] Bump the version in pyproject.toml; commit "Bump version to X.Y.Z"
-- [ ] Merge PR → publish.yml tags + publishes from the version on main
+- [ ] Determine change class: PATCH / MINOR / MAJOR
+- [ ] Bump the State Store version: `atdd state version bump --class X` (no pyproject edit)
+- [ ] Merge PR → publication handled by the release extension (interim: operator-coordinated)
 
 ---
 
