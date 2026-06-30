@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1249'
+  slug: planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
+  file: null
+  issue_number: 1249
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
 - id: '1248'
   slug: planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
   file: null
