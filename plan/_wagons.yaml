@@ -254,7 +254,7 @@ wagons:
   - name: commons:author:author-spine
     from: wagon:author-atdd-substrate
   wmbt:
-    total: 12
+    total: 13
     C001: minimize likelihood of the plan-artifact author guard accepting a malformed
       slug, URN, step-code, or a path escaping plan/
     E001: maximize likelihood of schema-valid wagon-manifest creation under the canonical
@@ -274,6 +274,11 @@ wagons:
     E006: 'minimize likelihood of an unbound-train-validator by adding a train.convention.yaml
       rules: block and binding the train validators (executable-train family + dispatch
       rules), behaviour-preserving'
+    E007: 'maximize likelihood of a schema-valid interlocking-artifact-write under
+      plan/_trains/_interlockings/<id>.yaml: derive ONLY the digests via the single-source-of-truth
+      stamp (per-route expected_sequence_digest + whole-doc content_digest), dedup-insert
+      the registry entry, idempotent re-stamp, clean refusal (no partial write) on
+      a missing route train, satisfying the real #1249 Confirm gate'
   total: 0
   manifest: plan/author_plan_substrate/_author_plan_substrate.yaml
   path: plan/author_plan_substrate/
