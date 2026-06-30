@@ -66,9 +66,10 @@ release:
   # projected at build time by the in-tree backend — `pyproject.toml` is
   # `dynamic = ["version"]` with NO `version =` line to hand-edit or conflict on.
   # The GH006 direct-push auto-bump (post-merge-lifecycle.yml) is RETIRED.
-  # FOLLOW-UP (#1172 step 5): CI publication is decided in core
-  # (`atdd.state.version.publish_release` → `tag_and_publish` outbox) but the
-  # GitHub release-worker that drains that outbox to tag + publish does not exist
+  # FOLLOW-UP (#1172 step 5): the version *decision* is made in core — a bump
+  # emits a PROVIDER-NEUTRAL `version_decided` outbox message ({version,
+  # change_class}); core names no tag/publish/PyPI. The GitHub release-worker
+  # that drains that neutral outbox to tag + publish does not exist
   # yet, so the on-merge publish is operator-coordinated for now (publish.yml
   # skips the `0.0.0+local` fallback rather than publishing a bogus version).
   # Do NOT re-introduce the GH006 direct-push bump or a hand-edited version line.
@@ -79,7 +80,7 @@ release:
   workflow:
     - "Bump the State Store version by change class: `atdd state version bump --class PATCH|MINOR|MAJOR`"
     - "The build backend projects that version automatically — no pyproject edit, no version-bump commit"
-    - "Merge PR; publication (git tag + PyPI) is handled by the release extension draining the tag_and_publish outbox (interim: operator-coordinated)"
+    - "Merge PR; publication (git tag + PyPI) is handled by the release extension draining core's neutral version_decided outbox (interim: operator-coordinated)"
   note: "Version source-of-truth + build projection shipped in #1172; CI publish automation (release-worker outbox drain) is the remaining follow-up. Do not re-adopt the GH006 auto-bump or hand-edited pyproject version."
 
 # Issue Tracking (operator-facing CLI + the prohibition list — gh issue create /
