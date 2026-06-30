@@ -72,6 +72,12 @@ _PRUNE_DIRS = {
     ".pytest_cache",
     ".mypy_cache",
     "site-packages",
+    # Installed substrate (#1238): vendored extension/workspace packages under
+    # `.atdd/` ship their OWN detector test fixtures (clean/dirty sample tests
+    # that anchor to sample acceptances). They are vendored provider code, not
+    # the consumer's plan-bound tests, so they are out of scope for the repo's
+    # bidirectional-binding rule — pruned like any other vendored tree.
+    ".atdd",
 }
 
 

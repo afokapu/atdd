@@ -1,0 +1,24 @@
+schema_version: "1.0.0"
+
+# Extension-LOCAL relationship graph for atdd.extension.tester.
+#
+# IMPORTANT (boundary spec §6.2): core↔extension edges are NOT authored here. The
+# core tester nodes these convention nodes realize are declared narratively in each
+# node's body / atdd.extension.yaml, never as graph edges. Only extension-internal
+# edges live here. Authored in the build slice; this skeleton carries the graph
+# header with no nodes/edges yet.
+graph_id: atdd.extension.tester.relationships
+
+nodes:
+- tester.filename.urn
+- tester.migration.naming
+edges:
+- source_ref: tester.migration.naming
+  target_ref: tester.filename.urn
+  type: relates-to
+  reason: 'Both are documentation-only, stack-bound NAMING-discipline obligations: a test/migration artifact
+    is named deterministically from its identity (the acceptance/test URN for tester.filename.urn; the
+    migration ID for tester.migration.naming) and colocated with what it covers, so the artifact and its
+    proof never drift apart. Co-equal naming facets of the tester extension, each realized by a different
+    per-stack detector (tester.filename.urn -> python-pytest; tester.migration.naming -> the not-yet-built
+    atdd.workspace.supabase provider). Extension-internal link.'

@@ -1,0 +1,73 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.complexity-cognitive
+kind: rule
+status: active
+name: Python function cognitive complexity stays under threshold
+statement: Every Python function MUST keep its cognitive complexity at or below the threshold (default <= 15,
+  SonarQube / G. Ann Campbell algorithm) so that code which is hard to UNDERSTAND — penalising deeply nested
+  structures more than flat ones — is surfaced. This is the language-agnostic obligation owned by the coder
+  extension. The stack-specific detector that enforces it (a pytest AST scan applying the SonarQube cognitive
+  algorithm per function) is the python-pytest workspace implementation referenced below — the obligation is
+  agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.complexity-cyclomatic
+content:
+  summary: An agnostic "no cognitively heavy function" obligation. The python realization parses the module
+    to an AST and applies the SonarQube cognitive-complexity algorithm per function — +1 structural for if /
+    elif / else / for / while / except / with / and / or, plus +N nesting increment (N = current depth) for
+    if / for / while / except / with nested inside another control structure — flagging any function scoring
+    above 15. Unlike cyclomatic complexity it distinguishes flat if/elif chains from deeply nested if(if(if))
+    structures. It is realized by the same multi-rule complexity detector as the four sibling
+    coder.refactor.complexity-* rules (via that implementation's emits_rule_ids).
+  normative_text: |
+    Cognitive complexity measures how hard code is to UNDERSTAND, not merely how many paths it has: it adds
+    a flat structural increment for each control construct and an extra nesting increment proportional to
+    how deeply that construct sits, so a flat if/elif chain scores low while a deeply nested if(if(if))
+    scores high. The obligation: each function's cognitive complexity stays at or below the configured
+    threshold (SonarQube default <= 15). HOW the score is computed is delegated to the per-stack detector;
+    for python it is an AST walk applying the Campbell algorithm — +1 structural for if / elif / else / for
+    / while / except / with / and / or, and +N (N = current nesting depth) for if / for / while / except /
+    with nested inside another control structure (elif / else continue the chain without a nesting
+    penalty); each function is analysed independently of nested function bodies.
+  fix_hint: |
+    Lower the flagged function's cognitive load:
+      * flatten nesting with guard clauses / early returns (nesting increments dominate the score),
+      * extract nested control blocks into named helper functions,
+      * decompose compound boolean expressions into named predicates.
+    This rule is `strict`: a function over the cognitive threshold is not suppressible and fails.
+    Pre-existing scores in a consumer repo are held flat by a downstream ratchet baseline (a consumer/coach
+    concern), not the workspace detector — the detector always emits the RAW over-threshold function list.
+  exceptions:
+    - Nested function/class bodies are analysed independently and do not contribute to the enclosing
+      function's score.
+    - elif / else and boolean operators take the structural increment but no nesting penalty.
+    - The threshold (default 15) is configurable; the obligation is "at or below the configured threshold".
+metadata:
+  aliases:
+    - COMPLEXITY-COGNITIVE-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.complexity-cognitive
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: cognitive_complexity
+  text: the SonarQube / Campbell measure of how hard a function is to understand — a structural increment
+    per control construct plus a nesting increment proportional to depth.
+- term_id: nesting_increment
+  text: the extra +N (N = current nesting depth) added for an if / for / while / except / with nested
+    inside another control structure; elif / else and boolean operators are exempt.
+- term_id: cognitive_threshold
+  text: the configured maximum cognitive complexity a function may have (SonarQube default 15); the
+    obligation is to stay at or below it.

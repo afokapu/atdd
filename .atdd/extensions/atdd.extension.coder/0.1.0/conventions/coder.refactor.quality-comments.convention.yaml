@@ -1,0 +1,59 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.quality-comments
+kind: rule
+status: active
+name: Python source has an adequate comment ratio
+statement: Every Python source module of non-trivial size MUST carry an adequate ratio of comment and
+  docstring lines to code — at least 10% — so that intent is documented and the code remains explainable
+  during and after the REFACTOR phase. This is the language-agnostic obligation owned by the coder
+  extension. The stack-specific detector that enforces it (a pytest line-classifier counting `#` comments
+  and triple-quoted docstrings versus code lines per file) is the python-pytest workspace implementation
+  referenced below; the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.quality-mi
+content:
+  summary: An agnostic "code is adequately documented" obligation. The python realization classifies each
+    non-blank line of a module (>= 20 lines) as comment/docstring or code and flags any file whose
+    comment ratio is below 10%. It is realized by the multi-rule quality-metrics detector alongside
+    quality-mi, quality-duplication, quality-naming, and quality-file-length.
+  normative_text: |
+    Well-commented code is easier to maintain. The obligation is that comment + docstring lines make up
+    at least 10% of a non-trivial module's non-blank lines. The detector counts inline `#` comments and
+    triple-quoted docstring spans (`"""` / `'''`, including single-line docstrings) as comment lines, and
+    everything else non-blank as code, then requires `comment_lines / (code + comment) >= 0.10`. WHICH
+    constructs count as comments is delegated to the per-stack detector. Files under 20 lines are not
+    measured (too little signal).
+  fix_hint: |
+    Add explanatory comments and docstrings until the file clears 10%: module/class/function docstrings
+    describing intent and contracts, plus inline comments on non-obvious logic. Prefer documenting WHY
+    over WHAT. This rule is `strict`: a file below the comment-ratio threshold is not suppressible and
+    fails.
+  exceptions:
+    - Small files (< 20 lines) are not measured.
+    - Blank lines are excluded from the denominator; only non-blank code/comment lines are counted.
+metadata:
+  aliases:
+    - REFACTOR-QUALITY-COMMENTS-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.quality-comments
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: comment_ratio
+  text: the fraction of a module's non-blank lines that are comments or docstrings; the rule requires
+    >= 0.10 (10%).
+- term_id: docstring_span
+  text: a triple-quoted (`"""` or `'''`) string region — counted line-by-line as comment lines, including
+    the single-line form where the delimiter opens and closes on one line.

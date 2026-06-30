@@ -1243,6 +1243,22 @@ Phase descriptions:
         help="Forwarded to atdd.state.cli",
     )
 
+    # ----- atdd enforce [--paths ...] [--conformance] [--verify-substrate] -----
+    # Lock-driven extension enforcement runner (#1238). Operator/CI hot path, so
+    # it sits top-level next to `validate`. argparse for its flags lives in
+    # `atdd.enforce.cli.run`; we register `enforce` here with REMAINDER and
+    # forward argv so the surface stays in one place (the `author`/`state` idiom).
+    enforce_parser = subparsers.add_parser(
+        "enforce",
+        help="Enforce the binding plan over consumer code (#1238).",
+        add_help=False,
+    )
+    enforce_parser.add_argument(
+        "enforce_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.enforce.cli",
+    )
+
     # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
     # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
     # Renders a prompt template, calls a structured-output LLM via the
@@ -2100,6 +2116,14 @@ Phase descriptions:
         from atdd.planner.commands.plan_session_cli import run as _run_session
         return _run_session(_sys.argv[2:])
 
+    # `atdd enforce ...` owns its own argparse (--paths/--conformance/
+    # --verify-substrate, all leading-dash flags that argparse REMAINDER cannot
+    # capture). Intercept its argv before parse_args and forward, the same way
+    # `plan` does. The `enforce` subparser above keeps it in --help/usage.
+    if _sys.argv[1:2] == ["enforce"]:
+        from atdd.enforce.cli import run as _run_enforce
+        return _run_enforce(_sys.argv[2:])
+
     args = parser.parse_args()
 
     # ----- Handle modern subcommands -----
@@ -2685,6 +2709,10 @@ Phase descriptions:
     # NOTE: `atdd plan ...` is intercepted before parse_args (see above) and
     # routed to the gated decomposition session — there is no `command == "plan"`
     # branch here. The legacy PLAN-1 brief renderer was decommissioned in #1208.
+
+    # NOTE: `atdd enforce ...` is intercepted before parse_args (see above) and
+    # routed to atdd.enforce.cli — there is no `command == "enforce"` branch here
+    # (its leading-dash flags cannot ride argparse REMAINDER).
 
     # atdd judge ...  (O1 — #501)
     elif args.command == "judge":

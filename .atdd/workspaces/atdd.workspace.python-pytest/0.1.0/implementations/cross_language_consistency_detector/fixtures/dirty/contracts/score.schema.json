@@ -1,0 +1,6 @@
+{
+  "$id": "domain:score",
+  "type": "object",
+  "required": ["value"],
+  "properties": { "value": { "type": "integer" } }
+}

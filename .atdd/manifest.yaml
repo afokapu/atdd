@@ -24,6 +24,27 @@ sessions:
   branch: feat/issue-schema-json
   feature: feature:author-atdd-substrate:author-issue-body
   train: 0003-author-substrate
+- id: '1238'
+  slug: extension-enforcement-runner
+  file: null
+  issue_number: 1238
+  type: implementation
+  status: SMOKE
+  created: '2026-06-29'
+  archived: null
+  branch: feat/extension-enforcement-runner
+  wagon: enforce-binding-plan
+  feature: feature:enforce-binding-plan:run-binding-plan
+  train: 0001-self-compliance-validate
+- id: install-extensions
+  slug: install-extensions
+  file: null
+  issue_number: null
+  type: implementation
+  status: RED
+  created: '2026-06-29'
+  archived: null
+  branch: install-extensions
 - id: tester-core-atomize
   slug: tester-core-atomize
   file: null

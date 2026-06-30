@@ -1,0 +1,298 @@
+schema_version: "1.0.0"
+
+# Extension-LOCAL relationship graph for atdd.extension.coder.
+#
+# IMPORTANT (boundary spec §6.2): core↔extension edges are NOT authored here. The
+# core coder nodes these convention nodes realize are declared narratively in each
+# node's body / atdd.extension.yaml, never as graph edges. Only extension-internal
+# edges live here (e.g. the dedup links called out in DESIGN §2.1 — the
+# *-typescript complexity detectors refining their language-neutral siblings, the
+# design hierarchy-import edge to dependency-flow). Authored in the build slice;
+# this skeleton carries the graph header with no nodes/edges yet.
+graph_id: atdd.extension.coder.relationships
+
+nodes:
+- coder.boundaries.http-client
+- coder.boundaries.xlang-contract
+- coder.boundaries.xlang-entity
+- coder.boundaries.xlang-enum
+- coder.boundaries.xlang-naming
+- coder.dead-code.reachability-typescript
+- coder.dead-code.reachability
+- coder.design.foundations
+- coder.design.hierarchy-import
+- coder.design.orphan-export
+- coder.design.orphan-ui
+- coder.design.primitives
+- coder.design.token-color
+- coder.design.token-hardcoded
+- coder.duplication.no-intra-layer-code-python
+- coder.duplication.no-intra-layer-code-typescript
+- coder.error-response.bare-string
+- coder.error-response.code-format
+- coder.logging.coach-silent-swallow
+- coder.logging.print
+- coder.logging.structured
+- coder.performance.perf
+- coder.presentation.gsap-commons
+- coder.presentation.gsap-layer
+- coder.presentation.i18n-config
+- coder.presentation.i18n-switcher
+- coder.refactor.coach-ratchet-pres
+- coder.refactor.complexity-cognitive
+- coder.refactor.complexity-cyclomatic-typescript
+- coder.refactor.complexity-cyclomatic
+- coder.refactor.complexity-length-typescript
+- coder.refactor.complexity-length
+- coder.refactor.complexity-nesting-typescript
+- coder.refactor.complexity-nesting
+- coder.refactor.complexity-params
+- coder.refactor.composition-consumer
+- coder.refactor.composition-root
+- coder.refactor.nplus1
+- coder.refactor.quality-comments-typescript
+- coder.refactor.quality-comments
+- coder.refactor.quality-duplication
+- coder.refactor.quality-file-length
+- coder.refactor.quality-mi-typescript
+- coder.refactor.quality-mi
+- coder.refactor.quality-naming
+- coder.security.hardcoded-secret
+- coder.security.missing-auth
+- coder.security.sql-injection
+edges:
+- source_ref: coder.dead-code.reachability-typescript
+  target_ref: coder.dead-code.reachability
+  type: refines
+  reason: "Same \"all production source is reachable from a graph root\" obligation, peeled to the TypeScript\
+    \ stack (regex import-graph, index.ts barrels/app entry roots) from the language-neutral Python sibling.\
+    \ DESIGN \xA72.1 *-typescript-refines-sibling pattern; both nodes live in atdd.extension.coder."
+- source_ref: coder.logging.coach-silent-swallow
+  target_ref: coder.logging.structured
+  type: co-extracted-from
+  reason: Both high-fidelity-extracted from logging.convention.yaml (legacy_sha b5999f8489b06e20); sibling
+    observability obligations (an event must carry structured context / a handler must observably react),
+    both disposition suppress-and-clean. Extension-internal provenance link.
+- source_ref: coder.duplication.no-intra-layer-code-typescript
+  target_ref: coder.duplication.no-intra-layer-code-python
+  type: complements
+  reason: "Both realize the single coder.duplication obligation (no structurally identical fragment duplicated\
+    \ across different files of the same architectural layer) for their respective stacks \u2014 the TypeScript\
+    \ rule via regex structural normalization, the Python rule via AST-subtree hashing. Neither narrows\
+    \ the other; they are co-equal language facets of one convention."
+- source_ref: coder.error-response.code-format
+  target_ref: coder.error-response.bare-string
+  type: complements
+  reason: 'Both enforce the commons:error:response structured-error envelope from one detector run: bare-string
+    governs that the HTTPException detail is a structured dict at all, while code-format governs that
+    the dict''s error_code field is a stable UPPER_SNAKE_CASE identifier. Together they make one error
+    response both structured and machine-classifiable.'
+- source_ref: coder.boundaries.http-client
+  target_ref: coder.error-response.bare-string
+  type: complements
+  reason: 'Both discipline the frontend<->backend HTTP seam: http-client requires egress to flow through
+    the contract-driven client so request/response contracts apply uniformly, and bare-string requires
+    the error responses returning over that seam to carry the structured envelope the client''s contracts
+    expect. Governing the same boundary from the request and the error-response sides, they complement
+    each other.'
+- source_ref: coder.presentation.gsap-commons
+  target_ref: coder.presentation.gsap-layer
+  type: refines
+  reason: 'gsap-commons is the commons-specific companion of the general layer-purity rule: where gsap-layer
+    confines animation imports to a feature''s presentation/ layer, gsap-commons forbids them outright
+    under web/src/commons (which has no presentation sub-layer). Same detector (one emits_rule_ids run),
+    same animation-library tokens; commons is the stricter special case.'
+- source_ref: coder.presentation.i18n-switcher
+  target_ref: coder.presentation.i18n-config
+  type: relates-to
+  reason: "Both realize the same Localization Manifest obligation \u2014 supported locales have a single\
+    \ source of truth \u2014 on two surfaces: i18n-config governs the runtime config file, i18n-switcher\
+    \ governs the language-switcher component. One detector emits both rule_ids; the switcher reads the\
+    \ list the config exposes from the manifest."
+- source_ref: coder.refactor.composition-root
+  target_ref: coder.refactor.composition-consumer
+  type: relates-to
+  reason: 'The two halves of intra-feature composition completeness, emitted by one detector: composition-consumer
+    requires every layer file to have a valid upstream consumer; composition-root requires the feature
+    composition.py to reach every existing layer. Together they assert the vertical slice is fully wired
+    from both the leaf and the root.'
+- source_ref: coder.refactor.coach-ratchet-pres
+  target_ref: coder.refactor.composition-root
+  type: relates-to
+  reason: 'Both are REFACTOR-phase coder obligations that protect feature structure: composition-root
+    guards that the composition root still wires every layer, while coach-ratchet-pres guards that mechanical
+    ratchet trimming of the presentation layer does not silently remove behavior without smoke evidence.
+    They co-govern the integrity of a feature during the REFACTOR phase.'
+- source_ref: coder.logging.print
+  target_ref: coder.logging.structured
+  type: co-extracted-from
+  reason: "Both high-fidelity-extracted from logging.convention.yaml; sibling observability obligations\
+    \ \u2014 extension-internal provenance link."
+- source_ref: coder.refactor.nplus1
+  target_ref: coder.performance.perf
+  type: specializes
+  reason: nplus1 is the Python database-client realization of the agnostic no-per-item-IO-in-loop performance
+    principle; both nodes now live in the coder extension (the principle migrated out of core per the
+    zero-coder-in-core ruling).
+- source_ref: coder.refactor.complexity-nesting
+  target_ref: coder.refactor.complexity-cyclomatic
+  type: complements
+  reason: 'Both are co-emitted by the one python complexity detector run (emits_rule_ids): cyclomatic
+    bounds the number of independent paths through a function, nesting bounds how deeply its control blocks
+    stack. Co-equal complexity facets of the same REFACTOR-phase obligation; neither narrows the other.'
+- source_ref: coder.refactor.complexity-length
+  target_ref: coder.refactor.complexity-cyclomatic
+  type: complements
+  reason: "Both are co-emitted by the one python complexity detector run: cyclomatic bounds branching,\
+    \ length bounds lines of code per function. Co-equal facets \u2014 a function can be long but flat\
+    \ or short but branchy \u2014 the same scan reports both."
+- source_ref: coder.refactor.complexity-params
+  target_ref: coder.refactor.complexity-cyclomatic
+  type: complements
+  reason: 'Both are co-emitted by the one python complexity detector run: cyclomatic bounds branching,
+    params bounds the parameter arity of a function. Co-equal facets of one complexity obligation; neither
+    narrows the other.'
+- source_ref: coder.refactor.complexity-cognitive
+  target_ref: coder.refactor.complexity-cyclomatic
+  type: complements
+  reason: "Both are co-emitted by the one python complexity detector run and both measure understandability,\
+    \ but distinctly: cyclomatic counts independent paths (flat or nested alike), cognitive (SonarQube/Campbell)\
+    \ penalises deep nesting over flat chains. Co-equal, complementary lenses on the same function \u2014\
+    \ neither subsumes the other."
+- source_ref: coder.refactor.complexity-cyclomatic-typescript
+  target_ref: coder.refactor.complexity-cyclomatic
+  type: refines
+  reason: "Same \"function cyclomatic complexity stays under threshold\" obligation, peeled to the TypeScript\
+    \ stack (regex decision-point count over a brace-matched function body, threshold parity <= 10) from\
+    \ the language-neutral Python sibling. DESIGN \xA72.1 *-typescript-refines-sibling pattern; both nodes\
+    \ live in atdd.extension.coder."
+- source_ref: coder.refactor.complexity-nesting-typescript
+  target_ref: coder.refactor.complexity-nesting
+  type: refines
+  reason: "Same \"function nesting depth stays under threshold\" obligation, peeled to the TypeScript\
+    \ stack (regex brace-depth tracking gated on control-flow keywords, threshold parity <= 4) from the\
+    \ language-neutral Python sibling. DESIGN \xA72.1 *-typescript-refines-sibling pattern; both nodes\
+    \ live in atdd.extension.coder."
+- source_ref: coder.refactor.complexity-length-typescript
+  target_ref: coder.refactor.complexity-length
+  type: refines
+  reason: "Same \"function length stays under threshold\" obligation, peeled to the TypeScript stack (regex\
+    \ LOC count over a brace-matched function body, excluding // and /* */ comments, threshold parity\
+    \ <= 50) from the language-neutral Python sibling. DESIGN \xA72.1 *-typescript-refines-sibling pattern;\
+    \ both nodes live in atdd.extension.coder."
+- source_ref: coder.refactor.quality-comments
+  target_ref: coder.refactor.quality-mi
+  type: relates-to
+  reason: 'Co-emitted python quality facets from one detector run (quality_metrics_detector emits both):
+    quality-mi scores overall maintainability while quality-comments enforces the comment ratio that feeds
+    the MI formula''s comment term. Both high-fidelity-extracted from the quality_metrics section of refactor.convention.yaml
+    (legacy_sha 3c4ee089cff5ec9e); co-equal, neither narrows the other.'
+- source_ref: coder.refactor.quality-duplication
+  target_ref: coder.refactor.quality-mi
+  type: relates-to
+  reason: 'Co-emitted python quality facets from one detector run: quality-mi guards per-module maintainability
+    while quality-duplication guards cross-file structural duplication; together they keep REFACTOR-phase
+    code maintainable. Co-extracted from the same quality_metrics convention section, both disposition
+    strict.'
+- source_ref: coder.refactor.quality-naming
+  target_ref: coder.refactor.quality-mi
+  type: relates-to
+  reason: 'Co-emitted python quality facets from one detector run: quality-mi scores maintainability while
+    quality-naming enforces PEP 8 identifier casing; both are facets of "code stays readable and changeable"
+    extracted from the same quality_metrics convention section.'
+- source_ref: coder.refactor.quality-file-length
+  target_ref: coder.refactor.quality-mi
+  type: relates-to
+  reason: 'Co-emitted python quality facets from one detector run: quality-mi scores maintainability while
+    quality-file-length tracks file size against the 500-line report threshold (input to a downstream
+    growth ratchet); co-extracted from the same quality_metrics convention section.'
+- source_ref: coder.refactor.quality-mi-typescript
+  target_ref: coder.refactor.quality-mi
+  type: refines
+  reason: "Same \"modules meet a minimum maintainability index (>= 20)\" obligation, peeled to the TypeScript\
+    \ stack: the TS rule approximates the SEI MI formula with a regex-estimated Halstead volume (no radon,\
+    \ no AST) where the python sibling uses radon's mi_visit. DESIGN \xA72.1 *-typescript-refines-sibling;\
+    \ both nodes live in atdd.extension.coder."
+- source_ref: coder.refactor.quality-comments-typescript
+  target_ref: coder.refactor.quality-comments
+  type: refines
+  reason: "Same \"source has an adequate comment ratio (>= 10%)\" obligation, peeled to the TypeScript\
+    \ stack: the TS rule counts //, /* */, and JSDoc comment lines where the python sibling counts # comments\
+    \ and triple-quoted docstrings. DESIGN \xA72.1 *-typescript-refines-sibling; both nodes live in atdd.extension.coder."
+- source_ref: coder.refactor.quality-comments-typescript
+  target_ref: coder.refactor.quality-mi-typescript
+  type: relates-to
+  reason: 'Co-emitted TypeScript quality facets from one detector run (quality_metrics_typescript_detector
+    emits both): quality-mi-typescript scores approximate maintainability while quality-comments-typescript
+    enforces the comment ratio that feeds the MI comment term. Co-equal TS facets, both disposition strict.'
+- source_ref: coder.security.missing-auth
+  target_ref: coder.security.sql-injection
+  type: complements
+  reason: "Co-emitted by one security-patterns detector run: both are co-equal known-bad pattern families\
+    \ the AST scan flags in the same pass \u2014 sql-injection governs that dynamic SQL never reaches\
+    \ a database sink, missing-auth governs that every route carries an auth dependency. Neither narrows\
+    \ the other; they are co-equal facets of one security obligation, both strict."
+- source_ref: coder.security.hardcoded-secret
+  target_ref: coder.security.sql-injection
+  type: complements
+  reason: 'Co-emitted by the same security-patterns detector run: hardcoded-secret is the regex leg (secret-shaped
+    literals in source) alongside the AST legs (sql-injection, missing-auth). All three are co-equal strict
+    security obligations surfaced from one scan; hardcoded-secret complements the SQL/auth AST checks
+    rather than refining either.'
+- source_ref: coder.boundaries.xlang-enum
+  target_ref: coder.boundaries.xlang-entity
+  type: relates-to
+  reason: 'Co-emitted by one cross-language-consistency detector run: xlang-entity asserts a contract
+    entity is implemented across stacks, xlang-enum asserts a shared enum carries identical members across
+    stacks. Both guard Python<->Dart agreement on the domain model from different angles (class presence
+    vs enum membership); they relate as facets of one consistency obligation.'
+- source_ref: coder.boundaries.xlang-naming
+  target_ref: coder.boundaries.xlang-entity
+  type: relates-to
+  reason: "Co-emitted by the same cross-language-consistency run: xlang-naming asserts a shared concept\
+    \ uses the same architectural suffix across stacks, complementing xlang-entity's presence check \u2014\
+    \ one guards that the entity exists everywhere, the other that it is named consistently everywhere.\
+    \ Two angles on cross-stack domain-model agreement."
+- source_ref: coder.boundaries.xlang-contract
+  target_ref: coder.boundaries.xlang-entity
+  type: relates-to
+  reason: "Two halves of contract coverage emitted by one run: xlang-contract fires when a contract entity\
+    \ is implemented in NO stack, xlang-entity fires when it is implemented in SOME but not ALL stacks.\
+    \ They partition the cross-language coverage gap \u2014 contract is the empty-set case, entity the\
+    \ partial case \u2014 and so directly relate."
+- source_ref: coder.design.primitives
+  target_ref: coder.design.orphan-ui
+  type: refines
+  reason: "Both assert \"a rendering UI surface must compose the design system\", emitted by one detector.\
+    \ orphan-ui is the codebase-wide obligation (every rendering .tsx in any layer must import the design\
+    \ system); primitives is the narrower presentation-layer-only companion. A bare presentation component\
+    \ triggers both by design \u2014 primitives is the focused presentation slice of the broader orphan-ui\
+    \ rule."
+- source_ref: coder.design.token-hardcoded
+  target_ref: coder.design.token-color
+  type: complements
+  reason: "Both enforce \"visual values come from design tokens, not inline literals\", emitted by one\
+    \ detector: token-color governs color literals (hex/rgba), while token-hardcoded extends the same\
+    \ intent to the remaining visual tokens (spacing, border-radius, motion duration). Co-equal token\
+    \ facets \u2014 neither narrows the other; together they cover the full token surface in wagon UI."
+- source_ref: coder.design.foundations
+  target_ref: coder.design.token-hardcoded
+  type: complements
+  reason: 'Two halves of the single "spatial values come from foundations" obligation, split by surface:
+    token-hardcoded forbids hardcoded spacing/radii/duration in WAGON UI files, while foundations forbids
+    raw pixel literals INSIDE the design system''s own primitives/components. Same compose-from-foundations
+    rule applied on both sides of the design-system boundary; one detector emits both.'
+- source_ref: coder.design.hierarchy-import
+  target_ref: coder.design.foundations
+  type: relates-to
+  reason: "Both are the design-system's internal-consistency rules, emitted by one detector: foundations\
+    \ requires primitives/components to compose foundations rather than raw values, while hierarchy-import\
+    \ requires design-system files to import only downward (tokens \u2190 primitives \u2190 components\
+    \ \u2190 templates) and never out into a wagon. Together they keep the system itself layered and consistent."
+- source_ref: coder.design.orphan-export
+  target_ref: coder.design.orphan-ui
+  type: relates-to
+  reason: 'The two "no orphaned wiring" obligations of the design system, emitted by one detector: orphan-export
+    flags a design-system export that no consumer imports (dead supply), while orphan-ui flags a rendering
+    UI file that imports no design-system element (disconnected demand). Together they keep supply and
+    demand of the design system fully wired.'

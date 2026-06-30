@@ -1,0 +1,76 @@
+schema_version: 1.1.0
+rule_id: coder.duplication.no-intra-layer-code-typescript
+kind: rule
+status: active
+name: No intra-layer structural code duplication in TypeScript
+statement: When two TypeScript/TSX production files are classified to the SAME architectural layer
+  (domain / application / presentation / integration), the layer MUST NOT contain a structurally
+  identical code fragment of meaningful size duplicated across DIFFERENT files. This is the
+  language-agnostic "no copy-paste within a layer" obligation owned by the coder extension (the
+  TypeScript sibling of the Python rule). The stack-specific detector that enforces it (a regex-based
+  structural-normalization scan that strips comments/strings/numbers/identifiers, slides a window of
+  >= 7 non-trivial normalized lines, and reports same-layer cross-file collisions) is the
+  python-pytest workspace implementation referenced below — the obligation is agnostic, the detection
+  algorithm is not.
+implementation:
+  type: validator
+  ref: coder.duplication.no-intra-layer-code-typescript
+content:
+  summary: An agnostic "do not copy-paste structurally identical logic within one architectural
+    layer" obligation, realized for the TypeScript/Preact stack. Because there is no tree-sitter
+    dependency, the fingerprint is regex-based structural normalization (comments removed, string /
+    number / identifier tokens replaced) hashed over a sliding window of >= 7 non-trivial lines;
+    fragments that recur across different files of the same layer under `web/src/` are flagged.
+  normative_text: |
+    Copy-pasted logic within a single architectural layer is a maintenance hazard regardless of
+    language. The obligation is "no structurally identical fragment is duplicated across different
+    files of the same layer". For the TypeScript realization the fingerprint is a SHA-256 over a
+    sliding window of >= 7 consecutive NON-TRIVIAL normalized lines, where normalization removes
+    single- and multi-line comments, replaces string literals (single/double/backtick) with a
+    sentinel, replaces numbers with `0`, and replaces non-keyword identifiers with `ID` while
+    preserving structural keywords; trivial lines (bare braces, `});`, etc.) are dropped before
+    windowing. A collision of the same hash across two different files in the same layer is a
+    violation. Same-file repetition is out of scope.
+  fix_hint: |
+    Extract the duplicated fragment into a shared module, hook, component, or utility within the
+    layer and import it from both sites instead of copy-pasting. Declaration files (`*.d.ts`), test
+    and spec files, and barrel `index.ts` re-exports are out of scope. This rule's disposition is
+    `strict`: new structurally-identical fragments fail the gate and are not suppressible by default.
+  exceptions:
+    - Test/spec code is out of scope — `*.test.ts(x)`, `*.spec.ts(x)`, and `__tests__/` are excluded.
+    - Type declaration files (`*.d.ts`), barrel re-exports (`index.ts`), and `node_modules/` are
+      excluded from the scan.
+    - Vendored/build directories (`node_modules`, `dist`, `build`, `.next`, `.nuxt`, `coverage`,
+      `__pycache__`, `.cache`, `.git`) are skipped during the walk.
+    - Files classified to layer `unknown` (no recognizable layer segment) are not compared.
+    - Same-file fragment repetition is not flagged; only cross-file collisions within a layer are.
+metadata:
+  aliases:
+    - DUPLICATION-TS-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/duplication.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.duplication.no-intra-layer-code-typescript
+  legacy_sha: a80b36ae8900275d
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: architectural_layer
+  text: the role a TypeScript file plays in clean architecture — domain, application, presentation,
+    or integration — inferred from path segments (e.g. `/domain/`, `/hooks/`, `/components/`,
+    `/clients/`); files with no recognizable layer segment classify as `unknown` and are excluded.
+- term_id: structural_normalization
+  text: a regex pipeline that reduces a source line to its structural shape — comments removed,
+    string/number literals replaced with sentinels, non-keyword identifiers replaced with `ID`,
+    whitespace collapsed — so renamed or re-valued copies still collide.
+- term_id: non_trivial_line
+  text: a normalized line that is not empty and not a pure structural token (`{`, `}`, `};`, `);`,
+    `]`, `})`, etc.); only non-trivial lines are windowed for the duplication fingerprint.

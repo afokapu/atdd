@@ -1,0 +1,32 @@
+urn: wmbt:enforce-binding-plan:E004
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: dogfood-parity-drift
+context_clarifier: a parity test diffs runner verdicts vs legacy-validator verdicts
+  over src/atdd and the diff is empty for the bound set with the print exemption preserved
+lens: functional.effectiveness
+statement: minimize likelihood of dogfood-parity-drift by ensuring the runner over
+  src/atdd produces the same pass/fail set as the legacy in-core validators for the
+  bound rules and preserves the coder.logging.print exemption of src/atdd
+acceptances:
+- given:
+    abstract:
+    - ATDD's own src/atdd checkout, the bound rule set, and the legacy in-core validators
+  harness:
+    category: integration
+    type: smoke
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: "Verify dogfood parity on src/atdd incl the print exemption \u2014 the\
+      \ evidence #1207 needs (V4)"
+    urn: acc:enforce-binding-plan:E004-SMOKE-001-dogfood-parity
+  then:
+    abstract:
+    - the pass/fail diff is empty for the bound set
+    - "the coder.logging.print exemption of src/atdd is preserved \u2014 the toolkit's\
+      \ own CLI prints do not trip the rule"
+  when:
+    abstract: the runner scans src/atdd and its verdicts are diffed against the legacy
+      in-core validator verdicts
