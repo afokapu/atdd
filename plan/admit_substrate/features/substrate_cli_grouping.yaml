@@ -1,0 +1,25 @@
+components:
+  backend:
+    presentation:
+    - count: 1
+      rationale: the `atdd substrate` subparser + dispatch bridge routing five subcommands
+        to the existing admission/binding handlers
+      type: controllers
+description: 'Group the substrate-management verbs under one `atdd substrate` noun
+  namespace, additively. Routes `atdd substrate {add,remove,bind,capabilities,list}`
+  to the same handlers as the flat top-level verbs, and converts the flat verbs (`atdd
+  add/remove/bind/capabilities` and `atdd list --substrate`) into deprecated-but-working
+  aliases that emit a stderr deprecation notice naming the grouped form. No handler
+  behaviour, lock-file format, or enforce/validate placement changes; the breaking
+  removal of the flat aliases is deferred to #1207/4.0.0.'
+sizing:
+  footprint_score: 1
+  footprint_size: XS
+  wmbts: 4
+urn: feature:admit-substrate:substrate-cli-grouping
+wagon: wagon:admit-substrate
+wmbts:
+- wmbt:admit-substrate:E002
+- wmbt:admit-substrate:C005
+- wmbt:admit-substrate:L002
+- wmbt:admit-substrate:C006
