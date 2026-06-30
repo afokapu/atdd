@@ -359,8 +359,8 @@ Reference: src/atdd/coach/conventions/issue.convention.yaml
 backend — `pyproject.toml` is `dynamic = ["version"]` (no `version =` line to
 hand-edit or conflict on). The GH006 direct-push auto-bump is RETIRED.
 Bump with `atdd state version bump --class PATCH|MINOR|MAJOR`. CI publication
-(release-worker draining the tag_and_publish outbox) is the remaining #1172
-follow-up; until it lands the release is operator-coordinated. Do NOT re-adopt
+(release-worker draining core's neutral version_decided outbox) is the remaining
+#1172 follow-up; until it lands the release is operator-coordinated. Do NOT re-adopt
 the GH006 auto-bump or a hand-edited pyproject version.
 
 Change Class:

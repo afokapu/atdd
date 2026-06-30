@@ -177,8 +177,8 @@
 `release` object, migration v2) and is projected at build time by the in-tree
 backend — `pyproject.toml` is `dynamic = ["version"]` (no `version =` line to
 hand-edit or conflict on). The GH006 direct-push auto-bump is RETIRED. CI
-publication (release-worker draining the tag_and_publish outbox) is the remaining
-#1172 follow-up; until it lands the release is operator-coordinated. Do NOT
+publication (release-worker draining core's neutral version_decided outbox) is the
+remaining #1172 follow-up; until it lands the release is operator-coordinated. Do NOT
 re-adopt the GH006 auto-bump or a hand-edited pyproject version.
 
 - [ ] Rebase on main: `git pull origin main --rebase`
