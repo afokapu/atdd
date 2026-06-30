@@ -104,6 +104,47 @@ def assert_clean_baseline(variant: str, root: Path) -> None:
         assert flags == [], f"{variant}: {tid} flagged the clean repo: {flags[:3]}"
 
 
+def assert_fault_convention_only(
+    variant: str, conv_rel: str, rule_id: str, root: Path
+) -> dict:
+    """Inject the binding fault, prove the CONVENTION path catches it, revert.
+
+    The legacy parity oracle has been decommissioned (#1207): parity to `both`
+    was already proven and recorded (family-parity-report). The variant's own
+    real-graph fault injection (here) + clean baseline are the live coverage, so
+    no legacy subprocess is run. Same shape as :func:`assert_fault_parity` minus
+    the legacy half.
+    """
+    conv_path = root / conv_rel
+    assert conv_path.exists(), f"convention not found: {conv_path}"
+
+    # pre-state: convention roundtrip clean
+    assert evaluate(_ROUNDTRIP, variant, root) == [], f"{variant}: dirty before injection"
+
+    with _rename_rule_id(conv_path, rule_id):
+        conv_flags = evaluate(_ROUNDTRIP, variant, root)
+
+    # post-revert: clean again (no residue)
+    assert evaluate(_ROUNDTRIP, variant, root) == [], f"{variant}: residue after revert"
+
+    assert conv_flags, f"{variant}: convention path missed the injected binding break"
+
+    # evidence keys must be a strict subset of the template's failure_evidence
+    allowed = set(_TEMPLATES[_ROUNDTRIP].failure_evidence)
+    for ev in conv_flags:
+        assert set(ev) <= allowed, (
+            f"{variant}: evidence keys {set(ev)} not subset of {sorted(allowed)}"
+        )
+
+    # the flagged binding break must be the injected rule, not collateral
+    broken = f"{rule_id}-PARITYBROKEN"
+    assert any(ev.get("declaration_id") == broken for ev in conv_flags), (
+        f"{variant}: convention flagged something other than the injected rule: {conv_flags[:3]}"
+    )
+
+    return {"convention_flags": len(conv_flags)}
+
+
 def assert_fault_parity(
     variant: str, conv_rel: str, rule_id: str, legacy_nodeid: str, root: Path
 ) -> dict:
