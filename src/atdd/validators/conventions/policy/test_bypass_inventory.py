@@ -30,6 +30,10 @@ INVARIANT = 'forbidden match set is empty'
 AUTO_CAPTURE = 'usually explicit; a new node is included if it falls inside a policy scope'
 FAILURE_EVIDENCE = ['matched_construct', 'policy_id', 'location', 'reason', 'suggested_replacement']
 LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_e026_bypass_inventory_guard.py']
+_LEGACY_NODEID = (
+    'src/atdd/coach/validators/test_e026_bypass_inventory_guard.py'
+    '::test_current_hook_bypass_count_at_baseline'
+)
 
 
 def _template():
@@ -50,14 +54,9 @@ def test_clean_baseline_zero_on_real_graph() -> None:
     )
 
 
-def test_fault_injection_convention_catches() -> None:
-    """Reintroduce an ATDD_SKIP_* bypass flag into the real pre-push hook; assert the
-    convention evaluator catches it.
-
-    Legacy parity oracle retired (#1207): parity to the E026 guard was already
-    proven/recorded (family-parity-report); the legacy anchored test is
-    decommissioned. LEGACY_PARITY_SOURCES kept as provenance; this variant's own
-    clean-baseline + fault-injection are the live coverage."""
+def test_fault_injection_legacy_parity() -> None:
+    """Reintroduce an ATDD_SKIP_* bypass flag into the real pre-push hook; assert BOTH
+    the convention evaluator and the legacy E026 guard catch it."""
     root = _parity.repo_root()
     hook = root / _HOOK_DIR / "pre-push"
     faulted = hook.read_text(encoding="utf-8") + (
@@ -68,6 +67,9 @@ def test_fault_injection_convention_catches() -> None:
         conv = _template().evaluate(load_composed_graph(root), {"variant": VARIANT})
         assert any(v.get("matched_construct") == "ATDD_SKIP_PARITY_1212" for v in conv), (
             f"{VARIANT}: convention evaluator did not catch injected bypass flag"
+        )
+        assert _parity.legacy_catches(_LEGACY_NODEID), (
+            "legacy E026 bypass-inventory guard did not catch the injected flag"
         )
 
     assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []
