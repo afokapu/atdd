@@ -12,6 +12,7 @@ outcome: "a `.atdd/substrate.yaml` (intent) plus `.atdd/substrate.lock.yaml` (re
 
 features:
   - urn: "feature:admit-substrate:substrate-admission"
+  - urn: "feature:admit-substrate:substrate-cli-grouping"
 
 produce:
   - name: commons:admit:substrate-schemas
@@ -38,7 +39,7 @@ produce:
 consume: []
 
 wmbt:
-  total: 7
+  total: 11
   D001: "maximize likelihood of schema-valid substrate intent and lock by defining canonical substrate.yaml / substrate.lock.yaml / registry-index schemas and validating both files against them"
   C001: "minimize likelihood of executing extension runtime implementation code during admission (search/add/remove/list) — admission inspects manifests, validates, composes, and writes the lock, but never imports or runs an implementation module"
   L001: "maximize likelihood of correct registry search results by resolving a query against configured registry indexes by alias, canonical id, tags, and kind"
@@ -46,3 +47,7 @@ wmbt:
   C003: "minimize likelihood of admitting an invalid artifact by resolving and validating the manifest, owned files, and realizes/depends_on against core and composing a protocol view before install, refusing on any failure"
   E001: "maximize likelihood of a reproducible installed substrate by installing into a versioned `.atdd/{extensions,workspaces}/<id>/<version>/` home, recording a sha256 digest, and writing a lock entry that `atdd list` reads"
   C004: "minimize likelihood of breaking a depended-on artifact by refusing removal when other admitted artifacts depend on it (unless --force) and pruning shared workspaces only with --prune"
+  E002: "maximize likelihood of grouped-verb-parity by routing `atdd substrate {add,remove,bind,capabilities,list}` to the same handlers as the flat verbs, so exit codes and lock-file effects are identical"
+  C005: "minimize likelihood of flat-verb-regression by keeping `atdd add/remove/bind/capabilities` and `list --substrate` working as deprecated aliases that emit a stderr deprecation notice naming the grouped form"
+  L002: "maximize likelihood of grouped-command-discoverability by listing the five `atdd substrate` subcommands in its help and marking the flat verbs deprecated in the top-level help"
+  C006: "minimize likelihood of stale-flat-verb-docs by documenting `atdd substrate ...` as the canonical form in the README and synced agent docs, with no doc presenting a flat substrate verb as primary"

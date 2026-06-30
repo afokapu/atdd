@@ -141,6 +141,29 @@ class TestC2DeprecationContradiction:
         assert head == "atdd update"
         assert "atdd issue" in canonical
 
+    # Flag-qualified deprecation (#1239): only `atdd list --substrate` is
+    # deprecated; bare `atdd list` (issue listing, `atdd list trains`) is not.
+    FLAG_REGISTRY = {"atdd list --substrate": "atdd substrate list"}
+
+    def test_bare_subcommand_of_flag_qualified_deprecation_passes(self):
+        # `atdd list trains` must NOT be flagged just because the
+        # `--substrate` flag variant is deprecated.
+        assert (
+            audit_c2_no_deprecation_contradiction(
+                "resolve via (run atdd list trains)", self.FLAG_REGISTRY
+            )
+            is None
+        )
+
+    def test_flag_qualified_form_fails_when_flag_present(self):
+        result = audit_c2_no_deprecation_contradiction(
+            "run: atdd list --substrate", self.FLAG_REGISTRY
+        )
+        assert result is not None
+        form, canonical = result
+        assert form == "atdd list --substrate"
+        assert canonical == "atdd substrate list"
+
 
 class TestDeprecationRegistryParse:
     def test_parses_callsites_from_source(self):
@@ -154,6 +177,19 @@ class TestDeprecationRegistryParse:
         registry = build_deprecation_registry(cli_source=source)
         assert registry.get("atdd update") == "atdd issue <N> --status <S>"
         assert registry.get("atdd archive") == "atdd issue <N> --status COMPLETE"
+
+    def test_flag_qualified_deprecation_keeps_flag_in_key(self):
+        # `atdd list --substrate` keys on the flagged form, not bare `atdd list`,
+        # so the still-valid bare subcommand is never matched (#1239).
+        source = textwrap.dedent(
+            """
+            def something():
+                _deprecation_warning("atdd list --substrate", "atdd substrate list")
+            """
+        )
+        registry = build_deprecation_registry(cli_source=source)
+        assert registry.get("atdd list --substrate") == "atdd substrate list"
+        assert "atdd list" not in registry
 
     def test_handles_empty_source(self):
         assert build_deprecation_registry(cli_source="") == {}

@@ -78,9 +78,58 @@ def _print_sync_labels_delta(
         print(f"  {verb} remove: {', '.join(to_remove)}")
 
 
-def _deprecation_warning(old: str, new: str) -> None:
-    """Emit a deprecation warning for legacy flags."""
-    print(f"\033[33m⚠️  Deprecated: '{old}' will be removed. Use '{new}' instead.\033[0m")
+def _deprecation_warning(old: str, new: str, *, stream=None) -> None:
+    """Emit a deprecation warning for legacy flags.
+
+    Defaults to stdout to preserve every existing caller's behavior; the
+    substrate-grouping aliases (#1239) pass ``stream=sys.stderr`` so the notice
+    never pollutes a command's stdout payload (issue #1239, V2).
+    """
+    print(
+        f"\033[33m⚠️  Deprecated: '{old}' will be removed. Use '{new}' instead.\033[0m",
+        file=stream or sys.stdout,
+    )
+
+
+def _substrate_add(args) -> int:
+    """Run substrate admission (`atdd substrate add` / deprecated `atdd add`)."""
+    from atdd.substrate import commands as substrate_cmd
+    if not args.ref and not args.path:
+        print("error: `atdd substrate add` needs a ref/alias or --path")
+        return 2
+    return substrate_cmd.run_add(
+        ref=args.ref, path=args.path,
+        project_root=(args.repo or "."), dry_run=args.dry_run,
+    )
+
+
+def _substrate_remove(args) -> int:
+    """Run substrate withdrawal (`atdd substrate remove` / deprecated `atdd remove`)."""
+    from atdd.substrate import commands as substrate_cmd
+    return substrate_cmd.run_remove(
+        args.ref, project_root=(args.repo or "."),
+        force=args.force, prune=args.prune,
+    )
+
+
+def _substrate_bind(args) -> int:
+    """Run binding-plan compose (`atdd substrate bind` / deprecated `atdd bind`)."""
+    from atdd.substrate.binding import commands as binding_cmd
+    return binding_cmd.run_bind_check(
+        project_root=(args.repo or "."), write=not args.no_write,
+    )
+
+
+def _substrate_capabilities(args) -> int:
+    """Run capability report (`atdd substrate capabilities` / deprecated `atdd capabilities`)."""
+    from atdd.substrate.binding import commands as binding_cmd
+    return binding_cmd.run_capabilities(project_root=(args.repo or "."))
+
+
+def _substrate_list(args) -> int:
+    """Render the installed substrate (`atdd substrate list` / deprecated `atdd list --substrate`)."""
+    from atdd.substrate import commands as substrate_cmd
+    return substrate_cmd.run_list(project_root=(args.repo or "."))
 
 
 def _get_pr_changed_files(repo_root) -> list:
@@ -1905,41 +1954,91 @@ Phase descriptions:
         help="restrict results to a kind",
     )
 
+    # ----- atdd substrate {add,remove,bind,capabilities,list} (#1239) -----
+    # Canonical noun-grouped home for the substrate-management verbs. The flat
+    # top-level verbs below are kept as DEPRECATED-but-working aliases (their
+    # removal is the breaking MAJOR step owned by #1207/4.0.0).
+    substrate_parser = subparsers.add_parser(
+        "substrate",
+        help="Manage the local substrate (admit/bind/inspect extensions & workspaces)",
+        description=(
+            "Manage the local substrate — the install ledger covering both "
+            "atdd.extension.* and atdd.workspace.* packages. Canonical home for "
+            "add / remove / bind / capabilities / list."
+        ),
+    )
+    substrate_subparsers = substrate_parser.add_subparsers(
+        dest="substrate_command", metavar="{add,remove,bind,capabilities,list}",
+    )
+
+    def _add_substrate_add_args(p):
+        p.add_argument("ref", nargs="?", help="registry ref or alias")
+        p.add_argument("--path", help="admit a local package directory directly")
+        p.add_argument(
+            "--dry-run", action="store_true", help="validate + compose only; do not install"
+        )
+
+    def _add_substrate_remove_args(p):
+        p.add_argument("ref", help="artifact id to remove")
+        p.add_argument(
+            "--force", action="store_true", help="remove even if other artifacts depend on it"
+        )
+        p.add_argument(
+            "--prune", action="store_true", help="also remove now-unused workspaces"
+        )
+
+    def _add_substrate_bind_args(p):
+        p.add_argument(
+            "--check", action="store_true",
+            help="compose + validate the binding plan (never executes an implementation)",
+        )
+        p.add_argument(
+            "--no-write", action="store_true", help="do not write .atdd/binding.lock.yaml"
+        )
+
+    _add_substrate_add_args(substrate_subparsers.add_parser(
+        "add", help="Admit an extension/workspace artifact into the local substrate"))
+    _add_substrate_remove_args(substrate_subparsers.add_parser(
+        "remove", help="Withdraw an artifact from the local substrate"))
+    _add_substrate_bind_args(substrate_subparsers.add_parser(
+        "bind", help="Compose the runtime binding plan from the locked substrate"))
+    substrate_subparsers.add_parser(
+        "capabilities",
+        help="Show conventions gated by bound implementations vs legacy-fallback")
+    substrate_subparsers.add_parser(
+        "list", help="List the installed substrate (.atdd/substrate.lock.yaml)")
+
+    # ----- Substrate admission (wagon: admit-substrate) — DEPRECATED flat aliases -----
     add_cmd_parser = subparsers.add_parser(
-        "add", help="Admit an extension/workspace artifact into the local substrate"
+        "add",
+        help="[DEPRECATED] Use 'atdd substrate add' instead",
+        description="DEPRECATED: Use 'atdd substrate add' instead.\n\n"
+                    "Admit an extension/workspace artifact into the local substrate.",
     )
-    add_cmd_parser.add_argument("ref", nargs="?", help="registry ref or alias")
-    add_cmd_parser.add_argument("--path", help="admit a local package directory directly")
-    add_cmd_parser.add_argument(
-        "--dry-run", action="store_true", help="validate + compose only; do not install"
-    )
+    _add_substrate_add_args(add_cmd_parser)
 
     remove_cmd_parser = subparsers.add_parser(
-        "remove", help="Withdraw an artifact from the local substrate"
+        "remove",
+        help="[DEPRECATED] Use 'atdd substrate remove' instead",
+        description="DEPRECATED: Use 'atdd substrate remove' instead.\n\n"
+                    "Withdraw an artifact from the local substrate.",
     )
-    remove_cmd_parser.add_argument("ref", help="artifact id to remove")
-    remove_cmd_parser.add_argument(
-        "--force", action="store_true", help="remove even if other artifacts depend on it"
-    )
-    remove_cmd_parser.add_argument(
-        "--prune", action="store_true", help="also remove now-unused workspaces"
-    )
+    _add_substrate_remove_args(remove_cmd_parser)
 
-    # ----- Substrate binding (wagon: bind-substrate-runtime) -----
+    # ----- Substrate binding (wagon: bind-substrate-runtime) — DEPRECATED flat aliases -----
     bind_cmd_parser = subparsers.add_parser(
-        "bind", help="Compose the runtime binding plan from the locked substrate"
+        "bind",
+        help="[DEPRECATED] Use 'atdd substrate bind' instead",
+        description="DEPRECATED: Use 'atdd substrate bind' instead.\n\n"
+                    "Compose the runtime binding plan from the locked substrate.",
     )
-    bind_cmd_parser.add_argument(
-        "--check", action="store_true",
-        help="compose + validate the binding plan (never executes an implementation)",
-    )
-    bind_cmd_parser.add_argument(
-        "--no-write", action="store_true", help="do not write .atdd/binding.lock.yaml"
-    )
+    _add_substrate_bind_args(bind_cmd_parser)
 
     subparsers.add_parser(
         "capabilities",
-        help="Show conventions gated by bound implementations vs legacy-fallback",
+        help="[DEPRECATED] Use 'atdd substrate capabilities' instead",
+        description="DEPRECATED: Use 'atdd substrate capabilities' instead.\n\n"
+                    "Show conventions gated by bound implementations vs legacy-fallback.",
     )
 
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
@@ -2230,10 +2329,29 @@ Phase descriptions:
     # atdd list (top-level shorthand)
     elif args.command == "list":
         if getattr(args, "substrate", False):
-            from atdd.substrate import commands as substrate_cmd
-            return substrate_cmd.run_list(project_root=(args.repo or "."))
+            # DEPRECATED alias for `atdd substrate list` (#1239) — still works.
+            _deprecation_warning("atdd list --substrate", "atdd substrate list", stream=sys.stderr)
+            return _substrate_list(args)
         manager = IssueManager()
         return manager.list()
+
+    # ----- atdd substrate {add,remove,bind,capabilities,list} (#1239) -----
+    # Canonical noun-grouped surface; routes to the same handlers as the flat
+    # verbs below (which remain as deprecated aliases until #1207/4.0.0).
+    elif args.command == "substrate":
+        sub = getattr(args, "substrate_command", None)
+        if sub == "add":
+            return _substrate_add(args)
+        elif sub == "remove":
+            return _substrate_remove(args)
+        elif sub == "bind":
+            return _substrate_bind(args)
+        elif sub == "capabilities":
+            return _substrate_capabilities(args)
+        elif sub == "list":
+            return _substrate_list(args)
+        substrate_parser.print_help()
+        return 2
 
     # ----- Substrate admission (wagon: admit-substrate) -----
     elif args.command == "search":
@@ -2242,33 +2360,22 @@ Phase descriptions:
             args.query, kind=args.kind, project_root=(args.repo or ".")
         )
 
+    # DEPRECATED flat aliases — delegate to `atdd substrate <verb>` (#1239)
     elif args.command == "add":
-        from atdd.substrate import commands as substrate_cmd
-        if not args.ref and not args.path:
-            print("error: `atdd add` needs a ref/alias or --path")
-            return 2
-        return substrate_cmd.run_add(
-            ref=args.ref, path=args.path,
-            project_root=(args.repo or "."), dry_run=args.dry_run,
-        )
+        _deprecation_warning("atdd add", "atdd substrate add", stream=sys.stderr)
+        return _substrate_add(args)
 
     elif args.command == "remove":
-        from atdd.substrate import commands as substrate_cmd
-        return substrate_cmd.run_remove(
-            args.ref, project_root=(args.repo or "."),
-            force=args.force, prune=args.prune,
-        )
+        _deprecation_warning("atdd remove", "atdd substrate remove", stream=sys.stderr)
+        return _substrate_remove(args)
 
-    # ----- Substrate binding (wagon: bind-substrate-runtime) -----
     elif args.command == "bind":
-        from atdd.substrate.binding import commands as binding_cmd
-        return binding_cmd.run_bind_check(
-            project_root=(args.repo or "."), write=not args.no_write,
-        )
+        _deprecation_warning("atdd bind", "atdd substrate bind", stream=sys.stderr)
+        return _substrate_bind(args)
 
     elif args.command == "capabilities":
-        from atdd.substrate.binding import commands as binding_cmd
-        return binding_cmd.run_capabilities(project_root=(args.repo or "."))
+        _deprecation_warning("atdd capabilities", "atdd substrate capabilities", stream=sys.stderr)
+        return _substrate_capabilities(args)
 
     # atdd archive <issue_id> — DEPRECATED, delegates to atdd issue <N> --status COMPLETE
     elif args.command == "archive":
