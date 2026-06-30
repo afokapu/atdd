@@ -25,10 +25,13 @@ Stdlib + yaml only; no other-layer imports (boundaries §3.3).
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Callable, Dict, List
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 from .digest import route_projection_digest
 from .discovery import INTERLOCKINGS_HOME, registry_entries
@@ -296,8 +299,12 @@ def does_not_carry_cargo_violations(il: TrainInterlocking, root=None) -> List[di
     if il.loaded_from is not None and Path(il.loaded_from).is_file():
         try:
             raw = yaml.safe_load(Path(il.loaded_from).read_text(encoding="utf-8")) or {}
-        except yaml.YAMLError:
-            return out  # parse failure is owned by the loader/schema family
+        except yaml.YAMLError as exc:
+            # parse failure is owned by the loader/schema family, not this rule.
+            _log.debug("cargo scan skipped (unparseable interlocking yaml)",
+                       extra={"path": str(il.loaded_from),
+                              "error": str(exc).splitlines()[0][:120]})
+            return out
         _scan_cargo(raw, "interlocking", out, _iid(il))
     return out
 

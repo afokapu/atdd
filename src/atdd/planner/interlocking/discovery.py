@@ -13,10 +13,13 @@ Stdlib + yaml only; no IO beyond reading the registry file.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import List, Tuple
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 __all__ = [
     "INTERLOCKINGS_HOME",
@@ -61,7 +64,9 @@ def registry_entries(root: Path | str) -> Tuple[dict, ...]:
         return ()
     try:
         doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError:
+    except yaml.YAMLError as exc:
+        _log.debug("interlocking registry unparseable; treating as empty",
+                   extra={"path": str(path), "error": str(exc).splitlines()[0][:120]})
         return ()
     entries = doc.get("interlockings") or []
     return tuple(e for e in entries if isinstance(e, dict))
