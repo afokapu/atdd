@@ -191,14 +191,12 @@ CASES: List[Case] = [
          "src/atdd/planner/validators/test_plan_uniqueness.py::test_train_ids_are_unique",
          patch=("plan/_trains.yaml",
                 "train_id: 0005-bind-substrate", "train_id: 0001-self-compliance-validate")),
-    # Feature 'references' doc that does not resolve on disk. NO legacy counterpart
-    # validates feature.references docs -> structurally convention-only (NEW coverage,
-    # adjudicated as improvement after verifying the path truly does not resolve).
-    Case("feature-doc-reference-dangling", "resolution/artifact_reference_resolution",
-         S.artifact_reference_resolution,
-         "src/atdd/planner/validators/test_plan_urn_resolution.py::test_contract_urn_resolves_to_directory",
-         patch=("plan/govern_lifecycle/features/define_validator_report_and_persistence_materialization_contract.yaml",
-                "docs/coach-decomposition.md", "docs/this-doc-does-not-exist-xyz.md")),
+    # NOTE (#1207): the `feature-doc-reference-dangling` convention-only case was
+    # removed when its negative-control legacy oracle
+    # (test_plan_urn_resolution.py::test_contract_urn_resolves_to_directory) was
+    # retired. The feature.references doc-resolution coverage it measured is still
+    # ENFORCED by the resolution/plan_urn_resolution variant; only the parity
+    # measurement (which needs a live legacy probe) is dropped.
 ]
 
 
