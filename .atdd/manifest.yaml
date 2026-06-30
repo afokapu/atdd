@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1274'
+  slug: state-store-sot-boundary-operational-vs-definitions
+  file: null
+  issue_number: 1274
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/state-store-sot-boundary-operational-vs-definitions
 - id: '1276'
   slug: planner-naming-validators
   file: null
