@@ -3347,6 +3347,8 @@ entries:
 excluded:
 - legacy_path: src/atdd/coach/validators/test_no_duplicate_rule_representation.py
   reason: "New #1225 convention-era guard (single-authoritative-representation: no rule in both a monolith rules block and a nodes/ file). Not a legacy persona validator subject to convention-graph parity; retained, not decommissioned."
+- legacy_path: src/atdd/coach/validators/test_prepush_repo_validate_opt_in.py
+  reason: "New #1254 enforcement test pinning the pre-push hook to defer the full `atdd repo validate` URN-graph traversal to CI (opt-in via ATDD_PREPUSH_FULL). Not a legacy persona validator subject to convention-graph parity; retained, not decommissioned."
 - legacy_path: src/atdd/planner/validators/__init__.py
   reason: Package marker, not an executable validator.
 - legacy_path: src/atdd/planner/validators/conftest.py
