@@ -6,29 +6,13 @@ object_of_control: "runtime-artifacts-committed-into-feature-pr-diff"
 context_clarifier: "when an agent runs atdd coach or any coach sub-command during development, coach writes ephemeral per-run state under .atdd/runtime/; if .atdd/runtime/ is not fully gitignored and an agent uses git add -A or git commit -a, that runtime state rides into the PR diff — PR #749 shipped .atdd/runtime/coach/358/planner-358-e7620840.session.json and two appended lines in .atdd/runtime/coach/decisions.jsonl from an unrelated zombie issue (#358); green CI gave false confidence because no check inspected the diff file set"
 lens: "functional.effectiveness"
 statement: "minimize likelihood of runtime-artifacts-committed-into-feature-pr-diff when an agent or developer commits changes during coach-active development by fully gitignoring .atdd/runtime/ and declaring a strict coach.pr.runtime-artifacts-blocked rule in pr.convention.yaml with a paired atdd validate coach validator that fails when the branch diff vs the default branch adds or modifies any .atdd/runtime/** path"
+# acc:govern-lifecycle:E009-UNIT-001-convention-declares-runtime-artifacts-rule retired (#1207):
+# the "convention declares + binds the rule" assertion moved to convention variant
+# binding/runtime_artifacts_rule_binding (family-parity: binding = 4/4 both); the rule's
+# severity/disposition/fix_hint properties are enforced generically by the
+# presence/binding rule-id variants. The legacy anchored test
+# (test_e009_unit_001_convention_declares_runtime_artifacts_rule.py) is decommissioned.
 acceptances:
-  - identity:
-      urn: "acc:govern-lifecycle:E009-UNIT-001-convention-declares-runtime-artifacts-rule"
-      id: "AC-UNIT-001"
-      purpose: "pr.convention.yaml declares the coach.pr.runtime-artifacts-blocked rule with severity 4, disposition strict, and a fix_hint naming .atdd/runtime/ as the offending pattern"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/conventions/pr.convention.yaml is the canonical home for PR-boundary rules"
-    when:
-      abstract: "atdd rules grep runtime-artifacts is invoked from the repo root"
-    then:
-      abstract:
-        - "Output contains 'coach.pr.runtime-artifacts-blocked'"
-        - "atdd rules show coach.pr.runtime-artifacts-blocked exits 0 and prints severity 4, disposition strict, and a fix_hint that names .atdd/runtime/"
-        - "The rule_id matches the grammar <archetype>.<convention_short_name>.<rule_name>"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-18"
-
   - identity:
       urn: "acc:govern-lifecycle:E009-UNIT-002-evaluator-emits-violation-on-runtime-path-in-diff"
       id: "AC-UNIT-002"
