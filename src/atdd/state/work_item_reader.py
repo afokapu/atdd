@@ -1,0 +1,159 @@
+"""Store-backed work-item reader — the #1203 Phase 1 shadow-read facade.
+
+#1168 Phase 4 (behavioural cutover, read half). Routes ``atdd issue`` work-item
+reads through the State Store instead of parsing ``.atdd/manifest.yaml`` directly.
+Work items are keyed in the store by their **slug** (the stable local identity),
+so this facade resolves a GitHub ``issue_number`` to its work item through the
+``external_refs`` projection (provider ``github`` / ref_kind ``issue``) before
+reading status/train/branch off the stored object.
+
+Decision #3 (single import path): if the store holds no ``work_item`` objects on
+first read, the manifest is imported once via the #1183 ``import_manifest`` path,
+then the store is authoritative for the read. A missing manifest is tolerated —
+reads simply return ``None`` (an unregistered issue is valid and must not crash
+the lifecycle).
+
+This module is the **read** half only; it makes no operational writes (the
+authoritative-write cutover is Phase 2). Dependency discipline: stdlib +
+``atdd.state`` only — it MUST NOT import ``atdd.coach.*`` (it is the foundational
+layer the lifecycle command consumes, not the reverse).
+"""
+from __future__ import annotations
+
+import logging
+import sqlite3
+from pathlib import Path
+from types import TracebackType
+from typing import Optional, Type
+
+from atdd.state.db import connect, init_state_store
+from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND, import_manifest
+from atdd.state.paths import ATDD_DIR, resolve_control_root
+from atdd.state.store import Object, StateStore
+
+_log = logging.getLogger(__name__)
+
+#: ``external_refs.ref_kind`` for the GitHub issue projection (#1183).
+_ISSUE_REF_KIND = "issue"
+#: Work-item ``data`` keys mirrored from the manifest session entry.
+_TRAIN_KEY = "train"
+_BRANCH_KEY = "branch"
+
+
+class WorkItemReader:
+    """Read work-item lifecycle state from the State Store, keyed by issue number.
+
+    Open with a Control Root (default: resolved from cwd); ``db_path`` /
+    ``manifest_path`` override locations for tests. Holds one read connection for
+    its lifetime — use it as a context manager (or call :meth:`close`)::
+
+        with WorkItemReader(control_root=repo) as reader:
+            status = reader.status(1203)
+
+    The store is migrated and (if empty) imported from the manifest at
+    construction, so every read after that is a pure store query.
+    """
+
+    def __init__(
+        self,
+        control_root: Optional[Path] = None,
+        *,
+        db_path: Optional[Path] = None,
+        manifest_path: Optional[Path] = None,
+    ) -> None:
+        if control_root is not None:
+            self._root: Optional[Path] = Path(control_root)
+        elif manifest_path is not None:
+            self._root = Path(manifest_path).resolve().parent.parent
+        else:
+            try:
+                self._root = resolve_control_root(Path.cwd()).control_root
+            except Exception:  # noqa: BLE001 — no Control Root is a tolerable read miss
+                self._root = None
+
+        self._manifest_path = (
+            Path(manifest_path)
+            if manifest_path is not None
+            else (self._root / ATDD_DIR / "manifest.yaml" if self._root is not None else None)
+        )
+
+        # Ensure the store exists + is migrated, then auto-import once if empty.
+        if db_path is not None:
+            self._db_path: Path = init_state_store(db_path=Path(db_path))
+        else:
+            self._db_path = init_state_store(start=self._root)
+        self._auto_import_if_empty(db_path=db_path)
+
+        self._conn: sqlite3.Connection = connect(self._db_path)
+        self._store = StateStore(self._conn)
+
+    # -- lifecycle ---------------------------------------------------------- #
+    def close(self) -> None:
+        self._conn.close()
+
+    def __enter__(self) -> "WorkItemReader":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> None:
+        self.close()
+
+    # -- reads -------------------------------------------------------------- #
+    def get(self, issue_number: int) -> Optional[Object]:
+        """The stored work-item object for ``issue_number``, or ``None``.
+
+        Resolves issue_number → slug via the GitHub ``external_ref`` projection,
+        then loads the object by its slug uid.
+        """
+        ref = self._store.external_refs.resolve(
+            GITHUB_PROVIDER, _ISSUE_REF_KIND, str(issue_number)
+        )
+        if ref is None:
+            return None
+        return self._store.objects.get(ref.object_uid)
+
+    def status(self, issue_number: int) -> Optional[str]:
+        """The lifecycle phase (the object ``state``) for ``issue_number``."""
+        obj = self.get(issue_number)
+        return obj.state if obj is not None else None
+
+    def train(self, issue_number: int) -> Optional[str]:
+        """The train recorded for ``issue_number`` (from the work-item ``data``)."""
+        obj = self.get(issue_number)
+        return obj.data.get(_TRAIN_KEY) if obj is not None else None
+
+    def branch(self, issue_number: int) -> Optional[str]:
+        """The branch recorded for ``issue_number`` (from the work-item ``data``)."""
+        obj = self.get(issue_number)
+        return obj.data.get(_BRANCH_KEY) if obj is not None else None
+
+    # -- internals ---------------------------------------------------------- #
+    def _auto_import_if_empty(self, *, db_path: Optional[Path]) -> None:
+        """Import the manifest into the store once, only when the store is empty.
+
+        Idempotent in effect: a non-empty store is left untouched, so the import
+        runs at most once per store (Decision #3). A missing manifest is a no-op
+        — reads then return ``None`` rather than raising.
+        """
+        conn = connect(self._db_path)
+        try:
+            empty = not StateStore(conn).objects.list(kind=WORK_ITEM_KIND)
+        finally:
+            conn.close()
+        if not empty:
+            return
+        if self._manifest_path is None or not self._manifest_path.is_file():
+            return
+        import_manifest(
+            control_root=self._root,
+            db_path=db_path,
+            manifest_path=self._manifest_path,
+        )
+        _log.info(
+            "work-item store empty — imported manifest on first read",
+            extra={"manifest": str(self._manifest_path), "db": str(self._db_path)},
+        )
