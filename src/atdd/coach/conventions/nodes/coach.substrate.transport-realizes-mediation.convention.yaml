@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+rule_id: coach.substrate.transport-realizes-mediation
+kind: rule
+status: active
+name: A transport provider must realize the mediation obligation
+statement: A workspace declaring the decision-mediation / agent-session-transport
+  (transport or orchestration) capability must realizes the dispatch-verifies-channel-live
+  obligation; admission refuses it otherwise.
+rationale: A transport/orchestration provider moves the decision-mediation channel;
+  if it never realizes the live-channel obligation, dispatch cannot verify the channel
+  before spawning a worker, so the worker may run unmediated. Forcing the realizes
+  edge at admission binds the provider to the obligation that part A documents (coach.extension.realization-mapping).
+terms:
+- term_id: agent_session_transport
+  text: a workspace capability in the transport or orchestration domain that moves/orchestrates
+    the agent decision-mediation channel
+implementation:
+  type: validator
+  ref: test_transport_realizes_mediation::test_transport_capability_without_realizes_is_refused
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 4.0.0

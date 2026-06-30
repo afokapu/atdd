@@ -1,0 +1,16 @@
+schema_version: "1.0.0"
+# NEGATIVE fixture (#1268 part B). A workspace provider declaring an agent-session
+# orchestration capability — it moves/orchestrates the decision-mediation channel —
+# but does NOT realize the dispatch-verifies-channel-live obligation. Admission must
+# REFUSE it: a transport provider that never proves the channel is live could spawn a
+# worker against a dead mediation channel whose gated decisions never surface.
+workspace_id: acme.workspace.transport-unmediated
+kind: workspace
+version: "0.1.0"
+contract_version: "1.0.0"
+
+capabilities:
+  - capability_id: orchestration.agent-session
+    domain: orchestration
+    type: agent-session-transport
+    contract: atdd.workspace.capability.orchestration.agent-session.v1
