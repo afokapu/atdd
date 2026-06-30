@@ -35,9 +35,11 @@ FAILURE_EVIDENCE = ['matched_construct', 'policy_id', 'location', 'reason', 'sug
 LEGACY_PARITY_SOURCES = [
     'src/atdd/coach/validators/test_e032_smoke_001_live_freedom_layer_passes_flipped_validator.py'
 ]
-# Legacy parity oracle RETIRED (#1207): the legacy E032 validator was deleted once
-# `both`-parity was proven (family-parity-report: policy = 4/4 both, grammar live-smoke
-# counterpart). LEGACY_PARITY_SOURCES kept as the provenance record.
+_LEGACY_NODEID = (
+    'src/atdd/coach/validators/'
+    'test_e032_smoke_001_live_freedom_layer_passes_flipped_validator.py'
+    '::test_live_freedom_layer_passes_flipped_validator'
+)
 
 
 def _template():
@@ -58,9 +60,9 @@ def test_clean_baseline_zero_on_real_graph() -> None:
     )
 
 
-def test_fault_injection() -> None:
+def test_fault_injection_legacy_parity() -> None:
     """Pre-authorize a forbidden command in the real freedom_layer allow-list; assert
-    the convention evaluator catches it (legacy oracle retired, #1207)."""
+    BOTH the convention evaluator and the legacy E032 validator catch it."""
     root = _parity.repo_root()
     conv_path = root / _SESSION_CONVENTION
     data = yaml.safe_load(conv_path.read_text(encoding="utf-8"))
@@ -71,6 +73,9 @@ def test_fault_injection() -> None:
         conv = _template().evaluate(load_composed_graph(root), {"variant": VARIANT})
         assert any("git push" in v.get("matched_construct", "") for v in conv), (
             f"{VARIANT}: convention evaluator did not catch the forbidden allowed_bash entry"
+        )
+        assert _parity.legacy_catches(_LEGACY_NODEID), (
+            "legacy E032 freedom-layer validator did not catch the injected fault"
         )
 
     assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []
