@@ -178,11 +178,112 @@ def _wmbt_consistency(graph) -> List[dict]:
     return out
 
 
+# --- train-interlocking coherence variants (#1249 / parent #1246) ----------
+# Each scans the canonical-home interlocking artifacts and asks whether two facts
+# derived from a route agree. Auto-capture: they fire only when a repo declares
+# interlockings, so the clean repo (none) stays at 0. Evidence keys are a SUBSET
+# of the coherence template contract ['source_node','fact_a','fact_b','predicate',
+# 'actual_values'].
+def _iter_interlockings(graph):
+    from atdd.planner.interlocking import InterlockingError, load_interlocking
+    from atdd.planner.interlocking.discovery import iter_interlocking_paths
+
+    root = graph.root
+    if root is None:
+        return
+    for path in iter_interlocking_paths(root):
+        try:
+            yield load_interlocking(path)
+        except InterlockingError:
+            continue  # shape failures are owned by the schema family
+
+
+def _interlocking_route_category_matches_train_id(graph) -> List[dict]:
+    from atdd.planner.interlocking.models import CATEGORY_BY_DIGIT
+    out: List[dict] = []
+    for il in _iter_interlockings(graph):
+        for route in il.routes:
+            train_digit = route.train_id[1] if len(route.train_id) >= 2 else ""
+            expected_cat = CATEGORY_BY_DIGIT.get(route.category_digit)
+            if route.category_digit != train_digit or (
+                expected_cat is not None and route.category != expected_cat
+            ):
+                out.append({
+                    "source_node": f"{il.interlocking_id}:{route.route_id}",
+                    "fact_a": route.category_digit,
+                    "fact_b": train_digit,
+                    "predicate": "route.category_digit == train_id category digit and category matches",
+                    "actual_values": {"category": route.category,
+                                      "train_id": route.train_id,
+                                      "category_digit": route.category_digit,
+                                      "train_digit": train_digit},
+                })
+    return out
+
+
+def _interlocking_route_resolution_deterministic(graph) -> List[dict]:
+    out: List[dict] = []
+    allowed = {"fail_on_multiple_match", "first_priority"}
+    for il in _iter_interlockings(graph):
+        strategy = il.route_resolution.strategy
+        priorities = [r.priority for r in il.routes]
+        bad_strategy = strategy not in allowed
+        non_unique = strategy == "first_priority" and len(set(priorities)) != len(priorities)
+        if bad_strategy or non_unique:
+            out.append({
+                "source_node": il.interlocking_id,
+                "fact_a": strategy,
+                "fact_b": sorted(priorities),
+                "predicate": "strategy is declared+deterministic; first_priority needs unique priorities",
+                "actual_values": {"strategy": strategy, "priorities": priorities,
+                                  "route_ids": [r.route_id for r in il.routes]},
+            })
+    return out
+
+
+def _interlocking_projection_equivalence(graph) -> List[dict]:
+    from atdd.planner.interlocking import InterlockingError
+    from atdd.planner.interlocking.digest import route_projection_digest
+    from atdd.planner.interlocking.projections import project_route_to_train_sequence
+    out: List[dict] = []
+    for il in _iter_interlockings(graph):
+        for route in il.routes:
+            try:
+                steps = project_route_to_train_sequence(il, route.route_id)
+            except InterlockingError as exc:
+                out.append({
+                    "source_node": f"{il.interlocking_id}:{route.route_id}",
+                    "fact_a": route.projection.expected_sequence_digest,
+                    "fact_b": None,
+                    "predicate": "route projects onto its train's linear sequence",
+                    "actual_values": {"train_id": route.train_id, "error": str(exc)[:160]},
+                })
+                continue
+            computed = route_projection_digest(steps, route.projection.fields)
+            if computed != route.projection.expected_sequence_digest:
+                out.append({
+                    "source_node": f"{il.interlocking_id}:{route.route_id}",
+                    "fact_a": route.projection.expected_sequence_digest,
+                    "fact_b": computed,
+                    "predicate": "expected projection digest == computed train-sequence digest",
+                    "actual_values": {"train_id": route.train_id,
+                                      "expected": route.projection.expected_sequence_digest,
+                                      "computed": computed},
+                })
+    return out
+
+
 _VARIANTS = {
     "theme_urn_namespace_matches": _theme_urn_namespace_matches,
     "theme_archetype_alignment": _theme_archetype_alignment,
     "train_family_matches_terminal_contract": _train_family_matches_terminal_contract,
     "wmbt_consistency": _wmbt_consistency,
+    "planner_train_interlocking_route_category_matches_train_id":
+        _interlocking_route_category_matches_train_id,
+    "planner_train_interlocking_route_resolution_deterministic":
+        _interlocking_route_resolution_deterministic,
+    "planner_train_interlocking_projection_equivalence":
+        _interlocking_projection_equivalence,
 }
 
 
