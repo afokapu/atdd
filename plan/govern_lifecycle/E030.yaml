@@ -73,26 +73,11 @@ acceptances:
       author: "atdd:bypass-retire-all"
       created: "2026-05-26"
 
-  - identity:
-      urn: "acc:govern-lifecycle:E030-UNIT-003-meta-guard-baseline-is-zero"
-      id: "AC-UNIT-003"
-      purpose: "Meta-guard validator _AUDITED_BASELINE is updated to 0"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/validators/test_e026_bypass_inventory_guard.py is readable"
-    when:
-      abstract: "The test reads the meta-guard source and checks the baseline constant"
-    then:
-      abstract:
-        - "_AUDITED_BASELINE is set to 0 in the meta-guard validator"
-        - "count_bypass_flags_in_hooks(HOOKS_DIR) returns an empty set"
-    metadata:
-      author: "atdd:bypass-retire-all"
-      created: "2026-05-26"
+  # acc:govern-lifecycle:E030-UNIT-003-meta-guard-baseline-is-zero retired (#1207):
+  # the "meta-guard baseline is zero" assertion moved to convention variant
+  # policy/bypass_inventory (family-parity: policy = 4/4 both), whose clean-baseline test
+  # asserts the real hook source yields zero ATDD_SKIP_* matches. This acceptance was
+  # anchored to test_e026_bypass_inventory_guard.py, which is now decommissioned.
 
   - identity:
       urn: "acc:govern-lifecycle:E030-SMOKE-001-grep-returns-zero-matches"

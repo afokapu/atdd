@@ -126,27 +126,11 @@ acceptances:
       author: "atdd:bypass-audit"
       created: "2026-05-24"
 
-  - identity:
-      urn: "acc:govern-lifecycle:E026-UNIT-005-meta-guard-fails-when-bypass-count-grows"
-      id: "AC-UNIT-005"
-      purpose: "Meta-guard validator fails when bypass-flag count in hook source exceeds the audited baseline of 4"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A synthetic hooks directory is created with a pre-push file containing 5 distinct ATDD_SKIP_* vars"
-        - "The audited baseline is 4"
-    when:
-      abstract: "count_bypass_flags_in_hooks(hooks_dir) is called and compared to baseline"
-    then:
-      abstract:
-        - "The function returns a count of 5"
-        - "A guard check raises or returns an error indicating the count exceeds the baseline"
-    metadata:
-      author: "atdd:bypass-audit"
-      created: "2026-05-24"
+  # acc:govern-lifecycle:E026-UNIT-005-meta-guard-fails-when-bypass-count-grows retired
+  # (#1207): the "meta-guard fails when the bypass-flag count grows" assertion moved to
+  # convention variant policy/bypass_inventory (family-parity: policy = 4/4 both), whose
+  # fault-injection test reintroduces an ATDD_SKIP_* flag and asserts the evaluator catches
+  # it. The legacy anchored test (test_e026_bypass_inventory_guard.py) is decommissioned.
 
   - identity:
       urn: "acc:govern-lifecycle:E026-SMOKE-001-routine-push-zero-bypasses-after-retirement"
