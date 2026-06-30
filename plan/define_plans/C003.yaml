@@ -28,3 +28,20 @@ acceptances:
     abstract:
     - confirm is refused (SessionGateError / non-zero) and the session stays unlocked
     - re-running with a verb-object slug "manage-users" locks the session
+- identity:
+    urn: acc:define-plans:C003-SMOKE-002-cli-exit-nonzero-on-naming-refusal
+    id: AC-SMOKE-002
+    purpose: The atdd plan confirm CLI exits non-zero when the verb-object gate refuses
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real atdd plan CLI session driven to Confirm with one kept wagon unit
+  when:
+    abstract: plan_session_cli.run executes `confirm` with wagon slug "mode-select"
+  then:
+    abstract:
+    - the CLI dispatch returns a non-zero exit code (the shared gate-refusal path)
+    - the same flow with a verb-object slug returns exit 0

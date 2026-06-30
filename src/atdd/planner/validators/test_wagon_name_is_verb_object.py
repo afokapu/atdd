@@ -16,6 +16,8 @@ bound, confirm-blocking rule. These tests pin:
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from atdd.coach.utils.rule_binding import bind_rule
@@ -72,3 +74,32 @@ def test_confirm_locks_verb_object_wagon(tmp_path) -> None:
     s = _confirm_session_with_wagon("manage-users")
     s.confirm(root=tmp_path)
     assert s.locked is True
+
+
+def _drive_cli_to_confirm(tmp_path, slug: str) -> int:
+    """Drive the real ``atdd plan`` CLI dispatch (``plan_session_cli.run``) from
+    start through confirm with one kept wagon ``slug``, returning confirm's exit
+    code. Pins the exit-code contract end-to-end through the shared gate-refusal
+    path so a future refactor cannot silently regress a refused confirm to 0."""
+    from atdd.planner.commands.plan_session_cli import run
+
+    root = str(tmp_path)
+    spec = json.dumps({"wagon": slug})
+    assert run(["--root", root, "start", "--id", "c1",
+                "--main-job", "mj", "--issue", "demo-slug"]) == 0
+    assert run(["--root", root, "source", "--id", "c1", "req"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "locate"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "prepare"]) == 0
+    assert run(["--root", root, "unit", "--id", "c1", "--kind", "wagon",
+                "--ref", f"wagon:{slug}", "--spec", spec]) == 0
+    assert run(["--root", root, "decide", "--id", "c1",
+                "--ref", f"wagon:{slug}", "--verdict", "keep"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "confirm"]) == 0
+    return run(["--root", root, "confirm", "--id", "c1"])
+
+
+def test_confirm_cli_exits_nonzero_on_naming_refusal(tmp_path) -> None:
+    """`atdd plan confirm` must exit non-zero when the verb-object gate refuses a
+    kept wagon name, and 0 when the name is verb-object (#1276)."""
+    assert _drive_cli_to_confirm(tmp_path / "bad", "mode-select") != 0
+    assert _drive_cli_to_confirm(tmp_path / "good", "manage-users") == 0
