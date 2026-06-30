@@ -1,0 +1,31 @@
+urn: wmbt:validate-conventions:Y002
+step: add
+direction: maximize
+dimension: ability
+object_of_control: decommission-preflight-visibility
+context_clarifier: every decommission-ready legacy validator is labelled PLATFORM, RULE-BOUND
+  and/or ACCEPTANCE-ANCHORED with its current legacy-validator-map status and the exact
+  required retirement steps, naming the two CI catches, before any deletion
+lens: functional.effectiveness
+statement: maximize ability of an operator to retire a legacy validator safely by
+  classifying every ready candidate (PLATFORM vs RULE-BOUND vs ACCEPTANCE-ANCHORED)
+  and emitting its required steps + map status up front, so neither the bidirectional-binding
+  nor the no-unsafe-deletion catch is tripped
+acceptances:
+- identity:
+    urn: acc:validate-conventions:Y002-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the pre-flight classifier partitions the real ready-set in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout with the decommission pre-flight classifier
+  when:
+    abstract: the classifier is run over the live decommission-ready set
+  then:
+    abstract:
+    - a known platform test, a known rule-bound validator and a known acceptance-anchored
+      validator are partitioned into distinct label sets with the correct required steps
