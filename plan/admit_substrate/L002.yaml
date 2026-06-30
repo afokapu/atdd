@@ -1,0 +1,36 @@
+urn: wmbt:admit-substrate:L002
+step: locate
+direction: maximize
+dimension: likelihood
+object_of_control: grouped-command-discoverability
+context_clarifier: 'operators discover the substrate verbs through help: `atdd substrate
+  --help` must list the five subcommands (add, remove, bind, capabilities, list),
+  and the top-level `atdd --help` must no longer present the four flat verbs as primary
+  commands (they are marked deprecated), so the grouped noun is the discoverable surface'
+lens: functional.effectiveness
+statement: maximize likelihood of grouped-command-discoverability by listing the five
+  `atdd substrate` subcommands in its help and marking the flat verbs deprecated in
+  the top-level help
+acceptances:
+- given:
+    abstract:
+    - the atdd CLI in a checkout
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: '`atdd substrate --help` lists the five subcommands and the deprecated
+      flat `atdd add` help points to the grouped form'
+    urn: acc:admit-substrate:L002-SMOKE-001-substrate-help-lists-five
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-06-29'
+  then:
+    abstract:
+    - the substrate help lists add, remove, bind, capabilities, and list as subcommands
+    - the top-level `atdd add` help is marked [DEPRECATED] and points to `atdd substrate
+      add`
+  when:
+    abstract: '`atdd substrate --help` and `atdd add --help` are invoked as subprocesses'

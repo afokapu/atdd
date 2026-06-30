@@ -1,0 +1,36 @@
+urn: wmbt:admit-substrate:C006
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: stale-flat-verb-docs
+context_clarifier: the README and the `atdd sync`-generated agent docs (CLAUDE/GEMINI/GLM)
+  must present `atdd substrate ...` as the canonical form; no doc may present a flat
+  substrate verb as the primary (non-deprecated) form, so agents and operators reading
+  the docs reach for the grouped command
+lens: functional.sustainability
+statement: minimize likelihood of stale-flat-verb-docs by documenting `atdd substrate
+  ...` as the canonical form in the README and synced agent docs, with no doc presenting
+  a flat substrate verb as primary
+acceptances:
+- given:
+    abstract:
+    - the repository README.md on disk
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: the README documents `atdd substrate` as the canonical substrate-management
+      surface
+    urn: acc:admit-substrate:C006-SMOKE-001-readme-documents-grouped
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-06-29'
+  then:
+    abstract:
+    - the README references `atdd substrate` as the canonical management surface
+    - the README does not present a bare flat substrate verb as the primary (non-deprecated)
+      form
+  when:
+    abstract: the README is read by a subprocess grep for the substrate command surface
