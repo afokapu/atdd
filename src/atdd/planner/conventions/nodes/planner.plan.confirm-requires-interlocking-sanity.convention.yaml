@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+rule_id: planner.plan.confirm-requires-interlocking-sanity
+kind: policy
+status: active
+name: Confirm requires interlocking sanity
+statement: Confirm cannot lock a train-bearing plan when required interlocking sanity
+  fails.
+terms:
+- term_id: confirm_gate
+  text: Confirm refuses to lock a train-bearing plan when required interlocking sanity
+    fails, and a failure leaves the session unlocked
+implementation:
+  type: validator
+  ref: test_confirm_interlocking_sanity::test_confirm_requires_interlocking_sanity
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: presence
+  template: conditional_requirement
+  variant: planner_plan_confirm_requires_interlocking_sanity
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: plan-session
+  failure_evidence:
+  - session_id
+  - train_id
+  - interlocking_id
+  - route_id
+  - failed_rule

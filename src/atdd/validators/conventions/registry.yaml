@@ -17,6 +17,7 @@ families:
   - id: schema
     templates:
       - id: node_schema_conformance
+      - id: required_field_presence
   - id: grammar
     templates:
       - id: identifier_grammar_conformance
@@ -29,6 +30,7 @@ families:
     templates:
       - id: reachability_no_orphan
       - id: source_has_required_target
+      - id: projection_covers_source
   - id: sizing
     templates:
       - id: cardinality_bounds

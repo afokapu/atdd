@@ -4,7 +4,11 @@
 # Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
-"""E001 — registry.yaml declares exactly the 13 canonical families and 22 templates."""
+"""E001 — registry.yaml declares exactly the 13 canonical families and 24 templates.
+
+The catalogue grew from 22 to 24 when the train-interlocking sanity rules (#1249,
+parent #1246) added ``schema/required_field_presence`` (entrypoint-shape presence)
+and ``coverage/projection_covers_source`` (route->train projection coverage)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -36,4 +40,4 @@ def test_registry_declares_canonical_families_and_templates(
         total_templates += len(got)
 
     assert len(family_ids) == 13, f"expected 13 families, got {len(family_ids)}"
-    assert total_templates == 22, f"expected 22 templates, got {total_templates}"
+    assert total_templates == 24, f"expected 24 templates, got {total_templates}"

@@ -27,6 +27,14 @@ edges:
   target_ref: coach.role.operator-decision-authority
   type: requires
 - confidence: 1.0
+  control: internal
+  foundation: finish_to_start
+  reason: a live decision-mediation channel is the precondition for decisions to be mediated at all; verifying liveness before relying on mediation prevents spawning an unmediated worker whose decisions never surface
+  source_ref: coach.execution.dispatch-verifies-channel-live
+  strength: critical
+  target_ref: coach.execution.decisions-mediated-not-auto-executed
+  type: enables
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
@@ -254,12 +262,300 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: start_to_start
+  reason: the 4-layer organization is realized by the inward dependency-direction rule
+  source_ref: coder.backend.code-is-organized
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: no-cross-wagon isolation and inward dependency-direction are sibling boundary principles enforced together
+  source_ref: coder.boundaries.no-cross-wagon-imports
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: domain purity is the inner endpoint of the inward dependency-direction boundary (the domain depends on nothing outward)
+  source_ref: coder.commons.domain-layer-purity
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: naming the shared layer commons is part of the same layer-organization discipline
+  source_ref: coder.commons.shared-code-named-commons
+  strength: minor
+  target_ref: coder.backend.code-is-organized
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: composition completeness is part of organizing a feature into wired layers
+  source_ref: coder.composition.every-file-has-a-consumer
+  strength: minor
+  target_ref: coder.backend.code-is-organized
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the composition root reaching every layer is what makes each source file have a consumer
+  source_ref: coder.composition.root-reaches-all-layers
+  strength: important
+  target_ref: coder.composition.every-file-has-a-consumer
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder coverage conformance checks evaluated alongside feature-implementation coverage
+  source_ref: coder.coverage.every-feature-must-have
+  strength: minor
+  target_ref: coder.coverage.every-implementation-must-have
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder GREEN-phase static-analysis quality gate (intra-layer duplication) evaluated alongside dead-code reachability
+  source_ref: coder.dead-code.reachability
+  strength: minor
+  target_ref: coder.duplication.no-structurally-identical-code
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the design-system one-way flow is a specialization of the inward dependency-direction principle
+  source_ref: coder.design.dependency-flow-tokens-primitives
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: pure-value tokens are the base of the design-system dependency flow
+  source_ref: coder.design.tokens-are-pure-values
+  strength: important
+  target_ref: coder.design.dependency-flow-tokens-primitives
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: wagons->design_system one-way import is a specialization of the inward dependency-direction principle
+  source_ref: coder.design.wagons-import-from-design
+  strength: important
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer dto contract-boundary guidance evaluated alongside DTO placement
+  source_ref: coder.dto.placement
+  strength: minor
+  target_ref: coder.dto.mapper
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer dto contract-boundary guidance evaluated alongside DTO placement
+  source_ref: coder.dto.placement
+  strength: minor
+  target_ref: coder.dto.purity
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder error-response conformance checks evaluated alongside bare-string detail
+  source_ref: coder.error-response.bare-string
+  strength: minor
+  target_ref: coder.error-response.code-format
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer frontend presentation-quality gate (no-stub allowlist hygiene) evaluated alongside frontend layer-architecture boundaries
+  source_ref: coder.frontend.boundaries-fe-layers
+  strength: minor
+  target_ref: coder.frontend.allowlist-entry-must-include
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer frontend import-direction check evaluated alongside frontend layer-architecture boundaries
+  source_ref: coder.frontend.boundaries-fe-layers
+  strength: minor
+  target_ref: coder.frontend.boundaries-fe-imports
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer consumer-code static-analysis anti-pattern gate (N+1 DB calls in loops) evaluated alongside the security XSS-sink gate
+  source_ref: coder.performance.perf
+  strength: minor
+  target_ref: coder.security.xss
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer presentation thin-layer guidance evaluated alongside the thin-layer principle
+  source_ref: coder.presentation.layer-is-thin
+  strength: minor
+  target_ref: coder.presentation.controllers-never-call-domain
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer presentation thin-layer guidance evaluated alongside the thin-layer principle
+  source_ref: coder.presentation.layer-is-thin
+  strength: minor
+  target_ref: coder.presentation.response-models-live-in
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder REFACTOR-phase quality gates evaluated alongside composition-root reachability
+  source_ref: coder.refactor.composition-root
+  strength: minor
+  target_ref: coder.refactor.coach-ratchet-pres
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder composition-completeness checks evaluated alongside composition-root reachability
+  source_ref: coder.refactor.composition-root
+  strength: minor
+  target_ref: coder.refactor.composition-consumer
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer consumer-code security anti-pattern gates (secret leakage and XSS-prone DOM sinks) evaluated alongside one another
+  source_ref: coder.security.xss
+  strength: minor
+  target_ref: coder.security.hardcoded-secret
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the State Store layering rule is a specific application of the canonical inward dependency-direction principle
+  source_ref: coder.state-store.core-imports-no-providers
+  strength: critical
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: routing persistence through the storage APIs keeps the store boundary clean alongside the layering rule
+  source_ref: coder.state-store.no-raw-sql-at-call-sites
+  strength: important
+  target_ref: coder.state-store.core-imports-no-providers
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: external-ref uniqueness and the no-raw-SQL boundary are co-held storage-integrity rules owned inside the store
+  source_ref: coder.state-store.one-external-ref-per-issue
+  strength: important
+  target_ref: coder.state-store.no-raw-sql-at-call-sites
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: single-store-per-control-root and one-external-ref-per-issue jointly protect operational state from split-brain divergence
+  source_ref: coder.state-store.single-store-per-control-root
+  strength: important
+  target_ref: coder.state-store.one-external-ref-per-issue
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a provider-agnostic sync engine depends on the store core importing no provider layer
+  source_ref: coder.state-store.sync-engine-provider-agnostic
+  strength: important
+  target_ref: coder.state-store.core-imports-no-providers
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer technology-governance gate (approved-alternative gating) evaluated alongside the layer-default selection rule
+  source_ref: coder.technology.new-components-default-to
+  strength: minor
+  target_ref: coder.technology.approved-alternatives-are-taken
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer technology-governance gate (SPEC-edit requirement for unapproved choices) evaluated alongside the layer-default selection rule
+  source_ref: coder.technology.new-components-default-to
+  strength: minor
+  target_ref: coder.technology.unapproved-technology-choices-require
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: the acceptance commit is the delivery terminal contract
   source_ref: coder.train.acceptance-commit-idempotent
   strength: important
   target_ref: planner.train.terminal-contract
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: a train's cargo-only wagon communication is precisely the no-cross-wagon-imports boundary at the orchestration layer
+  source_ref: coder.train.production-composition-cargo-zero-drift
+  strength: important
+  target_ref: coder.boundaries.no-cross-wagon-imports
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the coder train composition root realizes the planner's production-implementation train spec
+  source_ref: coder.train.production-composition-cargo-zero-drift
+  strength: important
+  target_ref: planner.train.production-implementation
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: cargo-only wagon communication (no direct cross-wagon imports) is the wagon-level expression of the inward dependency-direction boundary
+  source_ref: coder.train.production-composition-cargo-zero-drift
+  strength: minor
+  target_ref: coder.backend.imports-respect-dependency-allowed
+  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -887,6 +1183,15 @@ edges:
   target_ref: planner.plan.confirm-binds-an-issue
   type: enables
 - confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: Confirm gates a train-bearing plan on interlocking sanity
+  source_ref: planner.plan.confirm-requires-interlocking-sanity
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
   reason: the D/L/P/C lifecycle's Confirm gate enforces confirm-before-author
   source_ref: planner.plan.session-lifecycle
   target_ref: planner.plan.confirm-before-author
@@ -1089,6 +1394,123 @@ edges:
   strength: important
   target_ref: planner.train.sequence
   type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the no-cargo boundary applies to homed interlockings
+  source_ref: planner.train.interlocking-does-not-carry-cargo
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: entrypoint shape is declared on an interlocking in the canonical home
+  source_ref: planner.train.interlocking-entrypoint-shape
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: fragment and acceptance binding presupposes the homed interlocking
+  source_ref: planner.train.interlocking-fragment-acceptance-binding
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: guard coverage is proven against the route to train projection
+  source_ref: planner.train.interlocking-guard-coverage
+  strength: important
+  target_ref: planner.train.interlocking-projection-equivalence
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: guard grammar is declared on a homed interlocking
+  source_ref: planner.train.interlocking-guard-grammar
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: interlocking artifacts live beside the train registry they index
+  source_ref: planner.train.interlocking-home
+  strength: important
+  target_ref: planner.train.registry
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: message payload typing is declared on a homed interlocking
+  source_ref: planner.train.interlocking-message-payload-typed
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a typed payload contract must resolve to a schema body
+  source_ref: planner.train.interlocking-payload-contract-body-required
+  strength: important
+  target_ref: planner.train.interlocking-message-payload-typed
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: projection equivalence presupposes the homed interlocking
+  source_ref: planner.train.interlocking-projection-equivalence
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: route category agreement presupposes the homed interlocking
+  source_ref: planner.train.interlocking-route-category-matches-train-id
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: deterministic resolution presupposes the homed interlocking
+  source_ref: planner.train.interlocking-route-resolution-deterministic
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a structural residual is the explicit escape hatch for WMBT surfacing
+  source_ref: planner.train.interlocking-structural-residual-explicit
+  strength: important
+  target_ref: planner.train.interlocking-wmbt-surface-or-residual
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: WMBT surfacing presupposes the homed interlocking
+  source_ref: planner.train.interlocking-wmbt-surface-or-residual
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -1624,28 +2046,37 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
-  source_ref: tester.smoke.no-collaborator-substitution
+  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
+  source_ref: tester.contract.schema-is-source-of-truth
   strength: minor
-  target_ref: tester.smoke.operator-observable-assertion
+  target_ref: tester.contract.bidirectional-wagon-linkage
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
-  source_ref: tester.smoke.no-collaborator-substitution
+  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
+  source_ref: tester.contract.schema-is-source-of-truth
   strength: minor
-  target_ref: tester.smoke.cross-component-handoff-gap
+  target_ref: tester.contract.core-fields-only-no-ui
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
-  source_ref: tester.smoke.no-collaborator-substitution
+  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
+  source_ref: tester.contract.schema-is-source-of-truth
   strength: minor
-  target_ref: tester.smoke.harness-subprocess-failed-crash
+  target_ref: tester.contract.planner-defines-what-tester-implements-how
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
+  source_ref: tester.contract.schema-is-source-of-truth
+  strength: minor
+  target_ref: tester.contract.semver-governs-compatibility
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
@@ -1678,281 +2109,20 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer dto contract-boundary guidance evaluated alongside DTO placement
-  source_ref: coder.dto.placement
+  reason: peer test-identity-and-placement conventions evaluated alongside URN identity
+  source_ref: tester.filename.test-carries-urn-identity
   strength: minor
-  target_ref: coder.dto.purity
+  target_ref: tester.filename.test-placed-in-owning-feature
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer dto contract-boundary guidance evaluated alongside DTO placement
-  source_ref: coder.dto.placement
+  reason: "peer test-organization guidance \u2014 layer routing evaluated alongside feature colocation"
+  source_ref: tester.filename.test-placed-in-owning-feature
   strength: minor
-  target_ref: coder.dto.mapper
+  target_ref: tester.routing.layer-keyword-taxonomy
   type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer presentation thin-layer guidance evaluated alongside the thin-layer principle
-  source_ref: coder.presentation.layer-is-thin
-  strength: minor
-  target_ref: coder.presentation.controllers-never-call-domain
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer presentation thin-layer guidance evaluated alongside the thin-layer principle
-  source_ref: coder.presentation.layer-is-thin
-  strength: minor
-  target_ref: coder.presentation.response-models-live-in
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer tester quality-gate checks evaluated alongside security auth coverage
-  source_ref: tester.security.auth
-  strength: minor
-  target_ref: tester.security.input
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer tester quality-gate checks evaluated alongside security auth coverage
-  source_ref: tester.security.auth
-  strength: minor
-  target_ref: tester.test-isolation.no-polluting-patterns
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer tester quality-gate checks evaluated alongside security auth coverage
-  source_ref: tester.security.auth
-  strength: minor
-  target_ref: tester.telemetry.emit
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer tester quality-gate checks evaluated alongside security auth coverage
-  source_ref: tester.security.auth
-  strength: minor
-  target_ref: tester.train.coverage
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer coder coverage conformance checks evaluated alongside feature-implementation coverage
-  source_ref: coder.coverage.every-feature-must-have
-  strength: minor
-  target_ref: coder.coverage.every-implementation-must-have
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer coder error-response conformance checks evaluated alongside bare-string detail
-  source_ref: coder.error-response.bare-string
-  strength: minor
-  target_ref: coder.error-response.code-format
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer coder composition-completeness checks evaluated alongside composition-root reachability
-  source_ref: coder.refactor.composition-root
-  strength: minor
-  target_ref: coder.refactor.composition-consumer
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer coder REFACTOR-phase quality gates evaluated alongside composition-root reachability
-  source_ref: coder.refactor.composition-root
-  strength: minor
-  target_ref: coder.refactor.coach-ratchet-pres
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer frontend import-direction check evaluated alongside frontend layer-architecture boundaries
-  source_ref: coder.frontend.boundaries-fe-layers
-  strength: minor
-  target_ref: coder.frontend.boundaries-fe-imports
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer frontend presentation-quality gate (no-stub allowlist hygiene) evaluated alongside frontend layer-architecture boundaries
-  source_ref: coder.frontend.boundaries-fe-layers
-  strength: minor
-  target_ref: coder.frontend.allowlist-entry-must-include
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer consumer-code security anti-pattern gates (secret leakage and XSS-prone DOM sinks) evaluated alongside one another
-  source_ref: coder.security.xss
-  strength: minor
-  target_ref: coder.security.hardcoded-secret
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer consumer-code static-analysis anti-pattern gate (N+1 DB calls in loops) evaluated alongside the security XSS-sink gate
-  source_ref: coder.performance.perf
-  strength: minor
-  target_ref: coder.security.xss
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer coder GREEN-phase static-analysis quality gate (intra-layer duplication) evaluated alongside dead-code reachability
-  source_ref: coder.dead-code.reachability
-  strength: minor
-  target_ref: coder.duplication.no-structurally-identical-code
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer technology-governance gate (approved-alternative gating) evaluated alongside the layer-default selection rule
-  source_ref: coder.technology.new-components-default-to
-  strength: minor
-  target_ref: coder.technology.approved-alternatives-are-taken
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer technology-governance gate (SPEC-edit requirement for unapproved choices) evaluated alongside the layer-default selection rule
-  source_ref: coder.technology.new-components-default-to
-  strength: minor
-  target_ref: coder.technology.unapproved-technology-choices-require
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: the 4-layer organization is realized by the inward dependency-direction rule
-  source_ref: coder.backend.code-is-organized
-  strength: important
-  target_ref: coder.backend.imports-respect-dependency-allowed
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: pure-value tokens are the base of the design-system dependency flow
-  source_ref: coder.design.tokens-are-pure-values
-  strength: important
-  target_ref: coder.design.dependency-flow-tokens-primitives
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: the design-system one-way flow is a specialization of the inward dependency-direction principle
-  source_ref: coder.design.dependency-flow-tokens-primitives
-  strength: important
-  target_ref: coder.backend.imports-respect-dependency-allowed
-  type: refines
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: wagons->design_system one-way import is a specialization of the inward dependency-direction principle
-  source_ref: coder.design.wagons-import-from-design
-  strength: important
-  target_ref: coder.backend.imports-respect-dependency-allowed
-  type: refines
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the coder train composition root realizes the planner's production-implementation train spec
-  source_ref: coder.train.production-composition-cargo-zero-drift
-  strength: important
-  target_ref: planner.train.production-implementation
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: cargo-only wagon communication (no direct cross-wagon imports) is the wagon-level expression of the inward dependency-direction boundary
-  source_ref: coder.train.production-composition-cargo-zero-drift
-  strength: minor
-  target_ref: coder.backend.imports-respect-dependency-allowed
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: no-cross-wagon isolation and inward dependency-direction are sibling boundary principles enforced together
-  source_ref: coder.boundaries.no-cross-wagon-imports
-  strength: important
-  target_ref: coder.backend.imports-respect-dependency-allowed
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: a train's cargo-only wagon communication is precisely the no-cross-wagon-imports boundary at the orchestration layer
-  source_ref: coder.train.production-composition-cargo-zero-drift
-  strength: important
-  target_ref: coder.boundaries.no-cross-wagon-imports
-  type: refines
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: domain purity is the inner endpoint of the inward dependency-direction boundary (the domain depends on nothing outward)
-  source_ref: coder.commons.domain-layer-purity
-  strength: important
-  target_ref: coder.backend.imports-respect-dependency-allowed
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: naming the shared layer commons is part of the same layer-organization discipline
-  source_ref: coder.commons.shared-code-named-commons
-  strength: minor
-  target_ref: coder.backend.code-is-organized
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: composition completeness is part of organizing a feature into wired layers
-  source_ref: coder.composition.every-file-has-a-consumer
-  strength: minor
-  target_ref: coder.backend.code-is-organized
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the composition root reaching every layer is what makes each source file have a consumer
-  source_ref: coder.composition.root-reaches-all-layers
-  strength: important
-  target_ref: coder.composition.every-file-has-a-consumer
-  type: refines
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -1984,104 +2154,64 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer test-identity-and-placement conventions evaluated alongside URN identity
-  source_ref: tester.filename.test-carries-urn-identity
+  reason: peer tester quality-gate checks evaluated alongside security auth coverage
+  source_ref: tester.security.auth
   strength: minor
-  target_ref: tester.filename.test-placed-in-owning-feature
+  target_ref: tester.security.input
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
-  source_ref: tester.contract.schema-is-source-of-truth
+  reason: peer tester quality-gate checks evaluated alongside security auth coverage
+  source_ref: tester.security.auth
   strength: minor
-  target_ref: tester.contract.planner-defines-what-tester-implements-how
+  target_ref: tester.telemetry.emit
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
-  source_ref: tester.contract.schema-is-source-of-truth
+  reason: peer tester quality-gate checks evaluated alongside security auth coverage
+  source_ref: tester.security.auth
   strength: minor
-  target_ref: tester.contract.core-fields-only-no-ui
+  target_ref: tester.test-isolation.no-polluting-patterns
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
-  source_ref: tester.contract.schema-is-source-of-truth
+  reason: peer tester quality-gate checks evaluated alongside security auth coverage
+  source_ref: tester.security.auth
   strength: minor
-  target_ref: tester.contract.semver-governs-compatibility
+  target_ref: tester.train.coverage
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer contract-schema conventions evaluated alongside schema-as-source-of-truth
-  source_ref: tester.contract.schema-is-source-of-truth
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
   strength: minor
-  target_ref: tester.contract.bidirectional-wagon-linkage
+  target_ref: tester.smoke.cross-component-handoff-gap
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer test-organization guidance — layer routing evaluated alongside feature colocation
-  source_ref: tester.filename.test-placed-in-owning-feature
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
   strength: minor
-  target_ref: tester.routing.layer-keyword-taxonomy
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the State Store layering rule is a specific application of the canonical inward
-    dependency-direction principle
-  source_ref: coder.state-store.core-imports-no-providers
-  strength: critical
-  target_ref: coder.backend.imports-respect-dependency-allowed
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: a provider-agnostic sync engine depends on the store core importing no provider layer
-  source_ref: coder.state-store.sync-engine-provider-agnostic
-  strength: important
-  target_ref: coder.state-store.core-imports-no-providers
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: routing persistence through the storage APIs keeps the store boundary clean alongside the
-    layering rule
-  source_ref: coder.state-store.no-raw-sql-at-call-sites
-  strength: important
-  target_ref: coder.state-store.core-imports-no-providers
+  target_ref: tester.smoke.harness-subprocess-failed-crash
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: external-ref uniqueness and the no-raw-SQL boundary are co-held storage-integrity rules
-    owned inside the store
-  source_ref: coder.state-store.one-external-ref-per-issue
-  strength: important
-  target_ref: coder.state-store.no-raw-sql-at-call-sites
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: single-store-per-control-root and one-external-ref-per-issue jointly protect operational
-    state from split-brain divergence
-  source_ref: coder.state-store.single-store-per-control-root
-  strength: important
-  target_ref: coder.state-store.one-external-ref-per-issue
+  reason: peer tester-smoke conformance checks evaluated alongside collaborator-substitution
+  source_ref: tester.smoke.no-collaborator-substitution
+  strength: minor
+  target_ref: tester.smoke.operator-observable-assertion
   type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph

@@ -57,7 +57,7 @@ produce:
 consume: []
 
 wmbt:
-  total: 23
+  total: 24
   D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind and freezing the controlled vocabularies"
   C009: "minimize likelihood of orphan-extension-convention-nodes by asserting in atdd validate package that every convention node an extension owns is an endpoint of at least one edge in the extension's relationships.yaml"
   C008: "minimize likelihood of orphan-convention-nodes by asserting every convention node appears as a source_ref or target_ref of at least one relationship-graph edge (no node outside the graph), making graph integrity bidirectional"
@@ -78,6 +78,7 @@ wmbt:
   C007: "minimize likelihood of accepting an invalid package realization by validating realizes mappings (owned extension_node, shipped core_node, no design_candidate realized, derived targets) and refusing authored cross-package graph edges"
   E005: "maximize likelihood of a faithful composed protocol view by materializing realizes as derived edges with the provenance triple in composed mode only, source-only in core mode, never executing runtime"
   E006: "maximize likelihood of schema-valid issue-body creation when authoring from issue.schema.json (Graph Context + Mirror present, zero placeholders)"
+  E007: "maximize likelihood of schema-valid convention-node validation metadata when authoring a convention node (optional block, family/(family,template) checked against registry.yaml, invalid JSON rejected, no concrete runtime state) without changing bind_rule semantics"
   C010: "minimize likelihood of accepting an invalid issue body (missing required section / missing Graph Context / out-of-enum Status) by validating against issue.schema.json instead of greping strings"
   C011: "minimize likelihood of schema-generator-gate drift by asserting issue.schema.json properties == create_issue_body fields == E019 required sections"
   K002: "minimize likelihood of existing-compliant-body validation regression by asserting today's compliant issue bodies validate against issue.schema.json (back-compat)"
