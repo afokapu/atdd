@@ -458,9 +458,14 @@ class GitHubClient:
         return json.loads(output) if output else []
 
     def list_issues_by_label(
-        self, label: str, include_body: bool = True,
+        self, label: str, include_body: bool = True, state: str = "open",
     ) -> List[Dict[str, Any]]:
-        """List open issues with a given label."""
+        """List issues with a given label.
+
+        ``state`` is passed to ``gh issue list --state`` ("open" by default,
+        "closed", or "all"). Closed issues are needed to reconcile stale
+        phase labels on already-closed atdd-issues (#1284).
+        """
         fields = "number,title,labels,state"
         if include_body:
             fields += ",body"
@@ -468,7 +473,7 @@ class GitHubClient:
             "issue", "list",
             "--repo", self.repo,
             "--label", label,
-            "--state", "open",
+            "--state", state,
             "--json", fields,
             "--limit", "100",
         ])
