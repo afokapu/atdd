@@ -3138,3 +3138,12 @@ sessions:
   status: INIT
   created: '2026-06-30'
   archived: null
+  branch: feat/atdd-author-issue-publishes-to-store
+- id: '1273'
+  slug: mandatory-three-path-review-for-authored-issues
+  file: null
+  issue_number: 1273
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
