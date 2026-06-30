@@ -9,6 +9,12 @@ and presents them; it does not restate them. Stdlib only.
 The decomposition-protocol nodes ship via #761; until that merges, only the
 session-protocol nodes are present — the assembler simply includes whatever
 guideline nodes exist (forward-compatible).
+
+Resolution falls back to the installed package (#1275): the nodes and the
+relationship graph are read from the bundled `atdd` package when the repo has
+no `src/atdd/` tree of its own, so `atdd plan guidelines` works in consumer
+repos and not just the toolkit's own source checkout. Repo-vendored files
+override the package; a missing graph degrades `edges` to `[]`.
 """
 from __future__ import annotations
 
