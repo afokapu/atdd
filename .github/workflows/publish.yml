@@ -1,7 +1,41 @@
-# Tag + Publish after ATDD Validate succeeds on main
+# Tag + Publish after ATDD Validate succeeds on main.
 # Triggered automatically via workflow_run (no GITHUB_TOKEN cross-workflow issue).
-# Version bump is done by the agent on the PR branch BEFORE merging.
 # "Require branches to be up to date" in branch protection serializes merges.
+#
+# #1285 (CORE side of #1172 step 5). The version is owned by the State Store and
+# the publish side-effect (git tag + PyPI + tag external_ref) lives ENTIRELY in
+# the release extension (atdd-extensions, ext#36 GithubReleaseProvider /
+# drain_version_decided). Core here does exactly two provider-neutral things:
+#
+#   1. RECONCILE + BUMP → a resolvable version. The State Store is git-ignored, so
+#      a bump on a PR branch never reaches CI, and migration v2's seed is stale
+#      versus the real release. So we reconcile the store's authoritative current
+#      from the latest git tag (`git describe`), then `atdd state version bump` by
+#      the change class derived from the merge commit — producing a real version
+#      AND a pending, provider-neutral `version_decided` outbox message. This
+#      replaces the old `0.0.0+local` skip: the version is now always resolvable.
+#
+#   2. DRAIN. Invoke the release extension's drain over that outbox message → git
+#      tag + PyPI publish + tag `external_ref` writeback. Core names no tag/PyPI;
+#      the mechanics are the extension's. The drain is DOUBLE-GATED: a workflow
+#      `DRY_RUN` flag AND the extension's own `ATDD_RELEASE_ALLOW_PUBLISH=1` env
+#      guard — so a normal merge is a dry-run and never reaches real PyPI unless an
+#      operator explicitly arms both. Idempotent: an already-released HEAD is
+#      skipped, and the extension re-drains a recorded tag as a no-op.
+#
+# INSTALL-SOURCE (documented TODO — pending ext#36 merge): the drain worker ships
+# in atdd-extensions and is not merged yet. `RELEASE_WORKER_REF` (a repo variable)
+# names the atdd-extensions git ref that provides
+# official/atdd.extension.github/implementations/release_worker/. Until it is set,
+# reconcile+bump still runs (version resolvable) and the drain step emits a LOUD
+# warning naming the variable to set — never a silent skip.
+#
+# FOLLOW-UP (pending ext#36's finalized publish mechanics): the extension's
+# real_publish currently does `git tag -a` + `python -m build` + `twine upload`.
+# Reconciling that with this repo's PyPI Trusted Publishing (OIDC, tokenless) and
+# adding the tag-push + GitHub Release announcement are tracked against ext#36 —
+# they are the extension's publish contract, not core's. Do NOT re-introduce the
+# retired GH006 direct-push bump or a hand-edited pyproject version line.
 name: Publish
 
 on:
@@ -26,120 +60,109 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0        # full history + tags: the reconcile reads git tags
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      # Version is now owned by the State Store (#1172): the in-tree build
-      # backend resolver is the single projection of the release version. In CI
-      # (no committed store) it returns the `0.0.0+local` fallback — which is NOT
-      # a publishable version, so we skip tag/build/publish rather than push a
-      # bogus tag. Automated CI publication is pending the GitHub release-worker
-      # that drains core's neutral `version_decided` outbox (#1172 step 5
-      # follow-up); until then the operator coordinates the release.
-      - name: Resolve release version from State Store (#1172)
-        id: resolve
+      - name: Install atdd (the release-pipeline CLI)
+        run: python -m pip install -e .
+
+      # Idempotency oracle: if HEAD already carries a release tag, this push was
+      # already published (a re-run / duplicate workflow_run) — do nothing.
+      - name: Skip if HEAD is already released
+        id: idem
         run: |
           set -euo pipefail
-          PREFIX=$(python3 -c "import yaml; print(yaml.safe_load(open('.atdd/config.yaml'))['release'].get('tag_prefix','v'))" 2>/dev/null || echo "v")
-          VERSION=$(PYTHONPATH=build_meta_shim python3 -c \
-            "from _release_version import resolve_version; print(resolve_version())" \
-            2>/dev/null || echo "0.0.0+local")
-          echo "Resolved release version: $VERSION"
+          if TAG=$(git describe --exact-match --tags HEAD 2>/dev/null); then
+            echo "HEAD is already released as ${TAG} — nothing to do."
+            echo "already_released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already_released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Reconcile the store's current from the latest git tag (the release
+      # worker's own output — the git-ignored store can't carry a branch bump to
+      # CI, and the migration seed is stale), then bump by the merge commit's
+      # conventional-commit change class. Result: a real version + a pending
+      # neutral version_decided message. NO more 0.0.0+local skip.
+      - name: Reconcile + bump the release version (State Store, #1172)
+        id: version
+        if: steps.idem.outputs.already_released == 'false'
+        run: |
+          set -euo pipefail
+          LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          CURRENT=${LATEST#v}
+          COMMIT_MSG=$(git log -1 --format='%B' HEAD)
+          CLASS=$(COMMIT_MSG="$COMMIT_MSG" python -c 'import os; from atdd.state.version import change_class_for_commit as c; print(c(os.environ["COMMIT_MSG"]))')
+          atdd state init >/dev/null
+          atdd state version set "$CURRENT" >/dev/null
+          atdd state version bump --class "$CLASS" >/dev/null
+          VERSION=$(atdd state version emit)
+          echo "Reconciled current=${CURRENT}, class=${CLASS} -> next=${VERSION}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "0.0.0+local" ]; then
-            echo "::warning title=publish skipped::No State Store release version resolvable in CI (got '${VERSION}'). Tag + PyPI publish skipped — pending the GitHub release-worker that drains core's neutral version_decided outbox (#1172 step 5). The operator must publish this release."
-            echo "publishable=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "TAG=${PREFIX}${VERSION}" >> "$GITHUB_ENV"
-            echo "publishable=true" >> "$GITHUB_OUTPUT"
+            echo "::error title=version unresolved::release version still '${VERSION}' after reconcile+bump (expected a real X.Y.Z)"
+            exit 1
           fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Create and push tag (idempotent)
-        if: steps.resolve.outputs.publishable == 'true'
-        run: |
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists, skipping"
-            echo "CREATED=false" >> "$GITHUB_ENV"
-          else
-            git tag "$TAG"
-            git push origin "$TAG"
-            echo "Created and pushed tag $TAG"
-            echo "CREATED=true" >> "$GITHUB_ENV"
-          fi
-
-      - name: Build package
-        if: steps.resolve.outputs.publishable == 'true'
-        run: |
-          python -m pip install -U build
-          python -m build
-
-      - name: Publish to PyPI
-        if: steps.resolve.outputs.publishable == 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          skip-existing: true
-
-      - name: Verify PyPI publication
-        id: pypi_verify
-        if: steps.resolve.outputs.publishable == 'true'
-        run: |
-          VERSION="${TAG#v}"
-          echo "Waiting for atdd==$VERSION to appear on PyPI..."
-          for i in 1 2 3 4 5 6; do
-            if pip install --dry-run --no-deps "atdd==$VERSION" --index-url https://pypi.org/simple/ 2>&1 | grep -q "Would install"; then
-              echo "Verified: atdd==$VERSION is available on PyPI"
-              echo "pypi_status=published" >> "$GITHUB_OUTPUT"
-              echo "pypi_version=$VERSION" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            echo "Attempt $i: not yet available, waiting 10s..."
-            sleep 10
-          done
-          echo "::warning::atdd==$VERSION not found on PyPI after 60s — may still be propagating"
-          echo "pypi_status=pending" >> "$GITHUB_OUTPUT"
-          echo "pypi_version=$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Compose release metadata
-        id: release_meta
-        if: env.CREATED == 'true'
-        run: |
-          COMMIT_SUBJECT=$(git log -1 --format='%s')
-          if [ "$PYPI_STATUS" = "published" ]; then
-            PYPI_LINE="Published to PyPI: atdd==$PYPI_VERSION"
-          else
-            PYPI_LINE="PyPI publication pending (may still be propagating)"
-          fi
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            NOTES=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-              -f tag_name="$TAG" \
-              -f previous_tag_name="$PREV_TAG" \
-              --jq '.body' 2>/dev/null || echo "")
-          else
-            NOTES=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-              -f tag_name="$TAG" \
-              --jq '.body' 2>/dev/null || echo "")
-          fi
-          {
-            echo "title=$TAG — $COMMIT_SUBJECT"
-            echo "pypi_line=$PYPI_LINE"
-            echo "body<<RELEASE_BODY_EOF"
-            printf '%s\n\n---\n%s\n' "$NOTES" "$PYPI_LINE"
-            echo "RELEASE_BODY_EOF"
-          } >> "$GITHUB_OUTPUT"
+      # Fetch the release-worker extension (drains version_decided → tag + PyPI +
+      # external_ref). Conditional on RELEASE_WORKER_REF being configured — see the
+      # INSTALL-SOURCE note at the top (pending ext#36 merge).
+      - name: Fetch the release-worker extension
+        id: ext
+        if: steps.idem.outputs.already_released == 'false' && vars.RELEASE_WORKER_REF != ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYPI_STATUS: ${{ steps.pypi_verify.outputs.pypi_status }}
-          PYPI_VERSION: ${{ steps.pypi_verify.outputs.pypi_version }}
+          RELEASE_WORKER_REF: ${{ vars.RELEASE_WORKER_REF }}
+          RELEASE_WORKER_REPO: ${{ vars.RELEASE_WORKER_REPO || 'afokapu/atdd-extensions' }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://github.com/${RELEASE_WORKER_REPO}" ext-src
+          git -C ext-src fetch --depth 1 origin "$RELEASE_WORKER_REF"
+          git -C ext-src checkout FETCH_HEAD
+          WORKER_DIR="ext-src/official/atdd.extension.github/implementations/release_worker"
+          test -f "${WORKER_DIR}/release_worker.py" || { echo "::error::release_worker.py not found at ${WORKER_DIR}"; exit 1; }
+          echo "worker_dir=${WORKER_DIR}" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
-        if: env.CREATED == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.TAG }}
-          name: ${{ steps.release_meta.outputs.title }}
-          body: ${{ steps.release_meta.outputs.body }}
+      # Drain version_decided → tag + PyPI + external_ref. DOUBLE-GATED: DRY_RUN
+      # unless the operator sets ATDD_RELEASE_ALLOW_PUBLISH=1 (the extension ALSO
+      # enforces that env guard before any real side-effect). A drain failure is
+      # loud (fail the job) and leaves the outbox message pending for retry.
+      - name: Drain version_decided → tag + PyPI (double-gated)
+        if: steps.idem.outputs.already_released == 'false' && steps.ext.outputs.worker_dir != ''
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ATDD_RELEASE_ALLOW_PUBLISH: ${{ secrets.ATDD_RELEASE_ALLOW_PUBLISH }}
+          WORKER_DIR: ${{ steps.ext.outputs.worker_dir }}
+        run: |
+          set -euo pipefail
+          DRY_RUN=true
+          if [ "${ATDD_RELEASE_ALLOW_PUBLISH:-}" = "1" ]; then DRY_RUN=false; fi
+          echo "Draining version_decided for version ${{ steps.version.outputs.version }} (dry_run=${DRY_RUN})..."
+          PYTHONPATH="${WORKER_DIR}:${PYTHONPATH:-}" DRY_RUN="$DRY_RUN" python - <<'PY'
+          import os
+          from pathlib import Path
+          from atdd.state.db import connect
+          from atdd.state.store import StateStore
+          import release_worker
+
+          conn = connect(Path(".atdd/state/state.sqlite"))
+          try:
+              store = StateStore(conn)
+              dry = os.environ["DRY_RUN"] == "true"
+              result = release_worker.drain_version_decided(store, dry_run=dry, cwd=os.getcwd())
+              print("drain result:", result)
+              if result.failed:
+                  raise SystemExit(f"drain reported {result.failed} failure(s): {result.errors}")
+              if not (result.published or result.skipped_idempotent):
+                  raise SystemExit("drain found no version_decided message to publish — expected one")
+          finally:
+              conn.close()
+          PY
+
+      # Not a silent skip: the version is resolved and the signal enqueued, but the
+      # extension install-source is not configured yet (pending ext#36).
+      - name: Release-worker not configured (loud)
+        if: steps.idem.outputs.already_released == 'false' && steps.ext.outputs.worker_dir == ''
+        run: |
+          echo "::warning title=release drain not armed::Resolved release version ${{ steps.version.outputs.version }} and enqueued a version_decided signal, but the RELEASE_WORKER_REF repo variable is unset, so the tag + PyPI drain did NOT run. Set RELEASE_WORKER_REF (and, to publish for real, the ATDD_RELEASE_ALLOW_PUBLISH secret) once ext#36 (atdd-extensions github release-worker) merges. #1285."
