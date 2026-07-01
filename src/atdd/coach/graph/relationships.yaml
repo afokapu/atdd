@@ -2267,6 +2267,16 @@ edges:
   strength: minor
   target_ref: tester.smoke.operator-observable-assertion
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: both define what the operational State Store layer may hold — the SoT boundary runs
+    alongside the foundational layering rule
+  source_ref: coder.state-store.operational-vs-definition-sot
+  strength: important
+  target_ref: coder.state-store.core-imports-no-providers
+  type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph
 schema_version: 1.0.0
