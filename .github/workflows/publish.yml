@@ -69,6 +69,17 @@ jobs:
       - name: Install atdd (the release-pipeline CLI)
         run: python -m pip install -e .
 
+      # Release-bot git identity. GitHub runners carry no default git identity, so
+      # the extension's annotated `git tag -a vX` aborts with "empty ident name"
+      # (Publish run 28495533869). Set it ONCE here, before the drain step that
+      # runs the extension tag/publish. Core only names the identity; the tag
+      # mechanics stay the extension's. #1297.
+      - name: Configure release-bot git identity
+        run: |
+          set -euo pipefail
+          git config user.name "atdd-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+
       # Idempotency oracle: if HEAD already carries a release tag, this push was
       # already published (a re-run / duplicate workflow_run) — do nothing.
       - name: Skip if HEAD is already released
