@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1285'
+  slug: fix-stuck-dynamic-version-release
+  file: null
+  issue_number: 1285
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+  branch: feat/fix-stuck-dynamic-version-release
+  train: 0002-coach-drives-lifecycle
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:wire-release-worker-drains-version-decided
 - id: '1276'
   slug: planner-naming-validators
   file: null
