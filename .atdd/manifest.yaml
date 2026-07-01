@@ -3200,3 +3200,12 @@ sessions:
   status: INIT
   created: '2026-07-01'
   archived: null
+  branch: feat/fix-stuck-dynamic-version-release
+- id: '1292'
+  slug: enforce-validator-implementation-schema
+  file: null
+  issue_number: 1292
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
