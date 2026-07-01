@@ -67,6 +67,11 @@ def _build_parser() -> argparse.ArgumentParser:
                         choices=["PATCH", "MINOR", "MAJOR"], help="Semver change class.")
     v_bump.add_argument("--pr", default=None, help="Originating PR number (recorded in the bump event).")
     v_bump.add_argument("--root", default=None)
+    v_set = version_sub.add_parser(
+        "set", help="Reconcile the current release version to an explicit value "
+        "(e.g. the latest git tag) without emitting a version_decided signal.")
+    v_set.add_argument("version", help="The version to set as authoritative current (X.Y.Z).")
+    v_set.add_argument("--root", default=None)
 
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
@@ -216,7 +221,7 @@ def _cmd_version(args) -> int:
     from atdd.state import version as ver
 
     if args.version_op is None:
-        print("usage: atdd state version <show|emit|bump --class PATCH|MINOR|MAJOR>")
+        print("usage: atdd state version <show|emit|bump --class PATCH|MINOR|MAJOR|set X.Y.Z>")
         return 2
 
     resolution, conn_or_rc = _open_store(args.root)
@@ -250,6 +255,16 @@ def _cmd_version(args) -> int:
                 print(f"ERROR: {exc}")
                 return 1
             print(f"Bumped release version to {new} ({args.change_class})")
+            return 0
+        if args.version_op == "set":
+            try:
+                new = ver.set_version(conn, args.version)
+            except ver.VersionError as exc:
+                _log.warning("version set failed", extra={"error": str(exc),
+                                                          "version": args.version})
+                print(f"ERROR: {exc}")
+                return 1
+            print(f"Set release version to {new} (reconcile; no version_decided signal)")
             return 0
         print(f"unknown version op: {args.version_op}")
         return 2

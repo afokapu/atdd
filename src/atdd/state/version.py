@@ -31,6 +31,7 @@ Change-class semantics match ``CLAUDE.md::release.change_class``:
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 from typing import Optional, Tuple
 
@@ -129,6 +130,65 @@ def next_from_change_class(conn: sqlite3.Connection, change_class: str) -> str:
     """The next version for a ``change_class`` bump applied to :func:`current` (no write)."""
     major, minor, patch = parse(current(conn))
     return _next(major, minor, patch, change_class)
+
+
+#: Conventional-commit type header, e.g. ``feat(scope)!: subject`` — captures the
+#: type token and an optional ``!`` breaking marker (#1172 design doc §3.1).
+_CONVENTIONAL_HEADER = re.compile(r"^(?P<type>[a-zA-Z]+)(?:\([^)]*\))?(?P<bang>!)?:")
+#: A ``feat`` type is the only non-breaking MINOR; everything else is a PATCH.
+_MINOR_TYPES = frozenset({"feat"})
+
+
+def change_class_for_commit(subject: str) -> str:
+    """Derive the release change class from a conventional-commit message.
+
+    Policy (mirrors the dead ``post-merge-lifecycle.yml`` bump step, now in core —
+    #1172 design doc §3.1). The change-class is an *input* to :func:`bump`; this
+    thin policy maps the merge commit's conventional-commit type onto it:
+
+    - a ``!`` breaking marker (``type!:``) or a ``BREAKING CHANGE`` note anywhere
+      in the message → ``MAJOR``;
+    - a ``feat`` type → ``MINOR``;
+    - ``fix`` / ``chore`` / ``docs`` / ``refactor`` / ``devops`` and any other or
+      unrecognized type → ``PATCH`` (the conservative default).
+    """
+    text = subject or ""
+    match = _CONVENTIONAL_HEADER.match(text.strip())
+    if "BREAKING CHANGE" in text or (match and match.group("bang")):
+        return "MAJOR"
+    if match and match.group("type").lower() in _MINOR_TYPES:
+        return "MINOR"
+    return "PATCH"
+
+
+def set_version(conn: sqlite3.Connection, version: str) -> str:
+    """Reconcile the store's authoritative current to ``version`` (no decision signal).
+
+    Used by the release pipeline to seed the store's current from an
+    already-published identity (e.g. the latest git tag) before a
+    :func:`bump` decides the *next* version. Two effects, in order:
+
+    1. **Authoritative state change** — upsert the release object's ``version``.
+    2. **Audit trail** — append a ``version_bumped`` event recording the reconcile
+       (``{from,to,change_class: "SET",pr: None}``).
+
+    It deliberately enqueues **no** ``version_decided`` outbox message: reconciling
+    the stored current from an already-published version is not a decision to
+    publish — only :func:`bump` decides. Returns ``version``.
+    """
+    parse(version)  # validate a semver core; raises VersionError otherwise
+    from_version = emit(conn)  # non-raising: real current or the local fallback
+    ObjectStore(conn).upsert(RELEASE_UID, RELEASE_KIND, data={"version": version})
+    EventStore(conn).append(
+        VERSION_BUMPED_EVENT,
+        object_uid=RELEASE_UID,
+        payload={"from": from_version, "to": version, "change_class": "SET", "pr": None},
+    )
+    _log.info(
+        "release version reconciled (set); no version_decided signal enqueued",
+        extra={"from": from_version, "to": version},
+    )
+    return version
 
 
 def bump(conn: sqlite3.Connection, change_class: str, *, pr: Optional[str] = None,

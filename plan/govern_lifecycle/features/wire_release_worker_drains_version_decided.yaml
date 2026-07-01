@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:wire-release-worker-drains-version-decided"
+wagon: "wagon:govern-lifecycle"
+description: "Closes the CORE side of #1172 step 5: core CI publish resolves 0.0.0+local (the State Store is git-ignored, so a PR-branch bump never reaches CI, and migration v2's seed 3.149.0 is stale versus the real 3.151.0 release) and SKIPS, freezing PyPI. This feature makes the release version CI-resolvable and drains the provider-neutral version_decided outbox through the release extension. Core stays provider-neutral: two new stdlib-only helpers on atdd.state.version — set_version(conn, v) reconciles the store's authoritative current from the latest git tag WITHOUT emitting a decision signal, and change_class_for_commit(subject) maps a conventional-commit type to PATCH/MINOR/MAJOR (design §3.1) — plus an atdd state version set CLI action. The post-merge publish workflow is rewired (option b): current = git describe --tags, class derived from the merge commit, atdd state version set then bump produces a real version + a pending version_decided message, and the ext#36 GithubReleaseProvider drain (tag + PyPI + external_ref) replaces the 0.0.0+local skip, gated by the existing dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate and made idempotent by a git describe --exact-match HEAD skip. Core names no tag/PyPI; the drain lives in the extension (install-source pending ext#36 merge, a documented parameter)."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E058"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd state version set <version> — one new CLI action mirroring the existing show/emit/bump subparser wiring; the publish workflow orchestrates it. No new HTTP surface."
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "version.set_version(conn, v) reconciles the release object's authoritative current (upsert + audit event, NO version_decided outbox) and version.change_class_for_commit(subject) derives the change class from a conventional-commit subject — pure helpers over the passed connection/string"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Reuses the singleton release object (migration v2), the version_bumped event, and the neutral version_decided outbox message shipped by #1172/#1269; nothing new at runtime"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses ObjectStore/EventStore/SyncStore on the passed sqlite3 connection; the drain side-effect (tag + PyPI + external_ref) is the release extension's duck-typed store contract (ext#36), not core infrastructure"
