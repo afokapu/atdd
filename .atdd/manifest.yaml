@@ -18,7 +18,7 @@ sessions:
   file: null
   issue_number: 1296
   type: implementation
-  status: GREEN
+  status: SMOKE
   created: '2026-07-01'
   archived: null
   branch: feat/scope-issue-advancement-to-own-pr
