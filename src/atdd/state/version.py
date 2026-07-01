@@ -137,6 +137,14 @@ def next_from_change_class(conn: sqlite3.Connection, change_class: str) -> str:
 _CONVENTIONAL_HEADER = re.compile(r"^(?P<type>[a-zA-Z]+)(?:\([^)]*\))?(?P<bang>!)?:")
 #: A ``feat`` type is the only non-breaking MINOR; everything else is a PATCH.
 _MINOR_TYPES = frozenset({"feat"})
+#: A genuine Conventional-Commits breaking-change FOOTER — a ``BREAKING CHANGE:``
+#: or ``BREAKING-CHANGE:`` token at the start of a line (optional leading
+#: whitespace), terminated by a colon. Line-anchored (``re.MULTILINE``) so a mere
+#: PROSE mention of the phrase mid-sentence does NOT escalate the class. This
+#: closes the #1297 regression where the #1285/#1291 merge commit's own body
+#: ("...breaking !/BREAKING CHANGE=MAJOR, else PATCH") misclassified a non-breaking
+#: ``feat`` as MAJOR and bumped 3.151.0 -> 4.0.0 instead of 3.152.0.
+_BREAKING_FOOTER = re.compile(r"^[ \t]*BREAKING[ -]CHANGE:", re.MULTILINE)
 
 
 def change_class_for_commit(subject: str) -> str:
@@ -146,15 +154,16 @@ def change_class_for_commit(subject: str) -> str:
     #1172 design doc §3.1). The change-class is an *input* to :func:`bump`; this
     thin policy maps the merge commit's conventional-commit type onto it:
 
-    - a ``!`` breaking marker (``type!:``) or a ``BREAKING CHANGE`` note anywhere
-      in the message → ``MAJOR``;
+    - a ``!`` breaking marker (``type!:``) or a genuine ``BREAKING CHANGE:`` /
+      ``BREAKING-CHANGE:`` *footer* (a line-anchored, colon-terminated token per the
+      Conventional Commits spec — NOT a prose mention of the phrase) → ``MAJOR``;
     - a ``feat`` type → ``MINOR``;
     - ``fix`` / ``chore`` / ``docs`` / ``refactor`` / ``devops`` and any other or
       unrecognized type → ``PATCH`` (the conservative default).
     """
     text = subject or ""
     match = _CONVENTIONAL_HEADER.match(text.strip())
-    if "BREAKING CHANGE" in text or (match and match.group("bang")):
+    if (match and match.group("bang")) or _BREAKING_FOOTER.search(text):
         return "MAJOR"
     if match and match.group("type").lower() in _MINOR_TYPES:
         return "MINOR"
