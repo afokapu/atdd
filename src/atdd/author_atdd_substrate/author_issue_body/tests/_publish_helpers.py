@@ -57,6 +57,28 @@ def open_store(control_root: Path):
     return StateStore(conn), conn
 
 
+def path_with_stub_gh(tmp_path, number: int = STUB_ISSUE_NUMBER) -> str:
+    """Write a fake ``gh`` under ``tmp_path/bin`` and return a PATH prefixed with it.
+
+    The stub drains stdin (the ``--body-file -`` body) and prints a canned issue
+    URL, so a real CLI smoke exercises the store-first publish end-to-end WITHOUT
+    filing a real GitHub issue (E008-SMOKE / C012-SMOKE run hermetically).
+    """
+    import os
+    import stat
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir(parents=True, exist_ok=True)
+    gh = bindir / "gh"
+    gh.write_text(
+        "#!/bin/sh\n"
+        "cat >/dev/null 2>&1 || true\n"
+        f"echo 'https://github.com/afokapu/atdd/issues/{number}'\n"
+    )
+    gh.chmod(gh.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    return f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}"
+
+
 def stub_github_create(monkeypatch, number: Optional[int] = STUB_ISSUE_NUMBER) -> None:
     """Point the github issue-create primitive at a hermetic stub returning ``number``.
 
