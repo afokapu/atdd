@@ -3527,3 +3527,12 @@ sessions:
   status: INIT
   created: '2026-06-30'
   archived: null
+- id: '1298'
+  slug: enforce-live-smoke-execution-honesty
+  file: null
+  issue_number: 1298
+  type: implementation
+  status: REFACTOR
+  created: '2026-07-01'
+  archived: null
+  train: 0001-self-compliance-validate

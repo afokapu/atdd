@@ -2076,6 +2076,15 @@ edges:
   reason: peer acceptance-substrate conformance checks evaluated alongside measurability
   source_ref: tester.acceptance-violation.acceptance-must-be-measurable
   strength: minor
+  target_ref: tester.acceptance-violation.live-smoke-evidence-must-not-be-constant
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer acceptance-substrate conformance checks evaluated alongside measurability
+  source_ref: tester.acceptance-violation.acceptance-must-be-measurable
+  strength: minor
   target_ref: tester.acceptance-violation.metric-implementation-must-exist
   type: runs_alongside
 - confidence: 1.0

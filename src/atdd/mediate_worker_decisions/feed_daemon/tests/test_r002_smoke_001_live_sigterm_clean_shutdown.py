@@ -7,19 +7,11 @@
 """R002-SMOKE-001 — a running daemon process exits cleanly on SIGTERM.
 
 Spawns a REAL daemon process holding its pidfile lock, delivers SIGTERM, and
-asserts the process exits and the lock is released. Opt-in via ATDD_LIVE_DAEMON=1
-so it stays out of the default hermetic run.
+asserts the process exits and the lock is released. Runs unconditionally: this
+smoke needs only a Python interpreter (no cmux/claude), so it runs-or-fails in
+every lane rather than self-skipping into a vacuous pass (#1151, #1298).
 """
 from __future__ import annotations
-
-import os
-
-import pytest
-
-pytestmark = pytest.mark.skipif(
-    os.environ.get("ATDD_LIVE_DAEMON") != "1",
-    reason="live daemon process smoke; set ATDD_LIVE_DAEMON=1 to run",
-)
 
 
 def test_r002_smoke_001_live_sigterm_clean_shutdown():

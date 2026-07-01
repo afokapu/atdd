@@ -1,0 +1,48 @@
+recipe: live-smoke-evidence
+pattern: "Make a live_smoke harness derive its evidence from the real outcome (never return a constant dict that cannot fail)"
+category: tester
+source: "Issue #1298 — Enforce Live Smoke Execution Honesty (extends #1151); Part of afokapu/atdd-extensions#14"
+
+applies_when:
+  - "tester.acceptance-violation.live-smoke-evidence-must-not-be-constant fires"
+  - "An execution_kind: live_smoke acceptance's anchored test invokes a harness whose every return is a dict literal with all-constant values and whose body contains no assert and no raise"
+
+explain: |
+  A live_smoke harness exists to PROVE something happened against real
+  infrastructure. If the harness returns a fixed dict of literals —
+  {"surfaced": True}, {"ok": True} — and never asserts or raises, then it
+  reports the same success no matter what actually happened: the worker never
+  spawned, the process never ran, the lock was never contended. The green is
+  theater (issue afokapu/atdd#1192: the Y002 smoke built the launch-argv STRING
+  and returned hardcoded {"surfaced": True} in 0.12s with no worker, yet was
+  labelled "Live end-to-end").
+
+  Honest evidence is COMPUTED from the real outcome, so the returned dict
+  differs when the run differs:
+    - {"exited_cleanly": proc.returncode == 0, "lock_released": not lock.exists()}
+    - {"verdict_written": line_count(verdicts) >= 1, "request_id": item.request_id}
+  Alternatively the harness can assert/raise on the real outcome, so it fails
+  loudly when the infrastructure did not behave. Either way it can FAIL — which
+  is what makes a passing run mean something.
+
+steps:
+  - step: 1
+    what: "Decide whether the harness actually exercises real infrastructure"
+    explain: |
+      If it does not spawn/observe anything real (no subprocess, no cmux worker,
+      no file/lock/signal), it is not a live_smoke harness. Re-author the
+      acceptance as a unit/review assertion, or make the harness do the real
+      work it claims to.
+  - step: 2
+    what: "Return evidence computed from the real outcome"
+    where: "the harness function invoked by the test anchored to the live_smoke acceptance"
+    explain: |
+      Replace constant dict values with expressions read off the real run:
+      return codes, file existence, line counts, captured argv, resolved request
+      ids. The dict must change when the run changes.
+  - step: 3
+    what: "Or assert/raise on the real outcome"
+    explain: |
+      If the harness legitimately returns a summary, guard it with assert/raise
+      on the real outcome first, so a bad run FAILS instead of returning a fixed
+      success dict.
