@@ -1098,7 +1098,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 91
+    total: 92
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -1418,6 +1418,14 @@ wagons:
       behind the dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate with a git describe
       --exact-match HEAD idempotency skip, while core still names no provider publish
       mechanics (#1285)
+    E059: minimize likelihood of the-first-real-core-ci-publish-run-mis-tagging-and-mis-versioning-the-release-a-prose-mention-of-breaking-change-classifying-a-feat-merge-as-major-and-the-tag-release-job-creating-an-annotated-tag-with-no-configured-git-identity
+      by narrowing version.change_class_for_commit breaking-change detection to a
+      line-anchored Conventional-Commits footer ('BREAKING CHANGE:' / 'BREAKING-CHANGE:')
+      so a feat merge whose body only mentions the phrase in prose classifies MINOR
+      (3.151.0 -> 3.152.0) while a real footer or a 'type!:' marker still classifies
+      MAJOR, and by configuring a release-bot git identity (user.name/user.email)
+      in publish.yml's tag-release job before the drain step so the extension's annotated
+      'git tag -a vX' succeeds instead of failing with 'empty ident name' (#1297)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
