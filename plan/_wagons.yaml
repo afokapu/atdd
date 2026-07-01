@@ -1098,7 +1098,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 91
+    total: 92
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -1418,6 +1418,14 @@ wagons:
       behind the dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate with a git describe
       --exact-match HEAD idempotency skip, while core still names no provider publish
       mechanics (#1285)
+    E059: 'minimize likelihood of live-smoke-harnesses-that-return-a-constant-dict-literal-and-cannot-fail-so-they-report-fixed-success-regardless-of-what-ran
+      by declaring tester.acceptance-violation.live-smoke-evidence-must-not-be-constant
+      (strict) in conventions/nodes with a validator test_live_smoke_execution that
+      reuses _acceptance_walker + scan_test_acceptance_headers to resolve each live_smoke
+      acceptance''s anchored test to the harness it invokes and emits a Violation when
+      that harness returns only an all-constant dict with no assert/raise (the Y002
+      theater afokapu/atdd#1192), extending the #1151 self-skip guard so a non-skipping
+      test still cannot pass on fixed evidence (#1298; Part of afokapu/atdd-extensions#14)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
