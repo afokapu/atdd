@@ -3536,3 +3536,12 @@ sessions:
   created: '2026-07-01'
   archived: null
   train: 0001-self-compliance-validate
+- id: '1301'
+  slug: install-build-twine-for-pypi-publish
+  file: null
+  issue_number: 1301
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+  branch: feat/install-build-twine-for-pypi-publish
