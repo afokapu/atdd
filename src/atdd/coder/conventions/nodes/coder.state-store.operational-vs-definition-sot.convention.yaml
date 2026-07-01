@@ -1,0 +1,41 @@
+schema_version: 1.1.0
+rule_id: coder.state-store.operational-vs-definition-sot
+kind: rule
+status: active
+name: Operational state and authored definitions have distinct sources of truth
+statement: Two kinds of artifact have two different sources of truth, and they must not be
+  conflated. OPERATIONAL / instance state (work-items, version, runs, sessions) is owned by the
+  State Store (atdd.state) as SoT; any committed YAML form of it is a generated projection, never
+  a hand-authored source. AUTHORED DEFINITIONS (convention nodes, relationships, trains, wagons,
+  the interlocking registry, schemas) are git-versioned source — they are reviewed as PR diffs,
+  carry version history, and ship in the package — and must NOT live store-only nor inside the
+  operational store layer. Deciding test, "is this artifact reviewed in a PR diff and shipped in
+  the package?" -> git is its SoT; "is it mutable per-instance operational state?" -> the store is.
+  The store MAY hold a derived index of definitions for relational/interlocking validation, but
+  that derivation is a generated cache, not the authoring source.
+implementation:
+  type: validator
+  ref: test_state_store_sot_boundary::test_operational_store_holds_no_authored_definitions
+content:
+  normative_text: The operational State Store layer (src/atdd/state/) must contain no authored-definition
+    artifacts — no *.convention.yaml, no conventions/ subtree, no relationships/trains/wagons definition
+    registries, no author schemas. Definitions live in git source under the archetype packages; the store
+    layer is operational data only.
+  fix_hint: Move the authored definition out of src/atdd/state/ into its git-source home (e.g.
+    src/atdd/<archetype>/conventions/nodes/ for a convention node, plan/ for trains/wagons). The store
+    layer holds operational instance state and storage APIs; definitions are reviewed-in-PR, shipped
+    source. If you need the definition in the store for interlocking validation, derive it (a generated
+    index), do not author it there.
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.150.0
+terms:
+- term_id: operational_state
+  text: mutable, per-instance local data (work-items, version, runs) whose SoT is the State Store.
+- term_id: authored_definition
+  text: git-versioned source (conventions, trains, wagons, relationships, schemas) reviewed as PR diffs
+    and shipped in the package; its SoT is git, never the store alone.
+- term_id: derived_index
+  text: a generated, non-authoritative projection of definitions into the store for relational/interlocking
+    validation — a cache, not the source.
