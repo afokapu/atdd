@@ -561,12 +561,12 @@ wagons:
       only when its exit condition holds
     C003: minimize likelihood of confirm-lock-with-non-verb-object-wagon-name — Confirm
       blocks a kept wagon whose slug is not verb-object
-    C004: minimize likelihood of confirm-lock-with-non-verb-object-feature-name — Confirm
-      blocks a kept feature whose slug is not verb-object
+    C004: minimize likelihood of confirm-lock-with-non-verb-object-feature-name —
+      Confirm blocks a kept feature whose slug is not verb-object
     E001: minimize likelihood of author-dispatch-skip — Confirm invokes atdd author
       per locked unit
-    E002: minimize likelihood of unenforced-foundational-naming-rule — verb-object naming
-      is validator-backed and bound
+    E002: minimize likelihood of unenforced-foundational-naming-rule — verb-object
+      naming is validator-backed and bound
     Y001: minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes
       through the elicit channel
   total: 0
@@ -1407,6 +1407,17 @@ wagons:
       test is exempt only while its owning issue is at INIT/PLANNED and fires exactly
       as today from RED onward, leaving the reverse (orphan-test) pass and the rule
       id/severity/disposition unchanged (#1242)'
+    E058: minimize likelihood of core-ci-publish-resolving-the-local-fallback-and-skipping-instead-of-reconciling-the-real-release-version-and-draining-the-version-decided-signal-to-tag-and-publish
+      by adding stdlib-only version.set_version(conn, v) (reconcile authoritative
+      current via ObjectStore upsert + a version_bumped audit event, emitting NO version_decided
+      outbox) and version.change_class_for_commit(subject) (conventional-commit type
+      -> PATCH/MINOR/MAJOR) plus an atdd state version set CLI action, and rewiring
+      publish.yml so a post-merge job reconciles current from git describe --tags,
+      bumps by the derived class to produce a real version + a pending version_decided
+      message, and drains it through the release extension (tag + PyPI + external_ref)
+      behind the dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate with a git describe
+      --exact-match HEAD idempotency skip, while core still names no provider publish
+      mechanics (#1285)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
