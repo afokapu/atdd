@@ -1,15 +1,15 @@
-# URN: test:govern-lifecycle:live-smoke-execution-enforcement:E059-INTEGRATION-001-detector-fires-on-constant-evidence-harness
-# Acceptance: acc:govern-lifecycle:E059-UNIT-001-convention-declares-constant-evidence-rule
-# Acceptance: acc:govern-lifecycle:E059-INTEGRATION-001-detector-fires-on-constant-evidence-harness
-# Acceptance: acc:govern-lifecycle:E059-SMOKE-001-real-tester-suite-runs-constant-evidence-gate
-# WMBT: wmbt:govern-lifecycle:E059
+# URN: test:govern-lifecycle:live-smoke-execution-enforcement:E060-INTEGRATION-001-detector-fires-on-constant-evidence-harness
+# Acceptance: acc:govern-lifecycle:E060-UNIT-001-convention-declares-constant-evidence-rule
+# Acceptance: acc:govern-lifecycle:E060-INTEGRATION-001-detector-fires-on-constant-evidence-harness
+# Acceptance: acc:govern-lifecycle:E060-SMOKE-001-real-tester-suite-runs-constant-evidence-gate
+# WMBT: wmbt:govern-lifecycle:E060
 # Phase: SMOKE
 # Layer: application
 # Runtime: python
 
 """Coverage for the live-smoke constant-evidence rule (issue #1298, extends #1151).
 
-Proves ``wmbt:govern-lifecycle:E059``:
+Proves ``wmbt:govern-lifecycle:E060``:
 
   - ``conventions/nodes`` declares
     ``tester.acceptance-violation.live-smoke-evidence-must-not-be-constant``
@@ -79,7 +79,7 @@ def loop_live_smoke():
 '''
 
 
-def test_e059_unit_001_convention_declares_constant_evidence_rule() -> None:
+def test_e060_unit_001_convention_declares_constant_evidence_rule() -> None:
     """AC-UNIT-001: the rule binds (strict, sev 4) and its recipe exists."""
     rule = bind_rule(_RULE_ID)
     assert rule.rule_id == _RULE_ID
@@ -93,7 +93,7 @@ def test_e059_unit_001_convention_declares_constant_evidence_rule() -> None:
     assert recipe.is_file(), f"recipe missing: {recipe}"
 
 
-def test_e059_integration_001_detector_fires_on_constant_evidence_harness() -> None:
+def test_e060_integration_001_detector_fires_on_constant_evidence_harness() -> None:
     """AC-INTEGRATION-001: theater is flagged; computed/assert/raise are clean."""
     assert detect_constant_evidence(_THEATER_HARNESS, "surface_live_smoke") is not None
     assert detect_constant_evidence(_COMPUTED_HARNESS, "sigterm_live_smoke") is None
@@ -124,7 +124,7 @@ def test_e059_integration_001_detector_fires_on_constant_evidence_harness() -> N
     assert "surface_live_smoke" in v.detail
 
 
-def test_e059_smoke_001_real_tester_suite_runs_constant_evidence_gate() -> None:
+def test_e060_smoke_001_real_tester_suite_runs_constant_evidence_gate() -> None:
     """AC-SMOKE-001: the real gate resolves shipped live_smoke harnesses and finds them honest.
 
     Dogfood: walk this repo's real plan/ live_smoke acceptances (R002/D002),

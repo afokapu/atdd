@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:E059"
+urn: "wmbt:govern-lifecycle:E060"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of live-smoke-harnesses-that-return-a-constant-dict-literal-and-cannot-fail-so-they-report-fixed-success-regardless-of-what-ran when an author writes an execution_kind: live_smoke acceptance by declaring tester.acceptance-violation.live-smoke-evidence-must-not-be-constant (strict) in conventions/nodes with a paired validator test_live_smoke_execution reusing _acceptance_walker.iter_repo_acceptances and scan_test_acceptance_headers to resolve each live_smoke acceptance's anchored test to the harness it invokes and emit a Violation when that harness returns only an all-constant dict with no assert/raise, plus a live-smoke-evidence.recipe.yaml pointing the author at returning evidence computed from the real outcome or asserting/raising on it"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:E059-UNIT-001-convention-declares-constant-evidence-rule"
+      urn: "acc:govern-lifecycle:E060-UNIT-001-convention-declares-constant-evidence-rule"
       id: "AC-UNIT-001"
       purpose: "conventions/nodes declares tester.acceptance-violation.live-smoke-evidence-must-not-be-constant (strict, severity 4) whose recipe pointer names a recipe file that exists, and bind_rule() resolves it"
       phase: "GREEN"
@@ -31,7 +31,7 @@ acceptances:
       created: "2026-07-01"
 
   - identity:
-      urn: "acc:govern-lifecycle:E059-INTEGRATION-001-detector-fires-on-constant-evidence-harness"
+      urn: "acc:govern-lifecycle:E060-INTEGRATION-001-detector-fires-on-constant-evidence-harness"
       id: "AC-INTEGRATION-001"
       purpose: "detect_constant_evidence flags a harness whose every return is an all-constant dict with no assert/raise, and stays silent for a harness that computes an evidence value or that asserts/raises; evaluate_constant_evidence emits exactly one Violation for the constant-evidence entry and none for the genuine one"
       phase: "GREEN"
@@ -55,7 +55,7 @@ acceptances:
       created: "2026-07-01"
 
   - identity:
-      urn: "acc:govern-lifecycle:E059-SMOKE-001-real-tester-suite-runs-constant-evidence-gate"
+      urn: "acc:govern-lifecycle:E060-SMOKE-001-real-tester-suite-runs-constant-evidence-gate"
       id: "AC-SMOKE-001"
       purpose: "Running the real constant-evidence gate on this repo collects and executes test_no_live_smoke_harness_returns_constant_evidence against the real plan/ live_smoke acceptances (R002/D002), resolving each anchored test to its real harness and confirming none return constant evidence (eat-own-dog-food: the gate is alive and the shipped harnesses are honest)"
       phase: "SMOKE"

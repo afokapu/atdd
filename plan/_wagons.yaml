@@ -1418,7 +1418,7 @@ wagons:
       behind the dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate with a git describe
       --exact-match HEAD idempotency skip, while core still names no provider publish
       mechanics (#1285)
-    E059: 'minimize likelihood of live-smoke-harnesses-that-return-a-constant-dict-literal-and-cannot-fail-so-they-report-fixed-success-regardless-of-what-ran
+    E060: 'minimize likelihood of live-smoke-harnesses-that-return-a-constant-dict-literal-and-cannot-fail-so-they-report-fixed-success-regardless-of-what-ran
       by declaring tester.acceptance-violation.live-smoke-evidence-must-not-be-constant
       (strict) in conventions/nodes with a validator test_live_smoke_execution that
       reuses _acceptance_walker + scan_test_acceptance_headers to resolve each execution_kind:
