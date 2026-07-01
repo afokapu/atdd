@@ -1421,11 +1421,11 @@ wagons:
     E059: 'minimize likelihood of live-smoke-harnesses-that-return-a-constant-dict-literal-and-cannot-fail-so-they-report-fixed-success-regardless-of-what-ran
       by declaring tester.acceptance-violation.live-smoke-evidence-must-not-be-constant
       (strict) in conventions/nodes with a validator test_live_smoke_execution that
-      reuses _acceptance_walker + scan_test_acceptance_headers to resolve each live_smoke
-      acceptance''s anchored test to the harness it invokes and emits a Violation when
-      that harness returns only an all-constant dict with no assert/raise (the Y002
-      theater afokapu/atdd#1192), extending the #1151 self-skip guard so a non-skipping
-      test still cannot pass on fixed evidence (#1298; Part of afokapu/atdd-extensions#14)'
+      reuses _acceptance_walker + scan_test_acceptance_headers to resolve each execution_kind:
+      live_smoke acceptance''s anchored test to the harness it invokes and emits a
+      Violation when that harness returns only an all-constant dict with no assert/raise
+      (the Y002 theater afokapu/atdd#1192), extending the #1151 self-skip guard so
+      a non-skipping test still cannot pass on fixed evidence (#1298; Part of afokapu/atdd-extensions#14)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
