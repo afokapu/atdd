@@ -18,7 +18,7 @@ sessions:
   file: null
   issue_number: 1296
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-07-01'
   archived: null
   branch: feat/scope-issue-advancement-to-own-pr
