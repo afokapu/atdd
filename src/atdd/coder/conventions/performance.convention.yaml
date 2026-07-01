@@ -31,8 +31,11 @@ performance:
   rules: []
 
   validators:
-    - location: "atdd/coder/validators/test_query_count.py"
-      test: "test_no_db_calls_inside_loops"
+    # Decommissioned under #1207 batch B — legacy persona validator removed;
+    # reverse-coherence binding carried by the sizing convention-variant, runtime
+    # enforcement by the bound python-pytest detector (binding.lock.yaml).
+    - location: "src/atdd/validators/conventions/sizing/test_query_count_nplus1.py"
+      test: "test_query_count_nplus1_variant_contract"
       spec_id: "SPEC-CODER-PERF-0001"
       marker: "coder"
 

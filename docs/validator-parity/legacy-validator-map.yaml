@@ -1630,10 +1630,10 @@ entries:
   proposed_family: sizing
   proposed_template: cardinality_bounds
   proposed_variant: query_count_nplus1
-  proposed_target_path: src/atdd/validators/conventions/sizing/test_query_count_nplus1.py
-  parity_status: direct
+  proposed_target_path: .atdd/workspaces/atdd.workspace.python-pytest/0.1.0/implementations/query_count_detector/query_count.py
+  parity_status: superseded
   priority: P1
-  parity_notes: Query-count upper-bound (N+1) check — cardinality_bounds, single rule.
+  parity_notes: Superseded by the bound python-pytest extension detector (binding.lock.yaml → atdd.workspace.python-pytest, contract 1.1.0). Legacy persona validator decommissioned under #1207 batch B; enforcement of coder.refactor.nplus1 now lives on the query_count detector. (The sizing/query_count_nplus1 convention-variant contract test remains as parity scaffolding.)
 - legacy_path: src/atdd/coder/validators/test_route_train_compliance.py
   legacy_persona: coder
   legacy_validator_name: test_route_train_compliance.py

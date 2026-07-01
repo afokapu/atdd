@@ -654,7 +654,10 @@ rules:
     description: "TypeScript source files have an adequate code-comment ratio"
     introduced_in: "1.67.0"
   - id: "coder.refactor.nplus1"
-    validator: "test_query_count::test_no_db_calls_inside_loops"
+    # Decommissioned under #1207 batch B — legacy persona validator removed;
+    # reverse-coherence binding carried by the sizing convention-variant, runtime
+    # enforcement by the bound python-pytest detector (binding.lock.yaml).
+    validator: "conventions/sizing/test_query_count_nplus1::test_query_count_nplus1_variant_contract"
     aliases: ["REFACTOR-NPLUS1-001"]
     severity: 3
     disposition: strict
