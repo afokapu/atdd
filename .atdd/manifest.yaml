@@ -3456,7 +3456,7 @@ sessions:
   file: null
   issue_number: 1281
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-06-30'
   archived: null
 - id: '1273'
