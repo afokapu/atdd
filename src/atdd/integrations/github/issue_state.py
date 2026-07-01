@@ -10,14 +10,19 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 from atdd.integrations.github import _gh
+from atdd.integrations.github.types import GitHubIntegrationError
 
 _log = logging.getLogger(__name__)
 
 _PHASE_LABEL_PREFIX = "atdd:"
 _ISSUE_LABEL = "atdd-issue"
+
+#: ``gh issue create`` prints the created issue's URL; the trailing
+#: ``/issues/<n>`` carries the number the store links as the external_ref.
+_ISSUE_URL_RE = re.compile(r"/issues/(\d+)\s*$")
 
 
 def _phase_from_labels(labels: list[str]) -> Optional[str]:
@@ -105,6 +110,40 @@ def update_body(issue: int, body: str) -> None:
     _gh.run_gh(
         ["issue", "edit", str(issue), "--body-file", "-"], input_text=body
     )
+
+
+def create_issue(
+    title: str,
+    body: str,
+    *,
+    labels: Optional[Sequence[str]] = None,
+    repo: Optional[str] = None,
+    timeout: int = 60,
+) -> int:
+    """Create a GitHub issue via ``gh issue create``; return the new issue number.
+
+    Coach-free (stdlib + ``subprocess`` via :func:`_gh.run_gh` only, §3.3): this
+    is the projection half of the planner ``atdd author issue`` store-first
+    publish (#1272), so the author surface can create the GitHub issue without
+    importing ``atdd.coach`` (whose ``GitHubClient.create_issue`` lives across the
+    boundary). The body is piped over stdin (``--body-file -``) so a large body
+    never hits argv limits. ``gh issue create`` prints the new issue URL; the
+    trailing ``/issues/<n>`` is parsed for the number.
+
+    Raises :class:`GitHubIntegrationError` on a gh failure or an unparseable URL.
+    """
+    target_repo = repo or _gh.resolve_repo()
+    args = ["issue", "create", "--repo", target_repo,
+            "--title", title, "--body-file", "-"]
+    for label in labels or []:
+        args += ["--label", label]
+    out = _gh.run_gh(args, input_text=body, timeout=timeout)
+    match = _ISSUE_URL_RE.search(out.strip())
+    if not match:
+        raise GitHubIntegrationError(
+            f"could not parse the new issue number from gh output: {out!r}"
+        )
+    return int(match.group(1))
 
 
 __all__ = [

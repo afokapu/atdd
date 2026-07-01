@@ -1144,19 +1144,16 @@ class IssueManager:
         """
         try:
             from atdd.state.db import connect, init_state_store
-            from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
-            from atdd.state.store import StateStore
+            from atdd.state.work_item_writer import create_work_item
 
             conn = connect(init_state_store(start=self.target_dir))
             try:
-                store = StateStore(conn)
-                existing = store.objects.get(slug)
-                state = existing.state if existing is not None else status
-                merged = {**(existing.data if existing is not None else {}), **data}
-                store.objects.upsert(slug, WORK_ITEM_KIND, state=state, data=merged)
-                store.external_refs.link(
-                    slug, GITHUB_PROVIDER, "issue", str(issue_number),
-                    data={"source": "atdd-issue"},
+                # Shared store-first create (#1272): the same foundational writer
+                # planner `atdd author issue` uses — DRY across the planner/coach
+                # boundary via atdd.state, no cross-archetype import.
+                create_work_item(
+                    conn, slug, state=status, data=data,
+                    github_number=issue_number, ref_source="atdd-issue",
                 )
             finally:
                 conn.close()
