@@ -1,3 +1,8 @@
+# #1172 dynamic-version backend: the in-tree PEP517 build backend must ship in
+# the sdist, else `python -m build`'s wheel-from-sdist step fails with
+# "backend-path entry 'build_meta_shim' does not exist". #1310.
+graft build_meta_shim
+
 recursive-include src/atdd/coach/validators/fixtures *
 recursive-include src/atdd/coder/validators/fixtures *
 recursive-include src/atdd/tester/validators/fixtures *

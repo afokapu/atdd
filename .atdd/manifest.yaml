@@ -3545,3 +3545,12 @@ sessions:
   created: '2026-07-01'
   archived: null
   branch: feat/install-build-twine-for-pypi-publish
+- id: '1310'
+  slug: graft-build-meta-shim-into-sdist
+  file: null
+  issue_number: 1310
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+  branch: feat/graft-build-meta-shim-into-sdist
