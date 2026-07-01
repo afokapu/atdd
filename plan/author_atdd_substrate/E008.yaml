@@ -8,6 +8,46 @@ lens: "functional.effectiveness"
 statement: "maximize likelihood of issue-publish-to-store when authoring via `atdd author issue` (store-first work_item + exactly one github external_ref, by default)"
 acceptances:
   - identity:
+      urn: "acc:author-atdd-substrate:E008-UNIT-001-author-issue-creates-work-item"
+      id: "AC-UNIT-001"
+      purpose: "`atdd author issue --slug <slug>` creates a work_item in the State Store keyed by <slug> with state = the Metadata Status and data carrying title/type/branch/train/feature/body — store-first, by default, no extra flag"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp ATDD Control Root (empty State Store) and a stubbed github create returning a canned issue number"
+    when:
+      abstract: "the `atdd author issue` generate path is run with --title and --slug against that Control Root"
+    then:
+      abstract:
+        - "A work_item object keyed by <slug> exists in the store (kind=work_item)"
+        - "Its state equals the Metadata Status (INIT) and its data carries title/type/branch/train/feature and the authored body"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-atdd-substrate:E008-UNIT-002-links-exactly-one-github-ref"
+      id: "AC-UNIT-002"
+      purpose: "The published work_item carries exactly one github issue external_ref (one-per-issue, #1220), and a re-author is idempotent — still exactly one ref"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp ATDD Control Root and a stubbed github create returning a fixed issue number"
+    when:
+      abstract: "`atdd author issue --slug <slug>` is run once, then run again with the same slug (idempotent re-author)"
+    then:
+      abstract:
+        - "After the first run the work_item has exactly one github issue external_ref pointing at the returned number"
+        - "After the second run there is still exactly one github external_ref (the ON CONFLICT unique key keeps one-per-issue)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
       urn: "acc:author-atdd-substrate:E008-SMOKE-001-author-issue-publishes-to-live-store"
       id: "AC-SMOKE-001"
       purpose: "Verify `atdd author issue` publishes a work_item + a single github external_ref into a live State Store, run via the installed CLI against a real Control Root"
