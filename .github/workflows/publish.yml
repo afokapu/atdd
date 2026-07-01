@@ -69,6 +69,16 @@ jobs:
       - name: Install atdd (the release-pipeline CLI)
         run: python -m pip install -e .
 
+      # INTERIM (decommission → afokapu/atdd-extensions#40): the extension's
+      # `real_publish` shells to `python -m build` + `python -m twine upload`, but
+      # this Publish job never installed them (Publish run 28501873003:
+      # "No module named build"). Install here as a stopgap. The durable shape is a
+      # single extension release entrypoint that owns its own deps + the upload, so
+      # publish.yml stays thin (Core keeps only the version DECISION). Do not treat
+      # this as correct Core logic — it is release-overfit to remove on migration.
+      - name: Install build + twine (interim — moves into the extension, atdd-extensions#40)
+        run: python -m pip install -U build twine
+
       # Release-bot git identity. GitHub runners carry no default git identity, so
       # the extension's annotated `git tag -a vX` aborts with "empty ident name"
       # (Publish run 28495533869). Set it ONCE here, before the drain step that
@@ -145,6 +155,13 @@ jobs:
         env:
           ATDD_RELEASE_ALLOW_PUBLISH: ${{ secrets.ATDD_RELEASE_ALLOW_PUBLISH }}
           WORKER_DIR: ${{ steps.ext.outputs.worker_dir }}
+          # INTERIM (decommission → afokapu/atdd-extensions#40): the extension's
+          # real_publish uses raw `twine upload`, which cannot consume this repo's
+          # OIDC trusted-publishing. Supply a project-scoped PyPI API token via
+          # standard twine env vars as a stopgap. DECOMMISSION: move the upload
+          # (OIDC-native, or token) into the extension release entrypoint; drop these.
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           set -euo pipefail
           DRY_RUN=true
