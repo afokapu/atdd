@@ -49,9 +49,37 @@ def test_e008_unit_002_links_exactly_one_github_ref(tmp_path, monkeypatch):
 
 
 def test_e008_unit_002_reauthor_is_idempotent_single_ref(tmp_path, monkeypatch):
-    assert _author_once(monkeypatch, tmp_path) == 0
-    # Re-author the same slug — must not accumulate a second ref.
-    assert _author_once(monkeypatch, tmp_path) == 0
+    # Count github creates across two authors. A real `gh` mints a NEW issue on
+    # every call, so a naive re-author would create a DUPLICATE issue + a second
+    # ref — exactly the #1271 failure. The idempotent path must create at most
+    # once and keep a single ref. A monotonically-increasing stub makes a second
+    # create visibly produce a different number (caught by the ref assertions).
+    calls = {"n": 0}
+
+    def _counting_create_issue(*args, **kwargs):
+        calls["n"] += 1
+        return 900000 + calls["n"]
+
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        "atdd.integrations.github.issue_state.create_issue",
+        _counting_create_issue, raising=False,
+    )
+
+    assert run_author_issue([
+        "--title", "Ref probe", "--slug", "e008-ref-probe",
+        "--type", "implementation", "--status", "INIT",
+    ])[0] == 0
+    # Re-author the same slug — must NOT create a second issue or ref.
+    assert run_author_issue([
+        "--title", "Ref probe", "--slug", "e008-ref-probe",
+        "--type", "implementation", "--status", "INIT",
+    ])[0] == 0
+
+    assert calls["n"] == 1, (
+        f"re-author created the GitHub issue {calls['n']} times — a duplicate "
+        "issue is exactly the #1271 failure this closes"
+    )
 
     store, conn = open_store(tmp_path)
     try:
@@ -60,3 +88,4 @@ def test_e008_unit_002_reauthor_is_idempotent_single_ref(tmp_path, monkeypatch):
         conn.close()
 
     assert len(refs) == 1, f"re-author must stay one-per-issue, got {len(refs)} refs"
+    assert refs[0].ref_value == "900001", "the single ref must point at the first-created issue"

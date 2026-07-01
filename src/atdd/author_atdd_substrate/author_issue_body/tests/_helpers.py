@@ -205,11 +205,23 @@ def legacy_compliant_body() -> str:
     return "\n".join(lines)
 
 
-def run_cli(*args: str) -> subprocess.CompletedProcess:
-    """Run the repo CLI (``python -m atdd ...``) from a real checkout."""
+def run_cli(*args: str, env: dict | None = None) -> subprocess.CompletedProcess:
+    """Run the repo CLI (``python -m atdd ...``) from a real checkout.
+
+    ``env`` overlays extra environment variables on the inherited environment —
+    used by the generate-path smokes to pin a temp ``ATDD_CONTROL_ROOT`` and a
+    stubbed ``gh`` (#1272 made ``atdd author issue`` publish store-first, so the
+    smoke runs hermetically rather than filing a real GitHub issue).
+    """
+    proc_env = None
+    if env is not None:
+        import os
+
+        proc_env = {**os.environ, **env}
     return subprocess.run(
         [sys.executable, "-m", "atdd", *args],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
+        env=proc_env,
     )
