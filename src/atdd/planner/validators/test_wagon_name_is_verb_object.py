@@ -31,10 +31,13 @@ from atdd.planner.commands.plan_session import (
     PlanSession, SessionGateError, Step, Unit, Verdict,
 )
 
-# Good verb-object slugs — incl. the convention's own canonical examples.
+# Good verb-object slugs — incl. the convention's own canonical examples and the
+# common action verbs rounded out by the lexicon extension (#1283): route,
+# preview, respond were legitimately-named but falsely rejected at confirm.
 GOOD = [
     "resolve-dilemmas", "commit-state", "manage-users",
     "track-timebank", "make-choice", "configure-match",
+    "route-request", "preview-changes", "respond-event",
 ]
 
 # Real failures observed driving `atdd plan` (issue #1276 motivation).

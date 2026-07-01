@@ -13,6 +13,18 @@ sessions:
   train: 0002-coach-drives-lifecycle
   wagon: govern-lifecycle
   feature: feature:govern-lifecycle:wire-release-worker-drains-version-decided
+- id: '1283'
+  slug: extend-verb-lexicon
+  file: null
+  issue_number: 1283
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+  branch: feat/extend-verb-lexicon
+  train: 0001-self-compliance-validate
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
 - id: '1274'
   slug: state-store-sot-boundary-operational-vs-definitions
   file: null
