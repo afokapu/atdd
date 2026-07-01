@@ -12,6 +12,18 @@ sessions:
   branch: chore/reconcile-closed-phase-labels
   train: 0002-coach-drives-lifecycle
   wagon: govern-lifecycle
+- id: '1283'
+  slug: extend-verb-lexicon
+  file: null
+  issue_number: 1283
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+  branch: feat/extend-verb-lexicon
+  train: 0001-self-compliance-validate
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
 - id: '1274'
   slug: state-store-sot-boundary-operational-vs-definitions
   file: null
@@ -2717,6 +2729,8 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+  branch: feat/coach-integration-persistent-orchestrator-loop
+  train: 0002-coach-drives-lifecycle
 - id: '1081'
   slug: feed-daemon-watches-gated-decisions-answer-escalate-policy
   file: null

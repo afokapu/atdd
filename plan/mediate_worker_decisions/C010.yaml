@@ -1,0 +1,35 @@
+urn: "wmbt:mediate-worker-decisions:C010"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-31
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-supervisor-advancing-a-work-item-before-its-phase-done-signal"
+context_clarifier: "the persistent orchestrator polls the injected phase poller for the work item's current phase and its done signal and drives the injected phase driver to advance to the next phase only when the done signal for the current phase is present; across a multi phase run (PLANNED RED GREEN) it advances exactly once per observed done signal and never on a poll where the done signal is absent"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the supervisor advancing a work item before its phase done signal"
+acceptances:
+  - identity:
+      urn: "acc:mediate-worker-decisions:C010-UNIT-001-advances-only-on-done-signal"
+      id: "AC-UNIT-001"
+      purpose: "Over a scripted multi-phase run the supervisor drives the phase driver exactly once per done-signal — never on a poll where the current phase's done-signal is absent — and stops at the terminal phase"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake phase poller scripted across PLANNED->RED->GREEN->COMPLETE, alternating done-signal absent then present before each transition"
+        - "A recording phase driver and an injected (no-op) sleeper so the loop is hermetic and instant"
+    when:
+      abstract: "The supervisor runs until the work item reaches a terminal phase"
+      action: "invoke"
+    then:
+      abstract:
+        - "The phase driver is advanced exactly once for each phase that reported its done-signal (three transitions), in phase order"
+        - "No advance call was ever made on a poll where the done-signal was absent; the loop returns the terminal phase COMPLETE"
+      assertions:
+        - type: "count"
+        - type: "exists"
+    signal: {}
+    metadata:
+      wagon: "mediate-worker-decisions"
+      feature: "persistent-orchestrator"

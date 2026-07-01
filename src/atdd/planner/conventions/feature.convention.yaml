@@ -103,48 +103,94 @@ artifact_seeds:
     lexicon:
       additional_verbs:
         - admit
+        - aggregate
+        - allocate
+        - annotate
         - apply
+        - archive
+        - assign
+        - attach
         - authenticate
         - author
         - bind
         - bootstrap
         - bridge
+        - broadcast
         - build
+        - calculate
+        - cancel
+        - capture
         - check
+        - classify
+        - collect
         - commit
+        - compare
         - compose
+        - compute
+        - connect
         - consolidate
         - convert
+        - copy
         - correct
+        - count
         - credit
+        - decode
         - decommission
+        - delegate
         - deliver
         - deploy
         - derive
+        - describe
+        - detach
         - detect
+        - disable
         - discover
         - dispatch
+        - download
         - drive
         - elicit
+        - enable
+        - encode
         - enforce
+        - enrich
         - ensure
+        - escalate
+        - estimate
         - evaluate
+        - expire
         - export
+        - expose
         - extract
+        - fetch
+        - filter
+        - finalize
         - fix
+        - flush
+        - forward
         - freeze
         - gather
         - govern
         - guard
+        - hydrate
         - implement
         - import
+        - index
+        - inject
         - inspect
         - integrate
+        - invoke
+        - isolate
         - judge
+        - launch
+        - link
         - lint
+        - list
         - load
         - lock
+        - log
         - map
+        - mark
+        - match
         - measure
         - mediate
         - merge
@@ -152,47 +198,107 @@ artifact_seeds:
         - mint
         - normalize
         - observe
+        - open
         - orchestrate
         - parse
+        - partition
+        - pause
         - persist
+        - ping
         - plan
+        - poll
+        - populate
+        - post
         - prepare
+        - preview
+        - prioritize
         - produce
+        - project
+        - promote
+        - prompt
+        - propagate
         - provision
+        - prune
+        - pull
+        - purge
+        - push
+        - queue
+        - rank
+        - read
+        - rebuild
         - reconcile
         - record
+        - redirect
         - refine
+        - refresh
         - register
         - reject
         - release
+        - reload
         - remove
         - rename
         - render
         - replay
+        - replicate
         - report
+        - request
         - resolve
+        - respond
+        - restore
+        - resume
+        - retrieve
+        - retry
+        - revoke
+        - rollback
+        - route
         - run
+        - sample
+        - save
+        - scaffold
         - scan
         - schedule
         - score
+        - search
         - seed
         - select
         - send
         - serve
+        - show
+        - sign
+        - simulate
         - snapshot
+        - spawn
         - split
+        - stop
         - store
         - stream
+        - submit
+        - subscribe
+        - summarize
         - surface
+        - suspend
+        - swap
         - sync
         - tag
+        - teardown
+        - throttle
+        - toggle
         - trace
         - transform
         - translate
+        - trim
+        - tune
+        - unlock
+        - unsubscribe
         - upgrade
+        - upload
         - validate
         - verify
+        - visualize
+        - warn
         - watch
+        - wire
+        - wrap
 
   transformation_guidance:
     step_1: "Identify artifact from wagon produce/consume"
