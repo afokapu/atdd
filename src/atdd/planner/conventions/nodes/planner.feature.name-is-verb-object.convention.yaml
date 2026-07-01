@@ -16,6 +16,9 @@ terms:
     examples_ok:
     - make-choice
     - authenticate-user
+    - route-request
+    - preview-changes
+    - respond-event
     examples_bad:
     - respond-and-preview
     - route-to-mode
