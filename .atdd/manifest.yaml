@@ -3206,6 +3206,6 @@ sessions:
   file: null
   issue_number: 1292
   type: implementation
-  status: INIT
+  status: PLANNED
   created: '2026-07-01'
   archived: null
