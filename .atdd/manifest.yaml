@@ -3205,7 +3205,8 @@ sessions:
   slug: enforce-validator-implementation-schema
   file: null
   issue_number: 1292
+  train: 0003-author-substrate
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-07-01'
   archived: null
