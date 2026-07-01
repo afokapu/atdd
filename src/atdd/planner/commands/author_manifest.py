@@ -197,13 +197,52 @@ def validate_extension_manifest(data: dict) -> None:
 
 
 def validate_implementation_manifest(data: dict) -> None:
-    """Validate an ``atdd.implementation.yaml`` manifest."""
-    if (data or {}).get("kind") != "implementation":
+    """Validate an ``atdd.implementation.yaml`` manifest — the VALIDATOR/FAMILY contract.
+
+    Beyond identity (kind/id/targets/contract), enforces the executable-validator
+    shape so a validator is compliant *by construction* rather than by copying an
+    example: a runnable ``entrypoint``, a v1.1 ``report`` emitter, and a non-empty
+    ``emits_rule_ids`` list (the rule_ids this one detector realizes — a FAMILY
+    detector emits >1, a singleton emits 1). ``realizes_convention`` (the primary
+    node) and ``subtype`` are validated for consistency when present. This is the
+    ``atdd.core.implementation-schema`` every extension declares in ``depends_on``.
+    """
+    data = data or {}
+    if data.get("kind") != "implementation":
         raise AuthorInputError("kind", "implementation manifest must have kind: implementation")
     if not data.get("implementation_id"):
         raise AuthorInputError("implementation_id", "implementation manifest missing implementation_id")
     validate_workspace_id(data.get("targets_workspace", ""), allow_reserved=True)
     _parse_version(data.get("contract_version"))
+
+    if not (isinstance(data.get("entrypoint"), str) and data["entrypoint"].strip()):
+        raise AuthorInputError("entrypoint", "implementation must declare an entrypoint (the detector module)")
+    report = data.get("report")
+    if report is not None and not (isinstance(report, str) and report.strip()):
+        raise AuthorInputError(
+            "report",
+            "report, when declared, must be a non-empty path (the runnable v1.1 report-emitter "
+            "the provider CLI collects; may equal entrypoint)")
+    # The impl must declare the rule_id(s) it realizes — via a non-empty
+    # ``emits_rule_ids`` list (v1.1; a FAMILY detector emits >1 from one run) OR a
+    # single ``realizes_convention`` (v1.0 exit-code mapping). At least one required.
+    emits = data.get("emits_rule_ids")
+    rc = data.get("realizes_convention")
+    has_emits = isinstance(emits, list) and bool(emits)
+    if has_emits and not all(isinstance(r, str) and r.strip() for r in emits):
+        raise AuthorInputError("emits_rule_ids", "emits_rule_ids entries must be non-empty rule_id strings")
+    has_rc = isinstance(rc, str) and bool(rc.strip())
+    if not has_emits and not has_rc:
+        raise AuthorInputError(
+            "emits_rule_ids",
+            "implementation must declare the rule_id(s) it realizes — a non-empty emits_rule_ids "
+            "list (v1.1; a FAMILY emits more than one) or realizes_convention (v1.0 single-rule)")
+    if has_emits and has_rc and rc not in emits:
+        raise AuthorInputError(
+            "realizes_convention", f"realizes_convention {rc!r} must be one of emits_rule_ids {emits!r}")
+    sub = data.get("subtype")
+    if sub is not None and sub != "validator":
+        raise AuthorInputError("subtype", f"implementation subtype must be 'validator' (got {sub!r})")
 
 
 def extension_targets_satisfied_by(ext_manifest: dict, provider_manifest: dict) -> bool:
