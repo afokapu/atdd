@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E022
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unpaired-sentinel
+context_clarifier: every ported P0 variant has a fault-injection parity test against
+  its legacy validator
+lens: functional.effectiveness
+statement: minimize likelihood of unpaired-sentinel by requiring every ported P0 variant
+  to carry a fault-injection parity test against its legacy validator
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E022-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E022 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

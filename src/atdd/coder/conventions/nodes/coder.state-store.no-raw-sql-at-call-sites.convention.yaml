@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: coder.state-store.no-raw-sql-at-call-sites
+kind: rule
+status: active
+name: No raw SQL at call sites
+statement: Outside the State Store package (atdd.state), no module may import sqlite3 directly.
+  Persistence is reached only through the State Store storage APIs, so the SQL schema, migrations,
+  and connection lifecycle stay owned in one place. A stray sqlite3 import at a call site forks
+  the persistence model and bypasses the store's invariants (WAL, control-root resolution, schema).
+implementation:
+  type: validator
+  ref: test_state_store_invariants::test_no_raw_sql_outside_state
+content:
+  normative_text: No Python module under src/atdd/ outside src/atdd/state/ may import sqlite3
+    (directly or as a submodule). Database access goes through atdd.state storage APIs.
+  fix_hint: Replace the direct sqlite3 usage with a State Store storage API call (atdd.state.store
+    / the relevant projection). If a capability is missing, add it inside atdd.state rather than
+    opening a second connection at the call site.
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.142.0
+terms:
+- term_id: storage_api
+  text: the public surface of atdd.state (store, projections) through which all callers read and
+    write work-item state, never raw SQL.

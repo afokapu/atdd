@@ -20,59 +20,15 @@ cross_references:
       note: "Qualified imports help trace which calls are DB-bound"
 
 performance:
-  rules:
-    - id: "coder.performance.perf"
-      aliases: ["PERF-001"]
-      disposition: documentation-only
-      name: "No DB calls inside loops"
-      severity: "error"
-      description: |
-        Database client calls (repository methods, direct DB calls, HTTP-to-DB proxies)
-        MUST NOT appear inside for/while/async for loop bodies or comprehensions.
-      detection: "static-ast"
-      threshold: 0
-      suppression: "# noqa: N+1"
-      patterns:
-        repository_methods:
-          - "execute"
-          - "executemany"
-          - "fetch"
-          - "fetchone"
-          - "fetchall"
-          - "fetchrow"
-          - "fetchval"
-          - "find"
-          - "find_one"
-          - "find_many"
-          - "insert"
-          - "insert_one"
-          - "insert_many"
-          - "update_one"
-          - "update_many"
-          - "delete_one"
-          - "delete_many"
-          - "upsert"
-          - "save"
-          - "aggregate"
-        supabase_chain_starters:
-          - "table"
-          - "from_"
-          - "rpc"
-        direct_db:
-          - "cursor"
-          - "mogrify"
-        http_as_db_proxy:
-          modules: ["requests", "httpx", "aiohttp"]
-          methods: ["get", "post", "put", "patch", "delete"]
-      fix: "Refactor to batch queries outside the loop using bulk/batch repository methods"
-      examples:
-        bad: |
-          for item in items:
-              result = self.repo.find_one(item.id)  # N+1!
-        good: |
-          results = self.repo.find_many([item.id for item in items])  # O(1)
-          for item, result in zip(items, results):
-              ...
+  # Phase A (#1225) partial de-monolith: the core-agnostic rule
+  #   coder.performance.perf → nodes/coder.performance.perf.convention.yaml
+  # has been atomized to a single-node file (now authoritative; bind_rule /
+  # build_registry read nodes/). The `validators:`, `excluded_paths`, and
+  # `future_rules` metadata below are intentionally LEFT in place — they are
+  # not rule declarations and remain the operator-facing record for this
+  # convention. No other rules live in this monolith, so the `rules:` block
+  # is now empty.
+  rules: []
 
   validators:
     - location: "atdd/coder/validators/test_query_count.py"

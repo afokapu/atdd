@@ -1,0 +1,21 @@
+schema_version: 1.0.0
+rule_id: coder.dto.placement
+kind: rule
+status: active
+name: DTO placement
+statement: DTOs live in contract_dto modules and are derived from contracts
+terms:
+- term_id: contract_dto
+  text: A contract DTO is the code-side mirror of a contract JSON schema, placed in
+    the contract_dto module layer and derived from that contract.
+source:
+  legacy_path: src/atdd/coder/conventions/dto.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.dto.placement
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - DTO-PLACEMENT-001
+  introduced_in: 1.67.0

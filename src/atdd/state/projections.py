@@ -21,6 +21,9 @@ from atdd.state.store import EventStore, ExternalRefStore, ObjectStore
 KIND_WORK_ITEM = "work_item"
 KIND_RUN = "run"
 KIND_EVIDENCE = "evidence"
+#: The singleton release object (#1172) — uid == kind == "release".
+KIND_RELEASE = "release"
+RELEASE_UID = "release"
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,17 @@ class EvidenceRow:
     uid: str
     state: Optional[str]
     data: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ReleaseRow:
+    """The singleton release object: current version + bump history summary (#1172)."""
+
+    version: Optional[str]
+    #: count of ``version_bumped`` events recorded against the release object.
+    bump_count: int = 0
+    #: the most recent bump payload (``{from,to,change_class,pr}``), or ``None``.
+    last_bump: Optional[Dict[str, Any]] = None
 
 
 def work_item_projection(conn: sqlite3.Connection) -> List[WorkItemRow]:
@@ -92,3 +106,25 @@ def evidence_projection(conn: sqlite3.Connection) -> List[EvidenceRow]:
     objects = ObjectStore(conn)
     return [EvidenceRow(uid=o.uid, state=o.state, data=o.data)
             for o in objects.list(kind=KIND_EVIDENCE)]
+
+
+VERSION_BUMPED_EVENT = "version_bumped"
+
+
+def release_projection(conn: sqlite3.Connection) -> Optional[ReleaseRow]:
+    """The singleton release object with a small bump-history summary (#1172).
+
+    Returns ``None`` when no ``release`` object exists (a store predating
+    migration v2, or one never seeded). Two queries total — the object plus its
+    events — never a per-event query.
+    """
+    obj = ObjectStore(conn).get(RELEASE_UID)
+    if obj is None:
+        return None
+    bumps = [e for e in EventStore(conn).list(object_uid=RELEASE_UID)
+             if e.event_type == VERSION_BUMPED_EVENT]
+    return ReleaseRow(
+        version=obj.data.get("version"),
+        bump_count=len(bumps),
+        last_bump=bumps[-1].payload if bumps else None,
+    )

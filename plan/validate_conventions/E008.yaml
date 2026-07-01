@@ -1,0 +1,28 @@
+urn: wmbt:validate-conventions:E008
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: invalid-parity-classification
+context_clarifier: every entry carries a parity_status from the seven-value enum and
+  a priority of P0, P1 or P2
+lens: functional.effectiveness
+statement: minimize likelihood of invalid-parity-classification by ensuring every
+  entry carries a parity_status from the seven-value enum and a priority of P0, P1
+  or P2
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E008-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E008 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

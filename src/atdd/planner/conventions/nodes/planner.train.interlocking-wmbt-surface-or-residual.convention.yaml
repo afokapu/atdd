@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-wmbt-surface-or-residual
+kind: constraint
+status: active
+name: Interlocking WMBT surface or residual
+statement: Every WMBT obligation surfaces as message, self-message, guard, fragment,
+  invariant, or explicit structural residual.
+terms:
+- term_id: wmbt_surface
+  text: every WMBT obligation surfaces as a message/self-message/guard/fragment/invariant
+    or an explicit structural residual
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_every_wmbt_surfaces_or_is_structural_residual
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: coverage
+  template: projection_covers_source
+  variant: planner_train_interlocking_wmbt_surface_or_residual
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - wmbt_ref
+  - surface_kind
+  - residual_id
+  - coverage_status

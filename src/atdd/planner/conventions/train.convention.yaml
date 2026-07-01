@@ -8,28 +8,6 @@ description: "Convention for multi-wagon workflow orchestration with theme-based
 # gates can see them. Behaviour-preserving: these validators already enforce;
 # this declares their rule_ids so `bind_rule(...)` resolves them.
 # =============================================================================
-rules:
-  - id: "planner.train.family-matches-terminal-contract"
-    aliases: ["PLANNER-TRAIN-FAMILY-MATCHES-TERMINAL-001"]
-    severity: 3
-    disposition: strict
-    validator: "test_train_family_matches_terminal_contract::test_real_trains_family_matches_terminal_contract"
-    description: "A train's declared family agrees with its terminal contract: delivery ⟺ terminal artifact is platform:acceptance:commit-receipt; behavior otherwise."
-    introduced_in: "3.127.0"
-  - id: "planner.train.dispatch-map-is-registry"
-    aliases: ["PLANNER-TRAIN-DISPATCH-MAP-REGISTRY-001"]
-    severity: 3
-    disposition: strict
-    validator: "test_dispatch_registry::test_real_dispatch_entries_well_formed"
-    description: "The divergence dispatch map is a declared, schema-valid registry (artifact_urn -> train_id) the Station Master reads; routing is never an imperative in-code map."
-    introduced_in: "3.127.0"
-  - id: "planner.train.dispatch-composite-key-exceptional"
-    aliases: ["PLANNER-TRAIN-DISPATCH-COMPOSITE-KEY-001"]
-    severity: 3
-    disposition: strict
-    validator: "test_dispatch_registry::test_real_dispatch_entries_well_formed"
-    description: "A composite (artifact_urn, discriminant) -> train_id dispatch key is exceptional: permitted only with a behavioral_difference justification and a single field:value discriminant."
-    introduced_in: "3.127.0"
 
 # Production implementation (SESSION-12)
 production_implementation:

@@ -1,0 +1,52 @@
+version: 1
+families:
+  - id: presence
+    templates:
+      - id: required_field_presence
+      - id: required_relationship_presence
+      - id: conditional_requirement
+  - id: uniqueness
+    templates:
+      - id: scoped_identifier_uniqueness
+      - id: duplicate_edge_absence
+  - id: resolution
+    templates:
+      - id: direct_reference_resolution
+      - id: artifact_reference_resolution
+      - id: reference_chain_resolution
+  - id: schema
+    templates:
+      - id: node_schema_conformance
+      - id: required_field_presence
+  - id: grammar
+    templates:
+      - id: identifier_grammar_conformance
+  - id: composition
+    templates:
+      - id: composed_graph_loads
+      - id: composition_merge_identity
+      - id: post_composition_edge_legality
+  - id: coverage
+    templates:
+      - id: reachability_no_orphan
+      - id: source_has_required_target
+      - id: projection_covers_source
+  - id: sizing
+    templates:
+      - id: cardinality_bounds
+  - id: coherence
+    templates:
+      - id: resolved_fact_agreement
+  - id: acyclicity
+    templates:
+      - id: forbidden_cycle_absence
+  - id: boundary
+    templates:
+      - id: allowed_boundary_crossing
+  - id: policy
+    templates:
+      - id: forbidden_construct_absence
+  - id: binding
+    templates:
+      - id: declaration_to_implementation_binding
+      - id: emitted_identity_roundtrip

@@ -10,6 +10,8 @@ in follow-up slices.
 from __future__ import annotations
 
 import argparse
+import copy
+import json
 import logging
 import os
 import re
@@ -17,6 +19,15 @@ import sys
 from pathlib import Path
 
 import yaml
+
+# Issue-body authoring (#1223). Re-exported here so the public author surface is
+# `atdd.planner.commands.author.create_issue_body` / `.validate_issue_body`
+# (peers of create_convention_node). The module is planner-side and coach-free
+# (planner.theme.commons-coach-boundary, #970).
+from atdd.planner.commands.author_issue import (  # noqa: F401
+    create_issue_body,
+    validate_issue_body,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +41,21 @@ KINDS: tuple[str, ...] = (
     "exception", "pattern", "anti_pattern", "policy",
 )
 STATUSES: tuple[str, ...] = ("draft", "active", "deprecated")
+
+# Canonical (extensible) subject kinds a convention-node `validation` block may
+# control (#1247). The schema keeps `subject_kind` an open string so new kinds
+# need no schema change; this tuple documents the known set for tooling.
+VALIDATION_SUBJECT_KINDS: tuple[str, ...] = (
+    "train", "interlocking", "rendered-diagram", "plan-session", "runtime-boundary",
+)
+
+# Forbidden key tokens inside a `validation` block (#1247 boundary rules):
+# concrete runtime facts (a one-off train_id, route-selection state, Cargo
+# contents, a rendered digest, or TrainResult values) belong in generated
+# artifacts, traces, or validator evidence — never in convention metadata.
+_FORBIDDEN_VALIDATION_KEY_TOKENS: tuple[str, ...] = (
+    "train_id", "route_selection", "cargo", "digest", "train_result",
+)
 
 # rule_id: dot-separated lowercase kebab segments, role-prefixed.
 _RULE_ID_RE = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$")
@@ -116,6 +142,11 @@ def validate_convention_node(node: dict, path: Path) -> None:
                 f"numbered (T1/T2/T3 forbidden — §D005)",
             )
 
+    # Optional `validation` metadata (#1247): when present it must be a JSON
+    # object with a registry-resolvable family/template and no runtime state.
+    if "validation" in node and node["validation"] is not None:
+        validate_validation_metadata(node["validation"])
+
     # §D006 term-count heuristic — warn, never block.
     n = len(node["terms"])
     if 8 <= n <= 10:
@@ -124,6 +155,66 @@ def validate_convention_node(node: dict, path: Path) -> None:
         print(
             f"atdd author: warning — {n} terms; likely too large unless justified (§D006)",
             file=sys.stderr,
+        )
+
+
+def _reject_runtime_state(obj, *, _path: str = "validation") -> None:
+    """Reject any key carrying concrete runtime state, anywhere in the block.
+
+    Walks the ``validation`` block recursively; raises ``AuthorInputError`` (field
+    ``"validation"``) when a key name matches a forbidden runtime token (#1247).
+    """
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            norm = str(key).lower().replace("-", "_")
+            if any(tok in norm for tok in _FORBIDDEN_VALIDATION_KEY_TOKENS):
+                raise AuthorInputError(
+                    "validation",
+                    f"validation must not carry concrete runtime state (forbidden "
+                    f"key {key!r} at {_path}); a concrete train_id, route-selection "
+                    f"state, Cargo contents, rendered digest, or TrainResult value "
+                    f"belongs in generated artifacts, traces, or validator evidence "
+                    f"— not convention metadata (#1247)",
+                )
+            _reject_runtime_state(value, _path=f"{_path}.{key}")
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            _reject_runtime_state(item, _path=f"{_path}[{i}]")
+
+
+def validate_validation_metadata(validation) -> None:
+    """Validate an optional convention-node ``validation`` block (#1247).
+
+    Enforces the boundary rules: it must be a JSON object; it must not embed
+    concrete runtime state; and when ``family`` (and optionally ``template``) is
+    given they must resolve against ``validators/conventions/registry.yaml``.
+    Raises ``AuthorInputError`` (with ``.field``) on the first violation.
+    """
+    if not isinstance(validation, dict):
+        raise AuthorInputError("validation", "validation must be a JSON object")
+
+    _reject_runtime_state(validation)
+
+    family = validation.get("family")
+    template = validation.get("template")
+    if family is None:
+        return  # family/template are optional; nothing left to resolve
+
+    # Lazy import: author_variant imports AuthorInputError from this module.
+    from atdd.planner.commands.author_variant import load_registry
+
+    families = load_registry()
+    if family not in families:
+        raise AuthorInputError(
+            "family",
+            f"unknown convention family {family!r}; registered: "
+            f"{', '.join(sorted(families))}",
+        )
+    if template is not None and template not in families[family]:
+        raise AuthorInputError(
+            "template",
+            f"template {template!r} is not registered under family {family!r}; "
+            f"templates: {', '.join(families[family]) or '(none)'}",
         )
 
 
@@ -139,8 +230,16 @@ def create_convention_node(
     kind: str = "rule",
     status: str = "active",
     statement: str = "",
+    name: str | None = None,
     rationale: str | None = None,
     notes: str | None = None,
+    implementation: dict | None = None,
+    source: dict | None = None,
+    content: dict | None = None,
+    bidirectional: list | None = None,
+    metadata: dict | None = None,
+    parity: dict | None = None,
+    validation: dict | None = None,
     terms: list | None = None,
     root: Path | str | None = None,
     path: Path | str | None = None,
@@ -163,19 +262,38 @@ def create_convention_node(
         home_root = str(root)
     validate_author_input(role, rule_id, path, home_root=home_root)
 
-    # spec §5.1 field order: ...statement, rationale, terms, notes.
+    # Emit in convention-node.schema property order; `terms` is required (always last).
+    # Rich fields (implementation/source/content/bidirectional/metadata/parity) are the
+    # full current model — emitted when provided so authored nodes are not "behind" the
+    # convention-graph engine (implementation.ref is the validator binding it reads).
     node: dict = {
         "schema_version": "1.0.0",
         "rule_id": rule_id,
         "kind": kind,
         "status": status,
-        "statement": statement,
     }
+    if name:
+        node["name"] = name
+    node["statement"] = statement
     if rationale:
         node["rationale"] = rationale
-    node["terms"] = terms or []
+    node["terms"] = terms or []          # spec §5.1: rationale -> terms -> notes
     if notes:
         node["notes"] = notes
+    if implementation:
+        node["implementation"] = implementation
+    if source:
+        node["source"] = source
+    if content:
+        node["content"] = content
+    if bidirectional:
+        node["bidirectional"] = bidirectional
+    if metadata:
+        node["metadata"] = metadata
+    if parity:
+        node["parity"] = parity
+    if validation:
+        node["validation"] = validation
     validate_convention_node(node, path)
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -197,6 +315,7 @@ _PLAN_ROOT = "plan"
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 _WMBT_CODE_RE = re.compile(r"^[DLPCEMYRK][0-9]{3}$")
 _TRAIN_ID_RE = re.compile(r"^[0-9]{4}-[a-z][a-z0-9-]*$")
+_IL_ID_RE = re.compile(r"^interlocking:[a-z][a-z0-9-]*$")
 _PLAN_URN_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(:[A-Za-z0-9-]+)*$")
 
 # Wagon manifest required header fields (consume + wmbt are defaulted by the
@@ -373,14 +492,121 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
 
     per_train.parent.mkdir(parents=True, exist_ok=True)
     if not per_train.exists():
-        _write_yaml(per_train, {
+        train_doc: dict = {
             "train_id": tid,
             "title": spec.get("title", tid),
             "description": spec.get("description", ""),
             "participants": [f"wagon:{w}" for w in spec.get("wagons", [])],
             "status": "planned",
-        })
+        }
+        # Adjacent seam (#1265): carry the optional #1248 interlocking back-ref so a
+        # train authored as a route's target self-describes its owning interlocking.
+        # Pure traceability — it never alters train linearity (train.schema
+        # `source_interlocking`). The Confirm gate (#1249) reads the same shape off
+        # the kept unit's spec to bind the interlocking it must validate.
+        src_il = spec.get("source_interlocking")
+        if isinstance(src_il, dict) and src_il.get("interlocking_id") and src_il.get("route_id"):
+            train_doc["source_interlocking"] = {
+                "interlocking_id": src_il["interlocking_id"],
+                "route_id": src_il["route_id"],
+            }
+        _write_yaml(per_train, train_doc)
     return per_train
+
+
+def validate_interlocking_spec(spec: dict) -> None:
+    """Reject a structurally invalid interlocking spec before any write (WMBT E007)."""
+    iid = spec.get("interlocking_id", "")
+    if not _IL_ID_RE.match(iid or ""):
+        raise AuthorInputError(
+            "interlocking_id",
+            f"invalid interlocking_id {iid!r}; expected interlocking:<kebab-slug>",
+        )
+    for field in ("schema_version", "title", "theme", "status",
+                  "entrypoint", "route_resolution", "lifelines", "routes"):
+        if field not in spec or spec[field] in (None, "", []):
+            raise AuthorInputError(field, f"interlocking spec missing required field {field!r}")
+
+
+# Canonical interlocking field order (mirrors train-interlocking.schema.json top
+# level). `_write_yaml` uses sort_keys=False, so byte-determinism of the authored
+# artifact depends on constructing the dict in exactly this order.
+_IL_FIELD_ORDER: tuple[str, ...] = (
+    "schema_version", "interlocking_id", "title", "theme", "status",
+    "source", "entrypoint", "route_resolution", "lifelines", "messages",
+    "fragments", "invariants", "residuals", "routes",
+)
+
+
+def _insert_interlocking_registry(
+    registry_path: Path, iid: str, rel_path: str, theme, status
+) -> None:
+    """Dedup-insert (or update) the interlocking's thin registry entry, sorted by
+    interlocking_id (shape per train-interlocking-registry.schema.json)."""
+    registry: dict = {}
+    if registry_path.exists():
+        registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    registry.setdefault("version", "1.0")
+    entries = registry.setdefault("interlockings", [])
+    entry: dict = {"interlocking_id": iid, "path": rel_path}
+    if theme:
+        entry["theme"] = theme
+    if status in ("draft", "checked", "stale"):
+        entry["status"] = status
+    existing = next(
+        (e for e in entries if isinstance(e, dict) and e.get("interlocking_id") == iid),
+        None,
+    )
+    if existing is None:
+        entries.append(entry)
+    else:
+        existing.update(entry)
+    entries.sort(key=lambda e: e.get("interlocking_id", "") if isinstance(e, dict) else "")
+    _write_yaml(registry_path, registry)
+
+
+def create_interlocking(spec: dict, *, root: Path | str | None = None) -> Path:
+    """Author an interlocking: stamp derived digests + write the schema-valid
+    artifact under the canonical home + dedup-insert its registry entry (WMBT E007).
+
+    The control body (guards/entrypoint/routes/strategy/messages/fragments/
+    invariants/residuals) is human-authored input carried through verbatim; the
+    command derives ONLY ``source.content_digest`` and each route's
+    ``expected_sequence_digest`` via the single-source-of-truth stamp primitive.
+    Precondition: every ``route.train_path`` train YAML already exists on disk —
+    a missing train raises ``InterlockingError`` before any file is written."""
+    from atdd.planner.interlocking import stamp_interlocking_digests
+
+    validate_interlocking_spec(spec)
+    iid = spec["interlocking_id"]
+    slug = iid.split(":", 1)[-1]
+    plan = _plan_root(root)
+    repo_root = plan.parent
+    rel_path = f"plan/_trains/_interlockings/{slug}.yaml"
+    il_path = plan / "_trains" / "_interlockings" / f"{slug}.yaml"
+    registry_path = plan / "_trains" / "_interlockings.yaml"
+    validate_plan_author_input(slug, iid, il_path, plan_root=str(plan))
+
+    # Build the document in the pinned field order. source.content_digest + each
+    # route's expected_sequence_digest are placeholders here; stamp derives them.
+    doc: dict = {}
+    for fld in _IL_FIELD_ORDER:
+        if fld == "source":
+            doc["source"] = {"path": rel_path, "content_digest": "PENDING"}
+        elif fld in spec:
+            doc[fld] = copy.deepcopy(spec[fld])
+    for route in doc.get("routes", []):
+        if isinstance(route, dict):
+            route.setdefault("projection", {}).setdefault("expected_sequence_digest", "PENDING")
+
+    # Stamp BEFORE any write — a missing route train raises here, leaving no file.
+    stamped = stamp_interlocking_digests(doc, repo_root)
+
+    _write_yaml(il_path, stamped)
+    _insert_interlocking_registry(
+        registry_path, iid, rel_path, spec.get("theme"), spec.get("status")
+    )
+    return il_path
 
 
 def create_acceptance(wmbt_urn: str, block: dict, *, root: Path | str | None = None) -> Path:
@@ -436,6 +662,32 @@ def build_parser() -> argparse.ArgumentParser:
         "--term", action="append", default=[], dest="terms",
         help="a term as 'term_id=text' (repeatable)",
     )
+    cn.add_argument("--name", default=None, help="human-readable name")
+    cn.add_argument("--implementation", default=None,
+                    help="JSON object {type, ref} — the validator binding (ref = 'file::test')")
+    cn.add_argument("--content", default=None,
+                    help="JSON object: summary/normative_text/operational_guidance/examples/"
+                         "counter_examples/constraints/exceptions/fix_hint")
+    cn.add_argument("--bidirectional", default=None, help="JSON array of bidirectional refs")
+    cn.add_argument("--metadata", default=None,
+                    help="JSON object: aliases/severity/disposition/introduced_in/suppression_deadline")
+    cn.add_argument("--node-source", dest="node_source", default=None,
+                    help="JSON object: legacy_path/legacy_section/legacy_rule_id/legacy_sha/extraction_mode")
+    cn.add_argument("--parity", default=None,
+                    help="JSON object: *_preserved flags + reviewed_at (extraction parity)")
+    cn.add_argument("--validation", default=None,
+                    help="JSON object (#1247): optional validator-family intent — "
+                         "family/template/variant, phase/enforcement, subject_kind, "
+                         "selector/traversal/invariant, failure_evidence, config. "
+                         "family/(family,template) checked against registry.yaml; "
+                         "must carry no concrete runtime state")
+    # Variant scaffolding (#1212): when a registered (family, template) pair is
+    # given AND the rule carries an implementation binding, also scaffold the
+    # convention-graph variant so the new convention is enforced, not just declared.
+    cn.add_argument("--family", default=None,
+                    help="convention-graph family to scaffold a variant under (with --template)")
+    cn.add_argument("--template", default=None,
+                    help="family template the scaffolded variant instantiates (with --family)")
 
     rel = sub.add_parser("relationship", help="author a relationship edge")
     ctx_flags(rel)
@@ -486,10 +738,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="per-trigger gate file (default: src/atdd/coach/gates/<trigger-name>.yaml)",
     )
 
+    # `issue` — author / validate a GitHub issue BODY from issue.schema.json
+    # (#1223). Peer of the other authored kinds; schema-driven generation +
+    # the schema-driven compliance gate (--check). Planner-side + coach-free.
+    iss = sub.add_parser("issue", help="author a schema-valid issue body (or --check one)")
+    iss.add_argument("--title", default=None, help="issue title (the H1 + Problem Statement subject)")
+    iss.add_argument("--type", default="implementation", dest="issue_type",
+                     help="issue Type (e.g. implementation, bug, refactor)")
+    iss.add_argument("--status", default="INIT",
+                     help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...)")
+    iss.add_argument("--branch", default=None, help="the issue's worktree branch")
+    iss.add_argument("--train", default=None, help="train id the issue belongs to")
+    iss.add_argument("--feature", default=None, help="feature urn the issue lands")
+    iss.add_argument("--check", default=None, metavar="PATH",
+                     help="validate an existing body file against issue.schema.json (no generation)")
+
     # Plan-layer kinds — spec-driven (rich nested shape: produce[], components{},
     # wmbts[], acceptances[]). The spec file holds the same input dict the
     # create_<kind> functions accept; #1139 (atdd plan) writes it per locked unit.
-    for _kind in ("wagon", "feature", "wmbt", "train"):
+    for _kind in ("wagon", "feature", "wmbt", "train", "interlocking"):
         pk = sub.add_parser(_kind, help=f"author a {_kind} (plan layer)")
         pk.add_argument("--spec", required=True, help="path to a YAML/JSON file with the kind's input dict")
         pk.add_argument("--root", default=None, help="repo root the plan/ home resolves against (default: cwd)")
@@ -541,6 +808,38 @@ def _parse_terms(raw_terms: list[str]) -> list[dict]:
         tid, _, text = raw.partition("=")
         out.append({"term_id": tid.strip(), "text": text.strip()})
     return out
+
+
+def _variant_request(args, implementation: dict | None) -> tuple[str, str, str] | None:
+    """Resolve+validate a variant scaffold request from convention-node args.
+
+    Returns ``(family, template, implementation_ref)`` when scaffolding is asked
+    for, ``None`` when no --family/--template was given. Raises
+    ``AuthorInputError`` (so the operator is told why) when the flags are
+    half-given or the rule carries no ``implementation.ref`` binding. Called
+    *before* the node is written so a bad request never leaves a stray node.
+    """
+    family = getattr(args, "family", None)
+    template = getattr(args, "template", None)
+    if family is None and template is None:
+        return None
+    if not (family and template):
+        raise AuthorInputError(
+            "family" if not family else "template",
+            "--family and --template must be given together to scaffold a variant",
+        )
+    ref = (implementation or {}).get("ref")
+    if not ref:
+        raise AuthorInputError(
+            "implementation",
+            "--family/--template scaffolding requires --implementation with a 'ref' "
+            "(the validator binding the variant enforces)",
+        )
+
+    from atdd.planner.commands.author_variant import validate_family_template
+
+    validate_family_template(family, template)  # reject unknown pair before any write
+    return family, template, ref
 
 
 def _config_extensions(root: Path) -> list[str]:
@@ -604,9 +903,39 @@ def run(argv: list[str]) -> int:
         print(str(pkg))
         return 0
 
+    # `issue` authors/validates a body string (stdout); it writes no file and
+    # needs no authoring-context resolution — dispatch before resolve_context.
+    if args.cmd == "issue":
+        if args.check is not None:
+            try:
+                body = Path(args.check).read_text(encoding="utf-8")
+            except OSError as exc:
+                logger.warning("atdd author issue cannot read --check", extra={"path": args.check, "error": str(exc)})
+                print(f"atdd author issue: cannot read {args.check}: {exc}", file=sys.stderr)
+                return 2
+            violations = validate_issue_body(body)
+            if violations:
+                print(f"atdd author issue: {args.check} is not schema-valid:", file=sys.stderr)
+                for v in violations:
+                    print(f"  - {v}", file=sys.stderr)
+                return 1
+            print(f"atdd author issue: {args.check} is schema-valid")
+            return 0
+        spec = {
+            "title": args.title,
+            "status": args.status,
+            "type": args.issue_type,
+            "branch": args.branch,
+            "train": args.train,
+            "feature": args.feature,
+        }
+        print(create_issue_body({k: v for k, v in spec.items() if v is not None}))
+        return 0
+
     # Plan-layer kinds write under plan/ (not core/extension), so they need no
     # authoring-context resolution — dispatch before resolve_context.
-    if args.cmd in ("wagon", "feature", "wmbt", "train", "acceptance"):
+    if args.cmd in ("wagon", "feature", "wmbt", "train", "interlocking", "acceptance"):
+        from atdd.planner.interlocking import InterlockingError
         try:
             spec = yaml.safe_load(Path(args.spec).read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
@@ -622,10 +951,17 @@ def run(argv: list[str]) -> int:
                 out = create_wmbt(spec, root=args.root)
             elif args.cmd == "train":
                 out = create_train(spec, root=args.root)
+            elif args.cmd == "interlocking":
+                out = create_interlocking(spec, root=args.root)
             else:  # acceptance
                 out = create_acceptance(args.wmbt_urn, spec, root=args.root)
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+            print(f"atdd author: {exc}", file=sys.stderr)
+            return 2
+        except InterlockingError as exc:
+            logger.warning("atdd author interlocking precondition unmet",
+                           extra={"error": str(exc)})
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(out))
@@ -659,16 +995,45 @@ def run(argv: list[str]) -> int:
             role = args.rule_id.split(".", 1)[0]  # extension: derive role from rule_id
         path = node_home(ctx, role, args.rule_id, root)
         try:
+            def _json_arg(field: str, raw):
+                if raw is None:
+                    return None
+                try:
+                    return json.loads(raw)
+                except (ValueError, TypeError) as exc:
+                    raise AuthorInputError(field, f"--{field} must be valid JSON: {exc}")
+
+            implementation = _json_arg("implementation", getattr(args, "implementation", None))
+            variant_req = _variant_request(args, implementation)  # validate before any write
             create_convention_node(
                 role, args.rule_id, kind=args.kind, status=args.status,
-                statement=args.statement, rationale=args.rationale, notes=args.notes,
+                statement=args.statement, name=getattr(args, "name", None),
+                rationale=args.rationale, notes=args.notes,
+                implementation=implementation,
+                source=_json_arg("node-source", getattr(args, "node_source", None)),
+                content=_json_arg("content", getattr(args, "content", None)),
+                bidirectional=_json_arg("bidirectional", getattr(args, "bidirectional", None)),
+                metadata=_json_arg("metadata", getattr(args, "metadata", None)),
+                parity=_json_arg("parity", getattr(args, "parity", None)),
+                validation=_json_arg("validation", getattr(args, "validation", None)),
                 terms=_parse_terms(args.terms), path=path,
             )
+            variant_path = None
+            if variant_req is not None:
+                from atdd.planner.commands.author_variant import scaffold_variant
+
+                family, template, ref = variant_req
+                variant_path = scaffold_variant(
+                    family=family, template=template, rule_id=args.rule_id,
+                    implementation_ref=ref, root=root,
+                )
         except AuthorInputError as exc:
             logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
             print(f"atdd author: {exc}", file=sys.stderr)
             return 2
         print(str(path))
+        if variant_path is not None:
+            print(str(variant_path))
         return 0
 
     if args.cmd == "relationship":

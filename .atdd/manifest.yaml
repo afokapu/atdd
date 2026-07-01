@@ -1,6 +1,217 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1297'
+  slug: fix-release-worker-tag-and-version
+  file: null
+  issue_number: 1297
+  type: implementation
+  status: SMOKE
+  created: '2026-07-01'
+  archived: null
+  branch: feat/fix-release-worker-tag-and-version
+  train: 0002-coach-drives-lifecycle
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:fix-release-worker-tag-and-version
+- id: '1285'
+  slug: fix-stuck-dynamic-version-release
+  file: null
+  issue_number: 1285
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+  branch: feat/fix-stuck-dynamic-version-release
+  train: 0002-coach-drives-lifecycle
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:wire-release-worker-drains-version-decided
+- id: '1283'
+  slug: extend-verb-lexicon
+  file: null
+  issue_number: 1283
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+  branch: feat/extend-verb-lexicon
+  train: 0001-self-compliance-validate
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
+- id: '1274'
+  slug: state-store-sot-boundary-operational-vs-definitions
+  file: null
+  issue_number: 1274
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/state-store-sot-boundary-operational-vs-definitions
+- id: '1276'
+  slug: planner-naming-validators
+  file: null
+  issue_number: 1276
+  type: implementation
+  status: SMOKE
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-naming-validators
+  train: 0001-self-compliance-validate
+  wagon: define-plans
+  feature: feature:define-plans:atdd-plan-session
+- id: '1268'
+  slug: enforce-dispatch-verifies-channel-live
+  file: null
+  issue_number: 1268
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/enforce-dispatch-verifies-channel-live
+  train: 0002-coach-drives-lifecycle
+- id: '1265'
+  slug: interlocking-authoring-path
+  file: null
+  issue_number: 1265
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-30'
+  archived: null
+  branch: feat/interlocking-authoring-path
+  train: 0003-author-substrate
+  wagon: author-plan-substrate
+  feature: feature:author-plan-substrate:author-interlocking
+- id: '1263'
+  slug: decommission-preflight-classifier
+  file: null
+  issue_number: 1263
+  type: implementation
+  status: SMOKE
+  created: '2026-06-30'
+  archived: null
+  branch: feat/decommission-preflight-classifier
+  wagon: validate-conventions
+  feature: feature:validate-conventions:legacy-decommission
+  train: 0001-self-compliance-validate
+- id: '1251'
+  slug: runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
+  file: null
+  issue_number: 1251
+  type: implementation
+  status: RED
+  created: '2026-06-30'
+  archived: null
+  branch: feat/runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
+- id: '1249'
+  slug: planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
+  file: null
+  issue_number: 1249
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
+- id: '1248'
+  slug: planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
+  file: null
+  issue_number: 1248
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
+- id: '1247'
+  slug: schema-authoring-add-convention-node-validation-metadata-for-interlocking-rules
+  file: null
+  issue_number: 1247
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+  branch: feat/schema-authoring-add-convention-node-validation-metadata-for-interlocking-rules
+  wagon: author-atdd-substrate
+  feature: feature:author-atdd-substrate:author-convention-node
+  train: 0003-author-substrate
+- id: '1207'
+  slug: decommission-tier1-batch1
+  file: null
+  issue_number: 1207
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-30'
+  archived: null
+  branch: refactor/decommission-tier1-batch1
+- id: 1207-batch2
+  slug: decommission-tier1-batch2
+  file: null
+  issue_number: 1207
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-30'
+  archived: null
+  branch: refactor/decommission-tier1-batch2
+- id: '1220'
+  slug: bind-state-store-invariants-to-node-validators
+  file: null
+  issue_number: 1220
+  type: implementation
+  status: SMOKE
+  created: '2026-06-30'
+  archived: null
+  branch: feat/bind-state-store-invariants-to-node-validators
+  train: 0002-coach-drives-lifecycle
+- id: '1242'
+  slug: phase-aware-validator-binding
+  file: null
+  issue_number: 1242
+  type: implementation
+  status: SMOKE
+  created: '2026-06-29'
+  archived: null
+  branch: feat/phase-aware-validator-binding
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:phase-aware-validator-binding
+  train: 0001-self-compliance-validate
+- id: '1223'
+  slug: issue-schema-json
+  file: null
+  issue_number: 1223
+  type: implementation
+  status: SMOKE
+  created: '2026-06-29'
+  archived: null
+  branch: feat/issue-schema-json
+  feature: feature:author-atdd-substrate:author-issue-body
+  train: 0003-author-substrate
+- id: '1238'
+  slug: extension-enforcement-runner
+  file: null
+  issue_number: 1238
+  type: implementation
+  status: SMOKE
+  created: '2026-06-29'
+  archived: null
+  branch: feat/extension-enforcement-runner
+  wagon: enforce-binding-plan
+  feature: feature:enforce-binding-plan:run-binding-plan
+  train: 0001-self-compliance-validate
+- id: install-extensions
+  slug: install-extensions
+  file: null
+  issue_number: null
+  type: implementation
+  status: RED
+  created: '2026-06-29'
+  archived: null
+  branch: install-extensions
+- id: tester-core-atomize
+  slug: tester-core-atomize
+  file: null
+  issue_number: 1215
+  type: implementation
+  status: REFACTOR
+  created: '2026-06-29'
+  archived: null
+  branch: tester-core-atomize
 - id: '1173'
   slug: restore-interim-manual-version-bump
   file: null
@@ -2531,6 +2742,8 @@ sessions:
   status: INIT
   created: '2026-06-12'
   archived: null
+  branch: feat/coach-integration-persistent-orchestrator-loop
+  train: 0002-coach-drives-lifecycle
 - id: '1081'
   slug: feed-daemon-watches-gated-decisions-answer-escalate-policy
   file: null
@@ -2864,6 +3077,78 @@ sessions:
   archived: null
   branch: feat/composed-no-orphan-extension-nodes
   train: 0003-author-substrate
+- id: '1211'
+  slug: enforce-convention-graph-query-and-sentinel-parity-gates
+  file: null
+  issue_number: 1211
+  type: implementation
+  status: RED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:convention-graph-query-contract
+  train: 0001-self-compliance-validate
+- id: '1212'
+  slug: differential-legacy-vs-convention-catch-matrix-harness
+  file: null
+  issue_number: 1212
+  type: implementation
+  status: RED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:differential-catch-matrix-harness
+  train: 0001-self-compliance-validate
+- id: '1204'
+  slug: introduce-convention-validator-family-template-architecture
+  file: null
+  issue_number: 1204
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:family-template-catalogue
+  train: 0001-self-compliance-validate
+- id: '1205'
+  slug: map-legacy-validators-to-convention-parity-matrix
+  file: null
+  issue_number: 1205
+  type: analysis
+  status: REFACTOR
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:legacy-parity-audit
+  train: 0001-self-compliance-validate
+- id: '1206'
+  slug: implement-convention-validator-variants-to-parity
+  file: null
+  issue_number: 1206
+  type: implementation
+  status: RED
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/introduce-convention-validator-family-template-architecture
+  wagon: validate-conventions
+  feature: feature:validate-conventions:p0-graph-integrity-variants
+  train: 0001-self-compliance-validate
+- id: '1207'
+  slug: decommission-legacy-persona-validators
+  file: null
+  issue_number: 1207
+  type: refactor
+  status: REFACTOR
+  created: '2026-06-24'
+  archived: null
+  branch: refactor/decommission-legacy-persona-validators
+  wagon: validate-conventions
+  feature: feature:validate-conventions:shadow-and-promote
+  train: 0001-self-compliance-validate
 - id: '1209'
   slug: plan-session-traceability-chain
   file: null
@@ -2912,7 +3197,6 @@ sessions:
   status: INIT
   created: '2026-06-22'
   archived: null
-  branch: chore/two-way-channel-autonomous-loop-not-closing-live
 - id: '1191'
   slug: safety-path-dangerous-escalate-no-live-coverage
   file: null
@@ -2967,99 +3251,19 @@ sessions:
   file: null
   issue_number: 1203
   type: implementation
-  status: INIT
+  status: GREEN
   created: '2026-06-22'
   archived: null
-  branch: feat/state-store-authoritative-work-item-lifecycle
-- id: '1213'
-  slug: tester-convention-decomposition
-  file: null
-  issue_number: 1213
-  type: planning
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-- id: '1214'
-  slug: tester-convention-classification
-  file: null
-  issue_number: 1214
-  type: analysis
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-- id: '1215'
-  slug: atomize-core-tester-conventions
-  file: null
-  issue_number: 1215
-  type: migration
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-- id: '1216'
-  slug: coder-convention-decomposition
-  file: null
-  issue_number: 1216
-  type: planning
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-- id: '1217'
-  slug: coder-convention-classification
-  file: null
-  issue_number: 1217
-  type: analysis
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-- id: '1218'
-  slug: atomize-core-coder-conventions
-  file: null
-  issue_number: 1218
-  type: migration
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-- id: '1219'
-  slug: state-store-cross-session-tracker
-  file: null
-  issue_number: 1219
-  type: tracking
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-- id: '1220'
-  slug: bind-state-store-invariants-to-node-validators
-  file: null
-  issue_number: 1220
-  type: implementation
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-  branch: feat/bind-state-store-invariants-to-node-validators
-- id: '1221'
-  slug: schema-driven-authoring
-  file: null
-  issue_number: 1221
-  type: implementation
-  status: INIT
-  created: '2026-06-25'
-  archived: null
-- id: '1223'
-  slug: decommission-atdd-issue-command
-  file: null
-  issue_number: 1223
-  type: planning
-  status: INIT
-  created: '2026-06-25'
-  archived: null
+  train: 0002-coach-drives-lifecycle
 - id: '1225'
   slug: registry-reads-single-node-rules
   file: null
   issue_number: 1225
   type: refactor
-  status: INIT
+  status: REFACTOR
   created: '2026-06-25'
   archived: null
+  branch: refactor/registry-reads-single-node-rules
 - id: '1227'
   slug: decommission-theme-train-validators
   file: null
@@ -3068,6 +3272,7 @@ sessions:
   status: INIT
   created: '2026-06-26'
   archived: null
+  branch: feat/decommission-theme-train-validators
 - id: '1229'
   slug: decommission-special-case-validators
   file: null
@@ -3077,55 +3282,223 @@ sessions:
   created: '2026-06-26'
   archived: null
   branch: feat/decommission-special-case-validators
-- id: '1247'
-  slug: schema-authoring-add-convention-node-validation-metadata-for-interlocking-rules
+- id: '1215'
+  slug: atomize-tester-acceptance-violation
   file: null
-  issue_number: 1247
+  issue_number: 1215
+  type: migration
+  status: INIT
+  created: '2026-06-25'
+  archived: null
+  branch: feat/atomize-tester-acceptance-violation
+- id: '1218'
+  slug: atomize-coder-shared-nodes
+  file: null
+  issue_number: 1218
+  type: migration
+  status: INIT
+  created: '2026-06-25'
+  archived: null
+  branch: feat/atomize-coder-shared-nodes
+- id: '1218'
+  slug: atomize-coder-careful-pass
+  file: null
+  issue_number: 1218
+  type: migration
+  status: INIT
+  created: '2026-06-28'
+  archived: null
+  branch: feat/atomize-coder-careful-pass
+- id: '1218'
+  slug: atomize-coder-synthesize-id
+  file: null
+  issue_number: 1218
+  type: migration
+  status: INIT
+  created: '2026-06-28'
+  archived: null
+  branch: feat/atomize-coder-synthesize-id
+- id: '1239'
+  slug: group-substrate-cli-verbs
+  file: null
+  issue_number: 1239
+  type: implementation
+  status: SMOKE
+  created: '2026-06-29'
+  archived: null
+  branch: feat/group-substrate-cli-verbs
+  wagon: admit-substrate
+  feature: feature:admit-substrate:substrate-cli-grouping
+  train: 0004-admit-substrate
+- id: '1238'
+  slug: lock-driven-extension-enforcement-runner-enforce-the-binding-plan-on-commit-ci
+  file: null
+  issue_number: 1238
+  type: implementation
+  status: INIT
+  created: '2026-06-29'
+  archived: null
+- id: '1223'
+  slug: schema-driven-issue-body-issue-schema-json-child-of-1221
+  file: null
+  issue_number: 1223
+  type: implementation
+  status: INIT
+  created: '2026-06-25'
+  archived: null
+- id: '1221'
+  slug: schema-driven-authoring
+  file: null
+  issue_number: 1221
+  type: implementation
+  status: INIT
+  created: '2026-06-25'
+  archived: null
+- id: '1219'
+  slug: state-store-cross-session-tracker
+  file: null
+  issue_number: 1219
+  type: implementation
+  status: INIT
+  created: '2026-06-24'
+  archived: null
+- id: '1217'
+  slug: coder-convention-classification
+  file: null
+  issue_number: 1217
+  type: implementation
+  status: INIT
+  created: '2026-06-24'
+  archived: null
+- id: '1216'
+  slug: coder-convention-decomposition
+  file: null
+  issue_number: 1216
+  type: implementation
+  status: INIT
+  created: '2026-06-24'
+  archived: null
+- id: '1214'
+  slug: tester-convention-classification
+  file: null
+  issue_number: 1214
+  type: implementation
+  status: INIT
+  created: '2026-06-24'
+  archived: null
+- id: '1213'
+  slug: tester-convention-decomposition
+  file: null
+  issue_number: 1213
+  type: implementation
+  status: INIT
+  created: '2026-06-24'
+  archived: null
+- id: '1196'
+  slug: reconcile-plan-session-no-issue-with-precommit-registration
+  file: null
+  issue_number: 1196
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
+- id: '1195'
+  slug: atdd-emergency-must-require-human-authorization-not-agent-self
+  file: null
+  issue_number: 1195
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
+- id: '1168'
+  slug: introduce-state-store-for-local-operational-data
+  file: null
+  issue_number: 1168
+  type: implementation
+  status: INIT
+  created: '2026-06-20'
+  archived: null
+- id: '1151'
+  slug: live-smoke-acceptance-must-execute-not-skip
+  file: null
+  issue_number: 1151
+  type: implementation
+  status: GREEN
+  created: '2026-06-18'
+  archived: null
+- id: 1203-phase2
+  slug: state-store-phase2-authoritative-writes
+  file: null
+  issue_number: 1203
+  type: implementation
+  status: GREEN
+  created: '2026-06-30'
+  archived: null
+  train: 0002-coach-drives-lifecycle
+  branch: feat/state-store-phase2-authoritative-writes
+- id: '1254'
+  slug: prepush-trim-repo-validate-leg
+  file: null
+  issue_number: 1254
+  type: refactor
+  status: SMOKE
+  train: 0002-coach-drives-lifecycle
+  created: '2026-06-30'
+  archived: null
+- id: '1275'
+  slug: plan-guidelines-consumer
+  file: null
+  issue_number: 1275
+  type: implementation
+  status: REFACTOR
+  train: 0001-self-compliance-validate
+  created: '2026-06-30'
+  archived: null
+  branch: fix/plan-guidelines-consumer
+- id: '1292'
+  slug: enforce-validator-implementation-schema
+  file: null
+  issue_number: 1292
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+- id: '1285'
+  slug: wire-release-worker-extension-into-core-publish-pipeline-drain-version-decided-tag-pypi
+  file: null
+  issue_number: 1285
   type: implementation
   status: INIT
   created: '2026-06-30'
   archived: null
-  branch: feat/schema-authoring-add-convention-node-validation-metadata-for-interlocking-rules
-- id: '1248'
-  slug: planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
+- id: '1284'
+  slug: reconcile-closed-phase-labels
   file: null
-  issue_number: 1248
+  issue_number: 1284
   type: implementation
   status: INIT
   created: '2026-06-30'
   archived: null
-  branch: feat/planner-artifact-train-interlocking-yaml-fields-entrypoints-guards-and-deterministic-projections
-- id: '1249'
-  slug: planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
+- id: '1282'
+  slug: graduate-dispatch-daemon-attach-escalate
   file: null
-  issue_number: 1249
+  issue_number: 1282
   type: implementation
   status: INIT
   created: '2026-06-30'
   archived: null
-  branch: feat/planner-validators-interlocking-schema-projection-entrypoint-shape-conventions-and-confirm-gate
-- id: '1251'
-  slug: runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
+- id: '1281'
+  slug: version-sot-store-projection-implementation
   file: null
-  issue_number: 1251
+  issue_number: 1281
   type: implementation
-  status: INIT
+  status: SMOKE
   created: '2026-06-30'
   archived: null
-  branch: feat/runtime-spec-interlockingrunner-is-called-by-station-master-and-delegates-to-trainrunner
-- id: '1265'
-  slug: interlocking-authoring-path
+- id: '1273'
+  slug: mandatory-three-path-review-for-authored-issues
   file: null
-  issue_number: 1265
-  type: implementation
-  status: INIT
-  created: '2026-06-30'
-  archived: null
-  branch: feat/interlocking-authoring-path
-- id: '1270'
-  slug: decommission-manifest-mirror
-  file: null
-  issue_number: 1270
+  issue_number: 1273
   type: implementation
   status: INIT
   created: '2026-06-30'
@@ -3138,75 +3511,46 @@ sessions:
   status: INIT
   created: '2026-06-30'
   archived: null
-  branch: feat/atdd-author-issue-publishes-to-store
-- id: '1273'
-  slug: mandatory-three-path-review-for-authored-issues
+- id: '1270'
+  slug: decommission-manifest-mirror
   file: null
-  issue_number: 1273
+  issue_number: 1270
   type: implementation
   status: INIT
   created: '2026-06-30'
   archived: null
-  branch: feat/mandatory-three-path-review-for-authored-issues
-- id: '1274'
-  slug: state-store-sot-boundary-operational-vs-definitions
+- id: '1253'
+  slug: verify-unverified-parity-detectors
   file: null
-  issue_number: 1274
+  issue_number: 1253
   type: implementation
   status: INIT
   created: '2026-06-30'
   archived: null
-  branch: feat/state-store-sot-boundary-operational-vs-definitions
-- id: '1281'
-  slug: version-sot-store-projection-implementation
+- id: '1298'
+  slug: enforce-live-smoke-execution-honesty
   file: null
-  issue_number: 1281
-  type: tracking
-  status: INIT
+  issue_number: 1298
+  type: implementation
+  status: REFACTOR
   created: '2026-07-01'
   archived: null
-  branch: chore/version-sot-store-projection-implementation
-- id: '1282'
-  slug: graduate-dispatch-daemon-attach-escalate
+  train: 0001-self-compliance-validate
+- id: '1301'
+  slug: install-build-twine-for-pypi-publish
   file: null
-  issue_number: 1282
-  type: tracking
-  status: INIT
-  created: '2026-07-01'
-  archived: null
-- id: '1283'
-  slug: extend-verb-lexicon
-  file: null
-  issue_number: 1283
+  issue_number: 1301
   type: implementation
   status: INIT
   created: '2026-07-01'
   archived: null
-  branch: feat/extend-verb-lexicon
-- id: '1284'
-  slug: reconcile-closed-phase-labels
+  branch: feat/install-build-twine-for-pypi-publish
+- id: '1310'
+  slug: graft-build-meta-shim-into-sdist
   file: null
-  issue_number: 1284
-  type: cleanup
-  status: INIT
-  created: '2026-07-01'
-  archived: null
-  branch: chore/reconcile-closed-phase-labels
-- id: '1285'
-  slug: fix-stuck-dynamic-version-release
-  file: null
-  issue_number: 1285
+  issue_number: 1310
   type: implementation
   status: INIT
   created: '2026-07-01'
   archived: null
-  branch: feat/fix-stuck-dynamic-version-release
-- id: '1292'
-  slug: enforce-validator-implementation-schema
-  file: null
-  issue_number: 1292
-  train: 0003-author-substrate
-  type: implementation
-  status: SMOKE
-  created: '2026-07-01'
-  archived: null
+  branch: feat/graft-build-meta-shim-into-sdist

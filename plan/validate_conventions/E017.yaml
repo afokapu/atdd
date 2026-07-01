@@ -1,0 +1,28 @@
+urn: wmbt:validate-conventions:E017
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unaccounted-decommission-outcome
+context_clarifier: the decommission report records an outcome for every legacy validator,
+  one-to-one with the parity audit
+lens: functional.effectiveness
+statement: minimize likelihood of unaccounted-decommission-outcome by ensuring the
+  decommission report records an outcome for every legacy validator, one-to-one with
+  the parity audit
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E017-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E017 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

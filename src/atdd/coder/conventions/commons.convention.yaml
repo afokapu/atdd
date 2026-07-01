@@ -105,6 +105,13 @@ structure_patterns:
           - "integration/supabase/"   # Supabase client
         audit: "May import from domain and application"
 
+  # MIGRATED (#1218 careful pass — synthesize-id): the stack-neutral principles below
+  # are now single-node conventions under nodes/:
+  #   "Domain layer purity"  -> coder.commons.domain-layer-purity
+  #   "Consistent naming"     -> coder.commons.shared-code-named-commons
+  #   "Dependency direction"  -> NOT re-authored; it is the canonical
+  #     coder.backend.imports-respect-dependency-allowed (commons refines it via a
+  #     graph edge). The prose is preserved verbatim as migration source.
   common_principles:
     - principle: "Domain layer purity"
       description: "Domain layer has no framework imports in both stacks"

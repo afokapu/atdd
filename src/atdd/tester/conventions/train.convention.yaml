@@ -73,10 +73,7 @@ validation_rules:
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
-rules:
-  - id: "tester.train.coverage"
-    aliases: ["TESTER-TRAIN-COVERAGE-001"]
-    severity: 2
-    disposition: documentation-only
-    description: "Each train wagon has a smoke test exercising its composition root"
-    introduced_in: "1.67.0"
+# Legacy rules-list registry consumed by bind_rule. The decomposed node form
+# lives at conventions/nodes/tester.train.coverage.convention.yaml. The sole
+# train rule was atomized into a single-node file under nodes/ per the Phase A
+# core-atomization slice; the registry now reads it there.

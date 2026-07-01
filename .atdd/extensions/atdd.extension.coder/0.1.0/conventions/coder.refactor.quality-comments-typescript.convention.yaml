@@ -1,0 +1,60 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.quality-comments-typescript
+kind: rule
+status: active
+name: TypeScript source has an adequate comment ratio
+statement: Every TypeScript/TSX source module of non-trivial size MUST carry an adequate ratio of comment
+  lines to code — at least 10%, in parity with the Python rule — so that frontend intent is documented and
+  the code remains explainable during the REFACTOR phase. This is the TypeScript facet of the
+  language-agnostic comment-ratio obligation owned by the coder extension. The stack-specific detector that
+  enforces it (a pytest line-classifier counting `//`, `/* */`, and JSDoc lines versus code lines per file)
+  is the python-pytest workspace implementation referenced below; the obligation is agnostic, the detector
+  is not.
+implementation:
+  type: validator
+  ref: coder.refactor.quality-mi-typescript
+content:
+  summary: The TypeScript realization of the "code is adequately documented" obligation. The detector
+    classifies each non-blank line of a module (>= 20 lines) as a comment (`//` line, `/* */` block, or
+    JSDoc `*` continuation) or code, and flags any file whose comment ratio is below 10%. It is realized by
+    the multi-rule TS quality-metrics detector alongside quality-mi-typescript.
+  normative_text: |
+    Same threshold as the Python counterpart (>= 10% comment ratio). The detector counts single-line `//`
+    comments, `/* ... */` block comments (tracking multi-line spans), and JSDoc-style continuation lines
+    beginning with `*`, dividing by total non-blank lines; a file below 0.10 is flagged. WHICH constructs
+    count as comments is delegated to the per-stack detector. Files under 20 lines are not measured.
+  fix_hint: |
+    Add explanatory comments and JSDoc until the file clears 10%: component/hook/function JSDoc describing
+    intent, props, and return contracts, plus inline `//` comments on non-obvious logic. Prefer documenting
+    WHY over WHAT. This rule is `strict`: a file below the comment-ratio threshold is not suppressible and
+    fails.
+  exceptions:
+    - Small files (< 20 lines) are not measured.
+    - Test and spec files (`*.test.ts(x)`, `*.spec.ts(x)`, `__tests__/`) and vendored/build directories are
+      out of scope.
+    - Blank lines are excluded from the denominator; only non-blank code/comment lines are counted.
+metadata:
+  aliases:
+    - REFACTOR-QUALITY-COMMENTS-TS-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.quality-comments-typescript
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: ts_comment_ratio
+  text: the fraction of a TS/TSX module's non-blank lines that are `//`, `/* */`, or JSDoc `*` comment
+    lines; the rule requires >= 0.10 (10%).
+- term_id: jsdoc_continuation
+  text: a line beginning with `*` inside a `/** ... */` block — counted as a comment line by the TS
+    classifier.

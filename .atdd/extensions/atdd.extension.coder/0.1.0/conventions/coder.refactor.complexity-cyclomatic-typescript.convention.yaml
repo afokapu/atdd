@@ -1,0 +1,71 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.complexity-cyclomatic-typescript
+kind: rule
+status: active
+name: TypeScript function cyclomatic complexity stays under threshold
+statement: Every TypeScript/TSX function MUST keep its cyclomatic complexity below the threshold (default <=
+  10, parity with the Python rule) so that the number of independent paths through any one function stays
+  testable. This is the TypeScript-stack realization of the language-neutral coder.refactor.complexity-cyclomatic
+  obligation owned by the coder extension. The stack-specific detector that enforces it (a regex scan — no
+  AST/tree-sitter — that extracts each function body and counts decision points) is the python-pytest
+  workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.complexity-cyclomatic-typescript
+content:
+  summary: The TypeScript sibling of coder.refactor.complexity-cyclomatic. The realization is a PYTHON
+    detector that inspects TS source by regex + brace matching (no TypeScript runtime), extracting each
+    function body and computing cyclomatic complexity as 1 + decision keywords (if / else if / for / while /
+    do / catch / case) + boolean and nullish operators (&& / || / ??) + ternaries, flagging any function
+    over 10. It is realized by the same multi-rule TS complexity detector as the two sibling
+    coder.refactor.complexity-*-typescript rules (via that implementation's emits_rule_ids); functions with
+    fewer than 3 code lines are skipped, mirroring core.
+  normative_text: |
+    Cyclomatic complexity measures the count of independent paths through a function; the TypeScript
+    obligation mirrors the Python one (default threshold <= 10). WHICH constructs count and HOW the score is
+    computed is delegated to the per-stack detector; for the TS stack it is a regex pass — no AST, no
+    tree-sitter — that adds one per decision keyword (if / else if / for / while / do / catch / case), one
+    per boolean / nullish operator (&& / || / ??), and one per ternary, atop a base path of 1. This
+    realization needs no TypeScript runtime; it runs under the python-pytest provider, distinct from a
+    future node/vitest TS workspace for validators that require real TS semantics. Trivial functions (under
+    3 code lines) are not scored.
+  fix_hint: |
+    Reduce the branching of the flagged function:
+      * extract nested decision blocks into named helpers,
+      * replace long if/else-if ladders or switch arms with a dispatch map,
+      * collapse compound &&/||/?? conditions into well-named predicates.
+    This rule is `strict`: a function over the cyclomatic threshold is not suppressible and fails.
+    Pre-existing counts in a consumer repo are held flat by a downstream ratchet baseline (a consumer/coach
+    concern), not the workspace detector — the detector always emits the RAW over-threshold function list.
+  exceptions:
+    - Functions with fewer than 3 code lines are not scored.
+    - Test files (*.test.ts(x) / *.spec.ts(x)) and vendored/build dirs are outside the scan.
+    - The threshold (default 10) is configurable; the obligation is "at or below the configured threshold".
+metadata:
+  aliases:
+    - COMPLEXITY-CYCLOMATIC-TS-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.complexity-cyclomatic-typescript
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: cyclomatic_complexity_ts
+  text: the count of independent paths through a TypeScript function, computed by regex as 1 plus decision
+    keywords plus boolean / nullish operators plus ternaries.
+- term_id: regex_extraction
+  text: the no-runtime approach this detector uses — regex function patterns plus brace matching to slice a
+    TS function body, instead of a TypeScript AST or tree-sitter parse.
+- term_id: complexity_threshold
+  text: the configured maximum cyclomatic complexity a TS function may have (default 10, parity with the
+    Python rule); the obligation is to stay at or below it.

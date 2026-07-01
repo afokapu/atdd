@@ -36,6 +36,13 @@ from atdd.coach.utils.train_spec_phase import (
     should_enforce,
     emit_phase_warning
 )
+from atdd.coach.utils.rule_binding import bind_rule
+
+# Reverse-coherence binding (#1225): this module's
+# test_train_files_exist_for_registry_entries enforces the strict single-node rule
+# planner.train.registry (registry entry <-> spec file), so it binds that rule id at
+# import time — completing the declaration<->implementation roundtrip.
+_RULE_TRAIN_REGISTRY = bind_rule("planner.train.registry")
 
 
 def _merged_theme_map() -> Dict[str, str]:

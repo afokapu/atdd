@@ -122,6 +122,37 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Convention validator family/template/variant layer (#1204/#1206/#1212) — the
+  # real-graph engine. Gates so the convention layer actually enforces in CI; a
+  # prerequisite for retiring any legacy persona validator (no silent coverage loss).
+  validate-conventions:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+
+      - name: Run convention validators
+        run: PYTHONPATH=src python3 -m pytest src/atdd/validators/conventions/ -v --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # SMOKE phase: opt-in via SMOKE_BASE_URL repo secret (issue #293).
   # When unset, the job ends with `success` via the early-skip step and the
   # validate-gate fan-in accepts it. When set, Playwright runs the e2e smoke
@@ -270,7 +301,7 @@ jobs:
   # check that no longer reports.
 
   validate-gate:
-    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-smoke, import-discipline-test, parity-test, incident-defense-test]
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-smoke, import-discipline-test, parity-test, incident-defense-test]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -282,6 +313,7 @@ jobs:
                         "tester:${{ needs.validate-tester.result }}" \
                         "coder:${{ needs.validate-coder.result }}" \
                         "coach:${{ needs.validate-coach.result }}" \
+                        "conventions:${{ needs.validate-conventions.result }}" \
                         "smoke:${{ needs.validate-smoke.result }}" \
                         "import-discipline:${{ needs.import-discipline-test.result }}" \
                         "parity:${{ needs.parity-test.result }}" \

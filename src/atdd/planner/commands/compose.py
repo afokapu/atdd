@@ -197,6 +197,56 @@ def validate_realizes(ext_pkg: dict, core_ids: set[str]) -> set[str]:
     return realized_core
 
 
+# ─── the forcing rule: a transport provider MUST realize the mediation obligation ──
+# The core obligation a decision-mediation / agent-session-transport provider must
+# realize so dispatch can verify the channel is live before spawning a worker (#1268).
+MEDIATION_OBLIGATION_NODE = "coach.execution.dispatch-verifies-channel-live"
+# Capability domains that move/orchestrate the decision-mediation channel. A provider
+# in either domain carries the live-channel obligation.
+_TRANSPORT_MEDIATION_DOMAINS = frozenset({"transport", "orchestration"})
+
+
+def declares_transport_mediation_capability(manifest: dict) -> bool:
+    """True if the package declares a decision-mediation / agent-session-transport
+    capability — any capability in the ``transport`` or ``orchestration`` domain."""
+    for cap in (manifest.get("capabilities") or []):
+        if isinstance(cap, dict) and cap.get("domain") in _TRANSPORT_MEDIATION_DOMAINS:
+            return True
+    return False
+
+
+def validate_transport_realizes_mediation(pkg: dict, core_ids: set[str]) -> None:
+    """Forcing rule ``coach.substrate.transport-realizes-mediation`` (#1268 part B).
+
+    A package that declares the decision-mediation / agent-session-transport
+    (``transport`` or ``orchestration``) capability MUST declare a ``realizes`` edge
+    whose ``core_node`` is the ``dispatch-verifies-channel-live`` obligation. A
+    transport provider that does not realize the obligation could spawn a worker
+    against a dead mediation channel whose gated decisions never surface, so admission
+    REFUSES it (raises ``CompositionError``).
+
+    Distinct from ``validate_realizes`` (which checks a realizes block is well-formed):
+    this is the FORCING check — it demands the obligation be realized at all. It runs
+    for any package kind, since capabilities are declared by workspace providers."""
+    manifest = pkg["manifest"]
+    if not declares_transport_mediation_capability(manifest):
+        return
+    if MEDIATION_OBLIGATION_NODE not in core_ids:
+        raise CompositionError(
+            f"core obligation {MEDIATION_OBLIGATION_NODE!r} is not a shipped core node; "
+            "cannot enforce coach.substrate.transport-realizes-mediation"
+        )
+    realized = {cn for _en, cn in realizes_mappings(manifest)}
+    if MEDIATION_OBLIGATION_NODE not in realized:
+        raise CompositionError(
+            "package declares a decision-mediation/agent-session-transport capability "
+            f"but does not realizes the {MEDIATION_OBLIGATION_NODE!r} obligation; "
+            "a transport provider must prove the mediation channel is verified live "
+            "before a worker is spawned, so admission refuses it "
+            "(coach.substrate.transport-realizes-mediation)"
+        )
+
+
 # ─── the composed protocol view ─────────────────────────────────────────────
 def compose_protocol_view(core_node_ids, ext_pkg: dict, *, mode: str = "composed") -> dict:
     """Compose an extension into a protocol VIEW over the core node set. Pure data —
@@ -265,6 +315,9 @@ def validate_package(path, *, core_ids: "set[str] | None" = None) -> dict:
     report = {"root": str(root), "packages": [], "views": []}
     for p in pkgs:
         validate_by_kind(p)
+        # Forcing rule (#1268): a transport/mediation provider must realize the
+        # dispatch-verifies-channel-live obligation. Runs for every kind.
+        validate_transport_realizes_mediation(p, core_ids)
         entry = {"kind": p["kind"]}
         # Enforce the validator/family contract on every shipped implementation
         # manifest in the package (atdd.core.implementation-schema).

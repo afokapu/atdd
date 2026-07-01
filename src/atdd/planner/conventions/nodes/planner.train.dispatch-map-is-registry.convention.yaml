@@ -8,3 +8,10 @@ statement: The divergence dispatch map is a declared, schema-valid registry (art
 terms:
 - term_id: dispatch_registry
   text: ''
+implementation:
+  type: validator
+  ref: test_dispatch_registry::test_real_dispatch_entries_well_formed
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.127.0

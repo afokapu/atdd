@@ -61,6 +61,7 @@ acceptances:
       id: "AC-SMOKE-001"
       purpose: "A second real daemon process refuses to start while the first holds the single-instance lock"
       phase: "SMOKE"
+    execution_kind: live_smoke
     harness:
       type: "integration"
       category: "integration"

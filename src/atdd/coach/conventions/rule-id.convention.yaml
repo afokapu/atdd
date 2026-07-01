@@ -253,85 +253,6 @@ rule_schema:
 # `rule_schema:`. Do NOT nest these under `migration.steps` (the example
 # `rules:` snippet there is illustrative, not a runtime declaration).
 rules:
-  - id: "coach.rule-id.no-hardcoded-rule-severity"
-    severity: 2
-    description: "Migrated validators must not redeclare rule severity as a module constant"
-    disposition: strict
-    introduced_in: "1.66.0"
-    aliases: ["COACH-RULEID-BIND-001"]
-    validator: "test_no_hardcoded_rule_severity::test_no_hardcoded_rule_severity_in_migrated_validators"
-    fix_hint: "Remove the module-level RULE_SEVERITY/RULE_DESCRIPTION constants and call bind_rule(<id>) at import time instead."
-  - id: "coach.rule-id.disposition-required"
-    severity: 2
-    description: "Every declared rule must carry a disposition (strict | suppress-and-clean | advisory | documentation-only)"
-    disposition: strict
-    introduced_in: "2.0.0"
-    aliases: ["COACH-RULEID-DISPOSITION-001"]
-    validator: "test_rule_disposition_required::test_rule_disposition_required"
-    fix_hint: "Add `disposition: <strict|suppress-and-clean|advisory|documentation-only>` to the rule body."
-  - id: "coach.rule-id.stale-suppression"
-    severity: 3
-    description: "Inline ``# atdd:suppress(<id>) UNTIL=<date>`` markers must not have a past UNTIL date"
-    disposition: strict
-    introduced_in: "2.0.0"
-    aliases: ["COACH-RULEID-STALE-SUPPRESSION-001"]
-    validator: "test_no_stale_suppressions::test_no_stale_suppressions"
-    fix_hint: "Either fix the underlying violation or extend UNTIL= past today."
-  - id: "coach.rule-id.validator-binding-violation"
-    severity: 3
-    description: "Every enforced rule (strict|suppress-and-clean|advisory) must name a validator that calls bind_rule(<id>)"
-    disposition: strict
-    introduced_in: "3.0.0"
-    validator: "test_rule_validator_binding::test_every_enforced_rule_has_real_validator"
-    fix_hint: "Either set validator: '<module>::<func>' on the rule and have that function call bind_rule(<id>), or change disposition to documentation-only."
-  - id: "coach.initializer.template-cli-drift"
-    severity: 2
-    description: "Every `run: atdd ...` literal the initializer writes into consumer workflow templates must parse cleanly under the live atdd argparse"
-    disposition: strict
-    introduced_in: "3.11.0"
-    aliases: []
-    validator: "test_workflow_template_command_drift::test_every_run_line_parses_under_live_cli"
-    fix_hint: |
-      The named `run: atdd ...` line in src/atdd/coach/commands/initializer.py
-      emits a flag the live `atdd` argparse no longer accepts. Reproducer
-      case: the 3.10.0 release dropped `-m FLAG` from `atdd validate` while
-      the workflow templates still emitted `-m "not github_api"` (issue
-      #473). Repair as follows:
-
-        1. Read the validator output — the Violation cites the file:line
-           and the offending tokens (run: pytest src/atdd/coach/validators/test_workflow_template_command_drift.py -v).
-        2. Substitute the dead flag with the supported equivalent — for
-           the marker family the canonical mapping is:
-             -m "not github_api"  →  --skip-api
-             -m github_api        →  --api-only
-           (see src/atdd/cli.py::validate_parser for the live flag set;
-            run `atdd validate --help` to enumerate.)
-        3. Re-emit by re-running the unit test
-           src/atdd/coach/commands/tests/test_initializer_workflow_emission.py
-           which feeds every emitted run-line through the live argparse.
-  - id: "coach.workflow-template.command-must-parse"
-    severity: 2
-    description: "Every `run: atdd ...` line (any subcommand) the initializer writes into consumer workflow templates must resolve to a subcommand the live atdd top-level argparse declares"
-    disposition: strict
-    introduced_in: "3.53.6"
-    aliases: []
-    validator: "test_workflow_template_command_drift::test_every_run_line_parses_under_live_cli"
-    fix_hint: |
-      An emitted `run: atdd ...` line names a subcommand the live `atdd`
-      CLI does not declare (argparse `invalid choice`, e.g. the stranded
-      `atdd baseline update` emit), or a flag the subparser rejects
-      (`unrecognized arguments`). This widens #473's flag-only drift guard
-      (coach.initializer.template-cli-drift) to subcommand-level drift
-      across EVERY emitted `run: atdd ...` line, not just `atdd validate
-      ...` (issue #481 — the `baseline update` emit failed silently on
-      every push to main). Repair:
-        1. Run the validator to see the offending workflow file +
-           invocation (run: pytest
-           src/atdd/coach/validators/test_workflow_template_command_drift.py -v).
-        2. Either correct the emit in
-           src/atdd/coach/commands/initializer.py to a real subcommand,
-           or remove the emit if the job is retired.
-        3. Enumerate valid subcommands with `atdd --help`.
   - id: "coach.pr.base-must-be-default-branch"
     severity: 3
     description: "Every PR (open or being created via `atdd pr`) must target the repo's default branch unless --force is set"
@@ -403,38 +324,6 @@ rules:
 
       Source: #629 Layer 3 (CI guard), backed by #630 Layer 1 (pre-push) and
       #630 Layer 2 (commit-msg). See plan/integration_hardening/C004.yaml.
-  - id: "coach.rule-id.fix-hint-completeness"
-    severity: 2
-    description: "Every fix_hint (convention-declared or CLI-printed) must satisfy the completeness contract C1-C4 in rule_schema.fields.fix_hint.description"
-    disposition: strict
-    introduced_in: "3.8.0"
-    aliases: []
-    validator: "test_fix_hint_completeness::test_every_fix_hint_satisfies_completeness_contract"
-    fix_hint: |
-      The named fix_hint fails one or more contract clauses (C1-C4). Repair as follows:
-        1. Re-run the validator to read which clause failed
-           (run: pytest src/atdd/coach/validators/test_fix_hint_completeness.py -v).
-           The Violation message names the clause + the offending token,
-           command, or structural shape.
-        2. Resolve per the failed clause:
-             - C1 placeholder resolution: for each bare ``<token>``, append
-               a resolver line in the same hint block. Patterns
-               (e.g. "(see plan/_trains.yaml::trains.id)" / "(run atdd list trains)" /
-                'e.g. "0001-self-compliance-validate"').
-             - C2 deprecation contradiction: substitute the deprecated CLI
-               form with the canonical one
-               (see src/atdd/cli.py::_deprecation_warning) — same toolkit
-               that emits the warning prints the canonical replacement.
-             - C3 prerequisite disclosure: convert the hint to a numbered
-               sequence; step 1 = the prerequisite
-               (e.g. "1. cd into the feature worktree (run: atdd branch <N>)").
-             - C4 runnable-as-printed: copy-paste the hint into a fresh
-               shell with the C3 prereq met; if it fails, simplify until it
-               succeeds. Sandbox-smoke is optional in 3.8.x.
-        3. Re-run step 1 to confirm clean.
-      Source contract: see src/atdd/coach/conventions/rule-id.convention.yaml
-      §rule_schema.fields.fix_hint.description (clauses C1-C4) and the
-      adjacent "# === Fix-hint completeness contract ===" exemplars block.
 
 # =============================================================================
 # === Fix-hint completeness contract ===

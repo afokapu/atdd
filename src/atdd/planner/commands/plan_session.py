@@ -155,12 +155,17 @@ class PlanSession:
             raise SessionGateError(why)
         self.step = target.value
 
-    def confirm(self) -> None:
+    def confirm(self, root: Path | str = ".") -> None:
         """The Confirm gate: every unit must reach a TERMINAL verdict (keep or
         kill) before locking. PENDING and PIVOT are non-terminal — a pivot names
         a modification that must be re-drafted and re-decided (decide() again to
         keep/kill) before confirm. This is the conversational->deterministic
-        boundary."""
+        boundary.
+
+        Before locking, kept train units' interlocking sanity is validated via
+        the #1248 Python API (``planner.plan.confirm-requires-interlocking-sanity``,
+        #1249). The gate fails closed and is atomic: every failure path raises
+        ``SessionGateError`` and leaves ``self.locked is False``."""
         if Step(self.step) is not Step.CONFIRM:
             raise SessionGateError("confirm() is only valid in the Confirm step")
         unresolved = [u["ref"] for u in self.units
@@ -176,6 +181,20 @@ class PlanSession:
                 "universal rule). The binding is the local manifest/State Store slug, NOT a GitHub "
                 "number (GitHub is a downstream extension). "
                 "Set it via `atdd plan session bind-issue --id <sess> --issue <slug>`.")
+        # Interlocking sanity for kept train units (#1249). Runs BEFORE the lock,
+        # so a failure raises and leaves the session unlocked (atomicity). A kept
+        # train with no interlocking reference is a direct train and is allowed.
+        from atdd.planner.commands.confirm_interlocking import (
+            assert_kept_train_interlocking_sanity,
+        )
+        assert_kept_train_interlocking_sanity(self, root)
+        # Foundational verb-object naming for kept wagon/feature units (#1276).
+        # Runs BEFORE the lock so a non-verb-object name raises and leaves the
+        # session unlocked (atomicity, same contract as interlocking sanity).
+        from atdd.planner.commands.confirm_naming import (
+            assert_kept_wagon_feature_naming,
+        )
+        assert_kept_wagon_feature_naming(self, root)
         self.locked = True
 
     def author(self, author_fn) -> list:
@@ -193,7 +212,8 @@ def build_author_fn(root: Path | str = "."):
     """The on-Confirm deterministic dispatch: map a locked unit's kind to its
     #1144 `atdd author` writer. atdd plan invokes this — the system, not the agent."""
     from atdd.planner.commands.author import (
-        create_acceptance, create_feature, create_train, create_wagon, create_wmbt,
+        create_acceptance, create_feature, create_interlocking, create_train,
+        create_wagon, create_wmbt,
     )
 
     def _author(kind: str, spec: dict):
@@ -205,6 +225,8 @@ def build_author_fn(root: Path | str = "."):
             return create_wmbt(spec, root=root)
         if kind == "train":
             return create_train(spec, root=root)
+        if kind == "interlocking":
+            return create_interlocking(spec, root=root)
         if kind == "acceptance":
             return create_acceptance(spec["wmbt_urn"], spec["block"], root=root)
         raise SessionGateError(f"no atdd author writer for plan kind {kind!r}")

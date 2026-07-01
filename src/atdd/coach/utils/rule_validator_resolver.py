@@ -71,6 +71,7 @@ class ResolvedValidator:
     module_path: Path
     function_node: ast.FunctionDef
     bound_rule_ids: Set[str]
+    is_convention: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +114,25 @@ def infer_module_path(archetype: str, module_basename: str) -> Path:
     return candidate
 
 
+def infer_convention_path(family: str, stem: str) -> Path:
+    """Compute the path of a convention-graph variant
+    ``atdd/validators/conventions/<family>/<stem>.py`` (#1207).
+
+    A migrated rule may name its enforcer as a convention variant rather than a
+    persona-folder validator — the ``conventions/<family>/<stem>::<func>`` form.
+    The variant enforces via parity/execution on the composed graph, NOT a
+    ``bind_rule`` literal, so reverse-coherence accepts it without that callsite.
+
+    Raises ``ValidatorResolutionError`` when the variant file does not exist.
+    """
+    candidate = _ATDD_PKG_DIR / "validators" / "conventions" / family / f"{stem}.py"
+    if not candidate.is_file():
+        raise ValidatorResolutionError(
+            f"convention variant not found at {candidate}"
+        )
+    return candidate
+
+
 def _collect_bind_rule_args(function_node: ast.FunctionDef) -> Set[str]:
     """Return the set of literal ``bind_rule("<id>")`` args inside *function_node*.
 
@@ -142,7 +162,21 @@ def _collect_bind_rule_args(function_node: ast.FunctionDef) -> Set[str]:
 
 
 def _collect_module_bind_rule_args(tree: ast.Module) -> Set[str]:
-    """Module-level ``bind_rule(...)`` args (the typical pattern: ``_RULE = bind_rule("...")``)."""
+    """Module-level ``bind_rule(...)`` args. Resolves both literal args and the very
+    common module-level string-constant indirection
+    (``_RULE_ID = "..."`` ; ``_RULE = bind_rule(_RULE_ID)``)."""
+    # Module-level string constants: NAME -> "literal".
+    consts: dict = {}
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    consts[target.id] = node.value.value
+
     bound: Set[str] = set()
     for node in tree.body:
         for sub in ast.walk(node):
@@ -161,6 +195,8 @@ def _collect_module_bind_rule_args(tree: ast.Module) -> Set[str]:
             first = sub.args[0]
             if isinstance(first, ast.Constant) and isinstance(first.value, str):
                 bound.add(first.value)
+            elif isinstance(first, ast.Name) and first.id in consts:
+                bound.add(consts[first.id])
     return bound
 
 
@@ -178,7 +214,24 @@ def resolve_validator(
         * Function name not found at module top level.
     """
     module_basename, function_name = parse_validator_field(validator_field)
-    module_path = infer_module_path(archetype, module_basename)
+
+    # Convention-variant target: `conventions/<family>/<stem>::<func>` resolves to
+    # src/atdd/validators/conventions/<family>/<stem>.py as a first-class enforcer
+    # (#1207). The variant binds via parity, not bind_rule, so is_convention is set
+    # and reverse-coherence skips the bind_rule(rule_id) requirement.
+    is_convention = False
+    if module_basename.startswith("conventions/"):
+        parts = module_basename.split("/")
+        if len(parts) != 3 or not all(parts):
+            raise ValidatorResolutionError(
+                f"convention validator field {validator_field!r} must be of form "
+                f"'conventions/<family>/<stem>::<function>'"
+            )
+        _, family, stem = parts
+        module_path = infer_convention_path(family, stem)
+        is_convention = True
+    else:
+        module_path = infer_module_path(archetype, module_basename)
 
     try:
         source = module_path.read_text(encoding="utf-8")
@@ -215,6 +268,7 @@ def resolve_validator(
         module_path=module_path,
         function_node=function_node,
         bound_rule_ids=bound_in_function | bound_at_module,
+        is_convention=is_convention,
     )
 
 
@@ -222,6 +276,7 @@ __all__ = [
     "ResolvedValidator",
     "ValidatorResolutionError",
     "infer_module_path",
+    "infer_convention_path",
     "parse_validator_field",
     "resolve_validator",
 ]

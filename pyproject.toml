@@ -1,10 +1,17 @@
 [build-system]
 requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+# #1172: in-tree build backend that resolves `version` from the State Store
+# (local-first, with a `0.0.0+local` fallback when no store exists). It wraps
+# setuptools.build_meta and adds nothing but the dynamic version.
+build-backend = "atdd_version_backend"
+backend-path = ["build_meta_shim"]
 
 [project]
 name = "atdd"
-version = "3.133.2"
+# #1172: version is sourced from the State Store at build time (see
+# [tool.setuptools.dynamic] below) — no hand-edited `version =` line to conflict
+# on across parallel PRs, and no GH006 direct-push bump.
+dynamic = ["version"]
 description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -44,6 +51,12 @@ atdd-cmux-send = "atdd.coach.wrappers.atdd_cmux_send:console_main"
 [project.entry-points.pytest11]
 atdd_substrate = "atdd.tester.substrate.plugin"
 
+# #1172: dynamic version resolved by the in-tree build backend (build_meta_shim).
+# `atdd_version_backend.VERSION` is computed at build time from the State Store,
+# falling back to `0.0.0+local` when no store is present.
+[tool.setuptools.dynamic]
+version = {attr = "atdd_version_backend.VERSION"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
 # Validator fixture trees are SHIPPED AS DATA via package-data below.
@@ -62,6 +75,10 @@ exclude = ["atdd.*.validators.fixtures*"]
 "atdd.coach.prompts" = ["**/*.yaml"]
 "atdd.coach.conventions" = ["*.yaml", "nodes/*.yaml"]
 "atdd.coach.overlays" = ["*.md"]
+# #1275: ship the relationship graph so `atdd plan guidelines` can surface
+# protocol-flow edges in consumer repos (graph/ is not a package; the glob
+# reaches into it from the atdd.coach package root).
+"atdd.coach" = ["graph/*.yaml"]
 "atdd.planner.conventions" = ["*.yaml", "nodes/*.yaml"]
 "atdd.planner.schemas" = ["*.json", "author/*.json"]
 "atdd.tester.conventions" = ["*.yaml"]

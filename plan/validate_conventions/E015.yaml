@@ -1,0 +1,28 @@
+urn: wmbt:validate-conventions:E015
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: persona-folder-convention-validator
+context_clarifier: CI rejects any new convention-graph validator added under a legacy
+  persona validator folder
+lens: functional.effectiveness
+statement: minimize likelihood of persona-folder-convention-validator by ensuring
+  CI rejects any new convention-graph validator added under a legacy persona validator
+  folder
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E015-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E015 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance
+kind: rule
+status: active
+name: Hermetic live smoke required must have paired smoke acceptance
+statement: 'A hermetic_integration acceptance declaring live_smoke_required: true
+  must have a sibling execution_kind: live_smoke acceptance under the same parent
+  WMBT'
+terms:
+- term_id: live_smoke_pairing
+  text: 'A hermetic_integration acceptance with live_smoke_required: true must have
+    a sibling execution_kind: live_smoke acceptance under the same parent WMBT.'
+implementation:
+  type: validator
+  ref: test_hermetic_live_smoke_pairing::test_hermetic_live_smoke_required_is_paired
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance
+  extraction_mode: high_fidelity
+content:
+  fix_hint: 'Author a paired execution_kind: live_smoke acceptance (a minimal live
+    canary) under the SAME parent WMBT, or set live_smoke_required: false if live
+    verification is genuinely not needed; pairing scope is the parent WMBT only (Decision
+    #5).'
+  operational_guidance: 'recipe: hermetic-live-smoke-pairing'
+metadata:
+  severity: 4
+  disposition: strict

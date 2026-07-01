@@ -2,28 +2,14 @@ version: "1.0"
 name: "Technology Stack Convention"
 description: "Lean map of default technologies with rationales, constraints, and deviation guidance"
 
-# Structured rules (issue #389 Phase 3a) — top-level placement so the registry
-# walker discovers them; existing technology.* tree (defaults, alternatives,
-# rationales) is preserved verbatim.
-rules:
-  - id: "coder.technology.new-components-default-to"
-    aliases: ["COACH-TECH-STACK-001"]
-    severity: 2
-    disposition: documentation-only
-    description: "New components default to the technology.<layer>.default for their layer; deviations declare an approved alternative"
-    introduced_in: "1.66.0"
-  - id: "coder.technology.approved-alternatives-are-taken"
-    aliases: ["COACH-TECH-STACK-002"]
-    severity: 2
-    disposition: documentation-only
-    description: "Approved alternatives are taken only when the use_when criteria are met; tradeoff is documented in the wagon"
-    introduced_in: "1.66.0"
-  - id: "coder.technology.unapproved-technology-choices-require"
-    aliases: ["COACH-TECH-STACK-003"]
-    severity: 2
-    disposition: documentation-only
-    description: "Unapproved technology choices require a SPEC edit before they can ship"
-    introduced_in: "1.66.0"
+# Structured governance rules (issue #389 Phase 3a) have been atomized to
+# src/atdd/coder/conventions/nodes/ (Phase A de-monolith):
+#   - coder.technology.new-components-default-to
+#   - coder.technology.approved-alternatives-are-taken
+#   - coder.technology.unapproved-technology-choices-require
+# The concrete technology STACK-TREE below (Supabase/Flutter/etc. defaults,
+# alternatives, and rationales) is extension-bound and is preserved verbatim
+# in this monolith — do NOT atomize it.
 
 technology:
   backend:

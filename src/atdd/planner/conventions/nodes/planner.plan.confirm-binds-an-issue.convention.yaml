@@ -17,7 +17,8 @@ content:
   normative_text: The session must refuse to lock (confirm) a decomposition that is
     not bound to an ATDD issue, so plan substrate is never authored on an untracked branch.
   fix_hint: 'Bind before confirm — atdd plan session bind-issue --id <sess> --issue <slug>
-    (the local manifest/State Store slug of a target issue), or mint one from the main job.
+    (the local manifest/State Store slug of a target issue), or mint one from the main job
+    (run `atdd issue open` to list bindable issue slugs).
     PlanSession.confirm() raises until self.issue_ref is set. The slug is GitHub-agnostic; the
     GitHub number is a synced projection. Corrects the earlier in-session-no-issue framing,
     which wrongly read as ''no issue at all''.'

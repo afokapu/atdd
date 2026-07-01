@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-message-payload-typed
+kind: rule
+status: active
+name: Interlocking message payload typed
+statement: Every interlocking message declares a payload contract or an explicit no-payload
+  reason.
+terms:
+- term_id: payload_typed
+  text: each message declares payload.contract or payload.no_payload_reason
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_every_message_has_payload_contract_or_no_payload_reason
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: presence
+  template: conditional_requirement
+  variant: planner_train_interlocking_message_payload_typed
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - message_id
+  - payload
+  - reason

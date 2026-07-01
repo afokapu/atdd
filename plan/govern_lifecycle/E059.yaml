@@ -1,0 +1,97 @@
+urn: "wmbt:govern-lifecycle:E059"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-first-real-core-ci-publish-run-mis-tagging-and-mis-versioning-the-release-a-prose-mention-of-breaking-change-classifying-a-feat-merge-as-major-and-the-tag-release-job-creating-an-annotated-tag-with-no-configured-git-identity"
+context_clarifier: >
+  The first real Publish run (28495533869) fired end-to-end but died before twine with two defects
+  (PyPI stayed safe at 3.151.0). (1) change_class_for_commit derives the release class from the merge
+  commit by scanning the WHOLE message for the substring 'BREAKING CHANGE'; the #1285/#1291 merge
+  commit's own body merely DESCRIBES the mapping ('breaking !/BREAKING CHANGE=MAJOR, else PATCH'), so a
+  non-breaking feat was misclassified MAJOR and bumped 3.151.0 -> 4.0.0 instead of the correct MINOR
+  3.152.0. The migration v2 seed is NOT the cause: it seeds only the singleton release OBJECT (3.149.0),
+  never a version_decided outbox message; the single drained message carried 4.0.0 because the bump
+  itself decided 4.0.0. The fix narrows breaking-change detection to a real conventional-commit FOOTER
+  (a line-anchored 'BREAKING CHANGE:' / 'BREAKING-CHANGE:' token, per the Conventional Commits spec),
+  leaving the '!' marker and a genuine footer still MAJOR, so a feat whose body merely mentions the
+  phrase in prose classifies by its type. (2) The tag-release job in publish.yml never configures a git
+  identity, so the extension's 'git tag -a vX' fails with 'empty ident name' — the fix sets a release-bot
+  user.name/user.email before the drain step so annotated-tag creation succeeds. Core stays
+  provider-neutral; the tag/publish mechanics remain the extension's.
+lens: "functional.effectiveness"
+statement: >
+  minimize likelihood of the-first-real-core-ci-publish-run-mis-tagging-and-mis-versioning-the-release-a-prose-mention-of-breaking-change-classifying-a-feat-merge-as-major-and-the-tag-release-job-creating-an-annotated-tag-with-no-configured-git-identity
+  by narrowing version.change_class_for_commit breaking-change detection to a line-anchored
+  Conventional-Commits footer ('BREAKING CHANGE:' / 'BREAKING-CHANGE:') so a feat merge whose body only
+  mentions the phrase in prose classifies MINOR (3.151.0 -> 3.152.0) while a real footer or a 'type!:'
+  marker still classifies MAJOR, and by configuring a release-bot git identity (user.name/user.email) in
+  publish.yml's tag-release job before the drain step so the extension's annotated 'git tag -a vX'
+  succeeds instead of failing with 'empty ident name'
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E059-UNIT-001-breaking-change-detected-only-as-a-conventional-commit-footer"
+      id: "AC-UNIT-001"
+      purpose: "change_class_for_commit only escalates to MAJOR on a real Conventional-Commits breaking signal — a line-anchored 'BREAKING CHANGE:'/'BREAKING-CHANGE:' footer OR a 'type!:' marker — so a feat merge commit whose body merely MENTIONS 'BREAKING CHANGE' in descriptive prose (no colon-terminated footer) classifies by its type (MINOR), not MAJOR"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.state.version exposes change_class_for_commit(subject: str) -> str returning one of PATCH/MINOR/MAJOR"
+    when:
+      abstract: "the helper is evaluated for a feat commit whose body mentions 'BREAKING CHANGE' only in prose, for a genuine 'BREAKING CHANGE:' footer, and for a 'type!:' marker"
+    then:
+      abstract:
+        - "a feat header with body prose mentioning 'BREAKING CHANGE' NOT terminated by a colon at a line start (e.g. 'BREAKING CHANGE=MAJOR' mid-sentence) returns MINOR"
+        - "a genuine footer line 'BREAKING CHANGE: ...' (and the 'BREAKING-CHANGE:' dash variant) still returns MAJOR"
+        - "a 'type!:' breaking marker still returns MAJOR, and a plain feat/fix without either signal returns MINOR/PATCH respectively"
+    metadata:
+      author: "atdd:fix-release-worker-tag-and-version"
+      created: "2026-07-01"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E059-INTEGRATION-001-reconcile-bump-over-the-real-merge-message-yields-3-152-0-not-4-0-0"
+      id: "AC-INTEGRATION-001"
+      purpose: "the reconcile->bump pipeline the publish job runs, driven by the ACTUAL #1285/#1291 merge commit message (a feat header whose body mentions 'BREAKING CHANGE' in prose) over a store whose current is the latest tag 3.151.0, yields exactly 3.152.0 (MINOR) and a single pending version_decided{3.152.0}, NOT 4.0.0 — proving the CI mis-version regression is closed"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A fresh State Store (migration v2 seed) standing in for CI's ephemeral store"
+        - "The latest git tag resolves current to '3.151.0' and the merge subject/body is the real #1291 feat message that mentions 'BREAKING CHANGE' in prose"
+    when:
+      abstract: "set_version(conn, '3.151.0') then bump(conn, change_class_for_commit(merge_message)) is invoked"
+    then:
+      abstract:
+        - "change_class_for_commit(merge_message) returns MINOR (the prose mention does not escalate to MAJOR)"
+        - "emit(conn) returns '3.152.0' — NOT 4.0.0 and NOT the 0.0.0+local fallback"
+        - "exactly one pending version_decided outbox message exists with payload {version: 3.152.0, change_class: MINOR}"
+    metadata:
+      author: "atdd:fix-release-worker-tag-and-version"
+      created: "2026-07-01"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E059-SMOKE-001-publish-job-configures-git-identity-so-annotated-tag-creation-succeeds"
+      id: "AC-SMOKE-001"
+      purpose: "publish.yml's tag-release job configures a release-bot git identity (user.name AND user.email) before the drain step, and an annotated 'git tag -a vX' succeeds under a configured identity but fails with 'empty ident name' without one — proving the fix is both wired and necessary/sufficient to close the first-run tag failure"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - ".github/workflows/publish.yml carries the reconcile->bump->drain tag-release job"
+        - "A tmp git repo with an initial commit and NO configured git identity"
+    when:
+      abstract: "publish.yml is parsed, and 'git tag -a vX -m ...' is attempted in the tmp repo with and then without a configured user.name/user.email"
+    then:
+      abstract:
+        - "publish.yml sets both git user.name and user.email in the tag-release job, positioned before the drain step that runs the extension tag/publish"
+        - "the annotated 'git tag -a' fails with an empty-identity error when no identity is configured (reproducing the first-run failure)"
+        - "the same annotated 'git tag -a' succeeds once the release-bot identity is configured (the fix is sufficient)"
+    metadata:
+      author: "atdd:fix-release-worker-tag-and-version"
+      created: "2026-07-01"

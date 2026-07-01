@@ -1,0 +1,35 @@
+schema_version: 1.0.0
+rule_id: tester.smoke.no-collaborator-substitution
+kind: rule
+status: active
+name: No collaborator substitution
+statement: "A SMOKE-phase test must not substitute a production collaborator (monkeypatch.setattr,\
+  \ or assigning a locally-defined function/lambda over an object attribute) \u2014\
+  \ that turns it into a unit test passing CI while exercising nothing real."
+terms:
+- term_id: collaborator_substitution
+  text: replacing a production collaborator in a SMOKE test (via monkeypatch.setattr,
+    or assigning a locally-defined function/lambda over an object attribute), which
+    turns it into a unit test that passes CI while exercising nothing real.
+implementation:
+  type: validator
+  ref: test_smoke_no_collaborator_substitution::test_smoke_tests_do_not_substitute_collaborators
+source:
+  legacy_path: src/atdd/tester/conventions/smoke.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.smoke.no-collaborator-substitution
+  extraction_mode: high_fidelity
+content:
+  fix_hint: "The flagged SMOKE test replaces a collaborator instead of driving the\n\
+    real code path. Choose ONE:\n  - If it was never a smoke test: relabel it \u2014\
+    \ change `# Phase:` and the\n    filename away from SMOKE (it is a unit/integration\
+    \ test, or\n    hermetic_integration per #690).\n  - If it should be smoke: remove\
+    \ the substitution and exercise the real\n    boundary (real subprocess / file\
+    \ / socket / DB).\nEnvironment setup is allowed \u2014 monkeypatch.setenv / .delenv\
+    \ / .chdir /\n.syspath_prepend do NOT trigger this rule.\nTemporary escape: add\
+    \ an inline marker on the offending line:\n  # atdd:suppress(tester.smoke.no-collaborator-substitution)\
+    \ UNTIL=<YYYY-MM-DD>\n"
+metadata:
+  severity: 4
+  disposition: suppress-and-clean
+  introduced_in: 3.53.0

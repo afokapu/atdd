@@ -54,6 +54,25 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="Import .atdd/manifest.yaml operational state into the State Store (#1183).")
     imp.add_argument("--root", default=None, help="Starting directory (default: cwd).")
 
+    version = sub.add_parser(
+        "version", help="Release version source-of-truth (#1172).")
+    version_sub = version.add_subparsers(dest="version_op")
+    v_show = version_sub.add_parser("show", help="Print the current release version (with context).")
+    v_show.add_argument("--root", default=None)
+    v_emit = version_sub.add_parser(
+        "emit", help="Print the build-consumable version string (0.0.0+local if no store version).")
+    v_emit.add_argument("--root", default=None)
+    v_bump = version_sub.add_parser("bump", help="Bump the release version (writes store + appends event).")
+    v_bump.add_argument("--class", dest="change_class", required=True,
+                        choices=["PATCH", "MINOR", "MAJOR"], help="Semver change class.")
+    v_bump.add_argument("--pr", default=None, help="Originating PR number (recorded in the bump event).")
+    v_bump.add_argument("--root", default=None)
+    v_set = version_sub.add_parser(
+        "set", help="Reconcile the current release version to an explicit value "
+        "(e.g. the latest git tag) without emitting a version_decided signal.")
+    v_set.add_argument("version", help="The version to set as authoritative current (X.Y.Z).")
+    v_set.add_argument("--root", default=None)
+
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
     t_list = trace_sub.add_parser("list", help="List Hub sessions.")
@@ -198,6 +217,61 @@ def _open_store(root: Optional[str]):
     return resolution, connect(db)
 
 
+def _cmd_version(args) -> int:
+    from atdd.state import version as ver
+
+    if args.version_op is None:
+        print("usage: atdd state version <show|emit|bump --class PATCH|MINOR|MAJOR|set X.Y.Z>")
+        return 2
+
+    resolution, conn_or_rc = _open_store(args.root)
+    if resolution is None:
+        return conn_or_rc
+    conn = conn_or_rc
+    try:
+        if args.version_op == "emit":
+            # Build-consumable string; never fails (matches the build-hook fallback).
+            print(ver.emit(conn))
+            return 0
+        if args.version_op == "show":
+            try:
+                current = ver.current(conn)
+            except ver.VersionError as exc:
+                _log.warning("version show: no release version", extra={"error": str(exc)})
+                print(f"ERROR: {exc}")
+                return 1
+            from atdd.state.projections import release_projection
+            row = release_projection(conn)
+            print(f"Release version: {current}")
+            print(f"Bumps recorded:  {row.bump_count if row else 0}")
+            print(f"State Store:     {resolution.state_store_path}")
+            return 0
+        if args.version_op == "bump":
+            try:
+                new = ver.bump(conn, args.change_class, pr=args.pr)
+            except ver.VersionError as exc:
+                _log.warning("version bump failed", extra={"error": str(exc),
+                                                           "change_class": args.change_class})
+                print(f"ERROR: {exc}")
+                return 1
+            print(f"Bumped release version to {new} ({args.change_class})")
+            return 0
+        if args.version_op == "set":
+            try:
+                new = ver.set_version(conn, args.version)
+            except ver.VersionError as exc:
+                _log.warning("version set failed", extra={"error": str(exc),
+                                                          "version": args.version})
+                print(f"ERROR: {exc}")
+                return 1
+            print(f"Set release version to {new} (reconcile; no version_decided signal)")
+            return 0
+        print(f"unknown version op: {args.version_op}")
+        return 2
+    finally:
+        conn.close()
+
+
 def _cmd_trace(args) -> int:
     import json as _json
 
@@ -261,6 +335,8 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_init(args.root)
     if args.op == "import-manifest":
         return _cmd_import_manifest(args.root)
+    if args.op == "version":
+        return _cmd_version(args)
     if args.op == "trace":
         return _cmd_trace(args)
 

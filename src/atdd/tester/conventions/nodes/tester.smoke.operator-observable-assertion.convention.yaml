@@ -1,0 +1,41 @@
+schema_version: 1.0.0
+rule_id: tester.smoke.operator-observable-assertion
+kind: rule
+status: active
+name: Operator-observable assertion
+statement: "The operator-observable-assertion mandate: SMOKE tests MUST assert on\
+  \ operator-observable behavior \u2014 captured stdout, exit code, rendered pane\
+  \ content, persistent DB row \u2014 not on intermediate-artifact-write events such\
+  \ as output.log existence, output.log line content, or cli-return.jsonl file write.\
+  \ The lived incident: #843 \u2014 the launcher swallowed pty output; E003-SMOKE\
+  \ asserted on output.log content, which was written before the pty forwarding path\
+  \ was ever exercised. The test passed; the operator saw nothing. Tests that assert\
+  \ solely on output.log or other intermediate artifacts without a paired assertion\
+  \ on the operator-visible channel produce false-positive green."
+terms:
+- term_id: operator_observable
+  text: behavior visible to the operator (captured stdout, exit code, rendered cmux
+    pane content, a persistent DB row), as distinct from intermediate-artifact-write
+    events (output.log existence, cli-return.jsonl write).
+source:
+  legacy_path: src/atdd/tester/conventions/smoke.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.smoke.operator-observable-assertion
+  extraction_mode: high_fidelity
+content:
+  counter_examples:
+  - pattern: assert.*output.log
+    description: Asserting solely on output.log content without a paired stdout assertion
+  - pattern: assert.*cli-return.jsonl
+    description: Asserting on the cli-return file existence without verifying the
+      consumer received the bytes
+  fix_hint: "Add an assertion on the operator-visible channel alongside the artifact\
+    \ assertion:\n  - Capture proc.stdout (stdout=subprocess.PIPE) and assert the\
+    \ sentinel appears.\n  - Assert exit code == 0 (operator can see the process succeeded).\n\
+    \  - Query the DB if the feature writes to a database.\nThe artifact assertion\
+    \ (output.log) may be retained as a secondary assertion;\nit must not be the ONLY\
+    \ assertion.\n"
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.83.0

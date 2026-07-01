@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+rule_id: tester.red.spec-enforced-test-doubles
+kind: constraint
+status: active
+name: Spec-enforced test doubles
+statement: Test doubles for production client classes MUST be spec-enforced (autospec
+  against, or a subclass of, the real class) so method-name drift fails at construction
+  or first call, not in production.
+terms:
+- term_id: test_double
+  text: A stand-in for a real collaborator (mock, stub, fake) used in a test in place
+    of a production object.
+source:
+  legacy_path: src/atdd/tester/conventions/red.convention.yaml
+  legacy_section: mock_discipline
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: 'Hand-rolled stub classes silently accept any invented method name, hiding
+    mock drift (#304: a stub method that did not exist on the real client passed every
+    test, then crashed production). Doubles must derive their surface from the real
+    class. create_autospec/subclass mechanics and the named coach validator are workspace.'
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.137.0

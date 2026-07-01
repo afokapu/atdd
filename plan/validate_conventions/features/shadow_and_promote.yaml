@@ -1,0 +1,30 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: legacy-vs-convention shadow comparator
+      type: use_cases
+    domain:
+    - count: 0
+      rationale: reuses parity entry record
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: shadow-run-report machine surface
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected shadow comparison
+      type: controllers
+description: The shadow-run report (docs/validator-parity/shadow-run-report.md) comparing
+  legacy vs convention validator outputs, and promotion of the convention suite to
+  the authoritative convention-graph enforcement path.
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 2
+urn: feature:validate-conventions:shadow-and-promote
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E016
+- wmbt:validate-conventions:E018

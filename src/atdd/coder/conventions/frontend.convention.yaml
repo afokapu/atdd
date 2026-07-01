@@ -735,13 +735,10 @@ frontend:
         description: >
           Conditional whose every branch resolves to a stub literal
           (e.g. `flag ? null : null`).
-      - id: "coder.frontend.allowlist-entry-must-include"
-        aliases: ["PRESENTATION-NOSTUB-010"]
-        severity: 2
-        disposition: documentation-only
-        description: >
-          Allowlist entry must include a `migration:` field referencing the
-          issue that will eliminate the exemption.
+      # NOTE: coder.frontend.allowlist-entry-must-include (PRESENTATION-NOSTUB-010)
+      # atomized to nodes/coder.frontend.allowlist-entry-must-include.convention.yaml
+      # (Phase A). The remaining PRESENTATION-NOSTUB JSX/React rules stay here
+      # pending Phase B.
       - id: "coder.frontend.negative-rule-a-guarded"
         aliases: ["PRESENTATION-NOSTUB-020"]
         severity: 4
@@ -755,16 +752,10 @@ frontend:
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
-rules:
-  - id: "coder.frontend.boundaries-fe-layers"
-    aliases: ["BOUNDARIES-FE-LAYERS-001"]
-    severity: 3
-    disposition: documentation-only
-    description: "Frontend code follows the 4-layer architecture (presentation, application, integration, domain)"
-    introduced_in: "1.67.0"
-  - id: "coder.frontend.boundaries-fe-imports"
-    aliases: ["BOUNDARIES-FE-IMPORTS-001"]
-    severity: 3
-    disposition: documentation-only
-    description: "Frontend imports respect inward dependency direction (presentation -> application -> domain)"
-    introduced_in: "1.67.0"
+# Phase A (partial de-monolith): the core-agnostic boundaries rules
+#   coder.frontend.boundaries-fe-layers  (BOUNDARIES-FE-LAYERS-001)
+#   coder.frontend.boundaries-fe-imports (BOUNDARIES-FE-IMPORTS-001)
+# were atomized to nodes/coder.frontend.boundaries-fe-*.convention.yaml.
+# No top-level rules:[] entries remain in this monolith; extension-bound
+# JSX/React + route-coverage rules stay in their nested blocks above for Phase B.
+rules: []

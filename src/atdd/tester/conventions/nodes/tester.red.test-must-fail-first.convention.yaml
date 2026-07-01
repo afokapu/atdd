@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+rule_id: tester.red.test-must-fail-first
+kind: rule
+status: active
+name: RED test must fail first
+statement: A RED-phase test MUST fail on its first run, before any implementation
+  exists, proving it exercises the not-yet-built behavior.
+terms:
+- term_id: red_phase
+  text: The first ATDD phase, in which a failing acceptance test is authored before
+    any implementation exists.
+source:
+  legacy_path: src/atdd/tester/conventions/red.convention.yaml
+  legacy_section: red_patterns / rules[tester.red.fails-first]
+  legacy_rule_id: tester.red.fails-first
+  extraction_mode: high_fidelity
+content:
+  summary: 'The canonical RED invariant: a freshly authored acceptance test must fail
+    (non-zero exit / failed assertion) on first execution. A test that passes before
+    implementation is vacuous. Per-language fail idioms (pytest.fail, throw, t.Fatal)
+    are workspace renderings.'
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - TESTER-RED-FAILS-FIRST-001
+  introduced_in: 3.137.0

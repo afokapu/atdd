@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: tester.red.behavioral-assertion-required
+kind: rule
+status: active
+name: Behavioral assertion required
+statement: 'Test headers declare Assertion: structural|behavioral, and every presentation-layer
+  component MUST have at least one behavioral test that executes the component and
+  checks observable state.'
+terms:
+- term_id: structural
+  text: A test that inspects source code (file existence, regex over source, import/AST
+    shape) without executing the component.
+- term_id: behavioral
+  text: A test that executes the component (render, route, action, real call) and
+    asserts on observable state or output.
+source:
+  legacy_path: src/atdd/tester/conventions/red.convention.yaml
+  legacy_section: assertion_classification
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: 'Structural-only coverage of presentation surfaces can pass while the rendered
+    feature is blank or removed (#356/#318: 63/63 structural tests green while the
+    match page rendered blank). Presentation components must carry at least one behavioral
+    test.'
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.137.0

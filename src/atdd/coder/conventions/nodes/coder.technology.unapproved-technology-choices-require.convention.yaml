@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+rule_id: coder.technology.unapproved-technology-choices-require
+kind: rule
+status: active
+name: Unapproved technology choices require a SPEC edit
+statement: Unapproved technology choices require a SPEC edit before they can ship
+terms:
+- term_id: unapproved_choice
+  text: a technology that is neither a layer default nor a listed approved alternative;
+    it cannot ship until a SPEC edit promotes it
+source:
+  legacy_path: src/atdd/coder/conventions/technology.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.technology.unapproved-technology-choices-require
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Promote the technology via a SPEC edit (default or approved alternative)
+    before shipping any component that uses it.
+metadata:
+  aliases:
+  - COACH-TECH-STACK-003
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.66.0

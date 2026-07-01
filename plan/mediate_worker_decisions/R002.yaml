@@ -60,6 +60,7 @@ acceptances:
       id: "AC-SMOKE-001"
       purpose: "A running daemon process exits cleanly and releases its lock on SIGTERM"
       phase: "SMOKE"
+    execution_kind: live_smoke
     harness:
       type: "integration"
       category: "integration"

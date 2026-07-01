@@ -59,20 +59,27 @@ git:
 # Release Gate (MANDATORY) — to move to release.convention.yaml per #916
 release:
   mandatory: true
-  # INTERIM (see #1172): bump the version manually for now. The bump-on-merge
-  # automation (post-merge-lifecycle.yml) is currently NON-OPERATIONAL — its
-  # direct push to main is rejected by branch protection (GH006), so it has
-  # never successfully bumped. Until version handling moves to the State Store
-  # (#1168 / #1172), manual bumping is the working mechanism.
+  # #1172 (SHIPPED, source-of-truth + build projection): the release version
+  # lives in the State Store (singleton `release` object, migration v2) and is
+  # projected at build time by the in-tree backend — `pyproject.toml` is
+  # `dynamic = ["version"]` with NO `version =` line to hand-edit or conflict on.
+  # The GH006 direct-push auto-bump (post-merge-lifecycle.yml) is RETIRED.
+  # FOLLOW-UP (#1172 step 5): the version *decision* is made in core — a bump
+  # emits a PROVIDER-NEUTRAL `version_decided` outbox message ({version,
+  # change_class}); core names no tag/publish/PyPI. The GitHub release-worker
+  # that drains that neutral outbox to tag + publish does not exist
+  # yet, so the on-merge publish is operator-coordinated for now (publish.yml
+  # skips the `0.0.0+local` fallback rather than publishing a bogus version).
+  # Do NOT re-introduce the GH006 direct-push bump or a hand-edited version line.
   change_class:
     PATCH: "bug fixes, docs, refactors, internal changes"
     MINOR: "new feature, new validator, new command, new convention (non-breaking)"
     MAJOR: "breaking API/CLI/schema/convention change or behavior removal"
   workflow:
-    - "Bump version in pyproject.toml based on branch prefix + change class"
-    - "Commit: 'Bump version to {version}'"
-    - "Merge PR; publish.yml tags + publishes from the version on main"
-  note: "Durable fix tracked in #1172 (State Store owns version source-of-truth); do not re-adopt the auto-bump until it is operational."
+    - "Bump the State Store version by change class: `atdd state version bump --class PATCH|MINOR|MAJOR`"
+    - "The build backend projects that version automatically — no pyproject edit, no version-bump commit"
+    - "Merge PR; publication (git tag + PyPI) is handled by the release extension draining core's neutral version_decided outbox (interim: operator-coordinated)"
+  note: "Version source-of-truth + build projection shipped in #1172; CI publish automation (release-worker outbox drain) is the remaining follow-up. Do not re-adopt the GH006 auto-bump or hand-edited pyproject version."
 
 # Issue Tracking (operator-facing CLI + the prohibition list — gh issue create /
 # gh pr create are forbidden because they bypass `atdd-issue` label-scoped

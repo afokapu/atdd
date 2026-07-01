@@ -49,7 +49,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 7
+    total: 11
     D001: maximize likelihood of schema-valid substrate intent and lock by defining
       canonical substrate.yaml / substrate.lock.yaml / registry-index schemas and
       validating both files against them
@@ -69,6 +69,18 @@ wagons:
     C004: minimize likelihood of breaking a depended-on artifact by refusing removal
       when other admitted artifacts depend on it (unless --force) and pruning shared
       workspaces only with --prune
+    E002: maximize likelihood of grouped-verb-parity by routing `atdd substrate {add,remove,bind,capabilities,list}`
+      to the same handlers as the flat verbs, so exit codes and lock-file effects
+      are identical
+    C005: minimize likelihood of flat-verb-regression by keeping `atdd add/remove/bind/capabilities`
+      and `list --substrate` working as deprecated aliases that emit a stderr deprecation
+      notice naming the grouped form
+    L002: maximize likelihood of grouped-command-discoverability by listing the five
+      `atdd substrate` subcommands in its help and marking the flat verbs deprecated
+      in the top-level help
+    C006: minimize likelihood of stale-flat-verb-docs by documenting `atdd substrate
+      ...` as the canonical form in the README and synced agent docs, with no doc
+      presenting a flat substrate verb as primary
   total: 0
   manifest: plan/admit_substrate/_admit_substrate.yaml
   path: plan/admit_substrate/
@@ -123,9 +135,13 @@ wagons:
     contract: null
     telemetry: null
     to: external
+  - name: commons:author:issue-body-command
+    contract: null
+    telemetry: null
+    to: external
   consume: []
   wmbt:
-    total: 19
+    total: 24
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -166,6 +182,20 @@ wagons:
     E005: maximize likelihood of a faithful composed protocol view by materializing
       realizes as derived edges with the provenance triple in composed mode only,
       source-only in core mode, never executing runtime
+    E006: maximize likelihood of schema-valid issue-body creation when authoring from
+      issue.schema.json (Graph Context + Mirror present, zero placeholders)
+    E007: maximize likelihood of schema-valid convention-node validation metadata
+      when authoring a convention node (optional block, family/(family,template) checked
+      against registry.yaml, invalid JSON rejected, no concrete runtime state) without
+      changing bind_rule semantics
+    C010: minimize likelihood of accepting an invalid issue body (missing required
+      section / missing Graph Context / out-of-enum Status) by validating against
+      issue.schema.json instead of greping strings
+    C011: minimize likelihood of schema-generator-gate drift by asserting issue.schema.json
+      properties == create_issue_body fields == E019 required sections
+    K002: minimize likelihood of existing-compliant-body validation regression by
+      asserting today's compliant issue bodies validate against issue.schema.json
+      (back-compat)
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
@@ -224,7 +254,7 @@ wagons:
   - name: commons:author:author-spine
     from: wagon:author-atdd-substrate
   wmbt:
-    total: 12
+    total: 13
     C001: minimize likelihood of the plan-artifact author guard accepting a malformed
       slug, URN, step-code, or a path escaping plan/
     E001: maximize likelihood of schema-valid wagon-manifest creation under the canonical
@@ -244,6 +274,11 @@ wagons:
     E006: 'minimize likelihood of an unbound-train-validator by adding a train.convention.yaml
       rules: block and binding the train validators (executable-train family + dispatch
       rules), behaviour-preserving'
+    E007: 'maximize likelihood of a schema-valid interlocking-artifact-write under
+      plan/_trains/_interlockings/<id>.yaml: derive ONLY the digests via the single-source-of-truth
+      stamp (per-route expected_sequence_digest + whole-doc content_digest), dedup-insert
+      the registry entry, idempotent re-stamp, clean refusal (no partial write) on
+      a missing route train, satisfying the real #1249 Confirm gate'
   total: 0
   manifest: plan/author_plan_substrate/_author_plan_substrate.yaml
   path: plan/author_plan_substrate/
@@ -513,7 +548,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 7
+    total: 10
     D001: minimize likelihood of session-without-main-job — Define gate requires a
       JTBD main-job before Locate opens
     L001: minimize likelihood of unbound-source-capture — Locate binds captured sources
@@ -524,8 +559,14 @@ wagons:
       the operator confirms
     C002: minimize likelihood of step-advance-without-exit-condition — a step advances
       only when its exit condition holds
+    C003: minimize likelihood of confirm-lock-with-non-verb-object-wagon-name — Confirm
+      blocks a kept wagon whose slug is not verb-object
+    C004: minimize likelihood of confirm-lock-with-non-verb-object-feature-name —
+      Confirm blocks a kept feature whose slug is not verb-object
     E001: minimize likelihood of author-dispatch-skip — Confirm invokes atdd author
       per locked unit
+    E002: minimize likelihood of unenforced-foundational-naming-rule — verb-object
+      naming is validator-backed and bound
     Y001: minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes
       through the elicit channel
   total: 0
@@ -875,6 +916,77 @@ wagons:
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
+- wagon: enforce-binding-plan
+  description: 'Lock-driven consumer-enforcement runner: a shipped `atdd enforce`
+    verb that reads binding.lock.yaml and, per disposition:bound convention, resolves
+    its workspace provider, subprocesses the provider CLI over the consumer''s scan
+    roots, bridges the raw v1.1 violation JSON through the disposition gate to a single
+    aggregate verdict + process exit code, and runs on every commit and in CI. The
+    consumer-facing counterpart to the producer-side decomposition wagons (#1213/#1215/#1218);
+    coexists with the legacy in-core validators until #1207 severs them. Phase-1 provider-CLI
+    generalization ships externally in atdd.workspace.python-pytest (DONE), not here.'
+  theme: commons
+  subject: agent:operator
+  context: the-install-is-real-but-inert, bindings-and-provider-ship-but-no-shipped-code-joins-them-over-the-binding-plan
+  action: reads binding.lock.yaml, and for every disposition:bound convention resolves
+    (workspace_id, implementation_id, contract_version), resolves the vendored provider
+    CLI, subprocesses it over the scan roots (never imports it), adapts raw v1.1 violation
+    JSON to the disposition-gate violation shape (severity joined from the convention
+    node), evaluates the disposition non-raising, aggregates per-rule verdicts into
+    one process exit code, and gates the commit/build via a hook + CI job
+  goal: 'ship the missing enforcement join between the provider half (cli/scan.py)
+    and the verdict half (disposition gate) over the binding plan, so every bound
+    convention is enforced over consumer code with a correct aggregate exit code —
+    the live enforcement path #1207 needs to retire each legacy in-core validator'
+  outcome: a shipped `atdd enforce` verb + verdict bridge + scan policy + commit/CI
+    gate that runs all bound rules end-to-end, exits 0/1/2 by verdict, holds dogfood
+    parity on src/atdd (incl the coder.logging.print exemption), keeps core provider-agnostic,
+    and records the vendor-vs-lock re-materialization decision
+  produce:
+  - name: commons:enforce:lock-resolver
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:provider-scan-runner
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:verdict-bridge
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:scan-policy
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:enforce-cli
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:enforce:commit-ci-gate
+    contract: null
+    telemetry: null
+    to: external
+  consume: []
+  wmbt:
+    E001: minimize likelihood of unrunnable-bound-rule — every disposition:bound convention
+      in binding.lock.yaml runs its detector end-to-end, 0 of 26 emit 'report test
+      missing'
+    E002: minimize likelihood of incorrect-aggregate-exit-code — one `atdd enforce`
+      exits 0 iff all non-skipped bound rules pass, 1 if any strict rule fails, 2
+      only on usage error
+    E003: minimize likelihood of unenforced-commit — a commit triggers the binding-plan
+      scan (hook + CI) that gates the commit/build
+    E004: minimize likelihood of dogfood-parity-drift — runner verdicts over src/atdd
+      match the legacy in-core validators incl the coder.logging.print exemption
+    E005: minimize likelihood of boundary-import-violation — core never imports a
+      provider module and the provider CLI never imports core
+    E006: minimize likelihood of undecided-rematerialization — the vendor-vs-lock
+      path is decided and has an automated check
+    total: 6
+  total: 0
+  manifest: plan/enforce_binding_plan/_enforce_binding_plan.yaml
+  path: plan/enforce_binding_plan/
 - wagon: enforce-structured-logging
   description: Enforce structured logging and prohibit print() in non-CLI production
     Python code
@@ -986,7 +1098,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 91
+    total: 93
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -1288,6 +1400,40 @@ wagons:
       branch) and failing the strict coach.pr.merge-blocks-on-pre-smoke-close disposition
       only on that PR's own violation, while still scanning and logging every offender
       so each remains blocked on its own CI (#1165)
+    E057: 'minimize likelihood of planned-only-issues-blocked-from-pushing-because-the-bidirectional-binding-forward-pass-requires-an-anchored-test-before-the-owning-issue-has-reached-red
+      by phasing test_repo_validator_binding.collect_violations: a new owning_issue_phase()
+      + phase_machine-grounded pre-test comparison in _acceptance_walker reads .atdd/manifest.yaml
+      sessions[] keyed by wagon (fail-closed) so a harness acceptance with no anchored
+      test is exempt only while its owning issue is at INIT/PLANNED and fires exactly
+      as today from RED onward, leaving the reverse (orphan-test) pass and the rule
+      id/severity/disposition unchanged (#1242)'
+    E058: minimize likelihood of core-ci-publish-resolving-the-local-fallback-and-skipping-instead-of-reconciling-the-real-release-version-and-draining-the-version-decided-signal-to-tag-and-publish
+      by adding stdlib-only version.set_version(conn, v) (reconcile authoritative
+      current via ObjectStore upsert + a version_bumped audit event, emitting NO version_decided
+      outbox) and version.change_class_for_commit(subject) (conventional-commit type
+      -> PATCH/MINOR/MAJOR) plus an atdd state version set CLI action, and rewiring
+      publish.yml so a post-merge job reconciles current from git describe --tags,
+      bumps by the derived class to produce a real version + a pending version_decided
+      message, and drains it through the release extension (tag + PyPI + external_ref)
+      behind the dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate with a git describe
+      --exact-match HEAD idempotency skip, while core still names no provider publish
+      mechanics (#1285)
+    E059: minimize likelihood of the-first-real-core-ci-publish-run-mis-tagging-and-mis-versioning-the-release-a-prose-mention-of-breaking-change-classifying-a-feat-merge-as-major-and-the-tag-release-job-creating-an-annotated-tag-with-no-configured-git-identity
+      by narrowing version.change_class_for_commit breaking-change detection to a
+      line-anchored Conventional-Commits footer ('BREAKING CHANGE:' / 'BREAKING-CHANGE:')
+      so a feat merge whose body only mentions the phrase in prose classifies MINOR
+      (3.151.0 -> 3.152.0) while a real footer or a 'type!:' marker still classifies
+      MAJOR, and by configuring a release-bot git identity (user.name/user.email)
+      in publish.yml's tag-release job before the drain step so the extension's annotated
+      'git tag -a vX' succeeds instead of failing with 'empty ident name' (#1297)
+    E060: 'minimize likelihood of live-smoke-harnesses-that-return-a-constant-dict-literal-and-cannot-fail-so-they-report-fixed-success-regardless-of-what-ran
+      by declaring tester.acceptance-violation.live-smoke-evidence-must-not-be-constant
+      (strict) in conventions/nodes with a validator test_live_smoke_execution that
+      reuses _acceptance_walker + scan_test_acceptance_headers to resolve each execution_kind:
+      live_smoke acceptance''s anchored test to the harness it invokes and emits a
+      Violation when that harness returns only an all-constant dict with no assert/raise
+      (the Y002 theater afokapu/atdd#1192), extending the #1151 self-skip guard so
+      a non-skipping test still cannot pass on fixed evidence (#1298; Part of afokapu/atdd-extensions#14)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1675,7 +1821,7 @@ wagons:
     contract: null
     telemetry: null
   wmbt:
-    total: 45
+    total: 47
     D001: minimize likelihood of resolving a cmux notification to the wrong worker
       (or routing two entry paths to divergent requests)
     L001: maximize likelihood of locating the latest decision prompt in worker surface
@@ -1761,6 +1907,10 @@ wagons:
       delivered true no op instead of loudly rejected before any cmux reply
     L008: maximize likelihood of surfacing every unanswered escalation from the daemons
       escalations ledger in atdd coach status
+    C010: minimize likelihood of the supervisor advancing a work item before its phase
+      done signal
+    M006: minimize likelihood of a supervisor stall going unsurfaced instead of loud
+      logged and exited
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
@@ -2187,6 +2337,113 @@ wagons:
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
   path: plan/spawn_agents/
+- wagon: validate-conventions
+  description: 'Convention-graph validator family/template suite under src/atdd/validators/conventions/:
+    13 graph-question families and 22 reusable templates that ask executable questions
+    against the composed convention graph, backed by a machine-readable registry and
+    a typed template contract, with registry<->archetype conformance. Runs in parallel
+    with the legacy persona validators until parity (#1205/#1206) permits their decommissioning
+    (#1207).'
+  theme: commons
+  subject: agent:tester
+  context: authoring-and-enforcing-convention-graph-validators, while-legacy-persona-validators-still-run
+  action: defines the family/template catalogue, registry, and template contract,
+    and instantiates graph-question variants that select eligible nodes by metadata
+    and assert template-shaped failure evidence
+  goal: organize validators by graph-question family rather than persona so new convention
+    nodes are auto-captured by reusable templates, and prove parity before any legacy
+    decommissioning
+  outcome: src/atdd/validators/conventions/<family>/ exists with 13 families, 22 templates,
+    a registry, and a template contract; convention validators run in parallel with
+    legacy and become authoritative once parity is proven
+  produce:
+  - name: commons:validators:convention-family-registry
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:validators:convention-template-contract
+    contract: null
+    telemetry: null
+    to: external
+  consume: []
+  wmbt:
+    total: 33
+    E001: minimize likelihood of registry-family-template-mismatch — registry.yaml
+      declares exactly the 13 canonical families and 22 templates
+    E002: minimize likelihood of registry-archetype-divergence — each family archetype.py
+      exposes exactly the template ids registry.yaml assigns it
+    E003: minimize likelihood of incomplete-template-contract — template_contract.py
+      defines all eight mandatory template metadata fields
+    E004: minimize likelihood of malformed-family-folder — every family folder contains
+      README.md, archetype.py and fixtures.py
+    E005: minimize likelihood of legacy-validator-regression — legacy persona validator
+      folders are unmoved and atdd validate behaviour is unchanged
+    E006: minimize likelihood of unaccounted-legacy-validator — every file under the
+      four legacy validator roots appears in the parity map entries or the exclusion
+      table
+    E007: minimize likelihood of invented-family-template — every mapped entry uses
+      a canonical family and template from the
+    E008: minimize likelihood of invalid-parity-classification — every entry carries
+      a parity_status from the seven-value enum and a priority of P0, P1 or P2
+    E009: minimize likelihood of unexplained-exclusion — every file in the exclusion
+      table carries an explicit reason
+    E010: minimize likelihood of unbuilt-p0-variant — every P0 direct/split/merged/superseded
+      entry has a target implementation or explicit superseded evidence
+    E011: minimize likelihood of variant-metadata-noncompliance — every variant references
+      a registry family/template and declares the nine metadata fields including a
+      legacy_parity_source
+    E012: minimize likelihood of unbuilt-p1-variant — every P1 parity entry is implemented
+      or explicitly deferred with a recorded reason
+    E013: minimize likelihood of legacy-import-coupling — no target convention validator
+      imports a legacy persona validator module as its source of truth
+    E014: minimize likelihood of parallel-run-collision — target convention validators
+      and legacy persona validators run in parallel without collision
+    E015: minimize likelihood of persona-folder-convention-validator — CI rejects
+      any new convention-graph validator added under a legacy persona validator folder
+    E016: minimize likelihood of unresolved-p0-shadow-gap — the shadow-run report
+      shows zero unresolved P0 parity gaps before promotion
+    E017: minimize likelihood of unaccounted-decommission-outcome — the decommission
+      report records an outcome for every legacy validator, one-to-one with the parity
+      audit
+    E018: minimize likelihood of non-authoritative-convention-path — after promotion
+      the convention validators run as the authoritative convention-graph enforcement
+      path
+    Y001: minimize likelihood of unsafe-legacy-deletion — no legacy validator is deleted
+      unless its parity status is direct/merged/split/superseded and its target implementation
+      exists
+    E019: minimize likelihood of unnormalized-graph-node — composed graph exposes
+      id/kind/refs/theme/package/location on real nodes
+    E020: minimize likelihood of vacuous-variant-selection — every variant selects
+      >0 real nodes or declares an allowed-empty selection
+    E021: minimize likelihood of untemplated-failure-evidence — variant evidence keys
+      are a subset of its template failure_evidence
+    E022: minimize likelihood of unpaired-sentinel — every ported P0 variant has a
+      fault-injection parity test vs its legacy validator
+    E023: minimize likelihood of unverified-parity-claim — no P0 pair is parity-verified
+      without a passing legacy-vs-convention diff
+    E024: minimize likelihood of unadjudicated-stricter-finding — each convention-only
+      finding is classified real-gap/schema-bug/loader-bug
+    E025: minimize likelihood of train-representation-mismatch — train nodes loaded
+      from detail files conform to the train schema
+    E026: minimize likelihood of incomplete-harness-enum — the acceptance harness
+      enum includes smoke so SMOKE accs are not false-flagged
+    E027: minimize likelihood of missing-fault-corpus — a seeded fault exists per
+      legacy rule plus a clean baseline
+    E028: minimize likelihood of single-suite-run — each fault is run through both
+      legacy and convention suites on identical input
+    E029: minimize likelihood of unclassified-catch-outcome — each fault yields a
+      catch-matrix cell (both/convention-only/legacy-only/neither)
+    E030: minimize likelihood of clean-repo-false-positive — neither suite flags the
+      clean baseline
+    E031: minimize likelihood of unmeasured-parity-delta — a gap report quantifies
+      parity/improvements/regressions/false-positives from the matrix
+    Y002: maximize likelihood of decommission-preflight-visibility — every decommission-ready
+      legacy validator is classified PLATFORM/RULE-BOUND/ACCEPTANCE-ANCHORED with
+      its legacy-validator-map status and required retirement steps, naming the two
+      CI catches, before any deletion
+  total: 0
+  manifest: plan/validate_conventions/_validate_conventions.yaml
+  path: plan/validate_conventions/
 - wagon: verify-contracts
   description: Defines how to verify the system — contracts, RED tests, and telemetry
     artifacts

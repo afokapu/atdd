@@ -10,23 +10,14 @@ description: "Layer catalog and component suffixes for backend implementation."
 # the testable invariants implied by those structures so the registry walker
 # can reconcile them against validator-emitted Violation rule_ids.
 rules:
-  - id: "coder.backend.code-is-organized"
-    aliases: ["BOUNDARIES-LAYER-001"]
-    severity: 3
-    disposition: documentation-only
-    description: "Backend code is organized into 4 layers: presentation, application, integration, domain"
-    introduced_in: "1.66.0"
+  # coder.backend.code-is-organized and coder.backend.imports-respect-dependency-allowed
+  # (the canonical dependency-direction node) were atomized into single-node files under
+  # conventions/nodes/ (Phase A). The extension-bound component-file-suffix rule stays here.
   - id: "coder.backend.component-file-suffix-matches"
     aliases: ["BOUNDARIES-LAYER-002"]
     severity: 3
     disposition: documentation-only
     description: "Component file suffix matches its layer's component_type catalog (e.g. *_controller.py for presentation.controllers)"
-    introduced_in: "1.66.0"
-  - id: "coder.backend.imports-respect-dependency-allowed"
-    aliases: ["BOUNDARIES-LAYER-003"]
-    severity: 3
-    disposition: documentation-only
-    description: "Imports respect dependency.allowed_edges (presentation→application→domain; integration→application→domain)"
     introduced_in: "1.66.0"
 
 backend:

@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+rule_id: coder.technology.approved-alternatives-are-taken
+kind: rule
+status: active
+name: Approved alternatives meet use_when criteria
+statement: Approved alternatives are taken only when the use_when criteria are met;
+  tradeoff is documented in the wagon
+terms:
+- term_id: approved_alternative
+  text: a technology listed with status approved under a layer, selectable only when
+    its use_when criteria hold and its tradeoff is documented in the wagon
+source:
+  legacy_path: src/atdd/coder/conventions/technology.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.technology.approved-alternatives-are-taken
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Select an approved alternative only when its use_when criteria are met,
+    and record the tradeoff in the wagon.
+metadata:
+  aliases:
+  - COACH-TECH-STACK-002
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.66.0

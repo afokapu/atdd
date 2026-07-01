@@ -296,14 +296,51 @@ class IssueManager:
         if sha:
             print(f"  Committed manifest update ({sha[:8]})")
 
-    def _update_manifest_status(self, issue_number: int, status: str) -> None:
-        """Mirror a successful GitHub status transition into the local manifest.
+    def _store_set_status(self, issue_number: int, status: str) -> bool:
+        """Write the lifecycle phase to the State Store (#1203 Phase 2, authoritative).
 
-        Matches the session entry by issue_number and rewrites its ``status`` field.
-        A missing manifest or a manifest without a matching session is a no-op —
-        transitions for unregistered issues are valid (e.g. issues created outside
-        the atdd CLI) and must not crash the lifecycle.
+        Resolves issue_number → work-item slug via the GitHub ``external_ref`` and
+        sets the object ``state`` through the storage API (no raw SQL — within the
+        #1220 boundaries). Returns True on a store write, False if the store is
+        unavailable or the issue is not yet in the store; the caller's manifest
+        mirror still runs (dual-write keeps the manifest projection valid until it
+        is fully demoted). Never raises — the GitHub transition must not be lost.
         """
+        try:
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.store import StateStore
+            from atdd.state.work_item_reader import WorkItemReader
+
+            # WorkItemReader auto-imports the manifest on first read when the store
+            # is empty, so the work item exists before we resolve + write it.
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                obj = reader.get(issue_number)
+            if obj is None:
+                return False
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                StateStore(conn).objects.set_state(obj.uid, status)
+            finally:
+                conn.close()
+            return True
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store status write unavailable; manifest mirror still applies",
+                extra={"issue": issue_number, "status": status, "error": str(exc)},
+            )
+            return False
+
+    def _update_manifest_status(self, issue_number: int, status: str) -> None:
+        """Record a successful GitHub status transition.
+
+        #1203 Phase 2: the State Store is authoritative for the work-item phase —
+        this writes the store first, then mirrors the manifest ``sessions`` entry
+        (a compatibility projection, retained until the manifest is fully demoted).
+        A missing manifest or a manifest without a matching session is a no-op for
+        the mirror — transitions for unregistered issues are valid (e.g. issues
+        created outside the atdd CLI) and must not crash the lifecycle.
+        """
+        self._store_set_status(issue_number, status)
         if not self.manifest_file.exists():
             return
         manifest = self._load_manifest()
@@ -322,14 +359,44 @@ class IssueManager:
                 ),
             )
 
-    def _manifest_train(self, issue_number: int) -> Optional[str]:
-        """Return the train assigned to *issue_number* from the local manifest.
+    def _store_work_item_field(
+        self, issue_number: int, field: str
+    ) -> Optional[str]:
+        """Read a work-item field (``status``/``train``/``branch``) from the State Store.
 
-        The manifest is the sole source for train lineage past PLANNED (#1051,
-        decommission Projects v2). Looks up ``issues.<n>.train`` first, then any
-        ``train`` recorded on the matching ``sessions`` entry. Returns None when
-        the manifest is absent or no train is recorded.
+        #1203 Phase 1 (shadow reads): the State Store is the read source for
+        work-item lifecycle state, resolved by GitHub issue number through the
+        ``external_refs`` projection. The reader auto-imports the manifest into
+        the store on first read when the store is empty (Decision #3), so callers
+        normally get the value from the store. Returns ``None`` on any store
+        unavailability so the caller falls back to the manifest — never raises.
         """
+        try:
+            from atdd.state.work_item_reader import WorkItemReader
+
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                value = getattr(reader, field)(issue_number)
+            return str(value) if value else None
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store read unavailable; falling back to manifest",
+                extra={"issue": issue_number, "field": field, "error": str(exc)},
+            )
+            return None
+
+    def _manifest_train(self, issue_number: int) -> Optional[str]:
+        """Return the train assigned to *issue_number*.
+
+        #1203 Phase 1: reads shadow through the State Store first (the
+        authoritative read source), then fall back to the local manifest —
+        ``issues.<n>.train`` first, then any ``train`` recorded on the matching
+        ``sessions`` entry. The manifest remains the sole source for train
+        lineage past PLANNED (#1051, decommission Projects v2). Returns None when
+        no train is recorded anywhere.
+        """
+        from_store = self._store_work_item_field(issue_number, "train")
+        if from_store:
+            return from_store
         if not self.manifest_file.exists():
             return None
         manifest = self._load_manifest()
@@ -344,11 +411,16 @@ class IssueManager:
         return None
 
     def _manifest_branch(self, issue_number: int) -> Optional[str]:
-        """Return the branch recorded for *issue_number* from the local manifest.
+        """Return the branch recorded for *issue_number*.
 
-        Replaces the retired Projects v2 ``ATDD Branch`` read (#1051). Looks up
-        the matching ``sessions`` entry first, then ``issues.<n>.branch``.
+        #1203 Phase 1: reads shadow through the State Store first, then fall back
+        to the local manifest — the matching ``sessions`` entry first, then
+        ``issues.<n>.branch``. Replaces the retired Projects v2 ``ATDD Branch``
+        read (#1051).
         """
+        from_store = self._store_work_item_field(issue_number, "branch")
+        if from_store:
+            return from_store
         if not self.manifest_file.exists():
             return None
         manifest = self._load_manifest()
@@ -359,15 +431,52 @@ class IssueManager:
         branch = entry.get("branch")
         return str(branch) if branch else None
 
+    def _store_update_fields(self, issue_number: int, fields: Dict[str, Any]) -> bool:
+        """Merge work-item metadata (branch/train/...) into the State Store.
+
+        #1203 Phase 2: resolves issue_number → slug via the github external_ref and
+        merges ``fields`` into the work item's ``data`` bag (preserving its kind and
+        lifecycle ``state``) through ``ObjectStore.upsert`` — storage API, no raw SQL,
+        within the #1220 boundaries. Returns True on a store write, False if the store
+        is unavailable or the issue is not in the store. Never raises.
+        """
+        try:
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.store import StateStore
+            from atdd.state.work_item_reader import WorkItemReader
+
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                obj = reader.get(issue_number)
+            if obj is None:
+                return False
+            merged = {**obj.data, **fields}
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                StateStore(conn).objects.upsert(
+                    obj.uid, obj.kind, state=obj.state, data=merged
+                )
+            finally:
+                conn.close()
+            return True
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store field write unavailable; manifest mirror still applies",
+                extra={"issue": issue_number, "fields": sorted(fields), "error": str(exc)},
+            )
+            return False
+
     def _update_manifest_fields(
         self, issue_number: int, fields: Dict[str, Any]
     ) -> None:
-        """Mirror text metadata (branch/train/...) into the local manifest.
+        """Record work-item metadata (branch/train/...).
 
-        Writes onto the matching ``sessions`` entry and the ``issues.<n>``
-        record so both views stay consistent. A missing manifest is a no-op —
-        transitions for issues created outside the atdd CLI remain valid.
+        #1203 Phase 2: the State Store is authoritative — this writes the store
+        first (merging into the work item's ``data``), then mirrors the manifest
+        ``sessions`` entry and the ``issues.<n>`` record (a compatibility
+        projection). A missing manifest is a no-op for the mirror — transitions
+        for issues created outside the atdd CLI remain valid.
         """
+        self._store_update_fields(issue_number, fields)
         if not self.manifest_file.exists():
             return
         manifest = self._load_manifest()
@@ -926,13 +1035,58 @@ class IssueManager:
             project_id=github_config.get("project_id"),
         )
 
+    def _store_create_work_item(
+        self, issue_number: int, slug: str, *, status: Optional[str], data: Dict[str, Any]
+    ) -> bool:
+        """Create/register a work item in the State Store (#1203 Phase 2).
+
+        Upserts the work item keyed by ``slug`` and links its GitHub issue number as
+        the authoritative ``external_ref`` (storage APIs only — no raw SQL, within the
+        #1220 boundaries; the link's ON CONFLICT keeps one ref per issue). Preserves an
+        existing object's lifecycle ``state`` and merges into its ``data`` so a
+        re-registration never clobbers live phase. Returns True on a store write, False
+        if the store is unavailable. Never raises.
+        """
+        try:
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+            from atdd.state.store import StateStore
+
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                store = StateStore(conn)
+                existing = store.objects.get(slug)
+                state = existing.state if existing is not None else status
+                merged = {**(existing.data if existing is not None else {}), **data}
+                store.objects.upsert(slug, WORK_ITEM_KIND, state=state, data=merged)
+                store.external_refs.link(
+                    slug, GITHUB_PROVIDER, "issue", str(issue_number),
+                    data={"source": "atdd-issue"},
+                )
+            finally:
+                conn.close()
+            return True
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store work-item create unavailable; manifest registration still applies",
+                extra={"issue": issue_number, "slug": slug, "error": str(exc)},
+            )
+            return False
+
     def _register_issue_in_manifest(
         self,
         issue_number: int,
         slug: str,
         train: Optional[str] = None,
     ) -> None:
-        """Register a newly published issue in the local .atdd/manifest.yaml and commit atomically."""
+        """Register a newly published issue.
+
+        #1203 Phase 2: writes the work item to the State Store first (authoritative),
+        then mirrors the manifest ``issues.<n>`` record (a compatibility projection).
+        """
+        self._store_create_work_item(
+            issue_number, slug, status="INIT", data={"train": train}
+        )
         if not self.manifest_file.exists():
             return
         manifest = self._load_manifest()
@@ -1207,6 +1361,12 @@ class IssueManager:
         if "sessions" not in manifest:
             manifest["sessions"] = []
         manifest["sessions"].append(issue_entry)
+        # #1203 Phase 2: the State Store is authoritative — record the new work item
+        # there too (slug + github external_ref), keeping the manifest as a mirror.
+        self._store_create_work_item(
+            parent_number, slug, status="INIT",
+            data={k: v for k, v in issue_entry.items() if k not in ("slug", "status")},
+        )
         self._save_manifest(manifest)
         # Registration must land or fail loudly — never a silent exit-0 with an
         # unregistered issue (#738). _commit_manifest_change(strict=True) for the
@@ -1414,6 +1574,14 @@ class IssueManager:
 
         # COMPLETE is carried by the atdd:COMPLETE label (REST) + the manifest
         # archive record below (#1051) — no Projects v2 board write.
+
+        # #1203 Phase 2: the State Store is authoritative for the work-item
+        # lifecycle — record the archive there first (terminal COMPLETE phase +
+        # the archived date), then mirror the manifest below. Both calls degrade
+        # to a logged no-op if the store is unavailable; the GitHub close +
+        # manifest record below still apply.
+        self._store_set_status(issue_number, "COMPLETE")
+        self._store_update_fields(issue_number, {"archived": date.today().isoformat()})
 
         # Update manifest
         manifest = self._load_manifest()
@@ -2358,7 +2526,7 @@ class IssueManager:
             created_raw = issue.get("createdAt", "")
             created = created_raw[:10] if created_raw else str(date.today())
 
-            sessions.append({
+            session_entry = {
                 "id": str(number),
                 "slug": slug,
                 "file": None,
@@ -2367,7 +2535,15 @@ class IssueManager:
                 "status": status,
                 "created": created,
                 "archived": None,
-            })
+            }
+            # #1203 Phase 2: the State Store is authoritative — create the
+            # backfilled work item there first (slug + github external_ref),
+            # keeping the manifest session entry below as a mirror.
+            self._store_create_work_item(
+                number, slug, status=status,
+                data={k: v for k, v in session_entry.items() if k not in ("slug", "status")},
+            )
+            sessions.append(session_entry)
             registered.add(number)
             added += 1
             print(f"  Backfilled: #{number} {slug}")

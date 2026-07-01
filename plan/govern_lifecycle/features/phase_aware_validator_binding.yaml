@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:phase-aware-validator-binding"
+wagon: "wagon:govern-lifecycle"
+description: "Refines the enforcement TIMING of the existing acceptance-violation rule tester.acceptance-violation.validator-binding-must-be-bidirectional (#1242) so a brand-new plan-only issue at PLANNED is no longer blocked from pushing by acceptances whose anchored tests are legitimately not written until RED. The forward pass of test_repo_validator_binding.collect_violations consults the owning issue's CURRENT lifecycle phase — read from .atdd/manifest.yaml sessions[] (the #1168 State Store's import source), keyed by wagon, fail-closed — and exempts an unwritten-test acceptance only while its owner is at INIT/PLANNED, firing exactly as today from RED onward. A phase_machine-grounded pre-test comparison and an owning_issue_phase() lookup are added to _acceptance_walker.py; the reverse (orphan-test) pass and the rule's id/severity/disposition are unchanged. No new rule is introduced — only the validator's timing is phased — so the bidirectional invariant is correctly phased, not weakened."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E057"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — uses the existing atdd validate tester entry point"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "owning_issue_phase() + the pre-test phase comparison — pure helpers that map an acceptance to its owning issue's current phase and decide whether the anchored test is due yet"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Reuses the Violation domain dataclass and the canonical phase order in phase_machine.convention.yaml; nothing new at runtime"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reads .atdd/manifest.yaml sessions[] read-only (the State Store import source) and reuses _acceptance_walker.iter_repo_acceptances + the test-header scan; no new infrastructure, no fork of #1168"

@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.live-smoke-acceptance-must-execute
+kind: rule
+status: active
+name: Live smoke acceptance must execute
+statement: "An execution_kind: live_smoke acceptance's anchored test must run-or-fail\
+  \ against real infrastructure \u2014 it MUST NOT be able to self-skip (pytest.skip\
+  \ / importorskip / mark.skip(if) / live_smoke_available guard); a skipped live_smoke\
+  \ test passes vacuously and never executes"
+terms:
+- term_id: run_or_fail
+  text: A live_smoke acceptances anchored test must execute against real infrastructure
+    and either pass or fail, never self-skip via pytest.skip/importorskip/mark.skip(if)/live_smoke_available
+    guards.
+implementation:
+  type: validator
+  ref: test_live_smoke_execution::test_every_live_smoke_acceptance_executed
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.live-smoke-acceptance-must-execute
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Remove the self-skip mechanism (pytest.skip / pytest.importorskip / @pytest.mark.skip
+    / @pytest.mark.skipif / live_smoke_available guard) so the test runs inside the
+    workspace provider and passes or fails; if the claim is not inducible against
+    real infra, re-author it as hermetic_integration or a unit/review assertion.
+  operational_guidance: 'recipe: live-smoke-execution'
+metadata:
+  severity: 4
+  disposition: strict

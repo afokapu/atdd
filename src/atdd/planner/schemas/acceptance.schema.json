@@ -39,7 +39,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["unit", "http", "event", "ws", "e2e", "a11y", "visual", "metric", "job", "db", "sec", "load", "script", "widget", "golden", "bloc", "integration", "rls", "edge_function", "realtime", "storage"]
+          "enum": ["unit", "http", "event", "ws", "e2e", "a11y", "visual", "metric", "job", "db", "sec", "load", "script", "widget", "golden", "bloc", "integration", "rls", "edge_function", "realtime", "storage", "smoke"]
         },
         "category": {
           "type": "string",

@@ -1,0 +1,59 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.complexity-length
+kind: rule
+status: active
+name: Python function length stays under threshold
+statement: Every Python function MUST keep its lines of code below the threshold (default < 50 LOC,
+  excluding blank and comment lines) so that a single function does not grow long enough to violate the
+  single-responsibility principle. This is the language-agnostic obligation owned by the coder extension.
+  The stack-specific detector that enforces it (a pytest scan counting code lines per function body) is the
+  python-pytest workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.complexity-cyclomatic
+content:
+  summary: An agnostic "no over-long function" obligation. The python realization extracts each function
+    body and counts its lines of code (excluding blank lines and pure-comment lines), flagging any function
+    longer than 50 LOC. It is realized by the same multi-rule complexity detector as the four sibling
+    coder.refactor.complexity-* rules (via that implementation's emits_rule_ids).
+  normative_text: |
+    Long functions are hard to understand, hard to test, and usually a sign the function is doing too much
+    (a single-responsibility violation). The obligation: each function's lines of code stay below the
+    configured threshold (default < 50 LOC). HOW lines are counted is delegated to the per-stack detector;
+    for python it counts every non-blank, non-comment line of the extracted function body (the def line
+    included), exactly as core does.
+  fix_hint: |
+    Shorten the flagged function by decomposition:
+      * extract cohesive blocks into well-named helper functions,
+      * move distinct responsibilities into separate functions or classes,
+      * remove dead or duplicated lines.
+    This rule is `strict`: a function over the length threshold is not suppressible and fails. Pre-existing
+    length in a consumer repo is held flat by a downstream ratchet baseline (a consumer/coach concern), not
+    the workspace detector — the detector always emits the RAW over-threshold function list.
+  exceptions:
+    - Blank lines and pure-comment lines are not counted toward the length.
+    - The threshold (default 50) is configurable; the obligation is "below the configured threshold".
+metadata:
+  aliases:
+    - COMPLEXITY-LENGTH-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.complexity-length
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: function_length
+  text: the count of lines of code in a function body, excluding blank lines and pure-comment lines.
+- term_id: length_threshold
+  text: the configured maximum lines of code a function may have (default 50); the obligation is to stay
+    below it.

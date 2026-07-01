@@ -14,7 +14,9 @@ source:
   legacy_rule_id: coach.phase-machine
 metadata:
   severity: 4
-  disposition: strict
+  # documentation-only (#1225): the phase machine is a structural spec with no bound
+  # validator / bind_rule callsite — it documents the lifecycle, it is not an enforcement gate.
+  disposition: documentation-only
   introduced_in: 3.84.0
 parity:
   source_fragments_preserved: true
