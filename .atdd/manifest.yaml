@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1317
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-07-02'
   archived: null
   branch: fix/resolve-canonical-theme-from-config
