@@ -181,8 +181,8 @@ class WorkItemReader:
                     return int(ref.ref_value)
                 except (TypeError, ValueError):
                     _log.debug(
-                        "non-integer github issue ref_value for slug %r: %r",
-                        slug, ref.ref_value,
+                        "non-integer github issue ref_value; treating slug as unlinked",
+                        extra={"slug": slug, "ref_value": ref.ref_value},
                     )
                     return None
         return None
