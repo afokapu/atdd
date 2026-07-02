@@ -180,6 +180,10 @@ class WorkItemReader:
                 try:
                     return int(ref.ref_value)
                 except (TypeError, ValueError):
+                    _log.debug(
+                        "non-integer github issue ref_value for slug %r: %r",
+                        slug, ref.ref_value,
+                    )
                     return None
         return None
 
