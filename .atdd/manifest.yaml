@@ -3342,7 +3342,7 @@ sessions:
   file: null
   issue_number: 1330
   type: implementation
-  status: PLANNED
+  status: RED
   created: '2026-07-02'
   archived: null
   branch: feat/contract-first-class-unit
