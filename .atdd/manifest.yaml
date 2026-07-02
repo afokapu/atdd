@@ -3613,4 +3613,6 @@ sessions:
   status: INIT
   created: '2026-07-02'
   archived: null
+  branch: refactor/migrate-branch-gate-to-state-store
+  train: 0002-coach-drives-lifecycle
 issues: {}
