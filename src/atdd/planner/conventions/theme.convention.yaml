@@ -1,19 +1,23 @@
 version: "1.0"
 name: "Theme Convention"
 description: >-
-  Canonical wagon/train theme taxonomy (issue #970). Collapses the vestigial
-  10-theme game-domain template (commons/mechanic/scenario/match/sensory/player/
-  league/audience/monetization/partnership) down to five canonical themes that
-  describe the ATDD toolkit's own abstraction stack, and binds validators that
-  enforce the set, the commons-vs-coach boundary, URN-prefix alignment, and
-  archetype alignment.
+  Wagon/train theme taxonomy (issue #970; consumer-aware #1317). The ATDD
+  toolkit self-governs to a five-theme abstraction stack (commons/plan/test/
+  code/coach), declared in its own .atdd/config.yaml `themes:` block. The
+  canonical SET a repo enforces is NOT hardcoded: planner.theme.must-be-canonical
+  resolves it from get_theme_map(config) — the effective, consumer-repo-aware map
+  (built-in defaults + .atdd/config.yaml overrides) — so a game/consumer repo
+  governs against its own domain themes. This convention also binds the
+  commons-vs-coach boundary, URN-prefix alignment, and archetype alignment.
 
 # =============================================================================
 # CANONICAL TAXONOMY (5 themes, ordered as an abstraction stack)
 # =============================================================================
 # Digit alignment preserves the existing train-numbering scheme
-# (train.convention.yaml theme_digit): only digits 0-4 are canonical; 5-9 are
-# retired. The digit-0 NAME is the single flip point — see `theme_zero_token`
+# (train.convention.yaml theme_digit). This is the TOOLKIT's own map (digits
+# 0-4); a consumer repo declares its own via .atdd/config.yaml `themes:` and
+# must-be-canonical resolves the effective set from get_theme_map(config)
+# (#1317). The digit-0 NAME is the single flip point — see `theme_zero_token`
 # below and CANONICAL_THEME_0 in
 # src/atdd/planner/validators/_theme_taxonomy.py (one constant, mirrored here).
 taxonomy:
@@ -58,9 +62,14 @@ taxonomy:
 
   retired_digits: ["5", "6", "7", "8", "9"]
   retired_note: >-
-    The legacy game-domain names (sensory/player/league/audience/monetization/
-    partnership) at digits 5-9 are retired. DEFAULT_THEME_MAP retains them for
-    back-compat resolution only; planner.theme.must-be-canonical rejects them.
+    In the TOOLKIT's own repo, digits 5-9 (the legacy game-domain names
+    sensory/player/league/audience/monetization/partnership) are unused — the
+    toolkit config declares only 0-4. must-be-canonical no longer hardcodes a
+    reject list (#1317): a theme is non-canonical iff it is absent from the
+    effective get_theme_map(config), so the validator and get_theme_map can
+    never disagree. get_theme_map merges overrides onto the built-in defaults
+    and cannot remove digits, so 5-9 keep the game-domain defaults but are not
+    referenced by any toolkit wagon.
 
 # =============================================================================
 # COMMONS-vs-COACH BOUNDARY (the one sharp line — bindable)

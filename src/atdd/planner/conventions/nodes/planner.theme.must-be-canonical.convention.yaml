@@ -3,8 +3,10 @@ rule_id: planner.theme.must-be-canonical
 kind: rule
 status: active
 name: Theme must be canonical
-statement: 'Every wagon theme: and every train theme-digit MUST resolve to one of the five canonical themes
-  (commons/plan/test/code/coach; digits 0-4); retired (5-9) and undeclared themes are rejected.'
+statement: 'Every wagon theme: and every train theme-digit MUST resolve to a theme in the effective map
+  get_theme_map(config) — built-in defaults + .atdd/config.yaml themes: overrides (#1317). The canonical set
+  is consumer-repo-aware, not a hardcoded five; a theme absent from the effective map is rejected. In the
+  toolkit''s own repo the config declares commons/plan/test/code/coach.'
 implementation:
   type: validator
   ref: test_theme_must_be_canonical::test_every_wagon_theme_is_canonical
@@ -31,13 +33,14 @@ parity:
   reviewed_at: '2026-06-16'
 terms:
 - term_id: canonical_resolution
-  text: a theme/digit resolving to the canonical set.
+  text: a theme/digit resolving to the effective canonical set = values of get_theme_map(config).
   values:
-    allowed:
+    source: get_theme_map(config)  # built-in defaults + .atdd/config.yaml themes: overrides
+    toolkit_repo:  # what the toolkit's own .atdd/config.yaml declares
     - commons
     - plan
     - test
     - code
     - coach
-    digits: 0-4
+    consumer_repo: repo-declared game-domain (or other) themes; resolved per-repo, not hardcoded
 notes: Subsumes the runtime theme-membership check wmbt:govern-lifecycle:E001 (which is otherwise unbound).

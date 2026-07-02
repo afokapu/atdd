@@ -58,4 +58,7 @@ terms:
     - audience
     - monetization
     - partnership
-    note: DEFAULT_THEME_MAP retains them for back-compat resolution only; must-be-canonical rejects them
+    note: 'In the toolkit''s own repo these digits are unused (config declares only 0-4). must-be-canonical
+      no longer hardcodes a reject list (#1317) — a theme is non-canonical iff absent from get_theme_map(config),
+      so it can never both be blessed by the map and rejected. get_theme_map merges and cannot remove digits,
+      so 5-9 keep the game-domain defaults but are unreferenced.'
