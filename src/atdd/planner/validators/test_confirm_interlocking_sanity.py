@@ -39,11 +39,12 @@ _INTERLOCKING_ID = "interlocking:match-resolution"
 def _write_valid_tree(root: Path) -> Path:
     doc = interlocking_doc()
     il_path = write_tree(root, doc)
-    # the message payload references contract `match:result`; give it a body so
-    # planner.train.interlocking-payload-contract-body-required resolves.
+    # the message payload references contract `match:result`; give it a body whose
+    # $id IS that identity so planner.train.interlocking-payload-contract-body-required
+    # resolves it (by identity, not filename — #1314 item C).
     cdir = root / "plan" / "contracts"
     cdir.mkdir(parents=True, exist_ok=True)
-    (cdir / "result.schema.json").write_text("{}")
+    (cdir / "result.schema.json").write_text('{"$id": "match:result"}')
     # fill the placeholder projection digests with the computed values.
     il = load_interlocking(il_path)
     for r in doc["routes"]:

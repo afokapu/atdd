@@ -25,6 +25,7 @@ Stdlib + yaml only; no other-layer imports (boundaries §3.3).
 """
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Callable, Dict, List
@@ -204,20 +205,83 @@ def message_payload_typed_violations(il: TrainInterlocking, root=None) -> List[d
 
 
 # --- 9. payload contract body required --------------------------------------
-def _contract_resolves(contract: str, root: Path) -> "tuple[bool, str]":
-    """Best-effort resolution of a payload contract identity to a schema body.
+_CONTRACT_ID_PREFIX = "contract:"
+_SCHEMA_SUFFIXES = (".schema.json", ".schema.yaml", ".schema.yml")
 
-    Convention (planner.artifact-naming.contract-file-mapping): a contract
-    identity ``a:b:c`` maps to a ``*.schema.{json,yaml,yml}`` whose stem matches
-    the final identity segment, under any ``contracts/`` directory. Returns
-    ``(resolved, expected_schema_path_glob)``.
+
+def _normalize_identity(identity: str) -> str:
+    """Strip an optional leading ``contract:`` so a bare contract identity and the
+    ``contract:``-prefixed ``$id`` form set by ``create_contract`` (#1330) compare
+    equal — this resolver works either side of the #1330 boundary."""
+    identity = (identity or "").strip()
+    if identity.startswith(_CONTRACT_ID_PREFIX):
+        identity = identity[len(_CONTRACT_ID_PREFIX):]
+    return identity
+
+
+def _convention_schema_path(contract: str) -> str:
+    """The deterministic contract-file location for an identity, per
+    ``planner.artifact-naming.contract-file-mapping``: colons and variant dots
+    become directory separators —
+    ``theme:seg:aspect.variant → contracts/theme/seg/aspect/variant.schema.json``.
     """
-    leaf = contract.split(":")[-1]
-    expected = f"**/contracts/**/{leaf}*.schema.*"
-    for path in root.glob(expected):
-        if path.is_file():
+    ident = _normalize_identity(contract)
+    parts = ident.replace(":", "/").replace(".", "/")
+    return f"contracts/{parts}.schema.json"
+
+
+def _schema_declared_id(path: Path) -> "str | None":
+    """Read a schema body's declared ``$id`` (``None`` if unreadable or absent)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+        doc = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
+    except (OSError, ValueError, yaml.YAMLError):
+        return None
+    if isinstance(doc, dict):
+        sid = doc.get("$id")
+        return sid if isinstance(sid, str) else None
+    return None
+
+
+def _iter_contract_schemas(root: Path):
+    """Yield every contract schema body under any ``contracts/`` directory."""
+    seen: "set[Path]" = set()
+    for suffix in _SCHEMA_SUFFIXES:
+        for path in root.glob(f"**/contracts/**/*{suffix}"):
+            if path.is_file() and path not in seen:
+                seen.add(path)
+                yield path
+
+
+def _contract_resolves(contract: str, root: Path) -> "tuple[bool, str]":
+    """Resolve a payload contract *identity* to a schema body by ``$id``, not by a
+    filename glob (#1314 item C).
+
+    A contract ``a:b:c`` resolves iff some ``*.schema.{json,yaml,yml}`` under a
+    ``contracts/`` directory declares a ``$id`` equal to the identity — normalizing
+    an optional ``contract:`` prefix on either side (#1330). The deterministic
+    convention path (where ``create_contract`` writes) is checked first; otherwise
+    every contract body is scanned, so a correctly-identified but
+    non-canonically-named file still resolves (kills the #244 leaf-mismatch false
+    negative). A body whose ``$id`` differs never satisfies the identity (kills the
+    old leaf-glob false positive). Returns
+    ``(resolved, expected_convention_path)``.
+    """
+    target = _normalize_identity(contract)
+    convention_path = _convention_schema_path(contract)
+
+    # 1. Deterministic convention path — the location `create_contract` writes to.
+    candidate = root / convention_path
+    if candidate.is_file() and \
+            _normalize_identity(_schema_declared_id(candidate) or "") == target:
+        return True, convention_path
+
+    # 2. $id scan — resolves a correctly-identified body at a non-canonical path.
+    for path in _iter_contract_schemas(root):
+        if _normalize_identity(_schema_declared_id(path) or "") == target:
             return True, str(path.relative_to(root))
-    return False, expected
+
+    return False, convention_path
 
 
 def payload_contract_body_violations(il: TrainInterlocking, root: Path | str) -> List[dict]:
