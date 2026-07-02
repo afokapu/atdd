@@ -20,6 +20,7 @@ lives in ``plan_session.confirm`` + ``test_confirm_interlocking_sanity``.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import List
 
@@ -280,6 +281,42 @@ def test_payload_contracts_have_schema_bodies() -> None:
 def test_payload_contract_body_fault_is_evidence_shaped(tmp_path: Path) -> None:
     bad = _valid_model()  # contract 'demo:thing' resolves to nothing under tmp_path
     ev = sanity.payload_contract_body_violations(bad, tmp_path)
+    _assert_evidence_shaped("planner.train.interlocking-payload-contract-body-required", ev)
+
+
+def _write_contract_body(path: Path, schema_id: str) -> None:
+    """Write a minimal contract schema body declaring ``$id`` at ``path``."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"$id": schema_id, "type": "object"}), encoding="utf-8")
+
+
+def _model_with_contract(contract: str) -> TrainInterlocking:
+    msg = Message(id="m1", kind="boundary", sender="wagon:a", recipient="wagon:b",
+                  intent="do", payload=Payload(contract=contract), feature_refs=())
+    return _valid_model(messages=(msg,))
+
+
+def test_payload_contract_resolves_by_id_not_filename(tmp_path: Path) -> None:
+    """#1314 C / #244: a contract body whose FILENAME does not match the identity
+    leaf still resolves when its ``$id`` is the contract identity. The prior
+    leaf-glob (``**/contracts/**/result*.schema.*``) failed to find
+    ``match_result.schema.json`` for ``match:result`` (leaf ``result`` ≠
+    ``match_result``) — resolution is by identity, not filename."""
+    _write_contract_body(tmp_path / "contracts" / "domain" / "match_result.schema.json",
+                         "contract:match:result")
+    model = _model_with_contract("match:result")
+    assert sanity.payload_contract_body_violations(model, tmp_path) == []
+
+
+def test_payload_contract_rejects_filename_glob_with_wrong_id(tmp_path: Path) -> None:
+    """#1314 C: a body whose FILENAME globs the identity leaf but whose ``$id`` is a
+    DIFFERENT identity must NOT satisfy the contract. The old leaf-glob passed it
+    (false positive); identity resolution flags it as unresolved."""
+    _write_contract_body(tmp_path / "contracts" / "domain" / "result_other.schema.json",
+                         "contract:other:thing")
+    model = _model_with_contract("match:result")
+    ev = sanity.payload_contract_body_violations(model, tmp_path)
+    assert ev, "a body with a non-matching $id must not satisfy the contract identity"
     _assert_evidence_shaped("planner.train.interlocking-payload-contract-body-required", ev)
 
 
