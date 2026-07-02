@@ -38,6 +38,7 @@ _ISSUE_REF_KIND = "issue"
 #: Work-item ``data`` keys mirrored from the manifest session entry.
 _TRAIN_KEY = "train"
 _BRANCH_KEY = "branch"
+_WAGON_KEY = "wagon"
 
 
 class WorkItemReader:
@@ -130,6 +131,36 @@ class WorkItemReader:
         """The branch recorded for ``issue_number`` (from the work-item ``data``)."""
         obj = self.get(issue_number)
         return obj.data.get(_BRANCH_KEY) if obj is not None else None
+
+    def wagon(self, issue_number: int) -> Optional[str]:
+        """The wagon slug recorded for ``issue_number`` (from the work-item ``data``)."""
+        obj = self.get(issue_number)
+        return obj.data.get(_WAGON_KEY) if obj is not None else None
+
+    def issue_wagon_map(self) -> dict[int, str]:
+        """Map GitHub issue number → wagon slug for every stored work item with a wagon.
+
+        The store-backed analog of scanning the manifest ``sessions`` for
+        ``issue_number``/``wagon`` pairs: enumerate the GitHub ``issue``
+        external-refs and read each linked work item's wagon from its ``data``
+        bag. Items with no wagon (or a non-integer ref) are skipped, so the map
+        holds only issues that actually carry a wagon.
+        """
+        out: dict[int, str] = {}
+        for ref in self._store.external_refs.all():
+            if ref.provider != GITHUB_PROVIDER or ref.ref_kind != _ISSUE_REF_KIND:
+                continue
+            obj = self._store.objects.get(ref.object_uid)
+            if obj is None:
+                continue
+            wagon = obj.data.get(_WAGON_KEY)
+            if not wagon:
+                continue
+            try:
+                out[int(ref.ref_value)] = str(wagon)
+            except (TypeError, ValueError):
+                continue
+        return out
 
     # -- internals ---------------------------------------------------------- #
     def _auto_import_if_empty(self, *, db_path: Optional[Path]) -> None:
