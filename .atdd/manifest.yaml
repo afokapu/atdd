@@ -3575,3 +3575,13 @@ sessions:
   created: '2026-07-01'
   archived: null
   branch: feat/graft-build-meta-shim-into-sdist
+- id: '1318'
+  slug: migrate-graph-readers-to-state-store
+  file: null
+  issue_number: 1318
+  type: refactor
+  status: SMOKE
+  created: '2026-07-02'
+  archived: null
+  branch: refactor/migrate-graph-readers-to-state-store
+  train: 0002-coach-drives-lifecycle

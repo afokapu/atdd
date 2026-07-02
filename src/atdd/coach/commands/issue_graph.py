@@ -33,8 +33,38 @@ def _load_yaml(path: Path) -> dict:
         return {}
 
 
+def _store_wagon(issue_number: int, repo_root: Path) -> Optional[str]:
+    """Wagon for *issue_number* from the State Store, or None on any miss."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=repo_root) as reader:
+            return reader.wagon(issue_number)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
+def _store_train(issue_number: int, repo_root: Path) -> Optional[str]:
+    """Train for *issue_number* from the State Store, or None on any miss."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=repo_root) as reader:
+            return reader.train(issue_number)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
 def _wagon_slug_for_issue(issue_number: int, repo_root: Path) -> Optional[str]:
-    """Return the wagon slug for *issue_number* from .atdd/manifest.yaml."""
+    """Return the wagon slug for *issue_number*.
+
+    #1270 slice A: read the wagon from the State Store first (authoritative since
+    #1203), falling back to the ``.atdd/manifest.yaml`` mirror when the store has
+    no wagon for the issue (e.g. a store not yet imported from the manifest).
+    """
+    from_store = _store_wagon(issue_number, repo_root)
+    if from_store:
+        return str(from_store)
     manifest_path = repo_root / ".atdd" / "manifest.yaml"
     if not manifest_path.is_file():
         return None
@@ -315,14 +345,16 @@ def build_issue_architecture_context(
     if not wagon_slug:
         return None
 
-    manifest_path = repo_root / ".atdd" / "manifest.yaml"
-    train_id: Optional[str] = None
-    if manifest_path.is_file():
-        manifest_data = _load_yaml(manifest_path)
-        for session in manifest_data.get("sessions", []):
-            if str(session.get("issue_number", "")) == str(issue_number):
-                train_id = session.get("train") or None
-                break
+    # #1270 slice A: train store-first (authoritative since #1203), manifest fallback.
+    train_id: Optional[str] = _store_train(issue_number, repo_root)
+    if not train_id:
+        manifest_path = repo_root / ".atdd" / "manifest.yaml"
+        if manifest_path.is_file():
+            manifest_data = _load_yaml(manifest_path)
+            for session in manifest_data.get("sessions", []):
+                if str(session.get("issue_number", "")) == str(issue_number):
+                    train_id = session.get("train") or None
+                    break
 
     return build_architecture_context_for_wagon(
         wagon_slug, train_id=train_id, repo_root=repo_root,
