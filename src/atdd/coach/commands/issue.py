@@ -781,22 +781,28 @@ class IssueManager:
 
         Returns the number of sub-issues created, or 1 on a hard error.
         """
-        manifest = self._load_manifest() if self.manifest_file.exists() else {}
-        sessions = manifest.get("sessions") or []
-        entry = next(
-            (s for s in sessions if s.get("issue_number") == issue_number),
-            None,
-        )
-        if entry is None:
-            print(f"Error: Issue #{issue_number} not found in manifest.")
-            return 1
+        # #1270 slice B: read wagon/feature store-first (authoritative since
+        # #1203), falling back to the .atdd/manifest.yaml mirror.
+        wagon = self._store_work_item_field(issue_number, "wagon")
+        feature_urn = self._store_work_item_field(issue_number, "feature")
+        if not wagon or not feature_urn:
+            manifest = self._load_manifest() if self.manifest_file.exists() else {}
+            entry = next(
+                (s for s in (manifest.get("sessions") or [])
+                 if s.get("issue_number") == issue_number),
+                None,
+            )
+            if entry is None and not (wagon or feature_urn):
+                print(f"Error: Issue #{issue_number} not found in store or manifest.")
+                return 1
+            if entry is not None:
+                wagon = wagon or entry.get("wagon")
+                feature_urn = feature_urn or entry.get("feature")
 
-        wagon = entry.get("wagon")
-        feature_urn = entry.get("feature")
         if not wagon or not feature_urn:
             print(
-                f"Error: Issue #{issue_number} session entry missing 'wagon' or "
-                f"'feature' fields. sync_wmbts needs both to resolve plan artifacts."
+                f"Error: Issue #{issue_number} missing 'wagon' or 'feature' fields. "
+                f"sync_wmbts needs both to resolve plan artifacts."
             )
             return 1
 

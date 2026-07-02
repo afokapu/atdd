@@ -66,6 +66,17 @@ def _check_on_main_branch(repo_root: Path) -> tuple:
 _COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
 
 
+def _store_issue_number_for_slug(root, slug: str):
+    """GitHub issue number linked to *slug* from the State Store, or None."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=root) as reader:
+            return reader.issue_number_for_slug(slug)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
 class IssueLifecycle:
     """Unified issue lifecycle orchestrator."""
 
@@ -611,27 +622,25 @@ class IssueLifecycle:
         if rc != 0:
             return rc
 
-        # Read manifest to find the created issue number by slug
-        manifest_path = self.atdd_config_dir / "manifest.yaml"
-        if not manifest_path.exists():
-            print("Error: manifest.yaml not found after creation.")
-            return 1
-
-        manifest = yaml.safe_load(manifest_path.read_text()) or {}
-        sessions = manifest.get("sessions", [])
-
-        # Find the entry matching our slug (last match in case of duplicates)
+        # Find the created issue number by slug.
         from atdd.coach.commands.issue import IssueManager as _IM
         slugified = _IM(self.target_dir)._slugify(slug)
 
-        issue_number = None
-        for entry in reversed(sessions):
-            if entry.get("slug") == slugified:
-                issue_number = entry.get("issue_number")
-                break
+        # #1270 slice B: resolve slug → issue_number store-first (authoritative
+        # since #1203), falling back to the .atdd/manifest.yaml mirror (last
+        # match wins there, in case of duplicate slugs).
+        issue_number = _store_issue_number_for_slug(self.target_dir, slugified)
+        if issue_number is None:
+            manifest_path = self.atdd_config_dir / "manifest.yaml"
+            if manifest_path.exists():
+                manifest = yaml.safe_load(manifest_path.read_text()) or {}
+                for entry in reversed(manifest.get("sessions", [])):
+                    if entry.get("slug") == slugified:
+                        issue_number = entry.get("issue_number")
+                        break
 
         if not issue_number:
-            print(f"Error: Could not find issue number for slug '{slug}' in manifest.")
+            print(f"Error: Could not find issue number for slug '{slug}'.")
             return 1
 
         # Phase 2: chain to worktree creation (default) or print intent (--no-branch).
