@@ -3337,6 +3337,7 @@ sessions:
   created: '2026-07-02'
   archived: null
   branch: feat/artifact-naming-validator
+  train: 0001-self-compliance-validate
 - id: '1330'
   slug: contract-first-class-unit
   file: null
@@ -3381,6 +3382,7 @@ sessions:
   created: '2026-07-02'
   archived: null
   branch: feat/artifact-naming-validator
+  train: 0001-self-compliance-validate
 - id: '1253'
   slug: verify-unverified-parity-detectors
   file: null
@@ -3421,3 +3423,4 @@ sessions:
   status: GREEN
   created: '2026-06-18'
   archived: null
+issues: {}
