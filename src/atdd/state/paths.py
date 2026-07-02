@@ -23,7 +23,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Mapping, Optional
+from typing import Callable, Mapping, Optional
 
 _log = logging.getLogger(__name__)
 
@@ -148,15 +148,78 @@ def git_worktree_root(start: Path) -> Optional[Path]:
     return None
 
 
+def _default_git_common_dir(start: Path) -> Optional[Path]:
+    """Resolve ``git rev-parse --git-common-dir`` for ``start`` (or ``None``).
+
+    This is the ONE place the state resolver shells out to git (#1315). It
+    mirrors ``coach/utils/repo.py:_git_common_dir`` but is kept local so the
+    lower-level ``state`` package does not depend on the ``coach`` layer. Any git
+    failure (not a repo, git absent, timeout) returns ``None`` and the resolver
+    falls back to marker-based resolution — which keeps the hermetic tests (empty
+    ``.git`` markers under ``tmp_path``) working unchanged.
+    """
+    import subprocess  # lazy: keep the module import surface stdlib-light
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=str(start), capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+        return None
+    if result.returncode != 0:
+        return None
+    raw = result.stdout.strip()
+    if not raw:
+        return None
+    common = Path(raw)
+    if not common.is_absolute():
+        common = Path(start) / common
+    return common.resolve()
+
+
+def _shared_store_root(
+    start: Path,
+    git_common_dir: Optional[Callable[[Path], Optional[Path]]],
+) -> Optional[Path]:
+    """Project-root store anchor for a flat-sibling worktree layout, or ``None``.
+
+    Single shared State Store per project (#1315, #1168 Phase 5): in a
+    flat-sibling layout every worktree shares one git common dir at
+    ``<project>/main/.git``, so the single store lives at ``<project>/.atdd/state``
+    — shared by all worktrees, derived deterministically from git rather than
+    from per-worktree ``.atdd/`` markers.
+
+    Returns ``<project>`` (the parent of the primary ``main/`` checkout) when the
+    git common dir resolves to a ``main/.git``; otherwise ``None`` (the caller
+    then uses marker-based resolution: single-repo, env-less tests, or a
+    non-``main`` primary checkout).
+    """
+    resolver = git_common_dir if git_common_dir is not None else _default_git_common_dir
+    common = resolver(start)
+    if common is None:
+        return None
+    # Flat-sibling: the shared common dir is the primary "main/" checkout's .git.
+    if common.name != ".git" or common.parent.name != "main":
+        return None
+    return common.parent.parent
+
+
 def resolve_control_root(
     start: Path,
     env: Optional[Mapping[str, str]] = None,
+    git_common_dir: Optional[Callable[[Path], Optional[Path]]] = None,
 ) -> ControlRootResolution:
     """Resolve the ATDD Control Root for ``start`` per #1168's resolver rules.
 
     Order (see #1168 "Control Root Resolver Rules"):
 
     1. ``ATDD_CONTROL_ROOT`` override, if set.
+    1.5 single shared store per project (#1315): in a flat-sibling worktree
+       layout (git common dir at ``<project>/main/.git``) the store is anchored
+       at the project root, shared by every worktree, ignoring per-worktree
+       ``.atdd/`` markers. Skipped when git is unavailable or the layout is not
+       flat-sibling (so single-repo / hermetic resolution is unchanged).
     2. Identify the enclosing Git worktree root.
     3. worktree is a Control Root and parent is not → single-repo.
     4. parent is a Control Root and current is a child worktree → sibling-worktree.
@@ -187,6 +250,21 @@ def resolve_control_root(
             extra={"env": CONTROL_ROOT_ENV, "control_root": str(root), "layout_mode": mode.value},
         )
         return ControlRootResolution(control_root=root, git_worktree_root=gwr, layout_mode=mode)
+
+    # Rule 1.5 (#1315) — single shared store per project. In a flat-sibling
+    # worktree layout the store is anchored at the project root (the parent of
+    # the primary ``main/`` checkout), shared by every worktree regardless of the
+    # per-worktree ``.atdd/`` config.yaml/manifest.yaml markers. Falls through to
+    # the marker-based rules below when git is unavailable or the layout is not a
+    # flat-sibling ``main/`` one (single-repo, hermetic tests, consumer repos).
+    shared_root = _shared_store_root(start, git_common_dir)
+    if shared_root is not None:
+        gwr = git_worktree_root(start)
+        _log.debug(
+            "shared project-root store (flat-sibling layout)",
+            extra={"control_root": str(shared_root), "git_worktree_root": str(gwr)},
+        )
+        return ControlRootResolution(shared_root, gwr, LayoutMode.SIBLING_WORKTREE)
 
     # Rule 2 — locate the enclosing Git worktree root.
     gwr = git_worktree_root(start)
