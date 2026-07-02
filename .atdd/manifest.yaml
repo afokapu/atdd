@@ -3590,7 +3590,7 @@ sessions:
   file: null
   issue_number: 1320
   type: refactor
-  status: PLANNED
+  status: SMOKE
   created: '2026-07-02'
   archived: null
   branch: refactor/migrate-cli-readers-to-state-store
