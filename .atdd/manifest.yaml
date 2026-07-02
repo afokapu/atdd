@@ -3605,4 +3605,12 @@ sessions:
   archived: null
   branch: refactor/migrate-cli-readers-to-state-store
   train: 0002-coach-drives-lifecycle
+- id: '1323'
+  slug: migrate-branch-gate-to-state-store
+  file: null
+  issue_number: 1323
+  type: refactor
+  status: INIT
+  created: '2026-07-02'
+  archived: null
 issues: {}
