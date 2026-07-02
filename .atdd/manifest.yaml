@@ -3346,6 +3346,7 @@ sessions:
   created: '2026-07-02'
   archived: null
   branch: feat/contract-first-class-unit
+  train: 0003-author-substrate
 - id: '1331'
   slug: contract-payload-body-resolution
   file: null
@@ -3372,3 +3373,4 @@ sessions:
   status: INIT
   created: '2026-07-02'
   archived: null
+issues: {}
