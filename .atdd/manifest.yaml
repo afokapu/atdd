@@ -3582,3 +3582,5 @@ sessions:
   status: INIT
   created: '2026-07-02'
   archived: null
+  branch: refactor/migrate-graph-readers-to-state-store
+  train: 0002-coach-drives-lifecycle
