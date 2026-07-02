@@ -3615,4 +3615,12 @@ sessions:
   archived: null
   branch: refactor/migrate-branch-gate-to-state-store
   train: 0002-coach-drives-lifecycle
+- id: '1326'
+  slug: reconcile-release-version-from-pypi
+  file: null
+  issue_number: 1326
+  type: implementation
+  status: INIT
+  created: '2026-07-02'
+  archived: null
 issues: {}
