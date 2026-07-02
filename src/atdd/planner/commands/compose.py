@@ -28,8 +28,10 @@ import pathlib
 import yaml
 
 import atdd
+from atdd.planner.commands.author import AuthorInputError
 from atdd.planner.commands.author_manifest import (
     validate_extension_manifest,
+    validate_implementation_manifest,
     validate_workspace_manifest,
 )
 
@@ -37,6 +39,7 @@ _log = logging.getLogger(__name__)
 
 EXTENSION_MANIFEST = "atdd.extension.yaml"
 WORKSPACE_MANIFEST = "atdd.workspace.yaml"
+IMPLEMENTATION_MANIFEST = "atdd.implementation.yaml"
 CORE_GRAPH_ID = "atdd.convention.relationships"
 
 
@@ -316,6 +319,17 @@ def validate_package(path, *, core_ids: "set[str] | None" = None) -> dict:
         # dispatch-verifies-channel-live obligation. Runs for every kind.
         validate_transport_realizes_mediation(p, core_ids)
         entry = {"kind": p["kind"]}
+        # Enforce the validator/family contract on every shipped implementation
+        # manifest in the package (atdd.core.implementation-schema).
+        impl_count = 0
+        for imp in sorted(p["dir"].rglob(IMPLEMENTATION_MANIFEST)):
+            try:
+                validate_implementation_manifest(yaml.safe_load(imp.read_text()) or {})
+            except AuthorInputError as exc:
+                raise CompositionError(
+                    f"invalid implementation manifest {imp.relative_to(root)}: {exc}") from exc
+            impl_count += 1
+        entry["implementations"] = impl_count
         if p["kind"] == "extension":
             entry["id"] = p["manifest"].get("extension_id")
             for rel in ((p["manifest"].get("owns") or {}).get("conventions") or []):
