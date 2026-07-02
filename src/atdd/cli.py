@@ -862,6 +862,7 @@ Phase descriptions:
             "  atdd issue reconcile               Backfill missing issues from GitHub into manifest\n"
             "  atdd issue sync-labels 126         Re-derive labels from body metadata\n"
             "  atdd issue sync-labels --all       Re-derive labels across every atdd-issue\n"
+            "  atdd issue is-registered <branch>  Store-backed branch-registration check (exit 0/1)\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -869,13 +870,13 @@ Phase descriptions:
         "target",
         type=str,
         nargs="?",
-        help="Issue number (int), slug (str), 'open' (list), or 'sync-labels'"
+        help="Issue number (int), slug (str), 'open', 'sync-labels', or 'is-registered'"
     )
     issue_parser.add_argument(
         "number",
         type=str,
         nargs="?",
-        help="Issue number when target is 'sync-labels'"
+        help="Issue number when target is 'sync-labels'; branch name when target is 'is-registered'"
     )
     issue_parser.add_argument(
         "--status", "-s",
@@ -2488,6 +2489,17 @@ Phase descriptions:
         if target == "reconcile":
             manager = IssueManager()
             return manager.reconcile()
+
+        # atdd issue is-registered <branch> — store-backed pre-commit branch gate
+        # (#1270 slice C). Exit 0 = registered (or nothing to check); 1 = the repo
+        # is atdd-managed but the branch's slug is not registered; 2 = usage error.
+        if target == "is-registered":
+            branch = getattr(args, "number", None)
+            if not branch:
+                print("Error: atdd issue is-registered requires a branch name")
+                return 2
+            manager = IssueManager()
+            return 0 if manager.branch_is_registered(branch) else 1
 
         # atdd issue sync-labels [<N>|--all] [--dry-run]
         if target == "sync-labels":

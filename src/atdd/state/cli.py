@@ -11,7 +11,9 @@ Phase 1 ships two enforcement commands described in #1168:
 - ``atdd state import-manifest`` — import ``.atdd/manifest.yaml`` operational
   state into the State Store and write a backup (#1183).
 
-``atdd state migrate-layout`` and later-phase commands are #1168 Phases 5+.
+- ``atdd state migrate-layout`` — consolidate to a single project-root State
+  Store, rebuilt from the primary ``main/`` checkout's manifest (#1315 / #1168
+  Phase 5). The divergent per-worktree stores are abandoned, not merged.
 """
 from __future__ import annotations
 
@@ -20,8 +22,12 @@ import logging
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
+from dataclasses import dataclass
+
 from atdd.state.db import current_version, init_state_store
 from atdd.state.paths import (
+    ATDD_DIR,
+    STATE_STORE_RELATIVE,
     AmbiguousControlRootError,
     ControlRootNotFoundError,
     ControlRootResolution,
@@ -54,6 +60,15 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="Import .atdd/manifest.yaml operational state into the State Store (#1183).")
     imp.add_argument("--root", default=None, help="Starting directory (default: cwd).")
 
+    ml = sub.add_parser(
+        "migrate-layout",
+        help="Consolidate to a single project-root State Store, rebuilt from main's "
+             "manifest (#1315 / #1168 Phase 5).")
+    ml.add_argument("--project-root", default=None,
+                    help="Project root (parent of main/). Default: derived from --root/cwd via git.")
+    ml.add_argument("--root", default=None,
+                    help="Starting directory used to derive the project root (default: cwd).")
+
     version = sub.add_parser(
         "version", help="Release version source-of-truth (#1172).")
     version_sub = version.add_subparsers(dest="version_op")
@@ -72,6 +87,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "(e.g. the latest git tag) without emitting a version_decided signal.")
     v_set.add_argument("version", help="The version to set as authoritative current (X.Y.Z).")
     v_set.add_argument("--root", default=None)
+    v_rb = version_sub.add_parser(
+        "reconcile-base",
+        help="Print the authoritative release base = max(git tag, PyPI latest) for the "
+        "next bump (#1326). Falls back to the git tag if PyPI is unreachable.")
+    v_rb.add_argument("--git-tag", dest="git_tag", default=None,
+                      help="The latest git tag core (X.Y.Z, without a leading 'v').")
+    v_rb.add_argument("--package", default="atdd",
+                      help="PyPI package to query for the published latest (default: atdd).")
+    v_rb.add_argument("--no-pypi", dest="no_pypi", action="store_true",
+                      help="Skip the PyPI query and resolve from the git tag only.")
+    v_rb.add_argument("--root", default=None)
 
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
@@ -206,6 +232,79 @@ def _cmd_import_manifest(root: Optional[str]) -> int:
     return 0
 
 
+@dataclass
+class MigrateLayoutResult:
+    """Outcome of a single-store consolidation (#1315)."""
+
+    store_path: Path
+    imported: int
+    abandoned: list
+
+
+def migrate_layout(
+    start: Optional[str] = None,
+    *,
+    project_root: Optional[str] = None,
+) -> MigrateLayoutResult:
+    """Consolidate to ONE project-root State Store, rebuilt from main's manifest.
+
+    The deferred #1168 Phase 5 one-shot (#1315). The per-worktree stores diverge
+    (none authoritative), so they are NOT merged: the single project-root store
+    is REBUILT from the canonical source — the primary ``main/`` checkout's
+    ``.atdd/manifest.yaml`` — via :func:`import_manifest`. The stale per-worktree
+    stores are reported as abandoned (left on disk, not deleted).
+
+    ``project_root`` overrides the derived location (parent of ``main/``); by
+    default it is resolved from ``start``/cwd via the git-backed resolver.
+    """
+    if project_root is not None:
+        root = Path(project_root).resolve()
+    else:
+        start_dir = _start_dir(start)
+        root = resolve_control_root(start_dir).control_root
+
+    shared_store = root / STATE_STORE_RELATIVE
+    main_manifest = root / "main" / ATDD_DIR / "manifest.yaml"
+    if not main_manifest.is_file():
+        raise FileNotFoundError(
+            f"canonical manifest not found for rebuild: {main_manifest} "
+            "(expected the primary 'main/' checkout's .atdd/manifest.yaml)")
+
+    from atdd.state.manifest_import import import_manifest  # local: keeps yaml off the hot path
+
+    result = import_manifest(manifest_path=main_manifest, db_path=shared_store)
+
+    # Report (do not delete/merge) any stale per-worktree stores under the project.
+    abandoned: list = []
+    for child in sorted(p for p in root.iterdir() if p.is_dir()):
+        rogue = child / STATE_STORE_RELATIVE
+        if rogue.resolve() == shared_store.resolve():
+            continue
+        if rogue.is_file():
+            abandoned.append(rogue)
+
+    return MigrateLayoutResult(store_path=shared_store, imported=result.imported, abandoned=abandoned)
+
+
+def _cmd_migrate_layout(args) -> int:
+    try:
+        result = migrate_layout(start=args.root, project_root=args.project_root)
+    except FileNotFoundError as exc:
+        _log.warning("migrate-layout: no canonical manifest", extra={"error": str(exc)})
+        print(f"ERROR: {exc}")
+        return 1
+    print(f"Rebuilt single project-root State Store: {result.store_path}")
+    print(f"Imported {result.imported} work item(s) from main's manifest.")
+    if result.abandoned:
+        print(f"Abandoned {len(result.abandoned)} per-worktree store(s) "
+              "(diverged; not merged, not deleted):")
+        for p in result.abandoned:
+            print(f"  - {p}")
+    else:
+        print("No per-worktree stores found to abandon.")
+    return 0
+
+
 def _open_store(root: Optional[str]):
     """Resolve, init, and open the State Store; return (resolution, conn) or (None, rc)."""
     start = _start_dir(root)
@@ -221,8 +320,24 @@ def _cmd_version(args) -> int:
     from atdd.state import version as ver
 
     if args.version_op is None:
-        print("usage: atdd state version <show|emit|bump --class PATCH|MINOR|MAJOR|set X.Y.Z>")
+        print("usage: atdd state version <show|emit|bump --class PATCH|MINOR|MAJOR|set X.Y.Z|"
+              "reconcile-base --git-tag X.Y.Z>")
         return 2
+
+    if args.version_op == "reconcile-base":
+        # Pure computation + a best-effort PyPI query; no store needed. The base is
+        # max(git tag, PyPI latest) so the next bump never regresses below the
+        # published latest; PyPI-unreachable falls back to the git tag (#1326).
+        pypi_latest = None if args.no_pypi else ver.latest_on_pypi(args.package)
+        try:
+            base = ver.resolve_release_base(args.git_tag, pypi_latest)
+        except ver.VersionError as exc:
+            _log.warning("version reconcile-base failed", extra={"error": str(exc),
+                                                                 "git_tag": args.git_tag})
+            print(f"ERROR: {exc}")
+            return 1
+        print(base)
+        return 0
 
     resolution, conn_or_rc = _open_store(args.root)
     if resolution is None:
@@ -335,6 +450,8 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_init(args.root)
     if args.op == "import-manifest":
         return _cmd_import_manifest(args.root)
+    if args.op == "migrate-layout":
+        return _cmd_migrate_layout(args)
     if args.op == "version":
         return _cmd_version(args)
     if args.op == "trace":

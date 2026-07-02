@@ -431,6 +431,52 @@ class IssueManager:
         branch = entry.get("branch")
         return str(branch) if branch else None
 
+    def branch_is_registered(self, branch: str) -> bool:
+        """Return True if *branch*'s work item is registered (store-first).
+
+        #1270 slice C: the store-backed replacement for the pre-commit hook's
+        ``grep "slug:" .atdd/manifest.yaml``. Resolves the branch → slug (strips
+        the ``prefix/`` segment; a work item is keyed in the store by its slug
+        uid), checks the State Store first, then the manifest mirror.
+
+        Returns True when the slug is registered, OR when the repo has nothing to
+        check against — an empty store *and* no manifest — mirroring the hook's
+        historical "no manifest ⇒ don't block" behaviour so a barely-initialised
+        repo is never falsely blocked. Returns False only when the repo IS
+        atdd-managed (store holds work items, or a manifest exists) yet the slug
+        is absent from both. Never raises; makes no GitHub calls.
+        """
+        slug = branch.split("/", 1)[-1] if "/" in branch else branch
+        store_has_items = False
+        try:
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.manifest_import import WORK_ITEM_KIND
+            from atdd.state.store import StateStore
+
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                store = StateStore(conn)
+                if store.objects.get(slug) is not None:
+                    return True
+                store_has_items = bool(store.objects.list(kind=WORK_ITEM_KIND))
+            finally:
+                conn.close()
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "branch-registration store read unavailable; using manifest",
+                extra={"branch": branch, "error": str(exc)},
+            )
+
+        if self.manifest_file.exists():
+            manifest = self._load_manifest()
+            for session in manifest.get("sessions") or []:
+                if session.get("slug") == slug:
+                    return True
+            return False  # manifest present but slug absent → not registered
+        # No manifest: decide from the store alone. Absent from a populated store
+        # → not registered; empty store → nothing to check → do not block.
+        return not store_has_items
+
     def _store_update_fields(self, issue_number: int, fields: Dict[str, Any]) -> bool:
         """Merge work-item metadata (branch/train/...) into the State Store.
 
@@ -781,22 +827,28 @@ class IssueManager:
 
         Returns the number of sub-issues created, or 1 on a hard error.
         """
-        manifest = self._load_manifest() if self.manifest_file.exists() else {}
-        sessions = manifest.get("sessions") or []
-        entry = next(
-            (s for s in sessions if s.get("issue_number") == issue_number),
-            None,
-        )
-        if entry is None:
-            print(f"Error: Issue #{issue_number} not found in manifest.")
-            return 1
+        # #1270 slice B: read wagon/feature store-first (authoritative since
+        # #1203), falling back to the .atdd/manifest.yaml mirror.
+        wagon = self._store_work_item_field(issue_number, "wagon")
+        feature_urn = self._store_work_item_field(issue_number, "feature")
+        if not wagon or not feature_urn:
+            manifest = self._load_manifest() if self.manifest_file.exists() else {}
+            entry = next(
+                (s for s in (manifest.get("sessions") or [])
+                 if s.get("issue_number") == issue_number),
+                None,
+            )
+            if entry is None and not (wagon or feature_urn):
+                print(f"Error: Issue #{issue_number} not found in store or manifest.")
+                return 1
+            if entry is not None:
+                wagon = wagon or entry.get("wagon")
+                feature_urn = feature_urn or entry.get("feature")
 
-        wagon = entry.get("wagon")
-        feature_urn = entry.get("feature")
         if not wagon or not feature_urn:
             print(
-                f"Error: Issue #{issue_number} session entry missing 'wagon' or "
-                f"'feature' fields. sync_wmbts needs both to resolve plan artifacts."
+                f"Error: Issue #{issue_number} missing 'wagon' or 'feature' fields. "
+                f"sync_wmbts needs both to resolve plan artifacts."
             )
             return 1
 

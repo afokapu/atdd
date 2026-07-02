@@ -76,9 +76,29 @@ def wagon_deps_transitive(
     return seen
 
 
+def _store_issue_wagon_map(root: Path) -> dict[int, str]:
+    """Issue number → wagon map from the State Store, or {} on any miss."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=root) as reader:
+            return reader.issue_wagon_map()
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return {}
+
+
 def issue_wagon_map(repo_root: Optional[Path] = None) -> dict[int, str]:
-    """Map issue number → wagon slug, read from ``.atdd/manifest.yaml``."""
-    path = _repo_root(repo_root) / ".atdd" / "manifest.yaml"
+    """Map issue number → wagon slug.
+
+    #1270 slice A: read from the State Store first (authoritative since #1203),
+    falling back to ``.atdd/manifest.yaml`` when the store yields no wagons (e.g.
+    a store not yet imported from the manifest).
+    """
+    root = _repo_root(repo_root)
+    store_map = _store_issue_wagon_map(root)
+    if store_map:
+        return {number: _wagon_slug(str(wagon)) for number, wagon in store_map.items()}
+    path = root / ".atdd" / "manifest.yaml"
     if not path.is_file():
         return {}
     data = yaml.safe_load(path.read_text()) or {}

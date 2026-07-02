@@ -12,6 +12,19 @@ release:
   tag_prefix: v
 code:
   toolkit: src/atdd
+# Theme taxonomy (#1317). The toolkit self-governs to its own abstraction
+# stack (commons/plan/test/code/coach, #970/#951), so declare it explicitly:
+# `planner.theme.must-be-canonical` resolves the canonical set from
+# get_theme_map(config), and without this block the built-in game-domain
+# DEFAULT_THEME_MAP would make the toolkit accept game themes and reject its
+# own plan/test/code/coach wagons. Digits 5-9 keep the game-domain defaults
+# (get_theme_map merges, it cannot remove digits) but are unused here.
+themes:
+  '0': commons
+  '1': plan
+  '2': test
+  '3': code
+  '4': coach
 sync:
   agents:
   - claude

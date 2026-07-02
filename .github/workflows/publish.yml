@@ -69,6 +69,27 @@ jobs:
       - name: Install atdd (the release-pipeline CLI)
         run: python -m pip install -e .
 
+      # INTERIM (decommission → afokapu/atdd-extensions#40): the extension's
+      # `real_publish` shells to `python -m build` + `python -m twine upload`, but
+      # this Publish job never installed them (Publish run 28501873003:
+      # "No module named build"). Install here as a stopgap. The durable shape is a
+      # single extension release entrypoint that owns its own deps + the upload, so
+      # publish.yml stays thin (Core keeps only the version DECISION). Do not treat
+      # this as correct Core logic — it is release-overfit to remove on migration.
+      - name: Install build + twine (interim — moves into the extension, atdd-extensions#40)
+        run: python -m pip install -U build twine
+
+      # Release-bot git identity. GitHub runners carry no default git identity, so
+      # the extension's annotated `git tag -a vX` aborts with "empty ident name"
+      # (Publish run 28495533869). Set it ONCE here, before the drain step that
+      # runs the extension tag/publish. Core only names the identity; the tag
+      # mechanics stay the extension's. #1297.
+      - name: Configure release-bot git identity
+        run: |
+          set -euo pipefail
+          git config user.name "atdd-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+
       # Idempotency oracle: if HEAD already carries a release tag, this push was
       # already published (a re-run / duplicate workflow_run) — do nothing.
       - name: Skip if HEAD is already released
@@ -82,25 +103,32 @@ jobs:
             echo "already_released=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Reconcile the store's current from the latest git tag (the release
-      # worker's own output — the git-ignored store can't carry a branch bump to
-      # CI, and the migration seed is stale), then bump by the merge commit's
-      # conventional-commit change class. Result: a real version + a pending
-      # neutral version_decided message. NO more 0.0.0+local skip.
-      - name: Reconcile + bump the release version (State Store, #1172)
+      # Reconcile the store's current from the authoritative release BASE, then
+      # bump by the merge commit's conventional-commit change class. Result: a real
+      # version + a pending neutral version_decided message. NO more 0.0.0+local skip.
+      #
+      # #1326: the base is `max(PyPI latest, git tag)`, NOT the git tag alone. The
+      # nearest git tag drifts BELOW the real published latest — manual publishes
+      # skip tagging, orphan tags trail failed runs, and the git-ignored store never
+      # reaches CI (#1172). Basing on the git tag alone published 3.151.4 below the
+      # 3.152.0 already on PyPI (a regression). `atdd state version reconcile-base`
+      # anchors on the PyPI published record (JSON API), falling back to the git tag
+      # if PyPI is unreachable so a transient outage never hard-fails the release.
+      - name: Reconcile + bump the release version (State Store, #1172 / #1326)
         id: version
         if: steps.idem.outputs.already_released == 'false'
         run: |
           set -euo pipefail
           LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          CURRENT=${LATEST#v}
+          GIT_TAG=${LATEST#v}
           COMMIT_MSG=$(git log -1 --format='%B' HEAD)
           CLASS=$(COMMIT_MSG="$COMMIT_MSG" python -c 'import os; from atdd.state.version import change_class_for_commit as c; print(c(os.environ["COMMIT_MSG"]))')
           atdd state init >/dev/null
-          atdd state version set "$CURRENT" >/dev/null
+          BASE=$(atdd state version reconcile-base --git-tag "$GIT_TAG")
+          atdd state version set "$BASE" >/dev/null
           atdd state version bump --class "$CLASS" >/dev/null
           VERSION=$(atdd state version emit)
-          echo "Reconciled current=${CURRENT}, class=${CLASS} -> next=${VERSION}"
+          echo "Reconciled base=${BASE} (git_tag=${GIT_TAG}, PyPI-aware), class=${CLASS} -> next=${VERSION}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "0.0.0+local" ]; then
             echo "::error title=version unresolved::release version still '${VERSION}' after reconcile+bump (expected a real X.Y.Z)"
             exit 1
@@ -134,6 +162,13 @@ jobs:
         env:
           ATDD_RELEASE_ALLOW_PUBLISH: ${{ secrets.ATDD_RELEASE_ALLOW_PUBLISH }}
           WORKER_DIR: ${{ steps.ext.outputs.worker_dir }}
+          # INTERIM (decommission → afokapu/atdd-extensions#40): the extension's
+          # real_publish uses raw `twine upload`, which cannot consume this repo's
+          # OIDC trusted-publishing. Supply a project-scoped PyPI API token via
+          # standard twine env vars as a stopgap. DECOMMISSION: move the upload
+          # (OIDC-native, or token) into the extension release entrypoint; drop these.
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           set -euo pipefail
           DRY_RUN=true

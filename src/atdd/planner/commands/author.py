@@ -786,6 +786,19 @@ def build_parser() -> argparse.ArgumentParser:
     wi.add_argument("--command", default=None, help="run command (default: the runner)")
     wi.add_argument("--root", default=None, help="repo root (default: cwd)")
 
+    impl = sub.add_parser("implementation", help="validator implementation operations")
+    impl_sub = impl.add_subparsers(dest="subcmd", required=True)
+    ii = impl_sub.add_parser("init", help="scaffold a compliant validator implementation (by construction)")
+    ii.add_argument("--id", required=True, dest="implementation_id",
+                    help="implementation_id (a family name, or a rule_id for a singleton)")
+    ii.add_argument("--targets-workspace", required=True, dest="targets_workspace",
+                    help="<publisher>.workspace.<name> the validator runs inside")
+    ii.add_argument("--emits", action="append", required=True, dest="emits_rule_ids",
+                    help="a rule_id this validator emits (repeatable; more than one = a FAMILY)")
+    ii.add_argument("--dest", default="implementations",
+                    help="package subdir to scaffold under (default: implementations)")
+    ii.add_argument("--root", default=None, help="repo root (default: cwd)")
+
     return parser
 
 
@@ -861,9 +874,9 @@ def run(argv: list[str]) -> int:
 
     # `init` scaffolds a NEW package boundary, so it needs no authoring context
     # (it creates the package the other kinds then write into) — P002.
-    if args.cmd in ("extension", "workspace"):
+    if args.cmd in ("extension", "workspace", "implementation"):
         from atdd.planner.commands.author_init import (
-            init_extension_package, init_workspace_package,
+            init_extension_package, init_implementation_package, init_workspace_package,
         )
 
         root = Path(args.root) if getattr(args, "root", None) else Path(os.getcwd())
@@ -872,6 +885,11 @@ def run(argv: list[str]) -> int:
                 pkg = init_extension_package(
                     args.extension_id, role=args.role,
                     flow_wagon=args.flow_wagon, feature=args.feature, root=root,
+                )
+            elif args.cmd == "implementation":
+                pkg = init_implementation_package(
+                    args.implementation_id, targets_workspace=args.targets_workspace,
+                    emits_rule_ids=args.emits_rule_ids, root=root, dest=args.dest,
                 )
             else:
                 pkg = init_workspace_package(

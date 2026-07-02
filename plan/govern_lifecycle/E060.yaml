@@ -1,0 +1,79 @@
+urn: "wmbt:govern-lifecycle:E060"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "live-smoke-harnesses-that-return-a-constant-dict-literal-and-cannot-fail-so-they-report-fixed-success-regardless-of-what-ran"
+context_clarifier: "when an author writes an execution_kind: live_smoke acceptance whose anchored test invokes a harness that returns only a constant dict literal (every value a literal) and contains no assert/raise — the #1151 self-skip rule guarantees the TEST executes, but a non-skipping test still passes vacuously if the harness it calls reports success-shaped evidence no matter what happened (afokapu/atdd#1192: the Y002 smoke built the launch-argv string and returned hardcoded {surfaced: True}, 0.12s, no worker, yet was labelled 'Live end-to-end'), so absence-of-real-evidence is not modelled; Part of afokapu/atdd-extensions#14"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of live-smoke-harnesses-that-return-a-constant-dict-literal-and-cannot-fail-so-they-report-fixed-success-regardless-of-what-ran when an author writes an execution_kind: live_smoke acceptance by declaring tester.acceptance-violation.live-smoke-evidence-must-not-be-constant (strict) in conventions/nodes with a paired validator test_live_smoke_execution reusing _acceptance_walker.iter_repo_acceptances and scan_test_acceptance_headers to resolve each live_smoke acceptance's anchored test to the harness it invokes and emit a Violation when that harness returns only an all-constant dict with no assert/raise, plus a live-smoke-evidence.recipe.yaml pointing the author at returning evidence computed from the real outcome or asserting/raising on it"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E060-UNIT-001-convention-declares-constant-evidence-rule"
+      id: "AC-UNIT-001"
+      purpose: "conventions/nodes declares tester.acceptance-violation.live-smoke-evidence-must-not-be-constant (strict, severity 4) whose recipe pointer names a recipe file that exists, and bind_rule() resolves it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "src/atdd/tester/conventions/nodes/tester.acceptance-violation.live-smoke-evidence-must-not-be-constant.convention.yaml declares the rule with disposition strict and severity 4"
+        - "Its operational_guidance names recipe live-smoke-evidence and src/atdd/tester/conventions/live-smoke-evidence.recipe.yaml exists on disk"
+    when:
+      abstract: "bind_rule('tester.acceptance-violation.live-smoke-evidence-must-not-be-constant') is invoked"
+    then:
+      abstract:
+        - "bind_rule resolves the rule without raising RuleNotInRegistryError or AmbiguousRuleError"
+        - "The resolved RuleMetadata reports disposition strict and severity 4"
+        - "The rule's recipe pointer names a recipe file (live-smoke-evidence.recipe.yaml) that exists on disk"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-01"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E060-INTEGRATION-001-detector-fires-on-constant-evidence-harness"
+      id: "AC-INTEGRATION-001"
+      purpose: "detect_constant_evidence flags a harness whose every return is an all-constant dict with no assert/raise, and stays silent for a harness that computes an evidence value or that asserts/raises; evaluate_constant_evidence emits exactly one Violation for the constant-evidence entry and none for the genuine one"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "detect_constant_evidence and evaluate_constant_evidence are under src/atdd/tester/validators/test_live_smoke_execution.py"
+        - "One harness source returns only a constant dict literal ({\"surfaced\": True}) with no assert/raise (the Y002 theater shape)"
+        - "Genuine harness sources return a computed value, or assert/raise on the real outcome"
+    when:
+      abstract: "detect_constant_evidence is called on each source and evaluate_constant_evidence is called on one constant-evidence entry paired with one genuine entry"
+    then:
+      abstract:
+        - "detect_constant_evidence returns a non-None label for the constant-evidence harness and None for each genuine harness"
+        - "evaluate_constant_evidence returns exactly one Violation whose rule_id is tester.acceptance-violation.live-smoke-evidence-must-not-be-constant and whose detail names the offending acceptance URN and harness"
+        - "The genuine entry contributes zero Violations"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-01"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E060-SMOKE-001-real-tester-suite-runs-constant-evidence-gate"
+      id: "AC-SMOKE-001"
+      purpose: "Running the real constant-evidence gate on this repo collects and executes test_no_live_smoke_harness_returns_constant_evidence against the real plan/ live_smoke acceptances (R002/D002), resolving each anchored test to its real harness and confirming none return constant evidence (eat-own-dog-food: the gate is alive and the shipped harnesses are honest)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "test_live_smoke_execution.py is registered under src/atdd/tester/validators/ and declares the constant-evidence gate"
+        - "The two execution_kind: live_smoke acceptances (R002-SMOKE-001, D002-SMOKE-001) resolve to real harnesses via scan_test_acceptance_headers"
+        - "The convention registry is rebuilt by build_registry() from the repo root"
+    when:
+      abstract: "collect_constant_evidence_violations(repo_root) is invoked on this repo"
+    then:
+      abstract:
+        - "The gate resolves each live_smoke acceptance's anchored test to at least one real harness function whose source file exists on disk"
+        - "collect_constant_evidence_violations returns zero Violations — every shipped live_smoke harness returns evidence computed from the real outcome, not a constant dict"
+        - "bind_rule('tester.acceptance-violation.live-smoke-evidence-must-not-be-constant') resolves from the rebuilt registry with disposition strict, proving the rule is not orphaned"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-01"

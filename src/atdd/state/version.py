@@ -30,10 +30,13 @@ Change-class semantics match ``CLAUDE.md::release.change_class``:
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 import sqlite3
-from typing import Optional, Tuple
+import urllib.error
+import urllib.request
+from typing import Callable, Optional, Tuple
 
 from atdd.state.projections import RELEASE_UID, VERSION_BUMPED_EVENT
 from atdd.state.store import EventStore, ObjectStore, SyncStore
@@ -57,6 +60,20 @@ VERSION_DECIDED_OPERATION = "version_decided"
 DEFAULT_PROVIDER = "github"
 
 _CHANGE_CLASSES = ("PATCH", "MINOR", "MAJOR")
+
+#: The default PyPI project the release pipeline reconciles against and the JSON
+#: API that carries the authoritative published latest (``.info.version``). The
+#: git-ignored State Store never reaches CI (#1172) and git tags drift below the
+#: real published latest (manual publishes skip tagging; orphan tags trail failed
+#: runs), so PyPI — the published release index — is the pragmatic authoritative
+#: base that DOES reach CI. See :func:`resolve_release_base`.
+PYPI_PACKAGE = "atdd"
+PYPI_JSON_URL = "https://pypi.org/pypi/{package}/json"
+
+#: A ``urllib``-style opener: ``opener(url, timeout=...) -> context-manager`` whose
+#: body is a readable file-like. Injectable so :func:`latest_on_pypi` is unit-
+#: testable without network. Defaults to :func:`urllib.request.urlopen`.
+Opener = Callable[..., object]
 
 
 class VersionError(Exception):
@@ -89,6 +106,80 @@ def _next(major: int, minor: int, patch: int, change_class: str) -> str:
     if cls == "PATCH":
         return f"{major}.{minor}.{patch + 1}"
     raise VersionError(f"unknown change class {change_class!r}; expected one of {_CHANGE_CLASSES}")
+
+
+def semver_max(*versions: Optional[str]) -> Optional[str]:
+    """Return the argument with the greatest semver *core*, or ``None`` if none parse.
+
+    Comparison is numeric on the ``(major, minor, patch)`` triple (so ``3.10.0``
+    beats ``3.9.0``, unlike a lexical compare), ignoring any PEP 440 suffix via
+    :func:`parse`. ``None``/empty/unparseable arguments are skipped. The winner's
+    **original string** is returned unchanged (not a re-serialized core), so a
+    tagged or suffixed identity round-trips.
+    """
+    best: Optional[str] = None
+    best_key: Optional[Tuple[int, int, int]] = None
+    for version in versions:
+        if not version:
+            continue
+        try:
+            key = parse(version)
+        except VersionError:
+            continue
+        if best_key is None or key > best_key:
+            best_key, best = key, version
+    return best
+
+
+def latest_on_pypi(
+    package: str = PYPI_PACKAGE, *, timeout: float = 10.0, opener: Optional[Opener] = None
+) -> Optional[str]:
+    """The latest published version of ``package`` on PyPI, or ``None`` on any failure.
+
+    Queries the PyPI JSON API (``/pypi/<package>/json`` → ``.info.version``) using
+    stdlib ``urllib`` (keeps this module stdlib + ``atdd.state`` only, #1220). Returns
+    ``None`` — never raises — on ANY failure (network unreachable, HTTP error,
+    malformed/incomplete payload, unparseable version) so a transient PyPI outage
+    falls back to the git tag rather than hard-failing the release. ``opener`` is
+    injectable for hermetic tests.
+    """
+    url = PYPI_JSON_URL.format(package=package)
+    fetch = opener or urllib.request.urlopen
+    try:
+        with fetch(url, timeout=timeout) as resp:  # type: ignore[operator]
+            payload = json.load(resp)
+        version = payload.get("info", {}).get("version")
+        if not version:
+            raise ValueError("PyPI payload carries no info.version")
+        parse(str(version))  # validate a semver core; reject junk
+        return str(version)
+    except (urllib.error.URLError, OSError, ValueError, TypeError, KeyError,
+            AttributeError, VersionError) as exc:
+        _log.warning(
+            "PyPI latest-version query failed; falling back to the git tag",
+            extra={"package": package, "url": url, "reason": str(exc)},
+        )
+        return None
+
+
+def resolve_release_base(git_tag: Optional[str], pypi_latest: Optional[str]) -> str:
+    """The authoritative base version for the next release bump.
+
+    Returns ``semver_max(git_tag, pypi_latest)`` — the greatest of the nearest git
+    tag and the PyPI latest. This is the #1326 fix: basing the reconcile on the git
+    tag alone regresses below the real published latest (the tag drifts via manual
+    publishes, orphan tags, and the git-ignored store). Anchoring on
+    ``max(pypi, tag)`` guarantees the base is ``>= pypi_latest``, so a subsequent
+    :func:`bump` is strictly above what is already published. When PyPI is
+    unreachable (``pypi_latest is None``) it falls back to the git tag. Raises
+    :class:`VersionError` only if neither candidate is a parseable version.
+    """
+    base = semver_max(git_tag, pypi_latest)
+    if base is None:
+        raise VersionError(
+            f"no resolvable release base (git_tag={git_tag!r}, pypi_latest={pypi_latest!r})"
+        )
+    return base
 
 
 def current(conn: sqlite3.Connection) -> str:
@@ -137,6 +228,14 @@ def next_from_change_class(conn: sqlite3.Connection, change_class: str) -> str:
 _CONVENTIONAL_HEADER = re.compile(r"^(?P<type>[a-zA-Z]+)(?:\([^)]*\))?(?P<bang>!)?:")
 #: A ``feat`` type is the only non-breaking MINOR; everything else is a PATCH.
 _MINOR_TYPES = frozenset({"feat"})
+#: A genuine Conventional-Commits breaking-change FOOTER — a ``BREAKING CHANGE:``
+#: or ``BREAKING-CHANGE:`` token at the start of a line (optional leading
+#: whitespace), terminated by a colon. Line-anchored (``re.MULTILINE``) so a mere
+#: PROSE mention of the phrase mid-sentence does NOT escalate the class. This
+#: closes the #1297 regression where the #1285/#1291 merge commit's own body
+#: ("...breaking !/BREAKING CHANGE=MAJOR, else PATCH") misclassified a non-breaking
+#: ``feat`` as MAJOR and bumped 3.151.0 -> 4.0.0 instead of 3.152.0.
+_BREAKING_FOOTER = re.compile(r"^[ \t]*BREAKING[ -]CHANGE:", re.MULTILINE)
 
 
 def change_class_for_commit(subject: str) -> str:
@@ -146,15 +245,16 @@ def change_class_for_commit(subject: str) -> str:
     #1172 design doc §3.1). The change-class is an *input* to :func:`bump`; this
     thin policy maps the merge commit's conventional-commit type onto it:
 
-    - a ``!`` breaking marker (``type!:``) or a ``BREAKING CHANGE`` note anywhere
-      in the message → ``MAJOR``;
+    - a ``!`` breaking marker (``type!:``) or a genuine ``BREAKING CHANGE:`` /
+      ``BREAKING-CHANGE:`` *footer* (a line-anchored, colon-terminated token per the
+      Conventional Commits spec — NOT a prose mention of the phrase) → ``MAJOR``;
     - a ``feat`` type → ``MINOR``;
     - ``fix`` / ``chore`` / ``docs`` / ``refactor`` / ``devops`` and any other or
       unrecognized type → ``PATCH`` (the conservative default).
     """
     text = subject or ""
     match = _CONVENTIONAL_HEADER.match(text.strip())
-    if "BREAKING CHANGE" in text or (match and match.group("bang")):
+    if (match and match.group("bang")) or _BREAKING_FOOTER.search(text):
         return "MAJOR"
     if match and match.group("type").lower() in _MINOR_TYPES:
         return "MINOR"

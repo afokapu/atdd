@@ -92,6 +92,95 @@ def init_extension_package(
     return _scaffold(pkg, _EXTENSION_DIRS, "atdd.extension.yaml", manifest)
 
 
+_DETECT_SKELETON = '''#!/usr/bin/env node
+// Validator: {impl_id}  — scaffolded by `atdd author implementation init`.
+// v1.1 provider contract: read ATDD_SCAN_ROOTS, write RAW
+// {{rule_id,file,line,col,evidence,source_line}} violations to
+// ATDD_VIOLATIONS_REPORT, exit 0 regardless of count. TODO: implement the checks.
+import {{ writeFileSync, readFileSync, statSync, readdirSync }} from "node:fs";
+import {{ join, extname, sep }} from "node:path";
+
+const RULE_IDS = {rule_ids_js};
+const EXCLUDES = ["_generated", "node_modules", "dist", "build", ".next"];
+
+function parseJsonEnv(name) {{
+  try {{ const v = JSON.parse(process.env[name] || "[]"); return Array.isArray(v) ? v : []; }}
+  catch {{ return []; }}
+}}
+function* walk(root) {{
+  let st; try {{ st = statSync(root); }} catch {{ return; }}
+  if (st.isFile()) {{ yield root; return; }}
+  for (const n of readdirSync(root)) {{
+    if (EXCLUDES.includes(n)) continue;
+    yield* walk(join(root, n));
+  }}
+}}
+function main() {{
+  const reportPath = process.env.ATDD_VIOLATIONS_REPORT;
+  if (!reportPath) {{ process.stderr.write("validator: ATDD_VIOLATIONS_REPORT not set\\n"); process.exit(2); }}
+  const roots = parseJsonEnv("ATDD_SCAN_ROOTS");
+  const violations = [];
+  for (const root of roots) for (const file of walk(root)) {{
+    // TODO: inspect `file` and push {{ rule_id: RULE_IDS[i], file, line, col, evidence, source_line }}.
+  }}
+  writeFileSync(reportPath, JSON.stringify({{ violations }}, null, 2), "utf8");
+  process.exit(0);
+}}
+main();
+'''
+
+
+def init_implementation_package(
+    implementation_id: str,
+    *,
+    targets_workspace: str,
+    emits_rule_ids: list[str],
+    root: Path | str = ".",
+    dest: str = "implementations",
+) -> Path:
+    """Scaffold a compliant VALIDATOR implementation by construction (P002 sibling).
+
+    Writes ``<root>/<dest>/<impl>/`` with a manifest that passes
+    ``validate_implementation_manifest`` (subtype/entrypoint/report/emits_rule_ids),
+    a ``src/detect.mjs`` v1.1 skeleton, and ``tests/`` + ``fixtures/{clean,dirty}/``.
+    A FAMILY is authored by passing more than one ``emits_rule_ids``.
+    """
+    from atdd.planner.commands.author_manifest import validate_implementation_manifest
+
+    if not implementation_id or not str(implementation_id).strip():
+        raise AuthorInputError("implementation_id", "implementation_id is required")
+    if not emits_rule_ids:
+        raise AuthorInputError("emits_rule_ids", "at least one --emits rule_id is required")
+    validate_workspace_id(targets_workspace, allow_reserved=True)
+    pkg = Path(root) / dest / implementation_id.replace(".", "_")
+    if pkg.exists():
+        raise AuthorInputError("implementation_id", f"implementation already exists at {pkg} — refusing to overwrite")
+    entry = "src/detect.mjs"
+    manifest = {
+        "schema_version": "1.1.0",
+        "kind": "implementation",
+        "subtype": "validator",
+        "implementation_id": implementation_id,
+        "targets_workspace": targets_workspace,
+        "contract_version": "1.1.0",
+        "realizes_convention": emits_rule_ids[0],
+        "emits_rule_ids": list(emits_rule_ids),
+        "entrypoint": entry,
+        "report": entry,
+    }
+    validate_implementation_manifest(manifest)  # compliant by construction
+    for sub in ("src", "tests", "fixtures/clean", "fixtures/dirty"):
+        d = pkg / sub
+        d.mkdir(parents=True, exist_ok=True)
+        (d / ".gitkeep").touch()
+    rule_ids_js = "[" + ", ".join(f'"{r}"' for r in emits_rule_ids) + "]"
+    (pkg / "src" / "detect.mjs").write_text(
+        _DETECT_SKELETON.format(impl_id=implementation_id, rule_ids_js=rule_ids_js))
+    with (pkg / "atdd.implementation.yaml").open("w", encoding="utf-8") as fh:
+        yaml.safe_dump(manifest, fh, sort_keys=False, default_flow_style=False)
+    return pkg
+
+
 def init_workspace_package(
     workspace_id: str,
     *,

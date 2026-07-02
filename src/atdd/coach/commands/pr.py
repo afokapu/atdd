@@ -37,6 +37,28 @@ from atdd.coach.validators._violation import Violation
 logger = logging.getLogger(__name__)
 
 
+def _store_session_entry(root, issue_number: int):
+    """Manifest-session-shaped dict for *issue_number* from the store, or None."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=root) as reader:
+            return reader.session_entry(issue_number)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
+def _store_issue_number_for_slug(root, slug: str):
+    """GitHub issue number linked to *slug* from the store, or None."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=root) as reader:
+            return reader.issue_number_for_slug(slug)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
 class PRManager:
     """Create pull requests from ATDD issue metadata."""
 
@@ -54,7 +76,10 @@ class PRManager:
             return yaml.safe_load(f) or {}
 
     def _find_issue_in_manifest(self, issue_number: int) -> Optional[dict]:
-        """Find an issue in the manifest by number."""
+        """Find an issue by number — store-first (#1270 slice B), manifest fallback."""
+        entry = _store_session_entry(self.target_dir, issue_number)
+        if entry is not None:
+            return entry
         manifest = self._load_manifest()
         for entry in manifest.get("sessions", []):
             if entry.get("issue_number") == issue_number:
@@ -234,12 +259,20 @@ class PRManager:
         return None
 
     def _resolve_via_manifest(self, pr_data: dict) -> Optional[int]:
-        """Strategy 3: Branch name → manifest slug → issue_number."""
+        """Strategy 3: Branch name → slug → issue_number.
+
+        #1270 slice B: resolves the slug through the State Store first (the
+        authoritative work-item→issue link since #1203), falling back to the
+        ``.atdd/manifest.yaml`` mirror when the store has no match.
+        """
         branch = pr_data.get("headRefName") or ""
         if not branch:
             return None
         # Branch format: prefix/slug → extract slug part
         slug = branch.split("/", 1)[-1] if "/" in branch else branch
+        from_store = _store_issue_number_for_slug(self.target_dir, slug)
+        if from_store is not None:
+            return from_store
         manifest = self._load_manifest()
         for entry in manifest.get("sessions", []):
             if entry.get("slug") == slug:

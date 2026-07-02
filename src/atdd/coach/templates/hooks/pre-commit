@@ -77,30 +77,23 @@ EOF
         ;;
 esac
 
-# --- Verify branch is registered in manifest ---
-# Extract slug from branch name (strip prefix: feat/my-slug → my-slug)
-SLUG=$(echo "$BRANCH" | sed 's|^[^/]*/||')
-
-# Find manifest file (walk up to repo root)
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
-MANIFEST="$REPO_ROOT/.atdd/manifest.yaml"
-
-if [ -f "$MANIFEST" ]; then
-    # Check if slug appears in manifest sessions
-    if ! grep -q "slug:.*$SLUG" "$MANIFEST" 2>/dev/null; then
+# --- Verify branch is registered (store-backed, #1270 slice C) ---
+# Resolves branch → work item through the State Store (manifest fallback) via
+# `atdd issue is-registered`, replacing the legacy `grep "slug:" manifest.yaml`.
+# Skips when atdd is unavailable (never hard-breaks a commit) and when the repo
+# is not atdd-managed (the helper exits 0 with nothing to check).
+if command -v atdd >/dev/null 2>&1; then
+    if ! atdd issue is-registered "$BRANCH" >/dev/null 2>&1; then
         cat >&2 <<EOF
 
-ATDD: Branch '$BRANCH' is not registered in .atdd/manifest.yaml.
+ATDD: Branch '$BRANCH' is not registered as an ATDD work item.
 
-Manifest drift detected — run to self-heal:
+Self-heal:
   atdd issue reconcile
 
 Every branch must be created through the ATDD workflow:
   1. atdd issue <slug>    # Create issue first
   2. atdd branch <N>      # Create branch from issue
-
-This ensures issues use the standard template, are tracked in
-the manifest, and have Project v2 fields set up correctly.
 
 For genuine emergencies: atdd emergency --reason "<reason>"
 
