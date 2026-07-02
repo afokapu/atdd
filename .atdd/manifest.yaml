@@ -10,6 +10,7 @@ sessions:
   created: '2026-07-02'
   archived: null
   branch: feat/single-shared-state-store-per-project
+  train: 0002-coach-drives-lifecycle
 - id: '1297'
   slug: fix-release-worker-tag-and-version
   file: null
