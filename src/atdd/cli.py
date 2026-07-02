@@ -2517,7 +2517,7 @@ Phase descriptions:
                     _print_sync_labels_delta(num, delta, dry_run=dry_run)
                 if not drifted:
                     print(
-                        f"sync-labels: every open atdd-issue already matches "
+                        f"sync-labels: every atdd-issue already matches "
                         f"body metadata ({len(results)} checked)"
                     )
                 else:

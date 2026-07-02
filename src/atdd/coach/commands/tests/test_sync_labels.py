@@ -64,13 +64,14 @@ def _make_fake_client(
     number: int,
     body: str,
     current_labels: List[str],
+    state: str = "open",
 ) -> GitHubClient:
     """Build a spec-enforced ``GitHubClient`` double for sync_labels tests."""
     client = create_autospec(GitHubClient, instance=True)
     client.get_issue.return_value = {
         "number": number,
         "title": "demo",
-        "state": "open",
+        "state": state,
         "labels": [{"name": name} for name in current_labels],
         "body": body,
     }
@@ -242,6 +243,159 @@ def test_d007_sync_labels_never_mutates_issue_body(tmp_path, monkeypatch):
     # Assert the body-mutation surface (create_issue, any method with
     # 'body' in its kwargs) was NOT invoked.
     client.create_issue.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# #1284 — CLOSED atdd-issues must not carry a non-terminal phase label
+# ---------------------------------------------------------------------------
+
+
+def test_closed_issue_normalizes_non_terminal_phase_to_complete(tmp_path, monkeypatch):
+    """A CLOSED issue whose body Status is still INIT must not keep the
+    non-terminal ``atdd:INIT`` label. sync_labels normalizes the derived
+    phase to ``atdd:COMPLETE`` (this is the #1172 incident).
+    """
+    from atdd.coach.commands.issue import IssueManager
+
+    _write_atdd_config(tmp_path)
+    body = _body_with_metadata(status="INIT", archetypes="coach", wagon="govern-lifecycle")
+    client = _make_fake_client(
+        number=1172,
+        body=body,
+        current_labels=["atdd-issue", "atdd:INIT", "archetype:coach", "wagon:govern-lifecycle"],
+        state="CLOSED",
+    )
+
+    manager = IssueManager(target_dir=tmp_path)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
+
+    result = manager.sync_labels(1172, dry_run=False)
+
+    all_removed = {lbl for call in _removed_label_calls(client) for lbl in call}
+    all_added = {lbl for call in _added_label_calls(client) for lbl in call}
+    assert "atdd:INIT" in all_removed, (
+        f"closed issue must shed non-terminal label; removed={all_removed}"
+    )
+    assert "atdd:COMPLETE" in all_added, (
+        f"closed issue must be normalized to terminal; added={all_added}"
+    )
+    # Non-phase labels are untouched.
+    assert "archetype:coach" not in all_removed
+    assert "wagon:govern-lifecycle" not in all_removed
+    assert "atdd:COMPLETE" in result["to_add"]
+    assert "atdd:INIT" in result["to_remove"]
+
+
+def test_closed_issue_already_complete_is_noop(tmp_path, monkeypatch):
+    """A CLOSED issue already carrying ``atdd:COMPLETE`` (and no stale
+    non-terminal label) is a no-op — normalization is idempotent.
+    """
+    from atdd.coach.commands.issue import IssueManager
+
+    _write_atdd_config(tmp_path)
+    body = _body_with_metadata(status="INIT", archetypes="coach", wagon="govern-lifecycle")
+    client = _make_fake_client(
+        number=1172,
+        body=body,
+        current_labels=["atdd-issue", "atdd:COMPLETE", "archetype:coach", "wagon:govern-lifecycle"],
+        state="CLOSED",
+    )
+
+    manager = IssueManager(target_dir=tmp_path)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
+
+    result = manager.sync_labels(1172, dry_run=False)
+
+    client.add_label.assert_not_called()
+    client.remove_label.assert_not_called()
+    assert result["to_add"] == []
+    assert result["to_remove"] == []
+
+
+def test_closed_issue_keeps_terminal_obsolete(tmp_path, monkeypatch):
+    """A CLOSED issue whose body Status is OBSOLETE keeps ``atdd:OBSOLETE``
+    — only NON-terminal phases are normalized to COMPLETE.
+    """
+    from atdd.coach.commands.issue import IssueManager
+
+    _write_atdd_config(tmp_path)
+    body = _body_with_metadata(status="OBSOLETE", archetypes="coach", wagon="govern-lifecycle")
+    client = _make_fake_client(
+        number=999,
+        body=body,
+        current_labels=["atdd-issue", "atdd:OBSOLETE", "archetype:coach", "wagon:govern-lifecycle"],
+        state="CLOSED",
+    )
+
+    manager = IssueManager(target_dir=tmp_path)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
+
+    result = manager.sync_labels(999, dry_run=False)
+
+    assert result["to_add"] == []
+    assert result["to_remove"] == []
+
+
+def test_open_issue_derivation_unchanged_for_init(tmp_path, monkeypatch):
+    """Regression guard: an OPEN issue at Status INIT still derives
+    ``atdd:INIT`` — normalization must never touch open issues.
+    """
+    from atdd.coach.commands.issue import IssueManager
+
+    _write_atdd_config(tmp_path)
+    body = _body_with_metadata(status="INIT", archetypes="coach", wagon="govern-lifecycle")
+    client = _make_fake_client(
+        number=42,
+        body=body,
+        current_labels=["atdd-issue"],
+        state="open",
+    )
+
+    manager = IssueManager(target_dir=tmp_path)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
+
+    result = manager.sync_labels(42, dry_run=True)
+
+    assert "atdd:INIT" in result["to_add"]
+    assert "atdd:COMPLETE" not in result["to_add"]
+
+
+def test_sync_labels_all_visits_closed_issues(tmp_path, monkeypatch):
+    """``sync_labels_all`` must visit CLOSED atdd-issues so stale labels on
+    closed issues (e.g. #1172) are reconciled, not just open ones.
+    """
+    from atdd.coach.commands.issue import IssueManager
+
+    _write_atdd_config(tmp_path)
+    body = _body_with_metadata(status="INIT", archetypes="coach", wagon="govern-lifecycle")
+
+    client = create_autospec(GitHubClient, instance=True)
+    client.list_issues_by_label.return_value = [
+        {"number": 1172, "title": "demo", "state": "CLOSED",
+         "labels": [{"name": "atdd-issue"}, {"name": "atdd:INIT"}]},
+    ]
+    client.get_issue.return_value = {
+        "number": 1172, "title": "demo", "state": "CLOSED",
+        "labels": [{"name": "atdd-issue"}, {"name": "atdd:INIT"}],
+        "body": body,
+    }
+    client.add_label.return_value = None
+    client.remove_label.return_value = None
+
+    manager = IssueManager(target_dir=tmp_path)
+    monkeypatch.setattr(manager, "_get_github_client", lambda: client)
+
+    results = manager.sync_labels_all(dry_run=True)
+
+    # The closed issue must be in the result set...
+    assert any(num == 1172 for num, _ in results), (
+        "sync_labels_all must visit closed issues"
+    )
+    # ...and the list call must not be restricted to open-only.
+    _, kwargs = client.list_issues_by_label.call_args
+    assert kwargs.get("state") == "all", (
+        f"sync_labels_all must request all states; kwargs={kwargs}"
+    )
 
 
 def test_d007_sync_labels_supports_multiple_archetypes(tmp_path, monkeypatch):
