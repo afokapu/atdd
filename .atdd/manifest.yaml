@@ -1,6 +1,15 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1317'
+  slug: resolve-canonical-theme-from-config
+  file: null
+  issue_number: 1317
+  type: implementation
+  status: INIT
+  created: '2026-07-02'
+  archived: null
+  branch: fix/resolve-canonical-theme-from-config
 - id: '1315'
   slug: single-shared-state-store-per-project
   file: null
