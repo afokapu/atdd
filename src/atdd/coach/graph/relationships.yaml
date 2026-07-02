@@ -36,6 +36,43 @@ edges:
   strength: important
   target_ref: planner.feature.verb-selection-by-artifact-type
   type: requires
+# Foundational artifact/contract naming enforcement (#1329)
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the theme-first identity rule enforces the artifact naming-pattern grammar at confirm
+  source_ref: planner.artifact-naming.theme-first-identity
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the theme-first identity rule resolves its allowed themes from the same canonical theme map
+  source_ref: planner.artifact-naming.theme-first-identity
+  strength: important
+  target_ref: planner.theme.must-be-canonical
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the path-mirrors-identity rule enforces the contract-file-mapping algorithm at confirm
+  source_ref: planner.artifact-naming.path-mirrors-identity
+  strength: important
+  target_ref: planner.artifact-naming.contract-file-mapping
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a contract path can only mirror an identity that is a valid theme-first identity
+  source_ref: planner.artifact-naming.path-mirrors-identity
+  strength: important
+  target_ref: planner.artifact-naming.theme-first-identity
+  type: requires
 - confidence: 1.0
   constraint: discretionary
   control: internal
