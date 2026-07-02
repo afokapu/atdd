@@ -43,6 +43,17 @@ def _rev_count_past_default(worktree_path: Path, default_branch: str) -> Optiona
     return int(out)
 
 
+def _store_session_entry(root, issue_number: int):
+    """Manifest-session-shaped dict for *issue_number* from the State Store, or None."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=root) as reader:
+            return reader.session_entry(issue_number)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
 class BranchManager:
     """Create worktree branches from ATDD issue metadata."""
 
@@ -135,7 +146,13 @@ class BranchManager:
             return yaml.safe_load(f) or {}
 
     def _find_issue(self, issue_number: int):
-        """Find an issue in the manifest by number. Returns the entry or None."""
+        """Find an issue by number — store-first (#1270 slice B), manifest fallback.
+
+        Returns a manifest-``sessions``-shaped entry (``slug``/``type``/...) or None.
+        """
+        entry = _store_session_entry(self.target_dir, issue_number)
+        if entry is not None:
+            return entry
         manifest = self._load_manifest()
         for entry in manifest.get("sessions", []):
             if entry.get("issue_number") == issue_number:

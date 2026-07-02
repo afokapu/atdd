@@ -39,6 +39,7 @@ _ISSUE_REF_KIND = "issue"
 _TRAIN_KEY = "train"
 _BRANCH_KEY = "branch"
 _WAGON_KEY = "wagon"
+_FEATURE_KEY = "feature"
 
 
 class WorkItemReader:
@@ -161,6 +162,39 @@ class WorkItemReader:
             except (TypeError, ValueError):
                 continue
         return out
+
+    def feature(self, issue_number: int) -> Optional[str]:
+        """The feature URN recorded for ``issue_number`` (from the work-item ``data``)."""
+        obj = self.get(issue_number)
+        return obj.data.get(_FEATURE_KEY) if obj is not None else None
+
+    def issue_number_for_slug(self, slug: str) -> Optional[int]:
+        """Reverse lookup: the GitHub issue number linked to work-item *slug*, or None.
+
+        The store keys work items by slug (the object uid) and links exactly one
+        GitHub ``issue`` external-ref per issue, so this is unambiguous — unlike
+        the manifest scan it replaces, which had to pick the last duplicate slug.
+        """
+        for ref in self._store.external_refs.for_object(slug):
+            if ref.provider == GITHUB_PROVIDER and ref.ref_kind == _ISSUE_REF_KIND:
+                try:
+                    return int(ref.ref_value)
+                except (TypeError, ValueError):
+                    return None
+        return None
+
+    def session_entry(self, issue_number: int) -> Optional[dict]:
+        """Reconstruct the manifest-``sessions``-shaped dict for ``issue_number``.
+
+        Returns ``{**data, "slug": <uid>, "status": <state>}`` — the same shape
+        the manifest carried — so callers that read ``entry["slug"]`` /
+        ``entry.get("type")`` off a manifest session keep working unchanged, now
+        sourced from the store. Returns ``None`` for an unregistered issue.
+        """
+        obj = self.get(issue_number)
+        if obj is None:
+            return None
+        return {**obj.data, "slug": obj.uid, "status": obj.state}
 
     # -- internals ---------------------------------------------------------- #
     def _auto_import_if_empty(self, *, db_path: Optional[Path]) -> None:
