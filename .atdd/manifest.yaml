@@ -3579,7 +3579,7 @@ sessions:
   file: null
   issue_number: 1318
   type: refactor
-  status: PLANNED
+  status: RED
   created: '2026-07-02'
   archived: null
   branch: refactor/migrate-graph-readers-to-state-store
