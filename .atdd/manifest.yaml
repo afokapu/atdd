@@ -3593,3 +3593,5 @@ sessions:
   status: INIT
   created: '2026-07-02'
   archived: null
+  branch: refactor/migrate-cli-readers-to-state-store
+  train: 0002-coach-drives-lifecycle
