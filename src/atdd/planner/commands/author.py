@@ -514,6 +514,173 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
     return per_train
 
 
+# Contract identity: theme-first colon hierarchy + optional single dot-variant on
+# the aspect — {theme}(:{category})*:{aspect}(.{variant})? in kebab-case
+# (artifact-naming.convention v2.1). At least two colon-segments are required
+# (a contract needs a theme AND an aspect). #1329 (A) formalizes this into a
+# confirm-blocking naming validator this writer will call once it lands; until
+# then the shape + theme check below stand in for the prose convention.
+_CONTRACT_IDENTITY_RE = re.compile(
+    r"^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)+(?:\.[a-z][a-z0-9-]*)?$"
+)
+
+_CONTRACTS_ROOT = "contracts"
+
+
+def _contracts_root(root: Path | str | None) -> Path:
+    return (Path(root) if root is not None else Path.cwd()) / _CONTRACTS_ROOT
+
+
+def _write_json(path: Path, doc: dict) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fh:
+        fh.write(json.dumps(doc, indent=2, ensure_ascii=False))
+        fh.write("\n")
+    return path
+
+
+def _canonical_theme_set(root: Path | str | None) -> set[str]:
+    """The effective theme names for this repo (consumer-aware, #291/#1317).
+
+    Resolves ``get_theme_map(load_atdd_config(root))`` values. Imports from
+    ``atdd.coach.utils`` — shared utils, not coach runtime, so the planner
+    ``coach-free`` boundary (#970) holds (the theme validators import the same
+    way). Degrades to the built-in default names if config load fails.
+    """
+    from atdd.coach.utils.theme_map import get_theme_map
+
+    base = Path(root) if root is not None else Path.cwd()
+    try:
+        from atdd.coach.utils.config import load_atdd_config
+
+        config = load_atdd_config(base)
+    except Exception as exc:
+        logger.debug("contract theme config load failed; using defaults",
+                     extra={"error": str(exc)})
+        config = {}
+    return set(get_theme_map(config).values())
+
+
+def validate_contract(spec: dict, *, root: Path | str | None = None) -> None:
+    """Reject a structurally invalid contract before any write (WMBT E008).
+
+    Guards the theme-first identity shape and that its theme resolves via
+    ``get_theme_map`` (consumer-repo-aware), plus a required title. Raises
+    ``AuthorInputError`` (with ``.field``) on the first violation so the plan
+    Confirm gate and the CLI report *why*. Path derivation happens only after
+    this passes, so a bad identity never reaches disk.
+    """
+    identity = (spec.get("identity") or "").strip()
+    if not _CONTRACT_IDENTITY_RE.match(identity):
+        raise AuthorInputError(
+            "identity",
+            f"invalid contract identity {identity!r}; expected "
+            "{theme}(:{category})*:{aspect}(.{variant})? in kebab-case",
+        )
+    theme = identity.split(":", 1)[0]
+    themes = _canonical_theme_set(root)
+    if theme not in themes:
+        raise AuthorInputError(
+            "theme",
+            f"unknown contract theme {theme!r}; must be one of {sorted(themes)} "
+            "(artifact-naming.convention; #1329 formalizes)",
+        )
+    if not (spec.get("title") or "").strip():
+        raise AuthorInputError("title", "contract spec missing required field 'title'")
+
+
+def _contract_paths(identity: str, root: Path | str | None) -> tuple[Path, str]:
+    """Derive the (absolute schema path, repo-relative path) from the identity.
+
+    ``{theme}(:{category})*:{aspect}(.{variant})?`` →
+    ``contracts/{theme}/…/{aspect}(.{variant}).schema.json`` — every colon
+    segment except the last is a directory; the last (aspect + optional
+    ``.variant``) is the file stem. Segments are kebab-validated by
+    ``validate_contract`` so none can escape the contracts home.
+    """
+    segments = identity.split(":")
+    *dir_segments, leaf = segments
+    filename = f"{leaf}.schema.json"
+    schema_path = _contracts_root(root).joinpath(*dir_segments, filename)
+    rel_path = "/".join([_CONTRACTS_ROOT, *dir_segments, filename])
+    return schema_path, rel_path
+
+
+def _insert_contract_registry(
+    registry_path: Path, identity: str, rel_path: str, spec: dict
+) -> None:
+    """Dedup-insert (or update) the contract's thin registry entry into
+    contracts/_contracts.yaml, sorted by id (registry *maintenance* — the
+    producer/consumer coherence *validator* on this registry is #1332 / D)."""
+    registry: dict = {}
+    if registry_path.exists():
+        registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    entries = registry.setdefault("contracts", [])
+    entry: dict = {
+        "id": identity,
+        "urn": f"contract:{identity}",
+        "version": spec.get("version", "1.0.0"),
+        "title": spec["title"],
+        "description": spec.get("description", ""),
+        "path": rel_path,
+        "producer": spec.get("producer"),
+        "consumers": list(spec.get("consumers") or []),
+    }
+    existing = next(
+        (e for e in entries if isinstance(e, dict) and e.get("id") == identity),
+        None,
+    )
+    if existing is None:
+        entries.append(entry)
+    else:
+        existing.update(entry)
+    entries.sort(key=lambda e: e.get("id", "") if isinstance(e, dict) else "")
+    _write_yaml(registry_path, registry)
+
+
+def create_contract(spec: dict, *, root: Path | str | None = None) -> Path:
+    """Author a contract as a first-class plan unit: validate-then-write (E008).
+
+    Mirrors :func:`create_train` — validate the spec, derive the file path from
+    the theme-first identity (``contracts/{theme}/…/{aspect}.schema.json``),
+    write a schema-valid draft-07 JSON Schema whose ``$id`` is
+    ``contract:{identity}``, and dedup-insert a thin entry into
+    ``contracts/_contracts.yaml``. An invalid identity (bad shape or unknown
+    theme) is rejected before any file is written. This is the keystone the
+    ``contract`` unit kind dispatches to (build_author_fn + ``atdd author
+    contract``), so contracts flow add → decide → confirm → author like every
+    other artifact instead of being hand-authored as loose files (#1314 B).
+    """
+    validate_contract(spec, root=root)
+    identity = spec["identity"].strip()
+    schema_path, rel_path = _contract_paths(identity, root)
+
+    doc: dict = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": f"contract:{identity}",
+        "title": spec["title"],
+        "description": spec.get("description", ""),
+        "version": spec.get("version", "1.0.0"),
+        "type": spec.get("type", "object"),
+    }
+    for optional in ("properties", "required", "additionalProperties", "$defs"):
+        if optional in spec:
+            doc[optional] = spec[optional]
+    # Carry the producer/consumer provenance the registry coherence pass (#1332)
+    # reads, mirroring the x-artifact-metadata block existing schemas use.
+    if spec.get("producer") is not None or spec.get("consumers"):
+        doc["x-artifact-metadata"] = {
+            "producer": spec.get("producer"),
+            "consumers": list(spec.get("consumers") or []),
+        }
+
+    _write_json(schema_path, doc)
+    _insert_contract_registry(
+        _contracts_root(root) / "_contracts.yaml", identity, rel_path, spec
+    )
+    return schema_path
+
+
 def validate_interlocking_spec(spec: dict) -> None:
     """Reject a structurally invalid interlocking spec before any write (WMBT E007)."""
     iid = spec.get("interlocking_id", "")
@@ -756,7 +923,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Plan-layer kinds — spec-driven (rich nested shape: produce[], components{},
     # wmbts[], acceptances[]). The spec file holds the same input dict the
     # create_<kind> functions accept; #1139 (atdd plan) writes it per locked unit.
-    for _kind in ("wagon", "feature", "wmbt", "train", "interlocking"):
+    for _kind in ("wagon", "feature", "wmbt", "train", "interlocking", "contract"):
         pk = sub.add_parser(_kind, help=f"author a {_kind} (plan layer)")
         pk.add_argument("--spec", required=True, help="path to a YAML/JSON file with the kind's input dict")
         pk.add_argument("--root", default=None, help="repo root the plan/ home resolves against (default: cwd)")
@@ -934,7 +1101,7 @@ def run(argv: list[str]) -> int:
 
     # Plan-layer kinds write under plan/ (not core/extension), so they need no
     # authoring-context resolution — dispatch before resolve_context.
-    if args.cmd in ("wagon", "feature", "wmbt", "train", "interlocking", "acceptance"):
+    if args.cmd in ("wagon", "feature", "wmbt", "train", "interlocking", "contract", "acceptance"):
         from atdd.planner.interlocking import InterlockingError
         try:
             spec = yaml.safe_load(Path(args.spec).read_text(encoding="utf-8")) or {}
@@ -953,6 +1120,8 @@ def run(argv: list[str]) -> int:
                 out = create_train(spec, root=args.root)
             elif args.cmd == "interlocking":
                 out = create_interlocking(spec, root=args.root)
+            elif args.cmd == "contract":
+                out = create_contract(spec, root=args.root)
             else:  # acceptance
                 out = create_acceptance(args.wmbt_urn, spec, root=args.root)
         except AuthorInputError as exc:
