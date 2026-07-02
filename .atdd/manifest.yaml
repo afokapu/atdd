@@ -3372,3 +3372,12 @@ sessions:
   status: INIT
   created: '2026-07-02'
   archived: null
+- id: '1329'
+  slug: artifact-naming-validator
+  file: null
+  issue_number: 1329
+  type: implementation
+  status: INIT
+  created: '2026-07-02'
+  archived: null
+  branch: feat/artifact-naming-validator
