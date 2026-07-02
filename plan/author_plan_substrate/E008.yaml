@@ -1,14 +1,14 @@
-urn: "wmbt:author-atdd-substrate:E008"
+urn: "wmbt:author-plan-substrate:E008"
 step: "execute"
 direction: "maximize"
 dimension: "likelihood"
 object_of_control: "contract-schema-write"
-context_clarifier: "when authoring a contract as a first-class plan unit (kind contract), the writer derives the file path from the theme-first identity (contracts/{theme}/…/{aspect}.schema.json), sets $id to contract:{identity}, writes a schema-valid JSON Schema, and dedup-inserts a thin entry into contracts/_contracts.yaml; an invalid identity (bad shape or unknown theme) is rejected before any file is written; the plan Confirm→author seam (build_author_fn) dispatches kind contract to create_contract like every other unit"
+context_clarifier: "when authoring a contract as a first-class plan unit (kind contract), the writer derives the file path from the theme-first identity (contracts/{theme}/…/{aspect}.schema.json), sets $id to contract:{identity}, writes a schema-valid draft-07 JSON Schema, and dedup-inserts a thin entry into contracts/_contracts.yaml; an invalid identity (bad shape or unknown theme) is rejected before any file is written; the plan Confirm→author seam (build_author_fn) dispatches kind contract to create_contract like every other plan unit"
 lens: "functional.effectiveness"
 statement: "maximize likelihood of a schema-valid contract-schema-write authored by construction (identity-derived path, $id contract:{identity}, deduped _contracts.yaml registry entry, dispatched through the plan build_author_fn seam), rejecting an invalid identity before any write"
 acceptances:
   - identity:
-      urn: "acc:author-atdd-substrate:E008-UNIT-001-derives-path-id-and-registers"
+      urn: "acc:author-plan-substrate:E008-UNIT-001-derives-path-id-and-registers"
       id: "AC-UNIT-001"
       purpose: "create_contract derives the path from the identity, sets $id to contract:{identity}, writes a schema-valid file, and dedup-inserts a sorted entry into contracts/_contracts.yaml"
       phase: "GREEN"
@@ -29,7 +29,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-02"
   - identity:
-      urn: "acc:author-atdd-substrate:E008-UNIT-002-rejects-bad-identity-before-write"
+      urn: "acc:author-plan-substrate:E008-UNIT-002-rejects-bad-identity-before-write"
       id: "AC-UNIT-002"
       purpose: "an identity of the wrong shape or an unknown theme is rejected with the offending field before any file is written"
       phase: "RED"
@@ -49,7 +49,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-02"
   - identity:
-      urn: "acc:author-atdd-substrate:E008-UNIT-003-build-author-fn-dispatches-contract"
+      urn: "acc:author-plan-substrate:E008-UNIT-003-build-author-fn-dispatches-contract"
       id: "AC-UNIT-003"
       purpose: "the plan Confirm→author seam dispatches a locked unit of kind contract to create_contract, like every other plan unit kind"
       phase: "GREEN"
@@ -69,7 +69,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-02"
   - identity:
-      urn: "acc:author-atdd-substrate:E008-SMOKE-001-cli-authors-contract"
+      urn: "acc:author-plan-substrate:E008-SMOKE-001-cli-authors-contract"
       id: "AC-SMOKE-001"
       purpose: "Verify `atdd author contract --spec` writes a schema-valid contract file and registers it in contracts/_contracts.yaml in a real checkout, no manual patching"
       phase: "SMOKE"
