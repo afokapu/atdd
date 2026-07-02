@@ -87,6 +87,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "(e.g. the latest git tag) without emitting a version_decided signal.")
     v_set.add_argument("version", help="The version to set as authoritative current (X.Y.Z).")
     v_set.add_argument("--root", default=None)
+    v_rb = version_sub.add_parser(
+        "reconcile-base",
+        help="Print the authoritative release base = max(git tag, PyPI latest) for the "
+        "next bump (#1326). Falls back to the git tag if PyPI is unreachable.")
+    v_rb.add_argument("--git-tag", dest="git_tag", default=None,
+                      help="The latest git tag core (X.Y.Z, without a leading 'v').")
+    v_rb.add_argument("--package", default="atdd",
+                      help="PyPI package to query for the published latest (default: atdd).")
+    v_rb.add_argument("--no-pypi", dest="no_pypi", action="store_true",
+                      help="Skip the PyPI query and resolve from the git tag only.")
+    v_rb.add_argument("--root", default=None)
 
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
@@ -309,8 +320,24 @@ def _cmd_version(args) -> int:
     from atdd.state import version as ver
 
     if args.version_op is None:
-        print("usage: atdd state version <show|emit|bump --class PATCH|MINOR|MAJOR|set X.Y.Z>")
+        print("usage: atdd state version <show|emit|bump --class PATCH|MINOR|MAJOR|set X.Y.Z|"
+              "reconcile-base --git-tag X.Y.Z>")
         return 2
+
+    if args.version_op == "reconcile-base":
+        # Pure computation + a best-effort PyPI query; no store needed. The base is
+        # max(git tag, PyPI latest) so the next bump never regresses below the
+        # published latest; PyPI-unreachable falls back to the git tag (#1326).
+        pypi_latest = None if args.no_pypi else ver.latest_on_pypi(args.package)
+        try:
+            base = ver.resolve_release_base(args.git_tag, pypi_latest)
+        except ver.VersionError as exc:
+            _log.warning("version reconcile-base failed", extra={"error": str(exc),
+                                                                 "git_tag": args.git_tag})
+            print(f"ERROR: {exc}")
+            return 1
+        print(base)
+        return 0
 
     resolution, conn_or_rc = _open_store(args.root)
     if resolution is None:
