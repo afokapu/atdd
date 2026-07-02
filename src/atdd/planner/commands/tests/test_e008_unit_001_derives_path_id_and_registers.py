@@ -25,7 +25,7 @@ def test_create_contract_derives_path_sets_id_and_registers(tmp_path):
         "title": "CommonsComplianceProbe",
         "description": "a probe contract",
         "version": "1.0.0",
-        "producer": "wagon:govern-lifecycle",
+        "producers": ["wagon:govern-lifecycle"],
         "consumers": ["wagon:observe-and-correct"],
     }
     path = create_contract(spec, root=tmp_path)
@@ -40,13 +40,18 @@ def test_create_contract_derives_path_sets_id_and_registers(tmp_path):
     assert doc["title"] == "CommonsComplianceProbe"
     assert doc["version"] == "1.0.0"
 
+    # Registry shape matches the #1332 (D) coherence validator:
+    # {identity, path, theme, producers, consumers, external?}, identity bare.
     registry = yaml.safe_load((tmp_path / "contracts" / "_contracts.yaml").read_text())
     entries = registry["contracts"]
     assert len(entries) == 1
     entry = entries[0]
-    assert entry["id"] == "commons:compliance:probe"
-    assert entry["urn"] == "contract:commons:compliance:probe"
+    assert entry["identity"] == "commons:compliance:probe"
+    assert entry["theme"] == "commons"
     assert entry["path"] == "contracts/commons/compliance/probe.schema.json"
+    assert entry["producers"] == ["wagon:govern-lifecycle"]
+    assert entry["consumers"] == ["wagon:observe-and-correct"]
+    assert "contract:" not in entry["identity"]
 
 
 def test_create_contract_dedup_insert_is_idempotent_and_sorted(tmp_path):
@@ -57,5 +62,5 @@ def test_create_contract_dedup_insert_is_idempotent_and_sorted(tmp_path):
     create_contract(dict(a), root=tmp_path)  # re-insert → dedup, no growth
 
     registry = yaml.safe_load((tmp_path / "contracts" / "_contracts.yaml").read_text())
-    ids = [e["id"] for e in registry["contracts"]]
+    ids = [e["identity"] for e in registry["contracts"]]
     assert ids == ["commons:compliance:probe", "commons:sensory:gesture"]  # deduped + sorted

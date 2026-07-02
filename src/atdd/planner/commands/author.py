@@ -606,35 +606,51 @@ def _contract_paths(identity: str, root: Path | str | None) -> tuple[Path, str]:
     return schema_path, rel_path
 
 
+def _contract_producers(spec: dict) -> list:
+    """Normalize producers to a list: prefer ``producers`` (list), else wrap a
+    singular ``producer``, else empty. Lets a spec carry either spelling."""
+    if spec.get("producers"):
+        return list(spec["producers"])
+    if spec.get("producer"):
+        return [spec["producer"]]
+    return []
+
+
 def _insert_contract_registry(
     registry_path: Path, identity: str, rel_path: str, spec: dict
 ) -> None:
     """Dedup-insert (or update) the contract's thin registry entry into
-    contracts/_contracts.yaml, sorted by id (registry *maintenance* — the
-    producer/consumer coherence *validator* on this registry is #1332 / D)."""
+    contracts/_contracts.yaml, sorted by identity.
+
+    Shape matches the #1332 (D) coherence validator's contract: a list of
+    ``{identity, path, theme, producers, consumers, external?}`` — ``identity``
+    is the bare theme-first name (no ``contract:`` prefix; D strips that prefix
+    when matching), ``theme`` is its first segment, ``producers``/``consumers``
+    are wagon-ref lists. Registry *maintenance* only — the coherence *validator*
+    is #1332 / D, which can later ratchet advisory→strict against this shape."""
     registry: dict = {}
     if registry_path.exists():
         registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
     entries = registry.setdefault("contracts", [])
     entry: dict = {
-        "id": identity,
-        "urn": f"contract:{identity}",
-        "version": spec.get("version", "1.0.0"),
-        "title": spec["title"],
-        "description": spec.get("description", ""),
+        "identity": identity,
         "path": rel_path,
-        "producer": spec.get("producer"),
+        "theme": identity.split(":", 1)[0],
+        "producers": _contract_producers(spec),
         "consumers": list(spec.get("consumers") or []),
     }
+    if spec.get("external"):
+        entry["external"] = True
     existing = next(
-        (e for e in entries if isinstance(e, dict) and e.get("id") == identity),
+        (e for e in entries if isinstance(e, dict) and e.get("identity") == identity),
         None,
     )
     if existing is None:
         entries.append(entry)
     else:
+        existing.clear()
         existing.update(entry)
-    entries.sort(key=lambda e: e.get("id", "") if isinstance(e, dict) else "")
+    entries.sort(key=lambda e: e.get("identity", "") if isinstance(e, dict) else "")
     _write_yaml(registry_path, registry)
 
 
@@ -666,13 +682,16 @@ def create_contract(spec: dict, *, root: Path | str | None = None) -> Path:
     for optional in ("properties", "required", "additionalProperties", "$defs"):
         if optional in spec:
             doc[optional] = spec[optional]
-    # Carry the producer/consumer provenance the registry coherence pass (#1332)
-    # reads, mirroring the x-artifact-metadata block existing schemas use.
-    if spec.get("producer") is not None or spec.get("consumers"):
-        doc["x-artifact-metadata"] = {
-            "producer": spec.get("producer"),
-            "consumers": list(spec.get("consumers") or []),
-        }
+    # Carry the producer/consumer provenance the #1332 (D) coherence pass reads,
+    # in the same {producers, consumers, external?} shape as the _contracts.yaml
+    # registry entry so the schema file and the registry never disagree.
+    producers = _contract_producers(spec)
+    consumers = list(spec.get("consumers") or [])
+    if producers or consumers or spec.get("external"):
+        meta: dict = {"producers": producers, "consumers": consumers}
+        if spec.get("external"):
+            meta["external"] = True
+        doc["x-artifact-metadata"] = meta
 
     _write_json(schema_path, doc)
     _insert_contract_registry(

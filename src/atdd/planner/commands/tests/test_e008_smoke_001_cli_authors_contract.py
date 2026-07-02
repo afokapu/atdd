@@ -32,7 +32,7 @@ def test_cli_authors_schema_valid_contract(tmp_path):
         "identity": "commons:error:probe-response",
         "title": "CommonsErrorProbeResponse",
         "description": "a probe error response",
-        "producer": "wagon:govern-lifecycle",
+        "producers": ["wagon:govern-lifecycle"],
     }, sort_keys=False), encoding="utf-8")
 
     r = _cli(["contract", "--spec", str(spec), "--root", str(tmp_path)], tmp_path)
@@ -45,5 +45,5 @@ def test_cli_authors_schema_valid_contract(tmp_path):
     assert doc["$id"] == "contract:commons:error:probe-response"
 
     registry = yaml.safe_load((tmp_path / "contracts" / "_contracts.yaml").read_text())
-    ids = {e["id"] for e in registry["contracts"]}
+    ids = {e["identity"] for e in registry["contracts"]}
     assert "commons:error:probe-response" in ids
