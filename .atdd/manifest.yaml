@@ -3585,3 +3585,11 @@ sessions:
   archived: null
   branch: refactor/migrate-graph-readers-to-state-store
   train: 0002-coach-drives-lifecycle
+- id: '1320'
+  slug: migrate-cli-readers-to-state-store
+  file: null
+  issue_number: 1320
+  type: refactor
+  status: INIT
+  created: '2026-07-02'
+  archived: null
