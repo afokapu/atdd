@@ -39,6 +39,7 @@ _MANIFEST = {
             "train": "0002",
             "branch": "feat/state-store-authoritative-work-item-lifecycle",
             "feature": "feature:atdd:state-store",
+            "wagon": "govern-lifecycle",
         },
         {
             "id": "900",
@@ -141,3 +142,37 @@ def test_missing_manifest_yields_empty_reads(tmp_path):
         assert r.status(1203) is None
         assert r.train(1203) is None
         assert r.branch(1203) is None
+
+
+# -- #1270 slice A: wagon reads for the graph-context migration ------------- #
+
+
+def test_wagon_reads_from_store(reader):
+    """wagon() returns the stored wagon; None when unrecorded or unregistered."""
+    assert reader.wagon(1203) == "govern-lifecycle"
+    assert reader.wagon(900) is None  # session carries no wagon
+    assert reader.wagon(424242) is None  # unregistered issue
+
+
+def test_issue_wagon_map_holds_only_wagoned_issues(reader):
+    """issue_wagon_map() maps issue → wagon, skipping issues with no wagon."""
+    assert reader.issue_wagon_map() == {1203: "govern-lifecycle"}
+
+
+def test_issue_wagon_map_reads_from_store_not_yaml(reader, tmp_path):
+    """A store-only wagon write is reflected without touching the manifest."""
+    db = tmp_path / ".atdd" / "state" / "state.sqlite"
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        obj = store.objects.get("older-thing")
+        store.objects.upsert(
+            "older-thing", obj.kind, state=obj.state,
+            data={**obj.data, "wagon": "author-plan-substrate"},
+        )
+    finally:
+        conn.close()
+    assert reader.issue_wagon_map() == {
+        1203: "govern-lifecycle",
+        900: "author-plan-substrate",
+    }
