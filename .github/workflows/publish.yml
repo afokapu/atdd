@@ -103,25 +103,32 @@ jobs:
             echo "already_released=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Reconcile the store's current from the latest git tag (the release
-      # worker's own output — the git-ignored store can't carry a branch bump to
-      # CI, and the migration seed is stale), then bump by the merge commit's
-      # conventional-commit change class. Result: a real version + a pending
-      # neutral version_decided message. NO more 0.0.0+local skip.
-      - name: Reconcile + bump the release version (State Store, #1172)
+      # Reconcile the store's current from the authoritative release BASE, then
+      # bump by the merge commit's conventional-commit change class. Result: a real
+      # version + a pending neutral version_decided message. NO more 0.0.0+local skip.
+      #
+      # #1326: the base is `max(PyPI latest, git tag)`, NOT the git tag alone. The
+      # nearest git tag drifts BELOW the real published latest — manual publishes
+      # skip tagging, orphan tags trail failed runs, and the git-ignored store never
+      # reaches CI (#1172). Basing on the git tag alone published 3.151.4 below the
+      # 3.152.0 already on PyPI (a regression). `atdd state version reconcile-base`
+      # anchors on the PyPI published record (JSON API), falling back to the git tag
+      # if PyPI is unreachable so a transient outage never hard-fails the release.
+      - name: Reconcile + bump the release version (State Store, #1172 / #1326)
         id: version
         if: steps.idem.outputs.already_released == 'false'
         run: |
           set -euo pipefail
           LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          CURRENT=${LATEST#v}
+          GIT_TAG=${LATEST#v}
           COMMIT_MSG=$(git log -1 --format='%B' HEAD)
           CLASS=$(COMMIT_MSG="$COMMIT_MSG" python -c 'import os; from atdd.state.version import change_class_for_commit as c; print(c(os.environ["COMMIT_MSG"]))')
           atdd state init >/dev/null
-          atdd state version set "$CURRENT" >/dev/null
+          BASE=$(atdd state version reconcile-base --git-tag "$GIT_TAG")
+          atdd state version set "$BASE" >/dev/null
           atdd state version bump --class "$CLASS" >/dev/null
           VERSION=$(atdd state version emit)
-          echo "Reconciled current=${CURRENT}, class=${CLASS} -> next=${VERSION}"
+          echo "Reconciled base=${BASE} (git_tag=${GIT_TAG}, PyPI-aware), class=${CLASS} -> next=${VERSION}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "0.0.0+local" ]; then
             echo "::error title=version unresolved::release version still '${VERSION}' after reconcile+bump (expected a real X.Y.Z)"
             exit 1
