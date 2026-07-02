@@ -431,6 +431,52 @@ class IssueManager:
         branch = entry.get("branch")
         return str(branch) if branch else None
 
+    def branch_is_registered(self, branch: str) -> bool:
+        """Return True if *branch*'s work item is registered (store-first).
+
+        #1270 slice C: the store-backed replacement for the pre-commit hook's
+        ``grep "slug:" .atdd/manifest.yaml``. Resolves the branch → slug (strips
+        the ``prefix/`` segment; a work item is keyed in the store by its slug
+        uid), checks the State Store first, then the manifest mirror.
+
+        Returns True when the slug is registered, OR when the repo has nothing to
+        check against — an empty store *and* no manifest — mirroring the hook's
+        historical "no manifest ⇒ don't block" behaviour so a barely-initialised
+        repo is never falsely blocked. Returns False only when the repo IS
+        atdd-managed (store holds work items, or a manifest exists) yet the slug
+        is absent from both. Never raises; makes no GitHub calls.
+        """
+        slug = branch.split("/", 1)[-1] if "/" in branch else branch
+        store_has_items = False
+        try:
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.manifest_import import WORK_ITEM_KIND
+            from atdd.state.store import StateStore
+
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                store = StateStore(conn)
+                if store.objects.get(slug) is not None:
+                    return True
+                store_has_items = bool(store.objects.list(kind=WORK_ITEM_KIND))
+            finally:
+                conn.close()
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "branch-registration store read unavailable; using manifest",
+                extra={"branch": branch, "error": str(exc)},
+            )
+
+        if self.manifest_file.exists():
+            manifest = self._load_manifest()
+            for session in manifest.get("sessions") or []:
+                if session.get("slug") == slug:
+                    return True
+            return False  # manifest present but slug absent → not registered
+        # No manifest: decide from the store alone. Absent from a populated store
+        # → not registered; empty store → nothing to check → do not block.
+        return not store_has_items
+
     def _store_update_fields(self, issue_number: int, fields: Dict[str, Any]) -> bool:
         """Merge work-item metadata (branch/train/...) into the State Store.
 
