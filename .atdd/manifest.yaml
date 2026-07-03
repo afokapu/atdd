@@ -3376,6 +3376,7 @@ sessions:
   created: '2026-07-02'
   archived: null
   branch: feat/contract-payload-body-resolution
+  train: 0003-author-substrate
 - id: '1332'
   slug: contract-registry-coherence
   file: null
@@ -3393,3 +3394,4 @@ sessions:
   status: INIT
   created: '2026-07-02'
   archived: null
+issues: {}
