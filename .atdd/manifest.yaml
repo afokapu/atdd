@@ -3394,4 +3394,5 @@ sessions:
   status: PLANNED
   created: '2026-07-02'
   archived: null
+  train: 0001-self-compliance-validate
 issues: {}
