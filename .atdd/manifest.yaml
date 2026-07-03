@@ -1,6 +1,16 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1330'
+  slug: contract-first-class-unit
+  file: null
+  issue_number: 1330
+  type: implementation
+  status: SMOKE
+  created: '2026-07-02'
+  archived: null
+  branch: feat/contract-first-class-unit
+  train: 0003-author-substrate
 - id: '1284'
   slug: reconcile-closed-phase-labels
   file: null
