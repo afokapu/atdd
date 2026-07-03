@@ -321,6 +321,54 @@ def test_payload_contract_rejects_filename_glob_with_wrong_id(tmp_path: Path) ->
 
 
 # ---------------------------------------------------------------------------
+# 9b. payload contract registered (#1333, capstone of #1314) — a message's
+# declared payload.contract must be an AUTHORED/REGISTERED contract in the
+# contracts registry (contracts/_contracts.yaml, maintained by #1330/#1332),
+# not merely a file that glob-matches. This binds the interlocking/route model
+# to the contract layer (registry membership), complementing the body-resolution
+# rule above (#1331 resolves the body on disk; this rule enforces the identity
+# is registered).
+# ---------------------------------------------------------------------------
+def _write_contract_registry(root: Path, identities: List[str]) -> None:
+    """Author a minimal contracts/_contracts.yaml under *root* registering the
+    given contract identities (the #1330/#1332 registry shape:
+    identity -> path/theme/producers/consumers)."""
+    reg_dir = root / "contracts"
+    reg_dir.mkdir(parents=True, exist_ok=True)
+    entries = [
+        {"identity": ident, "path": f"contracts/{ident.replace(':', '/')}.schema.json",
+         "theme": ident.split(":")[0], "producers": [], "consumers": []}
+        for ident in identities
+    ]
+    (reg_dir / "_contracts.yaml").write_text(
+        yaml.safe_dump({"contracts": entries}), encoding="utf-8"
+    )
+
+
+def test_payload_contracts_are_registered() -> None:
+    rule = bind_rule("planner.train.interlocking-payload-contract-registered")
+    assert rule.rule_id == "planner.train.interlocking-payload-contract-registered"
+    _assert_baseline_clean(rule.rule_id)
+
+
+def test_payload_contract_registered_pass_when_registered(tmp_path: Path) -> None:
+    """A message whose payload.contract IS in the registry emits no violation."""
+    _write_contract_registry(tmp_path, ["demo:thing"])
+    ok = _valid_model()  # message m1 declares payload.contract == 'demo:thing'
+    ev = sanity.payload_contract_registered_violations(ok, tmp_path)
+    assert ev == [], f"registered contract should not violate, got {ev}"
+
+
+def test_payload_contract_registered_fault_is_evidence_shaped(tmp_path: Path) -> None:
+    """A message whose payload.contract is absent from the registry is caught,
+    evidence-shaped. tmp_path has no contracts/_contracts.yaml, so 'demo:thing'
+    is unregistered -> fail-closed violation."""
+    bad = _valid_model()
+    ev = sanity.payload_contract_registered_violations(bad, tmp_path)
+    _assert_evidence_shaped("planner.train.interlocking-payload-contract-registered", ev)
+
+
+# ---------------------------------------------------------------------------
 # 10. fragment / acceptance binding
 # ---------------------------------------------------------------------------
 def test_guarded_fragments_bind_acceptances() -> None:

@@ -45,6 +45,15 @@ def _write_valid_tree(root: Path) -> Path:
     cdir = root / "plan" / "contracts"
     cdir.mkdir(parents=True, exist_ok=True)
     (cdir / "result.schema.json").write_text('{"$id": "match:result"}')
+    # register that contract in the authored registry so the interlocking
+    # payload.contract binds to an authored/registered contract — #1314 item E
+    # (planner.train.interlocking-payload-contract-registered).
+    reg_dir = root / "contracts"
+    reg_dir.mkdir(parents=True, exist_ok=True)
+    (reg_dir / "_contracts.yaml").write_text(yaml.safe_dump(
+        {"contracts": [{"identity": "match:result",
+                        "path": "plan/contracts/result.schema.json",
+                        "theme": "match", "producers": [], "consumers": []}]}))
     # fill the placeholder projection digests with the computed values.
     il = load_interlocking(il_path)
     for r in doc["routes"]:
@@ -88,6 +97,32 @@ def test_confirm_requires_interlocking_sanity(tmp_path: Path) -> None:
     s2 = _session_with_kept_train(tmp_path, interlocking=True)
     with pytest.raises(SessionGateError):
         s2.confirm(root=tmp_path)
+    assert s2.locked is False
+
+
+def test_confirm_blocks_unregistered_payload_contract(tmp_path: Path) -> None:
+    """SMOKE (#1314 item E): an interlocking whose ``payload.contract`` has a
+    schema BODY on disk but is NOT in the authored ``contracts/_contracts.yaml``
+    registry is refused by Confirm on
+    ``planner.train.interlocking-payload-contract-registered`` — proving the
+    interlocking is bound to an authored/registered contract, not merely a file
+    that resolves. This is the capstone edge: route model → contract layer."""
+    il_path = _write_valid_tree(tmp_path)
+    # registered + body present -> locks (baseline).
+    s = _session_with_kept_train(tmp_path, interlocking=True)
+    s.confirm(root=tmp_path)
+    assert s.locked is True
+
+    # de-register match:result but KEEP its schema body: the body-required rule
+    # (#1314 C) still resolves it, yet the registered rule (E) now fails.
+    (tmp_path / "contracts" / "_contracts.yaml").write_text(
+        yaml.safe_dump({"contracts": []}))
+    assert (il_path.parent.parent / "contracts" / "result.schema.json").exists() or \
+        (tmp_path / "plan" / "contracts" / "result.schema.json").exists()
+    s2 = _session_with_kept_train(tmp_path, interlocking=True)
+    with pytest.raises(SessionGateError) as exc:
+        s2.confirm(root=tmp_path)
+    assert "interlocking-payload-contract-registered" in str(exc.value)
     assert s2.locked is False
 
 

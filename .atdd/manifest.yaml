@@ -3391,7 +3391,8 @@ sessions:
   file: null
   issue_number: 1333
   type: implementation
-  status: INIT
+  status: SMOKE
   created: '2026-07-02'
   archived: null
+  train: 0001-self-compliance-validate
 issues: {}
