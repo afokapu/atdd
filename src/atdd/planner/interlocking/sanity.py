@@ -54,6 +54,7 @@ __all__ = [
     "projection_equivalence_violations",
     "message_payload_typed_violations",
     "payload_contract_body_violations",
+    "payload_contract_registered_violations",
     "fragment_acceptance_binding_violations",
     "wmbt_surface_or_residual_violations",
     "structural_residual_explicit_violations",
@@ -303,6 +304,72 @@ def payload_contract_body_violations(il: TrainInterlocking, root: Path | str) ->
     return out
 
 
+# --- 9b. payload contract registered (#1314 item E, capstone) ----------------
+_CONTRACT_REGISTRY_PATH = "contracts/_contracts.yaml"
+
+
+def _load_contract_registry(root: Path) -> "set[str]":
+    """Return the set of registered contract identities from the authored
+    ``contracts/_contracts.yaml`` registry (normalized: ``contract:`` stripped).
+
+    The registry is the single source of truth for
+    ``identity -> {path, theme, producers, consumers}``, authored by
+    ``create_contract`` (#1330) and validated for coherence by #1332. Accepts
+    either a list of entries under ``contracts:`` or a mapping keyed by identity
+    (matching #1332's ``load_registry``). A missing or unparseable registry
+    yields the empty set, so a declared ``payload.contract`` then fails closed
+    (unregistered) rather than crashing. Stdlib + yaml only.
+    """
+    reg = root / _CONTRACT_REGISTRY_PATH
+    if not reg.is_file():
+        return set()
+    try:
+        doc = yaml.safe_load(reg.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        # A malformed registry is owned by the #1332 coherence validator, not
+        # this rule; treat as empty so we fail closed instead of raising.
+        _log.debug("contract registry read skipped (unparseable)",
+                   extra={"path": str(reg),
+                          "error": str(exc).splitlines()[0][:120]})
+        return set()
+    contracts = doc.get("contracts") if isinstance(doc, dict) else None
+    identities: "set[str]" = set()
+    if isinstance(contracts, list):
+        for entry in contracts:
+            if isinstance(entry, dict):
+                ident = entry.get("identity") or entry.get("id") or entry.get("$id")
+                if ident:
+                    identities.add(_normalize_identity(str(ident)))
+    elif isinstance(contracts, dict):
+        for key, entry in contracts.items():
+            ident = None
+            if isinstance(entry, dict):
+                ident = entry.get("identity") or entry.get("id") or entry.get("$id")
+            identities.add(_normalize_identity(str(ident or key)))
+    return identities
+
+
+def payload_contract_registered_violations(il: TrainInterlocking, root: Path | str) -> List[dict]:
+    """A message's declared ``payload.contract`` must be an authored/registered
+    contract — a member of ``contracts/_contracts.yaml`` — not merely a file that
+    resolves on disk. This binds the interlocking/route model to the contract
+    layer (registry membership), complementing the body-resolution rule above
+    (#1314 item C resolves the body by ``$id``; this rule, item E, enforces the
+    identity is registered)."""
+    root = Path(root)
+    registered = _load_contract_registry(root)
+    out: List[dict] = []
+    for msg in il.messages:
+        contract = msg.payload.contract
+        if not contract:
+            continue
+        if _normalize_identity(contract) not in registered:
+            out.append({"interlocking_id": _iid(il), "message_id": msg.id,
+                        "contract": contract,
+                        "registry_path": _CONTRACT_REGISTRY_PATH})
+    return out
+
+
 # --- 10. fragment / acceptance binding --------------------------------------
 def fragment_acceptance_binding_violations(il: TrainInterlocking, root=None) -> List[dict]:
     out: List[dict] = []
@@ -389,6 +456,7 @@ RULE_CHECKS: "Dict[str, Callable[..., List[dict]]]" = {
     "planner.train.interlocking-projection-equivalence": projection_equivalence_violations,
     "planner.train.interlocking-message-payload-typed": message_payload_typed_violations,
     "planner.train.interlocking-payload-contract-body-required": payload_contract_body_violations,
+    "planner.train.interlocking-payload-contract-registered": payload_contract_registered_violations,
     "planner.train.interlocking-fragment-acceptance-binding": fragment_acceptance_binding_violations,
     "planner.train.interlocking-wmbt-surface-or-residual": wmbt_surface_or_residual_violations,
     "planner.train.interlocking-structural-residual-explicit": structural_residual_explicit_violations,

@@ -45,6 +45,15 @@ def _write_valid_tree(root: Path) -> Path:
     cdir = root / "plan" / "contracts"
     cdir.mkdir(parents=True, exist_ok=True)
     (cdir / "result.schema.json").write_text('{"$id": "match:result"}')
+    # register that contract in the authored registry so the interlocking
+    # payload.contract binds to an authored/registered contract — #1314 item E
+    # (planner.train.interlocking-payload-contract-registered).
+    reg_dir = root / "contracts"
+    reg_dir.mkdir(parents=True, exist_ok=True)
+    (reg_dir / "_contracts.yaml").write_text(yaml.safe_dump(
+        {"contracts": [{"identity": "match:result",
+                        "path": "plan/contracts/result.schema.json",
+                        "theme": "match", "producers": [], "consumers": []}]}))
     # fill the placeholder projection digests with the computed values.
     il = load_interlocking(il_path)
     for r in doc["routes"]:
