@@ -1,8 +1,29 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
-- id: '1173'
-  slug: restore-interim-manual-version-bump
+- id: '1330'
+  slug: contract-first-class-unit
+  file: null
+  issue_number: 1330
+  type: implementation
+  status: SMOKE
+  created: '2026-07-02'
+  archived: null
+  branch: feat/contract-first-class-unit
+  train: 0003-author-substrate
+- id: '1284'
+  slug: reconcile-closed-phase-labels
+  file: null
+  issue_number: 1284
+  type: implementation
+  status: INIT
+  created: '2026-07-01'
+  archived: null
+  branch: chore/reconcile-closed-phase-labels
+  train: 0002-coach-drives-lifecycle
+  wagon: govern-lifecycle
+- id: '1326'
+  slug: reconcile-release-version-from-pypi
   file: null
   issue_number: 1173
   type: cleanup

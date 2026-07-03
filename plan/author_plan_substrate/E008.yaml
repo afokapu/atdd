@@ -1,0 +1,91 @@
+urn: "wmbt:author-plan-substrate:E008"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "contract-schema-write"
+context_clarifier: "when authoring a contract as a first-class plan unit (kind contract), the writer derives the file path from the theme-first identity (contracts/{theme}/…/{aspect}.schema.json), sets $id to contract:{identity}, writes a schema-valid draft-07 JSON Schema, and dedup-inserts a thin entry into contracts/_contracts.yaml; an invalid identity (bad shape or unknown theme) is rejected before any file is written; the plan Confirm→author seam (build_author_fn) dispatches kind contract to create_contract like every other plan unit"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a schema-valid contract-schema-write authored by construction (identity-derived path, $id contract:{identity}, deduped _contracts.yaml registry entry, dispatched through the plan build_author_fn seam), rejecting an invalid identity before any write"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:E008-UNIT-001-derives-path-id-and-registers"
+      id: "AC-UNIT-001"
+      purpose: "create_contract derives the path from the identity, sets $id to contract:{identity}, writes a schema-valid file, and dedup-inserts a sorted entry into contracts/_contracts.yaml"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid contract spec with a theme-first identity (e.g. commons:compliance:probe), a title, and an optional description/version"
+    when:
+      abstract: "create_contract(spec, root=<tmp repo>) is called"
+    then:
+      abstract:
+        - "The schema file is written at contracts/{theme}/…/{aspect}.schema.json derived from the identity"
+        - "The written schema carries $id equal to contract:{identity} and its title/version"
+        - "contracts/_contracts.yaml gains a deduped entry (id, urn=contract:{identity}, path) sorted by id"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-02"
+  - identity:
+      urn: "acc:author-plan-substrate:E008-UNIT-002-rejects-bad-identity-before-write"
+      id: "AC-UNIT-002"
+      purpose: "an identity of the wrong shape or an unknown theme is rejected with the offending field before any file is written"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A contract spec whose identity is malformed (not theme-first colon segments) or whose theme is not in get_theme_map(config)"
+    when:
+      abstract: "create_contract(spec, root=<tmp repo>) is called"
+    then:
+      abstract:
+        - "An AuthorInputError is raised carrying the offending field (identity or theme)"
+        - "No schema file and no _contracts.yaml entry are written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-02"
+  - identity:
+      urn: "acc:author-plan-substrate:E008-UNIT-003-build-author-fn-dispatches-contract"
+      id: "AC-UNIT-003"
+      purpose: "the plan Confirm→author seam dispatches a locked unit of kind contract to create_contract, like every other plan unit kind"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A build_author_fn(root) dispatch closure and a locked unit spec of kind contract"
+    when:
+      abstract: "the dispatch closure is invoked with kind 'contract' and the spec"
+    then:
+      abstract:
+        - "create_contract is invoked and the contract schema file path is returned"
+        - "kind 'contract' no longer raises the no-writer SessionGateError"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-02"
+  - identity:
+      urn: "acc:author-plan-substrate:E008-SMOKE-001-cli-authors-contract"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author contract --spec` writes a schema-valid contract file and registers it in contracts/_contracts.yaml in a real checkout, no manual patching"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+    when:
+      abstract: "atdd author contract --spec <valid-spec> is run"
+    then:
+      abstract:
+        - "A schema file is written at the identity-derived contracts/… path"
+        - "The written schema validates as a draft-07 JSON Schema and carries $id contract:{identity}"
+        - "contracts/_contracts.yaml gains the deduped, sorted entry for the authored contract"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-02"

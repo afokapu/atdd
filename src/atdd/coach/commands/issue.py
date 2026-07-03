@@ -907,6 +907,17 @@ class IssueManager:
         "atdd:SMOKE", "atdd:REFACTOR", "atdd:COMPLETE", "atdd:BLOCKED",
     )
 
+    # A CLOSED atdd-issue must not advertise an in-flight phase. These are
+    # the non-terminal phase labels — a closed issue carrying any of them
+    # (e.g. #1172 merged directly from INIT) is normalized to the terminal
+    # ``atdd:COMPLETE`` by ``sync_labels``. ``atdd:COMPLETE``/``atdd:OBSOLETE``
+    # are terminal and left as-is.
+    _NON_TERMINAL_PHASE_LABELS = frozenset({
+        "atdd:INIT", "atdd:PLANNED", "atdd:RED", "atdd:GREEN",
+        "atdd:SMOKE", "atdd:REFACTOR", "atdd:BLOCKED",
+    })
+    _TERMINAL_PHASE_LABEL = "atdd:COMPLETE"
+
     def _derive_expected_labels(self, body: str) -> List[str]:
         """Compute the label set implied by the Issue Metadata table.
 
@@ -954,6 +965,27 @@ class IssueManager:
                     expected.append(f"wagon:{slug}")
 
         return expected
+
+    def _reconcile_closed_phase_labels(self, expected: Set[str]) -> Set[str]:
+        """Normalize the expected label set for a CLOSED issue.
+
+        A closed atdd-issue must not carry a non-terminal phase label: the
+        lifecycle has no legal ``INIT -> COMPLETE`` transition, so an issue
+        whose implementation merged directly from INIT (e.g. #1172) gets
+        ``gh issue close``d with a stale ``atdd:INIT`` label that
+        misrepresents its state to any label-reader.
+
+        Any non-terminal phase label in ``expected`` is replaced with the
+        terminal ``atdd:COMPLETE``. Terminal labels (``atdd:COMPLETE``,
+        ``atdd:OBSOLETE``) are left untouched. Non-phase labels
+        (archetype/wagon/atdd-issue) are never affected.
+        """
+        stale = expected & self._NON_TERMINAL_PHASE_LABELS
+        if not stale:
+            return expected
+        reconciled = expected - stale
+        reconciled.add(self._TERMINAL_PHASE_LABEL)
+        return reconciled
 
     def _labels_in_scope_for_sync(self, label: str) -> bool:
         """Only these label families are managed by ``sync_labels``.
@@ -1004,6 +1036,10 @@ class IssueManager:
 
         expected = set(self._derive_expected_labels(body))
 
+        # CLOSED issues must not advertise a non-terminal phase (#1284).
+        if (issue.get("state") or "").upper() == "CLOSED":
+            expected = self._reconcile_closed_phase_labels(expected)
+
         in_scope_current = {lbl for lbl in current_labels if self._labels_in_scope_for_sync(lbl)}
 
         to_add = sorted(expected - current_labels)
@@ -1022,7 +1058,12 @@ class IssueManager:
     def sync_labels_all(
         self, dry_run: bool = False,
     ) -> List[Tuple[int, Dict[str, List[str]]]]:
-        """Apply sync_labels to every open ``atdd-issue`` in the repo.
+        """Apply sync_labels to every ``atdd-issue`` in the repo.
+
+        Both OPEN and CLOSED issues are visited (``state="all"``): closed
+        issues can carry a stale non-terminal phase label (e.g. #1172),
+        and reconciling those is the whole point of #1284 — restricting
+        to open issues would never reach them.
 
         Sub-issues (``atdd-wmbt``) are out of scope — their label surface
         is ``atdd-wmbt`` only and is maintained by ``sync_wmbts``.
@@ -1032,7 +1073,9 @@ class IssueManager:
         responsibility — see ``_print_sync_labels_delta`` in cli.py.
         """
         client = self._get_github_client()
-        issues = client.list_issues_by_label("atdd-issue", include_body=False)
+        issues = client.list_issues_by_label(
+            "atdd-issue", include_body=False, state="all",
+        )
         results: List[Tuple[int, Dict[str, List[str]]]] = []
         for issue in issues:
             number = issue.get("number")
