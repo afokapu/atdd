@@ -1783,6 +1783,15 @@ edges:
   type: requires
 - confidence: 1.0
   constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: contract coherence is checked over the produce/consume artifact shape it constrains (#1332)
+  source_ref: planner.contract.registry-coherence
+  strength: important
+  target_ref: planner.wagon.produce-consume-artifacts
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
   control: external
   foundation: finish_to_start
   reason: produce/consume artifact names follow the naming pattern
