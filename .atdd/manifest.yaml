@@ -3372,7 +3372,7 @@ sessions:
   file: null
   issue_number: 1331
   type: implementation
-  status: RED
+  status: GREEN
   created: '2026-07-02'
   archived: null
   branch: feat/contract-payload-body-resolution
