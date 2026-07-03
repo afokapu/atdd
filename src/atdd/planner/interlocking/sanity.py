@@ -235,7 +235,12 @@ def _schema_declared_id(path: Path) -> "str | None":
     try:
         text = path.read_text(encoding="utf-8")
         doc = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
-    except (OSError, ValueError, yaml.YAMLError):
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        # An unreadable / unparseable schema body simply does not declare a
+        # resolvable $id; the payload-contract-body rule reports it as unresolved.
+        _log.debug("schema $id read skipped (unreadable contract body)",
+                   extra={"path": str(path),
+                          "error": str(exc).splitlines()[0][:120]})
         return None
     if isinstance(doc, dict):
         sid = doc.get("$id")
