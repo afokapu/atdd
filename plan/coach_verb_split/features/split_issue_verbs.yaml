@@ -1,0 +1,23 @@
+urn: "feature:coach-verb-split:split-issue-verbs"
+wagon: "wagon:coach-verb-split"
+description: "Split the monolithic `atdd issue` command into archetype-owned sub-verbs (umbrella #1303). C1 (#1304, LEAD) extracts the phase transition into `atdd coach transition <N> <TO>`, backed by a single engine (issue_transition.apply_transition) that preserves operator-token enforcement, store-first write, manifest mirror, github label swap, and the strict/non-strict commit paths. Establishes the coach_verbs auto-discovery package so each extracted verb is a drop-in file (VERB + run) and parallel children (#1305/#1307/#1308) edit nothing shared. The deprecated `atdd issue --status` shim warns on stderr and delegates, keeping the ~10 existing callers working."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:coach-verb-split:E001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 2
+        rationale: "coach_verbs/transition.py drop-in (the `atdd coach transition` verb) and the cli.py `atdd issue --status` deprecated delegator"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "issue_transition.apply_transition — the moved transition orchestration engine"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "coach_verbs auto-discovery resolver (resolve_verb / discover) that maps a coach sub-verb token to its drop-in module"
