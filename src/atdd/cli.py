@@ -2597,19 +2597,24 @@ Phase descriptions:
             return 0 if rc >= 0 else 1
 
         if getattr(args, 'status', None):
-            # #1017 — register the operator-approval gate check INTO the #1020
-            # GATE_REGISTRY. Called EXPLICITLY here at the --status dispatch (not
-            # an import-time side effect, not in the gate package) so importing
-            # the module stays pure and #1020's empty-registry migration-safety
-            # tests stay green. Which transitions enforce is decided by
-            # .atdd/config.yaml gate.transitions (default PLANNED->RED).
-            from atdd.coach.gate.registrations import register_approval_checks
-            register_approval_checks()
-            return lifecycle.transition(
-                issue_number,
-                args.status,
-                force=getattr(args, 'force', False),
+            # #1304 — `atdd issue <N> --status <TO>` is DEPRECATED in favor of
+            # `atdd coach transition <N> <TO>` (umbrella #1303 splits `atdd
+            # issue`). Warn on stderr and delegate to the new verb, which
+            # registers the #1017 operator-approval gate check and applies the
+            # transition — preserving token enforcement, store-first write,
+            # manifest mirror, github label swap, and strict/non-strict paths
+            # identically. Do NOT remove this shim (that is C5); the ~10 existing
+            # `atdd issue --status` callers must keep working.
+            _deprecation_warning(
+                "atdd issue <N> --status <TO>",
+                "atdd coach transition <N> <TO>",
+                stream=sys.stderr,
             )
+            from atdd.coach.commands.issue_transition import run as run_transition
+            _transition_argv = [str(issue_number), args.status]
+            if getattr(args, 'force', False):
+                _transition_argv.append("--force")
+            return run_transition(_transition_argv)
 
         if getattr(args, 'close_wmbt', None):
             return lifecycle.close_wmbt(
