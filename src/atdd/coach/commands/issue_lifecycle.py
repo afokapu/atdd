@@ -476,10 +476,21 @@ class IssueLifecycle:
     def transition(self, issue_number: int, status: str, force: bool = False) -> int:
         """Transition an issue to a new status, then re-enter to show updated state.
 
-        Delegates to IssueManager.update() for state machine validation, train
-        enforcement, COMPLETE gates, label swapping, and Project field updates.
-        If status is COMPLETE, also calls IssueManager.archive() to auto-close
-        WMBTs and the parent issue.
+        #1304: the orchestration was MOVED to
+        :func:`atdd.coach.commands.issue_transition.apply_transition` (the home
+        of ``atdd coach transition``); this method now delegates to it so the
+        deprecated ``atdd update``/``atdd archive`` shims and the #1020/#1017
+        gate tests keep running through the one implementation. The moved
+        orchestration still delegates to ``IssueManager.update()`` for
+        state-machine validation, train enforcement, COMPLETE gates, the github
+        label swap, the store-first write, and the manifest mirror; COMPLETE
+        also auto-archives.
+
+        NOTE: this path intentionally does NOT register the operator-approval
+        gate check — only the ``atdd coach transition`` verb (and the deprecated
+        ``atdd issue --status`` shim that delegates to it) does. That preserves
+        the historical behavior where ``atdd update``/``atdd archive`` never
+        enforced the operator token.
 
         Args:
             issue_number: GitHub issue number.
@@ -489,45 +500,11 @@ class IssueLifecycle:
         Returns:
             0 on success, 1 on failure.
         """
-        from atdd.coach.commands.issue import IssueManager
+        from atdd.coach.commands.issue_transition import apply_transition
 
-        # Enforcing per-transition gate — the #1020 keystone. Acts on the gate
-        # verdict (unlike the advisory _run_gate it replaces): a failing
-        # registered check returns non-zero here, so we never reach
-        # IssueManager.update()'s label/phase swap. Empty registry => no-op.
-        gate_rc = self._transition_gate(issue_number, status, force=force)
-        if gate_rc != 0:
-            return gate_rc
-
-        # Template compliance gate — PLANNED and beyond require a fully
-        # populated issue body (SPEC-COACH-ORCH-0011). --force overrides.
-        if not force:
-            gate_rc = self._compliance_gate(issue_number, status)
-            if gate_rc != 0:
-                return gate_rc
-
-        manager = IssueManager(self.target_dir)
-        issue_id = str(issue_number)
-
-        rc = manager.update(
-            issue_id=issue_id,
-            status=status,
-            force=force,
+        return apply_transition(
+            issue_number, status, force=force, target_dir=self.target_dir
         )
-        if rc != 0:
-            return rc
-
-        # COMPLETE auto-archives: close WMBTs + parent issue
-        if status.upper() == "COMPLETE":
-            arc_rc = manager.archive(issue_id=issue_id)
-            if arc_rc != 0:
-                print(f"Warning: Archive step returned {arc_rc} after COMPLETE transition.")
-
-        # R002: re-enter in display-only mode so the post-transition path does
-        # not attempt to create a worktree branch (and therefore cannot fail on
-        # the branch-creation layout check). The transition itself already
-        # landed — all the re-enter step needs to do is print updated state.
-        return self._reenter_display_only(issue_number)
 
     def _reenter_display_only(self, issue_number: int) -> int:
         """Print the current state of an issue without touching worktrees.
