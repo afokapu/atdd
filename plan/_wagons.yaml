@@ -442,9 +442,9 @@ wagons:
   subject: agent:coach
   context: in-umbrella-1303-atdd-issue-split, ~10-existing-atdd-issue-status-callers-must-keep-working,
     c2-c4-add-verbs-in-parallel
-  action: moves the phase-transition orchestration into a single engine that both the
-    new coach verb and the deprecated shim call, and registers each extracted verb
-    as an auto-discovered coach_verbs drop-in
+  action: moves the phase-transition orchestration into a single engine that both
+    the new coach verb and the deprecated shim call, and registers each extracted
+    verb as an auto-discovered coach_verbs drop-in
   goal: extract `atdd coach transition` with byte-for-byte behavior parity and establish
     a merge-conflict-free verb-registration pattern for C2-C4
   outcome: atdd coach transition <N> <TO> verb backed by issue_transition.apply_transition;
