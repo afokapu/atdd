@@ -2605,8 +2605,15 @@ Phase descriptions:
             # manifest mirror, github label swap, and strict/non-strict paths
             # identically. Do NOT remove this shim (that is C5); the ~10 existing
             # `atdd issue --status` callers must keep working.
+            # NOTE: the deprecated form is written flag-first ("atdd issue
+            # --status ...") so the coach.rule-id.fix-hint-completeness C2 check
+            # registers a FLAG-QUALIFIED deprecation — only `atdd issue --status`
+            # is deprecated, while the still-valid `atdd issue <slug>` (create)
+            # and `atdd issue <N>` (enter) forms are not flagged. A positional
+            # placeholder between `issue` and `--status` would collapse the key
+            # to a wholesale `atdd issue` deprecation and false-flag those.
             _deprecation_warning(
-                "atdd issue <N> --status <TO>",
+                "atdd issue --status <TO>",
                 "atdd coach transition <N> <TO>",
                 stream=sys.stderr,
             )
