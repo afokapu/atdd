@@ -1,4 +1,5 @@
 # URN: test:coach-verb-split:coach-verb-split:E001-INTEGRATION-001-coach-transition-extraction
+# Acceptance: acc:coach-verb-split:E001-UNIT-001-verb-auto-discovery
 # Acceptance: acc:coach-verb-split:E001-INTEGRATION-001-coach-transition-applies-identically
 # WMBT: wmbt:coach-verb-split:E001
 # Phase: GREEN
