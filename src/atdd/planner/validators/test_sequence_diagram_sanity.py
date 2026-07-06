@@ -20,6 +20,7 @@ lives in ``plan_session.confirm`` + ``test_confirm_interlocking_sanity``.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import List
 
@@ -281,6 +282,90 @@ def test_payload_contract_body_fault_is_evidence_shaped(tmp_path: Path) -> None:
     bad = _valid_model()  # contract 'demo:thing' resolves to nothing under tmp_path
     ev = sanity.payload_contract_body_violations(bad, tmp_path)
     _assert_evidence_shaped("planner.train.interlocking-payload-contract-body-required", ev)
+
+
+def _write_contract_body(path: Path, schema_id: str) -> None:
+    """Write a minimal contract schema body declaring ``$id`` at ``path``."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"$id": schema_id, "type": "object"}), encoding="utf-8")
+
+
+def _model_with_contract(contract: str) -> TrainInterlocking:
+    msg = Message(id="m1", kind="boundary", sender="wagon:a", recipient="wagon:b",
+                  intent="do", payload=Payload(contract=contract), feature_refs=())
+    return _valid_model(messages=(msg,))
+
+
+def test_payload_contract_resolves_by_id_not_filename(tmp_path: Path) -> None:
+    """#1314 C / #244: a contract body whose FILENAME does not match the identity
+    leaf still resolves when its ``$id`` is the contract identity. The prior
+    leaf-glob (``**/contracts/**/result*.schema.*``) failed to find
+    ``match_result.schema.json`` for ``match:result`` (leaf ``result`` ≠
+    ``match_result``) — resolution is by identity, not filename."""
+    _write_contract_body(tmp_path / "contracts" / "domain" / "match_result.schema.json",
+                         "contract:match:result")
+    model = _model_with_contract("match:result")
+    assert sanity.payload_contract_body_violations(model, tmp_path) == []
+
+
+def test_payload_contract_rejects_filename_glob_with_wrong_id(tmp_path: Path) -> None:
+    """#1314 C: a body whose FILENAME globs the identity leaf but whose ``$id`` is a
+    DIFFERENT identity must NOT satisfy the contract. The old leaf-glob passed it
+    (false positive); identity resolution flags it as unresolved."""
+    _write_contract_body(tmp_path / "contracts" / "domain" / "result_other.schema.json",
+                         "contract:other:thing")
+    model = _model_with_contract("match:result")
+    ev = sanity.payload_contract_body_violations(model, tmp_path)
+    assert ev, "a body with a non-matching $id must not satisfy the contract identity"
+    _assert_evidence_shaped("planner.train.interlocking-payload-contract-body-required", ev)
+
+
+# ---------------------------------------------------------------------------
+# 9b. payload contract registered (#1333, capstone of #1314) — a message's
+# declared payload.contract must be an AUTHORED/REGISTERED contract in the
+# contracts registry (contracts/_contracts.yaml, maintained by #1330/#1332),
+# not merely a file that glob-matches. This binds the interlocking/route model
+# to the contract layer (registry membership), complementing the body-resolution
+# rule above (#1331 resolves the body on disk; this rule enforces the identity
+# is registered).
+# ---------------------------------------------------------------------------
+def _write_contract_registry(root: Path, identities: List[str]) -> None:
+    """Author a minimal contracts/_contracts.yaml under *root* registering the
+    given contract identities (the #1330/#1332 registry shape:
+    identity -> path/theme/producers/consumers)."""
+    reg_dir = root / "contracts"
+    reg_dir.mkdir(parents=True, exist_ok=True)
+    entries = [
+        {"identity": ident, "path": f"contracts/{ident.replace(':', '/')}.schema.json",
+         "theme": ident.split(":")[0], "producers": [], "consumers": []}
+        for ident in identities
+    ]
+    (reg_dir / "_contracts.yaml").write_text(
+        yaml.safe_dump({"contracts": entries}), encoding="utf-8"
+    )
+
+
+def test_payload_contracts_are_registered() -> None:
+    rule = bind_rule("planner.train.interlocking-payload-contract-registered")
+    assert rule.rule_id == "planner.train.interlocking-payload-contract-registered"
+    _assert_baseline_clean(rule.rule_id)
+
+
+def test_payload_contract_registered_pass_when_registered(tmp_path: Path) -> None:
+    """A message whose payload.contract IS in the registry emits no violation."""
+    _write_contract_registry(tmp_path, ["demo:thing"])
+    ok = _valid_model()  # message m1 declares payload.contract == 'demo:thing'
+    ev = sanity.payload_contract_registered_violations(ok, tmp_path)
+    assert ev == [], f"registered contract should not violate, got {ev}"
+
+
+def test_payload_contract_registered_fault_is_evidence_shaped(tmp_path: Path) -> None:
+    """A message whose payload.contract is absent from the registry is caught,
+    evidence-shaped. tmp_path has no contracts/_contracts.yaml, so 'demo:thing'
+    is unregistered -> fail-closed violation."""
+    bad = _valid_model()
+    ev = sanity.payload_contract_registered_violations(bad, tmp_path)
+    _assert_evidence_shaped("planner.train.interlocking-payload-contract-registered", ev)
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-payload-contract-registered
+kind: rule
+status: active
+name: Interlocking payload contract registered
+statement: A payload contract identity referenced by an interlocking message must
+  resolve to an authored/registered contract in the contracts registry, not merely
+  a file that glob-matches.
+terms:
+- term_id: registered_contract
+  text: a payload contract identity must be a member of the authored contracts
+    registry (contracts/_contracts.yaml), the single source of truth for
+    identity -> path -> theme -> producers -> consumers (#1330 / #1332)
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_payload_contracts_are_registered
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: resolution
+  template: artifact_reference_resolution
+  variant: planner_train_interlocking_payload_contract_registered
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - message_id
+  - contract
+  - registry_path

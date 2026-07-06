@@ -1561,6 +1561,27 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: registry membership of a payload contract presupposes a typed payload
+  source_ref: planner.train.interlocking-payload-contract-registered
+  strength: important
+  target_ref: planner.train.interlocking-message-payload-typed
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: binding an interlocking payload.contract to an authored/registered contract
+    (#1314 item E) ties the route/interlocking model to the contract layer — the
+    declared identity must be a registered contract, resolved via the contract
+    identity->file mapping the contract layer maintains
+  source_ref: planner.train.interlocking-payload-contract-registered
+  strength: important
+  target_ref: planner.artifact-naming.contract-file-mapping
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: projection equivalence presupposes the homed interlocking
   source_ref: planner.train.interlocking-projection-equivalence
   strength: important
@@ -1817,6 +1838,15 @@ edges:
   source_ref: planner.wagon.no-consume-cycle
   strength: important
   target_ref: planner.wagon.complexity-model
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: contract coherence is checked over the produce/consume artifact shape it constrains (#1332)
+  source_ref: planner.contract.registry-coherence
+  strength: important
+  target_ref: planner.wagon.produce-consume-artifacts
   type: requires
 - confidence: 1.0
   constraint: mandatory
