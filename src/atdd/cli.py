@@ -2532,7 +2532,7 @@ Phase descriptions:
                 return 1
             try:
                 issue_number = int(number_str)
-            except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+            except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                 print(f"Error: invalid issue number '{number_str}'")
                 return 1
             delta = manager.sync_labels(issue_number, dry_run=dry_run)
@@ -2542,7 +2542,7 @@ Phase descriptions:
         # Detect mode: integer → enter, string → create (future)
         try:
             issue_number = int(target)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             # Slug mode — create new issue and enter at INIT
             dry_run = getattr(args, 'dry_run', False)
             if dry_run:

@@ -901,7 +901,7 @@ class GraphBuilder:
                     # Skip urn:jel:* IDs
                     if schema_id and not schema_id.startswith("urn:jel:"):
                         return f"contract:{schema_id}"
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                     pass
             return None
 

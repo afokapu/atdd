@@ -195,6 +195,14 @@ class PlanSession:
             assert_kept_wagon_feature_naming,
         )
         assert_kept_wagon_feature_naming(self, root)
+        # Foundational artifact/contract naming for kept wagon produce[] (#1329).
+        # Same atomic, before-lock contract: a non-theme-first artifact identity
+        # or a contract path that does not mirror it raises and leaves the
+        # session unlocked.
+        from atdd.planner.commands.confirm_artifact_naming import (
+            assert_kept_artifact_naming,
+        )
+        assert_kept_artifact_naming(self, root)
         self.locked = True
 
     def author(self, author_fn) -> list:

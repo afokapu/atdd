@@ -1,0 +1,30 @@
+urn: wmbt:define-plans:E003
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unenforced-artifact-naming-rule
+context_clarifier: planner.artifact-naming.theme-first-identity and
+  planner.artifact-naming.path-mirrors-identity exist as bound rules (metadata.disposition
+  strict, validation.enforcement confirm-blocking) discoverable by bind_rule and executed
+  by atdd validate planner
+lens: functional.effectiveness
+statement: minimize likelihood of unenforced-artifact-naming-rule by backing foundational
+  artifact/contract naming with bound, confirm-blocking validators run under atdd validate planner
+acceptances:
+- identity:
+    urn: acc:define-plans:E003-SMOKE-001-artifact-naming-rules-bound-and-run
+    id: AC-SMOKE-001
+    purpose: The two artifact-naming rules are bound and their validators run under atdd validate planner
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the atdd CLI
+  when:
+    abstract: atdd validate planner --local is run and bind_rule resolves each rule_id
+  then:
+    abstract:
+    - test_artifact_theme_first_identity and test_artifact_path_mirrors_identity are collected
+    - bind_rule resolves planner.artifact-naming.theme-first-identity and planner.artifact-naming.path-mirrors-identity

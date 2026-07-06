@@ -1,0 +1,49 @@
+urn: wmbt:define-plans:C005
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: confirm-lock-with-non-theme-first-artifact
+context_clarifier: PlanSession.confirm refuses to lock when a kept wagon unit produces
+  an artifact whose identity is not theme-first (fails the grammar
+  {theme}(:{category})*:{aspect}(.{variant})?, a non-kebab token, or a theme outside
+  get_theme_map), e.g. the real-world `round:result` where `round` is not a theme
+lens: functional.effectiveness
+statement: minimize likelihood of confirm-lock-with-non-theme-first-artifact by blocking
+  Confirm when a kept wagon produces an identity that violates
+  planner.artifact-naming.theme-first-identity
+acceptances:
+- identity:
+    urn: acc:define-plans:C005-SMOKE-001-theme-first-blocks-at-confirm
+    id: AC-SMOKE-001
+    purpose: Confirm blocks a non-theme-first produced artifact and locks a theme-first one
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the atdd CLI
+    - a plan session at the Confirm step with one kept wagon unit that produces an artifact
+  when:
+    abstract: the session attempts to confirm with a produced artifact named "round:result"
+  then:
+    abstract:
+    - confirm is refused (SessionGateError / non-zero) and the session stays unlocked
+    - re-running with a theme-first artifact "commons:identifiers.uuid" locks the session
+- identity:
+    urn: acc:define-plans:C005-SMOKE-002-cli-exit-nonzero-on-artifact-naming-refusal
+    id: AC-SMOKE-002
+    purpose: The atdd plan confirm CLI exits non-zero when the theme-first gate refuses
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real atdd plan CLI session driven to Confirm with one kept wagon unit that produces an artifact
+  when:
+    abstract: plan_session_cli.run executes `confirm` with a produced artifact named "round:result"
+  then:
+    abstract:
+    - the CLI dispatch returns a non-zero exit code (the shared gate-refusal path)
+    - the same flow with a theme-first artifact returns exit 0
