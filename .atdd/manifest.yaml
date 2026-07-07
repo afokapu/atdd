@@ -3156,7 +3156,7 @@ sessions:
   file: null
   issue_number: 1272
   type: implementation
-  status: INIT
+  status: GREEN
   created: '2026-06-30'
   archived: null
   branch: feat/atdd-author-issue-publishes-to-store
