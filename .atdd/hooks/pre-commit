@@ -60,12 +60,12 @@ ATDD: Commit blocked — you are on $BRANCH.
 NEVER edit files directly on $BRANCH.
 Always create a worktree branch FIRST, before making any changes:
 
-  atdd branch <issue-number>
+  atdd worktree create <issue-number>
 
 If you already have uncommitted changes, recover them:
 
   git stash
-  atdd branch <issue-number>
+  atdd worktree create <issue-number>
   cd ../<worktree-dir>
   git stash pop
 
@@ -92,8 +92,8 @@ Self-heal:
   atdd issue reconcile
 
 Every branch must be created through the ATDD workflow:
-  1. atdd issue <slug>    # Create issue first
-  2. atdd branch <N>      # Create branch from issue
+  1. atdd issue <slug>            # Create issue first
+  2. atdd worktree create <N>     # Create the worktree from the issue
 
 For genuine emergencies: atdd emergency --reason "<reason>"
 
