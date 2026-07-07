@@ -1,14 +1,17 @@
-# URN: test:govern-lifecycle:cli-readers:store-first
-# Issue: #1320 (#1270 slice B — decommission the manifest mirror)
+# URN: test:govern-lifecycle:cli-readers:store-only
+# Issue: #1351 (#1270 slice D — retire the manifest read-fallback)
 # Phase: RED
 # Layer: unit
 # Assertion: behavioral
-"""#1270 slice B — the atdd CLI-command readers read the store first.
+"""#1270 slice D — the atdd CLI-command readers read the store ONLY.
 
-Discriminating tests seed the store and a DIVERGENT manifest for the same
-issue/slug, then assert the reader returns the STORE value — failing on the
-manifest-only implementations, passing once repointed store-first with manifest
-fallback. Isolated tmp stores; independent of the ambient control-root layout.
+Slice B repointed these readers store-first with a manifest fallback; slice D
+retires the fallback so the store is the sole read source. The "prefers store
+over divergent manifest" tests still hold; the discriminating slice-D tests seed
+a NON-EMPTY store (so the reader auto-import does not run) that LACKS the datum,
+plus a manifest that HAS it, and assert the reader ignores the manifest —
+failing on the old fallback implementation, passing once the fallback is gone.
+Isolated tmp stores; independent of the ambient control-root layout.
 """
 from __future__ import annotations
 
@@ -50,13 +53,26 @@ def test_pr_resolve_via_store_over_divergent_manifest(tmp_path):
     assert mgr._resolve_via_manifest({"headRefName": "feat/my-slug"}) == 42
 
 
-def test_pr_resolve_falls_back_to_manifest(tmp_path):
-    """No store link for the slug → manifest mirror still resolves it."""
+def test_pr_resolve_ignores_manifest_only_slug(tmp_path):
+    """Slice D — a slug only in the manifest no longer resolves (store-only).
+
+    The store is non-empty (a different item) so no auto-import runs; the
+    manifest-only slug is never seeded and must not resolve. Old (fallback)
+    behaviour returned ``77``.
+    """
     from atdd.coach.commands.pr import PRManager
     _seed(tmp_path, slug="other", issue_number=1)  # store has a different item
     _manifest(tmp_path, [{"slug": "only-in-manifest", "issue_number": 77}])
     mgr = PRManager(target_dir=tmp_path)
-    assert mgr._resolve_via_manifest({"headRefName": "fix/only-in-manifest"}) == 77
+    assert mgr._resolve_via_manifest({"headRefName": "fix/only-in-manifest"}) is None
+
+
+def test_pr_resolve_store_only_with_manifest_unlinked(tmp_path):
+    """Slice D — the resolver works from the store with no manifest present."""
+    from atdd.coach.commands.pr import PRManager
+    _seed(tmp_path, slug="my-slug", issue_number=42)
+    mgr = PRManager(target_dir=tmp_path)
+    assert mgr._resolve_via_manifest({"headRefName": "feat/my-slug"}) == 42
 
 
 # --- pr._find_issue_in_manifest (type) ------------------------------------- #
@@ -93,3 +109,39 @@ def test_sync_wmbts_reads_wagon_feature_from_store(tmp_path):
     mgr.sync_wmbts(88)
     assert captured.get("wagon") == "govern-lifecycle"
     assert captured.get("feature") == "feature:govern-lifecycle:x"
+
+
+# --- issue._manifest_train / _manifest_branch (store-only, slice D) -------- #
+def test_manifest_train_store_only_ignores_manifest(tmp_path):
+    """Slice D — the train read no longer falls back to the manifest.
+
+    The store holds the issue but no train (non-empty ⇒ no auto-import); the
+    manifest carries a train that must be ignored. Old (fallback) returned the
+    manifest train.
+    """
+    from atdd.coach.commands.issue import IssueManager
+    _seed(tmp_path, slug="t", issue_number=90)  # no train in the store
+    _manifest(tmp_path, [{"slug": "t", "issue_number": 90, "train": "0009-from-manifest"}])
+    assert IssueManager(tmp_path)._manifest_train(90) is None
+
+
+def test_manifest_train_store_only_resolves_with_manifest_unlinked(tmp_path):
+    """Slice D — the train resolves from the store with no manifest present."""
+    from atdd.coach.commands.issue import IssueManager
+    _seed(tmp_path, slug="t2", issue_number=91, train="0002-coach-drives-lifecycle")
+    assert IssueManager(tmp_path)._manifest_train(91) == "0002-coach-drives-lifecycle"
+
+
+def test_manifest_branch_store_only_ignores_manifest(tmp_path):
+    """Slice D — the branch read no longer falls back to the manifest."""
+    from atdd.coach.commands.issue import IssueManager
+    _seed(tmp_path, slug="b90", issue_number=92)  # no branch in the store
+    _manifest(tmp_path, [{"slug": "b90", "issue_number": 92, "branch": "feat/from-manifest"}])
+    assert IssueManager(tmp_path)._manifest_branch(92) is None
+
+
+def test_manifest_branch_store_only_resolves_with_manifest_unlinked(tmp_path):
+    """Slice D — the branch resolves from the store with no manifest present."""
+    from atdd.coach.commands.issue import IssueManager
+    _seed(tmp_path, slug="b91", issue_number=93, branch="refactor/x")
+    assert IssueManager(tmp_path)._manifest_branch(93) == "refactor/x"

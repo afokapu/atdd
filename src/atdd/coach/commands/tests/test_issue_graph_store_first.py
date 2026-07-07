@@ -1,16 +1,17 @@
-# URN: test:govern-lifecycle:issue-graph:store-first-wagon-and-train
-# Issue: #1318 (#1270 slice A — decommission the manifest mirror)
+# URN: test:govern-lifecycle:issue-graph:store-only-wagon-and-train
+# Issue: #1351 (#1270 slice D — retire the manifest read-fallback)
 # Phase: RED
 # Layer: unit
 # Assertion: behavioral
-"""#1270 slice A — the issue-graph context readers read the State Store first.
+"""#1270 slice D — the issue-graph context readers read the State Store ONLY.
 
 ``issue_graph`` resolves an issue's wagon and train for the spawn-prompt
-architecture context. These reads were manifest-only; #1203 made the store
-authoritative. The discriminating tests seed the store and a *divergent*
-manifest for the same issue and assert the reader returns the **store** value —
-which fails on the old manifest-only implementation and passes once the reader
-is store-first. The manifest fallback is retained for an un-imported store.
+architecture context. Slice A made these reads store-first with a manifest
+fallback; slice D retires the fallback so the store is the sole read source. The
+"prefers store over divergent manifest" tests still hold; the discriminating
+slice-D test seeds a NON-EMPTY store (so auto-import does not run) lacking the
+wagon, plus a manifest that HAS it, and asserts the reader ignores the manifest
+— failing on the old fallback implementation, passing once the fallback is gone.
 """
 from __future__ import annotations
 
@@ -65,12 +66,22 @@ def test_wagon_slug_for_issue_prefers_store_over_divergent_manifest(tmp_path):
     assert _wagon_slug_for_issue(42, tmp_path) == "govern-lifecycle"
 
 
-def test_wagon_slug_for_issue_falls_back_to_manifest(tmp_path):
-    """With no store wagon, the manifest mirror still resolves the wagon."""
-    # Store holds the issue but no wagon; manifest carries the wagon.
+def test_wagon_slug_for_issue_ignores_manifest_only_wagon(tmp_path):
+    """Slice D — with no store wagon, the manifest is no longer consulted.
+
+    Store holds the issue but no wagon (non-empty ⇒ no auto-import); the manifest
+    carries the wagon and must be ignored. Old (fallback) returned
+    ``"define-plans"``.
+    """
     _seed_store(tmp_path, slug="x", issue_number=7)
     _write_manifest(tmp_path, [{"issue_number": 7, "slug": "x", "wagon": "define-plans"}])
-    assert _wagon_slug_for_issue(7, tmp_path) == "define-plans"
+    assert _wagon_slug_for_issue(7, tmp_path) is None
+
+
+def test_wagon_slug_for_issue_store_only_with_manifest_unlinked(tmp_path):
+    """Slice D — the wagon resolves from the store with no manifest present."""
+    _seed_store(tmp_path, slug="x2", issue_number=8, wagon="govern-lifecycle")
+    assert _wagon_slug_for_issue(8, tmp_path) == "govern-lifecycle"
 
 
 def test_build_architecture_context_uses_store_train(tmp_path, monkeypatch):
