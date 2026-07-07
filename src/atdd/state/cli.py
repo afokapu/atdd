@@ -12,8 +12,9 @@ Phase 1 ships two enforcement commands described in #1168:
   state into the State Store and write a backup (#1183).
 
 - ``atdd state migrate-layout`` — consolidate to a single project-root State
-  Store, rebuilt from the primary ``main/`` checkout's manifest (#1315 / #1168
-  Phase 5). The divergent per-worktree stores are abandoned, not merged.
+  Store by MERGING every per-worktree store into it, de-duplicating work_items on
+  their GitHub-issue external ref, and deleting the per-worktree DBs (#1346,
+  completing #1315 / #1168 Phase 5).
 """
 from __future__ import annotations
 
@@ -234,11 +235,50 @@ def _cmd_import_manifest(root: Optional[str]) -> int:
 
 @dataclass
 class MigrateLayoutResult:
-    """Outcome of a single-store consolidation (#1315)."""
+    """Outcome of a single-store consolidation (#1315 / #1346).
+
+    ``merged`` — work_items carried into the control-root store from a
+    per-worktree store (rows that did not already exist there).
+    ``deduped`` — work_items collapsed onto an existing control-root row because
+    both are linked to the same GitHub issue via ``external_refs``.
+    ``deleted`` — the per-worktree State Store files removed after their rows
+    were folded in (they cannot re-diverge).
+    """
 
     store_path: Path
-    imported: int
-    abandoned: list
+    merged: int
+    deduped: int
+    deleted: list
+
+
+#: Lifecycle-phase ordering used to keep the most-advanced state when two rows
+#: linked to the same GitHub issue are de-duplicated during consolidation.
+_PHASE_RANK = {
+    phase: rank
+    for rank, phase in enumerate(
+        ["INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE"]
+    )
+}
+
+
+def _more_advanced(a: Optional[str], b: Optional[str]) -> Optional[str]:
+    """Return the more-advanced of two lifecycle states (unknown states rank low)."""
+    return a if _PHASE_RANK.get(a or "", -1) >= _PHASE_RANK.get(b or "", -1) else b
+
+
+def _delete_store_files(db_path: Path) -> None:
+    """Remove a State Store SQLite file and its WAL/SHM sidecars."""
+    for suffix in ("", "-wal", "-shm"):
+        sidecar = db_path.parent / (db_path.name + suffix)
+        if sidecar.is_file():
+            sidecar.unlink()
+
+
+def _github_issue_ref(refs) -> Optional[str]:
+    for r in refs:
+        if r.provider == "github" and r.ref_kind == "issue":
+            return r.ref_value
+    return None
 
 
 def migrate_layout(
@@ -246,17 +286,28 @@ def migrate_layout(
     *,
     project_root: Optional[str] = None,
 ) -> MigrateLayoutResult:
-    """Consolidate to ONE project-root State Store, rebuilt from main's manifest.
+    """Consolidate every per-worktree State Store into ONE control-root store.
 
-    The deferred #1168 Phase 5 one-shot (#1315). The per-worktree stores diverge
-    (none authoritative), so they are NOT merged: the single project-root store
-    is REBUILT from the canonical source — the primary ``main/`` checkout's
-    ``.atdd/manifest.yaml`` — via :func:`import_manifest`. The stale per-worktree
-    stores are reported as abandoned (left on disk, not deleted).
+    The #1346 completion of #1315's deferred consolidation. Unlike the earlier
+    rebuild-from-manifest one-shot (which dropped worktree-only rows and left the
+    stale DBs on disk to re-diverge), this performs a genuine **merge**:
+
+    - every ``<child>/.atdd/state/state.sqlite`` under the project root is folded
+      into the control-root store;
+    - ``work_items`` are **de-duplicated on their ``external_refs`` GitHub-issue
+      link** — when a row for the same issue already exists at the control root,
+      the existing (GitHub-linked authoritative) row wins and keeps the
+      most-advanced lifecycle state; otherwise the row (with its external refs and
+      events) is carried over verbatim;
+    - after a source store's rows are folded in, its per-worktree DB is
+      **deleted** so it cannot re-diverge.
 
     ``project_root`` overrides the derived location (parent of ``main/``); by
     default it is resolved from ``start``/cwd via the git-backed resolver.
     """
+    from atdd.state.db import connect  # local: keep the module import surface small
+    from atdd.state.store import StateStore
+
     if project_root is not None:
         root = Path(project_root).resolve()
     else:
@@ -264,44 +315,85 @@ def migrate_layout(
         root = resolve_control_root(start_dir).control_root
 
     shared_store = root / STATE_STORE_RELATIVE
-    main_manifest = root / "main" / ATDD_DIR / "manifest.yaml"
-    if not main_manifest.is_file():
-        raise FileNotFoundError(
-            f"canonical manifest not found for rebuild: {main_manifest} "
-            "(expected the primary 'main/' checkout's .atdd/manifest.yaml)")
+    target = StateStore(connect(init_state_store(db_path=shared_store)))
 
-    from atdd.state.manifest_import import import_manifest  # local: keeps yaml off the hot path
-
-    result = import_manifest(manifest_path=main_manifest, db_path=shared_store)
-
-    # Report (do not delete/merge) any stale per-worktree stores under the project.
-    abandoned: list = []
+    sources: list = []
     for child in sorted(p for p in root.iterdir() if p.is_dir()):
         rogue = child / STATE_STORE_RELATIVE
-        if rogue.resolve() == shared_store.resolve():
-            continue
-        if rogue.is_file():
-            abandoned.append(rogue)
+        if rogue.is_file() and rogue.resolve() != shared_store.resolve():
+            sources.append(rogue)
 
-    return MigrateLayoutResult(store_path=shared_store, imported=result.imported, abandoned=abandoned)
+    merged = 0
+    deduped = 0
+    deleted: list = []
+    for src_db in sources:
+        # Apply migrations to the source first so a partially-initialized or empty
+        # per-worktree store (e.g. a bare file) presents the schema and merges as
+        # an empty store rather than raising.
+        src_conn = connect(init_state_store(db_path=src_db))
+        src = StateStore(src_conn)
+        try:
+            for obj in src.objects.list():
+                refs = src.external_refs.for_object(obj.uid)
+                events = src.events.list(object_uid=obj.uid)
+                issue = _github_issue_ref(refs)
+                existing = (
+                    target.external_refs.resolve("github", "issue", issue)
+                    if issue is not None
+                    else None
+                )
+                if existing is not None:
+                    # de-dup: the GitHub-linked control-root row wins; keep the
+                    # most-advanced lifecycle state and fold in the source events.
+                    survivor = target.objects.get(existing.object_uid)
+                    best = _more_advanced(survivor.state if survivor else None, obj.state)
+                    if survivor is not None and best != survivor.state:
+                        target.objects.set_state(existing.object_uid, best)
+                    for ev in events:
+                        target.events.append(
+                            ev.event_type, object_uid=existing.object_uid, payload=ev.payload
+                        )
+                    deduped += 1
+                    continue
+                # carry over: a row that does not yet exist at the control root.
+                # noqa: N+1 — a one-time bounded consolidation migration (runs once
+                # per project to fold divergent per-worktree stores in), not a hot
+                # path; per-row writes are inherent to the merge.
+                target.objects.upsert(obj.uid, obj.kind, state=obj.state, data=obj.data)  # noqa: N+1
+                for r in refs:
+                    target.external_refs.link(
+                        r.object_uid, r.provider, r.ref_kind, r.ref_value, data=r.data
+                    )
+                for ev in events:
+                    target.events.append(ev.event_type, object_uid=obj.uid, payload=ev.payload)
+                merged += 1
+        finally:
+            src_conn.close()
+        _delete_store_files(src_db)
+        deleted.append(src_db)
+        _log.info(
+            "consolidated per-worktree store into control-root store",
+            extra={"source": str(src_db), "control_root_store": str(shared_store)},
+        )
+
+    return MigrateLayoutResult(
+        store_path=shared_store, merged=merged, deduped=deduped, deleted=deleted
+    )
 
 
 def _cmd_migrate_layout(args) -> int:
-    try:
-        result = migrate_layout(start=args.root, project_root=args.project_root)
-    except FileNotFoundError as exc:
-        _log.warning("migrate-layout: no canonical manifest", extra={"error": str(exc)})
-        print(f"ERROR: {exc}")
-        return 1
-    print(f"Rebuilt single project-root State Store: {result.store_path}")
-    print(f"Imported {result.imported} work item(s) from main's manifest.")
-    if result.abandoned:
-        print(f"Abandoned {len(result.abandoned)} per-worktree store(s) "
-              "(diverged; not merged, not deleted):")
-        for p in result.abandoned:
+    result = migrate_layout(start=args.root, project_root=args.project_root)
+    print(f"Consolidated into single control-root State Store: {result.store_path}")
+    print(
+        f"Merged {result.merged} work item(s); de-duplicated {result.deduped} "
+        "by GitHub-issue external ref."
+    )
+    if result.deleted:
+        print(f"Deleted {len(result.deleted)} per-worktree store(s):")
+        for p in result.deleted:
             print(f"  - {p}")
     else:
-        print("No per-worktree stores found to abandon.")
+        print("No per-worktree stores found to consolidate.")
     return 0
 
 

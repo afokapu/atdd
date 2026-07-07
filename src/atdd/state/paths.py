@@ -239,6 +239,25 @@ def resolve_control_root(
     override = env.get(CONTROL_ROOT_ENV)
     if override:
         root = Path(override).expanduser().resolve()
+        # Rule 1.4 (#1346) — activate the shared store even under the interim
+        # ``ATDD_CONTROL_ROOT=<worktree>`` workaround. If the override names a
+        # directory that is itself a CHILD git worktree of a flat-sibling project
+        # (its git common dir resolves to a sibling primary ``main/`` checkout),
+        # anchor at the shared project-root store instead of forking a
+        # per-worktree one — otherwise the very workaround meant to avoid an
+        # Ambiguous Control Root is what creates a divergent per-worktree store on
+        # the next hot-path write. Overrides that are NOT flat-sibling child
+        # worktrees (hermetic tmp dirs, single-repo checkouts, consumer repos) are
+        # still honored verbatim, so isolated tests and consumer installs are
+        # unchanged.
+        shared = _shared_store_root(root, git_common_dir)
+        if shared is not None and shared != root and shared in root.parents:
+            gwr = git_worktree_root(start)
+            _log.debug(
+                "control root override redirected to shared project root (#1346)",
+                extra={"env": CONTROL_ROOT_ENV, "override": str(root), "control_root": str(shared)},
+            )
+            return ControlRootResolution(shared, gwr, LayoutMode.SIBLING_WORKTREE)
         gwr = git_worktree_root(start)
         mode = (
             LayoutMode.SINGLE_REPO
