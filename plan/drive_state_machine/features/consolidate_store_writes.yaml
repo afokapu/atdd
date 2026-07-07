@@ -1,25 +1,28 @@
 urn: "feature:drive-state-machine:consolidate-store-writes"
 wagon: "wagon:drive-state-machine"
-description: "Complete #1315: make the single shared State Store the one write target for every worktree. Route the interim ATDD_CONTROL_ROOT=<worktree> override back to the project-root store so it stops forking a per-worktree DB (activation on the write hot-path), consolidate the already-divergent per-worktree stores into the control-root store by merging + de-duplicating work_items on their external_refs GitHub-issue link and deleting the per-worktree DBs, and make #1220's state.single-store-per-control-root guard bite so a regression to per-worktree stores cannot land silently."
+description: "Complete #1315: make the single control-root .atdd/ the one operational target for every worktree — not just the store but ALL git-ignored operational data (store + extension/workspace installs). Route the interim ATDD_CONTROL_ROOT=<worktree> override and the substrate install path through the control-root resolver so writes/installs stop forking per-worktree copies (activation on the write/install hot-path), consolidate the already-divergent per-worktree stores (merge + de-dup work_items by external_refs) AND per-worktree extension/workspace installs (fold into the control-root .atdd/ + union the substrate lock, remove the per-worktree copies), and generalize #1220's guard so a regression to a per-worktree store OR operational .atdd/ subtree (extensions/workspaces) cannot land silently. Runtime/cache/diagnostics stay scratch (per #1179)."
 sizing:
-  wmbts: 3
-  footprint_score: 11
-  footprint_size: "M"
+  wmbts: 6
+  footprint_score: 20
+  footprint_size: "L"
 wmbts:
   - "wmbt:drive-state-machine:E003"
   - "wmbt:drive-state-machine:E004"
   - "wmbt:drive-state-machine:M002"
+  - "wmbt:drive-state-machine:E005"
+  - "wmbt:drive-state-machine:E006"
+  - "wmbt:drive-state-machine:M003"
 components:
   backend:
     application:
       - type: "use_cases"
-        count: 2
-        rationale: "Store-consolidation merger (merge per-worktree stores → control-root store, de-dup work_items by external_refs, delete per-worktree DBs) and the layout-guard enforcement path invoked on the write/diagnose flow"
+        count: 3
+        rationale: "Operational consolidation merger (merge per-worktree stores → control-root store de-duped by external_refs; fold per-worktree extension/workspace installs + union the substrate lock; remove per-worktree copies), the generalized layout-guard enforcement path (store + operational .atdd/ subtrees), and the substrate-install control-root resolution wiring"
     domain:
       - type: "value_objects"
         count: 1
-        rationale: "ConsolidationResult (merged/deduped/deleted counts + surviving authoritative row per issue) reported by migrate-layout"
+        rationale: "ConsolidationResult (merged/deduped/deleted store counts + folded/removed operational-subtree counts) reported by migrate-layout"
     integration:
       - type: "adapters"
-        count: 1
-        rationale: "Control-root resolver override redirect: an ATDD_CONTROL_ROOT that names a child git worktree in a flat-sibling project anchors at the project-root shared store"
+        count: 2
+        rationale: "Control-root resolver override redirect (an ATDD_CONTROL_ROOT naming a child git worktree anchors at the project-root .atdd/) and the substrate CLI project-root resolution (extension installs/reads resolve to the control-root .atdd/extensions|workspaces/ instead of the worktree)"

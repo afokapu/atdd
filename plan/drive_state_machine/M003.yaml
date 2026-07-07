@@ -1,0 +1,51 @@
+urn: "wmbt:drive-state-machine:M003"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-per-worktree-operational-atdd-subtree-below-the-control-root-going-undetected"
+context_clarifier: "once resolution is activated and the operational `.atdd/` is consolidated, the #1220 guard must keep ANY operational `.atdd/` subtree from re-forking below the control root — not only the store. check_layout (src/atdd/state/paths.py) today scans child worktrees ONLY for a rogue `.atdd/state/state.sqlite`; a worktree that re-installs its own `.atdd/extensions/` (or `.atdd/workspaces/`) below the control root is NOT flagged, so the exact divergence this issue fixes could silently return via the install path. The guard must be generalized to flag a per-worktree operational `.atdd/` subtree (store OR extensions/workspaces) below the Control Root, while still ignoring scratch (runtime/cache/diagnostics per #1179)."
+lens: "functional.sustainability"
+statement: "minimize likelihood of a-per-worktree-operational-atdd-subtree-below-the-control-root-going-undetected by generalizing the state.single-store-per-control-root guard (check_layout) to report a violation when any child worktree carries an operational `.atdd/` subtree below the Control Root — the store (`.atdd/state/`) OR an extension/workspace install (`.atdd/extensions/`, `.atdd/workspaces/`) — while continuing to ignore scratch dirs (runtime/cache/diagnostics), so a regression to per-worktree operational data (store or extensions) surfaces via `atdd state layout --check` / doctor instead of returning silently"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:M003-UNIT-001-guard-flags-per-worktree-extensions-not-scratch"
+      id: "AC-UNIT-001"
+      purpose: "check_layout flags a per-worktree .atdd/extensions/ below the control root (generalized beyond the store) but ignores a scratch-only .atdd/runtime/"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A control root with its .atdd/, and a child worktree wt1 carrying a rogue .atdd/extensions/<ext>/<ver>/ but NO rogue store"
+        - "A second child worktree wt2 carrying only a scratch .atdd/runtime/ dir (no store, no extensions)"
+    when:
+      abstract: "check_layout(control_root) is evaluated"
+    then:
+      abstract:
+        - "A violation is reported naming wt1's rogue .atdd/extensions/ operational subtree"
+        - "No violation is reported for wt2 (runtime is scratch per #1179, not an operational subtree)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:M003-SMOKE-001-layout-check-flags-rogue-extensions-live"
+      id: "AC-SMOKE-001"
+      purpose: "Against real runtime, layout --check exits non-zero when a worktree carries a rogue .atdd/extensions/ install below the control root, and clears once removed"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real flat-sibling git project with a single consolidated control-root .atdd/ (layout --check exits 0)"
+        - "A rogue per-worktree .atdd/extensions/<ext>/<ver>/ is then created under a child worktree"
+    when:
+      abstract: "`atdd state layout --check` is run before and after removing the rogue extensions dir"
+    then:
+      abstract:
+        - "Before removal: exit code is non-zero and the offending .atdd/extensions/ path is named"
+        - "After removing the rogue extensions dir: exit code is 0"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"

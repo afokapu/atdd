@@ -85,3 +85,6 @@ wmbt:
   E003: "minimize likelihood of divergent-per-worktree-work-items-surviving-consolidation-as-duplicates"
   E004: "minimize likelihood of control-root-env-override-at-a-child-worktree-forking-its-own-store"
   M002: "minimize likelihood of a-per-worktree-store-regression-below-the-control-root-going-undetected"
+  E005: "minimize likelihood of extension-installs-landing-in-a-per-worktree-atdd-instead-of-the-control-root"
+  E006: "minimize likelihood of divergent-per-worktree-extension-installs-surviving-consolidation"
+  M003: "minimize likelihood of a-per-worktree-operational-atdd-subtree-below-the-control-root-going-undetected"

@@ -23,11 +23,12 @@ import logging
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from atdd.state.db import current_version, init_state_store
 from atdd.state.paths import (
     ATDD_DIR,
+    OPERATIONAL_ATDD_DIRS,
     STATE_STORE_RELATIVE,
     AmbiguousControlRootError,
     ControlRootNotFoundError,
@@ -243,12 +244,18 @@ class MigrateLayoutResult:
     both are linked to the same GitHub issue via ``external_refs``.
     ``deleted`` — the per-worktree State Store files removed after their rows
     were folded in (they cannot re-diverge).
+    ``extensions_folded`` — substrate install artifacts (extensions/workspaces)
+    copied from a per-worktree ``.atdd/`` into the control-root ``.atdd/``.
+    ``operational_removed`` — per-worktree operational ``.atdd/`` install dirs and
+    lock files removed after being folded into the control root.
     """
 
     store_path: Path
     merged: int
     deduped: int
     deleted: list
+    extensions_folded: int = 0
+    operational_removed: list = field(default_factory=list)
 
 
 #: Lifecycle-phase ordering used to keep the most-advanced state when two rows
@@ -376,9 +383,87 @@ def migrate_layout(
             extra={"source": str(src_db), "control_root_store": str(shared_store)},
         )
 
+    # Fold per-worktree operational .atdd/ installs (extensions/workspaces + lock)
+    # into the control-root .atdd/, then remove the per-worktree copies (#1346).
+    extensions_folded, operational_removed = _fold_operational_subtrees(root)
+
     return MigrateLayoutResult(
-        store_path=shared_store, merged=merged, deduped=deduped, deleted=deleted
+        store_path=shared_store, merged=merged, deduped=deduped, deleted=deleted,
+        extensions_folded=extensions_folded, operational_removed=operational_removed,
     )
+
+
+_SUBSTRATE_LOCK = "substrate.lock.yaml"
+
+
+def _fold_operational_subtrees(root: Path) -> tuple:
+    """Fold every per-worktree operational ``.atdd/`` install into the control root.
+
+    For each child worktree of ``root`` (other than the control-root ``.atdd/``):
+    copy any ``extensions/<id>/<ver>`` or ``workspaces/<id>/<ver>`` install the
+    control root lacks (the control-root copy WINS on an id+version conflict — no
+    overwrite), union its ``substrate.lock.yaml`` artifacts into the control-root
+    lock (dedup by id+version), then remove the per-worktree install dirs and lock
+    file. Scratch dirs (runtime/cache/diagnostics) are left untouched. Returns
+    ``(artifacts_folded, removed_paths)``.
+    """
+    import shutil
+
+    folded = 0
+    removed: list = []
+    control_atdd = root / ATDD_DIR
+    for child in sorted(p for p in root.iterdir() if p.is_dir()):
+        child_atdd = child / ATDD_DIR
+        if child_atdd.resolve() == control_atdd.resolve() or not child_atdd.is_dir():
+            continue
+        touched = False
+        for name in OPERATIONAL_ATDD_DIRS:
+            src_dir = child_atdd / name
+            if not src_dir.is_dir():
+                continue
+            # copy each <id>/<version> the control root lacks (never overwrite).
+            for pid_dir in sorted(p for p in src_dir.iterdir() if p.is_dir()):
+                for ver_dir in sorted(p for p in pid_dir.iterdir() if p.is_dir()):
+                    dest = control_atdd / name / pid_dir.name / ver_dir.name
+                    if not dest.exists():
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copytree(ver_dir, dest)
+                        folded += 1
+            shutil.rmtree(src_dir)
+            removed.append(src_dir)
+            touched = True
+        # union the per-worktree substrate lock into the control-root lock.
+        src_lock = child_atdd / _SUBSTRATE_LOCK
+        if src_lock.is_file():
+            _union_substrate_lock(control_atdd / _SUBSTRATE_LOCK, src_lock)
+            src_lock.unlink()
+            removed.append(src_lock)
+            touched = True
+        if touched:
+            _log.info(
+                "consolidated per-worktree operational .atdd/ into control root",
+                extra={"source": str(child_atdd), "control_root": str(control_atdd)},
+            )
+    return folded, removed
+
+
+def _union_substrate_lock(dest_lock: Path, src_lock: Path) -> None:
+    """Union ``src_lock``'s artifacts into ``dest_lock`` (dedup by id+version)."""
+    import yaml  # local: keep yaml off the store hot path
+
+    src_data = yaml.safe_load(src_lock.read_text()) or {}
+    if dest_lock.is_file():
+        dest_data = yaml.safe_load(dest_lock.read_text()) or {}
+    else:
+        dest_data = {"schema_version": src_data.get("schema_version", "1.0.0"), "artifacts": []}
+    seen = {(a.get("id"), a.get("version")) for a in dest_data.get("artifacts", [])}
+    for art in src_data.get("artifacts", []):
+        key = (art.get("id"), art.get("version"))
+        if key not in seen:
+            dest_data.setdefault("artifacts", []).append(art)
+            seen.add(key)
+    dest_lock.parent.mkdir(parents=True, exist_ok=True)
+    dest_lock.write_text(yaml.safe_dump(dest_data, sort_keys=False))
 
 
 def _cmd_migrate_layout(args) -> int:
@@ -388,6 +473,12 @@ def _cmd_migrate_layout(args) -> int:
         f"Merged {result.merged} work item(s); de-duplicated {result.deduped} "
         "by GitHub-issue external ref."
     )
+    if result.extensions_folded or result.operational_removed:
+        print(
+            f"Folded {result.extensions_folded} operational install(s) "
+            f"(extensions/workspaces) into the control-root .atdd/ and removed "
+            f"{len(result.operational_removed)} per-worktree operational path(s)."
+        )
     if result.deleted:
         print(f"Deleted {len(result.deleted)} per-worktree store(s):")
         for p in result.deleted:

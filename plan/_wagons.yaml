@@ -915,7 +915,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 14
+    total: 17
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -934,6 +934,9 @@ wagons:
     E003: minimize likelihood of divergent-per-worktree-work-items-surviving-consolidation-as-duplicates
     E004: minimize likelihood of control-root-env-override-at-a-child-worktree-forking-its-own-store
     M002: minimize likelihood of a-per-worktree-store-regression-below-the-control-root-going-undetected
+    E005: minimize likelihood of extension-installs-landing-in-a-per-worktree-atdd-instead-of-the-control-root
+    E006: minimize likelihood of divergent-per-worktree-extension-installs-surviving-consolidation
+    M003: minimize likelihood of a-per-worktree-operational-atdd-subtree-below-the-control-root-going-undetected
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
