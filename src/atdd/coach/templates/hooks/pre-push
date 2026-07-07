@@ -112,7 +112,7 @@ ATDD: All direct pushes to $BRANCH are blocked.
 
 Every change must go through a worktree branch and PR.
 Create one first:
-  atdd branch <issue-number>
+  atdd worktree create <issue-number>
 
 CI bypass (requires CI=true):
   CI=true ATDD_ALLOW_MAIN_PUSH=1 git push ...
