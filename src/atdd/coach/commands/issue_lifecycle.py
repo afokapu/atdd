@@ -57,7 +57,7 @@ def _check_on_main_branch(repo_root: Path) -> tuple:
         f"  The manifest commit will land on '{branch}', not main.\n"
         f"  Fix:\n"
         f"    git checkout main\n"
-        f"    atdd issue my-feature   # re-run with your slug\n"
+        f'    atdd author issue --title "My Feature" --slug my-feature   # canonical store-first create (#1272)\n'
         f"  Override: atdd issue my-feature --force   # re-run with your slug"
     )
     return False, msg

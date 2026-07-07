@@ -90,12 +90,17 @@ issues:
   source_of_truth: "GitHub Issues (atdd:<phase> labels) + local .atdd/manifest.yaml"
   convention: "src/atdd/coach/conventions/issue.convention.yaml"
   commands:
-    new: "atdd issue <slug>"
+    new: "atdd author issue --title <title> --slug <slug>"   # store-first canonical create (#1272)
     enter: "atdd issue <N>"
     update: "atdd issue <N> --status <STATUS>"
     pr: "atdd pr <N>"
+  deprecated_commands:
+    # #1349: the create-by-slug alias still works but warns on stderr and
+    # points to the canonical `atdd author issue` (store-first, fail-loud).
+    - "atdd issue <slug>  → use: atdd author issue --title <title> --slug <slug>"
+    - "atdd new <slug>    → use: atdd author issue --title <title> --slug <slug>"
   prohibited_commands:
-    - "gh issue create    → use: atdd issue <slug>"
+    - "gh issue create    → use: atdd author issue --title <title> --slug <slug>"
     - "gh pr create       → use: atdd pr <N>"
 ---
 
