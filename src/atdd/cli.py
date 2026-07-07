@@ -856,7 +856,9 @@ Phase descriptions:
         description=(
             "Enter an existing issue (by number) or create a new one (by slug).\n\n"
             "  atdd issue 126                     Enter issue #126 (state-driven)\n"
-            "  atdd issue my-feature              Create new issue and enter at INIT\n"
+            "  atdd issue my-feature              [DEPRECATED #1349] Create by slug —\n"
+            "                                     use `atdd author issue --title <t> --slug <s>`\n"
+            "                                     (store-first canonical create, #1272)\n"
             "  atdd issue 126 --status RED        Transition status\n"
             "  atdd issue open                    List open issues\n"
             "  atdd issue reconcile               Backfill missing issues from GitHub into manifest\n"
@@ -2315,9 +2317,11 @@ Phase descriptions:
             toolkit=getattr(args, "toolkit", False),
         )
 
-    # atdd new <slug> — DEPRECATED, delegates to atdd issue <slug>
+    # atdd new <slug> — DEPRECATED, delegates to the shared create path.
+    # #1349: point operators at the store-first canonical `atdd author issue`
+    # (#1272) rather than the also-deprecated `atdd issue <slug>` alias.
     elif args.command == "new":
-        _deprecation_warning("atdd new <slug>", "atdd issue <slug>")
+        _deprecation_warning("atdd new <slug>", "atdd author issue", stream=sys.stderr)
         from atdd.coach.commands.issue_lifecycle import IssueLifecycle
         lifecycle = IssueLifecycle()
         return lifecycle.create(
@@ -2543,7 +2547,15 @@ Phase descriptions:
         try:
             issue_number = int(target)
         except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            # Slug mode — create new issue and enter at INIT
+            # Slug mode — create new issue and enter at INIT.
+            # #1349: deprecate the create-by-slug alias toward the store-first
+            # canonical `atdd author issue` (#1272). The alias keeps working —
+            # it still delegates to the shared work_item_writer create path —
+            # but signposts the canonical command on stderr so the notice never
+            # pollutes the rendered body payload on stdout.
+            _deprecation_warning(
+                "atdd issue <slug>", "atdd author issue", stream=sys.stderr
+            )
             dry_run = getattr(args, 'dry_run', False)
             if dry_run:
                 # E019: dry-run path — validate locally, print rendered body, exit 0
