@@ -1,0 +1,54 @@
+urn: "wmbt:govern-lifecycle:E061"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "operators-creating-an-issue-via-the-deprecated-atdd-issue-slug-path-without-being-pointed-to-the-canonical-store-first-atdd-author-issue"
+context_clarifier: "#1272 made `atdd author issue` the store-first canonical CREATE path, sharing atdd.state.work_item_writer.create_work_item with coach; the older create-by-slug path (`atdd issue <slug>` / `atdd new <slug>`, both routing through IssueLifecycle.create) still creates but nothing signposts operators toward the canonical command, so they keep filing via the non-canonical alias and bypass its store-first fail-loud guarantees. Part of the `atdd issue` decommission; prerequisite #1272."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of operators-creating-an-issue-via-the-deprecated-atdd-issue-slug-path-without-being-pointed-to-the-canonical-store-first-atdd-author-issue when an operator runs `atdd issue <slug>` (or `atdd new <slug>`) by emitting, at the top of IssueLifecycle.create, a stderr deprecation warning that names `atdd author issue` as the canonical store-first create while the create still succeeds via the shared work_item_writer (a deprecation alias/redirect, not a removal), and by updating the operator docs (CLAUDE.md issues.commands + the gh issue create redirect + the atdd issue CLI help) to name the canonical command"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E061-UNIT-001-create-by-slug-warns-and-still-routes"
+      id: "AC-UNIT-001"
+      purpose: "The `atdd issue <slug>` CLI dispatch emits a stderr deprecation warning naming `atdd author issue` AND still routes to the shared create path (IssueLifecycle.create is invoked with the slug), proving the alias warns without breaking"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "cli.main is driven in-process with sys.argv = ['atdd','issue','<slug>','--no-branch','--no-dup-check'] (a non-numeric target → create-by-slug mode)"
+        - "IssueLifecycle is patched with a recording double whose create() records its call and returns 0, so the dispatch runs no real git/GitHub side effects"
+    when:
+      abstract: "cli.main() runs the create-by-slug dispatch and stdout/stderr are captured"
+    then:
+      abstract:
+        - "stderr contains a deprecation notice that names `atdd author issue` as the replacement create command"
+        - "IssueLifecycle.create was invoked exactly once with the given slug — the alias still routes to the shared create path, it does not merely warn"
+        - "The deprecation notice is written to stderr, not stdout, so it never pollutes a command's stdout payload"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E061-SMOKE-001-real-cli-create-by-slug-warns"
+      id: "AC-SMOKE-001"
+      purpose: "A real `atdd issue <slug>` CLI invocation (exercised via --dry-run so it runs hermetically without filing a GitHub issue, mirroring the sibling E019 issue-author smoke) emits the deprecation warning naming `atdd author issue` to stderr and exits 0 — the deprecated create-by-slug surface is signposted end-to-end through the real CLI dispatch, not merely in a unit"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The repo CLI is invoked as a real subprocess: `python -m atdd issue <slug> --dry-run` with PYTHONPATH pointing at the repo src and ATDD_DRY_RUN=1 (so no GitHub issue is filed), cwd at the repo root"
+        - "The slug is a distinctive throwaway that names no real issue"
+    when:
+      abstract: "The real create-by-slug CLI command is run end-to-end and its exit code, stdout and stderr are captured"
+    then:
+      abstract:
+        - "The command exits 0 (the deprecated alias still works)"
+        - "stderr contains the deprecation notice naming `atdd author issue` as the replacement"
+        - "The deprecation notice is on stderr, not stdout — the rendered dry-run body payload on stdout is not polluted by the warning"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"

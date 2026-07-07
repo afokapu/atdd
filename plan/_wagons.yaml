@@ -1116,7 +1116,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 93
+    total: 94
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -1452,6 +1452,7 @@ wagons:
       Violation when that harness returns only an all-constant dict with no assert/raise
       (the Y002 theater afokapu/atdd#1192), extending the #1151 self-skip guard so
       a non-skipping test still cannot pass on fixed evidence (#1298; Part of afokapu/atdd-extensions#14)'
+    E061: "minimize likelihood of operators-creating-an-issue-via-the-deprecated-atdd-issue-slug-path-without-being-pointed-to-the-canonical-store-first-atdd-author-issue by emitting, at the top of IssueLifecycle.create, a stderr deprecation warning that names atdd author issue as the canonical store-first create while the alias still creates through the shared work_item_writer, and by updating the operator docs (CLAUDE.md issues.commands + the gh issue create redirect + the atdd issue CLI help) to name the canonical command (part of the atdd issue decommission #1349; prerequisite #1272)"
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
