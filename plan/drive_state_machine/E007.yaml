@@ -1,0 +1,92 @@
+urn: "wmbt:drive-state-machine:E007"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "worktree-binding-absent-from-store-after-create"
+context_clarifier: "when an agent working environment is materialized (`atdd worktree create`, formerly `atdd branch`), the branch↔issue↔worktree binding must be written to the control-root State Store — never as a commit on local `main`. Today `BranchManager.branch` records the branch only into `.atdd/manifest.yaml` (`_record_branch_in_manifest`); nothing writes it to the store, so once #1270 removes the manifest mirror the pre-commit gate (`atdd issue is-registered`, #1324 — store-first, keyed by slug uid) has nothing to resolve and either false-blocks a freshly created worktree or stays coupled to the YAML. The create path is the single writer of `data.branch` + `data.worktree_path`: it resolves issue_number → work item via the github `external_ref` (WorkItemReader), merges the two binding keys into the object's `data` bag preserving kind + lifecycle `state` (ObjectStore.upsert, within the #1220 boundaries), and returns without raising or committing. This is the store-side seam #1270's manifest decommission relies on."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of worktree-binding-absent-from-store-after-create by writing the branch↔issue↔worktree binding (`data.branch`, `data.worktree_path`) onto the issue's work item in the control-root State Store during `atdd worktree create` — resolving issue_number → work item via the github external_ref, merging the keys through ObjectStore.upsert while preserving kind + state, with zero commits to local `main` — so `atdd issue is-registered` resolves a freshly created worktree from the store alone once the manifest mirror is gone"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E007-UNIT-001-create-writes-branch-and-worktree-path-to-store"
+      id: "AC-UNIT-001"
+      purpose: "The create path writes data.branch and data.worktree_path onto the issue's store work item"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A control-root State Store seeded with a work item (uid=slug) and a github issue external_ref linking issue_number → that uid"
+        - "No branch/worktree_path recorded on the work item yet"
+    when:
+      abstract: "_record_binding_in_store(issue_number, branch_name, worktree_path) is invoked"
+    then:
+      abstract:
+        - "The work item's data.branch equals branch_name"
+        - "The work item's data.worktree_path equals the worktree path string"
+        - "The object's kind and lifecycle state are unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E007-UNIT-002-not-in-store-returns-false-without-raising"
+      id: "AC-UNIT-002"
+      purpose: "When the issue is not in the store, the binding write is a no-raise no-op returning False"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A control-root State Store with no work item / no external_ref for issue_number"
+    when:
+      abstract: "_record_binding_in_store(issue_number, branch_name, worktree_path) is invoked"
+    then:
+      abstract:
+        - "The call returns False"
+        - "No exception is raised"
+        - "No work item is created in the store"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E007-UNIT-003-existing-data-keys-preserved"
+      id: "AC-UNIT-003"
+      purpose: "The binding write merges into the data bag, preserving existing keys (e.g. train, wagon)"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store work item whose data already carries train and wagon keys, linked by a github issue external_ref"
+    when:
+      abstract: "_record_binding_in_store(issue_number, branch_name, worktree_path) is invoked"
+    then:
+      abstract:
+        - "data.branch and data.worktree_path are set to the new values"
+        - "The pre-existing data.train and data.wagon keys are unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E007-SMOKE-001-is-registered-resolves-from-store-after-create"
+      id: "AC-SMOKE-001"
+      purpose: "After the binding is written to the store, `atdd issue is-registered <branch>` resolves it from the store with no manifest present"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real control-root State Store (tmp) holding a work item + github issue external_ref, with NO .atdd/manifest.yaml"
+        - "The binding for the branch has been written via _record_binding_in_store"
+    when:
+      abstract: "IssueManager(root).branch_is_registered(branch) is evaluated (the store-first pre-commit gate)"
+    then:
+      abstract:
+        - "It returns True — resolved from the store alone, no manifest read"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
