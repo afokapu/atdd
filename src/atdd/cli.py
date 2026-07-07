@@ -2548,13 +2548,23 @@ Phase descriptions:
             issue_number = int(target)
         except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             # Slug mode — create new issue and enter at INIT.
-            # #1349: deprecate the create-by-slug alias toward the store-first
+            # #1349: deprecate the create-by-slug FORM toward the store-first
             # canonical `atdd author issue` (#1272). The alias keeps working —
             # it still delegates to the shared work_item_writer create path —
             # but signposts the canonical command on stderr so the notice never
             # pollutes the rendered body payload on stdout.
-            _deprecation_warning(
-                "atdd issue <slug>", "atdd author issue", stream=sys.stderr
+            #
+            # Emitted directly (not via `_deprecation_warning`) on purpose: only
+            # the create-by-slug FORM is deprecated, NOT the bare `atdd issue`
+            # command (which still enters and transitions issues, e.g.
+            # `atdd issue <N> --status`). The fix-hint C2 registry models
+            # deprecations at the subcommand level, so registering "atdd issue"
+            # there would wrongly flag every still-valid `atdd issue <N>` hint.
+            print(
+                "\033[33m⚠️  Deprecated: 'atdd issue <slug>' (create by slug) "
+                "will be removed. Use 'atdd author issue --title <title> "
+                "--slug <slug>' instead (store-first canonical create, #1272).\033[0m",
+                file=sys.stderr,
             )
             dry_run = getattr(args, 'dry_run', False)
             if dry_run:
