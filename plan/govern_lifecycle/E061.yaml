@@ -1,0 +1,54 @@
+urn: "wmbt:govern-lifecycle:E061"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "operators-creating-an-issue-via-the-deprecated-atdd-issue-slug-path-without-being-pointed-to-the-canonical-store-first-atdd-author-issue"
+context_clarifier: "#1272 made `atdd author issue` the store-first canonical CREATE path, sharing atdd.state.work_item_writer.create_work_item with coach; the older create-by-slug path (`atdd issue <slug>` / `atdd new <slug>`, both routing through IssueLifecycle.create) still creates but nothing signposts operators toward the canonical command, so they keep filing via the non-canonical alias and bypass its store-first fail-loud guarantees. Part of the `atdd issue` decommission; prerequisite #1272."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of operators-creating-an-issue-via-the-deprecated-atdd-issue-slug-path-without-being-pointed-to-the-canonical-store-first-atdd-author-issue when an operator runs `atdd issue <slug>` (or `atdd new <slug>`) by emitting, at the top of IssueLifecycle.create, a stderr deprecation warning that names `atdd author issue` as the canonical store-first create while the create still succeeds via the shared work_item_writer (a deprecation alias/redirect, not a removal), and by updating the operator docs (CLAUDE.md issues.commands + the gh issue create redirect + the atdd issue CLI help) to name the canonical command"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E061-UNIT-001-create-emits-deprecation-and-still-creates"
+      id: "AC-UNIT-001"
+      purpose: "IssueLifecycle.create emits a stderr deprecation warning naming `atdd author issue` AND still delegates to the shared create path (IssueManager.new is invoked), proving the alias warns without breaking"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An IssueLifecycle bound to a mocked target_dir, with _check_on_main_branch, IssueManager.new, _store_issue_number_for_slug, _create_branch and enter patched so create() runs no real git/GitHub side effects"
+        - "IssueManager.new is patched to report success and yield a created issue number"
+    when:
+      abstract: "create(slug='some-slug', no_branch=True) is invoked and stderr is captured"
+    then:
+      abstract:
+        - "stderr contains a deprecation notice that names `atdd author issue` as the canonical create command"
+        - "IssueManager.new was called exactly once with the given slug — the alias still creates through the shared path, it does not merely warn"
+        - "The deprecation notice is written to stderr, not stdout, so it never pollutes a command's stdout payload"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E061-SMOKE-001-real-cli-warns-and-publishes"
+      id: "AC-SMOKE-001"
+      purpose: "A real `atdd issue <slug> --no-branch` CLI invocation against a live ATDD Control Root emits the deprecation warning to stderr AND lands the work_item in the live State Store — the deprecated alias is proven to still create end-to-end while signposting the canonical command"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp ATDD Control Root with an initialized State Store and a stubbed `gh` on PATH returning a canned issue URL (so the create runs hermetically without filing a real GitHub issue)"
+        - "The repo CLI is invoked as `python -m atdd issue <slug> --no-branch --no-dup-check` with ATDD_CONTROL_ROOT pinned to the temp root"
+    when:
+      abstract: "The real CLI create-by-slug command is run end-to-end and its exit code, stdout and stderr are captured"
+    then:
+      abstract:
+        - "The command exits 0 (the deprecated alias still succeeds)"
+        - "stderr contains the deprecation notice naming `atdd author issue`"
+        - "A work_item for the slug exists in the live State Store — the alias created through the shared writer, it did not merely print a warning"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
