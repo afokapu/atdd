@@ -3416,6 +3416,7 @@ sessions:
   status: PLANNED
   created: '2026-07-06'
   archived: null
+  train: 0002-coach-drives-lifecycle
 - id: '1342'
   slug: fix-issue-status-train-noop
   file: null
