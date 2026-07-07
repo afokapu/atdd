@@ -3156,10 +3156,11 @@ sessions:
   file: null
   issue_number: 1272
   type: implementation
-  status: INIT
+  status: REFACTOR
   created: '2026-06-30'
   archived: null
   branch: feat/atdd-author-issue-publishes-to-store
+  train: 0003-author-substrate
 - id: '1273'
   slug: mandatory-three-path-review-for-authored-issues
   file: null
