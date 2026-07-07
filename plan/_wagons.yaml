@@ -196,8 +196,8 @@ wagons:
     K002: minimize likelihood of existing-compliant-body validation regression by
       asserting today's compliant issue bodies validate against issue.schema.json
       (back-compat)
-    E008: 'maximize likelihood of issue-publish-to-store when authoring via `atdd author
-      issue` (store-first work_item + exactly one github external_ref, by default)'
+    E008: maximize likelihood of issue-publish-to-store when authoring via `atdd author
+      issue` (store-first work_item + exactly one github external_ref, by default)
     C012: minimize likelihood of author-without-publish by requiring the generate
       path to reach the store-first publish and to fail loud (no body-only degrade)
       when the store is unreachable
@@ -915,7 +915,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 11
+    total: 14
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -928,6 +928,9 @@ wagons:
     Y002: minimize likelihood of stale-github-label-after-coach-phase-advance
     R002: minimize likelihood of coach-event-loop-aborting-before-complete
     E002: minimize likelihood of phase-advance-without-current-phase-completion-match
+    E007: minimize likelihood of worktree-binding-absent-from-store-after-create
+    E008: minimize likelihood of local-main-divergence-after-worktree-create
+    L002: minimize effort of locating-the-worktree-lifecycle-command-surface
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
