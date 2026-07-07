@@ -6,7 +6,7 @@ sessions:
   file: null
   issue_number: 1349
   type: refactor
-  status: PLANNED
+  status: RED
   created: '2026-07-07'
   archived: null
   branch: refactor/deprecate-issue-create-alias
