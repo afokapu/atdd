@@ -53,8 +53,8 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-06"
   - identity:
-      urn: "acc:drive-state-machine:E003-INT-001-non-duplicate-rows-and-refs-carried-over-without-loss"
-      id: "AC-INT-001"
+      urn: "acc:drive-state-machine:E003-INTEGRATION-001-non-duplicate-rows-and-refs-carried-over-without-loss"
+      id: "AC-INTEGRATION-001"
       purpose: "Objects, external_refs, and events that exist only in a worktree store are carried into the target without loss when they are not duplicates"
       phase: "RED"
     harness:
