@@ -1,0 +1,74 @@
+urn: "wmbt:drive-state-machine:E004"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "control-root-env-override-at-a-child-worktree-forking-its-own-store"
+context_clarifier: "when an operator or agent sets ATDD_CONTROL_ROOT=<worktree> — the documented interim #1315 workaround used because bare commands otherwise hit 'Ambiguous ATDD Control Root' — the resolver's Rule 1 (src/atdd/state/paths.py:resolve_control_root) takes the override verbatim: because the git worktree root equals the override, it returns LayoutMode.SINGLE_REPO and anchors the store at <worktree>/.atdd/state/state.sqlite. So the very workaround meant to stop divergence is what CREATES a fresh per-worktree store on the next hot-path write (this is exactly how the live 11 divergent stores accumulated across the #1314 parallel worktrees). Rule 1.5 (_shared_store_root) already anchors the shared project-root store from a flat-sibling layout, but only on the NO-override path; the override path never consults it. The activation #1346 asks for is: an override that names a directory which is itself a CHILD git worktree of a flat-sibling project (its git common dir resolves to a sibling primary checkout's .git) must anchor at the project-root shared store, not fork a per-worktree one — while a non-worktree override (hermetic tmp dir, consumer repo, single-repo checkout) is still honored verbatim so isolated tests and consumer installs are unchanged."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of control-root-env-override-at-a-child-worktree-forking-its-own-store by making resolve_control_root, when ATDD_CONTROL_ROOT names a directory that is a child git worktree inside a flat-sibling project (git common dir at a sibling primary checkout), resolve the store to the shared project-root Control Root (sibling-worktree mode) instead of the overridden worktree — so the interim workaround routes hot-path writes to the single shared store rather than forking a new per-worktree state.sqlite; overrides that are not flat-sibling child worktrees stay honored verbatim"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E004-UNIT-001-override-at-child-worktree-resolves-to-project-root"
+      id: "AC-UNIT-001"
+      purpose: "An ATDD_CONTROL_ROOT override pointing at a child worktree of a flat-sibling project resolves the store to the shared project root, not the worktree"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A flat-sibling layout <project>/main (primary) and <project>/wt1 (linked worktree), with a git_common_dir stub resolving to <project>/main/.git"
+        - "env = {ATDD_CONTROL_ROOT: <project>/wt1} (the interim workaround pointing at the child worktree)"
+    when:
+      abstract: "resolve_control_root(<project>/wt1, env=env, git_common_dir=stub) is called"
+    then:
+      abstract:
+        - "resolution.control_root == <project> (the shared project root), NOT <project>/wt1"
+        - "resolution.layout_mode == LayoutMode.SIBLING_WORKTREE"
+        - "resolution.state_store_path == <project>/.atdd/state/state.sqlite"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
+  - identity:
+      urn: "acc:drive-state-machine:E004-UNIT-002-non-worktree-override-honored-verbatim"
+      id: "AC-UNIT-002"
+      purpose: "An override that is NOT a flat-sibling child worktree (hermetic tmp dir / single-repo / consumer repo) is still honored verbatim — no behavior change for isolated tests and consumer installs"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A hermetic tmp dir that is NOT part of a flat-sibling worktree layout (git_common_dir stub returns None, or resolves to the override's own .git so the override IS the primary checkout)"
+        - "env = {ATDD_CONTROL_ROOT: <that dir>}"
+    when:
+      abstract: "resolve_control_root(<that dir>, env=env, git_common_dir=stub) is called"
+    then:
+      abstract:
+        - "resolution.control_root == <that dir> exactly (override honored verbatim)"
+        - "The result matches today's behavior — single-repo when the override is its own git worktree root, so existing hermetic tests and consumer-repo resolution are unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
+  - identity:
+      urn: "acc:drive-state-machine:E004-SMOKE-001-write-from-worktree-with-env-lands-in-shared-store"
+      id: "AC-SMOKE-001"
+      purpose: "With the interim ATDD_CONTROL_ROOT=<worktree> set in a real flat-sibling project, a hot-path store write lands in the single shared control-root store, not a new per-worktree store"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real flat-sibling project with a consolidated single control-root store and a linked worktree wt1 that has NO .atdd/state/state.sqlite"
+        - "ATDD_CONTROL_ROOT=<absolute path to wt1> exported (the documented interim workaround)"
+    when:
+      abstract: "A hot-path store write is issued from wt1 (e.g. `atdd state version show` opening the store, or an issue status write)"
+    then:
+      abstract:
+        - "The write opens and lands in <project>/.atdd/state/state.sqlite (the shared store)"
+        - "No new <project>/wt1/.atdd/state/state.sqlite is created by the write"
+        - "`atdd state doctor` still reports Status: OK with the single shared store"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"

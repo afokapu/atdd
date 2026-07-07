@@ -1,0 +1,25 @@
+urn: "feature:drive-state-machine:consolidate-store-writes"
+wagon: "wagon:drive-state-machine"
+description: "Complete #1315: make the single shared State Store the one write target for every worktree. Route the interim ATDD_CONTROL_ROOT=<worktree> override back to the project-root store so it stops forking a per-worktree DB (activation on the write hot-path), consolidate the already-divergent per-worktree stores into the control-root store by merging + de-duplicating work_items on their external_refs GitHub-issue link and deleting the per-worktree DBs, and make #1220's state.single-store-per-control-root guard bite so a regression to per-worktree stores cannot land silently."
+sizing:
+  wmbts: 3
+  footprint_score: 11
+  footprint_size: "M"
+wmbts:
+  - "wmbt:drive-state-machine:E003"
+  - "wmbt:drive-state-machine:E004"
+  - "wmbt:drive-state-machine:M002"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "Store-consolidation merger (merge per-worktree stores → control-root store, de-dup work_items by external_refs, delete per-worktree DBs) and the layout-guard enforcement path invoked on the write/diagnose flow"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "ConsolidationResult (merged/deduped/deleted counts + surviving authoritative row per issue) reported by migrate-layout"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "Control-root resolver override redirect: an ATDD_CONTROL_ROOT that names a child git worktree in a flat-sibling project anchors at the project-root shared store"

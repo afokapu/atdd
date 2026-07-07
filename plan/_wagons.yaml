@@ -931,6 +931,9 @@ wagons:
     E007: minimize likelihood of worktree-binding-absent-from-store-after-create
     E008: minimize likelihood of local-main-divergence-after-worktree-create
     L002: minimize effort of locating-the-worktree-lifecycle-command-surface
+    E003: minimize likelihood of divergent-per-worktree-work-items-surviving-consolidation-as-duplicates
+    E004: minimize likelihood of control-root-env-override-at-a-child-worktree-forking-its-own-store
+    M002: minimize likelihood of a-per-worktree-store-regression-below-the-control-root-going-undetected
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/

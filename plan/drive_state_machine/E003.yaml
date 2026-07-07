@@ -1,0 +1,98 @@
+urn: "wmbt:drive-state-machine:E003"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "divergent-per-worktree-work-items-surviving-consolidation-as-duplicates"
+context_clarifier: "when the one-time single-store consolidation runs over a project that has already accumulated divergent per-worktree stores (the live #1315 state: 11 state.sqlite files under one project root, the same GitHub issue sitting at INIT in main's store and at SMOKE/GREEN under a different local uid in a worktree store), today's `migrate_layout` (src/atdd/state/cli.py) does NOT merge them — it REBUILDS the project-root store from main's manifest via import_manifest and leaves every per-worktree store on disk, reported as 'abandoned'. So work_items that only exist in a worktree store (never mirrored to main's manifest) are silently dropped, and the per-worktree DBs remain to re-diverge. #1346 scope item 2 requires a genuine merge that de-duplicates work_items on their external_refs GitHub-issue link (preferring the row already linked to the GitHub issue), carries over objects/external_refs/events that only exist in a worktree store, then REMOVES the per-worktree DBs so exactly one authoritative row per issue survives."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of divergent-per-worktree-work-items-surviving-consolidation-as-duplicates by replacing the rebuild-from-manifest migrate_layout with a real merge that folds every per-worktree store into the control-root store, de-duplicates work_items by their external_refs GitHub-issue link (the GitHub-linked row wins; its phase/fields are kept), imports work_items that exist only in a worktree store, and then deletes the per-worktree state.sqlite files — so `atdd state doctor` reports exactly one store with one authoritative row per issue"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E003-UNIT-001-merge-dedupes-work-items-by-external-ref"
+      id: "AC-UNIT-001"
+      purpose: "Consolidating two stores that both hold the same GitHub issue (one linked via external_refs, one an orphan local uid) yields ONE work_item in the target, keyed by the external_refs GitHub link, with the linked row's state preserved"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A control-root store holding work_item A with external_ref (github, issue, '1346') at state INIT"
+        - "A per-worktree store holding work_item B for the same issue 1346 — external_ref (github, issue, '1346') — at state SMOKE"
+        - "A per-worktree store holding work_item C with NO external_ref (orphan local uid) that also concerns issue 1346"
+    when:
+      abstract: "The consolidation merge is run with the control-root store as target and the two per-worktree stores as sources"
+    then:
+      abstract:
+        - "The target store has exactly ONE work_item for external_ref github/issue/1346 (A and B collapse to one row keyed by the shared GitHub link)"
+        - "The surviving row carries the most-advanced / GitHub-linked authoritative state (SMOKE), not a duplicate INIT+SMOKE pair"
+        - "The orphan row C (no external_ref) is retained as its own row (never silently dropped) OR reported in the result's unlinked list — it is not lost"
+        - "The ConsolidationResult reports deduped=1 (A/B collapsed) and the count of rows carried over"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
+  - identity:
+      urn: "acc:drive-state-machine:E003-UNIT-002-per-worktree-dbs-deleted-after-merge"
+      id: "AC-UNIT-002"
+      purpose: "After a successful merge the per-worktree state.sqlite files are removed so they cannot re-diverge; the control-root store remains"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A hermetic flat-sibling layout: <project>/main/.atdd/state/state.sqlite (target) plus <project>/wt1/.atdd/state/state.sqlite and <project>/wt2/.atdd/state/state.sqlite (sources), each a real migrated store with work_items"
+    when:
+      abstract: "The consolidation merge completes successfully against the project root"
+    then:
+      abstract:
+        - "The control-root store <project>/.atdd/state/state.sqlite exists and holds the merged work_items"
+        - "Both per-worktree source DBs (wt1, wt2) no longer exist on disk (deleted, not merely reported as abandoned)"
+        - "The ConsolidationResult lists the two deleted store paths"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
+  - identity:
+      urn: "acc:drive-state-machine:E003-INT-001-non-duplicate-rows-and-refs-carried-over-without-loss"
+      id: "AC-INT-001"
+      purpose: "Objects, external_refs, and events that exist only in a worktree store are carried into the target without loss when they are not duplicates"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A control-root store with work_items for issues 1310 and 1314"
+        - "A per-worktree store with a work_item for issue 1399 (external_ref github/issue/1399) that exists in NO other store, plus its events"
+    when:
+      abstract: "The consolidation merge runs across the real State Store typed API (objects/external_refs/events)"
+    then:
+      abstract:
+        - "The target store afterwards contains work_items for 1310, 1314 AND 1399"
+        - "Issue 1399's external_ref and events are present in the target (carried over, not dropped)"
+        - "No work_item count regression: target rows == union of distinct issues across all input stores"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
+  - identity:
+      urn: "acc:drive-state-machine:E003-SMOKE-001-live-consolidation-yields-single-store"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real multi-worktree project, running the consolidation collapses the divergent per-worktree stores into one control-root store that `atdd state doctor` reports as the single store per project"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real flat-sibling project checkout with a primary main/ worktree and at least two linked worktrees, each having initialized its own .atdd/state/state.sqlite with at least one work_item"
+        - "`atdd state doctor` reports Status: INVALID (per-worktree stores detected below the control root)"
+    when:
+      abstract: "`atdd state migrate-layout` (the merge implementation) is invoked once at the project root"
+    then:
+      abstract:
+        - "Exactly one State Store remains on disk under the project — <project>/.atdd/state/state.sqlite — and the per-worktree state.sqlite files are gone"
+        - "`atdd state layout --check` exits 0 and `atdd state doctor` reports Status: OK with a single store"
+        - "Each GitHub issue that appeared across the input stores has exactly one work_item row (deduped by external_refs) in the surviving store"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
