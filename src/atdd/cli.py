@@ -91,6 +91,21 @@ def _deprecation_warning(old: str, new: str, *, stream=None) -> None:
     )
 
 
+def _substrate_root(args) -> str:
+    """Resolve the operational Control Root for substrate installs/reads (#1346).
+
+    Extension/workspace installs are git-ignored operational ``.atdd/`` data and
+    must land in the single Control Root ``.atdd/`` — never a per-worktree copy.
+    Route ``--repo``/cwd through the #1177 control-root resolver so any worktree
+    resolves to the shared ``.atdd/``; a consumer repo with no resolvable Control
+    Root falls back to the given root unchanged.
+    """
+    from pathlib import Path
+    from atdd.state.paths import resolve_operational_root
+    start = Path(args.repo or ".").resolve()
+    return str(resolve_operational_root(start))
+
+
 def _substrate_add(args) -> int:
     """Run substrate admission (`atdd substrate add` / deprecated `atdd add`)."""
     from atdd.substrate import commands as substrate_cmd
@@ -99,7 +114,7 @@ def _substrate_add(args) -> int:
         return 2
     return substrate_cmd.run_add(
         ref=args.ref, path=args.path,
-        project_root=(args.repo or "."), dry_run=args.dry_run,
+        project_root=_substrate_root(args), dry_run=args.dry_run,
     )
 
 
@@ -107,7 +122,7 @@ def _substrate_remove(args) -> int:
     """Run substrate withdrawal (`atdd substrate remove` / deprecated `atdd remove`)."""
     from atdd.substrate import commands as substrate_cmd
     return substrate_cmd.run_remove(
-        args.ref, project_root=(args.repo or "."),
+        args.ref, project_root=_substrate_root(args),
         force=args.force, prune=args.prune,
     )
 
@@ -116,20 +131,20 @@ def _substrate_bind(args) -> int:
     """Run binding-plan compose (`atdd substrate bind` / deprecated `atdd bind`)."""
     from atdd.substrate.binding import commands as binding_cmd
     return binding_cmd.run_bind_check(
-        project_root=(args.repo or "."), write=not args.no_write,
+        project_root=_substrate_root(args), write=not args.no_write,
     )
 
 
 def _substrate_capabilities(args) -> int:
     """Run capability report (`atdd substrate capabilities` / deprecated `atdd capabilities`)."""
     from atdd.substrate.binding import commands as binding_cmd
-    return binding_cmd.run_capabilities(project_root=(args.repo or "."))
+    return binding_cmd.run_capabilities(project_root=_substrate_root(args))
 
 
 def _substrate_list(args) -> int:
     """Render the installed substrate (`atdd substrate list` / deprecated `atdd list --substrate`)."""
     from atdd.substrate import commands as substrate_cmd
-    return substrate_cmd.run_list(project_root=(args.repo or "."))
+    return substrate_cmd.run_list(project_root=_substrate_root(args))
 
 
 def _get_pr_changed_files(repo_root) -> list:
@@ -2402,7 +2417,7 @@ Phase descriptions:
     elif args.command == "search":
         from atdd.substrate import commands as substrate_cmd
         return substrate_cmd.run_search(
-            args.query, kind=args.kind, project_root=(args.repo or ".")
+            args.query, kind=args.kind, project_root=_substrate_root(args)
         )
 
     # DEPRECATED flat aliases — delegate to `atdd substrate <verb>` (#1239)

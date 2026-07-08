@@ -1,0 +1,75 @@
+urn: "wmbt:drive-state-machine:E006"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "divergent-per-worktree-extension-installs-surviving-consolidation"
+context_clarifier: "the one-time consolidation must fold ALL git-ignored operational `.atdd/` data, not only the store. Today's migrate_layout (even after #1346's store merge) leaves each worktree's `.atdd/extensions/`, `.atdd/workspaces/`, and `substrate.lock.yaml` in place — so after consolidating the store, the extension installs are still forked N-ways (the control-root `.atdd/` may even have NO extensions while every worktree carries a full copy, the observed live state). The consolidation must fold each per-worktree extension/workspace install into the control-root `.atdd/extensions|workspaces/` (copying any artifact the control root lacks), union the per-worktree `substrate.lock.yaml` artifacts into the control-root lock (dedup by id+version), then REMOVE the per-worktree operational copies so they cannot re-diverge. Runtime/cache/diagnostics are scratch (#1179 SCRATCH_ATDD_DIRS) and are intentionally left per-worktree."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of divergent-per-worktree-extension-installs-surviving-consolidation by generalizing migrate_layout to also fold every per-worktree `.atdd/extensions/` and `.atdd/workspaces/` install into the control-root `.atdd/`, union the per-worktree `substrate.lock.yaml` artifacts into the control-root lock (dedup by id+version, keeping the control-root entry on conflict), and remove the per-worktree operational copies — so exactly one operational `.atdd/` (store + extensions + workspaces + lock) survives at the control root"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E006-UNIT-001-fold-per-worktree-extensions-and-remove-them"
+      id: "AC-UNIT-001"
+      purpose: "Consolidation copies a per-worktree extension the control root lacks into the control-root .atdd/extensions/ and removes the per-worktree copy"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A control-root .atdd/ with a store but no extensions"
+        - "A child worktree wt1 whose .atdd/ has extensions/<ext>/<ver>/ + workspaces/<ws>/<ver>/ + a substrate.lock.yaml listing them"
+    when:
+      abstract: "The consolidation (migrate_layout) runs at the project root"
+    then:
+      abstract:
+        - "The control-root .atdd/extensions/<ext>/<ver>/ and .atdd/workspaces/<ws>/<ver>/ now exist (folded in)"
+        - "The control-root substrate.lock.yaml lists the folded artifacts (unioned by id+version)"
+        - "The per-worktree wt1/.atdd/extensions/ and workspaces/ (and its lock) are removed"
+        - "The result reports the count of operational subtrees folded and the per-worktree copies removed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E006-UNIT-002-control-root-extension-wins-on-conflict-runtime-left-scratch"
+      id: "AC-UNIT-002"
+      purpose: "On an id+version already present at the control root the control-root copy wins (no overwrite); scratch dirs (runtime) are left untouched"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A control-root .atdd/extensions/<ext>/<ver>/ already installed (with a marker file)"
+        - "A child worktree wt1 with the SAME extension id+version plus a .atdd/runtime/ scratch dir"
+    when:
+      abstract: "The consolidation runs at the project root"
+    then:
+      abstract:
+        - "The control-root extension copy is preserved (its marker file is unchanged — no overwrite from the worktree copy)"
+        - "The lock is not duplicated (the id+version appears once)"
+        - "The per-worktree wt1/.atdd/extensions/ is removed, but wt1/.atdd/runtime/ (scratch) is left untouched"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E006-SMOKE-001-live-consolidation-yields-single-operational-atdd"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real multi-worktree project, consolidation collapses store AND extension installs into one control-root .atdd/"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real flat-sibling git project where a linked worktree carries its own store AND its own .atdd/extensions/ + substrate.lock.yaml, and the control root lacks the extensions"
+    when:
+      abstract: "`atdd state migrate-layout` is run once at the project root"
+    then:
+      abstract:
+        - "The control-root .atdd/ holds the merged store AND the folded extensions/workspaces + a unioned substrate.lock.yaml"
+        - "The per-worktree store, extensions/, and workspaces/ are gone"
+        - "`atdd state layout --check` exits 0 (single operational .atdd/ at the control root)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"

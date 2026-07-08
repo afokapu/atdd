@@ -147,31 +147,37 @@ def _manifest_with_one_session(root: Path) -> None:
     )
 
 
-def test_migrate_layout_rebuilds_single_store_from_main_manifest(tmp_path):
+def test_migrate_layout_merges_per_worktree_store_and_deletes_it(tmp_path):
+    # #1346 replaced the rebuild-from-manifest one-shot with a genuine merge: a
+    # per-worktree store's rows are folded into the control-root store and the
+    # per-worktree DB is deleted (not merely reported as abandoned).
     from atdd.state.cli import migrate_layout
-    from atdd.state.db import connect
+    from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
 
     project = tmp_path / "project"
-    main = project / "main"
-    _manifest_with_one_session(main)
-    # a stale per-worktree store that must be reported as abandoned (not merged)
+    project.mkdir()
+    # a real per-worktree store carrying a work_item
     wt = project / "feat-x"
-    (wt / ".atdd" / "state").mkdir(parents=True, exist_ok=True)
-    (wt / ".atdd" / "state" / "state.sqlite").touch()
+    (wt / ".git").mkdir(parents=True)
+    wt_db = wt / ".atdd" / "state" / "state.sqlite"
+    src = StateStore(connect(init_state_store(db_path=wt_db)))
+    src.objects.upsert("wi-x", "work_item", state="GREEN")
 
     result = migrate_layout(project_root=project)
 
     shared = project / ".atdd" / "state" / "state.sqlite"
     assert shared.is_file()
     assert result.store_path == shared
-    assert result.imported >= 1
-    assert any("feat-x" in str(p) for p in result.abandoned)
+    assert result.merged >= 1
+    # the per-worktree store is deleted, not abandoned
+    assert not wt_db.exists()
+    assert any("feat-x" in str(p) for p in result.deleted)
 
     conn = connect(shared)
     try:
         store = StateStore(conn)
-        wi = store.objects.get("single-shared-state-store-per-project")
+        wi = store.objects.get("wi-x")
         assert wi is not None and wi.kind == "work_item"
     finally:
         conn.close()

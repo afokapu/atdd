@@ -1,0 +1,73 @@
+urn: "wmbt:drive-state-machine:M002"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-per-worktree-store-regression-below-the-control-root-going-undetected"
+context_clarifier: "once the write hot-path is activated and the divergent stores are consolidated, nothing keeps a future worktree from spawning its own state.sqlite again (a stray db_path= call, an override that predates this fix, a tool writing before resolution). #1220 shipped the state.single-store-per-control-root invariant, but its validator (src/atdd/coder/validators/test_state_store_invariants.py::scan_single_store_per_control_root) only greps that check_layout is DEFINED in paths.py and NAME-referenced in the state CLI — it never invokes check_layout, so it cannot observe an actual rogue store, and there is no test proving the CLI guard returns a non-zero exit when one exists. #1346 scope item 3 requires the guard to actually bite: check_layout must be exercised end-to-end (given a real rogue per-worktree store below the Control Root, `atdd state layout --check` / doctor must fail with a non-zero exit and name the offending store), and the #1220 invariant must assert that behavioral contract rather than mere presence/wiring, so a regression to per-worktree stores surfaces loudly instead of silently."
+lens: "functional.sustainability"
+statement: "minimize likelihood of a-per-worktree-store-regression-below-the-control-root-going-undetected by making #1220's state.single-store-per-control-root guard bite behaviorally: assert that `atdd state layout --check` (and doctor) invoke check_layout and return a non-zero exit naming the rogue store when a child worktree carries its own state.sqlite in an active sibling-worktree layout, and strengthen the #1220 invariant from a presence/wiring grep to that observed exit-code contract — so a re-divergence cannot land silently"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:M002-UNIT-001-layout-check-exits-nonzero-and-names-rogue-store"
+      id: "AC-UNIT-001"
+      purpose: "layout --check returns a non-zero exit and names the offending per-worktree store when a child worktree carries its own state.sqlite in sibling-worktree mode"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A hermetic flat-sibling layout resolving to a project-root Control Root, with a control-root store present"
+        - "A child worktree <project>/wt1 carrying its own <project>/wt1/.atdd/state/state.sqlite (a rogue per-worktree store)"
+    when:
+      abstract: "The `atdd state layout --check` command handler is invoked at the project root"
+    then:
+      abstract:
+        - "The command returns exit code 1 (non-zero)"
+        - "Its output names the rogue store path <project>/wt1/.atdd/state/state.sqlite as the violation"
+        - "check_layout is actually invoked (the guard is exercised, not merely defined)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
+  - identity:
+      urn: "acc:drive-state-machine:M002-UNIT-002-invariant-asserts-behavioral-exit-not-just-wiring"
+      id: "AC-UNIT-002"
+      purpose: "The #1220 state.single-store-per-control-root invariant asserts the observed non-zero-exit contract of the guard, not just that check_layout is defined and name-referenced"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The #1220 invariant scan for state.single-store-per-control-root"
+        - "A layout in which a rogue per-worktree store exists below the Control Root"
+    when:
+      abstract: "The invariant is evaluated"
+    then:
+      abstract:
+        - "The invariant exercises check_layout / the layout-check exit path against a rogue-store layout and requires it to report the violation (behavioral), not only that the function name appears in paths.py and the CLI"
+        - "A hypothetical guard that is defined and wired but returns exit 0 on a rogue store fails the invariant"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
+  - identity:
+      urn: "acc:drive-state-machine:M002-SMOKE-001-doctor-flags-and-clears-rogue-store"
+      id: "AC-SMOKE-001"
+      purpose: "Against real runtime, doctor/layout --check flags a rogue per-worktree store with a non-zero exit and reports OK only after it is removed"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real flat-sibling project with a single consolidated control-root store (layout --check exits 0)"
+        - "A rogue store is then created under a child worktree (simulating a regression)"
+    when:
+      abstract: "`atdd state layout --check` is run before and after removing the rogue store"
+    then:
+      abstract:
+        - "Before removal: exit code is non-zero and the offending store path is named"
+        - "After removing the rogue store: exit code is 0 and doctor reports the single shared store"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-06"
