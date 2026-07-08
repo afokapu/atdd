@@ -41,13 +41,7 @@ CONV_REL = "src/atdd/validators/conventions"
 # files — urn_traceability — and the MAP-BLOCKED acceptance-only files carry no rule and are
 # intentionally absent.)
 SWEPT_RULE_TO_VARIANT = {
-    "coach.commit-trailers.phase-required": "binding/test_commit_trailers_rule_binding.py",
-    "coach.commit-trailers.wmbt-urn-required": "binding/test_commit_trailers_rule_binding.py",
-    "coach.commit-trailers.agent-id-required": "binding/test_commit_trailers_rule_binding.py",
-    "coach.commit-trailers.issue-required": "binding/test_commit_trailers_rule_binding.py",
-    "coach.spawn.atdd-spawn-cli": "binding/test_spawn_cli_rule_binding.py",
     "coach.rule-id.fix-hint-completeness": "presence/test_rule_has_fix_hint.py",
-    "coach.rule-id.no-hardcoded-rule-severity": "binding/test_no_hardcoded_rule_severity.py",
     "planner.train.dispatch-map-is-registry": "schema/test_dispatch_map_is_registry.py",
     "planner.train.dispatch-composite-key-exceptional": "schema/test_dispatch_map_is_registry.py",
     "planner.smoke.feedback-loop-close-the-loop": "presence/test_feedback_loop_close_the_loop.py",

@@ -207,3 +207,27 @@ them unilaterally.
 
 **GREEN checkpoint:** the full diff — oracle-kill + repoint + re-anchor + legacy deletions **and the
 §f scaffolding deletions** — is shown for operator confirm **before any file is removed**.
+
+---
+
+## Execution outcome (#1365 — what actually shipped)
+
+The safety checks during execution reclassified 3 more files from DELETE → QUARANTINE (found by
+the full `validate-conventions` run, not the static manifest):
+
+- **Deleted (9):** `test_urn_traceability`, `planner/test_hierarchy_coverage`,
+  `tester/test_hierarchy_coverage`, `test_theme_commons_coach_boundary`,
+  `test_theme_urn_namespace_matches`, `test_theme_zero_mandatory`, `test_train_validation`,
+  `test_e026_bypass_inventory_guard`, `test_e032_smoke_001_live_freedom_layer_passes_flipped_validator`.
+- **Quarantined (12)** → `decommission-fill-later.md`: the original 2 (function-level /
+  not-measurable) + 9 helper-coupled/in-process + **3 binding `bind_rule` emitters**
+  (`test_commit_trailers_binding`, `test_e001_unit_001_spawn_cli_launches_session`,
+  `test_no_hardcoded_rule_severity` — their rules bind to the legacy `bind_rule` calls; repointing
+  them to the variant makes the `emitted_identity_roundtrip` fault-injection vacuous, so they were
+  kept and their repoints reverted).
+- **Kept permanent:** the two Y003 guards.
+- **Scaffolding teardown:** deferred (12 legacy remain).
+
+Coverage moved (not dropped): `validate-conventions` green; persona suites green except two
+pre-existing conditions unrelated to this sweep (`coach_verb_split/E001` one-way binding from
+merged #1304; issue #1343 missing graph-context).

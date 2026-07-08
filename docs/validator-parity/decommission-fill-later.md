@@ -58,9 +58,26 @@ variant imports directly; then the legacy files can go.
 | `src/atdd/planner/validators/test_dispatch_registry.py` | `check_composite_key_exceptional` | `tests/test_e006_smoke_001_executable_train_rules_bound.py` | extract dispatch helper → support module; repoint importer |
 | `src/atdd/coach/validators/test_fix_hint_completeness.py` | `audit_c1_placeholder_resolution`, `audit_c2_no_deprecation_contradiction`, `build_deprecation_registry`, `load_negative_exemplars` | `tests/test_fix_hint_completeness_helpers.py` | extract fix-hint audit helpers → support module; repoint importer |
 
-**Follow-up issue shape:** "extract shared helper functions out of the 9 quarantined legacy
-validators into support modules, repoint the ~10 importers, then delete the 9 legacy files
-(completing the #1207 sweep)." Small, mechanical, well-scoped.
+### Group C — binding-family: the legacy validator IS the `bind_rule` emitter (3)
+
+The `emitted_identity_roundtrip` binding template detects a broken declaration→implementation
+binding by observing whether the rule's id is **emitted via `bind_rule(<id>)` at import time**.
+Only the legacy validator calls `bind_rule` — the convention variant *tests* the binding but does
+not *provide* it. So these rules **cannot be repointed to the variant** (doing so makes the
+roundtrip fault-injection vacuous — caught by the full `validate-conventions` run) and the legacy
+file **cannot be deleted** without relocating the `bind_rule` calls. Their rules remain bound to
+the legacy validator; the convention variant continues to prove parity.
+
+| Legacy file (KEPT) | `bind_rule` emissions | Consumer | Extract-work |
+|---|---|---|---|
+| `src/atdd/coach/validators/test_commit_trailers_binding.py` | `bind_rule("coach.commit-trailers.{phase,wmbt-urn,agent-id,issue}-required")` | the 4 rules' binding + `binding/commit_trailers_rule_binding` roundtrip | relocate the `bind_rule` calls to a non-test binder module the rule can point at, then delete |
+| `src/atdd/coach/validators/test_e001_unit_001_spawn_cli_launches_session.py` | `bind_rule("coach.spawn.atdd-spawn-cli")` | `coach.spawn.atdd-spawn-cli` + `binding/spawn_cli_rule_binding` | same |
+| `src/atdd/coach/validators/test_no_hardcoded_rule_severity.py` | `bind_rule("coach.rule-id.no-hardcoded-rule-severity")` | that rule + `binding/no_hardcoded_rule_severity` | same |
+
+**Follow-up issue shape:** "extract the shared helper functions AND the `bind_rule` emitters out of
+the 12 quarantined legacy validators into support/binder modules, repoint the importers + rule
+bindings, then delete the 12 legacy files (completing the #1207 sweep)." Small, mechanical,
+well-scoped. (The binding 3 are a distinct sub-task: relocate `bind_rule` emitters.)
 
 ## Scaffolding NOT torn down (deferred — still referenced by the remaining 9)
 Because 9 legacy validators remain, the parity scaffolding is still in use and its teardown (#1365 §f)
