@@ -68,16 +68,12 @@ def _entry_point_factories() -> Dict[str, ProviderFactory]:
     One bad entry point must never break discovery — a load failure is logged and
     skipped so the remaining providers (and pure-local sync) still work.
     """
+    # importlib.metadata is stdlib on every supported interpreter (>=3.10), and
+    # its ``group=`` keyword landed in 3.10 — no import guard / fallback needed.
+    from importlib.metadata import entry_points
+
     out: Dict[str, ProviderFactory] = {}
-    try:
-        from importlib.metadata import entry_points
-    except Exception:  # pragma: no cover - importlib.metadata always present on 3.10+
-        return out
-    try:
-        eps = entry_points(group=ENTRY_POINT_GROUP)
-    except TypeError:  # pragma: no cover - Python <3.10 grouped-dict API
-        eps = entry_points().get(ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
-    for ep in eps:
+    for ep in entry_points(group=ENTRY_POINT_GROUP):
         try:
             out[ep.name] = ep.load()
         except Exception as exc:  # noqa: BLE001 - one bad entry must not abort discovery
