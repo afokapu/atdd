@@ -1,4 +1,6 @@
 # URN: test:validate-conventions:coverage-variants:wmbt_has_smoke_acceptance
+# Acceptance: acc:govern-lifecycle:E003-INTEGRATION-001-planner-validator-fires-on-zero-smoke-urns
+# Acceptance: acc:govern-lifecycle:E003-SMOKE-001-real-validator-suite-includes-this-validator
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration

@@ -1,4 +1,7 @@
 # URN: test:validate-conventions:presence-variants:theme_zero_mandatory
+# Acceptance: acc:govern-lifecycle:C006-UNIT-001-override-cannot-remove-commons-floor
+# Acceptance: acc:govern-lifecycle:C006-UNIT-002-defaults-contain-commons-floor
+# Acceptance: acc:govern-lifecycle:C006-SMOKE-001-repo-config-keeps-commons-floor
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration

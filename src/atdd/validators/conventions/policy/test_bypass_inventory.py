@@ -1,4 +1,6 @@
 # URN: test:validate-conventions:policy-variants:bypass_inventory
+# Acceptance: acc:govern-lifecycle:E026-UNIT-005-meta-guard-fails-when-bypass-count-grows
+# Acceptance: acc:govern-lifecycle:E030-UNIT-003-meta-guard-baseline-is-zero
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration

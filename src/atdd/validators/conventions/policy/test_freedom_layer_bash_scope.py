@@ -1,4 +1,5 @@
 # URN: test:validate-conventions:policy-variants:freedom_layer_bash_scope
+# Acceptance: acc:spawn-agents:E032-SMOKE-001-live-freedom-layer-passes-flipped-validator
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration

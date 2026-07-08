@@ -1,4 +1,6 @@
 # URN: test:validate-conventions:boundary-variants:theme_commons_coach_boundary
+# Acceptance: acc:govern-lifecycle:C003-UNIT-001-commons-wagon-importing-coach-is-flagged
+# Acceptance: acc:govern-lifecycle:C003-SMOKE-001-plan-tree-respects-boundary
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration

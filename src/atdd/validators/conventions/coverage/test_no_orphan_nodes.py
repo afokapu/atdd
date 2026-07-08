@@ -1,4 +1,5 @@
 # URN: test:validate-conventions:coverage-variants:no_orphan_nodes
+# Acceptance: acc:author-atdd-substrate:C008-SMOKE-001-no-orphan-nodes
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration
