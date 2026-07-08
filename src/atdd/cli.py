@@ -2546,10 +2546,24 @@ Phase descriptions:
                 force=getattr(args, 'force', False),
             )
 
-        # atdd issue reconcile — backfill every open GitHub atdd-issue missing from manifest
+        # atdd issue reconcile — DEPRECATED (#1305, C2 of #1303): warn on stderr and
+        # delegate to the coach-archetype `atdd coach reconcile` drop-in. The reconcile
+        # engine (IssueManager.reconcile) is NOT reimplemented — both paths reach it.
         if target == "reconcile":
-            manager = IssueManager()
-            return manager.reconcile()
+            # Emitted directly (not via `_deprecation_warning`) on purpose: only the
+            # `reconcile` FORM is deprecated, NOT the bare `atdd issue` command (which
+            # still enters/transitions issues; its removal is C5/#1309). The fix-hint
+            # C2 registry keys deprecations on the first two tokens, so a
+            # `_deprecation_warning("atdd issue reconcile", ...)` would register a
+            # WHOLESALE `atdd issue` deprecation and wrongly flag every still-valid
+            # `atdd issue <N>` hint — same reasoning as the #1349 create-by-slug notice.
+            print(
+                "\033[33m⚠️  Deprecated: 'atdd issue reconcile' will be removed. "
+                "Use 'atdd coach reconcile' instead.\033[0m",
+                file=sys.stderr,
+            )
+            from atdd.coach.commands.coach_verbs.reconcile import run as run_reconcile
+            return run_reconcile([])
 
         # atdd issue is-registered <branch> — store-backed pre-commit branch gate
         # (#1270 slice C). Exit 0 = registered (or nothing to check); 1 = the repo
