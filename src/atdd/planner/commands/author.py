@@ -1059,7 +1059,7 @@ def build_parser() -> argparse.ArgumentParser:
     ext_sub = ext.add_subparsers(dest="subcmd", required=True)
     ei = ext_sub.add_parser("init", help="scaffold a new extension package")
     ei.add_argument("--extension", required=True, dest="extension_id",
-                    help="<publisher>.extension.<name>")
+                    help="<publisher>.extension.<persona>.<name> (persona: planner|tester|coder|coach)")
     ei.add_argument("--role", default="coder", choices=ROLES)
     ei.add_argument("--flow-wagon", default="validate-source-surface", dest="flow_wagon")
     ei.add_argument("--feature", default=None)

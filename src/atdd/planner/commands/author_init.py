@@ -75,8 +75,10 @@ def init_extension_package(
 ) -> Path:
     """Scaffold a new extension package; return its root dir.
 
-    Validates the id (``<publisher>.extension.<name>``), then writes
-    ``<root>/extensions/<id>/atdd.extension.yaml`` + the canonical skeleton.
+    Validates the id (persona-aware ``<publisher>.extension.<persona>.<name>``,
+    #1343; the legacy three-segment form is still accepted additively until
+    #1344), then writes ``<root>/extensions/<id>/atdd.extension.yaml`` + the
+    canonical skeleton.
     """
     validate_extension_id(extension_id)
     pkg = extension_package_home(extension_id, Path(root))
