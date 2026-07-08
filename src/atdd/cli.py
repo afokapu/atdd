@@ -2592,43 +2592,38 @@ Phase descriptions:
             manager = IssueManager()
             return 0 if manager.branch_is_registered(branch) else 1
 
-        # atdd issue sync-labels [<N>|--all] [--dry-run]
+        # atdd issue sync-labels [<N>|--all] [--dry-run] — DEPRECATED (#1308).
+        # Extracted to `atdd coach sync-labels` (umbrella #1303 splits `atdd
+        # issue` across the author/coach archetypes). Warn on stderr and
+        # delegate to the new coach verb, which imports IssueManager.sync_labels
+        # / sync_labels_all (the unchanged re-derivation + delta) and
+        # _print_sync_labels_delta (the unchanged presentation) — behavior is
+        # identical. Do NOT remove this shim (that is C5/#1309); existing
+        # `atdd issue sync-labels` callers must keep working.
+        #
+        # Emitted directly (NOT via `_deprecation_warning`) on purpose: the
+        # fix-hint C2 registry keys deprecations on the first two tokens of the
+        # deprecated form, so `_deprecation_warning("atdd issue sync-labels",
+        # ...)` would register a WHOLESALE `atdd issue` deprecation (the
+        # `sync-labels` token is not a flag) and false-flag every still-valid
+        # `atdd issue <N>` fix-hint — the exact hazard #1349/#1304 documented.
+        # A direct stderr print deprecates only the `sync-labels` FORM.
         if target == "sync-labels":
-            manager = IssueManager()
-            dry_run = getattr(args, 'dry_run', False)
-            apply_all = getattr(args, 'all_issues', False)
+            print(
+                "\033[33m⚠️  Deprecated: 'atdd issue sync-labels' will be "
+                "removed. Use 'atdd coach sync-labels' instead.\033[0m",
+                file=sys.stderr,
+            )
+            from atdd.coach.commands.coach_verbs.sync_labels import run as run_sync_labels
+            _sync_argv: list = []
             number_str = getattr(args, 'number', None)
-            if apply_all:
-                results = manager.sync_labels_all(dry_run=dry_run)
-                drifted = [
-                    (num, delta) for num, delta in results
-                    if delta["to_add"] or delta["to_remove"]
-                ]
-                for num, delta in drifted:
-                    _print_sync_labels_delta(num, delta, dry_run=dry_run)
-                if not drifted:
-                    print(
-                        f"sync-labels: every atdd-issue already matches "
-                        f"body metadata ({len(results)} checked)"
-                    )
-                else:
-                    suffix = " (dry-run)" if dry_run else ""
-                    print(
-                        f"sync-labels: {len(drifted)}/{len(results)} "
-                        f"issue(s) drifted{suffix}"
-                    )
-                return 0
-            if not number_str:
-                print("Error: atdd issue sync-labels requires an issue number or --all")
-                return 1
-            try:
-                issue_number = int(number_str)
-            except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                print(f"Error: invalid issue number '{number_str}'")
-                return 1
-            delta = manager.sync_labels(issue_number, dry_run=dry_run)
-            _print_sync_labels_delta(issue_number, delta, dry_run=dry_run)
-            return 0
+            if number_str:
+                _sync_argv.append(str(number_str))
+            if getattr(args, 'all_issues', False):
+                _sync_argv.append("--all")
+            if getattr(args, 'dry_run', False):
+                _sync_argv.append("--dry-run")
+            return run_sync_labels(_sync_argv)
 
         # Detect mode: integer → enter, string → create (future)
         try:
