@@ -7,11 +7,13 @@
 # Layer: backend
 """E052-SMOKE-001 — the Train gate enforces offline with zero board GraphQL.
 
-Against a real repo manifest + plan/_trains.yaml and a recording client (no
-PROJECT_TOKEN), the gate enforces membership using only the manifest, recording
-zero Projects-v2 field-value queries.
+Against a real local source + plan/_trains.yaml and a recording client (no
+PROJECT_TOKEN), the gate enforces membership using only the local source,
+recording zero Projects-v2 field-value queries.
 
-RED now: update() still queries ``get_project_item_field_values`` for the gate.
+#1270 slice D: that local source is now the State Store (authoritative since
+#1203); the manifest-mirror read-fallback is retired. The load-bearing contract
+— enforce offline, zero board GraphQL — is unchanged.
 """
 from __future__ import annotations
 
@@ -22,8 +24,25 @@ import pytest
 import yaml
 
 from atdd.coach.commands.issue import IssueManager
+from atdd.state.db import connect, init_state_store
+from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+from atdd.state.store import StateStore
 
 pytestmark = [pytest.mark.platform]
+
+
+def _seed_store(root: Path, *, slug: str, issue_number: int, train: str) -> None:
+    db = init_state_store(start=root)
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        store.objects.upsert(
+            slug, WORK_ITEM_KIND, state="PLANNED",
+            data={"issue_number": issue_number, "train": train},
+        )
+        store.external_refs.link(slug, GITHUB_PROVIDER, "issue", str(issue_number), data={})
+    finally:
+        conn.close()
 
 
 def _setup(tmp_path: Path) -> Path:
@@ -32,14 +51,8 @@ def _setup(tmp_path: Path) -> Path:
     (cfg / "config.yaml").write_text(
         yaml.safe_dump({"github": {"repo": "owner/repo", "project_id": "PVT_test"}})
     )
-    (cfg / "manifest.yaml").write_text(
-        yaml.safe_dump(
-            {
-                "sessions": [{"issue_number": 384, "status": "PLANNED"}],
-                "issues": {"384": {"slug": "demo", "train": "0001-self-compliance-validate"}},
-            }
-        )
-    )
+    # #1270 slice D: the train gate reads the local State Store, not the manifest.
+    _seed_store(tmp_path, slug="demo", issue_number=384, train="0001-self-compliance-validate")
     plan = tmp_path / "plan"
     plan.mkdir()
     (plan / "_trains.yaml").write_text(
@@ -73,5 +86,5 @@ def test_train_gate_enforces_offline_zero_board_graphql(tmp_path, monkeypatch):
          patch.object(IssueManager, "_commit_manifest_change"):
         rc = mgr.update("384", status="GREEN")
 
-    assert rc == 0, "gate enforces successfully from manifest + plan/_trains.yaml"
+    assert rc == 0, "gate enforces successfully from the local store + plan/_trains.yaml"
     client.get_project_item_field_values.assert_not_called()

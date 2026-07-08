@@ -58,22 +58,11 @@ def _store_train(issue_number: int, repo_root: Path) -> Optional[str]:
 def _wagon_slug_for_issue(issue_number: int, repo_root: Path) -> Optional[str]:
     """Return the wagon slug for *issue_number*.
 
-    #1270 slice A: read the wagon from the State Store first (authoritative since
-    #1203), falling back to the ``.atdd/manifest.yaml`` mirror when the store has
-    no wagon for the issue (e.g. a store not yet imported from the manifest).
+    #1270 slice D: read the wagon from the State Store only (authoritative since
+    #1203); the ``.atdd/manifest.yaml`` fallback is retired.
     """
     from_store = _store_wagon(issue_number, repo_root)
-    if from_store:
-        return str(from_store)
-    manifest_path = repo_root / ".atdd" / "manifest.yaml"
-    if not manifest_path.is_file():
-        return None
-    data = _load_yaml(manifest_path)
-    for session in data.get("sessions", []):
-        if str(session.get("issue_number", "")) == str(issue_number):
-            wagon = session.get("wagon") or None
-            return str(wagon) if wagon else None
-    return None
+    return str(from_store) if from_store else None
 
 
 def _read_wagon_meta(wagon_slug: str, repo_root: Path) -> dict:
@@ -345,16 +334,8 @@ def build_issue_architecture_context(
     if not wagon_slug:
         return None
 
-    # #1270 slice A: train store-first (authoritative since #1203), manifest fallback.
+    # #1270 slice D: train from the State Store only (authoritative since #1203).
     train_id: Optional[str] = _store_train(issue_number, repo_root)
-    if not train_id:
-        manifest_path = repo_root / ".atdd" / "manifest.yaml"
-        if manifest_path.is_file():
-            manifest_data = _load_yaml(manifest_path)
-            for session in manifest_data.get("sessions", []):
-                if str(session.get("issue_number", "")) == str(issue_number):
-                    train_id = session.get("train") or None
-                    break
 
     return build_architecture_context_for_wagon(
         wagon_slug, train_id=train_id, repo_root=repo_root,

@@ -1,15 +1,17 @@
-# URN: test:govern-lifecycle:runtime-graph:store-first-issue-wagon-map
-# Issue: #1318 (#1270 slice A — decommission the manifest mirror)
+# URN: test:govern-lifecycle:runtime-graph:store-only-issue-wagon-map
+# Issue: #1351 (#1270 slice D — retire the manifest read-fallback)
 # Phase: RED
 # Layer: unit
 # Assertion: behavioral
-"""#1270 slice A — runtime graph ``issue_wagon_map`` reads the State Store first.
+"""#1270 slice D — runtime graph ``issue_wagon_map`` reads the State Store ONLY.
 
-``issue_wagon_map`` drives wave planning by mapping issue → wagon. It was
-manifest-only; #1203 made the store authoritative. The discriminating test
-seeds the store and a *divergent* manifest and asserts the store wins — failing
-on the old manifest-only implementation. The manifest fallback is retained when
-the store carries no wagons.
+``issue_wagon_map`` drives wave planning by mapping issue → wagon. Slice A made
+it store-first with a manifest fallback; slice D retires that fallback so the
+store is the sole read source (the manifest is now only the store's cold-start
+seed, read by nothing). The discriminating test seeds a NON-EMPTY store (so the
+reader's auto-import does not run) lacking a wagon, plus a manifest that DOES
+carry the wagon, and asserts the reader ignores the manifest — failing on the
+old fallback implementation, passing once the fallback is gone.
 """
 from __future__ import annotations
 
@@ -58,9 +60,20 @@ def test_issue_wagon_map_prefers_store_over_divergent_manifest(tmp_path):
     assert issue_wagon_map(tmp_path) == {42: "govern-lifecycle"}
 
 
-def test_issue_wagon_map_falls_back_to_manifest_when_store_has_no_wagons(tmp_path):
-    """A store with no wagons (e.g. writer-populated) falls back to the manifest."""
-    # Store holds the issue but no wagon at all → store map empty → manifest wins.
+def test_issue_wagon_map_ignores_manifest_when_store_has_no_wagons(tmp_path):
+    """Slice D — a store with no wagons no longer falls back to the manifest.
+
+    The store is non-empty (holds the issue) so the reader's cold-start
+    auto-import does not run; the manifest's wagon is therefore never seeded and
+    must be ignored. Old (fallback) behaviour returned ``{7: "define-plans"}``.
+    """
     _seed_store(tmp_path, slug="b", issue_number=7)
     _write_manifest(tmp_path, [{"issue_number": 7, "slug": "b", "wagon": "define-plans"}])
-    assert issue_wagon_map(tmp_path) == {7: "define-plans"}
+    assert issue_wagon_map(tmp_path) == {}
+
+
+def test_issue_wagon_map_store_only_with_manifest_unlinked(tmp_path):
+    """Slice D — the map resolves from the store with no manifest present at all."""
+    _seed_store(tmp_path, slug="c", issue_number=9, wagon="govern-lifecycle")
+    # No manifest written.
+    assert issue_wagon_map(tmp_path) == {9: "govern-lifecycle"}

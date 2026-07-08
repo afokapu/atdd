@@ -387,49 +387,20 @@ class IssueManager:
     def _manifest_train(self, issue_number: int) -> Optional[str]:
         """Return the train assigned to *issue_number*.
 
-        #1203 Phase 1: reads shadow through the State Store first (the
-        authoritative read source), then fall back to the local manifest —
-        ``issues.<n>.train`` first, then any ``train`` recorded on the matching
-        ``sessions`` entry. The manifest remains the sole source for train
-        lineage past PLANNED (#1051, decommission Projects v2). Returns None when
-        no train is recorded anywhere.
+        #1270 slice D: the State Store is the sole read source (authoritative
+        since #1203); the local-manifest fallback (``issues.<n>.train`` /
+        ``sessions`` train) is retired. Returns None when no train is recorded.
         """
-        from_store = self._store_work_item_field(issue_number, "train")
-        if from_store:
-            return from_store
-        if not self.manifest_file.exists():
-            return None
-        manifest = self._load_manifest()
-        issues = manifest.get("issues") or {}
-        entry = issues.get(str(issue_number)) or {}
-        train = entry.get("train")
-        if train:
-            return str(train)
-        for session in manifest.get("sessions") or []:
-            if session.get("issue_number") == issue_number and session.get("train"):
-                return str(session["train"])
-        return None
+        return self._store_work_item_field(issue_number, "train")
 
     def _manifest_branch(self, issue_number: int) -> Optional[str]:
         """Return the branch recorded for *issue_number*.
 
-        #1203 Phase 1: reads shadow through the State Store first, then fall back
-        to the local manifest — the matching ``sessions`` entry first, then
-        ``issues.<n>.branch``. Replaces the retired Projects v2 ``ATDD Branch``
-        read (#1051).
+        #1270 slice D: the State Store is the sole read source (authoritative
+        since #1203); the local-manifest fallback is retired. Replaces the
+        retired Projects v2 ``ATDD Branch`` read (#1051).
         """
-        from_store = self._store_work_item_field(issue_number, "branch")
-        if from_store:
-            return from_store
-        if not self.manifest_file.exists():
-            return None
-        manifest = self._load_manifest()
-        for session in manifest.get("sessions") or []:
-            if session.get("issue_number") == issue_number and session.get("branch"):
-                return str(session["branch"])
-        entry = (manifest.get("issues") or {}).get(str(issue_number)) or {}
-        branch = entry.get("branch")
-        return str(branch) if branch else None
+        return self._store_work_item_field(issue_number, "branch")
 
     def branch_is_registered(self, branch: str) -> bool:
         """Return True if *branch*'s work item is registered (store-first).

@@ -68,23 +68,13 @@ class PRManager:
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
-    def _load_manifest(self) -> dict:
-        if not self.manifest_file.exists():
-            logger.warning("Manifest not found: %s", self.manifest_file, extra={"path": str(self.manifest_file)})
-            return {}
-        with open(self.manifest_file) as f:
-            return yaml.safe_load(f) or {}
-
     def _find_issue_in_manifest(self, issue_number: int) -> Optional[dict]:
-        """Find an issue by number — store-first (#1270 slice B), manifest fallback."""
-        entry = _store_session_entry(self.target_dir, issue_number)
-        if entry is not None:
-            return entry
-        manifest = self._load_manifest()
-        for entry in manifest.get("sessions", []):
-            if entry.get("issue_number") == issue_number:
-                return entry
-        return None
+        """Find an issue by number, from the State Store only (#1270 slice D).
+
+        The former ``.atdd/manifest.yaml`` fallback is retired; the store is the
+        sole read source (authoritative since #1203).
+        """
+        return _store_session_entry(self.target_dir, issue_number)
 
     def _get_repo(self) -> Optional[str]:
         """Read repo slug from .atdd/config.yaml."""
@@ -261,23 +251,16 @@ class PRManager:
     def _resolve_via_manifest(self, pr_data: dict) -> Optional[int]:
         """Strategy 3: Branch name → slug → issue_number.
 
-        #1270 slice B: resolves the slug through the State Store first (the
-        authoritative work-item→issue link since #1203), falling back to the
-        ``.atdd/manifest.yaml`` mirror when the store has no match.
+        #1270 slice D: resolves the slug through the State Store (the
+        authoritative work-item→issue link since #1203); the
+        ``.atdd/manifest.yaml`` fallback is retired.
         """
         branch = pr_data.get("headRefName") or ""
         if not branch:
             return None
         # Branch format: prefix/slug → extract slug part
         slug = branch.split("/", 1)[-1] if "/" in branch else branch
-        from_store = _store_issue_number_for_slug(self.target_dir, slug)
-        if from_store is not None:
-            return from_store
-        manifest = self._load_manifest()
-        for entry in manifest.get("sessions", []):
-            if entry.get("slug") == slug:
-                return entry.get("issue_number")
-        return None
+        return _store_issue_number_for_slug(self.target_dir, slug)
 
     def _resolve_via_title(self, pr_data: dict) -> Optional[int]:
         """Strategy 4: PR title regex #N (weakest signal, fallback only)."""
