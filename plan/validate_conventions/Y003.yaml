@@ -2,13 +2,14 @@ urn: wmbt:validate-conventions:Y003
 step: modify
 direction: minimize
 dimension: likelihood
-object_of_control: coverage-loss-on-binding-family-legacy-retirement
-context_clarifier: when a binding-family legacy validator is retired (#1207 batch 1),
-  no rule may be left pointing at a deleted persona-folder validator and every
-  repointed rule's convention variant must still execute on the real graph, so
-  coverage moves to the convention layer instead of silently dropping
+object_of_control: coverage-loss-on-legacy-validator-sweep-retirement
+context_clarifier: when the executing Tier-1/Tier-2 legacy persona-validators are
+  swept-retired (#1207) and the parity oracle is removed, no rule may be left pointing
+  at a deleted persona-folder validator and every repointed rule's convention variant
+  must still execute on the real graph, so coverage moves to the convention layer
+  instead of silently dropping
 lens: functional.effectiveness
-statement: minimize likelihood of coverage-loss-on-binding-family-legacy-retirement
+statement: minimize likelihood of coverage-loss-on-legacy-validator-sweep-retirement
   by asserting no rule implementation.ref/validator resolves to a deleted
   src/atdd/*/validators/test_*.py and every repointed rule binds to an executing
   convention variant rather than an xfail/stub
@@ -26,7 +27,7 @@ acceptances:
   given:
     abstract:
     - a real repo checkout with the composed convention graph loaded
-    - the binding-family legacy validators retired and their rules repointed
+    - the swept Tier-1/Tier-2 legacy validators retired and their rules repointed
   when:
     abstract: every rule's implementation.ref/validator is resolved against the filesystem
   then:
@@ -36,9 +37,9 @@ acceptances:
 - identity:
     urn: acc:validate-conventions:Y003-SMOKE-002-coverage-preserved
     id: AC-SMOKE-002
-    purpose: Every rule repointed off a retired binding-family legacy validator binds
-      to a convention variant test that executes on the real graph, not an xfail/stub
-      (the coverage-preserved guard). Complements Y002, which classifies preflight
+    purpose: Every rule repointed off a retired legacy validator binds to a convention
+      variant test that executes on the real graph, not an xfail/stub (the
+      coverage-preserved guard). Complements Y002, which classifies preflight
       readiness but does not assert the replacement coverage actually runs.
     phase: SMOKE
   harness:
@@ -46,7 +47,7 @@ acceptances:
     category: backend
   given:
     abstract:
-    - a real repo checkout with the binding-family convention variants present
+    - a real repo checkout with the swept convention variants present
     - each retired rule repointed to its convention variant nodeid
   when:
     abstract: each repointed rule's convention variant is loaded and its executing test discovered
