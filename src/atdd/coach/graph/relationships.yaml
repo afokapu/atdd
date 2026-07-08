@@ -1188,6 +1188,69 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the artifact definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.artifact.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the feature definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.feature.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the interlocking definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.interlocking.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the theme definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.theme.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the train definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.train.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the wagon definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.wagon.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the wmbt definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.wmbt.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: seeding a name needs the type-specific verb list
   source_ref: planner.feature.artifact-seeded-naming
