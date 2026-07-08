@@ -1,0 +1,51 @@
+urn: "wmbt:drive-state-machine:E005"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "extension-installs-landing-in-a-per-worktree-atdd-instead-of-the-control-root"
+context_clarifier: "the same control-root activation gap that forks per-worktree STORES also forks per-worktree EXTENSION installs. `.atdd/extensions/` (and `.atdd/workspaces/` + `substrate.lock.yaml`) are git-ignored, so `git worktree add` never copies them; on first `atdd substrate` use each worktree RE-INSTALLS its own copy. The cause is concrete: every substrate CLI handler in src/atdd/cli.py (`_substrate_add/remove/bind/capabilities/list`, `_cmd_substrate_search`) passes `project_root=(args.repo or '.')` — the cwd/worktree — straight into `atdd.substrate.installer`, which builds `Path(project_root)/'.atdd'/'extensions'/<id>/<version>`. It never calls the #1177 control-root resolver, so a worktree installs to `<worktree>/.atdd/extensions/` rather than the single control-root `.atdd/extensions/`. Observed live: the control-root `.atdd/` has NO extensions while this worktree's `.atdd/` carries a full `extensions/` + `workspaces/` + `substrate.lock.yaml`."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of extension-installs-landing-in-a-per-worktree-atdd-instead-of-the-control-root by routing the substrate CLI `project_root` through the #1177 control-root resolver, so `atdd substrate` installs and reads resolve to the single control-root `.atdd/extensions|workspaces/` (and `substrate.lock.yaml`) from any worktree instead of forking a per-worktree copy — while a non-flat-sibling root (consumer repo / single-repo / explicit --repo outside a worktree) is still honored so consumer installs are unchanged"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E005-UNIT-001-substrate-project-root-resolves-to-control-root"
+      id: "AC-UNIT-001"
+      purpose: "The substrate CLI resolves its project_root to the control root, so an install from a child worktree targets the control-root .atdd/ rather than the worktree"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A flat-sibling layout project/{main,wt1} with the shared control root at the project root"
+        - "The substrate CLI is invoked from wt1 (its args resolve start=wt1)"
+    when:
+      abstract: "The substrate command's operational-root resolution helper is evaluated for wt1"
+    then:
+      abstract:
+        - "The resolved project_root is the control root (project), NOT wt1"
+        - "So installer.package_home(project_root, ...) targets <project>/.atdd/extensions/<id>/<version>, not <wt1>/.atdd/extensions/..."
+        - "A non-resolvable / consumer root (no flat-sibling layout) falls back to the passed --repo/cwd unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E005-SMOKE-001-live-extension-install-lands-in-control-root"
+      id: "AC-SMOKE-001"
+      purpose: "A real substrate install issued from a worktree lands under the single control-root .atdd/extensions/, not the worktree"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real flat-sibling git project with a primary main/ checkout and a linked worktree wt1 that has no .atdd/extensions/"
+    when:
+      abstract: "A substrate install is performed with the process starting in wt1 (the control-root resolver active)"
+    then:
+      abstract:
+        - "The extension is materialized under <project>/.atdd/extensions/<id>/<version>/ (the control root)"
+        - "No <wt1>/.atdd/extensions/ directory is created by the install"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"

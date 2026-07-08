@@ -915,7 +915,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 14
+    total: 20
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -931,6 +931,12 @@ wagons:
     E007: minimize likelihood of worktree-binding-absent-from-store-after-create
     E008: minimize likelihood of local-main-divergence-after-worktree-create
     L002: minimize effort of locating-the-worktree-lifecycle-command-surface
+    E003: minimize likelihood of divergent-per-worktree-work-items-surviving-consolidation-as-duplicates
+    E004: minimize likelihood of control-root-env-override-at-a-child-worktree-forking-its-own-store
+    M002: minimize likelihood of a-per-worktree-store-regression-below-the-control-root-going-undetected
+    E005: minimize likelihood of extension-installs-landing-in-a-per-worktree-atdd-instead-of-the-control-root
+    E006: minimize likelihood of divergent-per-worktree-extension-installs-surviving-consolidation
+    M003: minimize likelihood of a-per-worktree-operational-atdd-subtree-below-the-control-root-going-undetected
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
@@ -1452,7 +1458,13 @@ wagons:
       Violation when that harness returns only an all-constant dict with no assert/raise
       (the Y002 theater afokapu/atdd#1192), extending the #1151 self-skip guard so
       a non-skipping test still cannot pass on fixed evidence (#1298; Part of afokapu/atdd-extensions#14)'
-    E061: "minimize likelihood of operators-creating-an-issue-via-the-deprecated-atdd-issue-slug-path-without-being-pointed-to-the-canonical-store-first-atdd-author-issue by emitting, at the top of IssueLifecycle.create, a stderr deprecation warning that names atdd author issue as the canonical store-first create while the alias still creates through the shared work_item_writer, and by updating the operator docs (CLAUDE.md issues.commands + the gh issue create redirect + the atdd issue CLI help) to name the canonical command (part of the atdd issue decommission #1349; prerequisite #1272)"
+    E061: 'minimize likelihood of operators-creating-an-issue-via-the-deprecated-atdd-issue-slug-path-without-being-pointed-to-the-canonical-store-first-atdd-author-issue
+      by emitting, at the top of IssueLifecycle.create, a stderr deprecation warning
+      that names ''atdd author issue'' as the canonical store-first create while the
+      alias still creates through the shared work_item_writer, and by updating the
+      operator docs (CLAUDE.md issues.commands + the gh issue create redirect + the
+      atdd issue CLI help) to name the canonical command (part of the atdd issue decommission
+      #1349; prerequisite #1272)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
