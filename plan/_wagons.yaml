@@ -467,8 +467,9 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 1
+    total: 2
     E001: minimize likelihood of behavior-drift-between-atdd-issue-status-and-atdd-coach-transition
+    E003: minimize likelihood of behavior-drift-between-atdd-issue-read-forms-and-atdd-coach-issues
   total: 0
   manifest: plan/coach_verb_split/_coach_verb_split.yaml
   path: plan/coach_verb_split/
