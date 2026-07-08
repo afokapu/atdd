@@ -1,0 +1,21 @@
+urn: "feature:drive-state-machine:consolidate-worktree-command"
+wagon: "wagon:drive-state-machine"
+description: "Consolidate `atdd branch` + `atdd worktree` into one object-verb command `atdd worktree {create, gc, list, remove}` (create = former `atdd branch`), keeping `atdd branch` as a deprecation alias that warns and delegates. Materializing a worktree writes the branch↔issue↔worktree binding (`data.branch`, `data.worktree_path`) to the control-root State Store via the github external_ref — never a commit on local `main` — which is the store-side seam the #1270 pre-commit gate (`atdd issue is-registered`, store-first) reads once the manifest mirror is gone. The create path also fast-forwards local `main` to origin/<default> only when strictly safe (clean behind-only ancestor), so worktree creation leaves `main` a clean fast-forward of origin/main instead of an unpushable divergence. Additive: `_record_branch_in_manifest` is kept intact (its removal is #1270); no store-write hot-path or resolver change (that is #1346/#1348)."
+sizing:
+  wmbts: 3
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:drive-state-machine:E007"
+  - "wmbt:drive-state-machine:E008"
+  - "wmbt:drive-state-machine:L002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "The `atdd worktree {create,gc,list,remove}` subparser + dispatch and the `atdd branch` deprecation alias in cli.py, delegating to BranchManager + worktree_gc"
+    domain:
+      - type: "functions"
+        count: 4
+        rationale: "_record_binding_in_store (store binding write), _ff_sync_default_branch (safe local-main fast-forward), list_worktrees and remove_worktree (worktree lifecycle) in BranchManager"
