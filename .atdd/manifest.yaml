@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1349'
+  slug: deprecate-issue-create-alias
+  file: null
+  issue_number: 1349
+  type: refactor
+  status: REFACTOR
+  created: '2026-07-07'
+  archived: null
+  branch: refactor/deprecate-issue-create-alias
+  train: 0002-coach-drives-lifecycle
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:deprecate-issue-create-alias
 - id: '1330'
   slug: contract-first-class-unit
   file: null

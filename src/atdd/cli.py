@@ -735,11 +735,11 @@ Phase descriptions:
     update_top_parser.add_argument("--complexity", type=str, help="ATDD Complexity (e.g., 4-High)")
     update_top_parser.add_argument("--force", "-f", action="store_true", help="Bypass gate/body checks on COMPLETE (train still enforced)")
 
-    # ----- atdd branch <issue_number> -----
+    # ----- atdd branch <issue_number> — DEPRECATED alias for `atdd worktree create` -----
     branch_parser = subparsers.add_parser(
         "branch",
-        help="Create worktree branch from issue metadata",
-        description="Create a git worktree with the correct prefix/slug naming derived from issue metadata"
+        help="[DEPRECATED] Use 'atdd worktree create <N>' instead",
+        description="[DEPRECATED alias, #1347] Create a git worktree from issue metadata. Use `atdd worktree create <N>`."
     )
     branch_parser.add_argument("issue_number", type=int, help="Issue number")
     branch_parser.add_argument(
@@ -748,13 +748,34 @@ Phase descriptions:
         help="Override branch prefix (feat, fix, refactor, chore, docs, devops)"
     )
 
-    # ----- atdd worktree <subcommand> -----
+    # ----- atdd worktree {create,gc,list,remove} (#1347) -----
+    # One object-verb command for the agent's working environment (worktree +
+    # branch + store binding). `create` is the former `atdd branch`.
     worktree_parser = subparsers.add_parser(
         "worktree",
-        help="Worktree utilities",
-        description="Commands for managing git worktrees created by atdd",
+        help="Manage git worktrees (create/gc/list/remove)",
+        description="Create and manage the git worktrees that are agent working environments",
     )
     worktree_subparsers = worktree_parser.add_subparsers(dest="worktree_command")
+
+    worktree_create_parser = worktree_subparsers.add_parser(
+        "create",
+        help="Create a worktree branch from issue metadata",
+        description=(
+            "Create a git worktree with the correct prefix/slug naming derived\n"
+            "from issue metadata, based on origin/<default>, and register the\n"
+            "branch↔issue↔worktree binding in the State Store (never a commit on\n"
+            "local main).\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_create_parser.add_argument("issue_number", type=int, help="Issue number")
+    worktree_create_parser.add_argument(
+        "--prefix",
+        type=str,
+        help="Override branch prefix (feat, fix, refactor, chore, docs, devops)",
+    )
+
     worktree_gc_parser = worktree_subparsers.add_parser(
         "gc",
         help="Detect and clean up orphan worktree directories",
@@ -770,6 +791,25 @@ Phase descriptions:
         "--apply",
         action="store_true",
         help="Remove orphan directories (default: list only)",
+    )
+
+    worktree_subparsers.add_parser(
+        "list",
+        help="List atdd worktrees and their store bindings",
+        description="List every registered git worktree with its branch and bound work item.",
+    )
+
+    worktree_remove_parser = worktree_subparsers.add_parser(
+        "remove",
+        help="Remove a worktree by issue number or path",
+        description=(
+            "Remove a registered git worktree (issue number → derived path, or an\n"
+            "explicit path). Refuses the main checkout; never uses --force.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_remove_parser.add_argument(
+        "target", type=str, help="Issue number or worktree path to remove"
     )
 
     # ----- atdd cleanup -----
@@ -856,7 +896,9 @@ Phase descriptions:
         description=(
             "Enter an existing issue (by number) or create a new one (by slug).\n\n"
             "  atdd issue 126                     Enter issue #126 (state-driven)\n"
-            "  atdd issue my-feature              Create new issue and enter at INIT\n"
+            "  atdd issue my-feature              [DEPRECATED #1349] Create by slug —\n"
+            "                                     use `atdd author issue --title <t> --slug <s>`\n"
+            "                                     (store-first canonical create, #1272)\n"
             "  atdd issue 126 --status RED        Transition status\n"
             "  atdd issue open                    List open issues\n"
             "  atdd issue reconcile               Backfill missing issues from GitHub into manifest\n"
@@ -2315,9 +2357,11 @@ Phase descriptions:
             toolkit=getattr(args, "toolkit", False),
         )
 
-    # atdd new <slug> — DEPRECATED, delegates to atdd issue <slug>
+    # atdd new <slug> — DEPRECATED, delegates to the shared create path.
+    # #1349: point operators at the store-first canonical `atdd author issue`
+    # (#1272) rather than the also-deprecated `atdd issue <slug>` alias.
     elif args.command == "new":
-        _deprecation_warning("atdd new <slug>", "atdd issue <slug>")
+        _deprecation_warning("atdd new <slug>", "atdd author issue", stream=sys.stderr)
         from atdd.coach.commands.issue_lifecycle import IssueLifecycle
         lifecycle = IssueLifecycle()
         return lifecycle.create(
@@ -2413,6 +2457,8 @@ Phase descriptions:
 
     # atdd branch <issue_number>
     elif args.command == "branch":
+        # DEPRECATED (#1347) — delegates to `atdd worktree create`.
+        _deprecation_warning("atdd branch <N>", "atdd worktree create <N>", stream=sys.stderr)
         from atdd.coach.commands.branch import BranchManager
         manager = BranchManager()
         return manager.branch(
@@ -2543,7 +2589,25 @@ Phase descriptions:
         try:
             issue_number = int(target)
         except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            # Slug mode — create new issue and enter at INIT
+            # Slug mode — create new issue and enter at INIT.
+            # #1349: deprecate the create-by-slug FORM toward the store-first
+            # canonical `atdd author issue` (#1272). The alias keeps working —
+            # it still delegates to the shared work_item_writer create path —
+            # but signposts the canonical command on stderr so the notice never
+            # pollutes the rendered body payload on stdout.
+            #
+            # Emitted directly (not via `_deprecation_warning`) on purpose: only
+            # the create-by-slug FORM is deprecated, NOT the bare `atdd issue`
+            # command (which still enters and transitions issues, e.g.
+            # `atdd issue <N> --status`). The fix-hint C2 registry models
+            # deprecations at the subcommand level, so registering "atdd issue"
+            # there would wrongly flag every still-valid `atdd issue <N>` hint.
+            print(
+                "\033[33m⚠️  Deprecated: 'atdd issue <slug>' (create by slug) "
+                "will be removed. Use 'atdd author issue --title <title> "
+                "--slug <slug>' instead (store-first canonical create, #1272).\033[0m",
+                file=sys.stderr,
+            )
             dry_run = getattr(args, 'dry_run', False)
             if dry_run:
                 # E019: dry-run path — validate locally, print rendered body, exit 0
@@ -2624,6 +2688,12 @@ Phase descriptions:
     # atdd worktree <subcommand>
     elif args.command == "worktree":
         worktree_cmd = getattr(args, 'worktree_command', None)
+        if worktree_cmd == "create":
+            from atdd.coach.commands.branch import BranchManager
+            return BranchManager().branch(
+                issue_number=args.issue_number,
+                prefix=getattr(args, 'prefix', None),
+            )
         if worktree_cmd == "gc":
             from atdd.coach.commands.worktree_gc import gc as worktree_gc
             orphans = worktree_gc(apply=getattr(args, 'apply', False))
@@ -2636,6 +2706,12 @@ Phase descriptions:
             if not getattr(args, 'apply', False):
                 print(f"\n{len(orphans)} orphan(s) found. Run with --apply to remove.")
             return 0
+        if worktree_cmd == "list":
+            from atdd.coach.commands.branch import BranchManager
+            return BranchManager().list_worktrees()
+        if worktree_cmd == "remove":
+            from atdd.coach.commands.branch import BranchManager
+            return BranchManager().remove_worktree(args.target)
         worktree_parser.print_help()
         return 1
 

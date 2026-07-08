@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:deprecate-issue-create-alias"
+wagon: "wagon:govern-lifecycle"
+description: "Deprecate the create-by-slug alias (`atdd issue <slug>` / `atdd new <slug>`) toward the canonical store-first `atdd author issue` (#1272): emit a stderr deprecation warning from IssueLifecycle.create while the alias keeps creating through the shared work_item_writer, and signpost the canonical command in the operator docs. Part of the `atdd issue` decommission (#1349)."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E061"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "The stderr deprecation warning at the top of IssueLifecycle.create (the CLI-facing create-by-slug surface), plus the atdd new redirect target update"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No new use case — the create still delegates to the existing shared work_item_writer.create_work_item path"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No new domain concept — a deprecation alias over the existing create"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses the existing State Store writer and GitHub client"
