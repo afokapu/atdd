@@ -1,0 +1,23 @@
+urn: "feature:coach-ops:route-transition-transport"
+wagon: "wagon:coach-ops"
+description: "Route the issue-transition read and label-write seams through `gh api` REST so a lifecycle transition survives GraphQL rate-limit exhaustion. Today IssueLifecycle._fetch_issue, GitHubClient.get_issue, GitHubClient.add_label and GitHubClient.remove_label all shell out to `gh issue view`/`gh issue edit` (GraphQL), so when the shared 5000/hr GraphQL budget is exhausted mid-wave every transition dies at the fetch-issue gate ('could not fetch issue #N for transition gate'). This feature migrates those four seams to `gh api` REST, normalizes the REST response shape (state upper-cased, labels as [{name}], body preserved) so existing `label['name']`/`state` readers are unchanged, and corrects the false 'runs entirely on the atdd:<phase> label (REST)' comment in issue.py. Rate-limit-resilient coach transport, sibling of the pr-watcher-module's batched-polling backoff."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:coach-ops:M003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the migration is transport-internal; existing `atdd coach transition` / `atdd issue --status` callers are unchanged"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "Reuses the existing transition engine (issue_transition.apply_transition / IssueLifecycle.transition); only the transport underneath the read + label-write seams changes"
+    integration:
+      - type: "adapters"
+        count: 4
+        rationale: "The four migrated gh adapters: IssueLifecycle._fetch_issue and GitHubClient.get_issue (reads) plus GitHubClient.add_label and GitHubClient.remove_label (label writes) move from `gh issue view`/`gh issue edit` (GraphQL) to `gh api` REST with a normalized response shape"

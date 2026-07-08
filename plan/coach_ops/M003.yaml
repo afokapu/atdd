@@ -1,0 +1,75 @@
+urn: "wmbt:coach-ops:M003"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "lifecycle-transition-failure-under-graphql-rate-limit-exhaustion"
+context_clarifier: "when the shared 5000/hr GitHub GraphQL budget is exhausted mid-wave and every issue-transition read + label write still routes through `gh issue view` / `gh issue edit` (GraphQL), so a phase transition dies at the fetch-issue gate with 'could not fetch issue #N for transition gate' — the four seams are IssueLifecycle._fetch_issue, GitHubClient.get_issue, GitHubClient.add_label and GitHubClient.remove_label, and the issue.py comment falsely claims the lifecycle 'runs entirely on the atdd:<phase> label (REST)'"
+lens: "functional.availability"
+statement: "minimize likelihood of lifecycle-transition-failure-under-graphql-rate-limit-exhaustion by routing the four issue-transition read and label-write seams (IssueLifecycle._fetch_issue, GitHubClient.get_issue, GitHubClient.add_label, GitHubClient.remove_label) through `gh api` REST, normalizing the REST response shape (state upper-cased, labels as [{name}], body preserved) so callers reading `label['name']` and `state` are unchanged, and correcting the false 'runs entirely on the atdd:<phase> label (REST)' comment in issue.py — so a lifecycle transition survives a GraphQL blackout that today would strand it at the fetch-issue gate"
+acceptances:
+  - identity:
+      urn: "acc:coach-ops:M003-UNIT-001-rest-transport-and-normalized-shape"
+      id: "AC-UNIT-001"
+      purpose: "each of the four transition read/label-write seams shells out to `gh api` (REST), never `gh issue view`/`gh issue edit` (GraphQL), and the REST JSON is normalized to the shape callers already read (state upper-cased, labels as a list of {name}, body preserved)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "subprocess.run patched at the seam boundary to capture argv and return a canned REST payload (never a real network call)"
+        - "a canned `gh api repos/{owner}/{repo}/issues/<N>` JSON body with lowercase state and REST-shaped labels [{name, color, ...}]"
+    when:
+      abstract: "IssueLifecycle._fetch_issue, GitHubClient.get_issue, GitHubClient.add_label and GitHubClient.remove_label are each invoked"
+    then:
+      abstract:
+        - "every captured argv begins with ['gh', 'api', ...] targeting repos/{owner}/{repo}/issues/... (reads) or .../labels[/name] with --method POST/DELETE (label writes) — no 'gh issue view' or 'gh issue edit' argv is emitted"
+        - "the read seams return a dict whose `state` is upper-cased and whose `labels` is a list of {name: ...} so existing `label['name']` / `state` readers are unchanged, with `body` preserved"
+        - "add_label POSTs `labels[]=<name>` per label and remove_label DELETEs `.../labels/<name>` per label"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
+  - identity:
+      urn: "acc:coach-ops:M003-INTEGRATION-001-transition-survives-graphql-exhaustion"
+      id: "AC-INTEGRATION-001"
+      purpose: "a phase transition driven through the sanctioned engine applies identically when GraphQL is unavailable, because the read + label-write seams reach GitHub over REST instead of the GraphQL-backed gh issue commands"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "a throwaway issue number (never a live issue) under a temp ATDD_CONTROL_ROOT with a seeded work item"
+        - "the gh transport stubbed so any GraphQL-backed `gh issue view`/`gh issue edit` invocation RAISES (simulating rate-limit exhaustion) while the REST `gh api` fake serves the issue read and records label writes"
+    when:
+      abstract: "the transition engine (issue_transition/apply_transition via IssueLifecycle.transition) advances the throwaway issue to a target phase"
+    then:
+      abstract:
+        - "the transition completes without ever invoking a GraphQL-backed gh issue command — the fetch-issue gate is satisfied from the REST read"
+        - "the label swap is applied through the REST label-write seam (old atdd:<phase> removed, new added) and the resulting store state matches the target"
+        - "no live GitHub issue and no control root outside the temp dir is ever touched"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
+  - identity:
+      urn: "acc:coach-ops:M003-SMOKE-001-real-rest-read-boundary"
+      id: "AC-SMOKE-001"
+      purpose: "against the real GitHub boundary, the migrated read seam performs a genuine `gh api` REST read of an issue end-to-end (read-only, never a mutation, never a live transition), proving the REST transport works for real and honoring tester.smoke.no-collaborator-substitution (#1298 — no stubbed collaborators)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the real GitHubClient/IssueLifecycle read seam exercised as an actual subprocess against the real repo (no monkeypatch/patch of any production collaborator)"
+        - "a read-only target: viewing an existing issue mutates nothing, creates no worktree and drives no transition, so no live issue is ever archived or relabelled"
+    when:
+      abstract: "the real read seam fetches an existing issue over `gh api` REST as a subprocess"
+    then:
+      abstract:
+        - "the transport is a real `gh api` REST call (not `gh issue view`/GraphQL) and reaches the real GitHub boundary"
+        - "it returns the normalized shape (upper-cased state, labels as [{name}], body present) OR a clean GitHub error on a network/rate-limit miss — never a crash or traceback"
+        - "no issue is mutated, relabelled, closed or transitioned by the smoke"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
