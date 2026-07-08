@@ -35,10 +35,6 @@ INVARIANT = 'forbidden match set is empty'
 AUTO_CAPTURE = 'usually explicit; a new node is included if it falls inside a policy scope'
 FAILURE_EVIDENCE = ['matched_construct', 'policy_id', 'location', 'reason', 'suggested_replacement']
 LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_smoke_synthetic_fixture_bypass.py']
-_LEGACY_NODEID = (
-    'src/atdd/planner/validators/test_smoke_synthetic_fixture_bypass.py'
-    '::test_no_smoke_tests_use_synthetic_fixtures'
-)
 
 
 def _template():
@@ -90,9 +86,7 @@ def test_fault_injection_legacy_parity() -> None:
         assert any(v.get("matched_construct") == "FakeMultiplexer" for v in conv), (
             f"{VARIANT}: convention evaluator did not catch injected fault in {target}"
         )
-        assert _parity.legacy_catches(_LEGACY_NODEID), (
-            "legacy planner validator did not catch the injected synthetic-fixture fault"
-        )
+        # oracle retired (#1365): convention path above is the live coverage
 
     # reverted -> clean again
     assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []

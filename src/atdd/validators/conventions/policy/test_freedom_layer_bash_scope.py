@@ -35,11 +35,6 @@ FAILURE_EVIDENCE = ['matched_construct', 'policy_id', 'location', 'reason', 'sug
 LEGACY_PARITY_SOURCES = [
     'src/atdd/coach/validators/test_e032_smoke_001_live_freedom_layer_passes_flipped_validator.py'
 ]
-_LEGACY_NODEID = (
-    'src/atdd/coach/validators/'
-    'test_e032_smoke_001_live_freedom_layer_passes_flipped_validator.py'
-    '::test_live_freedom_layer_passes_flipped_validator'
-)
 
 
 def _template():
@@ -74,8 +69,6 @@ def test_fault_injection_legacy_parity() -> None:
         assert any("git push" in v.get("matched_construct", "") for v in conv), (
             f"{VARIANT}: convention evaluator did not catch the forbidden allowed_bash entry"
         )
-        assert _parity.legacy_catches(_LEGACY_NODEID), (
-            "legacy E032 freedom-layer validator did not catch the injected fault"
-        )
+        # oracle retired (#1365): convention path above is the live coverage
 
     assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []

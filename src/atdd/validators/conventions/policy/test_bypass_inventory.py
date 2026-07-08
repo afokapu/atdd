@@ -30,10 +30,6 @@ INVARIANT = 'forbidden match set is empty'
 AUTO_CAPTURE = 'usually explicit; a new node is included if it falls inside a policy scope'
 FAILURE_EVIDENCE = ['matched_construct', 'policy_id', 'location', 'reason', 'suggested_replacement']
 LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_e026_bypass_inventory_guard.py']
-_LEGACY_NODEID = (
-    'src/atdd/coach/validators/test_e026_bypass_inventory_guard.py'
-    '::test_current_hook_bypass_count_at_baseline'
-)
 
 
 def _template():
@@ -68,8 +64,6 @@ def test_fault_injection_legacy_parity() -> None:
         assert any(v.get("matched_construct") == "ATDD_SKIP_PARITY_1212" for v in conv), (
             f"{VARIANT}: convention evaluator did not catch injected bypass flag"
         )
-        assert _parity.legacy_catches(_LEGACY_NODEID), (
-            "legacy E026 bypass-inventory guard did not catch the injected flag"
-        )
+        # oracle retired (#1365): convention path above is the live coverage
 
     assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []
