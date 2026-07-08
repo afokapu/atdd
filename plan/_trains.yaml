@@ -38,6 +38,7 @@ trains:
       - consolidate-coach-workspace
       - dispatch-ux-defaults-and-primer
       - mediate-worker-decisions
+      - coach-verb-split
     - train_id: 0003-author-substrate
       description: 'Authoring substrate train: define canonical schemas + flat homes,
         validate author input on a shared spine, then deterministically write the

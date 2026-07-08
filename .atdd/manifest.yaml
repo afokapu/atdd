@@ -3295,6 +3295,7 @@ sessions:
   status: INIT
   created: '2026-07-01'
   archived: null
+  wagon: coach-verb-split
 - id: '1305'
   slug: coach-reconcile-from-issue
   file: null

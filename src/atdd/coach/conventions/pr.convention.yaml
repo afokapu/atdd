@@ -115,7 +115,7 @@ rules:
                  • If this PR genuinely fully closes #N: add `Closes #N` to
                    the PR body (`gh pr edit <N> --body "<new-body>"`) AND
                    advance the issue label first
-                   (`atdd issue <N> --status SMOKE` → `--status REFACTOR`),
+                   (`atdd coach transition <N> SMOKE` → `atdd coach transition <N> REFACTOR`),
                    per coach.pr.merge-blocks-on-pre-smoke-close.
                  • If this PR is a PARTIAL/umbrella step (the issue stays
                    open): amend the commit message to use `Refs #N` instead

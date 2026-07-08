@@ -1390,6 +1390,17 @@ def run_cli(argv: list[str]) -> int:
         )
 
         return run_coach_runtime(argv)
+    # #1304 — extracted `atdd issue` sub-verbs are auto-discovered drop-ins under
+    # atdd.coach.commands.coach_verbs (one file per verb; zero shared edits, so
+    # #1305/#1307/#1308 never merge-conflict on wiring). Resolve a non-numeric
+    # leading token to its verb module; fall through to the state-machine path
+    # for issue numbers and unknown tokens.
+    if argv and not argv[0].lstrip("-").isdigit():
+        from atdd.coach.commands.coach_verbs import resolve_verb
+
+        _verb_run = resolve_verb(argv[0])
+        if _verb_run is not None:
+            return _verb_run(argv[1:])
     cfg = parse_cli(argv)
     if should_prompt_for_models(cfg):
         known = sorted(ADAPTER_REGISTRY)
