@@ -10,18 +10,21 @@
 Behavioral contract: invoking ``atdd issue reconcile`` reaches
 ``IssueManager.reconcile()`` without raising ``UnboundLocalError`` and returns the
 exit code that reconcile() produced. We prove this with a recording fake patched
-onto the module-level name ``atdd.cli.IssueManager`` — not by reading source text.
+onto the canonical source name ``atdd.coach.commands.issue.IssueManager`` — not by
+reading source text.
 
-RED now: two function-local ``import IssueManager`` statements inside ``main()``
-make the name local for the whole function, so on the reconcile path (where
-neither local-import branch has run) ``manager = IssueManager()`` reads an unbound
-local and raises ``UnboundLocalError`` before reconcile() is ever reached. The
-patch on the module global has no effect while the local shadow exists, so the
-recording fake is never called and this test fails.
+The original E054 fix removed two function-local ``import IssueManager`` statements
+inside ``main()`` that made the name local for the whole function, so on the
+reconcile path ``manager = IssueManager()`` read an unbound local and raised
+``UnboundLocalError`` before reconcile() was ever reached (the structural guard for
+that fix lives in E054-UNIT-002).
 
-GREEN: removing the two local imports makes ``IssueManager`` resolve to the module
-global on every path; the patch takes effect, reconcile() is reached exactly once,
-and main() returns the sentinel.
+Since #1305, ``atdd issue reconcile`` is a deprecated shim that delegates to the
+``atdd coach reconcile`` drop-in, whose ``run()`` lazy-imports
+``atdd.coach.commands.issue.IssueManager`` and calls ``reconcile()``. Patching that
+canonical source proves the dispatch still reaches ``IssueManager.reconcile()``
+exactly once through the delegation and returns its sentinel — with no
+``UnboundLocalError``.
 """
 from __future__ import annotations
 
@@ -47,9 +50,13 @@ def test_reconcile_path_reaches_issuemanager_reconcile_without_unbound_local(
             calls["count"] += 1
             return _SENTINEL_EXIT
 
-    # Patch the module-level name. Only resolves on the reconcile path once the
-    # function-local shadow is removed (the fix).
-    monkeypatch.setattr(cli, "IssueManager", _RecordingIssueManager)
+    # Patch IssueManager at its source module. Since #1305, `atdd issue reconcile`
+    # is a deprecated shim that delegates to the `atdd coach reconcile` drop-in,
+    # whose run() lazy-imports `atdd.coach.commands.issue.IssueManager` and calls
+    # reconcile(). Patching the canonical source (not the cli.py alias) proves the
+    # dispatch still reaches IssueManager.reconcile() exactly once through the
+    # delegation, with no UnboundLocalError.
+    monkeypatch.setattr("atdd.coach.commands.issue.IssueManager", _RecordingIssueManager)
     monkeypatch.setattr(cli.sys, "argv", ["atdd", "issue", "reconcile"])
 
     try:
