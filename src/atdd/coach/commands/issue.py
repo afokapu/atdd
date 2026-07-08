@@ -1912,10 +1912,21 @@ class IssueManager:
     def _verify_release_gate(
         self, force: bool = False,
     ) -> Tuple[bool, List[str]]:
-        """Verify release gate: version bumped + tag on HEAD or ancestor.
+        """Verify the release gate against the State Store version (#1172).
 
-        Reuses the same logic as test_release_versioning.py but returns
-        (passed, messages) instead of raising pytest assertions.
+        Post-#1172 the authoritative release version lives in the State Store's
+        singleton ``release`` object (``atdd state version show``), NOT a static
+        ``version = "..."`` line in ``pyproject.toml``. ``pyproject.toml`` is now
+        *dynamic* (``dynamic = ["version"]`` resolved by the in-tree build
+        backend from the store), so it carries no static version line to parse —
+        the old pyproject-read / git-diff-vs-main / git-tag checks are obsolete
+        (tag + publish are operator-coordinated post-merge per
+        ``CLAUDE.md::release``). The gate now PASSES when the store resolves a
+        real release version and FAILS (pointing at ``atdd state version bump``)
+        when only the local fallback is resolvable.
+
+        Returns ``(passed, messages)`` instead of raising, mirroring the other
+        ``_verify_*`` gate helpers.
         """
         messages = []
 
@@ -1937,96 +1948,44 @@ class IssueManager:
             messages.append("  Release gate: SKIPPED (no release config)")
             return True, messages
 
-        version_file = release.get("version_file")
-        if not version_file:
-            messages.append("  Release gate: SKIPPED (no version_file configured)")
-            return True, messages
+        # Read the authoritative release version from the State Store (#1172).
+        # ``emit`` is non-raising and returns ``LOCAL_FALLBACK_VERSION`` when no
+        # release version is resolvable — the same contract as the build hook.
+        from atdd.state import version as _v
+        from atdd.state.db import connect, init_state_store
 
-        tag_prefix = release.get("tag_prefix", "v") or ""
-
-        # Resolve version file path
-        version_path = Path(version_file)
-        if not version_path.is_absolute():
-            version_path = (self.target_dir / version_path).resolve()
-
-        if not version_path.exists():
-            messages.append(f"  Version file: {version_file} — MISSING")
-            return False, messages
-
-        # Read version
-        version = self._read_version_from_file(version_path)
-        if not version:
-            messages.append(f"  Version file: {version_file} — could not parse version")
-            return False, messages
-
-        expected_tag = f"{tag_prefix}{version}"
-
-        # Check version changed vs main
-        diff_result = subprocess.run(
-            ["git", "diff", "main", "--", str(version_path)],
-            capture_output=True, text=True, cwd=str(self.target_dir),
-        )
-        if not diff_result.stdout.strip():
-            messages.append(f"  Version file: {version_file} — NOT CHANGED vs main")
-            return False, messages
-
-        messages.append(f"  Version file: {version_file} = {version} — CHANGED vs main")
-
-        # Check tag on HEAD (fast path)
-        tag_result = subprocess.run(
-            ["git", "tag", "--points-at", "HEAD"],
-            capture_output=True, text=True, cwd=str(self.target_dir),
-        )
-        tags = [t.strip() for t in tag_result.stdout.splitlines() if t.strip()]
-
-        if expected_tag in tags:
-            messages.append(f"  Tag: {expected_tag} — ON HEAD")
-            return True, messages
-
-        # Merge-commit tolerance: tag is a recent ancestor
-        ancestor_result = subprocess.run(
-            ["git", "merge-base", "--is-ancestor", expected_tag, "HEAD"],
-            capture_output=True, text=True, cwd=str(self.target_dir),
-        )
-        if ancestor_result.returncode == 0:
-            count_result = subprocess.run(
-                ["git", "rev-list", "--count", f"{expected_tag}..HEAD"],
-                capture_output=True, text=True, cwd=str(self.target_dir),
+        try:
+            db = init_state_store(start=self.target_dir)
+            conn = connect(db)
+            try:
+                version = _v.emit(conn)
+            finally:
+                conn.close()
+        except Exception as exc:  # noqa: BLE001 — logged, then surfaced as a gate failure
+            logger.warning(
+                "release gate: State Store version read failed",
+                extra={"error": str(exc), "action": "gate_fail"},
             )
-            distance = int(count_result.stdout.strip()) if count_result.returncode == 0 else -1
-            if 0 < distance <= 3:
-                messages.append(f"  Tag: {expected_tag} — {distance} commit(s) behind HEAD (merge tolerance)")
-                return True, messages
+            messages.append(f"  Release version: State Store read failed — {exc}")
+            messages.append(
+                "  Fix: seed/bump the version — "
+                "atdd state version bump --class PATCH|MINOR|MAJOR"
+            )
+            return False, messages
 
-        messages.append(f"  Tag: {expected_tag} — NOT FOUND (create: git tag {expected_tag})")
-        return False, messages
+        if version == _v.LOCAL_FALLBACK_VERSION:
+            messages.append(
+                f"  Release version: {version} (local fallback — no release "
+                "version set in the State Store)"
+            )
+            messages.append(
+                "  Fix: bump the version — "
+                "atdd state version bump --class PATCH|MINOR|MAJOR"
+            )
+            return False, messages
 
-    @staticmethod
-    def _read_version_from_file(path: Path) -> Optional[str]:
-        """Read version string from a version file (pyproject.toml, package.json, plain)."""
-        if path.name == "pyproject.toml":
-            text = path.read_text()
-            # Lightweight regex parsing (no toml dependency needed in CLI)
-            for line in text.splitlines():
-                stripped = line.strip()
-                match = re.match(r'version\s*=\s*["\']([^"\']+)["\']', stripped)
-                if match:
-                    return match.group(1).strip()
-        elif path.name == "package.json":
-            import json
-            data = json.loads(path.read_text())
-            return str(data.get("version", "")).strip() or None
-        else:
-            # Plain text: first semver-like string
-            pattern = re.compile(r"\bv?(\d+\.\d+(?:\.\d+)?)\b")
-            for line in path.read_text().splitlines():
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                m = pattern.search(stripped)
-                if m:
-                    return m.group(1)
-        return None
+        messages.append(f"  Release version: {version} (State Store SoT, #1172) — OK")
+        return True, messages
 
     def _validate_train_against_trains_yaml(
         self, train_value: str,
