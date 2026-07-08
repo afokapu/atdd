@@ -141,7 +141,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 24
+    total: 26
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -196,6 +196,11 @@ wagons:
     K002: minimize likelihood of existing-compliant-body validation regression by
       asserting today's compliant issue bodies validate against issue.schema.json
       (back-compat)
+    E008: maximize likelihood of issue-publish-to-store when authoring via `atdd author
+      issue` (store-first work_item + exactly one github external_ref, by default)
+    C012: minimize likelihood of author-without-publish by requiring the generate
+      path to reach the store-first publish and to fail loud (no body-only degrade)
+      when the store is unreachable
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
@@ -589,7 +594,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 10
+    total: 13
     D001: minimize likelihood of session-without-main-job — Define gate requires a
       JTBD main-job before Locate opens
     L001: minimize likelihood of unbound-source-capture — Locate binds captured sources
@@ -604,9 +609,15 @@ wagons:
       blocks a kept wagon whose slug is not verb-object
     C004: minimize likelihood of confirm-lock-with-non-verb-object-feature-name —
       Confirm blocks a kept feature whose slug is not verb-object
+    C005: minimize likelihood of confirm-lock-with-non-theme-first-artifact — Confirm
+      blocks a kept wagon producing a non-theme-first artifact identity
+    C006: minimize likelihood of confirm-lock-with-mispathed-contract — Confirm blocks
+      a kept wagon whose produced contract path does not mirror the identity
     E001: minimize likelihood of author-dispatch-skip — Confirm invokes atdd author
       per locked unit
     E002: minimize likelihood of unenforced-foundational-naming-rule — verb-object
+      naming is validator-backed and bound
+    E003: minimize likelihood of unenforced-artifact-naming-rule — artifact/contract
       naming is validator-backed and bound
     Y001: minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes
       through the elicit channel
@@ -941,7 +952,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 11
+    total: 20
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -954,6 +965,15 @@ wagons:
     Y002: minimize likelihood of stale-github-label-after-coach-phase-advance
     R002: minimize likelihood of coach-event-loop-aborting-before-complete
     E002: minimize likelihood of phase-advance-without-current-phase-completion-match
+    E007: minimize likelihood of worktree-binding-absent-from-store-after-create
+    E008: minimize likelihood of local-main-divergence-after-worktree-create
+    L002: minimize effort of locating-the-worktree-lifecycle-command-surface
+    E003: minimize likelihood of divergent-per-worktree-work-items-surviving-consolidation-as-duplicates
+    E004: minimize likelihood of control-root-env-override-at-a-child-worktree-forking-its-own-store
+    M002: minimize likelihood of a-per-worktree-store-regression-below-the-control-root-going-undetected
+    E005: minimize likelihood of extension-installs-landing-in-a-per-worktree-atdd-instead-of-the-control-root
+    E006: minimize likelihood of divergent-per-worktree-extension-installs-surviving-consolidation
+    M003: minimize likelihood of a-per-worktree-operational-atdd-subtree-below-the-control-root-going-undetected
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
@@ -1139,7 +1159,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 93
+    total: 94
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -1475,6 +1495,13 @@ wagons:
       Violation when that harness returns only an all-constant dict with no assert/raise
       (the Y002 theater afokapu/atdd#1192), extending the #1151 self-skip guard so
       a non-skipping test still cannot pass on fixed evidence (#1298; Part of afokapu/atdd-extensions#14)'
+    E061: 'minimize likelihood of operators-creating-an-issue-via-the-deprecated-atdd-issue-slug-path-without-being-pointed-to-the-canonical-store-first-atdd-author-issue
+      by emitting, at the top of IssueLifecycle.create, a stderr deprecation warning
+      that names ''atdd author issue'' as the canonical store-first create while the
+      alias still creates through the shared work_item_writer, and by updating the
+      operator docs (CLAUDE.md issues.commands + the gh issue create redirect + the
+      atdd issue CLI help) to name the canonical command (part of the atdd issue decommission
+      #1349; prerequisite #1272)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

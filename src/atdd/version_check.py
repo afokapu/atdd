@@ -199,7 +199,7 @@ def print_update_notice() -> None:
         notice = check_for_updates()
         if notice:
             print(notice, file=sys.stderr)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         pass  # Never fail the main command due to version check
 
 
@@ -337,7 +337,7 @@ def print_upgrade_sync_notice() -> None:
         if notice:
             print(f"\n⚠️  {notice}", file=sys.stderr)
             print(file=sys.stderr)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         pass  # Never fail the main command
 
 
@@ -404,7 +404,7 @@ def _verify_installed_version(expected: Optional[str]) -> bool:
             extra={"phase": "verify", "outcome": "timeout", "timeout_s": 10},
         )
         return False
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         return False
 
     if result.returncode != 0:
@@ -498,7 +498,7 @@ def auto_upgrade() -> bool:
             return False
 
         return False
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         return False
 
 

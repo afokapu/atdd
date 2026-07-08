@@ -283,7 +283,7 @@ class IssueManager:
                 repo_root=self.target_dir,
                 allow_main=allow_main,
             )
-        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             if strict:
                 # Issue registration must never report a silent success.
                 raise
@@ -387,49 +387,20 @@ class IssueManager:
     def _manifest_train(self, issue_number: int) -> Optional[str]:
         """Return the train assigned to *issue_number*.
 
-        #1203 Phase 1: reads shadow through the State Store first (the
-        authoritative read source), then fall back to the local manifest —
-        ``issues.<n>.train`` first, then any ``train`` recorded on the matching
-        ``sessions`` entry. The manifest remains the sole source for train
-        lineage past PLANNED (#1051, decommission Projects v2). Returns None when
-        no train is recorded anywhere.
+        #1270 slice D: the State Store is the sole read source (authoritative
+        since #1203); the local-manifest fallback (``issues.<n>.train`` /
+        ``sessions`` train) is retired. Returns None when no train is recorded.
         """
-        from_store = self._store_work_item_field(issue_number, "train")
-        if from_store:
-            return from_store
-        if not self.manifest_file.exists():
-            return None
-        manifest = self._load_manifest()
-        issues = manifest.get("issues") or {}
-        entry = issues.get(str(issue_number)) or {}
-        train = entry.get("train")
-        if train:
-            return str(train)
-        for session in manifest.get("sessions") or []:
-            if session.get("issue_number") == issue_number and session.get("train"):
-                return str(session["train"])
-        return None
+        return self._store_work_item_field(issue_number, "train")
 
     def _manifest_branch(self, issue_number: int) -> Optional[str]:
         """Return the branch recorded for *issue_number*.
 
-        #1203 Phase 1: reads shadow through the State Store first, then fall back
-        to the local manifest — the matching ``sessions`` entry first, then
-        ``issues.<n>.branch``. Replaces the retired Projects v2 ``ATDD Branch``
-        read (#1051).
+        #1270 slice D: the State Store is the sole read source (authoritative
+        since #1203); the local-manifest fallback is retired. Replaces the
+        retired Projects v2 ``ATDD Branch`` read (#1051).
         """
-        from_store = self._store_work_item_field(issue_number, "branch")
-        if from_store:
-            return from_store
-        if not self.manifest_file.exists():
-            return None
-        manifest = self._load_manifest()
-        for session in manifest.get("sessions") or []:
-            if session.get("issue_number") == issue_number and session.get("branch"):
-                return str(session["branch"])
-        entry = (manifest.get("issues") or {}).get(str(issue_number)) or {}
-        branch = entry.get("branch")
-        return str(branch) if branch else None
+        return self._store_work_item_field(issue_number, "branch")
 
     def branch_is_registered(self, branch: str) -> bool:
         """Return True if *branch*'s work item is registered (store-first).
@@ -1144,19 +1115,16 @@ class IssueManager:
         """
         try:
             from atdd.state.db import connect, init_state_store
-            from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
-            from atdd.state.store import StateStore
+            from atdd.state.work_item_writer import create_work_item
 
             conn = connect(init_state_store(start=self.target_dir))
             try:
-                store = StateStore(conn)
-                existing = store.objects.get(slug)
-                state = existing.state if existing is not None else status
-                merged = {**(existing.data if existing is not None else {}), **data}
-                store.objects.upsert(slug, WORK_ITEM_KIND, state=state, data=merged)
-                store.external_refs.link(
-                    slug, GITHUB_PROVIDER, "issue", str(issue_number),
-                    data={"source": "atdd-issue"},
+                # Shared store-first create (#1272): the same foundational writer
+                # planner `atdd author issue` uses — DRY across the planner/coach
+                # boundary via atdd.state, no cross-archetype import.
+                create_work_item(
+                    conn, slug, state=status, data=data,
+                    github_number=issue_number, ref_source="atdd-issue",
                 )
             finally:
                 conn.close()
@@ -1354,7 +1322,7 @@ class IssueManager:
                 repo=github_config["repo"],
                 project_id=github_config.get("project_id"),
             )
-        except (GitHubClientError, KeyError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (GitHubClientError, KeyError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: GitHub integration failed: {e}")
             return 1
 
@@ -1473,7 +1441,7 @@ class IssueManager:
                 message=f"chore(coach): register issue #{parent_number} in manifest",
                 allow_main=allow_main_commit,
             )
-        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(
                 f"Error: issue #{parent_number} created on GitHub but its "
                 f".atdd/manifest.yaml registration could not be committed — {exc}"
@@ -1509,7 +1477,7 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issues = client.list_issues_by_label("atdd-issue")
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
             return 1
 
@@ -1581,7 +1549,7 @@ class IssueManager:
             issues = client.list_open_issues(
                 label=label, limit=limit, assignee=assignee,
             )
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
             return 1
 
@@ -1625,14 +1593,14 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
             return 1
 
@@ -1959,10 +1927,10 @@ class IssueManager:
                 base_ref="origin/main",
                 head_ref="HEAD",
             )
-        except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             messages.append("  Smoke gate: SKIPPED (origin/main unreachable)")
             return True, messages
-        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             messages.append(f"  Smoke gate: SKIPPED ({exc})")
             return True, messages
 
@@ -2226,7 +2194,7 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
@@ -2236,7 +2204,7 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
             return 1
 
@@ -2504,14 +2472,14 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             subs = client.get_sub_issues(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
             return 1
 

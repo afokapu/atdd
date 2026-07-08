@@ -28,8 +28,11 @@ Invariants:
    schema must declare ``UNIQUE (provider, ref_kind, ref_value)`` so one
    provider ref maps to exactly one work item (the import-collision rule).
 5. ``coder.state-store.single-store-per-control-root`` — the ``check_layout``
-   single-store guard must exist and be invoked by the CLI (``doctor`` /
-   ``layout``); sibling-worktree mode allows exactly one store.
+   single-store guard must exist, be invoked by the CLI (``doctor`` /
+   ``layout``), AND actually bite: a behavioral probe (#1346) requires it to
+   report a violation for a synthetic rogue per-worktree store, so a
+   defined-but-toothless guard cannot pass. Sibling-worktree mode allows exactly
+   one store.
 
 Convention nodes: ``src/atdd/coder/conventions/nodes/coder.state-store.*.convention.yaml``.
 """
@@ -38,6 +41,7 @@ from __future__ import annotations
 
 import ast
 import re
+import tempfile
 from pathlib import Path
 from typing import List
 
@@ -274,6 +278,37 @@ def scan_single_store_per_control_root() -> List[Violation]:
                 ),
             )
         )
+
+    # Behavioral probe (#1346): the guard must actually BITE, not merely be
+    # defined and CLI-referenced. Build a synthetic rogue layout (a Control Root
+    # whose child worktree carries its own state.sqlite) and require check_layout
+    # to report it. A defined-but-toothless guard (returns [] here) fails the
+    # invariant — this is what lifts #1220 from a wiring grep to an observed
+    # single-store contract. Resolved through the module so a neutered guard is
+    # caught even if the symbol is monkeypatched.
+    from atdd.state import paths as _paths  # local: state is a lower foundational layer
+
+    with tempfile.TemporaryDirectory() as _tmp:
+        _root = Path(_tmp)
+        (_root / ".atdd").mkdir()  # control root marker
+        _child = _root / "wt1"
+        (_child / ".git").mkdir(parents=True)
+        _rogue = _child / ".atdd" / "state" / "state.sqlite"
+        _rogue.parent.mkdir(parents=True)
+        _rogue.touch()
+        if not _paths.check_layout(_root):
+            violations.append(
+                Violation(
+                    rule_id=_RULE_STORE.rule_id,
+                    severity=_RULE_STORE.severity,
+                    location=f"{_relpath(paths_py)}:1",
+                    detail=(
+                        "check_layout is toothless — it reported no violation for a "
+                        "rogue per-worktree State Store below the Control Root; the "
+                        "single-store-per-control-root guard does not bite"
+                    ),
+                )
+            )
     return violations
 
 

@@ -1,0 +1,32 @@
+urn: wmbt:define-plans:C006
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: confirm-lock-with-mispathed-contract
+context_clarifier: PlanSession.confirm refuses to lock when a kept wagon produces an
+  artifact whose concrete .schema.json contract file path does not mirror the identity
+  (every colon/dot boundary is a directory boundary under contracts/, the leaf is the
+  .schema.json file), e.g. a schema landing in the wrong theme directory
+lens: functional.effectiveness
+statement: minimize likelihood of confirm-lock-with-mispathed-contract by blocking Confirm
+  when a kept wagon's produced contract path violates planner.artifact-naming.path-mirrors-identity
+acceptances:
+- identity:
+    urn: acc:define-plans:C006-SMOKE-001-path-mirror-blocks-at-confirm
+    id: AC-SMOKE-001
+    purpose: Confirm blocks a mis-pathed contract and locks a mirrored one
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the atdd CLI
+    - a plan session at the Confirm step with one kept wagon that produces a contract file
+  when:
+    abstract: the session attempts to confirm with artifact "commons:identifiers.uuid"
+      whose contract is "contracts/commons/WRONG/uuid.schema.json"
+  then:
+    abstract:
+    - confirm is refused (SessionGateError / non-zero) and the session stays unlocked
+    - re-running with the mirrored path "contracts/commons/identifiers/uuid.schema.json" locks the session

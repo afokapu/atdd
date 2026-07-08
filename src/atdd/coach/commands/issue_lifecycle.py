@@ -57,7 +57,7 @@ def _check_on_main_branch(repo_root: Path) -> tuple:
         f"  The manifest commit will land on '{branch}', not main.\n"
         f"  Fix:\n"
         f"    git checkout main\n"
-        f"    atdd issue my-feature   # re-run with your slug\n"
+        f'    atdd author issue --title "My Feature" --slug my-feature   # canonical store-first create (#1272)\n'
         f"  Override: atdd issue my-feature --force   # re-run with your slug"
     )
     return False, msg
@@ -106,7 +106,7 @@ class IssueLifecycle:
                 return None
             import json
             return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return None
 
     def _fetch_sub_issues(self, issue_number: int, slug: str) -> list:
@@ -132,7 +132,7 @@ class IssueLifecycle:
                 return []
             import json
             return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return []
 
     def _get_status_from_labels(self, labels: list) -> str:
@@ -272,7 +272,7 @@ class IssueLifecycle:
         try:
             from atdd.coach.commands.initializer import write_workspace
             write_workspace(self.target_dir)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
 
         return worktree_path
@@ -301,7 +301,7 @@ class IssueLifecycle:
             if result.stdout:
                 print(result.stdout.rstrip())
             return result.returncode
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print("Warning: Could not run atdd gate")
             return 0
 

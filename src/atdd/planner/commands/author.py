@@ -927,8 +927,10 @@ def build_parser() -> argparse.ArgumentParser:
     # `issue` — author / validate a GitHub issue BODY from issue.schema.json
     # (#1223). Peer of the other authored kinds; schema-driven generation +
     # the schema-driven compliance gate (--check). Planner-side + coach-free.
-    iss = sub.add_parser("issue", help="author a schema-valid issue body (or --check one)")
+    iss = sub.add_parser("issue", help="author a schema-valid issue body and publish it store-first (or --check a body)")
     iss.add_argument("--title", default=None, help="issue title (the H1 + Problem Statement subject)")
+    iss.add_argument("--slug", default=None,
+                     help="work_item slug (the store uid); derived from --title when omitted (#1272)")
     iss.add_argument("--type", default="implementation", dest="issue_type",
                      help="issue Type (e.g. implementation, bug, refactor)")
     iss.add_argument("--status", default="INIT",
@@ -1115,7 +1117,45 @@ def run(argv: list[str]) -> int:
             "train": args.train,
             "feature": args.feature,
         }
-        print(create_issue_body({k: v for k, v in spec.items() if v is not None}))
+        body = create_issue_body({k: v for k, v in spec.items() if v is not None})
+
+        # #1272: authoring PUBLISHES store-first by default (no extra flag). The
+        # store is authoritative — write it BEFORE emitting the body. Only if the
+        # store write succeeds do we print the body; a store failure fails loud
+        # (no body-only degrade — the exact gap that orphaned #1271).
+        from atdd.planner.commands.author_publish import (
+            PublishError, derive_slug, publish_issue,
+        )
+
+        slug = args.slug or derive_slug(args.title or "")
+        try:
+            result = publish_issue(
+                slug, body,
+                title=args.title or "Untitled ATDD issue",
+                status=args.status, issue_type=args.issue_type,
+                branch=args.branch, train=args.train, feature=args.feature,
+            )
+        except PublishError as exc:
+            logger.warning("atdd author issue publish failed", extra={"slug": slug, "error": str(exc)})
+            print(f"atdd author issue: {exc}", file=sys.stderr)
+            return 2
+
+        # Store write succeeded — the body is now authoritative in the store.
+        # Emit it on stdout (preserves the body-authoring contract), and report
+        # the publish outcome on stderr.
+        print(body)
+        if result.projection_deferred:
+            print(
+                f"atdd author issue: published work_item {slug!r} (state={result.state}); "
+                "github projection deferred to the outbox (durable retry)",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"atdd author issue: published work_item {slug!r} (state={result.state}) "
+                f"-> github #{result.github_number}",
+                file=sys.stderr,
+            )
         return 0
 
     # Plan-layer kinds write under plan/ (not core/extension), so they need no

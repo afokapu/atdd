@@ -3361,6 +3361,10 @@ excluded:
   reason: "New #1276 convention-era validator: planner.wagon.name-is-verb-object (foundational verb-object naming enforced at the atdd plan Confirm gate and under atdd validate planner). Binds the new convention node via bind_rule; not a legacy persona validator subject to convention-graph parity. Retained, not decommissioned."
 - legacy_path: src/atdd/planner/validators/test_feature_name_is_verb_object.py
   reason: "New #1276 convention-era validator: planner.feature.name-is-verb-object (foundational verb-object naming for feature slugs, Confirm-gate + atdd validate planner). Binds the new convention node via bind_rule; not a legacy persona validator subject to convention-graph parity. Retained, not decommissioned."
+- legacy_path: src/atdd/planner/validators/test_artifact_theme_first_identity.py
+  reason: "New #1329 (#1314 item A) convention-era validator: planner.artifact-naming.theme-first-identity (foundational artifact/contract naming enforced at the atdd plan Confirm gate — theme-first identity with theme in get_theme_map). Binds the new convention node via bind_rule; not a legacy persona validator subject to convention-graph parity. Retained, not decommissioned."
+- legacy_path: src/atdd/planner/validators/test_artifact_path_mirrors_identity.py
+  reason: "New #1329 (#1314 item A) convention-era validator: planner.artifact-naming.path-mirrors-identity (foundational artifact/contract naming — the file path must mirror the theme-first identity, Confirm-gate + atdd validate planner). Binds the new convention node via bind_rule; not a legacy persona validator subject to convention-graph parity. Retained, not decommissioned."
 - legacy_path: src/atdd/planner/validators/__init__.py
   reason: Package marker, not an executable validator.
 - legacy_path: src/atdd/planner/validators/conftest.py

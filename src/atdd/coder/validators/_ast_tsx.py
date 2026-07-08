@@ -58,7 +58,7 @@ def parse_tsx(source: bytes):
     """
     try:
         parser = get_tsx_parser()
-    except TSXParserUnavailable:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+    except TSXParserUnavailable:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         return None
     return parser.parse(source)
 

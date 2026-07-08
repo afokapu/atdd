@@ -1,0 +1,40 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.path-mirrors-identity
+kind: rule
+status: active
+name: Contract path mirrors artifact identity
+statement: When a produced artifact declares a concrete contract schema file, the
+  file path must mirror the identity — every colon/dot boundary becomes a directory
+  boundary under contracts/ and the leaf is a .schema.json file
+  (contracts/{theme}/.../{aspect}.schema.json). A null contract or a
+  directory-reference physical form is out of scope; a mis-located .schema.json is
+  a violation.
+terms:
+- term_id: artifact_path_mirrors_identity
+  text: the path-mirrors-identity rule for a produced contract file
+  values:
+    mapping: split identity on ':' and '.'; segments are directories, leaf is the
+      .schema.json file
+    examples_ok:
+    - commons:identifiers.uuid -> contracts/commons/identifiers/uuid.schema.json
+    - commons:ux:foundations:color -> contracts/commons/ux/foundations/color.schema.json
+    - match:config -> contracts/match/config/config.schema.json
+    examples_bad:
+    - commons:identifiers.uuid -> contracts/commons/WRONG/uuid.schema.json
+implementation:
+  type: validator
+  ref: test_artifact_path_mirrors_identity::test_confirm_blocks_mispathed_contract
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: format
+  template: path_mapping
+  variant: planner_artifact_path_mirrors_identity
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: artifact
+  failure_evidence:
+  - artifact_name
+  - contract_path
+  - reason

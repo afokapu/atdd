@@ -1,0 +1,89 @@
+urn: "wmbt:drive-state-machine:E008"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "local-main-divergence-after-worktree-create"
+context_clarifier: "when `atdd worktree create` runs, local `main` must not drift from origin/main. New worktrees already start from origin/<default> (start_point), but local `main` itself is left behind whenever the remote has advanced — and the historical `register issue #N in manifest` on-main commits made it diverge unpushably under branch protection. The create path fast-forwards local `main` to origin/<default> only when strictly safe (local `main` is a proper ancestor of origin/<default> — behind-only, zero commits ahead — and its working tree is clean), via `git merge --ff-only`; on any divergence (commits ahead) or a dirty tree it skips loudly and never rewrites history. Combined with writing the binding to the store instead of committing it, worktree creation makes zero commits to local `main`."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of local-main-divergence-after-worktree-create by fast-forwarding local `main` to origin/<default> during `atdd worktree create` only when it is a clean behind-only ancestor (git merge --ff-only, skipped loudly on divergence or a dirty tree) and by making zero commits to local `main` — so creating a worktree leaves `main` a clean fast-forward of origin/main rather than an unpushable divergence"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E008-UNIT-001-behind-only-clean-fast-forwards-main"
+      id: "AC-UNIT-001"
+      purpose: "When local default is strictly behind origin with a clean tree, the helper fast-forwards it to origin/<default>"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo whose local default branch is a proper ancestor of origin/<default> (behind by >=1 commit, 0 ahead) with a clean working tree"
+    when:
+      abstract: "_ff_sync_default_branch(default_branch) is invoked"
+    then:
+      abstract:
+        - "Local <default> is advanced to the origin/<default> commit"
+        - "No new commit object is created (a pure fast-forward, HEAD ref moves only)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E008-UNIT-002-diverged-main-is-not-rewritten"
+      id: "AC-UNIT-002"
+      purpose: "When local default has commits ahead of origin (diverged), the helper skips and never rewrites history"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo whose local default branch has >=1 commit not on origin/<default> (ahead), i.e. diverged"
+    when:
+      abstract: "_ff_sync_default_branch(default_branch) is invoked"
+    then:
+      abstract:
+        - "Local <default> HEAD is unchanged (the ahead commits are preserved)"
+        - "A skip note referencing divergence is emitted"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E008-UNIT-003-dirty-tree-skips-fast-forward"
+      id: "AC-UNIT-003"
+      purpose: "When the default checkout has a dirty working tree, the helper skips the fast-forward"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A git repo whose local default is behind origin/<default> but has uncommitted changes in its working tree"
+    when:
+      abstract: "_ff_sync_default_branch(default_branch) is invoked"
+    then:
+      abstract:
+        - "Local <default> HEAD is unchanged (no fast-forward applied)"
+        - "A skip note referencing the dirty tree is emitted"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"
+  - identity:
+      urn: "acc:drive-state-machine:E008-SMOKE-001-create-makes-zero-commits-on-main"
+      id: "AC-SMOKE-001"
+      purpose: "Running the create path against a real repo produces zero new commits on local main"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repo (tmp) with an origin remote and a registered issue, local main at origin/main"
+    when:
+      abstract: "`atdd worktree create <N>` is run"
+    then:
+      abstract:
+        - "The local main HEAD commit count is unchanged (no new commit on main)"
+        - "The new worktree exists and is based on origin/<default>"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-07"

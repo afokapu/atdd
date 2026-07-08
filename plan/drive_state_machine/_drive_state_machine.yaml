@@ -13,6 +13,8 @@ outcome: "atdd coach + atdd agent CLI surface with decisions.jsonl + judgments.j
 features:
   - urn: "feature:drive-state-machine:coach-state-machine-and-runtime"
   - urn: "feature:drive-state-machine:phase-advance-requires-completion-match"
+  - urn: "feature:drive-state-machine:consolidate-worktree-command"
+  - urn: "feature:drive-state-machine:consolidate-store-writes"
 
 produce:
   - name: commons:coach:coach-cli-skeleton
@@ -65,7 +67,7 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 11
+  total: 20
   D001: "minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton"
   D002: "minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface"
   P001: "minimize likelihood of lossy-coach-decisions-and-judgments-on-restart"
@@ -77,3 +79,12 @@ wmbt:
   Y002: "minimize likelihood of stale-github-label-after-coach-phase-advance"
   R002: "minimize likelihood of coach-event-loop-aborting-before-complete"
   E002: "minimize likelihood of phase-advance-without-current-phase-completion-match"
+  E007: "minimize likelihood of worktree-binding-absent-from-store-after-create"
+  E008: "minimize likelihood of local-main-divergence-after-worktree-create"
+  L002: "minimize effort of locating-the-worktree-lifecycle-command-surface"
+  E003: "minimize likelihood of divergent-per-worktree-work-items-surviving-consolidation-as-duplicates"
+  E004: "minimize likelihood of control-root-env-override-at-a-child-worktree-forking-its-own-store"
+  M002: "minimize likelihood of a-per-worktree-store-regression-below-the-control-root-going-undetected"
+  E005: "minimize likelihood of extension-installs-landing-in-a-per-worktree-atdd-instead-of-the-control-root"
+  E006: "minimize likelihood of divergent-per-worktree-extension-installs-surviving-consolidation"
+  M003: "minimize likelihood of a-per-worktree-operational-atdd-subtree-below-the-control-root-going-undetected"

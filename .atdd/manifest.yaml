@@ -1,6 +1,18 @@
 version: '2.0'
 created: '2026-05-13'
 sessions:
+- id: '1349'
+  slug: deprecate-issue-create-alias
+  file: null
+  issue_number: 1349
+  type: refactor
+  status: REFACTOR
+  created: '2026-07-07'
+  archived: null
+  branch: refactor/deprecate-issue-create-alias
+  train: 0002-coach-drives-lifecycle
+  wagon: govern-lifecycle
+  feature: feature:govern-lifecycle:deprecate-issue-create-alias
 - id: '1330'
   slug: contract-first-class-unit
   file: null
@@ -3156,10 +3168,11 @@ sessions:
   file: null
   issue_number: 1272
   type: implementation
-  status: INIT
+  status: REFACTOR
   created: '2026-06-30'
   archived: null
   branch: feat/atdd-author-issue-publishes-to-store
+  train: 0003-author-substrate
 - id: '1273'
   slug: mandatory-three-path-review-for-authored-issues
   file: null
@@ -3396,4 +3409,93 @@ sessions:
   created: '2026-07-02'
   archived: null
   train: 0001-self-compliance-validate
+- id: '1346'
+  slug: activate-single-shared-store-on-write-hot-path-consolidate-per-worktree-stores-completes-1315
+  file: null
+  issue_number: 1346
+  type: implementation
+  status: SMOKE
+  created: '2026-07-06'
+  archived: null
+  train: 0002-coach-drives-lifecycle
+- id: '1342'
+  slug: fix-issue-status-train-noop
+  file: null
+  issue_number: 1342
+  type: implementation
+  status: INIT
+  created: '2026-07-06'
+  archived: null
+- id: '1338'
+  slug: reconcile-lifecycle-label-with-work
+  file: null
+  issue_number: 1338
+  type: implementation
+  status: INIT
+  created: '2026-07-03'
+  archived: null
+- id: '1253'
+  slug: verify-unverified-parity-detectors
+  file: null
+  issue_number: 1253
+  type: implementation
+  status: INIT
+  created: '2026-06-30'
+  archived: null
+- id: '1196'
+  slug: reconcile-plan-session-no-issue-with-precommit-registration
+  file: null
+  issue_number: 1196
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
+- id: '1195'
+  slug: atdd-emergency-must-require-human-authorization-not-agent-self
+  file: null
+  issue_number: 1195
+  type: implementation
+  status: INIT
+  created: '2026-06-22'
+  archived: null
+- id: '1168'
+  slug: introduce-state-store-for-local-operational-data
+  file: null
+  issue_number: 1168
+  type: implementation
+  status: INIT
+  created: '2026-06-20'
+  archived: null
+- id: '1151'
+  slug: live-smoke-acceptance-must-execute-not-skip
+  file: null
+  issue_number: 1151
+  type: implementation
+  status: GREEN
+  created: '2026-06-18'
+  archived: null
+- id: '1355'
+  slug: migrate-remaining-manifest-only-readers-to-the-state-store
+  file: null
+  issue_number: 1355
+  type: implementation
+  status: INIT
+  created: '2026-07-07'
+  archived: null
+- id: '1352'
+  slug: planner-artifact-definition-anchors
+  file: null
+  issue_number: 1352
+  type: implementation
+  status: INIT
+  created: '2026-07-07'
+  archived: null
+- id: '1351'
+  slug: retire-manifest-read-fallback-in-store-first-readers
+  file: null
+  issue_number: 1351
+  type: implementation
+  status: SMOKE
+  created: '2026-07-07'
+  archived: null
 issues: {}

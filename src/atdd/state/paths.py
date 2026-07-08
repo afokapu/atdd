@@ -43,6 +43,11 @@ CONTROL_ROOT_MARKER_FILES = ("control-root.yaml", "config.yaml", "manifest.yaml"
 CONTROL_ROOT_MARKER_DIRS = ("state",)
 #: Subdirectories that, alone, mark a ``.atdd/`` as scratch-only (diagnostic).
 SCRATCH_ATDD_DIRS = ("cache", "runtime", "diagnostics")
+#: Operational install subdirectories under ``.atdd/`` that, like the State
+#: Store, are git-ignored and must live once at the Control Root — never forked
+#: per worktree (#1346). ``extensions``/``workspaces`` are substrate installs.
+#: Scratch dirs (:data:`SCRATCH_ATDD_DIRS`) are deliberately excluded.
+OPERATIONAL_ATDD_DIRS = ("extensions", "workspaces")
 
 
 class LayoutMode(str, Enum):
@@ -239,6 +244,25 @@ def resolve_control_root(
     override = env.get(CONTROL_ROOT_ENV)
     if override:
         root = Path(override).expanduser().resolve()
+        # Rule 1.4 (#1346) — activate the shared store even under the interim
+        # ``ATDD_CONTROL_ROOT=<worktree>`` workaround. If the override names a
+        # directory that is itself a CHILD git worktree of a flat-sibling project
+        # (its git common dir resolves to a sibling primary ``main/`` checkout),
+        # anchor at the shared project-root store instead of forking a
+        # per-worktree one — otherwise the very workaround meant to avoid an
+        # Ambiguous Control Root is what creates a divergent per-worktree store on
+        # the next hot-path write. Overrides that are NOT flat-sibling child
+        # worktrees (hermetic tmp dirs, single-repo checkouts, consumer repos) are
+        # still honored verbatim, so isolated tests and consumer installs are
+        # unchanged.
+        shared = _shared_store_root(root, git_common_dir)
+        if shared is not None and shared != root and shared in root.parents:
+            gwr = git_worktree_root(start)
+            _log.debug(
+                "control root override redirected to shared project root (#1346)",
+                extra={"env": CONTROL_ROOT_ENV, "override": str(root), "control_root": str(shared)},
+            )
+            return ControlRootResolution(shared, gwr, LayoutMode.SIBLING_WORKTREE)
         gwr = git_worktree_root(start)
         mode = (
             LayoutMode.SINGLE_REPO
@@ -301,13 +325,59 @@ def resolve_control_root(
     raise ControlRootNotFoundError(start)
 
 
+def resolve_operational_root(
+    start: Path,
+    env: Optional[Mapping[str, str]] = None,
+    git_common_dir: Optional[Callable[[Path], Optional[Path]]] = None,
+) -> Path:
+    """Best-effort Control Root for operational ``.atdd/`` writes and installs (#1346).
+
+    Every operational ``.atdd/`` write and install — the State Store, substrate
+    extension/workspace installs, and other operational data — must land in the
+    single Control Root ``.atdd/``, not a per-worktree one. This wraps
+    :func:`resolve_control_root` and returns its Control Root, falling back to
+    ``start`` itself when resolution is impossible (a consumer repo with no
+    ``.atdd/`` yet, or an ambiguous/absent layout) so consumer installs and
+    first-run behavior are unchanged.
+    """
+    try:
+        return resolve_control_root(start, env=env, git_common_dir=git_common_dir).control_root
+    except StateLayoutError as exc:
+        # No resolvable Control Root (consumer repo without .atdd/, or an ambiguous/
+        # absent layout): honor the given root so consumer + first-run installs are
+        # unchanged. Logged rather than silently swallowed.
+        _log.debug(
+            "operational root falls back to start (no resolvable Control Root)",
+            extra={"start": str(start), "error": str(exc)},
+        )
+        return Path(start).resolve()
+
+
+def _rogue_operational_subtrees(worktree: Path) -> list[Path]:
+    """Operational ``.atdd/`` subtrees a child worktree carries that must not
+    exist below the Control Root (#1346): its own State Store, or a non-empty
+    substrate install dir. Scratch dirs (runtime/cache/diagnostics) are ignored.
+    """
+    rogue: list[Path] = []
+    store = worktree / STATE_STORE_RELATIVE
+    if store.is_file():
+        rogue.append(store)
+    for name in OPERATIONAL_ATDD_DIRS:
+        install_dir = worktree / ATDD_DIR / name
+        if install_dir.is_dir() and any(install_dir.iterdir()):
+            rogue.append(install_dir)
+    return rogue
+
+
 def check_layout(control_root: Path) -> list[str]:
     """Validate that the filesystem layout under ``control_root`` is legal.
 
     Returns a list of human-readable violation strings (empty == legal). The
-    central rule for sibling-worktree mode: there must be exactly ONE State
-    Store (at the Control Root) — no child Git worktree may carry its own
-    ``.atdd/state/state.sqlite`` (that would be split-brain operational state).
+    central rule for sibling-worktree mode: every operational ``.atdd/`` subtree
+    must live once, at the Control Root — no child Git worktree may carry its own
+    ``.atdd/state/state.sqlite`` (a split-brain store) NOR its own operational
+    install dir (``.atdd/extensions/`` / ``.atdd/workspaces/``, a forked substrate
+    install). Scratch dirs (runtime/cache/diagnostics per #1179) are ignored.
     """
     control_root = Path(control_root).resolve()
     violations: list[str] = []
@@ -317,7 +387,7 @@ def check_layout(control_root: Path) -> list[str]:
         return violations
 
     # Scan immediate children that are Git worktree roots for a forbidden,
-    # independently-rooted State Store.
+    # independently-rooted operational .atdd/ subtree (store or substrate install).
     for child in sorted(p for p in control_root.iterdir() if p.is_dir()):
         if child == control_root:
             continue
@@ -325,11 +395,11 @@ def check_layout(control_root: Path) -> list[str]:
         is_worktree = git_entry.is_dir() or git_entry.is_file()
         if not is_worktree:
             continue
-        rogue_store = child / STATE_STORE_RELATIVE
-        if rogue_store.is_file():
+        for rogue in _rogue_operational_subtrees(child):
+            kind = "State Store" if rogue.name == "state.sqlite" else "operational install"
             violations.append(
-                "Per-worktree State Store detected (sibling-worktree mode allows only one, "
-                f"at the Control Root): {rogue_store} — run `atdd state migrate-layout`."
+                f"Per-worktree {kind} detected (sibling-worktree mode allows only one, "
+                f"at the Control Root): {rogue} — run `atdd state migrate-layout`."
             )
 
     return violations

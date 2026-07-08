@@ -88,29 +88,16 @@ def _store_issue_wagon_map(root: Path) -> dict[int, str]:
 
 
 def issue_wagon_map(repo_root: Optional[Path] = None) -> dict[int, str]:
-    """Map issue number → wagon slug.
+    """Map issue number → wagon slug, from the State Store only.
 
-    #1270 slice A: read from the State Store first (authoritative since #1203),
-    falling back to ``.atdd/manifest.yaml`` when the store yields no wagons (e.g.
-    a store not yet imported from the manifest).
+    #1270 slice D: the store is the sole read source (authoritative since #1203).
+    The former ``.atdd/manifest.yaml`` fallback is retired — a cold store
+    self-seeds from the manifest on first read (``WorkItemReader`` auto-import),
+    so the fallback was redundant, not load-bearing.
     """
     root = _repo_root(repo_root)
     store_map = _store_issue_wagon_map(root)
-    if store_map:
-        return {number: _wagon_slug(str(wagon)) for number, wagon in store_map.items()}
-    path = root / ".atdd" / "manifest.yaml"
-    if not path.is_file():
-        return {}
-    data = yaml.safe_load(path.read_text()) or {}
-    out: dict[int, str] = {}
-    for session in data.get("sessions") or []:
-        if not isinstance(session, dict):
-            continue
-        number = session.get("issue_number")
-        wagon = session.get("wagon")
-        if isinstance(number, int) and wagon:
-            out[number] = _wagon_slug(str(wagon))
-    return out
+    return {number: _wagon_slug(str(wagon)) for number, wagon in store_map.items()}
 
 
 def graph_issue_deps(
