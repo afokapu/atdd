@@ -21,9 +21,13 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-PLATFORM_ANCHOR = "src/atdd/coach/validators/test_urn_traceability.py"
-RULE_BOUND_ANCHOR = "src/atdd/coach/validators/test_commit_trailers_binding.py"
-ACCEPTANCE_ANCHOR = "src/atdd/coach/validators/test_e026_bypass_inventory_guard.py"
+# Anchors point at files that SURVIVE the #1365 partial sweep (the originals —
+# test_urn_traceability / test_commit_trailers_binding / test_e026_bypass_inventory_guard —
+# were among the 12 deleted). These three are quarantined-and-kept (see
+# docs/validator-parity/decommission-fill-later.md) and still exercise the three label kinds.
+PLATFORM_ANCHOR = "src/atdd/coach/validators/test_validate_contract_consumers.py"
+RULE_BOUND_ANCHOR = "src/atdd/planner/validators/test_dispatch_registry.py"
+ACCEPTANCE_ANCHOR = "src/atdd/planner/validators/test_smoke_synthetic_fixture_bypass.py"
 
 
 def _load_classifier(repo_root: Path):
