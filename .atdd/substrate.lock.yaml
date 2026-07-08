@@ -1,10 +1,10 @@
 schema_version: 1.0.0
 artifacts:
-- id: atdd.extension.coder
+- id: atdd.extension.coder.base
   kind: extension
   version: 0.1.0
-  digest: sha256:6042f540e335241cc40bd830725981b8d6fce2a0cfb266a627ca7b15e6691e11
-  installed_path: .atdd/extensions/atdd.extension.coder/0.1.0
+  digest: sha256:d584ec1f54ccf4ff164d9d1f96505e79ebf2ed43a6e8bd14eda23812d839d4f1
+  installed_path: .atdd/extensions/atdd.extension.coder.base/0.1.0
   enabled: true
   workspaces:
   - id: atdd.workspace.python-pytest
@@ -12,11 +12,11 @@ artifacts:
   - id: atdd.workspace.dart-flutter
   - id: atdd.workspace.supabase
   - id: atdd.workspace.fastapi
-- id: atdd.extension.tester
+- id: atdd.extension.tester.base
   kind: extension
   version: 0.1.0
-  digest: sha256:08d6c17b125d23f0ff6b5ce847c3eb0c74edb9f3b2aacab001889ec92f049d66
-  installed_path: .atdd/extensions/atdd.extension.tester/0.1.0
+  digest: sha256:3a53274c8ee643a11030dccbf2189a7456c75e250b5f9353304922a90d50ef3f
+  installed_path: .atdd/extensions/atdd.extension.tester.base/0.1.0
   enabled: true
   workspaces:
   - id: atdd.workspace.python-pytest
@@ -34,6 +34,6 @@ artifacts:
 - id: atdd.workspace.python-pytest
   kind: workspace
   version: 0.1.0
-  digest: sha256:edd17f72208aa21d882b6f359bc935954ca0120deaf4cd3d854ddac25c855329
+  digest: sha256:8adb7b20ea89c18d1631d3817c64510b54415e6fcf27c2ca2bc493bd37fcc1af
   installed_path: .atdd/workspaces/atdd.workspace.python-pytest/0.1.0
   enabled: true

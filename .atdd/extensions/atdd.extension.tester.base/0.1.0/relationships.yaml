@@ -1,13 +1,13 @@
 schema_version: "1.0.0"
 
-# Extension-LOCAL relationship graph for atdd.extension.tester.
+# Extension-LOCAL relationship graph for atdd.extension.tester.base.
 #
 # IMPORTANT (boundary spec §6.2): core↔extension edges are NOT authored here. The
 # core tester nodes these convention nodes realize are declared narratively in each
 # node's body / atdd.extension.yaml, never as graph edges. Only extension-internal
 # edges live here. Authored in the build slice; this skeleton carries the graph
 # header with no nodes/edges yet.
-graph_id: atdd.extension.tester.relationships
+graph_id: atdd.extension.tester.base.relationships
 
 nodes:
 - tester.filename.urn

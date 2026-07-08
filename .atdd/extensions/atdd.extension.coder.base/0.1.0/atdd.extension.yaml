@@ -1,5 +1,5 @@
 schema_version: 1.0.0
-extension_id: atdd.extension.coder
+extension_id: atdd.extension.coder.base
 version: 0.1.0
 kind: extension
 role: coder

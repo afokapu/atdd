@@ -1,4 +1,4 @@
-# atdd.extension.tester
+# atdd.extension.tester.base
 
 Official ATDD **tester-role extension**. It owns every tester convention node
 classified `extension` in the coder/tester decomposition — the stack-bound tester
@@ -16,8 +16,9 @@ api_structure bindings).
 ```text
 publisher : atdd
 kind      : extension
-name      : tester
-id        : atdd.extension.tester
+persona   : tester
+name      : base
+id        : atdd.extension.tester.base
 manifest  : atdd.extension.yaml
 ```
 
@@ -33,7 +34,7 @@ convention or implementation is authored here yet.
 ## Layout
 
 ```text
-atdd.extension.tester/
+atdd.extension.tester.base/
   atdd.extension.yaml      # manifest: id, role: tester, owns, depends_on.workspaces
   conventions/             # tester.<area>.<slug> nodes — authored in the build slice
   relationships.yaml       # extension-internal edges only (empty skeleton)
