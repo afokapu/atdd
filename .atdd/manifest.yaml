@@ -3473,4 +3473,28 @@ sessions:
   status: GREEN
   created: '2026-06-18'
   archived: null
+- id: '1355'
+  slug: migrate-remaining-manifest-only-readers-to-the-state-store
+  file: null
+  issue_number: 1355
+  type: implementation
+  status: INIT
+  created: '2026-07-07'
+  archived: null
+- id: '1352'
+  slug: planner-artifact-definition-anchors
+  file: null
+  issue_number: 1352
+  type: implementation
+  status: INIT
+  created: '2026-07-07'
+  archived: null
+- id: '1351'
+  slug: retire-manifest-read-fallback-in-store-first-readers
+  file: null
+  issue_number: 1351
+  type: implementation
+  status: SMOKE
+  created: '2026-07-07'
+  archived: null
 issues: {}
