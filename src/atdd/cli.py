@@ -2812,11 +2812,11 @@ Phase descriptions:
     # atdd state <doctor|layout|init|import-manifest|sync> ...  (#1168)
     elif args.command == "state":
         state_argv = list(getattr(args, "state_argv", []) or [])
-        # `state sync` bridges to GitHub, so it lives in the integrations layer and
-        # is routed here (the composition root) — keeping atdd.state itself free of
-        # any atdd.integrations import (foundational-layer discipline, #1184).
+        # `state sync` is provider-agnostic (#1364): it drives registered providers
+        # via the atdd.state seam and imports NO provider (no GitHub). Provider-
+        # specific syncing lives in an extension that plugs into the registry.
         if state_argv and state_argv[0] == "sync":
-            from atdd.integrations.github.state_sync import run_sync_cli
+            from atdd.state.sync_cli import run_sync_cli
             return run_sync_cli(state_argv[1:])
         from atdd.state.cli import run as run_state
         return run_state(state_argv)
