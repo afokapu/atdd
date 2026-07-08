@@ -6,7 +6,7 @@ name: WMBT - Acceptance Coverage
 statement: Every WMBT must have at least one acceptance criterion (except status:draft).
 implementation:
   type: validator
-  ref: conventions/coverage/test_hierarchy_coverage::test_fault_injection_convention_catches_legacy_warn_only
+  ref: conventions/coverage/test_hierarchy_coverage::test_fault_injection_convention_catches
 source:
   legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
   legacy_section: rules

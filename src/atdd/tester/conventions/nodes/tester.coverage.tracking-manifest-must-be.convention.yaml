@@ -10,7 +10,7 @@ terms:
     signal as a file.
 implementation:
   type: validator
-  ref: conventions/coverage/test_hierarchy_coverage::test_fault_injection_convention_catches_legacy_warn_only
+  ref: conventions/coverage/test_hierarchy_coverage::test_fault_injection_convention_catches
 source:
   legacy_path: src/atdd/tester/conventions/coverage.convention.yaml
   legacy_section: rules

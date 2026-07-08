@@ -130,10 +130,10 @@ def test_clean_baseline_real_graph_is_empty() -> None:
 # --- fault injection + legacy parity (BOTH must catch) ---------------------
 
 
-def test_fault_injection_convention_and_legacy_both_catch() -> None:
+def test_fault_injection_convention_catches() -> None:
     """Inject a coach import under a real non-deferred commons wagon's source
-    tree; assert the convention evaluator AND the legacy validator (subprocess)
-    BOTH catch it; then revert and confirm both go green again."""
+    tree; assert the convention evaluator catches it; then revert and confirm
+    it goes green again. Oracle retired (#1365)."""
     root = _repo_root()
     graph0 = load_composed_graph(root)
 
@@ -151,25 +151,16 @@ def test_fault_injection_convention_and_legacy_both_catch() -> None:
             break
     assert target_slug, "no clean commons wagon available for fault injection"
 
-    # Pre-condition: both clean.
+    # Pre-condition: clean.
     assert _evaluate(load_composed_graph(root)) == []
-    pre = _parity.run_legacy(root)
-    assert pre.returncode == 0, f"legacy not green pre-injection:\n{pre.stdout}\n{pre.stderr}"
 
     with _parity.injected_coach_import(root, target_slug):
-        # Convention evaluator catches it.
+        # Convention evaluator catches it (oracle retired #1365 — legacy subprocess
+        # cross-check dropped; the convention path is the live coverage).
         viols = _evaluate(load_composed_graph(root))
         assert any(v["source"].startswith(f"{target_slug}:") for v in viols), (
             f"convention evaluator missed injected crossing in {target_slug}: {viols}"
         )
-        # Legacy validator (subprocess) ALSO catches it.
-        post = _parity.run_legacy(root)
-        assert post.returncode != 0, (
-            f"legacy did not catch injected crossing:\n{post.stdout}\n{post.stderr}"
-        )
-        assert target_slug in (post.stdout + post.stderr)
 
-    # Post-condition: both green again.
+    # Post-condition: green again.
     assert _evaluate(load_composed_graph(root)) == []
-    after = _parity.run_legacy(root)
-    assert after.returncode == 0, f"legacy not green after revert:\n{after.stdout}\n{after.stderr}"
