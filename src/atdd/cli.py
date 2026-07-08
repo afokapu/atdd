@@ -2513,14 +2513,30 @@ Phase descriptions:
             issue_parser.print_help()
             return 0
 
-        # atdd issue open — list open issues
+        # atdd issue open — DEPRECATED (#1307): the read/list verb moved to
+        # `atdd coach issues`. Warn on stderr and delegate to the new verb.
+        # Emitted with a DIRECT stderr print (NOT `_deprecation_warning`) on
+        # purpose: the positional form "atdd issue open" would register a
+        # WHOLESALE `atdd issue` key in the coach.rule-id.fix-hint-completeness
+        # C2 deprecation registry, false-flagging the still-valid `atdd issue
+        # <N> --status`/`--check`/`--sync-wmbts` hints (those retire in C5/#1309).
+        # The #1349 create-by-slug shim set this direct-print precedent. Do NOT
+        # remove this shim (that is C5).
         if target == "open":
-            manager = IssueManager()
-            return manager.open_issues(
-                label=getattr(args, 'label', None),
-                limit=getattr(args, 'limit', 30),
-                assignee=getattr(args, 'assignee', None),
+            print(
+                "\033[33m⚠️  Deprecated: 'atdd issue open' will be removed. "
+                "Use 'atdd coach issues' instead (#1307).\033[0m",
+                file=sys.stderr,
             )
+            from atdd.coach.commands.issue_read import run as run_issues
+            _issues_argv = ["open"]
+            if getattr(args, 'label', None):
+                _issues_argv += ["--label", args.label]
+            if getattr(args, 'limit', 30) != 30:
+                _issues_argv += ["--limit", str(args.limit)]
+            if getattr(args, 'assignee', None):
+                _issues_argv += ["--assignee", args.assignee]
+            return run_issues(_issues_argv)
 
         # atdd issue review <N> [--passes ...] [--llms ...] [--dimensions ...] [--show] [--force]
         if target == "review":
@@ -2546,10 +2562,24 @@ Phase descriptions:
                 force=getattr(args, 'force', False),
             )
 
-        # atdd issue reconcile — backfill every open GitHub atdd-issue missing from manifest
+        # atdd issue reconcile — DEPRECATED (#1305, C2 of #1303): warn on stderr and
+        # delegate to the coach-archetype `atdd coach reconcile` drop-in. The reconcile
+        # engine (IssueManager.reconcile) is NOT reimplemented — both paths reach it.
         if target == "reconcile":
-            manager = IssueManager()
-            return manager.reconcile()
+            # Emitted directly (not via `_deprecation_warning`) on purpose: only the
+            # `reconcile` FORM is deprecated, NOT the bare `atdd issue` command (which
+            # still enters/transitions issues; its removal is C5/#1309). The fix-hint
+            # C2 registry keys deprecations on the first two tokens, so a
+            # `_deprecation_warning("atdd issue reconcile", ...)` would register a
+            # WHOLESALE `atdd issue` deprecation and wrongly flag every still-valid
+            # `atdd issue <N>` hint — same reasoning as the #1349 create-by-slug notice.
+            print(
+                "\033[33m⚠️  Deprecated: 'atdd issue reconcile' will be removed. "
+                "Use 'atdd coach reconcile' instead.\033[0m",
+                file=sys.stderr,
+            )
+            from atdd.coach.commands.coach_verbs.reconcile import run as run_reconcile
+            return run_reconcile([])
 
         # atdd issue is-registered <branch> — store-backed pre-commit branch gate
         # (#1270 slice C). Exit 0 = registered (or nothing to check); 1 = the repo
@@ -2562,43 +2592,38 @@ Phase descriptions:
             manager = IssueManager()
             return 0 if manager.branch_is_registered(branch) else 1
 
-        # atdd issue sync-labels [<N>|--all] [--dry-run]
+        # atdd issue sync-labels [<N>|--all] [--dry-run] — DEPRECATED (#1308).
+        # Extracted to `atdd coach sync-labels` (umbrella #1303 splits `atdd
+        # issue` across the author/coach archetypes). Warn on stderr and
+        # delegate to the new coach verb, which imports IssueManager.sync_labels
+        # / sync_labels_all (the unchanged re-derivation + delta) and
+        # _print_sync_labels_delta (the unchanged presentation) — behavior is
+        # identical. Do NOT remove this shim (that is C5/#1309); existing
+        # `atdd issue sync-labels` callers must keep working.
+        #
+        # Emitted directly (NOT via `_deprecation_warning`) on purpose: the
+        # fix-hint C2 registry keys deprecations on the first two tokens of the
+        # deprecated form, so `_deprecation_warning("atdd issue sync-labels",
+        # ...)` would register a WHOLESALE `atdd issue` deprecation (the
+        # `sync-labels` token is not a flag) and false-flag every still-valid
+        # `atdd issue <N>` fix-hint — the exact hazard #1349/#1304 documented.
+        # A direct stderr print deprecates only the `sync-labels` FORM.
         if target == "sync-labels":
-            manager = IssueManager()
-            dry_run = getattr(args, 'dry_run', False)
-            apply_all = getattr(args, 'all_issues', False)
+            print(
+                "\033[33m⚠️  Deprecated: 'atdd issue sync-labels' will be "
+                "removed. Use 'atdd coach sync-labels' instead.\033[0m",
+                file=sys.stderr,
+            )
+            from atdd.coach.commands.coach_verbs.sync_labels import run as run_sync_labels
+            _sync_argv: list = []
             number_str = getattr(args, 'number', None)
-            if apply_all:
-                results = manager.sync_labels_all(dry_run=dry_run)
-                drifted = [
-                    (num, delta) for num, delta in results
-                    if delta["to_add"] or delta["to_remove"]
-                ]
-                for num, delta in drifted:
-                    _print_sync_labels_delta(num, delta, dry_run=dry_run)
-                if not drifted:
-                    print(
-                        f"sync-labels: every atdd-issue already matches "
-                        f"body metadata ({len(results)} checked)"
-                    )
-                else:
-                    suffix = " (dry-run)" if dry_run else ""
-                    print(
-                        f"sync-labels: {len(drifted)}/{len(results)} "
-                        f"issue(s) drifted{suffix}"
-                    )
-                return 0
-            if not number_str:
-                print("Error: atdd issue sync-labels requires an issue number or --all")
-                return 1
-            try:
-                issue_number = int(number_str)
-            except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                print(f"Error: invalid issue number '{number_str}'")
-                return 1
-            delta = manager.sync_labels(issue_number, dry_run=dry_run)
-            _print_sync_labels_delta(issue_number, delta, dry_run=dry_run)
-            return 0
+            if number_str:
+                _sync_argv.append(str(number_str))
+            if getattr(args, 'all_issues', False):
+                _sync_argv.append("--all")
+            if getattr(args, 'dry_run', False):
+                _sync_argv.append("--dry-run")
+            return run_sync_labels(_sync_argv)
 
         # Detect mode: integer → enter, string → create (future)
         try:
@@ -2709,8 +2734,21 @@ Phase descriptions:
                 force=getattr(args, 'force', False),
             )
   # atdd:suppress(coder.logging.coach-silent-swallow)
-        # Default: enter existing issue
-        return lifecycle.enter(issue_number)
+        # Default: show/enter an existing issue — DEPRECATED (#1307): the
+        # read/show-enter verb moved to `atdd coach issues <N>`. Warn on stderr
+        # and delegate to the new verb. DIRECT stderr print (NOT
+        # `_deprecation_warning`) for the same C2-registry reason as the `open`
+        # shim above: a positional "atdd issue <N>" would collapse to a
+        # wholesale `atdd issue` deprecation key and false-flag the still-valid
+        # `atdd issue <N> --status`/`--check` hints. Do NOT remove this shim
+        # (that is C5/#1309).
+        print(
+            "\033[33m⚠️  Deprecated: 'atdd issue <N>' (show/enter) will be "
+            "removed. Use 'atdd coach issues <N>' instead (#1307).\033[0m",
+            file=sys.stderr,
+        )
+        from atdd.coach.commands.issue_read import run as run_issues
+        return run_issues([str(issue_number)])
 
     # atdd worktree <subcommand>
     elif args.command == "worktree":

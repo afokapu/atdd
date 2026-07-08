@@ -129,7 +129,15 @@ rules:
   # nodes/coder.dead-code.reachability.convention.yaml (Phase A; #1225 — nodes/
   # is authoritative). reachability-typescript stays here (TypeScript EXT).
   - id: "coder.dead-code.reachability-typescript"
-    validator: "test_dead_code_typescript::test_no_unreachable_typescript_files"
+    # Repointed (#1207 decommission batch A): the in-core convention-graph
+    # implementation is now the coverage variant, referenced in canonical
+    # `conventions/<family>/<stem>::<func>` form. This variant binds via
+    # parity/execution on the composed graph (exempt from the bind_rule-emitter
+    # round-trip); real enforcement is the bound extension detector
+    # (coder.dead-code.reachability-typescript @ atdd.workspace.python-pytest,
+    # see .atdd/binding.lock.yaml). The legacy persona validator
+    # test_dead_code_typescript.py was removed.
+    validator: "conventions/coverage/test_dead_code_typescript::test_dead_code_typescript_variant_contract"
     aliases: ["DEAD-CODE-REACHABILITY-TS-001"]
     severity: 2
     disposition: strict
