@@ -37,7 +37,14 @@ _WORKSPACE_DIRS = ("runtime", "adapter", "conformance", "e2e")
 
 
 def _name_of(package_id: str) -> str:
-    """The artifact-name segment of a ``<publisher>.<scope>.<name>`` id."""
+    """The artifact-name (last) segment of a package id.
+
+    Segment-count-agnostic by design: takes the final ``.``-delimited segment,
+    so it is correct for both the three-segment workspace grammar
+    (``<publisher>.workspace.<name>``) and the persona-aware four-segment
+    extension grammar (``<publisher>.extension.<persona>.<name>``, #1343). See
+    docs/1345-extension-id-grammar-audit.md (audit #1345, disposition N/A-opaque).
+    """
     return package_id.rsplit(".", 1)[-1]
 
 
