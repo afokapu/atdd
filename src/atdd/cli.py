@@ -2513,14 +2513,30 @@ Phase descriptions:
             issue_parser.print_help()
             return 0
 
-        # atdd issue open — list open issues
+        # atdd issue open — DEPRECATED (#1307): the read/list verb moved to
+        # `atdd coach issues`. Warn on stderr and delegate to the new verb.
+        # Emitted with a DIRECT stderr print (NOT `_deprecation_warning`) on
+        # purpose: the positional form "atdd issue open" would register a
+        # WHOLESALE `atdd issue` key in the coach.rule-id.fix-hint-completeness
+        # C2 deprecation registry, false-flagging the still-valid `atdd issue
+        # <N> --status`/`--check`/`--sync-wmbts` hints (those retire in C5/#1309).
+        # The #1349 create-by-slug shim set this direct-print precedent. Do NOT
+        # remove this shim (that is C5).
         if target == "open":
-            manager = IssueManager()
-            return manager.open_issues(
-                label=getattr(args, 'label', None),
-                limit=getattr(args, 'limit', 30),
-                assignee=getattr(args, 'assignee', None),
+            print(
+                "\033[33m⚠️  Deprecated: 'atdd issue open' will be removed. "
+                "Use 'atdd coach issues' instead (#1307).\033[0m",
+                file=sys.stderr,
             )
+            from atdd.coach.commands.issue_read import run as run_issues
+            _issues_argv = ["open"]
+            if getattr(args, 'label', None):
+                _issues_argv += ["--label", args.label]
+            if getattr(args, 'limit', 30) != 30:
+                _issues_argv += ["--limit", str(args.limit)]
+            if getattr(args, 'assignee', None):
+                _issues_argv += ["--assignee", args.assignee]
+            return run_issues(_issues_argv)
 
         # atdd issue review <N> [--passes ...] [--llms ...] [--dimensions ...] [--show] [--force]
         if target == "review":
@@ -2723,8 +2739,21 @@ Phase descriptions:
                 force=getattr(args, 'force', False),
             )
   # atdd:suppress(coder.logging.coach-silent-swallow)
-        # Default: enter existing issue
-        return lifecycle.enter(issue_number)
+        # Default: show/enter an existing issue — DEPRECATED (#1307): the
+        # read/show-enter verb moved to `atdd coach issues <N>`. Warn on stderr
+        # and delegate to the new verb. DIRECT stderr print (NOT
+        # `_deprecation_warning`) for the same C2-registry reason as the `open`
+        # shim above: a positional "atdd issue <N>" would collapse to a
+        # wholesale `atdd issue` deprecation key and false-flag the still-valid
+        # `atdd issue <N> --status`/`--check` hints. Do NOT remove this shim
+        # (that is C5/#1309).
+        print(
+            "\033[33m⚠️  Deprecated: 'atdd issue <N>' (show/enter) will be "
+            "removed. Use 'atdd coach issues <N>' instead (#1307).\033[0m",
+            file=sys.stderr,
+        )
+        from atdd.coach.commands.issue_read import run as run_issues
+        return run_issues([str(issue_number)])
 
     # atdd worktree <subcommand>
     elif args.command == "worktree":
