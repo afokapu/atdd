@@ -200,6 +200,35 @@ class WorkItemReader:
             return None
         return {**obj.data, "slug": obj.uid, "status": obj.state}
 
+    def all_work_items(self) -> list[dict]:
+        """Every work item as a manifest-``sessions``-shaped dict, from the store.
+
+        The store-backed analog of scanning the manifest ``sessions`` list:
+        returns ``{**data, "slug": <uid>, "status": <state>, "issue_number": <n>}``
+        for every ``work_item`` object, with the GitHub issue number folded in
+        from the ``external_refs`` projection (omitted when the item carries no
+        GitHub ref). Returns ``[]`` on any store error so callers that scanned a
+        possibly-absent manifest keep their fail-closed behaviour unchanged.
+        """
+        try:
+            by_uid: dict[str, int] = {}
+            for ref in self._store.external_refs.all():
+                if ref.provider == GITHUB_PROVIDER and ref.ref_kind == _ISSUE_REF_KIND:
+                    try:
+                        by_uid[ref.object_uid] = int(ref.ref_value)
+                    except (TypeError, ValueError):
+                        continue
+            rows: list[dict] = []
+            for obj in self._store.objects.list(kind=WORK_ITEM_KIND):
+                entry = {**obj.data, "slug": obj.uid, "status": obj.state}
+                if obj.uid in by_uid:
+                    entry["issue_number"] = by_uid[obj.uid]
+                rows.append(entry)
+            return rows
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            _log.debug("all_work_items unavailable; returning empty", extra={"error": str(exc)})
+            return []
+
     # -- internals ---------------------------------------------------------- #
     def _auto_import_if_empty(self, *, db_path: Optional[Path]) -> None:
         """Import the manifest into the store once, only when the store is empty.
