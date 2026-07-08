@@ -63,12 +63,19 @@ def test_update_status_unregistered_issue_is_noop_not_crash(tmp_path):
     assert mgr._store_set_status(999999, "SMOKE") is False
 
 
-def test_update_status_still_mirrors_manifest(tmp_path):
+def test_update_status_no_longer_mirrors_manifest(tmp_path):
+    """#1270 slice F: the status transition lands in the store only; the manifest
+    mirror write is retired, so the manifest session status is left untouched."""
     mgr = _init_repo(tmp_path)
     mgr._update_manifest_status(1203, "SMOKE")
+    # Store is authoritative → SMOKE.
+    store = _store(tmp_path)
+    ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "1203")
+    assert store.objects.get(ref.object_uid).state == "SMOKE"
+    # Manifest is NOT mirrored → still the seeded GREEN.
     doc = yaml.safe_load((tmp_path / ".atdd" / "manifest.yaml").read_text())
     entry = next(s for s in doc["sessions"] if s["issue_number"] == 1203)
-    assert entry["status"] == "SMOKE"
+    assert entry["status"] == "GREEN"
 
 
 def test_update_fields_writes_store_authoritatively(tmp_path):
@@ -89,12 +96,19 @@ def test_update_fields_unregistered_issue_is_noop_not_crash(tmp_path):
     assert mgr._store_update_fields(999999, {"branch": "feat/x"}) is False
 
 
-def test_update_fields_still_mirrors_manifest(tmp_path):
+def test_update_fields_no_longer_mirrors_manifest(tmp_path):
+    """#1270 slice F: metadata lands in the store only; the manifest mirror write
+    is retired, so the manifest session gains no ``branch`` key."""
     mgr = _init_repo(tmp_path)
     mgr._update_manifest_fields(1203, {"branch": "feat/foo"})
+    # Store is authoritative → branch recorded.
+    store = _store(tmp_path)
+    ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "1203")
+    assert store.objects.get(ref.object_uid).data["branch"] == "feat/foo"
+    # Manifest is NOT mirrored → no branch key added.
     doc = yaml.safe_load((tmp_path / ".atdd" / "manifest.yaml").read_text())
     entry = next(s for s in doc["sessions"] if s["issue_number"] == 1203)
-    assert entry["branch"] == "feat/foo"
+    assert "branch" not in entry
 
 
 def test_register_issue_creates_store_work_item_and_ref(tmp_path):

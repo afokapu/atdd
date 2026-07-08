@@ -331,33 +331,16 @@ class IssueManager:
             return False
 
     def _update_manifest_status(self, issue_number: int, status: str) -> None:
-        """Record a successful GitHub status transition.
+        """Record a successful GitHub status transition into the State Store.
 
-        #1203 Phase 2: the State Store is authoritative for the work-item phase —
-        this writes the store first, then mirrors the manifest ``sessions`` entry
-        (a compatibility projection, retained until the manifest is fully demoted).
-        A missing manifest or a manifest without a matching session is a no-op for
-        the mirror — transitions for unregistered issues are valid (e.g. issues
-        created outside the atdd CLI) and must not crash the lifecycle.
+        #1270 slice F: the State Store is authoritative for the work-item phase
+        (#1203 Phase 2) and every reader now resolves the phase from it (slices
+        A–E). The former ``.atdd/manifest.yaml`` mirror write is retired — keeping
+        a mirror nothing reads in sync was dead work (and the source of the
+        parallel-session clobber #1270 removes). The manifest survives only as the
+        store's cold-start seed until Slice G.
         """
         self._store_set_status(issue_number, status)
-        if not self.manifest_file.exists():
-            return
-        manifest = self._load_manifest()
-        sessions = manifest.get("sessions") or []
-        mutated = False
-        for entry in sessions:
-            if entry.get("issue_number") == issue_number:
-                entry["status"] = status
-                mutated = True
-        if mutated:
-            self._save_manifest(manifest)
-            self._commit_manifest_change(
-                verb="atdd update --status",
-                message=(
-                    f"chore(coach): mirror issue #{issue_number} status → {status} in manifest"
-                ),
-            )
 
     def _store_work_item_field(
         self, issue_number: int, field: str
@@ -485,36 +468,15 @@ class IssueManager:
     def _update_manifest_fields(
         self, issue_number: int, fields: Dict[str, Any]
     ) -> None:
-        """Record work-item metadata (branch/train/...).
+        """Record work-item metadata (branch/train/...) into the State Store.
 
-        #1203 Phase 2: the State Store is authoritative — this writes the store
-        first (merging into the work item's ``data``), then mirrors the manifest
-        ``sessions`` entry and the ``issues.<n>`` record (a compatibility
-        projection). A missing manifest is a no-op for the mirror — transitions
-        for issues created outside the atdd CLI remain valid.
+        #1270 slice F: the State Store is authoritative (#1203 Phase 2) and every
+        reader resolves metadata from it (slices A–E). The former
+        ``.atdd/manifest.yaml`` mirror write (``sessions`` + ``issues.<n>``) is
+        retired — nothing reads it. The manifest survives only as the store's
+        cold-start seed until Slice G.
         """
         self._store_update_fields(issue_number, fields)
-        if not self.manifest_file.exists():
-            return
-        manifest = self._load_manifest()
-        mutated = False
-        for session in manifest.get("sessions") or []:
-            if session.get("issue_number") == issue_number:
-                session.update(fields)
-                mutated = True
-        issues = manifest.setdefault("issues", {})
-        record = issues.get(str(issue_number))
-        if record is not None:
-            record.update(fields)
-            mutated = True
-        if mutated:
-            self._save_manifest(manifest)
-            self._commit_manifest_change(
-                verb="atdd update",
-                message=(
-                    f"chore(coach): mirror issue #{issue_number} metadata in manifest"
-                ),
-            )
 
     def _slugify(self, text: str) -> str:
         """Convert text to kebab-case slug."""
@@ -1643,21 +1605,11 @@ class IssueManager:
         # the archived date), then mirror the manifest below. Both calls degrade
         # to a logged no-op if the store is unavailable; the GitHub close +
         # manifest record below still apply.
+        # #1270 slice F: the State Store is authoritative for the terminal
+        # COMPLETE/archived state; the manifest mirror write is retired (nothing
+        # reads it — slices A–E). Manifest survives only as the cold-start seed.
         self._store_set_status(issue_number, "COMPLETE")
         self._store_update_fields(issue_number, {"archived": date.today().isoformat()})
-
-        # Update manifest
-        manifest = self._load_manifest()
-        for s in manifest.get("sessions", []):
-            if s.get("issue_number") == issue_number:
-                s["status"] = "COMPLETE"
-                s["archived"] = date.today().isoformat()
-                break
-        self._save_manifest(manifest)
-        self._commit_manifest_change(
-            verb="atdd archive",
-            message=f"chore(coach): archive issue #{issue_number} in manifest",
-        )
 
         total_subs = len(subs) if subs else 0
         print(f"\nArchived #{issue_number}: closed {closed_count} sub-issues, "
