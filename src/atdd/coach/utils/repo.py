@@ -3,7 +3,7 @@ Repository root detection utility.
 
 Finds the consumer repository root using multiple detection strategies:
 1. ATDD_REPO_ROOT env var (set by test runner for validators)
-2. .atdd/manifest.yaml (preferred - explicit ATDD project marker)
+2. .atdd/config.yaml (preferred - explicit ATDD project marker)
 3. plan/ AND contracts/ both exist (ATDD project structure)
 4. .git/ directory (fallback - any git repo)
 5. cwd (last resort - allows commands to work on uninitialized repos)
@@ -28,7 +28,7 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
 
     Detection order (first match wins):
     1. ATDD_REPO_ROOT env var - set by test runner for validators
-    2. .atdd/manifest.yaml - explicit ATDD project marker
+    2. .atdd/config.yaml - explicit ATDD project marker
     3. plan/ AND contracts/ both exist - ATDD project structure
     4. .git/ directory - fallback for any git repository
     5. cwd - last resort if no markers found
@@ -40,7 +40,7 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
         Path to repo root (falls back to cwd if no markers found)
 
     Note:
-        Results are cached for performance. If .atdd/manifest.yaml is not found,
+        Results are cached for performance. If .atdd/config.yaml is not found,
         commands may operate in a degraded mode.
 
         For validators running from installed package, ATDD_REPO_ROOT env var
@@ -57,8 +57,8 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
     current = current.resolve()
 
     while current != current.parent:
-        # Strategy 1: .atdd/manifest.yaml (preferred)
-        if (current / ".atdd" / "manifest.yaml").is_file():
+        # Strategy 1: .atdd/config.yaml (preferred — explicit ATDD marker)
+        if (current / ".atdd" / "config.yaml").is_file():
             return current
 
         # Strategy 2: plan/ AND contracts/ both exist
@@ -246,7 +246,7 @@ def require_repo_root(start: Optional[Path] = None) -> Path:
         Path to repo root
 
     Raises:
-        RuntimeError: If no ATDD project markers (.atdd/manifest.yaml,
+        RuntimeError: If no ATDD project markers (.atdd/config.yaml,
                      plan/ + contracts/, or .git/) are found
     """
     current = start or Path.cwd()
@@ -255,7 +255,7 @@ def require_repo_root(start: Optional[Path] = None) -> Path:
 
     while current != current.parent:
         # Check for any valid marker
-        if (current / ".atdd" / "manifest.yaml").is_file():
+        if (current / ".atdd" / "config.yaml").is_file():
             return current
         if (current / "plan").is_dir() and (current / "contracts").is_dir():
             return current
@@ -266,7 +266,7 @@ def require_repo_root(start: Optional[Path] = None) -> Path:
 
     raise RuntimeError(
         f"No ATDD project markers found searching from {start_path}. "
-        "Expected one of: .atdd/manifest.yaml, plan/ + contracts/, or .git/"
+        "Expected one of: .atdd/config.yaml, plan/ + contracts/, or .git/"
     )
 
 

@@ -10,7 +10,6 @@ Run: PYTHONPATH=src python3 -m pytest -q src/atdd/coach/commands/tests/test_tran
 from pathlib import Path
 
 import pytest
-import yaml
 
 pytestmark = [pytest.mark.platform]
 
@@ -22,63 +21,59 @@ def _store_status(tmp_path: Path, issue_number: int):
         return reader.status(issue_number)
 
 
-def _write_manifest(tmp_path: Path, issue_number: int, status: str) -> Path:
-    atdd_dir = tmp_path / ".atdd"
-    atdd_dir.mkdir()
-    manifest_path = atdd_dir / "manifest.yaml"
-    manifest_path.write_text(
-        "version: '2.0'\n"
-        "created: '2026-04-14'\n"
-        "sessions:\n"
-        f"  - id: '{issue_number}'\n"
-        "    slug: fix-transition-side-effects\n"
-        "    file: null\n"
-        f"    issue_number: {issue_number}\n"
-        "    type: refactor\n"
-        f"    status: {status}\n"
-        "    created: '2026-04-14'\n"
-        "    archived: null\n"
-    )
-    return manifest_path
+def _seed_store(tmp_path: Path, issue_number: int, status: str) -> None:
+    """Seed the store directly (#1270 Slice G: the manifest mirror is deleted)."""
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    (tmp_path / ".atdd").mkdir(exist_ok=True)
+    db = init_state_store(db_path=tmp_path / ".atdd" / "state" / "state.sqlite")
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        slug = "fix-transition-side-effects"
+        store.objects.upsert(slug, WORK_ITEM_KIND, state=status,
+                             data={"issue_number": issue_number, "type": "refactor"})
+        store.external_refs.link(slug, GITHUB_PROVIDER, "issue", str(issue_number),
+                                 data={"source": "test-seed"})
+    finally:
+        conn.close()
 
 
 def test_r001_unit_001_update_manifest_status_writes_store_not_manifest(tmp_path):
-    """R001 (#1270 slice F): a status transition is recorded in the State Store;
-    the ``.atdd/manifest.yaml`` mirror write is retired (the store is
-    authoritative — slices A–E migrated every reader to it).
+    """R001 (#1270 Slice G): a status transition is recorded in the State Store
+    (authoritative — the ``.atdd/manifest.yaml`` mirror is deleted).
 
-    Discriminator: the old mirror implementation rewrote the manifest session's
-    status; the store-only implementation leaves the manifest untouched.
+    Discriminator: the store-only implementation writes the store and never
+    resurrects a manifest.
     """
     from atdd.coach.commands.issue import IssueManager
 
-    # The manifest seeds the store once via the reader's cold-start auto-import;
-    # the transition then updates the store (authoritative).
-    manifest_path = _write_manifest(tmp_path, issue_number=282, status="INIT")
-    original_manifest = manifest_path.read_text()
+    _seed_store(tmp_path, issue_number=282, status="INIT")
     manager = IssueManager(target_dir=tmp_path)
 
     manager._update_manifest_status(282, "PLANNED")
 
     # Store is authoritative and updated.
     assert _store_status(tmp_path, 282) == "PLANNED"
-    # The manifest mirror is NOT written (slice F contract).
-    assert manifest_path.read_text() == original_manifest
+    # No manifest mirror is written.
+    assert not (tmp_path / ".atdd" / "manifest.yaml").exists()
 
 
 def test_r001_unit_001_update_manifest_status_is_noop_for_unknown_issue(tmp_path):
-    """R001: calling the helper for an issue number not in the manifest must not crash
-    and must leave the manifest unchanged.
+    """R001: calling the helper for an unregistered issue number must not crash
+    and must leave the seeded work item unchanged.
     """
     from atdd.coach.commands.issue import IssueManager
 
-    manifest_path = _write_manifest(tmp_path, issue_number=282, status="INIT")
-    original = manifest_path.read_text()
+    _seed_store(tmp_path, issue_number=282, status="INIT")
     manager = IssueManager(target_dir=tmp_path)
 
     manager._update_manifest_status(9999, "PLANNED")
 
-    assert manifest_path.read_text() == original
+    assert _store_status(tmp_path, 282) == "INIT"
+    assert not (tmp_path / ".atdd" / "manifest.yaml").exists()
 
 
 def test_r002_unit_001_reenter_display_only_does_not_create_branch(tmp_path, monkeypatch):

@@ -192,26 +192,27 @@ class TestReconcileSmokeInTempControlRoot:
         return proc, (proc.stdout or "") + (proc.stderr or "")
 
     def test_real_coach_reconcile_reaches_guard_no_unbound_no_live_call(self, tmp_path):
-        """`atdd coach reconcile` in an isolated tmp cwd with no manifest drives the
-        REAL IssueManager.reconcile() to its manifest-not-found guard (proving the
-        verb delegated to the real engine) with no UnboundLocalError — and, because
-        reconcile bails at the manifest check BEFORE any gh/git call, it can never
-        backfill or mutate a live worktree."""
+        """`atdd coach reconcile` in an isolated tmp cwd with no ``config.yaml``
+        drives the REAL IssueManager.reconcile() to its initialisation guard
+        (proving the verb delegated to the real engine) with no UnboundLocalError —
+        and, because reconcile bails at the config check BEFORE any gh/git call, it
+        can never backfill or mutate a live worktree. (#1270 Slice G: the guard is
+        now keyed on ``.atdd/config.yaml``, the marker that replaced the manifest.)"""
         _proc, combined = self._run(["coach", "reconcile"], tmp_path)
 
         assert "UnboundLocalError" not in combined, combined
-        assert ".atdd/manifest.yaml not found" in combined, (
-            "coach reconcile did not reach the real reconcile() manifest guard — "
+        assert ".atdd/config.yaml not found" in combined, (
+            "coach reconcile did not reach the real reconcile() init guard — "
             f"the delegation may not have executed.\n--- output ---\n{combined}"
         )
 
     def test_deprecated_issue_reconcile_reaches_same_guard_and_warns(self, tmp_path):
         """The deprecated `atdd issue reconcile` reaches the SAME engine (same
-        manifest guard) and prints the stderr deprecation notice."""
+        initialisation guard) and prints the stderr deprecation notice."""
         proc, combined = self._run(["issue", "reconcile"], tmp_path)
 
         assert "UnboundLocalError" not in combined, combined
-        assert ".atdd/manifest.yaml not found" in combined, combined
+        assert ".atdd/config.yaml not found" in combined, combined
         assert "atdd coach reconcile" in (proc.stderr or ""), (
             "deprecated path must signpost the canonical verb on stderr.\n"
             f"--- stderr ---\n{proc.stderr}"

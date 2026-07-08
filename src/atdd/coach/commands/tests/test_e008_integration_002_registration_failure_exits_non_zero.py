@@ -3,14 +3,15 @@
 # WMBT: wmbt:govern-lifecycle:E008
 # Phase: RED
 # Layer: integration
-"""E008-INTEGRATION-002 — when the manifest registration commit genuinely cannot
-complete, `atdd issue` exits non-zero with a clear error and never reports
-success with an unregistered issue.
+"""E008-INTEGRATION-002 — when the registration write genuinely cannot complete,
+`atdd issue` exits non-zero with a clear error and never reports success with an
+unregistered issue.
 
-Issue #738: a "success" with an uncommitted manifest entry is silently wrong.
-This RED test drives IssueManager.new() against a repo where the registration
-commit genuinely fails (the manifest is untracked) and asserts the verb exits
-non-zero, names the failure, and does not print its success summary.
+Issue #738 (preserved on the State Store after #1270 Slice G deleted the manifest
+mirror): a "success" with an unregistered issue is silently wrong. This drives
+IssueManager.new() with the store-registration write forced to fail and asserts
+the verb exits non-zero, names the failed registration, and does not print its
+success summary.
 """
 from __future__ import annotations
 
@@ -31,9 +32,8 @@ def _run(*args: str, cwd: Path) -> subprocess.CompletedProcess:
     )
 
 
-def _init_repo_untracked_manifest(tmp_path: Path, branch: str = "feat/demo") -> Path:
-    """An ATDD-initialised repo whose .atdd/manifest.yaml exists on disk but is
-    NOT tracked by git — the registration commit genuinely cannot complete."""
+def _init_repo(tmp_path: Path, branch: str = "feat/demo") -> Path:
+    """An ATDD-initialised repo (tracked config.yaml) on a feature branch."""
     _run("git", "init", "-q", "-b", "main", cwd=tmp_path)
     _run("git", "config", "user.email", "test@example.com", cwd=tmp_path)
     _run("git", "config", "user.name", "Test User", cwd=tmp_path)
@@ -48,16 +48,14 @@ def _init_repo_untracked_manifest(tmp_path: Path, branch: str = "feat/demo") -> 
     _run("git", "add", ".atdd/config.yaml", cwd=tmp_path)
     _run("git", "commit", "-q", "-m", "initial", cwd=tmp_path)
     _run("git", "checkout", "-q", "-b", branch, cwd=tmp_path)
-
-    # Manifest exists on disk (so the write succeeds) but is left untracked.
-    (atdd_dir / "manifest.yaml").write_text("sessions: []\n", encoding="utf-8")
     return tmp_path
 
 
 def test_registration_failure_exits_non_zero(tmp_path: Path, capsys) -> None:
-    repo = _init_repo_untracked_manifest(tmp_path)
+    repo = _init_repo(tmp_path)
 
-    with patch("atdd.coach.github.GitHubClient") as mock_gh:
+    with patch("atdd.coach.github.GitHubClient") as mock_gh, \
+         patch.object(IssueManager, "_store_create_work_item", return_value=False):
         client = mock_gh.return_value
         client.create_issue.return_value = 99
         client.add_issue_to_project.return_value = "ITEM_99"
@@ -70,8 +68,8 @@ def test_registration_failure_exits_non_zero(tmp_path: Path, capsys) -> None:
     # Never report success with an unregistered issue.
     assert rc != 0
 
-    # The error explicitly names the manifest and the failed registration.
-    assert "manifest.yaml" in out
+    # The error explicitly names the failed registration and that it is NOT registered.
+    assert "NOT registered" in out
 
     # The success summary (`Created #99 with N WMBTs`) must not be printed.
     assert "WMBTs" not in out

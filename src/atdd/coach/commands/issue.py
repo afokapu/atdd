@@ -1104,21 +1104,16 @@ class IssueManager:
         slug: str,
         train: Optional[str] = None,
     ) -> None:
-        """Register a newly published issue.
+        """Register a newly published issue in the State Store (authoritative).
 
-        #1203 Phase 2: writes the work item to the State Store first (authoritative),
-        then mirrors the manifest ``issues.<n>`` record (a compatibility projection).
+        #1270 Slice G: the ``.atdd/manifest.yaml`` mirror was deleted, so this
+        writes the work item to the State Store only (#1203/#1272 already made the
+        store the source of truth; the store write ran first even while the mirror
+        existed). The method name is retained for its call sites.
         """
         self._store_create_work_item(
             issue_number, slug, status="INIT", data={"train": train}
         )
-        if not self.manifest_file.exists():
-            return
-        manifest = self._load_manifest()
-        issues = manifest.setdefault("issues", {})
-        issues[str(issue_number)] = {"slug": slug, "train": train}
-        self._save_manifest(manifest)
-        self._commit_manifest_change("atdd issue", f"Add issue #{issue_number} ({slug})")
 
     def create_new_issue(
         self,
@@ -1371,8 +1366,9 @@ class IssueManager:
 
                 wmbt_count += 1
 
-        # Update manifest
-        manifest = self._load_manifest()
+        # Register the new work item in the State Store (authoritative). #1270
+        # Slice G deleted the ``.atdd/manifest.yaml`` mirror, so this is the only
+        # registration write — no session-mirror append and no manifest commit.
         issue_entry = {
             "id": f"{parent_number:02d}" if parent_number < 100 else str(parent_number),
             "slug": slug,
@@ -1383,34 +1379,19 @@ class IssueManager:
             "created": today,
             "archived": None,
         }
-        if "sessions" not in manifest:
-            manifest["sessions"] = []
-        manifest["sessions"].append(issue_entry)
-        # #1203 Phase 2: the State Store is authoritative — record the new work item
-        # there too (slug + github external_ref), keeping the manifest as a mirror.
-        self._store_create_work_item(
+        registered = self._store_create_work_item(
             parent_number, slug, status="INIT",
             data={k: v for k, v in issue_entry.items() if k not in ("slug", "status")},
         )
-        self._save_manifest(manifest)
         # Registration must land or fail loudly — never a silent exit-0 with an
-        # unregistered issue (#738). _commit_manifest_change(strict=True) for the
-        # registration verb re-raises a genuine ManifestCommitError.
-        from atdd.coach.utils.git import ManifestCommitError
-        try:
-            self._commit_manifest_change(
-                verb=_MANIFEST_REGISTRATION_VERB,
-                message=f"chore(coach): register issue #{parent_number} in manifest",
-                allow_main=allow_main_commit,
-            )
-        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        # unregistered issue (#738, preserved on the State Store after #1270 Slice
+        # G retired the manifest mirror). The GitHub issue already exists, so a
+        # failed store registration must surface a non-zero exit and no success.
+        if not registered:
             print(
                 f"Error: issue #{parent_number} created on GitHub but its "
-                f".atdd/manifest.yaml registration could not be committed — {exc}"
-            )
-            print(
-                "    The issue is NOT registered. Resolve the cause, then run "
-                "`git add .atdd/manifest.yaml && git commit`."
+                f"State Store registration could not be completed — the issue is "
+                f"NOT registered. Resolve the cause, then run `atdd issue reconcile`."
             )
             return 1
 
@@ -2441,17 +2422,23 @@ class IssueManager:
         return 0
 
     def reconcile(self) -> int:
-        """Backfill every open GitHub atdd-issue missing from .atdd/manifest.yaml.
+        """Backfill every open GitHub atdd-issue missing from the State Store.
 
-        Self-heal path (#775): the manifest is a derived registry; the GitHub
-        issue is the source of truth. Any issue labelled `atdd-issue` that is
-        open on GitHub but absent from the manifest is synthesised and appended.
-        Existing entries are left untouched (idempotent).
+        Self-heal path (#775): the State Store is the local registry and the
+        GitHub issue is the source of truth. Any issue labelled `atdd-issue` that
+        is open on GitHub but absent from the store is synthesised and created as
+        a work item. Existing entries are left untouched (idempotent). #1270 Slice
+        G: the ``.atdd/manifest.yaml`` mirror was deleted — the store is the sole
+        registry, so no manifest read/write happens here.
 
         Returns 0 on success, 1 on hard error.
         """
-        if not self.manifest_file.exists():
-            print("Error: .atdd/manifest.yaml not found. Run `atdd init` first.")
+        # Initialisation guard (#1270 Slice G): key on ``.atdd/config.yaml`` (the
+        # control-root marker that replaced the deleted manifest). Bailing here —
+        # before any gh/git call — keeps the verb hermetic in an uninitialised
+        # tree and never touches live GitHub.
+        if not self.config_file.exists():
+            print("Error: .atdd/config.yaml not found. Run `atdd init` first.")
             return 1
 
         # Fetch open atdd-issues from GitHub
@@ -2475,9 +2462,20 @@ class IssueManager:
             print(f"Error: could not parse gh output: {exc}")
             return 1
 
-        manifest = self._load_manifest()
-        sessions = manifest.get("sessions") or []
-        registered = {s.get("issue_number") for s in sessions}
+        # The set of issue numbers already registered in the State Store.
+        registered: set = set()
+        try:
+            from atdd.state.work_item_reader import WorkItemReader
+
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                registered = {
+                    entry["issue_number"]
+                    for entry in reader.all_work_items()
+                    if entry.get("issue_number") is not None
+                }
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+            logger.debug("reconcile: store read failed; treating store as empty",
+                         extra={"error": str(exc)})
 
         added = 0
         for issue in gh_issues:
@@ -2500,7 +2498,7 @@ class IssueManager:
             created_raw = issue.get("createdAt", "")
             created = created_raw[:10] if created_raw else str(date.today())
 
-            session_entry = {
+            entry = {
                 "id": str(number),
                 "slug": slug,
                 "file": None,
@@ -2510,28 +2508,19 @@ class IssueManager:
                 "created": created,
                 "archived": None,
             }
-            # #1203 Phase 2: the State Store is authoritative — create the
-            # backfilled work item there first (slug + github external_ref),
-            # keeping the manifest session entry below as a mirror.
+            # The State Store is the sole registry (#1270 Slice G) — create the
+            # backfilled work item there (slug + github external_ref).
             self._store_create_work_item(
                 number, slug, status=status,
-                data={k: v for k, v in session_entry.items() if k not in ("slug", "status")},
+                data={k: v for k, v in entry.items() if k not in ("slug", "status")},
             )
-            sessions.append(session_entry)
             registered.add(number)
             added += 1
             print(f"  Backfilled: #{number} {slug}")
 
         if added == 0:
-            print("reconcile: manifest is up-to-date — no missing issues found.")
+            print("reconcile: State Store is up-to-date — no missing issues found.")
             return 0
 
-        manifest["sessions"] = sessions
-        self._save_manifest(manifest)
-        self._commit_manifest_change(
-            verb="atdd issue reconcile",
-            message=f"chore(coach): reconcile manifest — backfill {added} unregistered issue(s)",
-            strict=False,
-        )
-        print(f"reconcile: added {added} issue(s) to .atdd/manifest.yaml")
+        print(f"reconcile: added {added} issue(s) to the State Store")
         return 0

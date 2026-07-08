@@ -1087,46 +1087,15 @@ gate_tests:
           description: "Architecture conventions met"
 
 # =============================================================================
-# MANIFEST-WRITE DISCIPLINE (Issue #344)
+# MANIFEST-WRITE DISCIPLINE — RETIRED (#1270 Slice G)
 # =============================================================================
-# Any CLI verb that mutates `.atdd/manifest.yaml` MUST commit the write
-# atomically with the verb. Otherwise a worktree branched from main HEAD
-# cannot see issues registered after that HEAD — `--sync-wmbts` and any
-# other manifest-reading flow break in the worktree.
-#
-# Single entry point: `atdd.coach.utils.git.git_commit_manifest_update`.
-# Helper invariants:
-#   1. Commits only the manifest path via a path-scoped `git commit -- <path>`.
-#      Unrelated staged changes are left untouched — never bundled, never a
-#      reason to skip the commit (#738).
-#   2. Refuses on `main` unless `allow_main=True` is passed (respects
-#      CLAUDE.md `git.commit_discipline.on_main_detection`).
-#   3. Returns the new commit's SHA, or None for a clean-tree no-op.
-#
-# Issue registration (`atdd issue <slug>`) must fail loudly: a genuine
-# ManifestCommitError is propagated so the verb exits non-zero rather than
-# reporting a silent success with an unregistered issue (#738). The
-# status-mirror verbs stay tolerant (warn-and-continue).
-#
-# Verbs covered (audit lives at src/atdd/coach/specs/manifest-write-audit.md):
-#   - `atdd issue <slug>`        → register a new session entry
-#   - `atdd update --status <S>` → mirror status into the session entry
-#   - `atdd archive <N>`         → mark COMPLETE + set archived date
-#
-# Auto-pushing the commit to origin is OUT OF SCOPE — the user retains
-# the deliberate `git push`. See issue #344 Decisions for rationale.
-manifest_write_discipline:
-  rule: |
-    Every IssueManager method that calls self._save_manifest(...) MUST
-    also call self._commit_manifest_change(verb, message) so the write
-    is committed atomically with the verb.
-  helper: "src/atdd/coach/utils/git.py :: git_commit_manifest_update"
-  validator: "src/atdd/coach/validators/test_manifest_write_discipline.py"
-  audit: "src/atdd/coach/specs/manifest-write-audit.md"
-  decisions:
-    push_to_origin: "no — local commit only; push remains a user action"
-    on_main: "refuse unless allow_main=True; print recovery hint"
-    granularity: "one commit per verb invocation (no batching, no amend)"
+# The `.atdd/manifest.yaml` mirror was deleted: the State Store is the sole
+# operational registry, and no CLI verb writes a manifest any more. The
+# `manifest_write_discipline` section, its validator
+# (`test_manifest_write_discipline.py`), and the `coach.execution.
+# atomic-registry-write` convention node are retired with it. The path-scoped
+# commit helper (`atdd.coach.utils.git.git_commit_manifest_update`, #1347) is
+# left in place for any future registry-file writer.
 
 # Validation
 validation:
@@ -1140,4 +1109,3 @@ validation:
     - "Session log has at least one entry"
     - "Gate tests defined for all declared archetypes"
     - "Gate tests reference valid ATDD validators"
-    - "Every manifest-write call site funnels through git_commit_manifest_update"

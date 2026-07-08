@@ -213,7 +213,7 @@ Total legacy validators accounted: **237**
 | `src/atdd/coach/validators/test_l003_smoke_001_dispatched_agent_bash_log_contains_no_atdd_skip_invocations.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
 | `src/atdd/coach/validators/test_m002_smoke_001_live_observer_rules_pass_validator.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
 | `src/atdd/coach/validators/test_m002_unit_spawn_non_interactive_validator.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
-| `src/atdd/coach/validators/test_manifest_write_discipline.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
+| `src/atdd/coach/validators/test_manifest_write_discipline.py` | coach | superseded | P2 | RETIRED in #1270 Slice G — the `.atdd/manifest.yaml` mirror it guarded was deleted; superseded by the documentation-only node `coach.execution.atomic-registry-write` (reframed onto the State Store) |
 | `src/atdd/coach/validators/test_no_hardcoded_rule_severity.py` | coach | direct | P0 | replace with convention variant `src/atdd/validators/conventions/binding/test_no_hardcoded_rule_severity.py` (keep as shim during transition) |
 | `src/atdd/coach/validators/test_no_red_phase_tests_in_consumer_entry_points.py` | coach | not_convention_graph | P2 | keep as legacy persona validator (out of convention-graph scope) |
 | `src/atdd/coach/validators/test_no_stale_suppressions.py` | coach | direct | P2 | replace with convention variant `src/atdd/validators/conventions/policy/test_no_stale_suppressions.py` (keep as shim during transition) |

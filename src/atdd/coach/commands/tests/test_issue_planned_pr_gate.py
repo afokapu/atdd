@@ -32,16 +32,23 @@ def _setup_atdd_config(tmp_path: Path) -> Path:
     (cfg_dir / "config.yaml").write_text(yaml.safe_dump({
         "github": {"repo": "owner/repo", "project_id": "PVT_test"},
     }))
-    (cfg_dir / "manifest.yaml").write_text(yaml.safe_dump({
-        "version": "2.0",
-        "sessions": [
-            # #1051: the PLANNED PR-gate resolves the branch from the local
-            # manifest (the Projects v2 "ATDD Branch" board read is retired).
-            {"id": "478", "slug": "478-branch-pr-empty",
-             "issue_number": 478, "type": "cleanup", "status": "INIT",
-             "branch": "chore/478-branch-pr-empty"},
-        ],
-    }))
+    # #1051 / #1270 Slice G: the PLANNED PR-gate resolves the branch from the
+    # State Store (the manifest mirror it used to read is deleted). Seed it.
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    db = init_state_store(db_path=cfg_dir / "state" / "state.sqlite")
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        store.objects.upsert("478-branch-pr-empty", WORK_ITEM_KIND, state="INIT",
+                             data={"issue_number": 478, "type": "cleanup",
+                                   "branch": "chore/478-branch-pr-empty"})
+        store.external_refs.link("478-branch-pr-empty", GITHUB_PROVIDER, "issue", "478",
+                                 data={"source": "test-seed"})
+    finally:
+        conn.close()
     return tmp_path
 
 

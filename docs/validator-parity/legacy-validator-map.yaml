@@ -2701,10 +2701,14 @@ entries:
   proposed_family: non_convention
   proposed_template: null
   proposed_variant: null
-  proposed_target_path: null
-  parity_status: not_convention_graph
+  proposed_target_path: src/atdd/coach/conventions/nodes/coach.execution.atomic-registry-write.convention.yaml
+  parity_status: superseded
   priority: P2
-  parity_notes: Manifest-write tooling discipline, not convention-graph enforcement.
+  parity_notes: >-
+    RETIRED in #1270 Slice G. The `.atdd/manifest.yaml` mirror this validator
+    guarded was deleted; there are no manifest writes left to enforce. The
+    atomic-registry-write principle survives as the documentation-only convention
+    node named in proposed_target_path (reframed onto the State Store).
 - legacy_path: src/atdd/coach/validators/test_no_hardcoded_rule_severity.py
   legacy_persona: coach
   legacy_validator_name: test_no_hardcoded_rule_severity.py
