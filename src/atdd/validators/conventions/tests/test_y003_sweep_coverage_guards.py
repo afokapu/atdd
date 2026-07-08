@@ -115,9 +115,12 @@ def _candidate_paths(ref: str, root: Path) -> list[Path]:
             root / "src/atdd/validators" / (stem + ".py"),
             root / "src/atdd" / (stem + ".py"),
         ]
-    cands = [root / f"src/atdd/{d}/validators/{stem}.py" for d in PERSONA_DIRS]
-    cands += [Path(p) for p in glob.glob(str(root / f"{CONV_REL}/*/{stem}.py"))]
-    return cands
+    # Bare stem = a persona-folder binding (convention variants are ALWAYS referenced by a
+    # ``conventions/…`` path, never a bare stem). Resolve ONLY against the persona validator
+    # dirs — do NOT fall back to a same-stemmed convention variant, or a rule still pointing at
+    # a DELETED persona file whose stem collides with a surviving variant would be missed
+    # (the exact same-stem case: test_train_validation / test_no_hardcoded_rule_severity / …).
+    return [root / f"src/atdd/{d}/validators/{stem}.py" for d in PERSONA_DIRS]
 
 
 def _variant_executes(vf: Path) -> bool:
