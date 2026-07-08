@@ -26,6 +26,7 @@ produce:
 consume: []
 
 wmbt:
-  total: 2
+  total: 3
   E001: "minimize likelihood of behavior-drift-between-atdd-issue-status-and-atdd-coach-transition"
   E002: "minimize likelihood of behavior-drift-between-atdd-issue-reconcile-and-atdd-coach-reconcile"
+  E003: "minimize likelihood of behavior-drift-between-atdd-issue-read-forms-and-atdd-coach-issues"
