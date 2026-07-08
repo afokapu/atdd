@@ -163,8 +163,23 @@ class TestDeprecatedIssueReconcileShim:
 @pytest.mark.smoke
 class TestReconcileSmokeInTempControlRoot:
     def _run(self, argv, cwd):
+        import os
         import subprocess
         import sys
+        from pathlib import Path
+
+        import atdd
+
+        # Run the SAME atdd the test process imports (the code under test), not
+        # whatever happens to be installed: derive an ABSOLUTE source root from
+        # the imported package and pin it on PYTHONPATH. A relative PYTHONPATH=src
+        # would not resolve from the tmp cwd and would fall back to the installed
+        # build. Pin ATDD_CONTROL_ROOT to the tmp dir so the run is fully isolated.
+        src_root = str(Path(atdd.__file__).resolve().parent.parent)
+        env = dict(os.environ)
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = src_root + (os.pathsep + existing if existing else "")
+        env["ATDD_CONTROL_ROOT"] = str(cwd)
 
         proc = subprocess.run(
             [sys.executable, "-m", "atdd", *argv],
@@ -172,6 +187,7 @@ class TestReconcileSmokeInTempControlRoot:
             capture_output=True,
             text=True,
             timeout=120,
+            env=env,
         )
         return proc, (proc.stdout or "") + (proc.stderr or "")
 
