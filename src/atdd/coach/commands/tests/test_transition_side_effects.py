@@ -15,6 +15,13 @@ import yaml
 pytestmark = [pytest.mark.platform]
 
 
+def _store_status(tmp_path: Path, issue_number: int):
+    from atdd.state.work_item_reader import WorkItemReader
+
+    with WorkItemReader(control_root=tmp_path) as reader:
+        return reader.status(issue_number)
+
+
 def _write_manifest(tmp_path: Path, issue_number: int, status: str) -> Path:
     atdd_dir = tmp_path / ".atdd"
     atdd_dir.mkdir()
@@ -35,22 +42,28 @@ def _write_manifest(tmp_path: Path, issue_number: int, status: str) -> Path:
     return manifest_path
 
 
-def test_r001_unit_001_update_manifest_status_writes_session_entry(tmp_path):
-    """R001: IssueManager must mirror a GitHub status transition into the local manifest.
+def test_r001_unit_001_update_manifest_status_writes_store_not_manifest(tmp_path):
+    """R001 (#1270 slice F): a status transition is recorded in the State Store;
+    the ``.atdd/manifest.yaml`` mirror write is retired (the store is
+    authoritative — slices A–E migrated every reader to it).
 
-    Currently fails: IssueManager has no helper that updates the session entry's status
-    field, and IssueManager.update() never touches the manifest.
+    Discriminator: the old mirror implementation rewrote the manifest session's
+    status; the store-only implementation leaves the manifest untouched.
     """
     from atdd.coach.commands.issue import IssueManager
 
+    # The manifest seeds the store once via the reader's cold-start auto-import;
+    # the transition then updates the store (authoritative).
     manifest_path = _write_manifest(tmp_path, issue_number=282, status="INIT")
+    original_manifest = manifest_path.read_text()
     manager = IssueManager(target_dir=tmp_path)
 
     manager._update_manifest_status(282, "PLANNED")
 
-    data = yaml.safe_load(manifest_path.read_text())
-    assert data["sessions"][0]["status"] == "PLANNED"
-    assert data["sessions"][0]["issue_number"] == 282
+    # Store is authoritative and updated.
+    assert _store_status(tmp_path, 282) == "PLANNED"
+    # The manifest mirror is NOT written (slice F contract).
+    assert manifest_path.read_text() == original_manifest
 
 
 def test_r001_unit_001_update_manifest_status_is_noop_for_unknown_issue(tmp_path):

@@ -47,7 +47,7 @@ def _setup(tmp_path: Path, status: str = "RED") -> Path:
     (cfg / "manifest.yaml").write_text(
         yaml.safe_dump(
             {
-                "sessions": [{"issue_number": 384, "status": status}],
+                "sessions": [{"issue_number": 384, "slug": "demo", "status": status}],
                 "issues": {"384": {"slug": "demo", "train": "0001-self-compliance-validate"}},
             }
         )
@@ -90,6 +90,7 @@ def test_transition_emits_label_rest_only_no_board_graphql(tmp_path):
     for method in BOARD_METHODS:
         getattr(client, method).assert_not_called()
 
-    manifest = yaml.safe_load((target / ".atdd" / "manifest.yaml").read_text())
-    statuses = {e["issue_number"]: e.get("status") for e in manifest["sessions"]}
-    assert statuses[384] == "GREEN", "manifest remains the local state mirror"
+    # #1270 slice F: the local state mirror is the State Store, not the manifest.
+    from atdd.state.work_item_reader import WorkItemReader
+    with WorkItemReader(control_root=target) as reader:
+        assert reader.status(384) == "GREEN", "the store is the local state mirror"
