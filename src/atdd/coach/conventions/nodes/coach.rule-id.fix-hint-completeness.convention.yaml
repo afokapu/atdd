@@ -7,7 +7,7 @@ statement: 'Every fix_hint (convention-declared or CLI-printed) must satisfy the
   placeholder resolution, no deprecation contradiction, prerequisite disclosure, and runnable-as-printed.'
 implementation:
   type: validator
-  ref: test_fix_hint_completeness::test_every_fix_hint_satisfies_completeness_contract
+  ref: conventions/presence/test_rule_has_fix_hint::test_rule_has_fix_hint_convention_fault
 source:
   legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
   legacy_section: rules

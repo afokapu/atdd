@@ -7,7 +7,7 @@ statement: Migrated validators must not redeclare rule severity/description as m
   bind_rule(<id>) at import time instead.
 implementation:
   type: validator
-  ref: test_no_hardcoded_rule_severity::test_no_hardcoded_rule_severity_in_migrated_validators
+  ref: conventions/binding/test_no_hardcoded_rule_severity::test_no_hardcoded_rule_severity_convention_fault
 source:
   legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
   legacy_section: rules

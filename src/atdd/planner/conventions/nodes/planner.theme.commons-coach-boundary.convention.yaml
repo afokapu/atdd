@@ -7,7 +7,7 @@ statement: A wagon themed commons MUST NOT have any source module importing atdd
   MUST be themed coach.
 implementation:
   type: validator
-  ref: test_theme_commons_coach_boundary::test_commons_wagons_do_not_import_coach
+  ref: conventions/boundary/test_theme_commons_coach_boundary::test_fault_injection_convention_and_legacy_both_catch
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
   legacy_section: rules + boundary
