@@ -513,12 +513,23 @@ class JsonlPersistenceStore:
             out.append(_decision_from_dict(json.loads(line)["decision"]))
         return iter(out)
 
-    # --- manifest -------------------------------------------------------- #
+    # --- work items (State Store) ---------------------------------------- #
     def get_issue(self, n: int) -> IssueRecord:
-        for session in self._manifest_sessions():
-            if session.get("issue_number") == n:
-                return self._record_from_session(session)
-        raise KeyError(f"issue #{n} not in manifest")
+        """Read issue #*n*'s record from the State Store (#1270 slice E).
+
+        The manifest ``sessions`` read is retired; the store is the sole source
+        (authoritative since #1203). ``issue_number`` is folded back in from the
+        GitHub external-ref (store ``data`` bags do not carry it), so the record
+        reconstructs fully. Raises ``KeyError`` when the issue is unregistered.
+        """
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=self.repo_root) as reader:
+            entry = reader.session_entry(n)
+        if entry is None:
+            raise KeyError(f"issue #{n} not in store")
+        entry.setdefault("issue_number", n)
+        return self._record_from_session(entry)
 
     def upsert_issue(self, rec: IssueRecord) -> None:
         manifest = self._load_manifest()
@@ -714,9 +725,6 @@ class JsonlPersistenceStore:
         if not manifest_path.is_file():
             return {"sessions": []}
         return yaml.safe_load(manifest_path.read_text()) or {"sessions": []}
-
-    def _manifest_sessions(self) -> list[dict]:
-        return self._load_manifest().get("sessions", []) or []
 
     @staticmethod
     def _record_from_session(session: dict) -> IssueRecord:

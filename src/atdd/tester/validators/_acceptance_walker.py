@@ -440,39 +440,41 @@ def _acceptance_wagon(acc: RawAcceptance) -> Optional[str]:
     return None
 
 
-def _load_manifest_sessions(repo_root: Path) -> List[dict]:
-    """Read ``.atdd/manifest.yaml`` ``sessions[]`` (the #1168 import source).
+def _store_work_items(repo_root: Path) -> List[dict]:
+    """All work items as session-shaped dicts from the State Store (#1270 slice E).
 
-    Returns an empty list when the manifest is absent or unreadable — callers
-    treat 'no session' as fail-closed (require the anchored test).
+    Replaces the ``.atdd/manifest.yaml`` ``sessions[]`` read: the store is
+    authoritative (#1203) and additionally carries issues created store-first
+    (which the manifest never tracked, so the old read could not see them).
+    Returns an empty list on any store error — callers treat 'no session' as
+    fail-closed (require the anchored test), unchanged.
     """
-    manifest = repo_root / ".atdd" / "manifest.yaml"
     try:
-        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
-        # A malformed/absent manifest must not crash the validator; the
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=repo_root) as reader:
+            return reader.all_work_items()
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # An unreadable/uninitialisable store must not crash the validator; the
         # fail-closed caller then requires the test (status-quo behavior).
         return []
-    sessions = data.get("sessions") if isinstance(data, dict) else None
-    if not isinstance(sessions, list):
-        return []
-    return [s for s in sessions if isinstance(s, dict)]
 
 
 def owning_issue_phase(repo_root: Path, acc: RawAcceptance) -> Optional[str]:
     """Current lifecycle phase of the issue(s) owning *acc*, or ``None``.
 
-    Maps *acc* to its wagon and reads every matching ``.atdd/manifest.yaml``
-    session's ``status``. Returns the MOST-ADVANCED phase among them (so a wagon
-    counts as 'still pre-test' only when *every* owning session is pre-test);
-    returns ``None`` when no session maps the wagon — the caller fails closed
-    and requires the anchored test. Read-only; does not fork #1168's store.
+    Maps *acc* to its wagon and reads every matching State Store work item's
+    ``status`` (#1270 slice E — store-only, authoritative since #1203). Returns
+    the MOST-ADVANCED phase among them (so a wagon counts as 'still pre-test'
+    only when *every* owning work item is pre-test); returns ``None`` when no
+    work item maps the wagon — the caller fails closed and requires the anchored
+    test. Read-only.
     """
     wagon = _acceptance_wagon(acc)
     if not wagon:
         return None
     sessions = [
-        s for s in _load_manifest_sessions(repo_root)
+        s for s in _store_work_items(repo_root)
         if s.get("wagon") == wagon or s.get("train") == wagon
     ]
     if not sessions:
