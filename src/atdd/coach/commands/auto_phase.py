@@ -10,7 +10,7 @@ Composition:
     compute_next_phase(current)         pure state-machine lookup
     resolve_pr_to_transition(pr)        PR → AutoPhaseResult (no side effects)
     run(pr_number, dry_run=False)       CLI entrypoint; calls
-                                        `atdd issue <N> --status <NEXT>` unless dry-run
+                                        `atdd coach transition <N> <NEXT>` unless dry-run
 """
 from __future__ import annotations
 

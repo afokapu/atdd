@@ -2,7 +2,7 @@
 
 The PLANNED transition assumes the branch is reviewable. Since `atdd branch`
 defers PR creation (Phase 1), the gate has to live at the next step in the
-lifecycle — `atdd issue <N> --status PLANNED` — and it must satisfy the
+lifecycle — `atdd coach transition <N> PLANNED` — and it must satisfy the
 #467 hint contract (numbered prereqs, runnable as printed, no deprecated
 CLI form).
 
@@ -128,7 +128,7 @@ def test_planned_transition_blocked_when_no_pr(tmp_path, capsys):
     # #467 contract — numbered prereqs, runnable as printed
     assert "1." in out and "2." in out and "3." in out and "4." in out
     assert "atdd pr 478" in out
-    assert "atdd issue 478 --status PLANNED" in out
+    assert "atdd coach transition 478 PLANNED" in out
     # No deprecated CLI form
     assert "atdd update" not in out
     # Bypass surfaced

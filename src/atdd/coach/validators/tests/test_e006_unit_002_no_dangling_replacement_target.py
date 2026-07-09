@@ -37,6 +37,7 @@ from atdd.coach.validators.test_fix_hint_completeness import (  # noqa: F401
     audit_c2b_no_dangling_replacement_target,
     build_deprecation_registry,
     build_subcommand_registry,
+    iter_deprecation_callsites,
 )
 
 pytestmark = [pytest.mark.platform]
@@ -99,6 +100,36 @@ class TestDanglingReplacementTargetAudit:
         registry = build_deprecation_registry(source)
         subcommands = build_subcommand_registry(source)
         assert audit_c2b_no_dangling_replacement_target(registry, subcommands) == []
+
+    def test_audits_callsites_not_the_deduped_registry(self):
+        """A dangling callsite hidden by head-dedupe must still be caught.
+
+        `build_deprecation_registry` keeps the FIRST callsite per head. With two
+        `atdd update` callsites, the second — the one recommending the removed
+        command — never reaches the registry. Auditing the registry would pass
+        vacuously; auditing callsites catches it. This is the real shape of
+        cli.py:2452 vs cli.py:2461.
+        """
+        source = '''
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("coach")
+    _deprecation_warning("atdd update <N> --status <S>", "atdd coach transition <N> <TO>")
+    _deprecation_warning("atdd update", "atdd issue")
+'''
+        subcommands = build_subcommand_registry(source)
+
+        registry = build_deprecation_registry(source)
+        assert "atdd issue" not in registry.get("atdd update", ""), (
+            "precondition: the dedupe must hide the second callsite"
+        )
+        assert audit_c2b_no_dangling_replacement_target(registry, subcommands) == [], (
+            "precondition: auditing the deduped registry misses it"
+        )
+
+        callsites = iter_deprecation_callsites(source)
+        assert len(callsites) == 2
+        violations = audit_c2b_no_dangling_replacement_target(callsites, subcommands)
+        assert violations == [("atdd update", "atdd issue", "issue")]
 
 
 class TestRealCliIsClean:

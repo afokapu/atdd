@@ -940,6 +940,12 @@ def build_parser() -> argparse.ArgumentParser:
     iss.add_argument("--feature", default=None, help="feature urn the issue lands")
     iss.add_argument("--check", default=None, metavar="PATH",
                      help="validate an existing body file against issue.schema.json (no generation)")
+    # #1309: the one capability the removed `atdd issue <slug> --dry-run` had and
+    # nothing else covered — render + validate + print, writing NOTHING. `--check`
+    # only validates an existing FILE, and a bare `atdd author issue` publishes
+    # store-first, so neither is a dry run.
+    iss.add_argument("--dry-run", action="store_true", dest="dry_run",
+                     help="render the body and validate it, print it, and write nothing (no store, no gh)")
 
     # Plan-layer kinds — spec-driven (rich nested shape: produce[], components{},
     # wmbts[], acceptances[]). The spec file holds the same input dict the
@@ -1118,6 +1124,19 @@ def run(argv: list[str]) -> int:
             "feature": args.feature,
         }
         body = create_issue_body({k: v for k, v in spec.items() if v is not None})
+
+        # #1309: `--dry-run` returns BEFORE the publish import, so no store
+        # connection is opened and no gh call is made. Inherited from the removed
+        # `atdd issue <slug> --dry-run` (E019), whose smoke coverage retargets here.
+        if getattr(args, "dry_run", False):
+            violations = validate_issue_body(body)
+            if violations:
+                print("atdd author issue: rendered body is not schema-valid:", file=sys.stderr)
+                for v in violations:
+                    print(f"  - {v}", file=sys.stderr)
+                return 1
+            print(body)
+            return 0
 
         # #1272: authoring PUBLISHES store-first by default (no extra flag). The
         # store is authoritative — write it BEFORE emitting the body. Only if the

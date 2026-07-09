@@ -160,13 +160,17 @@ def test_no_deprecation_warning_recommends_the_removed_command():
     Matched with the C2 validator's OWN regex rather than a line substring, so
     prose in a comment that merely mentions `_deprecation_warning("atdd issue
     ...")` cannot false-flag (or, worse, false-pass) this check.
+
+    Scans CALLSITES, not the deduped registry: two `atdd update` callsites share
+    a head, so the registry keeps only the first and would hide a dangling
+    second (cli.py:2452 vs cli.py:2461).
     """
     from atdd.coach.validators.test_fix_hint_completeness import (
-        build_deprecation_registry,
+        iter_deprecation_callsites,
     )
 
-    registry = build_deprecation_registry(_repo_text("src/atdd/cli.py"))
-    offenders = {old: new for old, new in registry.items() if "atdd issue" in new}
+    callsites = iter_deprecation_callsites(_repo_text("src/atdd/cli.py"))
+    offenders = [(old, new) for old, new in callsites if "atdd issue" in new]
     assert not offenders, (
         f"these _deprecation_warning callsites still recommend `atdd issue`: {offenders}"
     )
