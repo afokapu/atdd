@@ -191,27 +191,3 @@ def test_coach_transition_writes_real_store_state(tmp_path):
     )
 
 
-def test_deprecated_issue_status_reaches_same_engine_and_warns(tmp_path):
-    """The deprecated `atdd issue <N> --status GREEN` reaches the SAME engine
-    (same resulting store state) and prints the deprecation notice."""
-    env = _setup(tmp_path)
-    assert _store_state(tmp_path) == "RED", "precondition: seeded at RED"
-
-    proc = subprocess.run(
-        [sys.executable, "-m", "atdd", "issue", str(_FAKE_ISSUE), "--status", "GREEN"],
-        cwd=str(tmp_path),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-
-    assert proc.returncode == 0, (
-        f"deprecated `atdd issue --status` subprocess failed: rc={proc.returncode}\n"
-        f"stdout={proc.stdout}\nstderr={proc.stderr}"
-    )
-    assert _store_state(tmp_path) == "GREEN", (
-        f"the deprecated path must reach the same engine; state={_store_state(tmp_path)}"
-    )
-    assert "deprecated" in proc.stderr.lower(), (
-        f"deprecated shim must warn; stderr={proc.stderr}"
-    )

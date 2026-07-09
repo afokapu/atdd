@@ -174,7 +174,7 @@ workflow:
 # =============================================================================
 # Issues are now GitHub Issues with Project v2 custom fields.
 # Local session files (atdd-sessions/*.md) are historical only.
-# New issues are created as GitHub Issues via `atdd issue <slug>`.
+# New issues are created as GitHub Issues via `atdd author issue --title <t> --slug <s>`.
 #
 # Three-layer architecture:
 #   Layer 1: Parent issue body — human-readable (context, architecture, decisions, log)
@@ -219,7 +219,7 @@ github_issue_tracking:
         pattern: "wagon:{slug}"
         color: "C5DEF5"
         applies_to: "parent"
-        rule: "`atdd issue <slug>` creates wagon:{slug} if it does not exist"
+        rule: "`atdd author issue --title <t> --slug <s>` creates wagon:{slug} if it does not exist"
 
   issue_types:
     note: "Org-level feature — requires GitHub org with issue types enabled"
@@ -233,21 +233,31 @@ github_issue_tracking:
       tracking: "Task"
     sub_issue: "Task (always)"
 
+  # The `atdd issue` monolith was REMOVED (#1309, umbrella #1303).
+  # Creation lives in the `author` archetype; lifecycle lives in `coach`.
   cli_commands:
     init: "atdd init — bootstraps labels, Project v2, custom fields, workflow"
-    issue_create: "atdd issue <slug> — creates parent issue + WMBT sub-issues"
-    issue_enter: "atdd issue <NN> — enters issue (state-driven context + worktree)"
-    issue_transition: "atdd issue <NN> --status <S> — transitions status + swaps labels"
-    issue_close_wmbt: "atdd issue <NN> --close-wmbt <ID> — closes WMBT sub-issue"
-    issue_open: "atdd issue open — lists open issues"
+    issue_create: "atdd author issue --title <t> --slug <s> — store-first create (parent issue + WMBT sub-issues)"
+    issue_enter: "atdd coach enter <NN> — enters issue (state-driven context + worktree)"
+    issue_show: "atdd coach issues <NN> — shows a single issue"
+    issue_transition: "atdd coach transition <NN> <S> — transitions status + swaps labels"
+    issue_close_wmbt: "atdd coach close-wmbt <NN> <ID> — closes WMBT sub-issue"
+    issue_open: "atdd coach issues open — lists open issues"
+    issue_check: "atdd coach check <NN> — template compliance check"
+    issue_sync_wmbts: "atdd coach sync-wmbts <NN> — backfills WMBT sub-issues from plan YAMLs"
+    issue_sync_labels: "atdd coach sync-labels [<NN>|--all] — re-derives labels from body metadata"
+    issue_reconcile: "atdd coach reconcile — backfills missing issues from GitHub"
+    issue_is_registered: "atdd coach is-registered <branch> — store-backed branch-registration check"
+    issue_review: "atdd coach issue-review <NN> — multi-pass cross-LLM issue review"
     list: "atdd list — queries Project items (parent issues only)"
-    branch: "atdd branch <NN> — creates worktree branch from issue metadata"
+    branch: "atdd worktree create <NN> — creates worktree branch from issue metadata"
     validate: "atdd validate coach — validates Project fields + sub-issue state"
     # Deprecated aliases (still work, print warning):
-    # atdd new <slug>              → atdd issue <slug>
-    # atdd update <NN> --status <S> → atdd issue <NN> --status <S>
-    # atdd close-wmbt <NN> <ID>    → atdd issue <NN> --close-wmbt <ID>
-    # atdd archive <NN>            → atdd issue <NN> --status COMPLETE
+    # atdd new <slug>               → atdd author issue --title <t> --slug <s>
+    # atdd update <NN> --status <S> → atdd coach transition <NN> <S>
+    # atdd close-wmbt <NN> <ID>     → atdd coach close-wmbt <NN> <ID>
+    # atdd archive <NN>             → atdd coach transition <NN> COMPLETE
+    # atdd branch <NN>              → atdd worktree create <NN>
 
   hard_dependencies:
     - "gh CLI must be installed and authenticated"
@@ -259,7 +269,7 @@ github_issue_tracking:
   # WMBT Sub-Issue Template (D002)
   # ---------------------------------------------------------------------------
   # Each WMBT becomes a sub-issue of the session parent issue.
-  # The sub-issue body is generated from this template by `atdd issue <slug>`.
+  # The sub-issue body is generated from this template by `atdd author issue`.
   # Sub-issues carry NO session-level metadata (train, feature, branch, archetypes)
   # — that lives on the parent issue's Project custom fields.
   wmbt_sub_issue_template:
@@ -280,7 +290,7 @@ github_issue_tracking:
         derivation: "D->Define, L->Locate, P->Prepare, C->Confirm, E->Execute, M->Monitor, Y->Modify, R->Resolve, K->Conclude"
       statement:
         source: "WMBT statement from plan YAML"
-        example: "Implement atdd issue -> parent issue + WMBT sub-issues"
+        example: "Implement atdd author issue -> parent issue + WMBT sub-issues"
       acceptance_criteria:
         source: "WMBT acceptances from plan YAML, rendered as markdown bullet list"
         format: "- {acceptance_text}\\n- {acceptance_text}\\n..."
@@ -322,7 +332,7 @@ github_issue_tracking:
   # ---------------------------------------------------------------------------
   # Parent Issue Template (E010)
   # ---------------------------------------------------------------------------
-  # The parent issue body is generated from a Markdown template by `atdd issue <slug>`.
+  # The parent issue body is generated from a Markdown template by `atdd author issue`.
   # The template produces 11 structured sections matching the `sections:` spec.
   parent_issue_template:
     file: "atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md"
@@ -497,7 +507,7 @@ status:
   # Issue #355: phase advance fires automatically on PR merge.
   # The .github/workflows/atdd-auto-phase.yml workflow runs
   # `atdd auto-phase <PR>` on `pull_request: closed` with
-  # `merged == true`, which dispatches `atdd issue <N> --status <NEXT>`
+  # `merged == true`, which dispatches `atdd coach transition <N> <NEXT>`
   # so manifest discipline (#344) and label-swap rules apply uniformly.
   auto_transition_on_merge:
     enabled: true
@@ -1103,13 +1113,13 @@ gate_tests:
 #      CLAUDE.md `git.commit_discipline.on_main_detection`).
 #   3. Returns the new commit's SHA, or None for a clean-tree no-op.
 #
-# Issue registration (`atdd issue <slug>`) must fail loudly: a genuine
+# Issue registration (`atdd author issue`) must fail loudly: a genuine
 # ManifestCommitError is propagated so the verb exits non-zero rather than
 # reporting a silent success with an unregistered issue (#738). The
 # status-mirror verbs stay tolerant (warn-and-continue).
 #
 # Verbs covered (audit lives at src/atdd/coach/specs/manifest-write-audit.md):
-#   - `atdd issue <slug>`        → register a new session entry
+#   - `atdd author issue`        → register a new session entry
 #   - `atdd update --status <S>` → mirror status into the session entry
 #   - `atdd archive <N>`         → mark COMPLETE + set archived date
 #

@@ -31,15 +31,24 @@ def _src_path() -> str:
 
 
 @pytest.mark.smoke
-def test_dry_run_issue_create_reports_single_action():
-    """atdd issue <slug> --dry-run reports a single create action with no body-edit step."""
+def test_dry_run_issue_create_reports_single_action(tmp_path):
+    """`atdd author issue --dry-run` renders once and writes NOTHING.
+
+    Retargeted by C5b (#1309): the acceptance's subject — a create dry-run that
+    performs zero mutating GitHub calls — moved from the removed
+    `atdd issue <slug> --dry-run` onto the canonical `atdd author issue`. The
+    zero-write guarantee is now checked directly (no State Store is created
+    under a temp control root) rather than inferred from output prose.
+    """
     root = _repo_root()
     env = os.environ.copy()
     env["PYTHONPATH"] = _src_path() + os.pathsep + env.get("PYTHONPATH", "")
-    env["ATDD_DRY_RUN"] = "1"
+    env["ATDD_CONTROL_ROOT"] = str(tmp_path)
+    (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
 
     result = subprocess.run(
-        [sys.executable, "-m", "atdd", "issue", "smoke-test-e019-dry-run", "--dry-run"],
+        [sys.executable, "-m", "atdd", "author", "issue", "--title", "E019 dry run",
+         "--slug", "smoke-test-e019-dry-run", "--dry-run"],
         capture_output=True,
         text=True,
         cwd=str(root),
@@ -48,13 +57,18 @@ def test_dry_run_issue_create_reports_single_action():
     output = result.stdout + result.stderr
 
     assert result.returncode == 0, (
-        f"atdd issue --dry-run exited {result.returncode}:\n{output}"
+        f"`atdd author issue --dry-run` exited {result.returncode}:\n{output}"
     )
-    assert "issue edit" not in output.lower() or "body" not in output.lower(), (
+    # It rendered a body ...
+    assert "## Issue Metadata" in result.stdout, (
+        f"dry-run must print the rendered body on stdout:\n{output}"
+    )
+    # ... and performed no mutating step: no store, no gh edit/create.
+    assert not (tmp_path / ".atdd" / "state" / "state.sqlite").exists(), (
+        "dry-run must not create or write the State Store"
+    )
+    assert "issue edit" not in output.lower(), (
         f"Unexpected body-edit step in dry-run output:\n{output}"
-    )
-    assert "issue create" in output.lower() or "dry" in output.lower() or "would create" in output.lower(), (
-        f"Expected create action notice in dry-run output:\n{output}"
     )
 
 
@@ -67,7 +81,8 @@ def test_dry_run_output_contains_validated_body_not_placeholder():
     env["ATDD_DRY_RUN"] = "1"
 
     result = subprocess.run(
-        [sys.executable, "-m", "atdd", "issue", "smoke-test-e019-body-check", "--dry-run"],
+        [sys.executable, "-m", "atdd", "author", "issue", "--title", "E019 body check",
+         "--slug", "smoke-test-e019-body-check", "--dry-run"],
         capture_output=True,
         text=True,
         cwd=str(root),
@@ -77,7 +92,7 @@ def test_dry_run_output_contains_validated_body_not_placeholder():
 
     # Must exit 0 — dry-run is a supported flag
     assert result.returncode == 0, (
-        f"atdd issue --dry-run must exit 0; got {result.returncode}:\n{output}"
+        f"`atdd author issue --dry-run` must exit 0; got {result.returncode}:\n{output}"
     )
     assert "(graph context will be injected" not in output, (
         "dry-run must NOT emit the scaffold placeholder — body should be validated/rendered"

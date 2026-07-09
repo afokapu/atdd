@@ -94,6 +94,13 @@ _DEPRECATION_CALL_RE = re.compile(
 )
 
 # Negative-exemplar block — file:start-end form.
+# Top-level subcommands only: the `(?<!\w)` guard rejects the nested groups
+# (`registry_subparsers`, `worktree_subparsers`, ...) which all end in
+# `subparsers` and would otherwise hoist their children to the top level.
+_TOP_LEVEL_SUBPARSER_RE = re.compile(
+    r'(?<!\w)subparsers\.add_parser\(\s*["\'](?P<name>[a-z][a-z0-9-]*)["\']'
+)
+
 _LINE_RANGE_RE = re.compile(r'(?P<path>[^:]+):(?P<start>\d+)-(?P<end>\d+)')
 _LINE_SINGLE_RE = re.compile(r'(?P<path>[^:]+):(?P<start>\d+)$')
 
@@ -271,6 +278,79 @@ def build_deprecation_registry(cli_source: Optional[str] = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Top-level subcommand registry (parsed from cli.py subparsers.add_parser sites)
+# ---------------------------------------------------------------------------
+def build_subcommand_registry(cli_source: Optional[str] = None) -> set:
+    """Return the set of registered TOP-LEVEL ``atdd <sub>`` command names.
+
+    Anchored on the top-level ``subparsers`` variable only.  Nested groups
+    (``registry_subparsers``, ``worktree_subparsers``, ``repo_subparsers``, ...)
+    all *end* in ``subparsers``, so a naive match would hoist their children to
+    the top level and make :func:`audit_c2b_no_dangling_replacement_target`
+    vacuous — the ``(?<!\\w)`` guard rejects the ``_``-prefixed names.
+    """
+    if cli_source is None:
+        try:
+            cli_source = CLI_FILE.read_text(encoding="utf-8")
+        except OSError:
+            return set()
+    return set(_TOP_LEVEL_SUBPARSER_RE.findall(cli_source))
+
+
+def iter_deprecation_callsites(cli_source: Optional[str] = None) -> List[Tuple[str, str]]:
+    """Return EVERY ``(old, new)`` ``_deprecation_warning`` pair in cli.py.
+
+    Distinct from :func:`build_deprecation_registry`, which collapses callsites
+    to one entry per head (first wins).  That dedupe hides later callsites: with
+    both ``("atdd update <N> --status <S>", "atdd issue ...")`` and
+    ``("atdd update", "atdd issue")`` present, only the first survives into the
+    registry.  A dangling-target audit run over the registry would therefore
+    miss the second — so C2b audits callsites, not registry entries.
+    """
+    if cli_source is None:
+        try:
+            cli_source = CLI_FILE.read_text(encoding="utf-8")
+        except OSError:
+            return []
+    return [
+        (m.group("old").strip(), m.group("new").strip())
+        for m in _DEPRECATION_CALL_RE.finditer(cli_source)
+    ]
+
+
+def audit_c2b_no_dangling_replacement_target(
+    registry, subcommands: set
+) -> List[Tuple[str, str, str]]:
+    """Return ``(deprecated_form, replacement, missing_subcommand)`` triples.
+
+    C2 proper flags a hint that recommends a *deprecated* form — one that is a
+    registry KEY.  It is structurally blind to a hint that recommends a
+    *nonexistent* form: a replacement VALUE naming a command that was deleted.
+
+    That blind spot is exactly how `atdd issue` could be removed (#1309) while
+    four surviving ``_deprecation_warning`` hints kept telling operators to run
+    it, with the gate green.  Every replacement target must name a registered
+    top-level subcommand.
+
+    ``registry`` accepts either a ``{old: new}`` mapping or a sequence of
+    ``(old, new)`` pairs (see :func:`iter_deprecation_callsites`, which is what
+    the gate passes so deduped callsites are not skipped).
+    """
+    out: List[Tuple[str, str, str]] = []
+    if not subcommands:
+        return out
+    pairs = registry.items() if isinstance(registry, dict) else registry
+    for old, new in sorted(pairs):
+        m = re.search(r'\batdd\s+([a-z][a-z0-9-]*)', new)
+        if not m:
+            continue
+        sub = m.group(1)
+        if sub not in subcommands:
+            out.append((old, new, sub))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Negative-exemplar allowlist (consumed from rule-id.convention.yaml)
 # ---------------------------------------------------------------------------
 def load_negative_exemplars(
@@ -434,6 +514,28 @@ def scan_hints() -> List[Violation]:
                     fix_hint_ref=_RULE.fix_hint_ref,
                 )
             )
+
+    # C2b — a deprecation hint must not point at a command that does not exist.
+    # Audited over the registry itself (not per-hint): the defect lives in the
+    # `_deprecation_warning` callsite, so reporting it once per callsite beats
+    # once per hint that happens to quote it.
+    for old, new, missing in audit_c2b_no_dangling_replacement_target(
+        iter_deprecation_callsites(), build_subcommand_registry()
+    ):
+        violations.append(
+            Violation(
+                rule_id=_RULE.rule_id,
+                severity=_RULE.severity,
+                location=_relpath(CLI_FILE),
+                detail=(
+                    f"C2b dangling-replacement-target: the deprecation of {old!r} "
+                    f"recommends {new!r}, but `atdd {missing}` is not a registered "
+                    f"top-level subcommand. Repoint the _deprecation_warning "
+                    f"replacement at a live command."
+                ),
+                fix_hint_ref=_RULE.fix_hint_ref,
+            )
+        )
 
     return violations
 
