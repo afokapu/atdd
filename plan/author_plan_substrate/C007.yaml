@@ -1,0 +1,135 @@
+urn: wmbt:author-plan-substrate:C007
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: registry-writer-divergence
+context_clarifier: when the contract registry written by create_contract declares
+  producers/consumers for an identity, those declared writers must agree with the
+  produce/consume graph across plan/<wagon>/_<wagon>.yaml, and no registered contract
+  may be produced by more than one wagon; the coherence pass reads contracts/_contracts.yaml
+  and falls back per-identity to the built contracts/_artifacts.yaml
+lens: functional.effectiveness
+statement: minimize likelihood of registry-writer-divergence by cross-checking the
+  registry's declared producers and consumers against the wagon produce/consume graph
+  and refusing more than one producing wagon per registered contract
+acceptances:
+- identity:
+    urn: acc:author-plan-substrate:C007-SMOKE-001-writer-divergence-rule-bound-and-run
+    id: AC-SMOKE-001
+    purpose: Verify the WRITER-DIVERGENCE invariant is bound to planner.contract.registry-coherence
+      and executed by the real `atdd validate planner` run over the live corpus, reporting
+      the live divergence at its declared disposition
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout whose contract registry declares producers/consumers and
+      whose plan/<wagon>/_<wagon>.yaml graph diverges from them
+  when:
+    abstract: atdd validate planner is run in that checkout
+  then:
+    abstract:
+    - planner.contract.registry-coherence resolves through bind_rule and its convention
+      node declares the WRITER-DIVERGENCE constraints
+    - the live scan surfaces the divergent identities through the disposition gate
+      at the rule's declared disposition
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+- identity:
+    urn: acc:author-plan-substrate:C007-UNIT-001-detects-producer-divergence
+    id: AC-UNIT-001
+    purpose: find_incoherences flags a registered contract whose registry-declared
+      producing wagon is not the wagon that produces it in the plan graph, and flags
+      one whose registry declares a producer that no wagon produces at all
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A registry declaring identity X produced by wagon:wagon-a, and a plan graph
+      in which wagon-b produces X (or no wagon produces X)
+  when:
+    abstract: find_incoherences(manifests, registered, writers) is called
+  then:
+    abstract:
+    - A violation is raised naming the registry-declared producer and the graph producer
+      set
+    - The violation carries rule_id planner.contract.registry-coherence and the producing
+      wagon's manifest location
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+- identity:
+    urn: acc:author-plan-substrate:C007-UNIT-002-detects-multi-producer-contract
+    id: AC-UNIT-002
+    purpose: find_incoherences flags a registered contract produced by more than one
+      wagon in the plan graph, since a contract has exactly one producing wagon
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A registry registering identity X, and a plan graph in which both wagon-a and
+      wagon-b declare a produce entry named X
+  when:
+    abstract: find_incoherences(manifests, registered, writers) is called
+  then:
+    abstract:
+    - A violation is raised naming X and both producing wagons
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+- identity:
+    urn: acc:author-plan-substrate:C007-UNIT-003-detects-consumer-divergence
+    id: AC-UNIT-003
+    purpose: 'find_incoherences flags a registered contract whose registry-declared
+      consumers disagree with the wagons that consume it in the plan graph, closing
+      invariant 3''s blanket to: external escape hatch'
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'A registry declaring identity X consumed by wagon:wagon-b, a plan graph in
+      which wagon-a produces X marked to: external and no wagon consumes X'
+  when:
+    abstract: find_incoherences(manifests, registered, writers) is called
+  then:
+    abstract:
+    - A violation is raised naming the registry-declared consumers and the empty graph
+      consumer set
+    - 'The violation fires even though the produce entry is marked to: external'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+- identity:
+    urn: acc:author-plan-substrate:C007-UNIT-004-coherent-writers-yield-no-violation
+    id: AC-UNIT-004
+    purpose: a registry whose declared producers and consumers match the plan graph
+      exactly, with a single producing wagon, yields zero violations across all four
+      invariants
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A registry declaring identity X produced by wagon:wagon-a and consumed by wagon:wagon-b,
+      and a plan graph in which exactly wagon-a produces X and exactly wagon-b consumes
+      X
+  when:
+    abstract: find_incoherences(manifests, registered, writers) is called
+  then:
+    abstract:
+    - No violation is returned
+    - Adding an unregistered identity to the writers map changes nothing, since WRITER-DIVERGENCE
+      only ranges over registered identities
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
