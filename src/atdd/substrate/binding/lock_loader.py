@@ -86,7 +86,12 @@ def _discover_implementations(pkg_dir: Path) -> list[dict]:
             continue
         if data.get("kind") != "implementation":
             continue
-        if data.get("implementation_id") and data.get("realizes_convention"):
+        # A manifest binds rules either by OWNERSHIP (realizes_convention) or, for a
+        # family detector authored against the v1.1 schema, by emits_rule_ids alone.
+        # Requiring realizes_convention silently dropped the latter.
+        if data.get("implementation_id") and (
+            data.get("realizes_convention") or data.get("emits_rule_ids")
+        ):
             data["_manifest_path"] = str(mp)
             impls.append(data)
     return impls
