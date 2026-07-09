@@ -61,11 +61,11 @@ def test_real_atdd_issue_exits_non_zero_naming_the_replacements(temp_root):
     result = _run_atdd(["issue", "open"], cwd=temp_root, control_root=temp_root)
 
     assert result.returncode != 0, (
-        "`atdd issue open` must exit non-zero after 4.0.0 removal; "
+        "`atdd issue open` must exit non-zero after removal; "
         f"got rc=0\nstdout:\n{result.stdout}"
     )
     combined = result.stdout + result.stderr
-    assert "4.0.0" in combined
+    assert "REMOVED" in combined
     assert "atdd coach" in combined
     assert "atdd author issue" in combined
     assert "invalid choice" not in combined, (

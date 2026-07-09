@@ -233,7 +233,7 @@ github_issue_tracking:
       tracking: "Task"
     sub_issue: "Task (always)"
 
-  # The `atdd issue` monolith was REMOVED in 4.0.0 (#1309, umbrella #1303).
+  # The `atdd issue` monolith was REMOVED (#1309, umbrella #1303).
   # Creation lives in the `author` archetype; lifecycle lives in `coach`.
   cli_commands:
     init: "atdd init — bootstraps labels, Project v2, custom fields, workflow"

@@ -94,7 +94,7 @@ issues:
     update: "atdd coach transition <N> <STATUS>"
     pr: "atdd pr <N>"
   removed_commands:
-    # #1309 (4.0.0, BREAKING): the `atdd issue` monolith is GONE. Umbrella #1303
+    # #1309 (BREAKING): the `atdd issue` monolith is GONE. Umbrella #1303
     # split it across the author (create) and coach (lifecycle) archetypes.
     # Running it now exits non-zero and names the replacement.
     - "atdd issue <slug>              → use: atdd author issue --title <title> --slug <slug>"

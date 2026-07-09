@@ -93,8 +93,8 @@ def evaluate_pr_merge_violations(
             f"transitioned through SMOKE+REFACTOR. Merging this PR would "
             f"fire GitHub's auto-close before the lifecycle reaches SMOKE. "
             f"Drive the issue forward: "
-            f"`atdd issue {issue_number} --status SMOKE` then "
-            f"`atdd issue {issue_number} --status REFACTOR`, or remove the "
+            f"`atdd coach transition {issue_number} SMOKE` then "
+            f"`atdd coach transition {issue_number} REFACTOR`, or remove the "
             f"Closes/Fixes/Resolves keyword from the PR body if this PR is "
             f"a partial step. See issue #681."
         )

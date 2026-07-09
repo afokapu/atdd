@@ -74,7 +74,7 @@ class TestIssueSurfaceRemoved:
         subcommands = build_subcommand_registry()
         assert subcommands, "subcommand registry must not be empty (regex drift?)"
         assert "issue" not in subcommands, (
-            "`atdd issue` must be removed in 4.0.0; found it still registered "
+            "`atdd issue` must be removed (#1303); found it still registered "
             "as a top-level subparser"
         )
         # Sanity: the replacements the guard names really are registered.
@@ -91,7 +91,8 @@ class TestIssueSurfaceRemoved:
         )
         assert "issue" in cli.REMOVED_COMMANDS
         msg = cli.REMOVED_COMMANDS["issue"]
-        assert "4.0.0" in msg
+        assert "REMOVED" in msg
+        assert "#1303" in msg
         assert "atdd coach" in msg
         assert "atdd author issue" in msg
 
@@ -119,7 +120,7 @@ class TestIssueSurfaceRemoved:
         err = capsys.readouterr().err
         assert "atdd coach" in err
         assert "atdd author issue" in err
-        assert "4.0.0" in err
+        assert "REMOVED" in err
         # The guard must run BEFORE argparse, so the user never sees this:
         assert "invalid choice" not in err
 
