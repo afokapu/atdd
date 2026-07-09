@@ -8,7 +8,7 @@
 
 Cross-checks the authored contract registry (``contracts/_contracts.yaml``,
 authored by ``create_contract`` — #1330) against the produce/consume graph
-declared across ``plan/<wagon>/_<wagon>.yaml`` and enforces three coherence
+declared across ``plan/<wagon>/_<wagon>.yaml`` and enforces four coherence
 invariants:
 
 1. UNREGISTERED    — every non-null ``contract:`` URN on a produce/consume
@@ -20,6 +20,13 @@ invariants:
 3. UNCONSUMED      — every produce entry declaring a non-null ``contract``
    must be consumed by another wagon *or* be explicitly marked
    ``to: external``.
+4. WRITER-DIVERGENCE — the registry's declared ``producers``/``consumers`` must
+   agree with the wagons that actually produce/consume the artifact in the
+   graph, and a contract must have exactly ONE producing wagon (#1404).
+
+Invariant 4 also guards invariant 3's escape hatch: ``to: external`` (the
+default when ``to`` is omitted) voids the UNCONSUMED check, so a registry that
+declares a consumer the graph does not have is caught here instead.
 
 Disposition is ``advisory`` until the registry is authored (#1330) and the
 corpus is repointed off ``contract: null``; the live scan reports the debt
@@ -50,8 +57,10 @@ _VALIDATOR_ID = "contract_registry_coherence"
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 REGISTRY_PATH = REPO_ROOT / "contracts" / "_contracts.yaml"
+ARTIFACTS_PATH = REPO_ROOT / "contracts" / "_artifacts.yaml"
 
 _CONTRACT_PREFIX = "contract:"
+_WAGON_PREFIX = "wagon:"
 
 
 # ---------------------------------------------------------------------------
@@ -113,18 +122,93 @@ def _strip_prefix(urn: str) -> str:
     return urn[len(_CONTRACT_PREFIX):] if urn.startswith(_CONTRACT_PREFIX) else urn
 
 
+def _strip_wagon(ref: str) -> str:
+    ref = str(ref)
+    return ref[len(_WAGON_PREFIX):] if ref.startswith(_WAGON_PREFIX) else ref
+
+
+def _load_yaml_list(path: Path, key: str) -> List[dict]:
+    if not path.exists():
+        return []
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return []
+    entries = doc.get(key) if isinstance(doc, dict) else None
+    return [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
+
+
+def load_registry_writers(
+    registry_path: Path, artifacts_path: Path
+) -> Dict[str, Dict[str, Set[str]]]:
+    """Return ``identity -> {'producers': {wagon}, 'consumers': {wagon}}``.
+
+    The declared writers are read from two registries of the same contracts:
+
+    * ``contracts/_contracts.yaml`` — authored by ``create_contract`` (#1330),
+      carrying ``producers``/``consumers`` wagon-ref lists. Authoritative.
+    * ``contracts/_artifacts.yaml`` — the built registry, carrying ``producer``
+      (singular) + ``consumers``. Consulted per-identity for anything the
+      authored registry does not cover.
+
+    No contract has been authored through ``create_contract`` yet, so the
+    authored registry is absent and the built one is the live source; keying the
+    fallback per-identity means the invariant keeps working as contracts migrate
+    across, one at a time, without a flag day.
+
+    Deliberately *separate* from :func:`load_registry`, which returns the
+    identity set that invariants 1-3 and ``interlocking/sanity.py`` share. That
+    set stays sourced from the authored registry alone, so this addition cannot
+    move their behaviour.
+    """
+    writers: Dict[str, Dict[str, Set[str]]] = {}
+
+    for entry in _load_yaml_list(artifacts_path, "artifacts"):
+        ident = entry.get("id") or entry.get("identity")
+        if not ident:
+            continue
+        producer = entry.get("producer")
+        writers[_strip_prefix(str(ident))] = {
+            "producers": {_strip_wagon(producer)} if producer else set(),
+            "consumers": {_strip_wagon(c) for c in (entry.get("consumers") or [])},
+        }
+
+    for entry in _load_yaml_list(registry_path, "contracts"):
+        ident = entry.get("identity") or entry.get("id") or entry.get("$id")
+        if not ident:
+            continue
+        writers[_strip_prefix(str(ident))] = {
+            "producers": {_strip_wagon(p) for p in (entry.get("producers") or [])},
+            "consumers": {_strip_wagon(c) for c in (entry.get("consumers") or [])},
+        }
+
+    return writers
+
+
 def _wagon_loc(wagon: str) -> str:
     w = wagon.replace("-", "_")
     return f"plan/{w}/_{w}.yaml:1"
+
+
+def _writer_loc(wagons: Set[str]) -> str:
+    """Anchor a registry-side breach at the producing wagon, else the registry."""
+    return _wagon_loc(sorted(wagons)[0]) if wagons else "contracts/_contracts.yaml:1"
 
 
 # ---------------------------------------------------------------------------
 # Coherence analysis (pure, unit-testable)
 # ---------------------------------------------------------------------------
 def find_incoherences(
-    manifests: Dict[str, Dict[str, list]], registered: Set[str]
+    manifests: Dict[str, Dict[str, list]],
+    registered: Set[str],
+    writers: Dict[str, Dict[str, Set[str]]] | None = None,
 ) -> List[Violation]:
-    """Return one Violation per coherence breach across the three invariants."""
+    """Return one Violation per coherence breach across the four invariants.
+
+    *writers* is the registry's declared ``producers``/``consumers`` per identity
+    (see :func:`load_registry_writers`). Omitted or empty, invariant 4 is inert
+    and the first three behave exactly as before.
+    """
     violations: List[Violation] = []
 
     # producer NAME -> set of producing wagons (for cross-wagon detection)
@@ -195,11 +279,67 @@ def find_incoherences(
                     )
                 )
 
+    # (4) WRITER-DIVERGENCE — the registry names each contract's writers; the
+    # graph is where writing actually happens. They must agree, and a contract
+    # has exactly one producing wagon.
+    for identity, declared in sorted((writers or {}).items()):
+        graph_producers = producers.get(identity, set())
+        graph_consumers = consumers.get(identity, set())
+        declared_producers = declared.get("producers") or set()
+        declared_consumers = declared.get("consumers") or set()
+        anchor = _writer_loc(declared_producers or graph_producers)
+
+        if len(graph_producers) > 1:
+            violations.append(
+                Violation(
+                    rule_id=_RULE.rule_id,
+                    severity=_RULE.severity,
+                    location=_wagon_loc(sorted(graph_producers)[0]),
+                    detail=(
+                        f"contract '{identity}' is produced by "
+                        f"{sorted(graph_producers)} — a contract has "
+                        f"exactly one producing wagon"
+                    ),
+                )
+            )
+
+        if declared_producers != graph_producers:
+            violations.append(
+                Violation(
+                    rule_id=_RULE.rule_id,
+                    severity=_RULE.severity,
+                    location=anchor,
+                    detail=(
+                        f"contract '{identity}' registry declares producer(s) "
+                        f"{sorted(declared_producers)} but the wagon graph "
+                        f"produces it in {sorted(graph_producers)}"
+                    ),
+                )
+            )
+
+        if declared_consumers != graph_consumers:
+            violations.append(
+                Violation(
+                    rule_id=_RULE.rule_id,
+                    severity=_RULE.severity,
+                    location=anchor,
+                    detail=(
+                        f"contract '{identity}' registry declares consumer(s) "
+                        f"{sorted(declared_consumers)} but the wagon graph "
+                        f"consumes it in {sorted(graph_consumers)}"
+                    ),
+                )
+            )
+
     return violations
 
 
 def _scan_live() -> List[Violation]:
-    return find_incoherences(load_manifests(PLAN_DIR), load_registry(REGISTRY_PATH))
+    return find_incoherences(
+        load_manifests(PLAN_DIR),
+        load_registry(REGISTRY_PATH),
+        load_registry_writers(REGISTRY_PATH, ARTIFACTS_PATH),
+    )
 
 
 # ---------------------------------------------------------------------------
