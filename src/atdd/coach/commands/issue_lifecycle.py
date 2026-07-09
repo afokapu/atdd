@@ -621,7 +621,7 @@ class IssueLifecycle:
             return 1
 
         # Phase 2: chain to worktree creation (default) or print intent (--no-branch).
-        from atdd.coach.commands.issue import TYPE_TO_PREFIX
+        from atdd.coach.commands.issue_prefixes import TYPE_TO_PREFIX
         prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
 
         if not no_branch:

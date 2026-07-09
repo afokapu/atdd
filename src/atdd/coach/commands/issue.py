@@ -36,20 +36,15 @@ GRAPH_CONTEXT_UNAVAILABLE = (
     "`atdd issue <N> --refresh-graph`)"
 )
 
-# Issue type → conventional commit / branch prefix mapping.
-# Used by `atdd new` (title prefix) and `atdd branch` (worktree prefix).
-TYPE_TO_PREFIX = {
-    "implementation": "feat",
-    "migration": "feat",
-    "refactor": "refactor",
-    "analysis": "chore",
-    "planning": "chore",
-    "cleanup": "chore",
-    "tracking": "chore",
-}
-
-# Allowed branch prefixes (derived from TYPE_TO_PREFIX values + fix, docs, devops).
-ALLOWED_BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
+# Issue type → conventional commit / branch prefix mapping, and the allowed
+# branch prefixes. MOVED to the neutral ``issue_prefixes`` module by C5a (#1382)
+# so branch.py/pr.py no longer hard-depend on this monolith; re-exported here
+# (identical objects) so existing ``from ...issue import TYPE_TO_PREFIX`` callers
+# keep working until C5b (#1309) deletes the monolith. Do not redefine here.
+from atdd.coach.commands.issue_prefixes import (  # noqa: E402  (re-export, single source of truth)
+    ALLOWED_BRANCH_PREFIXES,
+    TYPE_TO_PREFIX,
+)
 
 # Step code to step name mapping
 STEP_CODES = {

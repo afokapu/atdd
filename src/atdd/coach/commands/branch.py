@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from atdd.coach.commands.issue import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
+from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
 from atdd.coach.github import GitHubClient, GitHubClientError, ProjectConfig
 from atdd.coach.utils.default_branch import resolve_default_branch
 
