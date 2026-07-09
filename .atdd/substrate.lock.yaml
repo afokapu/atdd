@@ -23,6 +23,14 @@ artifacts:
   - id: atdd.workspace.typescript
   - id: atdd.workspace.supabase
   - id: atdd.workspace.fastapi
+- id: atdd.extension.train-interlocking-enforcement
+  kind: extension
+  version: 0.1.0
+  digest: sha256:ffcb4955d3a245f6d104e6dce59698aa110d389323e9a834c1ad6f7425925274
+  installed_path: .atdd/extensions/atdd.extension.train-interlocking-enforcement/0.1.0
+  enabled: true
+  workspaces:
+  - id: atdd.workspace.python-pytest
 - id: atdd.workspace.python-pytest
   kind: workspace
   version: 0.1.0

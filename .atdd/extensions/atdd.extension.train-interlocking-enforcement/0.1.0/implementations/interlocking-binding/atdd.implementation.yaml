@@ -1,0 +1,29 @@
+schema_version: "1.1.0"
+kind: implementation
+
+# afokapu/atdd-extensions#27 — the bilateral declaration<->runtime<->station<->trace binding that makes
+# train interlocking SYSTEMIC. One python-pytest detector realizes the single
+# coder.train.interlocking-bilateral-binding convention; it walks a consumer tree's interlocking YAML
+# route space (core afokapu/atdd#1248), Station Master JOURNEY_MAP, InterlockingRunner runtime, and e2e
+# trace tests (core afokapu/atdd#1251) and emits RAW v1.1 violations for any broken binding direction.
+implementation_id: coder.train.interlocking-bilateral-binding.impl
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# The one obligation this detector realizes (the convention's five `bidirectional` directions plus the
+# parallel-reachability schema-drift guard all surface under this single rule_id).
+realizes_convention: coder.train.interlocking-bilateral-binding
+
+# One run, one strict rule_id; the broken binding DIRECTION is named in each violation's evidence
+# (stable token prefix) so the verdict layer / tests classify without parsing free text.
+emits_rule_ids:
+  - coder.train.interlocking-bilateral-binding   # disposition: strict (any broken binding direction)
+
+# The pure detector module. CONSUMES core afokapu/atdd#1248's entrypoint.exposed/actions field for the
+# declaration_to_station reachability check — it defines NO parallel reachability field and rejects any
+# fork (entrypoints/runtime_exposure/station_actions/exposed_actions/reachability) as schema drift.
+entrypoint: src/interlocking_binding.py
+
+# The runnable v1.1 report-emitting pytest the provider CLI collects: scans ATDD_SCAN_ROOTS and writes
+# the RAW {rule_id,file,line,col,evidence,source_line} report to ATDD_VIOLATIONS_REPORT.
+report: tests/test_interlocking_binding.py

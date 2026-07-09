@@ -1,0 +1,42 @@
+schema_version: 1.1.0
+rule_id: coder.train.interlocking-runner.definition
+kind: family
+status: active
+name: InterlockingRunner — route-control runtime that resolves one train and delegates (advisory semantic anchor)
+statement: >-
+  An `InterlockingRunner` is the route-control layer a consumer ships when it declares guarded routes: a
+  `class InterlockingRunner` exposing a `resolve_train(action, inputs, state)` entry point that evaluates
+  guarded routes, resolves exactly one admissible train through a structured resolution model, and
+  delegates execution to TrainRunner — carrying no Cargo and executing no wagons itself. It is the
+  executor a planner `interlocking` compiles to. This node is an advisory semantic anchor — it enforces
+  nothing directly; the enforceable parts of this meaning are decomposed into the constraint/rule nodes
+  that require it.
+content:
+  summary: >-
+    An advisory definition of the runtime (coder-layer) InterlockingRunner concept. It fixes the meaning
+    that five enforcing coder.train.interlocking-* rules operationalize: the runner exists with a
+    resolve_train entry point, resolves via a structured model, delegates to TrainRunner, never carries
+    Cargo or executes wagons, and closes the declaration<->runtime binding.
+  note: >-
+    Advisory anchor: it ships no validator. Within this extension it connects (relationships.yaml,
+    `type: relates-to`) to the five enforcing rules that operationalize it —
+    coder.train.interlocking-runner-exists ("route-control layer ... class InterlockingRunner ...
+    resolve_train(...) entry point ... resolves exactly one admissible train before delegation"),
+    coder.train.interlocking-resolution-model-exists (structured InterlockingResolution model),
+    coder.train.interlocking-delegates-to-trainrunner (delegates, never executes wagons),
+    coder.train.interlocking-does-not-carry-cargo ("An InterlockingRunner MUST NOT reference or mutate
+    Cargo"), and coder.train.interlocking-bilateral-binding (declaration<->runtime<->station<->trace
+    closure). Core runtime design is declared narratively per boundary spec §6.2, not as a graph edge.
+metadata:
+  aliases:
+    - INTERLOCKING-RUNNER-DEFINITION
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: interlocking_runner
+    text: >-
+      the route-control runtime — a `class InterlockingRunner` with a `resolve_train(action, inputs,
+      state)` entry point — that evaluates guarded routes, resolves exactly one admissible train, and
+      delegates execution to TrainRunner; it carries no Cargo and executes no wagons itself.

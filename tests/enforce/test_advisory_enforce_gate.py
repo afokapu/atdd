@@ -3,8 +3,8 @@
 Guards the MECHANISM #1359 activates against the vendored, committed substrate:
 
   * the canonical ``.atdd/binding.lock.yaml`` binds a real (non-no-op) coder/tester
-    set, and train-interlocking is DEFERRED (#1361, blocked on #1292/#1345) — an
-    unresolvable bind would break ``--verify-substrate`` and the gate;
+    set, train-interlocking included (#1361), and every one of those rules resolves
+    to a runnable detector rather than binding to a provider that cannot run it;
   * ``atdd enforce --verify-substrate`` passes against the committed vendored tree
     (digest coherence — a real, blocking invariant);
   * CI wires ``atdd enforce`` and runs its VERDICT as an ADVISORY (non-blocking)
@@ -56,8 +56,22 @@ def _enforce_run_steps() -> list[tuple[str, dict, str]]:
     return steps
 
 
-def test_binding_lock_binds_runnable_set_without_train_interlocking():
-    """GT-001: the canonical lock binds a non-empty coder/tester set; train-interlocking omitted (#1361)."""
+_TRAIN_INTERLOCKING_CONVENTIONS = {
+    "coder.train.interlocking-runner-exists",
+    "coder.train.interlocking-resolution-model-exists",
+    "coder.train.station-master-interlocking-routing",
+    "coder.train.interlocking-delegates-to-trainrunner",
+    "coder.train.interlocking-does-not-carry-cargo",
+    "coder.train.interlocking-bilateral-binding",
+    "tester.interlocking.route-coverage",
+    "tester.interlocking.production-runner-used",
+    "tester.interlocking.smoke-coverage-for-station-master",
+    "tester.interlocking.trace-binds-declared-route",
+}
+
+
+def test_binding_lock_binds_runnable_set_including_train_interlocking():
+    """GT-001: the canonical lock binds a non-empty coder/tester set, train-interlocking included (#1361)."""
     assert BINDING_LOCK.is_file(), f"canonical binding.lock missing at {BINDING_LOCK}"
     lock = yaml.safe_load(BINDING_LOCK.read_text(encoding="utf-8")) or {}
     bound = [c for c in lock.get("conventions", []) if c.get("disposition") == "bound"]
@@ -66,12 +80,31 @@ def test_binding_lock_binds_runnable_set_without_train_interlocking():
     assert any(i.startswith(("coder.", "tester.")) for i in ids), (
         f"expected coder/tester bound conventions, got: {sorted(ids)}"
     )
-    # train-interlocking is deferred to #1361 (blocked on #1292/#1345): the core
-    # composer cannot yet compose its list-valued realizes_convention, and an
-    # unresolvable bound entry would fail --verify-substrate and break the gate.
-    assert not any("interlocking" in i for i in ids), (
-        "train-interlocking must NOT be bound here — deferred to #1361 (#1292/#1345)"
-    )
+    # The whole point of the extension: its ten conventions are enforced, not shelved.
+    # Five coder rules fan out from one detector — the composer fan-out (#1359) — and
+    # four tester rules from another. Previously deferred to #1361 while the composer
+    # could not compose a list-valued realizes_convention.
+    missing = _TRAIN_INTERLOCKING_CONVENTIONS - ids
+    assert not missing, f"train-interlocking conventions must be bound; missing: {sorted(missing)}"
+
+
+def test_train_interlocking_rules_are_runnable_not_merely_bound():
+    """A bound rule whose detector cannot run reports `unrunnable` and enforce still
+    prints PASS — a false green. Every interlocking rule must resolve to a runnable
+    provider (its detector is shipped by the extension package, not the workspace)."""
+    from atdd.enforce.runner import _resolve_impls_root
+
+    lock = yaml.safe_load(BINDING_LOCK.read_text(encoding="utf-8")) or {}
+    bound = {
+        c["convention_id"]: c["implementation_id"]
+        for c in lock.get("conventions", [])
+        if c.get("disposition") == "bound"
+    }
+    unrunnable = [
+        rule for rule in sorted(_TRAIN_INTERLOCKING_CONVENTIONS)
+        if _resolve_impls_root(REPO_ROOT, bound[rule]) is None
+    ]
+    assert not unrunnable, f"bound but unrunnable (false green): {unrunnable}"
 
 
 def test_verify_substrate_passes_against_vendored_tree():

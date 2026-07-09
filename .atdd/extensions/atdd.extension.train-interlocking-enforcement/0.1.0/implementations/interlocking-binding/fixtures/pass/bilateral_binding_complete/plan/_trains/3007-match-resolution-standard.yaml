@@ -1,0 +1,7 @@
+# Linear train the declared route projects onto (core afokapu/atdd#1248). Its existence is
+# what makes the route declaration_to_runtime resolvable.
+schema_version: 1.0.0
+train_id: 3007-match-resolution-standard
+title: Match resolution standard
+sequence:
+  - match

@@ -1,0 +1,35 @@
+# Isolates the smoke-coverage-for-station-master rule. exposed:true with the
+# resolve_match action, both routes covered by a direct-runner e2e test, no trace
+# test — the ONLY defect is that no smoke test reaches the Station Master for the
+# exposed resolve_match action.
+schema_version: 1.0.0
+interlocking_id: interlocking:match-resolution
+title: Match resolution route interlocking
+theme: match
+status: checked
+
+entrypoint:
+  exposed: true
+  actions:
+    - resolve_match
+  reason: null
+
+route_resolution:
+  strategy: fail_on_multiple_match
+
+routes:
+  - route_id: nominal-all-voted
+    category: nominal
+    category_digit: "0"
+    priority: 10
+    guard_ref: guard:all-voted
+    train_id: 3007-match-resolution-standard
+    train_path: plan/_trains/3007-match-resolution-standard.yaml
+
+  - route_id: alternate-timeout
+    category: alternate
+    category_digit: "2"
+    priority: 20
+    guard_ref: guard:timer-expires
+    train_id: 3207-match-resolution-timeout
+    train_path: plan/_trains/3207-match-resolution-timeout.yaml

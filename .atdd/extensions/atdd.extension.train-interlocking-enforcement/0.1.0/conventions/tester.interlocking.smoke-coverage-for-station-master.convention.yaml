@@ -1,0 +1,91 @@
+schema_version: 1.1.0
+rule_id: tester.interlocking.smoke-coverage-for-station-master
+kind: rule
+status: active
+name: Exposed interlocking Station Master actions have smoke coverage through real entrypoints
+statement: >-
+  Every exposed Station Master action of an interlocking (`entrypoint.exposed: true` with an `actions:`
+  entry, core afokapu/atdd#1248) MUST have a smoke test that drives the action through the real
+  entrypoint -> Station Master -> InterlockingRunner -> TrainRunner path (core afokapu/atdd#1251). This is
+  the stack-bound tester obligation owned by the train-interlocking-enforcement extension; its python-pytest
+  realization (the `tester.interlocking.route-coverage.impl` detector) scans the interlocking entrypoints
+  and the consumer's `e2e/**/*.py` tests and flags any exposed action with no smoke test that reaches the
+  Station Master and exercises the production runners. EXPLICIT POLICY: an exposed action is a critical,
+  user-facing route and its smoke coverage is enforced STRICT; an interlocking with `entrypoint.exposed:
+  false` (internal-transition-only / library-only / planned-not-exposed) has no Station Master action and is
+  OUT OF SCOPE (advisory / not required) — the criticality signal is the core `entrypoint.exposed` field,
+  not a heuristic.
+implementation:
+  type: validator
+  ref: tester.interlocking.smoke-coverage-for-station-master
+content:
+  summary: >-
+    A "exposed Station Master interlocking actions have real-entrypoint smoke coverage" obligation. The
+    python realization parses each interlocking's `entrypoint` (afokapu/atdd#1248); for each
+    `exposed: true` action it requires a smoke test under `e2e/**/*.py` that references the action name and
+    reaches the Station Master while driving the production runners — the
+    `test_interlocking_station_master_actions_have_smoke_coverage` check. Internal (`exposed: false`)
+    interlockings carry no action and are not flagged.
+  normative_text: |
+    `entrypoint.exposed: true` requires at least one action (afokapu/atdd#1248), and those actions are
+    Station Master action names — the user-facing surface. The smoke test for such an action should prove
+    the whole interlocking-enabled path end to end:
+      - a real HTTP/API/action endpoint reaches the Station Master,
+      - the Station Master chooses the interlocking path (not a direct train),
+      - InterlockingRunner resolves the route,
+      - TrainRunner executes the selected train,
+      - the trace records interlocking_id, route_id, selected_train_id.
+    The detector's enforced minimum signature for an action's smoke test is a `e2e/**/*.py` file that
+    references the action name AND a Station Master reference (`StationMaster` / `station_master`) AND both
+    production runners (`InterlockingRunner`, `TrainRunner`). The richer chain above is the obligation the
+    consuming repo satisfies and is documented in the detector's fixtures.
+
+    SEVERITY POLICY (explicit, per the issue): exposed actions are critical user-facing routes -> strict;
+    `exposed: false` interlockings are internal / noncritical -> out of scope (advisory). The policy is
+    derived from the core `entrypoint.exposed` field, so it is mechanical, not a judgement call.
+  fix_hint: |
+    Add a smoke test for the flagged Station Master action that hits the real entrypoint and asserts the
+    interlocking path is taken: call the real action endpoint so it reaches the Station Master, assert the
+    Station Master chose the interlocking (InterlockingRunner) path, that InterlockingRunner resolved a
+    route, that TrainRunner executed the selected train, and that the captured trace records the
+    interlocking_id / route_id / selected_train_id. Follow the consuming repo's existing smoke-test naming.
+    This rule is `strict` for exposed (user-facing) actions; if the interlocking is genuinely internal,
+    set `entrypoint.exposed: false` with a reason in the interlocking YAML and it leaves scope.
+  exceptions:
+    - Interlockings with `entrypoint.exposed` false (internal-transition-only / library-only /
+      planned-not-exposed) carry no Station Master action and are out of scope.
+    - An exposed action that already has a covering smoke test (a file referencing the action, the Station
+      Master, and both runners) is satisfied and not flagged.
+    - Per-stack renderings other than python are owned by their own workspace packages.
+metadata:
+  aliases:
+    - TESTER-INTERLOCKING-SMOKE-STATION-MASTER-001
+  severity: 1
+  disposition: strict
+  introduced_in: 0.1.0
+notes: >-
+  DISPOSITION JUSTIFICATION (strict for exposed actions; explicit policy). The issue permits strict for
+  critical user-facing routes and advisory for noncritical internal routes, and requires the policy to be
+  explicit. The criticality boundary is taken from the core `entrypoint.exposed` field (afokapu/atdd#1248):
+  exposed actions are the user-facing surface and a missing smoke test there means the live
+  endpoint -> Station Master -> InterlockingRunner -> TrainRunner path is unproven end to end — strict.
+  Internal (`exposed: false`) interlockings have no Station Master action and are out of scope. The gate
+  may downgrade a specific internal stage, but exposed actions stay strict. Per boundary spec §6.2 the core
+  runtime/route contracts (afokapu/atdd#1248/#1251) are referenced NARRATIVELY, not as graph edges.
+terms:
+- term_id: exposed_action
+  text: >-
+    a Station Master action name listed under an interlocking's `entrypoint.actions` when
+    `entrypoint.exposed: true` (afokapu/atdd#1248). It is the user-facing route surface and requires smoke
+    coverage; `exposed: false` interlockings have no such action.
+- term_id: station_master_smoke_test
+  text: >-
+    an `e2e/**/*.py` smoke test that drives an exposed action through the real entrypoint to the Station
+    Master, proving the Station Master chose the interlocking path, InterlockingRunner resolved a route,
+    TrainRunner executed the selected train, and the trace recorded the interlocking_id/route_id/
+    selected_train_id.
+- term_id: criticality_policy
+  text: >-
+    the explicit rule that exposed (user-facing) actions are enforced strict while `exposed: false`
+    (internal) interlockings are out of scope — derived mechanically from the core `entrypoint.exposed`
+    field rather than a heuristic.
