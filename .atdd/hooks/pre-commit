@@ -79,17 +79,19 @@ esac
 
 # --- Verify branch is registered (store-backed, #1270 slice C) ---
 # Resolves branch → work item through the State Store (manifest fallback) via
-# `atdd issue is-registered`, replacing the legacy `grep "slug:" manifest.yaml`.
+# `atdd coach is-registered`, replacing the legacy `grep "slug:" manifest.yaml`.
+# (Repointed from `atdd issue is-registered` by #1382/C5a so C5b's deletion of the
+# `atdd issue` monolith cannot break the commit gate.)
 # Skips when atdd is unavailable (never hard-breaks a commit) and when the repo
 # is not atdd-managed (the helper exits 0 with nothing to check).
 if command -v atdd >/dev/null 2>&1; then
-    if ! atdd issue is-registered "$BRANCH" >/dev/null 2>&1; then
+    if ! atdd coach is-registered "$BRANCH" >/dev/null 2>&1; then
         cat >&2 <<EOF
 
 ATDD: Branch '$BRANCH' is not registered as an ATDD work item.
 
 Self-heal:
-  atdd issue reconcile
+  atdd coach reconcile
 
 Every branch must be created through the ATDD workflow:
   1. atdd issue <slug>            # Create issue first
