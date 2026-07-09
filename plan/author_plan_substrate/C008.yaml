@@ -17,7 +17,9 @@ acceptances:
 - identity:
     urn: acc:author-plan-substrate:C008-SMOKE-001-seed
     id: AC-SMOKE-001
-    purpose: Verify the C008 behaviour against the real CLI in a checkout
+    purpose: Verify against the real `atdd plan unit` CLI in a checkout that a
+      non-object spec is refused with a non-zero exit and persists nothing, and
+      that the @<path> form loads an object spec from a file
     phase: SMOKE
   harness:
     type: integration
@@ -25,11 +27,16 @@ acceptances:
   given:
     abstract:
     - a real repo checkout and the installed atdd CLI
+    - a plan session driven to the Prepare step under a temporary root
   when:
-    abstract: the behaviour is exercised end-to-end
+    abstract: atdd plan unit --spec is run as a subprocess with a non-object JSON
+      value, a bare filesystem path, and an @<path>
   then:
     abstract:
-    - the observable outcome holds
+    - the non-object spec exits non-zero and no unit is written to session.json
+    - the bare path exits non-zero with a message naming --spec and the @ form,
+      and no traceback reaches stderr
+    - the @<path> form exits zero and the object spec is persisted to the session
 - identity:
     urn: acc:author-plan-substrate:C008-UNIT-001-spine-rejects-non-object-spec
     id: AC-UNIT-001

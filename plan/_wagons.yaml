@@ -2443,7 +2443,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 33
+    total: 34
     E001: minimize likelihood of registry-family-template-mismatch — registry.yaml
       declares exactly the 13 canonical families and 22 templates
     E002: minimize likelihood of registry-archetype-divergence — each family archetype.py
@@ -2517,6 +2517,10 @@ wagons:
       legacy validator is classified PLATFORM/RULE-BOUND/ACCEPTANCE-ANCHORED with
       its legacy-validator-map status and required retirement steps, naming the two
       CI catches, before any deletion
+    Y003: minimize likelihood of coverage-loss-on-legacy-validator-sweep-retirement
+      — no rule implementation.ref/validator resolves to a deleted persona-folder
+      validator and every repointed rule binds to an executing convention variant
+      (not an xfail/stub); complements Y001 (map safety) and Y002 (preflight visibility)
   total: 0
   manifest: plan/validate_conventions/_validate_conventions.yaml
   path: plan/validate_conventions/
