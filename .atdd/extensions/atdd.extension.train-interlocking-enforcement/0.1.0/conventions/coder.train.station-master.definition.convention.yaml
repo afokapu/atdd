@@ -1,0 +1,39 @@
+schema_version: 1.1.0
+rule_id: coder.train.station-master.definition
+kind: family
+status: active
+name: Station Master — entrypoint routing direct and interlocking journeys to TrainRunner (advisory semantic anchor)
+statement: >-
+  The Station Master is the consumer entrypoint that routes both direct-train and interlocking-enabled
+  journeys: its `JOURNEY_MAP` admits a direct `train_id` string and an interlocking route object, and for
+  either it ultimately calls TrainRunner for the selected train — reaching interlocking routes through
+  `InterlockingRunner.resolve_train(action, inputs, state)` and then `TrainRunner.execute(...)`. This
+  node is an advisory semantic anchor — it enforces nothing directly; the enforceable parts of this
+  meaning are decomposed into the constraint/rule nodes that require it.
+content:
+  summary: >-
+    An advisory definition of the runtime (coder-layer) Station Master concept — the top-level dispatcher
+    that routes both direct and interlocking journeys and delegates execution to TrainRunner. It fixes
+    the meaning the enforcing routing rule operationalizes.
+  note: >-
+    Advisory anchor: it ships no validator. Within this extension it connects (relationships.yaml,
+    `type: relates-to`) to coder.train.station-master-interlocking-routing, which asserts the Station
+    Master "MUST support both direct train routing and interlocking-enabled routing" and route the
+    additive call model `Station Master -> InterlockingRunner.resolve_train(...) -> TrainRunner.execute(...)`.
+    Scope note (grounding): this anchor states ONLY what an existing convention in this extension already
+    asserts — direct+interlocking routing and delegation to TrainRunner. Child-train fan-out and parent
+    suspend/resume (durable run-log) are part of the core Station Master runtime design (afokapu/atdd);
+    no convention in this extension asserts them, so they are intentionally omitted here and, per boundary
+    spec §6.2, that core<->extension relationship would be declared narratively, never as a graph edge.
+metadata:
+  aliases:
+    - STATION-MASTER-DEFINITION
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: station_master
+    text: >-
+      the consumer entrypoint whose JOURNEY_MAP admits a direct train_id and an interlocking route object
+      and that, for either, ultimately delegates execution to TrainRunner for the selected train.

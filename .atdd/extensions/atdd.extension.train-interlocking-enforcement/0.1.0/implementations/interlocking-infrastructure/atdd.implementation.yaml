@@ -1,0 +1,40 @@
+schema_version: "1.1.0"
+kind: implementation
+
+# SCAFFOLD (afokapu/atdd-extensions#24). Manifest + skeleton only; the detector
+# under src/ is a NotImplementedError stub that #25 fills. The implementation_id,
+# provider target, contract range, realized convention, and report channel are the
+# package contract #25 builds against — agreed here so #25 does not redesign them.
+# NOTE: implementation_id keeps the scaffold-pinned value; #25 expands it from a single folded rule
+# into the five granular coder.train.interlocking-* conventions per issue #25 (operator decision).
+implementation_id: coder.interlocking.runner-infrastructure.impl
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# The agnostic obligations this detector realizes. One implementation realizes (and emits violations
+# for) all five granular coder.train.interlocking-* conventions authored in ../../conventions/.
+realizes_convention:
+  - coder.train.interlocking-runner-exists
+  - coder.train.interlocking-resolution-model-exists
+  - coder.train.station-master-interlocking-routing
+  - coder.train.interlocking-delegates-to-trainrunner
+  - coder.train.interlocking-does-not-carry-cargo
+
+# Five strict rule_ids — one per convention. The detector emits RAW violations under the mapped
+# rule_id (src CATEGORY_RULE); the strict verdict (any violation -> FAIL) is a downstream concern.
+emits_rule_ids:
+  - coder.train.interlocking-runner-exists              # disposition: strict
+  - coder.train.interlocking-resolution-model-exists    # disposition: strict
+  - coder.train.station-master-interlocking-routing     # disposition: strict
+  - coder.train.interlocking-delegates-to-trainrunner   # disposition: strict
+  - coder.train.interlocking-does-not-carry-cargo       # disposition: strict
+
+# The pure detector module. Proves the consumer runtime ships an InterlockingRunner route-control
+# layer wired into Station Master -> TrainRunner (core afokapu/atdd#1251). Scans the scope's
+# python_runtime + station_master selectors and emits per-check rule_ids.
+entrypoint: src/interlocking_infrastructure.py
+
+# The runnable v1.1 report-emitting pytest the provider CLI collects: scans
+# ATDD_SCAN_ROOTS and writes the RAW {rule_id,file,line,col,evidence,source_line}
+# report to ATDD_VIOLATIONS_REPORT. #25 implements; stub for now.
+report: tests/test_interlocking_infrastructure.py
