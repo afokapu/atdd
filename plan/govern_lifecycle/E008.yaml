@@ -57,14 +57,14 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:E008-INTEGRATION-001-issue-creation-commits-manifest-with-dirty-index"
       id: "AC-INTEGRATION-001"
-      purpose: "atdd issue <slug> run with unrelated staged changes still commits the .atdd/manifest.yaml registration entry, and the commit does not bundle the unrelated changes"
+      purpose: "atdd issue <slug> run with unrelated staged changes still registers the new work item in the State Store (independent of the git index), writing no manifest and making no commit (#1270 Slice G retired the .atdd/manifest.yaml mirror)"
       phase: "GREEN"
     harness:
       type: "integration"
       category: "backend"
     given:
       abstract:
-        - "A git repo on branch 'feat/demo' with .atdd/config.yaml and a tracked .atdd/manifest.yaml"
+        - "A git repo on branch 'feat/demo' with .atdd/config.yaml (the control-root marker)"
         - "A second tracked file is modified and staged with git add (unrelated work)"
         - "IssueManager GitHub calls are patched to return a fixed parent issue number (99) with no network"
     when:
@@ -72,8 +72,8 @@ acceptances:
     then:
       abstract:
         - "Returns 0"
-        - "git show HEAD:.atdd/manifest.yaml contains a session entry with issue_number 99 (the entry is committed, not merely written)"
-        - "The registration commit (git show --name-only HEAD) touches only .atdd/manifest.yaml"
+        - "The State Store holds a work item for issue_number 99 at state INIT (resolved via its github external_ref)"
+        - "No .atdd/manifest.yaml is written, and registration makes no git commit (HEAD is unchanged)"
         - "The unrelated staged file is still staged and uncommitted"
     metadata:
       author: "atdd:self-compliance"
@@ -82,21 +82,21 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:E008-INTEGRATION-002-registration-failure-exits-non-zero"
       id: "AC-INTEGRATION-002"
-      purpose: "When the manifest registration commit genuinely cannot complete, atdd issue exits non-zero with a clear error and never reports success with an unregistered issue"
+      purpose: "When the State Store registration genuinely cannot complete, atdd issue exits non-zero with a clear error and never reports success with an unregistered issue (#738, preserved on the store after #1270 Slice G)"
       phase: "GREEN"
     harness:
       type: "integration"
       category: "backend"
     given:
       abstract:
-        - "A git repo set up so the manifest registration commit genuinely fails (e.g. .atdd/manifest.yaml is untracked)"
+        - "A git repo with .atdd/config.yaml, set up so the State Store registration write genuinely fails"
         - "IssueManager GitHub calls are patched to return a fixed parent issue number with no network"
     when:
       abstract: "IssueManager(target_dir=<repo>).new(slug='demo-slug') is called"
     then:
       abstract:
         - "Returns a non-zero exit code (never 0)"
-        - "Printed output contains an explicit error naming .atdd/manifest.yaml and the failed registration — not a soft 'Warning:' line"
+        - "Printed output contains an explicit error stating the issue is NOT registered — not a soft 'Warning:' line"
         - "The output does NOT report the issue as successfully created/registered"
     metadata:
       author: "atdd:self-compliance"
