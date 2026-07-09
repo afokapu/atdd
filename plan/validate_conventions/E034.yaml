@@ -1,0 +1,30 @@
+urn: wmbt:validate-conventions:E034
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: evaluator-fault-filesystem-mutation
+context_clarifier: every fault test that proves evaluator behaviour mutates a cloned
+  graph, and only graph-loader integration tests that prove YAML parse or discovery
+  behaviour still touch disk
+lens: functional.sustainability
+statement: minimize likelihood of evaluator-fault-filesystem-mutation by ensuring
+  every fault test that proves evaluator behaviour mutates a cloned graph, and only
+  graph-loader integration tests that prove YAML parse or discovery behaviour still
+  touch disk
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E034-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E034 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

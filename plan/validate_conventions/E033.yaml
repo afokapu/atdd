@@ -1,0 +1,29 @@
+urn: wmbt:validate-conventions:E033
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: binding-fault-filesystem-mutation
+context_clarifier: binding-family faults are injected by renaming a rule id in a cloned
+  graph while the emitted bind_rule index is left unchanged, so no convention YAML
+  is ever rewritten
+lens: functional.sustainability
+statement: minimize likelihood of binding-fault-filesystem-mutation by ensuring binding-family
+  faults are injected by renaming a rule id in a cloned graph while the emitted bind_rule
+  index is left unchanged, so no convention YAML is ever rewritten
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E033-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E033 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds
