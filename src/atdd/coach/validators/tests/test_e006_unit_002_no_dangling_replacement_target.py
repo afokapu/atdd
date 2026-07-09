@@ -1,6 +1,6 @@
 # URN: test:coach-verb-split:coach-verb-split:E006-UNIT-002-no-dangling-replacement-target
 # Acceptance: acc:coach-verb-split:E006-UNIT-002-no-dangling-replacement-target-in-fix-hints
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
 """C5b (#1309) — the C2 fix-hint registry gains a dangling-replacement-target audit.

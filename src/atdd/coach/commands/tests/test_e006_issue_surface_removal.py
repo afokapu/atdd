@@ -1,7 +1,7 @@
 # URN: test:coach-verb-split:coach-verb-split:E006-UNIT-001-issue-surface-removal
 # Acceptance: acc:coach-verb-split:E006-UNIT-001-issue-surface-removed-engines-and-verbs-survive
 # Acceptance: acc:coach-verb-split:E006-INTEGRATION-001-every-removed-form-has-a-working-equivalent
-# Phase: RED
+# Phase: GREEN
 # Layer: integration
 # Assertion: behavioral
 """C5b (#1309) — the ENDGAME of umbrella #1303: the `atdd issue` CLI surface is

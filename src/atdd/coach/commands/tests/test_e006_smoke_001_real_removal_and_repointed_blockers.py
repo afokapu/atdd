@@ -1,6 +1,6 @@
 # URN: test:coach-verb-split:coach-verb-split:E006-SMOKE-001-real-removal-and-repointed-blockers
 # Acceptance: acc:coach-verb-split:E006-SMOKE-001-real-subprocess-removal-and-repointed-blockers
-# Phase: RED
+# Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
 """C5b (#1309) SMOKE — the removal is proven by REAL subprocess exit codes, and no
@@ -34,9 +34,17 @@ _TIMEOUT = 60
 
 
 def _run_atdd(args, cwd, control_root):
+    """Drive the REAL CLI as a child process — against the code under test.
+
+    `python -m atdd` would otherwise resolve the pipx-INSTALLED toolkit, so a
+    removal smoke could pass against a build that still ships `atdd issue`.
+    Prepending the repo's `src/` is what makes this smoke honest (#1298).
+    """
     env = dict(os.environ)
     env["ATDD_CONTROL_ROOT"] = str(control_root)
     env["CI"] = "true"
+    src = str(Path(find_repo_root()) / "src")
+    env["PYTHONPATH"] = src + os.pathsep + env.get("PYTHONPATH", "")
     return subprocess.run(
         [sys.executable, "-m", "atdd", *args],
         cwd=str(cwd),
