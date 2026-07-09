@@ -225,6 +225,44 @@ class TestReplacementsReachTheSameDelegate:
         assert spy.call_count == 1
 
 
+class TestInternalCallersRepointed:
+    """A real subprocess caller must not name the removed command.
+
+    `auto_phase` is driven by .github/workflows/atdd-auto-phase.yml on PR merge.
+    It built its argv as a token LIST (`["atdd", "issue", ...]`), so a
+    `git grep 'atdd issue'` never saw it — the exact way a live caller survives a
+    decommission and breaks CI after the merge that removed the command.
+    """
+
+    def test_auto_phase_invokes_the_coach_transition_verb(self, hermetic):
+        from atdd.coach.commands import auto_phase
+        from atdd.coach.commands.auto_phase import AutoPhaseResult
+
+        resolution = AutoPhaseResult(
+            pr_number=1,
+            issue_number=_FAKE_ISSUE,
+            current_phase="RED",
+            next_phase="GREEN",
+            action="transition",
+        )
+        completed = MagicMock()
+        completed.returncode = 0
+
+        with patch.object(
+            auto_phase, "resolve_pr_to_transition", return_value=resolution
+        ), patch.object(auto_phase.subprocess, "run", return_value=completed) as run_spy:
+            rc = auto_phase.run(1)
+
+        assert rc == 0
+        assert run_spy.call_count == 1
+        cmd = run_spy.call_args[0][0]
+        assert cmd[:3] == ["atdd", "coach", "transition"], (
+            f"auto_phase must drive the live coach verb, got: {cmd}"
+        )
+        assert "issue" not in cmd
+        assert cmd[3:] == [str(_FAKE_ISSUE), "GREEN"]
+
+
 # =============================================================================
 # AC-INTEGRATION-001 — the ported `atdd author issue --dry-run`
 # =============================================================================

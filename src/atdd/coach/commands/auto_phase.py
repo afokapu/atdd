@@ -125,6 +125,9 @@ def run(
         return 0
 
     print(msg)
-    cmd = ["atdd", "issue", str(result.issue_number), "--status", result.next_phase]
+    # #1309: `atdd issue <N> --status <TO>` was removed in 4.0.0. This is a REAL
+    # invocation driven by .github/workflows/atdd-auto-phase.yml on PR merge, so
+    # it must name the live command or auto-phase-on-merge breaks in CI.
+    cmd = ["atdd", "coach", "transition", str(result.issue_number), result.next_phase]
     proc = subprocess.run(cmd, cwd=target_dir)
     return proc.returncode
