@@ -2136,7 +2136,7 @@ class IssueManager:
                     print( "       cd /path/to/<feat-or-fix>-<slug>")
                     print( "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")")
                     print( "    3. Run:")
-                    print(f"       atdd issue {issue_id} --status {status} --train <train_id>")
+                    print(f"       atdd update {issue_id} --train <train_id>   # then: atdd coach transition {issue_id} {status}")
                     print( "  Why train: implementation-type issues require lineage to a Train past PLANNED")
                     print( "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)")
                     return 1
@@ -2182,10 +2182,10 @@ class IssueManager:
                             print( "       git add <files> && git commit -m \"<message>\"")
                             print( "       git push")
                             print(f"    3. atdd pr {issue_id}")
-                            print(f"    4. atdd issue {issue_id} --status PLANNED")
+                            print(f"    4. atdd coach transition {issue_id} PLANNED")
                             print( "  Why PR: PLANNED transition assumes the branch is reviewable;")
                             print( "          a draft PR is the canonical review surface. (See #478.)")
-                            print(f"  Bypass: atdd issue {issue_id} --status PLANNED --force")
+                            print(f"  Bypass: atdd coach transition {issue_id} PLANNED --force")
                             return 1
 
             # Train cross-reference: validate --train value against _trains.yaml

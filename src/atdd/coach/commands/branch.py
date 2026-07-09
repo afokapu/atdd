@@ -401,8 +401,8 @@ class BranchManager:
             print(
                 f"Error: Issue #{issue_number} not found in manifest and could not be "
                 f"fetched from GitHub.\n"
-                f"Create it first with: atdd issue <slug>\n"
-                f"Or backfill all missing issues: atdd issue reconcile"
+                f"Create it first with: atdd author issue --title <title> --slug <slug>\n"
+                f"Or backfill all missing issues: atdd coach reconcile"
             )
             return 1
 

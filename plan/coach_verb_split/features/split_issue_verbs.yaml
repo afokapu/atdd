@@ -2,25 +2,26 @@ urn: "feature:coach-verb-split:split-issue-verbs"
 wagon: "wagon:coach-verb-split"
 description: "Split the monolithic `atdd issue` command into archetype-owned sub-verbs (umbrella #1303). C1 (#1304, LEAD) extracts the phase transition into `atdd coach transition <N> <TO>`, backed by a single engine (issue_transition.apply_transition) that preserves operator-token enforcement, store-first write, manifest mirror, github label swap, and the strict/non-strict commit paths. Establishes the coach_verbs auto-discovery package so each extracted verb is a drop-in file (VERB + run) and parallel children (#1305/#1307/#1308) edit nothing shared. The deprecated `atdd issue --status` shim warns on stderr and delegates, keeping the ~10 existing callers working."
 sizing:
-  wmbts: 5
-  footprint_score: 9
-  footprint_size: "S"
+  wmbts: 6
+  footprint_score: 11
+  footprint_size: "M"
 wmbts:
   - "wmbt:coach-verb-split:E001"
   - "wmbt:coach-verb-split:E002"
   - "wmbt:coach-verb-split:E003"
   - "wmbt:coach-verb-split:E004"
   - "wmbt:coach-verb-split:E005"
+  - "wmbt:coach-verb-split:E006"
 components:
   backend:
     presentation:
       - type: "controllers"
         count: 20
-        rationale: "E001: coach_verbs/transition.py drop-in (the `atdd coach transition` verb) and the cli.py `atdd issue --status` deprecated delegator. E002: coach_verbs/reconcile.py drop-in (the `atdd coach reconcile` verb) and the cli.py `atdd issue reconcile` deprecated warn-and-delegate shim. E003: coach_verbs/issues.py drop-in (the `atdd coach issues` verb) and the cli.py `atdd issue open`/`atdd issue <N>` deprecated delegators. E004: coach_verbs/sync_labels.py drop-in (the `atdd coach sync-labels` verb) and the cli.py `atdd issue sync-labels` deprecated warn-and-delegate shim. E005 (#1382, C5a): the six remaining monolith-only verbs as coach_verbs drop-ins — issue_review.py (`atdd coach issue-review`, non-colliding with the existing `atdd coach review`), is_registered.py (`atdd coach is-registered`), check.py (`atdd coach check`), close_wmbt.py (`atdd coach close-wmbt`), sync_wmbts.py (`atdd coach sync-wmbts`), enter.py (`atdd coach enter`) — each paired with its cli.py `atdd issue` deprecated warn-and-delegate shim; plus the pre-commit hook repointed to `atdd coach is-registered`"
+        rationale: "E001: coach_verbs/transition.py drop-in (the `atdd coach transition` verb) and the cli.py `atdd issue --status` deprecated delegator. E002: coach_verbs/reconcile.py drop-in (the `atdd coach reconcile` verb) and the cli.py `atdd issue reconcile` deprecated warn-and-delegate shim. E003: coach_verbs/issues.py drop-in (the `atdd coach issues` verb) and the cli.py `atdd issue open`/`atdd issue <N>` deprecated delegators. E004: coach_verbs/sync_labels.py drop-in (the `atdd coach sync-labels` verb) and the cli.py `atdd issue sync-labels` deprecated warn-and-delegate shim. E005 (#1382, C5a): the six remaining monolith-only verbs as coach_verbs drop-ins — issue_review.py (`atdd coach issue-review`, non-colliding with the existing `atdd coach review`), is_registered.py (`atdd coach is-registered`), check.py (`atdd coach check`), close_wmbt.py (`atdd coach close-wmbt`), sync_wmbts.py (`atdd coach sync-wmbts`), enter.py (`atdd coach enter`) — each paired with its cli.py `atdd issue` deprecated warn-and-delegate shim; plus the pre-commit hook repointed to `atdd coach is-registered`. E006 (#1309, C5b, ENDGAME) REMOVES all of them: the `issue` subparser and the `elif args.command == \"issue\":` dispatch block are deleted and replaced by a fail-loud top-level guard naming the canonical replacements, and the surviving orphaned references are repointed (four `_deprecation_warning` replacement hints, the gh.shim / pre-commit / PreToolUse `gh issue create` blockers, `issue.convention.yaml`'s `cli_commands:`, and the CONDUCTOR.md managed `issues:` block)"
     application:
       - type: "use_cases"
         count: 1
-        rationale: "E001: issue_transition.apply_transition — the moved transition orchestration engine. E002 + E003 + E004 + E005 add none: all are delegation-only and reuse existing engines unchanged (E002 → IssueManager.reconcile() with its E054 fixes; E003 → IssueManager.open_issues / IssueLifecycle.enter; E004 → IssueManager.sync_labels / sync_labels_all + cli._print_sync_labels_delta; E005 → issue_review.run, IssueManager.branch_is_registered / sync_wmbts, IssueLifecycle.check / close_wmbt / enter). E005 adds one neutral constants module (issue_prefixes: TYPE_TO_PREFIX / ALLOWED_BRANCH_PREFIXES, re-exported by issue.py) so branch.py/pr.py stop hard-depending on the monolith — no behavior change"
+        rationale: "E001: issue_transition.apply_transition — the moved transition orchestration engine. E002 + E003 + E004 + E005 add none: all are delegation-only and reuse existing engines unchanged (E002 → IssueManager.reconcile() with its E054 fixes; E003 → IssueManager.open_issues / IssueLifecycle.enter; E004 → IssueManager.sync_labels / sync_labels_all + cli._print_sync_labels_delta; E005 → issue_review.run, IssueManager.branch_is_registered / sync_wmbts, IssueLifecycle.check / close_wmbt / enter). E005 adds one neutral constants module (issue_prefixes: TYPE_TO_PREFIX / ALLOWED_BRANCH_PREFIXES, re-exported by issue.py) so branch.py/pr.py stop hard-depending on the monolith — no behavior change. E006 (#1309, C5b) adds none either: issue.py survives UNTOUCHED as a pure-engine module (IssueManager / IssueBodyChecker / IssueBodyComplianceError / dup_check_before_file), still imported by the coach verbs, `atdd list`, `atdd update` and `atdd manifest backfill`. E006's only new capability is porting the orphaned `atdd issue <slug> --dry-run` (render + IssueBodyChecker + print, zero writes) onto the canonical `atdd author issue --dry-run`, and extending the C2 fix-hint validator with a dangling-replacement-target audit so no hint can recommend a nonexistent command"
     integration:
       - type: "adapters"
         count: 1

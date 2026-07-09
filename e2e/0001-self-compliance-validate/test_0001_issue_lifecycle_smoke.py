@@ -57,7 +57,7 @@ class TestIssueListSmoke:
 
     def test_issue_open_runs(self):
         """atdd issue open must query GitHub and return exit code 0."""
-        result = _run_atdd("issue", "open")
+        result = _run_atdd("coach", "issues", "open")
         assert result.returncode == 0, (
             f"atdd issue open failed (exit {result.returncode}):\n"
             f"STDERR:\n{result.stderr[-500:]}"
@@ -94,7 +94,7 @@ class TestIssueEnterSmoke:
     def test_issue_enter_runs(self):
         """atdd issue <N> must fetch issue metadata and print context."""
         issue_number = self._find_open_issue()
-        result = _run_atdd("issue", str(issue_number))
+        result = _run_atdd("coach", "issues", str(issue_number))
         # Enter may fail if not in worktree, but it should at least fetch and print
         # Accept both 0 (success) and 1 (not in worktree) — the key is it doesn't crash
         assert result.returncode in (0, 1), (

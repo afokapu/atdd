@@ -116,43 +116,6 @@ class TestCoachReconcileDelegatesToIssueManager:
 # 3. Deprecated shim: `atdd issue reconcile` warns on stderr + delegates
 #    (acc:coach-verb-split:E002-INTEGRATION-001, part 2)
 # ---------------------------------------------------------------------------
-class TestDeprecatedIssueReconcileShim:
-    def test_issue_reconcile_warns_and_reaches_same_engine(
-        self, hermetic, capsys, monkeypatch
-    ):
-        """The deprecated path prints a one-line stderr deprecation notice naming
-        `atdd coach reconcile`, and reaches the SAME IssueManager.reconcile()
-        engine exactly once, returning its exit code."""
-        import atdd.cli as cli
-        from atdd.coach.commands.issue import IssueManager
-
-        monkeypatch.setattr("sys.argv", ["atdd", "issue", "reconcile"])
-        reconcile_spy = MagicMock(return_value=_SENTINEL_RC)
-        with patch.object(IssueManager, "reconcile", reconcile_spy):
-            rc = cli.main()
-
-        assert rc == _SENTINEL_RC
-        reconcile_spy.assert_called_once_with()
-        err = capsys.readouterr().err
-        assert "deprecated" in err.lower(), "shim must warn on stderr"
-        assert "atdd coach reconcile" in err, "shim must name the canonical verb"
-
-    def test_issue_reconcile_delegates_through_the_coach_verb(
-        self, hermetic, monkeypatch
-    ):
-        """The shim delegates to the NEW verb (not a duplicated reconcile call):
-        it invokes coach_verbs.reconcile.run with the post-verb argv ([])."""
-        import atdd.cli as cli
-        import atdd.coach.commands.coach_verbs.reconcile as reconcile_mod
-
-        monkeypatch.setattr("sys.argv", ["atdd", "issue", "reconcile"])
-        # Patch the delegate so NO real reconcile can occur even if wiring drifts.
-        delegate_spy = MagicMock(return_value=_SENTINEL_RC)
-        with patch.object(reconcile_mod, "run", delegate_spy):
-            rc = cli.main()
-
-        assert rc == _SENTINEL_RC
-        delegate_spy.assert_called_once_with([])
 
 
 # ---------------------------------------------------------------------------
@@ -206,14 +169,3 @@ class TestReconcileSmokeInTempControlRoot:
             f"the delegation may not have executed.\n--- output ---\n{combined}"
         )
 
-    def test_deprecated_issue_reconcile_reaches_same_guard_and_warns(self, tmp_path):
-        """The deprecated `atdd issue reconcile` reaches the SAME engine (same
-        initialisation guard) and prints the stderr deprecation notice."""
-        proc, combined = self._run(["issue", "reconcile"], tmp_path)
-
-        assert "UnboundLocalError" not in combined, combined
-        assert ".atdd/config.yaml not found" in combined, combined
-        assert "atdd coach reconcile" in (proc.stderr or ""), (
-            "deprecated path must signpost the canonical verb on stderr.\n"
-            f"--- stderr ---\n{proc.stderr}"
-        )

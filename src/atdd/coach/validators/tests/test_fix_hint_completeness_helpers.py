@@ -98,15 +98,15 @@ class TestC1PlaceholderResolution:
 # ---------------------------------------------------------------------------
 class TestC2DeprecationContradiction:
     REGISTRY = {
-        "atdd update": "atdd issue <N> --status <S>",
-        "atdd new": "atdd issue <slug>",
+        "atdd update": "atdd coach transition <N> <S>",
+        "atdd new": "atdd author issue --title <t> --slug <s>",
     }
 
     def test_canonical_form_passes(self):
-        # `atdd issue` is the canonical replacement, not deprecated.
+        # `atdd coach` is the canonical replacement, not deprecated.
         assert (
             audit_c2_no_deprecation_contradiction(
-                "atdd issue 467 --status RED", self.REGISTRY
+                "atdd coach transition 467 RED", self.REGISTRY
             )
             is None
         )
@@ -139,7 +139,7 @@ class TestC2DeprecationContradiction:
         assert result is not None
         head, canonical = result
         assert head == "atdd update"
-        assert "atdd issue" in canonical
+        assert "atdd coach transition" in canonical
 
     # Flag-qualified deprecation (#1239): only `atdd list --substrate` is
     # deprecated; bare `atdd list` (issue listing, `atdd list trains`) is not.
@@ -170,13 +170,13 @@ class TestDeprecationRegistryParse:
         source = textwrap.dedent(
             """
             def something():
-                _deprecation_warning("atdd update <N> --status <S>", "atdd issue <N> --status <S>")
-                _deprecation_warning("atdd archive <N>", "atdd issue <N> --status COMPLETE")
+                _deprecation_warning("atdd update <N> --status <S>", "atdd coach transition <N> <S>")
+                _deprecation_warning("atdd archive <N>", "atdd coach transition <N> COMPLETE")
             """
         )
         registry = build_deprecation_registry(cli_source=source)
-        assert registry.get("atdd update") == "atdd issue <N> --status <S>"
-        assert registry.get("atdd archive") == "atdd issue <N> --status COMPLETE"
+        assert registry.get("atdd update") == "atdd coach transition <N> <S>"
+        assert registry.get("atdd archive") == "atdd coach transition <N> COMPLETE"
 
     def test_flag_qualified_deprecation_keeps_flag_in_key(self):
         # `atdd list --substrate` keys on the flagged form, not bare `atdd list`,
