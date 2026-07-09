@@ -6,7 +6,7 @@ name: URN theme-prefix matches wagon theme
 statement: A wagon's produced contract/telemetry URN theme-prefix MUST equal the wagon theme:.
 implementation:
   type: validator
-  ref: test_theme_urn_namespace_matches::test_produced_urn_prefix_matches_theme
+  ref: conventions/coherence/test_theme_urn_namespace_matches::test_fault_both_catch_function_level
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
   legacy_section: rules

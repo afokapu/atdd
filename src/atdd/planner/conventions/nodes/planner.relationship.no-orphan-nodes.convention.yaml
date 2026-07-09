@@ -29,4 +29,4 @@ terms:
     text: the directed convention-node graph at src/atdd/coach/graph/relationships.yaml whose edges connect node rule_ids.
 implementation:
   type: validator
-  ref: test_no_orphan_nodes::test_no_orphan_convention_nodes
+  ref: conventions/coverage/test_no_orphan_nodes::test_fault_injection_legacy_parity_both_catch

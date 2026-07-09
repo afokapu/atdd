@@ -2433,7 +2433,7 @@ entries:
   proposed_family: policy
   proposed_template: forbidden_construct_absence
   proposed_variant: bypass_inventory_baseline
-  proposed_target_path: src/atdd/validators/conventions/policy/test_bypass_inventory_baseline.py
+  proposed_target_path: src/atdd/validators/conventions/policy/test_bypass_inventory.py
   parity_status: direct
   priority: P2
   parity_notes: Meta-guard forbidding new bypass flags above the audited baseline; forbidden-construct-absence (count guard).
@@ -2447,7 +2447,7 @@ entries:
   proposed_family: policy
   proposed_template: forbidden_construct_absence
   proposed_variant: freedom_layer_no_forbidden_command
-  proposed_target_path: src/atdd/validators/conventions/policy/test_freedom_layer_no_forbidden_command.py
+  proposed_target_path: src/atdd/validators/conventions/policy/test_freedom_layer_bash_scope.py
   parity_status: merged
   priority: P2
   parity_notes: Live smoke of the same freedom-layer forbidden-command question as e032_unit_001; collapses into one policy
@@ -2461,7 +2461,7 @@ entries:
   proposed_family: policy
   proposed_template: forbidden_construct_absence
   proposed_variant: freedom_layer_no_forbidden_command
-  proposed_target_path: src/atdd/validators/conventions/policy/test_freedom_layer_no_forbidden_command.py
+  proposed_target_path: src/atdd/validators/conventions/policy/test_freedom_layer_bash_scope.py
   parity_status: direct
   priority: P2
   parity_notes: Forbids a forbidden_bash command appearing in allowed_bash on freedom_layer convention data; forbidden-construct-absence.
