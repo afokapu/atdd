@@ -58,7 +58,7 @@ acceptances:
     id: AC-UNIT-002
     purpose: create_train carries every schema-recognized key the spec supplies into
       plan/_trains/<id>.yaml, so the authored document validates against train.schema.json
-    phase: RED
+    phase: GREEN
   harness:
     type: unit
     category: backend
@@ -93,7 +93,7 @@ acceptances:
     id: AC-UNIT-003
     purpose: 'The per-train document writer is category-agnostic: an alternate-path
       (02xx) train carries themes and sequence exactly as a nominal (00xx) train does'
-    phase: RED
+    phase: GREEN
   harness:
     type: unit
     category: backend
@@ -122,7 +122,7 @@ acceptances:
     id: AC-UNIT-004
     purpose: create_train preserves caller-supplied participants verbatim and derives
       wagon:<w> participants only when the caller omitted participants
-    phase: RED
+    phase: GREEN
   harness:
     type: unit
     category: backend

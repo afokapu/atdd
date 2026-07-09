@@ -1,7 +1,7 @@
 # URN: test:author-plan-substrate:author-train:E004-UNIT-003-alternate-path-train-carries-sequence
 # Acceptance: acc:author-plan-substrate:E004-UNIT-003-alternate-path-train-carries-sequence
 # WMBT: wmbt:author-plan-substrate:E004
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
 """E004-UNIT-003 — the per-train document writer is category-agnostic.

@@ -1,7 +1,7 @@
 # URN: test:author-plan-substrate:author-train:E004-UNIT-004-preserves-caller-participants
 # Acceptance: acc:author-plan-substrate:E004-UNIT-004-preserves-caller-participants
 # WMBT: wmbt:author-plan-substrate:E004
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
 """E004-UNIT-004 — caller-supplied participants survive the writer.

@@ -1,7 +1,7 @@
 # URN: test:author-plan-substrate:author-train:E004-UNIT-002-carries-schema-required-keys
 # Acceptance: acc:author-plan-substrate:E004-UNIT-002-carries-schema-required-keys
 # WMBT: wmbt:author-plan-substrate:E004
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
 """E004-UNIT-002 — create_train carries the schema-recognized keys into the per-train doc.
