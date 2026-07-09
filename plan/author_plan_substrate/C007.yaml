@@ -128,8 +128,9 @@ acceptances:
   then:
     abstract:
     - No violation is returned
-    - Adding an unregistered identity to the writers map changes nothing, since WRITER-DIVERGENCE
-      only ranges over registered identities
+    - An identity absent from the writers map is never subject to WRITER-DIVERGENCE,
+      since the writers map is the registry view invariant 4 ranges over and unregistered
+      contract URNs are already owned by invariant 1 (UNREGISTERED)
   metadata:
     author: atdd:self-compliance
     created: '2026-07-09'

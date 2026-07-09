@@ -1,5 +1,9 @@
 # Phase: RED
 # Layer: backend.integration
+# Acceptance: acc:author-plan-substrate:C007-UNIT-001-detects-producer-divergence
+# Acceptance: acc:author-plan-substrate:C007-UNIT-002-detects-multi-producer-contract
+# Acceptance: acc:author-plan-substrate:C007-UNIT-003-detects-consumer-divergence
+# Acceptance: acc:author-plan-substrate:C007-UNIT-004-coherent-writers-yield-no-violation
 """planner.contract.registry-coherence validator (#1332, #1314 item D).
 
 Cross-checks the authored contract registry (``contracts/_contracts.yaml``,
@@ -272,3 +276,168 @@ def test_external_producer_without_consumer_passes() -> None:
     }
     v = find_incoherences(manifests, registered={"x:art:a"})
     assert v == [], v
+
+
+# ---------------------------------------------------------------------------
+# WRITER-DIVERGENCE (invariant 4, #1404 / wmbt:author-plan-substrate:C007)
+#
+# The registry names the wagons that write and read each contract. Those
+# declared writers must agree with the produce/consume graph, and a contract
+# has exactly one producing wagon. Registry-side facts are supplied through the
+# ``writers`` map so the analysis stays pure.
+# ---------------------------------------------------------------------------
+def _writers(producers: Set[str], consumers: Set[str]) -> Dict[str, Dict[str, Set[str]]]:
+    return {"x:art:a": {"producers": producers, "consumers": consumers}}
+
+
+def test_detects_producer_divergence() -> None:
+    """A registry producer that is not the graph producer MUST be flagged."""
+    manifests = {
+        "wagon-a": {"produce": [], "consume": []},
+        "wagon-b": {
+            "produce": [{"name": "x:art:a", "contract": "contract:x:art:a", "to": "external"}],
+            "consume": [],
+        },
+    }
+    v = find_incoherences(
+        manifests,
+        registered={"x:art:a"},
+        writers=_writers({"wagon-a"}, set()),
+    )
+    assert any("registry declares producer" in x.detail for x in v), v
+    assert all(x.rule_id == _RULE.rule_id for x in v), v
+
+
+def test_detects_registry_producer_absent_from_graph() -> None:
+    """A registry producer that no wagon produces MUST be flagged."""
+    manifests = {"wagon-a": {"produce": [], "consume": []}}
+    v = find_incoherences(
+        manifests,
+        registered={"x:art:a"},
+        writers=_writers({"wagon-a"}, set()),
+    )
+    assert any("registry declares producer" in x.detail for x in v), v
+    assert any(x.location == _wagon_loc("wagon-a") for x in v), v
+
+
+def test_detects_multi_producer_contract() -> None:
+    """A contract produced by two wagons MUST be flagged (exactly one producer)."""
+    manifests = {
+        "wagon-a": {
+            "produce": [{"name": "x:art:a", "contract": "contract:x:art:a", "to": "external"}],
+            "consume": [],
+        },
+        "wagon-b": {
+            "produce": [{"name": "x:art:a", "contract": "contract:x:art:a", "to": "external"}],
+            "consume": [],
+        },
+    }
+    # Declared producers match the graph exactly, isolating the multi-producer breach.
+    v = find_incoherences(
+        manifests,
+        registered={"x:art:a"},
+        writers=_writers({"wagon-a", "wagon-b"}, set()),
+    )
+    assert any("exactly one producing wagon" in x.detail for x in v), v
+
+
+def test_detects_consumer_divergence_despite_external_producer() -> None:
+    """A declared consumer absent from the graph MUST be flagged even when the
+    producer is marked ``to: external`` — this is the guard that closes
+    invariant 3's blanket-external escape hatch."""
+    manifests = {
+        "wagon-a": {
+            "produce": [{"name": "x:art:a", "contract": "contract:x:art:a", "to": "external"}],
+            "consume": [],
+        },
+        "wagon-b": {"produce": [], "consume": []},
+    }
+    v = find_incoherences(
+        manifests,
+        registered={"x:art:a"},
+        writers=_writers({"wagon-a"}, {"wagon-b"}),
+    )
+    assert any("registry declares consumer" in x.detail for x in v), v
+    # Invariant 3 stays silent (external), so the consumer breach is the only find.
+    assert not any("no consumer" in x.detail for x in v), v
+
+
+def test_coherent_writers_yield_no_violation() -> None:
+    """Declared writers matching the graph, single producer -> zero violations."""
+    manifests = {
+        "wagon-a": {
+            "produce": [{"name": "x:art:a", "contract": "contract:x:art:a", "to": "internal"}],
+            "consume": [],
+        },
+        "wagon-b": {
+            "produce": [],
+            "consume": [{"name": "x:art:a", "from": "wagon:wagon-a", "contract": "contract:x:art:a"}],
+        },
+    }
+    v = find_incoherences(
+        manifests,
+        registered={"x:art:a"},
+        writers=_writers({"wagon-a"}, {"wagon-b"}),
+    )
+    assert v == [], v
+
+
+def test_identity_absent_from_writers_is_not_writer_checked() -> None:
+    """WRITER-DIVERGENCE ranges over the writers map; an identity absent from it
+    is owned by invariant 1 (UNREGISTERED), not invariant 4."""
+    manifests = {
+        "wagon-a": {
+            "produce": [{"name": "x:art:b", "contract": "contract:x:art:b", "to": "external"}],
+            "consume": [],
+        },
+    }
+    v = find_incoherences(manifests, registered={"x:art:b"}, writers={})
+    assert v == [], v
+
+
+def test_load_registry_writers_falls_back_to_artifacts(tmp_path: Path) -> None:
+    """``_contracts.yaml`` is authoritative; ``_artifacts.yaml`` fills the gaps.
+
+    ``create_contract`` writes ``_contracts.yaml`` with ``producers``/``consumers``
+    lists, but no contract has been authored through it yet, so the built
+    ``_artifacts.yaml`` (``producer`` singular + ``consumers``) is the live source.
+    Both spellings normalize to bare wagon slugs.
+    """
+    contracts = tmp_path / "_contracts.yaml"
+    contracts.write_text(
+        yaml.safe_dump(
+            {
+                "contracts": [
+                    {
+                        "identity": "x:art:a",
+                        "producers": ["wagon:wagon-a"],
+                        "consumers": ["wagon:wagon-b"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifacts = tmp_path / "_artifacts.yaml"
+    artifacts.write_text(
+        yaml.safe_dump(
+            {
+                "artifacts": [
+                    # Shadowed by the authoritative _contracts.yaml entry above.
+                    {"id": "x:art:a", "producer": "wagon:wagon-z", "consumers": []},
+                    # Only in the built registry -> contributes its writers.
+                    {"id": "x:art:c", "producer": "wagon:wagon-c", "consumers": ["wagon:wagon-d"]},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    writers = load_registry_writers(contracts, artifacts)
+    assert writers["x:art:a"] == {"producers": {"wagon-a"}, "consumers": {"wagon-b"}}
+    assert writers["x:art:c"] == {"producers": {"wagon-c"}, "consumers": {"wagon-d"}}
+
+
+def test_load_registry_writers_tolerates_missing_files(tmp_path: Path) -> None:
+    """Neither registry present -> no declared writers, so invariant 4 is inert."""
+    assert load_registry_writers(tmp_path / "none.yaml", tmp_path / "gone.yaml") == {}
