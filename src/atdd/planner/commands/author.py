@@ -347,6 +347,38 @@ def validate_plan_author_input(
         raise AuthorInputError("path", f"path {str(path)!r} escapes the plan home {home}{os.sep}")
 
 
+def _json_type_name(value: object) -> str:
+    """Name the JSON type of ``value`` the way an operator wrote it."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):  # bool before int: bool is a subclass of int
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "list"
+    return type(value).__name__
+
+
+def validate_author_spec(spec: object) -> None:
+    """Guard the author spec: it must be a JSON object (WMBT C008).
+
+    Every per-kind plan writer reads its input with ``spec.get(...)``, so a spec
+    that is valid JSON but not an object detonates inside the writer, after the
+    Confirm lock. Reject it at the input guard instead.
+
+    Raises ``AuthorInputError`` with ``.field == "spec"`` naming the JSON type
+    actually received. Returns ``None`` for any dict, including the empty dict.
+    """
+    if not isinstance(spec, dict):
+        raise AuthorInputError(
+            "spec",
+            f"author spec must be a JSON object, got {_json_type_name(spec)}",
+        )
+
+
 def _plan_root(root: Path | str | None) -> Path:
     return (Path(root) if root is not None else Path.cwd()) / _PLAN_ROOT
 
