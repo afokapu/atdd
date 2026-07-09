@@ -10,7 +10,7 @@ terms:
   text: ''
 implementation:
   type: validator
-  ref: test_dispatch_registry::test_real_dispatch_entries_well_formed
+  ref: conventions/schema/test_dispatch_map_is_registry::test_fault_caught_by_convention
 metadata:
   severity: 3
   disposition: strict

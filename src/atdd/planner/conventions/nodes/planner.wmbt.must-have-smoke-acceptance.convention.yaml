@@ -7,7 +7,7 @@ statement: Every WMBT must declare at least one acceptance URN with the SMOKE ha
   so the lifecycle has explicit real-infrastructure coverage before REFACTOR.
 implementation:
   type: validator
-  ref: test_wmbt_has_smoke_acceptance::test_every_wmbt_has_smoke_acceptance
+  ref: conventions/coverage/test_wmbt_has_smoke_acceptance::test_fault_injection_legacy_parity_both_catch
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
   legacy_section: rules

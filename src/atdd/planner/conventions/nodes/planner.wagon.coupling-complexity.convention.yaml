@@ -6,7 +6,7 @@ name: Wagon coupling complexity (advisory reporter)
 statement: Report each wagon's cross-wagon coupling complexity (fan_in x fan_out over the produce->consume name graph); flag wagons above a soft, config-driven threshold. Advisory and non-blocking.
 implementation:
   type: validator
-  ref: test_wagon_coupling_complexity::test_wagon_coupling_complexity_reported
+  ref: conventions/sizing/test_wagon_coupling_complexity::test_fault_injection_legacy_parity
 source:
   legacy_path: docs/recompose
   legacy_section: complexity-sizing

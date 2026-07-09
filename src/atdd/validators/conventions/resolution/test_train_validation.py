@@ -16,7 +16,6 @@ from atdd.validators.conventions.resolution.archetype import TEMPLATE_IDS
 from atdd.validators.conventions.resolution._parity import (
     evaluate_variant,
     inject_patch,
-    legacy_caught,
     repo_root,
 )
 
@@ -41,10 +40,6 @@ def test_train_validation_variant_contract() -> None:
 # Fault: a train participant pointing at a wagon that has no manifest.
 _TRAIN_FILE = "plan/_trains/0001-self-compliance-validate.yaml"
 _FAULT = ('"wagon:validate-conventions"', '"wagon:does-not-exist-xyz"')
-_LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_train_validation.py"
-    "::test_train_wagon_references_exist_in_manifests"
-)
 
 
 def test_clean_baseline_is_zero() -> None:
@@ -58,11 +53,10 @@ def test_fault_injection_and_legacy_parity() -> None:
     root = repo_root()
     with inject_patch(root, _TRAIN_FILE, *_FAULT):
         evidence = evaluate_variant(TEMPLATE, VARIANT, root=root)
-        legacy = legacy_caught(root, _LEGACY_NODEID)
 
     assert evidence, "convention path did not catch the dangling train->wagon ref"
     for record in evidence:
         assert set(record).issubset(FAILURE_EVIDENCE), record
-    assert legacy, "legacy validator did not catch the injected fault"
+    # oracle retired (#1365): convention path above is the live coverage
     # revert guaranteed by inject_patch — clean baseline restored
     assert evaluate_variant(TEMPLATE, VARIANT, root=root) == []
