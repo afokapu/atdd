@@ -6,7 +6,8 @@
 """#1270 slice C — the pre-commit branch-registration gate is store-backed.
 
 The hook no longer greps `.atdd/manifest.yaml` for `slug:`; it delegates to
-`atdd issue is-registered "$BRANCH"` (store-first, manifest fallback) and blocks
+`atdd coach is-registered "$BRANCH"` (store-first, manifest fallback; repointed
+from `atdd issue is-registered` by #1382/C5a) and blocks
 only when that helper exits non-zero. When atdd is unavailable the gate is
 skipped (never hard-breaks a commit). Executed as a real subprocess with a
 controllable fake `atdd` on PATH.
@@ -70,7 +71,12 @@ def _run_hook(tmp_path: Path, *, atdd_present: bool, fake_rc: int = 0) -> subpro
 # --- content -------------------------------------------------------------- #
 def test_hook_delegates_to_is_registered_not_grep():
     text = HOOK_PATH.read_text()
-    assert "atdd issue is-registered" in text, "hook must call the store-backed helper"
+    # #1382 (C5a): repointed from `atdd issue is-registered` to the coach form so
+    # C5b's deletion of the `atdd issue` monolith cannot break the commit gate.
+    assert 'atdd coach is-registered "$BRANCH"' in text, "hook must call the store-backed coach helper"
+    # The executable gate line must no longer invoke the deprecated `atdd issue`
+    # form (a prose mention of the old form in a comment is fine).
+    assert 'atdd issue is-registered "$BRANCH"' not in text, "hook must no longer invoke the deprecated `atdd issue` form"
     assert 'grep -q "slug:' not in text, "hook must not grep the manifest for slug anymore"
 
 
