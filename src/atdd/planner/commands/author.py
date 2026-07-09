@@ -496,9 +496,29 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
             "train_id": tid,
             "title": spec.get("title", tid),
             "description": spec.get("description", ""),
-            "participants": [f"wagon:{w}" for w in spec.get("wagons", [])],
-            "status": "planned",
         }
+        # `themes` and `sequence` are schema-REQUIRED; `family`, `primary_wagon`,
+        # `dependencies` and `acceptances` are optional. All six are copied verbatim
+        # and only when supplied — inventing a default would write a schema-invalid
+        # value (`themes: []` fails minItems, `family: ""` fails the enum). `wagons`
+        # is deliberately absent: train.schema sets additionalProperties=false and
+        # defines no such property; it belongs to the _trains.yaml registry entry
+        # above, and expresses itself here as the `participants` fallback (#1401).
+        for key in ("themes", "family", "primary_wagon", "dependencies", "sequence",
+                    "acceptances"):
+            if key in spec:
+                train_doc[key] = spec[key]
+
+        # Preserve caller-supplied participants verbatim: train.schema admits
+        # wagon:/user:/system: principals, so deriving from `wagons` unconditionally
+        # would silently discard every non-wagon participant. Derive only as a
+        # fallback, which is what every pre-#1401 caller relied on.
+        participants = spec.get("participants")
+        if not participants:
+            participants = [f"wagon:{w}" for w in spec.get("wagons", [])]
+        train_doc["participants"] = list(participants)
+        train_doc["status"] = "planned"
+
         # Adjacent seam (#1265): carry the optional #1248 interlocking back-ref so a
         # train authored as a route's target self-describes its owning interlocking.
         # Pure traceability — it never alters train linearity (train.schema
