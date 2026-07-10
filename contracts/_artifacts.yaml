@@ -1,4 +1,13 @@
 artifacts:
+- id: commons:binding-lock
+  urn: contract:commons:binding-lock
+  version: 1.0.0
+  title: Extension convention binding lock
+  description: Extension convention binding lock exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/binding-lock.schema.json
+  producer: wagon:bind-extension-conventions
+  consumers:
+  - wagon:reconcile-dispositions
 - id: commons:coach:canonical-surface-name
   urn: contract:commons:coach:canonical-surface-name
   version: 1.0.0
@@ -83,6 +92,24 @@ artifacts:
   producer: wagon:mediate-worker-decisions
   consumers:
   - wagon:mediate-worker-decisions
+- id: commons:disposition-policy
+  urn: contract:commons:disposition-policy
+  version: 1.0.0
+  title: Disposition to verdict policy
+  description: Disposition to verdict policy exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/disposition-policy.schema.json
+  producer: wagon:reconcile-dispositions
+  consumers:
+  - wagon:enforce-conventions-ci
+- id: commons:enforce-verdict
+  urn: contract:commons:enforce-verdict
+  version: 1.0.0
+  title: Per-rule enforcement verdict
+  description: Per-rule enforcement verdict exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/enforce-verdict.schema.json
+  producer: wagon:enforce-conventions-ci
+  consumers:
+  - wagon:verify-enforcement
 - id: commons:error:response
   urn: contract:commons:error:response
   version: 1.0.0
@@ -108,6 +135,33 @@ artifacts:
   producer: wagon:mediate-worker-decisions
   consumers:
   - wagon:mediate-worker-decisions
+- id: commons:provider-capability
+  urn: contract:commons:provider-capability
+  version: 1.0.0
+  title: Provider implementation realization index
+  description: Provider implementation realization index exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/provider-capability.schema.json
+  producer: wagon:govern-providers
+  consumers:
+  - wagon:bind-extension-conventions
+- id: commons:rule-registry
+  urn: contract:commons:rule-registry
+  version: 1.0.0
+  title: Core convention rule registry projection
+  description: Core convention rule registry projection exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/rule-registry.schema.json
+  producer: wagon:govern-registry
+  consumers:
+  - wagon:bind-extension-conventions
+- id: commons:succession-coverage
+  urn: contract:commons:succession-coverage
+  version: 1.0.0
+  title: Core-to-extension succession coverage
+  description: Core-to-extension succession coverage exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/succession-coverage.schema.json
+  producer: wagon:verify-enforcement
+  consumers:
+  - wagon:govern-registry
 - id: frontend:train:render-metadata
   urn: contract:frontend:train:render-metadata
   version: 1.0.0

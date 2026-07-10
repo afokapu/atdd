@@ -294,6 +294,37 @@ wagons:
   total: 0
   manifest: plan/author_plan_substrate/_author_plan_substrate.yaml
   path: plan/author_plan_substrate/
+- wagon: bind-extension-conventions
+  description: Make the binding lock a faithful projection of the obligations that
+    must gate, closing 26 of the 28 unbound rules through implementation fan-out with
+    zero new detectors
+  theme: commons
+  subject: agent:coder
+  context: closing the gap between declared extension convention nodes and the binding
+    lock
+  action: separates obligations lacking a mechanism from mechanisms lacking an obligation,
+    binds each implementation to every convention it realizes, and asserts that every
+    GATING node is bound while documentation-only nodes stay unbound
+  goal: make the binding lock a faithful projection of the obligations that must gate,
+    closing 26 of the 28 unbound rules through implementation fan-out with zero new
+    detectors
+  outcome: a lock in which every gating node is bound, no entry is orphaned, and documentation-only
+    nodes are correctly absent
+  produce:
+  - name: commons:binding-lock
+    contract: contract:commons:binding-lock
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:rule-registry
+    from: wagon:govern-registry
+  - name: commons:provider-capability
+    from: wagon:govern-providers
+  wmbt:
+    total: 0
+  total: 0
+  manifest: plan/bind_extension_conventions/_bind_extension_conventions.yaml
+  path: plan/bind_extension_conventions/
 - wagon: bind-substrate-runtime
   description: 'The ATDD substrate runtime back end: the binder that turns a locked,
     inert `.atdd/substrate.lock.yaml` into running, gating capabilities. Admission
@@ -1056,6 +1087,32 @@ wagons:
   total: 0
   manifest: plan/enforce_binding_plan/_enforce_binding_plan.yaml
   path: plan/enforce_binding_plan/
+- wagon: enforce-conventions-ci
+  description: Turn enforcement from a command nobody runs into a required check that
+    blocks a regression without blocking the first build
+  theme: commons
+  subject: agent:coach
+  context: atdd enforce runs correctly but no CI job invokes it
+  action: adds a required workflow job that runs atdd enforce over the repository,
+    propagates a strict FAIL as a non-zero exit, and holds pre-existing violations
+    flat behind a ratchet baseline
+  goal: turn enforcement from a command nobody runs into a required check that blocks
+    a regression without blocking the first build
+  outcome: a required enforce job whose failure blocks the merge, with a recorded
+    baseline for the existing violations
+  produce:
+  - name: commons:enforce-verdict
+    contract: contract:commons:enforce-verdict
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:disposition-policy
+    from: wagon:reconcile-dispositions
+  wmbt:
+    total: 0
+  total: 0
+  manifest: plan/enforce_conventions_ci/_enforce_conventions_ci.yaml
+  path: plan/enforce_conventions_ci/
 - wagon: enforce-structured-logging
   description: Enforce structured logging and prohibit print() in non-CLI production
     Python code
@@ -1513,6 +1570,77 @@ wagons:
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
+- wagon: govern-providers
+  description: Make the mechanism layer explicit so an obligation without a detector
+    and a detector without an obligation are both caught, instead of one silently
+    defaulting to strict
+  theme: commons
+  subject: agent:coder
+  context: a convention node is an agnostic obligation; a workspace provider is the
+    stack-specific mechanism that checks it
+  action: states the subprocess-not-import boundary and the contract_version SemVer
+    refusal, resolves detectors shipped by extension packages as well as workspaces,
+    and fails loudly on an implementation bound to a convention nobody declares
+  goal: make the mechanism layer explicit so an obligation without a detector and
+    a detector without an obligation are both caught, instead of one silently defaulting
+    to strict
+  outcome: an explicit provider boundary, extension-shipped detector resolution, and
+    loud orphan-detector detection
+  produce:
+  - name: commons:provider-capability
+    contract: contract:commons:provider-capability
+    telemetry: null
+    to: internal
+  consume: []
+  wmbt:
+    total: 4
+    D001: minimize likelihood of provider-boundary-erosion by resolving a workspace
+      provider to a subprocess CLI handle that core never imports, requiring the provider
+      to declare a contract_version, and refusing resolution when no installed contract
+      version satisfies the requested caret range
+    E001: maximize likelihood of extension-shipped-detector-resolution by discovering
+      an implementation shipped under .atdd/extensions and forwarding its impls-root
+      to the subprocessed provider CLI just as for a workspace-shipped detector, so
+      its violations surface as a real verdict rather than a false-green skip
+    E002: minimize quantity of orphan-detector-bindings by scanning binding.lock.yaml
+      for every bound convention_id that no convention node under .atdd/extensions
+      declares and reporting each by name, so an implementation bound to a convention
+      nobody declared is caught instead of silently defaulting to strict
+    E003: minimize quantity of extension-identity-leak by generating binding.lock.yaml
+      from convention, implementation, workspace and contract fields alone and never
+      emitting the extension package identity, so a package rename is a lock regeneration
+      rather than a rule migration
+  total: 0
+  manifest: plan/govern_providers/_govern_providers.yaml
+  path: plan/govern_providers/
+- wagon: govern-registry
+  description: Settle the Path A scope question with evidence rather than assumption,
+    and refuse any core-node deletion whose extension twin is not bound and running
+    in CI
+  theme: commons
+  subject: agent:coach
+  context: deciding whether atdd validate's convention registry admits extension nodes
+  action: measures the core and extension rule_id sets, keeps the registry core-only,
+    and binds a mirror-coherence plus duplicate-precedence rule over the extension
+    nodes read as data
+  goal: settle the Path A scope question with evidence rather than assumption, and
+    refuse any core-node deletion whose extension twin is not bound and running in
+    CI
+  outcome: a core-only rule registry, a mirror-coherence validator, a loud failure
+    on any duplicate rule_id, and a guard that blocks a silent loss of enforcement
+  produce:
+  - name: commons:rule-registry
+    contract: contract:commons:rule-registry
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:succession-coverage
+    from: wagon:verify-enforcement
+  wmbt:
+    total: 0
+  total: 0
+  manifest: plan/govern_registry/_govern_registry.yaml
+  path: plan/govern_registry/
 - wagon: implement-code
   description: Implements code that makes RED tests GREEN, then refactors to clean
     4-layer architecture
@@ -2092,6 +2220,31 @@ wagons:
   total: 0
   manifest: plan/observe_and_correct/_observe_and_correct.yaml
   path: plan/observe_and_correct/
+- wagon: reconcile-dispositions
+  description: Remove the ambiguity that lets a documentation-only node fail a build
+    and lets bound be mistaken for strict
+  theme: commons
+  subject: agent:planner
+  context: three different namespaces all spelled disposition
+  action: names each namespace separately, makes the disposition-to-verdict mapping
+    total across the declared vocabulary, and rejects any node outside it
+  goal: remove the ambiguity that lets a documentation-only node fail a build and
+    lets bound be mistaken for strict
+  outcome: one coherent disposition model, a total verdict mapping, and a vocabulary
+    validator
+  produce:
+  - name: commons:disposition-policy
+    contract: contract:commons:disposition-policy
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:binding-lock
+    from: wagon:bind-extension-conventions
+  wmbt:
+    total: 0
+  total: 0
+  manifest: plan/reconcile_dispositions/_reconcile_dispositions.yaml
+  path: plan/reconcile_dispositions/
 - wagon: review-phase-boundaries
   description: 'Stands up the coach v9 adversarial reviewer surface that gates every
     meaningful phase boundary (PLANNED/RED/GREEN/SMOKE/optional REFACTOR): a no-write
@@ -2516,3 +2669,29 @@ wagons:
   total: 0
   manifest: plan/verify_contracts/_verify_contracts.yaml
   path: plan/verify_contracts/
+- wagon: verify-enforcement
+  description: Guarantee that deleting a core convention node can never silently remove
+    enforcement of the rule its extension twin was meant to inherit
+  theme: commons
+  subject: agent:tester
+  context: in CI today all 50 extension rules are enforced solely by their core twin,
+    because no job runs the enforcement path
+  action: reports which rules are enforced in CI versus merely reported, and proves
+    that every core node with an extension twin has that twin bound and running before
+    the core node may be retired
+  goal: guarantee that deleting a core convention node can never silently remove enforcement
+    of the rule its extension twin was meant to inherit
+  outcome: a coverage report and a succession proof that the core-deletion guard consumes
+  produce:
+  - name: commons:succession-coverage
+    contract: contract:commons:succession-coverage
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:enforce-verdict
+    from: wagon:enforce-conventions-ci
+  wmbt:
+    total: 0
+  total: 0
+  manifest: plan/verify_enforcement/_verify_enforcement.yaml
+  path: plan/verify_enforcement/
