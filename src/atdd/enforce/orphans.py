@@ -21,9 +21,12 @@ implementation marriage, so a missing node for it is expected, not an orphan.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 
 class OrphanDetectorError(Exception):
@@ -42,7 +45,13 @@ def _bound_convention_ids(substrate_home: str | Path) -> list[str]:
         return []
     try:
         lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError) as exc:
+        # An unreadable/malformed lock is a wiring concern surfaced elsewhere; the
+        # orphan check has nothing to scan, but must not swallow the fault silently.
+        _log.warning(
+            "unreadable binding.lock.yaml — no orphan check possible",
+            extra={"lock_path": str(lock_path), "error": str(exc)},
+        )
         return []
     conventions = lock.get("conventions") if isinstance(lock, dict) else None
     conventions = conventions if isinstance(conventions, list) else []
