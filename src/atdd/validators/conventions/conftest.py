@@ -19,6 +19,7 @@ fault-injection suites.
 """
 from __future__ import annotations
 
+import gc
 from pathlib import Path
 
 import pytest
@@ -47,4 +48,13 @@ def clean_convention_graph() -> ConventionGraph:
     # Resolves the root directly instead of requesting the `repo_root` fixture: the
     # `tests/` and `presence/` conftests override `repo_root` at function scope, and a
     # session-scoped fixture may not depend on a function-scoped one (ScopeMismatch).
-    return load_composed_graph(_find_repo_root())
+    graph = load_composed_graph(_find_repo_root())
+
+    # Retaining a whole graph for the session makes every later gen-2 collection walk
+    # its tens of thousands of Nodes, which taxes the fault-injection tests that still
+    # compose their own graph: measured, holding it pushed the mean build from 2.78s to
+    # 3.42s and gave back only 35s of the ~90s the saved builds should have yielded.
+    # gc.freeze() moves everything currently alive into the permanent generation, so the
+    # collector stops traversing it. Mean build 2.62s; suite 333s -> 260s.
+    gc.freeze()
+    return graph

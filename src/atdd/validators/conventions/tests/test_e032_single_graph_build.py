@@ -1,21 +1,26 @@
-# URN: test:validate-conventions:tune-convention-suite:E032-RED-001-single-graph-build
-# Acceptance: acc:validate-conventions:E032-SMOKE-001-seed
+# URN: test:validate-conventions:tune-convention-suite:E032-GREEN-001-single-graph-build
+# Acceptance: acc:validate-conventions:E032-RED-001-graph-rebuilt-per-evaluate
+# Acceptance: acc:validate-conventions:E032-GREEN-001-graph-composed-once-per-session
 # WMBT: wmbt:validate-conventions:E032
-# Phase: RED
+# Phase: GREEN
 # Layer: integration
 # Assertion: behavioral
 """E032 — the clean convention graph is composed ONCE per pytest session (#1414).
 
 ``load_composed_graph()`` walks ``plan/`` and every ``*.convention.yaml`` under
 ``src/atdd/``, costing ~2-3s. Every read-only baseline test evaluates its family
-template against the same clean graph, so composing it per-test is pure waste: on
-the pre-#1414 tree the 30 read-only baseline tests composed it 35 times.
+template against the same clean graph, so composing it per-test is pure waste.
 
-This gate asserts the MECHANISM, not a wall-clock budget. A timing assertion would
-be satisfiable by deleting tests — which points straight at the fault-injection
-coverage Y003 exists to protect — and CI wall-clock varies far too much to gate on.
+E032-RED-001 (measured, not assumed): before the session fixture existed the 30
+read-only baseline tests composed the graph **35** times, and the whole conventions
+suite composed it **116** times — 328.1s of a 365.6s run.
 
-The read-only suite is run in a SUBPROCESS so the counter can monkeypatch the loader
+E032-GREEN-001 asserts the MECHANISM, not a wall-clock budget: a timing assertion
+would be cheapest to satisfy by deleting tests, which points straight at the
+fault-injection coverage Y003 exists to protect, and CI wall-clock varies far too
+much to gate on. Runtime is reported as a measured number, never asserted.
+
+The read-only suite runs in a SUBPROCESS so the counter can monkeypatch the loader
 without perturbing the session that is asserting on it.
 """
 from __future__ import annotations
@@ -25,6 +30,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+from atdd.validators.conventions._support.graph_loader import load_composed_graph
 
 COUNTER_PLUGIN = "atdd.validators.conventions.tests.graph_build_counter"
 
@@ -78,4 +85,37 @@ def test_clean_graph_composed_once_across_readonly_suite(tmp_path: Path) -> None
         f"the clean convention graph was composed {stats['builds']}x across "
         f"{stats['selected']} read-only tests; it must be composed exactly once "
         f"(session-scoped `clean_convention_graph` fixture)"
+    )
+
+
+def test_loader_is_not_memoized(tmp_path: Path) -> None:
+    """E032-GREEN-001: the speedup is the session fixture, never a cache on the loader.
+
+    ``load_composed_graph`` reads mutable files. Memoizing it would silently serve a
+    stale graph to the fault-injection suites, which mutate the tree and re-read it to
+    prove both that the fault is caught and that the revert left no residue.
+    """
+    assert not hasattr(load_composed_graph, "cache_info"), (
+        "load_composed_graph is memoized (functools cache); fault-injection tests "
+        "would be served a stale graph. Use the session-scoped fixture instead."
+    )
+
+    # Behavioural proof, not just introspection: a second call against the SAME root
+    # must observe a mutation made between the two calls.
+    plan = tmp_path / "plan" / "zztmp_e032"
+    plan.mkdir(parents=True)
+    (plan / "_zztmp_e032.yaml").write_text(
+        'wagon: zztmp-e032\nurn: "wagon:zztmp-e032"\n', encoding="utf-8"
+    )
+    before = len(load_composed_graph(tmp_path).nodes())
+
+    second = tmp_path / "plan" / "zztmp_e032_b"
+    second.mkdir(parents=True)
+    (second / "_zztmp_e032_b.yaml").write_text(
+        'wagon: zztmp-e032-b\nurn: "wagon:zztmp-e032-b"\n', encoding="utf-8"
+    )
+    after = len(load_composed_graph(tmp_path).nodes())
+
+    assert after == before + 1, (
+        f"loader did not re-read the tree ({before} -> {after} nodes); it is caching"
     )
