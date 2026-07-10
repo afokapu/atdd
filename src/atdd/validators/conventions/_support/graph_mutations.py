@@ -148,24 +148,46 @@ def break_ref(graph: ConventionGraph, node_id: str, old_ref: str, new_ref: str) 
     if old_ref not in node.refs:
         raise KeyError(f"ref {old_ref!r} not in refs of node {node_id!r}: {node.refs}")
     node.refs = [new_ref if r == old_ref else r for r in node.refs]
-    _rewrite_ref_in_fields(node.fields, old_ref, new_ref)
+    _rewrite_value_in_fields(node.fields, old_ref, new_ref)
     return node
 
 
-def _rewrite_ref_in_fields(obj: Any, old_ref: str, new_ref: str) -> None:
-    """Replace every ``old_ref`` string leaf with ``new_ref`` in a nested structure."""
+def replace_field_value(graph: ConventionGraph, node_id: str, old_value: str, new_value: str) -> int:
+    """Rewrite every ``old_value`` string leaf to ``new_value`` in ``node.fields``.
+
+    Some references live only in ``Node.fields`` — a produced contract URN under
+    ``produce[].contract``, a schema id nested in a payload — never in ``node.refs``. The
+    resolution/schema evaluators read those directly, so repointing the value in memory
+    injects the SAME unresolvable-reference fault the on-disk manifest patch produced.
+
+    Returns the number of leaves rewritten. Raises ``KeyError`` if the node is absent or
+    the value appears nowhere, so a drifted anchor injects no vacuous no-op fault.
+    """
+    node = _require(graph, node_id)
+    count = _rewrite_value_in_fields(node.fields, old_value, new_value)
+    if count == 0:
+        raise KeyError(f"value {old_value!r} not present in fields of node {node_id!r}")
+    return count
+
+
+def _rewrite_value_in_fields(obj: Any, old_value: str, new_value: str) -> int:
+    """Replace every ``old_value`` string leaf with ``new_value``; return the count."""
+    count = 0
     if isinstance(obj, dict):
         for key, val in obj.items():
-            if val == old_ref:
-                obj[key] = new_ref
+            if val == old_value:
+                obj[key] = new_value
+                count += 1
             else:
-                _rewrite_ref_in_fields(val, old_ref, new_ref)
+                count += _rewrite_value_in_fields(val, old_value, new_value)
     elif isinstance(obj, list):
         for i, val in enumerate(obj):
-            if val == old_ref:
-                obj[i] = new_ref
+            if val == old_value:
+                obj[i] = new_value
+                count += 1
             else:
-                _rewrite_ref_in_fields(val, old_ref, new_ref)
+                count += _rewrite_value_in_fields(val, old_value, new_value)
+    return count
 
 
 def add_node(
