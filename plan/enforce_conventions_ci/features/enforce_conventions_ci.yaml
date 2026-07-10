@@ -1,0 +1,14 @@
+urn: feature:enforce-conventions-ci:enforce-conventions-ci
+wagon: wagon:enforce-conventions-ci
+description: The enforce-conventions-ci lane of train 0007-enforce-extension-conventions.
+sizing:
+  wmbts: 0
+  footprint_score: 6
+  footprint_size: S
+wmbts: []
+components:
+  backend:
+    application:
+    - type: use_cases
+      count: 3
+      rationale: one use case per WMBT in enforce-conventions-ci

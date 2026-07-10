@@ -1,0 +1,19 @@
+train_id: 0203-detect-unbound-declaration
+title: 0203-detect-unbound-declaration
+description: 'A gating node is realized by a detector but absent from the lock while
+  its core twin still enforces it: latent hole, reported.'
+themes:
+- commons
+sequence:
+- step: 1
+  intent: report the unbound declaration
+  from: wagon:bind-extension-conventions
+  to: wagon:reconcile-dispositions
+  artifact: commons:binding-lock
+participants:
+- wagon:bind-extension-conventions
+- wagon:reconcile-dispositions
+status: planned
+source_interlocking:
+  interlocking_id: interlocking:enforce-extension-conventions
+  route_id: unbound-declaration-detected

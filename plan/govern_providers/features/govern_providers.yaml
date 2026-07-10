@@ -1,0 +1,14 @@
+urn: feature:govern-providers:govern-providers
+wagon: wagon:govern-providers
+description: The govern-providers lane of train 0007-enforce-extension-conventions.
+sizing:
+  wmbts: 0
+  footprint_score: 6
+  footprint_size: S
+wmbts: []
+components:
+  backend:
+    application:
+    - type: use_cases
+      count: 4
+      rationale: one use case per WMBT in govern-providers

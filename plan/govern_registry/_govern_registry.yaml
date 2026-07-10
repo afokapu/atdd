@@ -1,0 +1,28 @@
+wagon: govern-registry
+urn: wagon:govern-registry
+name: Govern Registry
+theme: commons
+description: Settle the Path A scope question with evidence rather than assumption,
+  and refuse any core-node deletion whose extension twin is not bound and running
+  in CI
+subject: agent:coach
+context: deciding whether atdd validate's convention registry admits extension nodes
+action: measures the core and extension rule_id sets, keeps the registry core-only,
+  and binds a mirror-coherence plus duplicate-precedence rule over the extension nodes
+  read as data
+goal: settle the Path A scope question with evidence rather than assumption, and refuse
+  any core-node deletion whose extension twin is not bound and running in CI
+outcome: a core-only rule registry, a mirror-coherence validator, a loud failure on
+  any duplicate rule_id, and a guard that blocks a silent loss of enforcement
+features:
+- urn: feature:govern-registry:govern-registry
+produce:
+- name: commons:rule-registry
+  contract: contract:commons:rule-registry
+  telemetry: null
+  to: internal
+consume:
+- name: commons:succession-coverage
+  from: wagon:verify-enforcement
+wmbt:
+  total: 0
