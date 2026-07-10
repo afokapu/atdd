@@ -46,13 +46,20 @@ class TestGrammarIsConventionSourced:
         assert URNGrammar.SEGMENT_COUNTS["security"] == families["security"]["segment_count"]
 
     def test_grammar_yaml_read_without_atdd_imports(self):
-        # Cycle-free discipline: the module must not reach for the convention
-        # graph loader / bind_rule to read its own grammar.
-        src = (urn_mod.__file__)
-        text = open(src, encoding="utf-8").read()
-        assert "bind_rule" not in text
-        assert "rule_binding" not in text
-        assert "convention_loader" not in text
+        # Cycle-free discipline (verb_lexicon precedent): the engine reads its
+        # grammar with plain yaml, importing ZERO atdd modules — never the
+        # convention-graph loader / bind_rule, whose import would cycle.
+        import ast
+
+        tree = ast.parse(open(urn_mod.__file__, encoding="utf-8").read())
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(a.name for a in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                imported.add(node.module or "")
+        atdd_imports = {m for m in imported if m == "atdd" or m.startswith("atdd.")}
+        assert not atdd_imports, f"urn.py must import zero atdd modules, got {atdd_imports}"
 
 
 # ---------------------------------------------------------------------------

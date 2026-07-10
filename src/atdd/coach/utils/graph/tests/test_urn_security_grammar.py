@@ -218,7 +218,11 @@ class TestValidateGrammar:
 SPEC_3_2_TABLE = [
     # (resource, expected_token_count_after_prefix, sample_urn)
     ("wagon",    1, "wagon:auth"),
-    ("train",    1, "train:0001-self-compliance-validate"),
+    # train is now TYPED (issue #1421): train:<subject>:<slug>, 2 tokens,
+    # parented by the 1-token root ``subject:`` family. ``category`` is a field,
+    # not an identity digit; the legacy ``train:NNNN-slug`` form is retired.
+    ("subject",  1, "subject:artifact-identity"),
+    ("train",    2, "train:artifact-identity:migrate-with-alias"),
     ("feature",  2, "feature:auth:session-management"),
     ("wmbt",     2, "wmbt:auth:E001"),
     ("acc",      2, "acc:auth:E001-UNIT-001"),

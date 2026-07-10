@@ -5,18 +5,21 @@ Substrate URN-extension contract (issue #421).
 Demonstrates that introducing a new URN family requires only:
 
   (a) a new resolver class in resolver.py
-  (b) a new entry in URNGrammar.PATTERNS (and SEGMENT_COUNTS for the
-      parent-it-belongs-to grammar)
-  (c) one new branch in URNGrammar.parse_urn
+  (b) a new ROW in the URN grammar convention (``urn_grammar.yaml``) — its
+      ``pattern`` + ``segment_count`` are projected into ``URNGrammar.PATTERNS``
+      / ``SEGMENT_COUNTS`` at import (issue #1421); the engine is unchanged
+  (c) nothing in ``URNGrammar.parse_urn`` for a colon-only family — parsing is
+      driven by the convention's ``segments`` names
   (d) optionally a builder method on URNGrammar
 
 — and NO edits to validators, CLI subcommand registries, test discovery,
 graph builders, or any other call site.
 
 The test installs a throwaway ``theatre:`` URN family behind a pytest
-fixture (the "test-only flag") via ``monkeypatch``, mirroring the
-production extension steps without permanently altering shipped code.
-The assertions then prove that:
+fixture (the "test-only flag") by adding one convention row to a copy of the
+loaded grammar and reprojecting the class tables exactly as ``URNGrammar`` does
+at import — mirroring the production extension steps without permanently
+altering shipped data. The assertions then prove that:
 
 - The registry recognises the new family (``ResolverRegistry.families``).
 - ``URNGrammar.PATTERNS`` validates the new URN.
@@ -45,18 +48,40 @@ from atdd.coach.utils.graph.urn import URNGrammar
 
 
 # ---------------------------------------------------------------------------
-# (b) Test-only flag: install theatre: in PATTERNS + SEGMENT_COUNTS.
+# (b) Test-only flag: add ONE theatre: convention row and reproject the tables.
 # ---------------------------------------------------------------------------
 @pytest.fixture
 def theatre_pattern_installed(monkeypatch):
-    """Install a ``theatre:<slug>`` family for the duration of one test."""
-    new_patterns = dict(URNGrammar.PATTERNS)
-    new_patterns["theatre"] = r"^theatre:[a-z][a-z0-9-]*$"
-    monkeypatch.setattr(URNGrammar, "PATTERNS", new_patterns)
+    """Install a ``theatre:<slug>`` family for the duration of one test.
 
-    new_counts = dict(URNGrammar.SEGMENT_COUNTS)
-    new_counts["theatre"] = 1  # parent-it-belongs-to: top-level (no parent)
-    monkeypatch.setattr(URNGrammar, "SEGMENT_COUNTS", new_counts)
+    Convention-native (issue #1421): a family is one row of grammar data. This
+    adds that row to a copy of the loaded ``_FAMILY_SPECS`` and reprojects
+    ``PATTERNS`` / ``SEGMENT_COUNTS`` the same way ``URNGrammar`` does at import
+    — proving a new family is a one-row convention edit, with no engine change.
+    """
+    theatre_row = {
+        "pattern": r"^theatre:[a-z][a-z0-9-]*$",
+        "segment_count": 1,  # parent-it-belongs-to: top-level root (no parent)
+        "parent": None,
+        "segments": ["slug"],
+    }
+    new_specs = dict(URNGrammar._FAMILY_SPECS)
+    new_specs["theatre"] = theatre_row
+    monkeypatch.setattr(URNGrammar, "_FAMILY_SPECS", new_specs)
+    monkeypatch.setattr(
+        URNGrammar,
+        "PATTERNS",
+        {family: spec["pattern"] for family, spec in new_specs.items()},
+    )
+    monkeypatch.setattr(
+        URNGrammar,
+        "SEGMENT_COUNTS",
+        {
+            family: spec["segment_count"]
+            for family, spec in new_specs.items()
+            if spec.get("segment_count") is not None
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
