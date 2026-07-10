@@ -3387,8 +3387,6 @@ excluded:
   reason: Leading-underscore shared helper module (SMOKE acceptance-URN scan), extracted from the retired test_wmbt_has_smoke_acceptance.py (#1385).
 - legacy_path: src/atdd/planner/validators/_meta_walker.py
   reason: Leading-underscore shared helper module (synthetic-fixture anti-pattern scan + L002 meta-walker), extracted from the retired test_smoke_synthetic_fixture_bypass.py (#1385).
-- legacy_path: src/atdd/planner/validators/_wagon_graph.py
-  reason: Leading-underscore shared helper module (cross-wagon produce/consume graph builders), extracted from the retired test_no_cross_wagon_consume_cycle.py (#1385).
 - legacy_path: src/atdd/tester/validators/__init__.py
   reason: Package init module, not an executable validator.
 - legacy_path: src/atdd/tester/validators/_acceptance_walker.py
