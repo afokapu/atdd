@@ -26,8 +26,9 @@ description: Cuts validate-conventions CI runtime by composing the clean convent
 sizing:
   footprint_score: 8
   footprint_size: M
-  wmbts: 5
+  wmbts: 6
 urn: feature:validate-conventions:tune-convention-suite
 wagon: wagon:validate-conventions
 wmbts:
 - wmbt:validate-conventions:E032
+- wmbt:validate-conventions:E033
