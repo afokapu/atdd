@@ -42,7 +42,7 @@ rules:
       (INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR).
     severity: 4
     disposition: strict
-    validator: "test_commit_trailers_binding::test_commit_trailers_rule_family_emits_each_required_trailer_id"
+    validator: "_rule_binders::commit_trailers_rules"
     detection: |
       Coach v9 git watcher runs ``git interpret-trailers --parse`` on the
       message of every observed commit and emits this rule when the
@@ -59,7 +59,7 @@ rules:
       WMBT URN grammar ``wmbt:<wagon>:<id>``.
     severity: 4
     disposition: strict
-    validator: "test_commit_trailers_binding::test_commit_trailers_rule_family_emits_each_required_trailer_id"
+    validator: "_rule_binders::commit_trailers_rules"
     detection: |
       Coach v9 git watcher emits this rule when the ``WMBT-Urn`` trailer
       is absent or empty.
@@ -74,7 +74,7 @@ rules:
       ``Agent-Id: <id>`` trailer naming the agent that produced it.
     severity: 4
     disposition: strict
-    validator: "test_commit_trailers_binding::test_commit_trailers_rule_family_emits_each_required_trailer_id"
+    validator: "_rule_binders::commit_trailers_rules"
     detection: |
       Coach v9 git watcher emits this rule when the ``Agent-Id`` trailer
       is absent or empty.
@@ -90,7 +90,7 @@ rules:
       ``Issue: <number>`` trailer naming the GitHub issue it advances.
     severity: 4
     disposition: strict
-    validator: "test_commit_trailers_binding::test_commit_trailers_rule_family_emits_each_required_trailer_id"
+    validator: "_rule_binders::commit_trailers_rules"
     detection: |
       Coach v9 git watcher emits this rule when the ``Issue`` trailer is
       absent or empty.

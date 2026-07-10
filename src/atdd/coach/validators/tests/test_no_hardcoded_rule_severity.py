@@ -35,7 +35,9 @@ from typing import List
 import pytest
 
 import atdd
-from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._rule_binders import (
+    NO_HARDCODED_RULE_SEVERITY_RULE as _RULE,
+)
 from atdd.coach.validators._violation import Violation
 
 
@@ -48,7 +50,6 @@ VALIDATOR_ROOTS = [
     ATDD_PKG_DIR / "coder" / "validators",
 ]
 
-_RULE = bind_rule("coach.rule-id.no-hardcoded-rule-severity")
 
 _BIND_RULE_MODULE = "atdd.coach.utils.rule_binding"
 

@@ -30,24 +30,12 @@ from atdd.coach.runtime.git_watcher import (
     REQUIRED_TRAILERS,
     GitWatcher,
 )
-from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._rule_binders import RULE_FOR_TRAILER as _RULE_FOR_TRAILER
 
 
 pytestmark = [pytest.mark.coach]
 
 
-_PHASE_RULE = bind_rule("coach.commit-trailers.phase-required")
-_WMBT_URN_RULE = bind_rule("coach.commit-trailers.wmbt-urn-required")
-_AGENT_ID_RULE = bind_rule("coach.commit-trailers.agent-id-required")
-_ISSUE_RULE = bind_rule("coach.commit-trailers.issue-required")
-
-
-_RULE_FOR_TRAILER = {
-    "Phase": _PHASE_RULE,
-    "WMBT-Urn": _WMBT_URN_RULE,
-    "Agent-Id": _AGENT_ID_RULE,
-    "Issue": _ISSUE_RULE,
-}
 
 
 def _git(args, cwd: Path) -> str:
