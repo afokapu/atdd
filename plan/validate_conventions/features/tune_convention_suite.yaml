@@ -31,7 +31,3 @@ urn: feature:validate-conventions:tune-convention-suite
 wagon: wagon:validate-conventions
 wmbts:
 - wmbt:validate-conventions:E032
-- wmbt:validate-conventions:E033
-- wmbt:validate-conventions:E034
-- wmbt:validate-conventions:E035
-- wmbt:validate-conventions:E036
