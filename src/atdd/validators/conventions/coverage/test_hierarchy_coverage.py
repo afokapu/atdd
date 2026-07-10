@@ -42,11 +42,11 @@ def test_hierarchy_coverage_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """Evaluating the variant on the real composed graph yields no violations."""
     root = _parity.repo_root()
     viols = _parity.conv_violations(root, _source_has_required_target,
-                                    {"variant": VARIANT})
+                                    {"variant": VARIANT}, graph=clean_convention_graph)
     assert viols == [], f"clean baseline must be 0, got {viols[:3]}"
 
 
