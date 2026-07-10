@@ -7,19 +7,19 @@
 # Assertion: behavioral
 """Y003 — the two permanent decommission guards (#1365 sweep).
 
-These outlive the migration scaffolding (Y001/Y002 are migration-only and get torn
-down with the parity machinery). They are the permanent hygiene that proves the
+These outlive the migration scaffolding (Y001/Y002 were migration-only and were torn
+down with the parity machinery in #1385). They are the permanent hygiene that proves the
 sweep moved coverage to the convention layer instead of dropping it:
 
   Y003-SMOKE-001  no-dangling-legacy-reference — no rule's ``validator``/``implementation.ref``
                   that names a test FILE (a ``test_*`` binding) resolves to a non-existent
-                  path. Complements Y001 (legacy-validator-map safety) at the rule-ref level.
+                  path. Successor to the retired Y001 (legacy-validator-map safety) at the rule-ref level.
 
   Y003-SMOKE-002  coverage-preserved — every rule swept off a retired legacy validator now
                   binds to a convention variant under ``…/validators/conventions/`` that
                   EXECUTES (Phase GREEN, a real fault/parity test), not a persona-folder file
-                  or an xfail/stub. Complements Y002 (preflight classification) by asserting
-                  the replacement coverage actually runs.
+                  or an xfail/stub. Successor to the retired Y002 (preflight classification): it
+                  asserts the replacement coverage actually runs.
 
 RED note: SMOKE-002 fails until the GREEN sweep repoints the rules (they still bind to the
 persona-folder legacy files at RED). Both go green once the sweep lands.

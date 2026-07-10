@@ -2,24 +2,20 @@
 # Acceptance: acc:validate-conventions:E019-SMOKE-001-seed
 # Acceptance: acc:validate-conventions:E020-SMOKE-001-seed
 # Acceptance: acc:validate-conventions:E021-SMOKE-001-seed
-# Acceptance: acc:validate-conventions:E022-SMOKE-001-seed
-# Acceptance: acc:validate-conventions:E023-SMOKE-001-seed
-# Acceptance: acc:validate-conventions:E024-SMOKE-001-seed
 # Acceptance: acc:validate-conventions:E025-SMOKE-001-seed
 # Acceptance: acc:validate-conventions:E026-SMOKE-001-seed
 # WMBT: wmbt:validate-conventions:E020
 # Phase: RED
 # Layer: integration
 # Assertion: behavioral
-"""#1211 gates: graph-query contract, vacuity, template-shaped evidence, parity-gate
-integrity, stricter-finding adjudication, train representation, harness enum."""
+"""#1211 gates: graph-query contract, vacuity, template-shaped evidence, train
+representation, harness enum."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 from atdd.validators.conventions._support import sentinels as S
-from atdd.validators.conventions._support import catch_matrix as CM
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 
 
@@ -53,32 +49,6 @@ def test_evidence_is_template_shaped(repo_root: Path) -> None:
     assert r.violations, "no evidence produced to shape-check"
     for ev in r.violations:
         assert set(ev).issubset(allowed), f"evidence not template-shaped: {set(ev)}"
-
-
-# E022 — every parity case carries a legacy target + injectable fault
-def test_parity_cases_are_well_formed() -> None:
-    assert CM.CASES, "no parity cases"
-    for c in CM.CASES:
-        assert c.legacy_target and (c.patch or c.tempfile), f"{c.name} lacks legacy target/fault"
-
-
-# E023 — parity is claimed only from the catch matrix, with zero clean-repo FPs
-def test_parity_claims_come_from_matrix(repo_root: Path) -> None:
-    report = repo_root / "docs" / "validator-parity" / "catch-matrix.md"
-    assert report.exists(), "catch-matrix report missing — no parity authority"
-    text = report.read_text(encoding="utf-8")
-    assert "clean-repo false positives (convention flags on clean): **0**" in text, \
-        "parity may not be claimed while convention flags the clean baseline"
-
-
-# E024 — stricter findings are adjudicated
-def test_stricter_findings_adjudicated(repo_root: Path) -> None:
-    ledger = repo_root / "docs" / "validator-parity" / "stricter-findings-adjudication.md"
-    assert ledger.exists(), "adjudication ledger missing"
-    text = ledger.read_text(encoding="utf-8")
-    for cls in ("real-gap", "schema-bug", "loader-bug"):
-        assert cls in text, f"ledger missing class {cls}"
-    assert "FIXED" in text, "ledger records no adjudicated/fixed finding"
 
 
 # E025 — train nodes use the conformant detail representation
