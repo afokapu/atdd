@@ -3,14 +3,12 @@ step: modify
 direction: minimize
 dimension: likelihood
 object_of_control: overlay-event-replayed-twice
-context_clarifier: when an overlay event has been committed into projection but is
-  still replayed on the next reconcile, or when the log grows without compaction and
-  loses audit data
+context_clarifier: when an overlay event has been committed into projection but is still replayed on the
+  next reconcile, or when the log grows without compaction and loses audit data
 lens: functional.effectiveness
-statement: minimize likelihood of overlay-event-replayed-twice by giving each event
-  a stable event_id and a status (pending/projected/committed/discarded/conflicted),
-  recording which events a projection represents, and replaying only pending or projected-but-uncommitted
-  events
+statement: minimize likelihood of overlay-event-replayed-twice by giving each event a stable event_id
+  and a status (pending/projected/committed/discarded/conflicted), recording which events a projection
+  represents, and replaying only pending or projected-but-uncommitted events
 acceptances:
 - given:
     abstract:
@@ -50,3 +48,24 @@ acceptances:
     - overlay-event-replayed-twice is controlled as specified
   when:
     abstract: the archive-overlay-events behavior is invoked
+- identity:
+    urn: acc:reconcile-local-store:Y001-SMOKE-001-overlay-event-replayed-twice
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: overlay-event-replayed-twice holds against a real repo checkout, the installed
+      atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising overlay-event-replayed-twice
+  when:
+    abstract: the Y001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - overlay-event-replayed-twice is observed to hold end-to-end against real infrastructure, with no
+      mocks or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

@@ -11,9 +11,9 @@ contracts:
   path: contracts/commons/projection-field-ownership.schema.json
   theme: commons
   producers:
-  - wagon:govern-projection-fields
-  consumers:
   - wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
   - wagon:isolate-provider-boundary
 - identity: commons:projection-merge-event
   path: contracts/commons/projection-merge-event.schema.json

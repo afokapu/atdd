@@ -3,13 +3,11 @@ step: execute
 direction: maximize
 dimension: likelihood
 object_of_control: provider-registration
-context_clarifier: when core discovers zero or more SyncProvider implementations through
-  the registration seam, the registry is deterministic and empty by default, and no
-  lifecycle decision consults it
+context_clarifier: when core discovers zero or more SyncProvider implementations through the registration
+  seam, the registry is deterministic and empty by default, and no lifecycle decision consults it
 lens: functional.effectiveness
-statement: maximize likelihood of a provider-registration and discovery seam that
-  is empty by default, deterministic in ordering, and never consulted by a lifecycle
-  decision
+statement: maximize likelihood of a provider-registration and discovery seam that is empty by default,
+  deterministic in ordering, and never consulted by a lifecycle decision
 acceptances:
 - given:
     abstract:
@@ -21,8 +19,8 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: with zero providers registered the mirror path is a no-op and lifecycle
-      never queries the registry
+    purpose: with zero providers registered the mirror path is a no-op and lifecycle never queries the
+      registry
     urn: acc:isolate-provider-boundary:E001-UNIT-001-unregistered-provider-never-invoked
   metadata:
     author: atdd:self-compliance
@@ -43,8 +41,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: register_provider() makes a provider discoverable in deterministic order
-      via the discovery API
+    purpose: register_provider() makes a provider discoverable in deterministic order via the discovery
+      API
     urn: acc:isolate-provider-boundary:E001-UNIT-002-discovers-registered-providers
   metadata:
     author: atdd:self-compliance
@@ -56,3 +54,24 @@ acceptances:
     - Registering the same provider name twice is rejected rather than silently shadowed
   when:
     abstract: both providers are registered and the discovery API is queried
+- identity:
+    urn: acc:isolate-provider-boundary:E001-SMOKE-001-provider-registration
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: provider-registration holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising provider-registration
+  when:
+    abstract: the E001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - provider-registration is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

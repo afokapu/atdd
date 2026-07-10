@@ -108,8 +108,8 @@ artifacts:
   producer: wagon:mediate-worker-decisions
   consumers:
   - wagon:mediate-worker-decisions
-- id: contract:commons:projection-evidence
-  urn: contract:contract:commons:projection-evidence
+- id: commons:projection-evidence
+  urn: contract:commons:projection-evidence
   version: 1.0.0
   title: Lifecycle Evidence Policy v1
   description: 'The evidence each lifecycle transition must carry (doc section 6).
@@ -117,24 +117,24 @@ artifacts:
     is formatting, not correctness (section 4). COMPLETE is DERIVED from merge-to-main
     for v1 (section 18 decision 1).'
   path: contracts/commons/projection-evidence.schema.json
-  producer: ''
+  producer: wagon:enforce-merge-authority
   consumers:
   - wagon:govern-projection-fields
   - wagon:migrate-projection-authority
-- id: contract:commons:projection-field-ownership
-  urn: contract:contract:commons:projection-field-ownership
+- id: commons:projection-field-ownership
+  urn: contract:commons:projection-field-ownership
   version: 1.0.0
   title: Projection Field Ownership Policy
   description: Which writer may write each projection field (doc section 7.1). Prevents
     same-object and wrong-writer corruption. Humans may not write external_refs; extensions
     may not write lifecycle fields (section 4).
   path: contracts/commons/projection-field-ownership.schema.json
-  producer: ''
+  producer: wagon:govern-projection-fields
   consumers:
   - wagon:enforce-merge-authority
   - wagon:isolate-provider-boundary
-- id: contract:commons:projection-merge-event
-  urn: contract:contract:commons:projection-merge-event
+- id: commons:projection-merge-event
+  urn: contract:commons:projection-merge-event
   version: 1.0.0
   title: Merge And Squash Event Policy
   description: Allowed merge methods and the ATDD-Summary artifact format (doc section
@@ -142,11 +142,11 @@ artifacts:
     auto-merges ONLY on identical transitions, a strict no-op side, or verifiable
     evidence for every skipped gate. NEVER blind max-phase.
   path: contracts/commons/projection-merge-event.schema.json
-  producer: ''
+  producer: wagon:enforce-merge-authority
   consumers:
   - wagon:govern-projection-fields
-- id: contract:commons:projection-object
-  urn: contract:contract:commons:projection-object
+- id: commons:projection-object
+  urn: contract:commons:projection-object
   version: 1.0.0
   title: Projection Object v1
   description: The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`.
@@ -154,39 +154,39 @@ artifacts:
     uid, never the slug; the filename is derived from the uid. Deletion is a tombstone,
     never file removal (section 10).
   path: contracts/commons/projection-object.schema.json
-  producer: ''
+  producer: wagon:project-shared-state
   consumers:
   - wagon:reconcile-local-store
   - wagon:enforce-merge-authority
   - wagon:govern-projection-fields
   - wagon:isolate-provider-boundary
   - wagon:migrate-projection-authority
-- id: contract:commons:projection-trailer
-  urn: contract:contract:commons:projection-trailer
+- id: commons:projection-trailer
+  urn: contract:commons:projection-trailer
   version: 1.0.0
   title: ATDD Commit Trailer Group
   description: The structured trailer group that makes git history a reliable event
     log (doc section 5). Free prose is insufficient. Raw tokens, bearer tokens, secrets
     or credentials are INVALID (rule 5, I8).
   path: contracts/commons/projection-trailer.schema.json
-  producer: ''
+  producer: wagon:enforce-merge-authority
   consumers:
   - wagon:govern-projection-fields
   - wagon:migrate-projection-authority
-- id: contract:commons:provider-extensions-lock
-  urn: contract:contract:commons:provider-extensions-lock
+- id: commons:provider-extensions-lock
+  urn: contract:commons:provider-extensions-lock
   version: 1.0.0
   title: Extensions Lock Scope
   description: '`.atdd/extensions.lock` must lock core schema, lifecycle policy, merge
     policy and provider digests (doc section 10 rule 5). Locking these is what lets
     a provider failure be non-blocking (section 12 rule 6).'
   path: contracts/commons/provider-extensions-lock.schema.json
-  producer: ''
+  producer: wagon:isolate-provider-boundary
   consumers:
   - wagon:enforce-merge-authority
   - wagon:migrate-projection-authority
-- id: contract:commons:provider-external-ref-update
-  urn: contract:contract:commons:provider-external-ref-update
+- id: commons:provider-external-ref-update
+  urn: contract:commons:provider-external-ref-update
   version: 1.0.0
   title: External Ref Update Contract
   description: The ONLY record a SyncProvider.mirror() may return (doc section 8.2).
@@ -194,7 +194,7 @@ artifacts:
     update path. The extension never edits projection directly, and detect_drift()
     is alarm-only.
   path: contracts/commons/provider-external-ref-update.schema.json
-  producer: ''
+  producer: wagon:isolate-provider-boundary
   consumers:
   - wagon:govern-projection-fields
   - wagon:migrate-projection-authority

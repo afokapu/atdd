@@ -3,27 +3,24 @@ step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: lossy-migration-write
-context_clarifier: when the migration tool meets a manifest entry it cannot faithfully
-  project - a missing uid, a duplicate uid, or a phase outside the lifecycle vocabulary
-  - it must refuse before any projection file is written, and report every offending
-  entry at once
-lens: "functional.availability"
-statement: 'minimize likelihood of a lossy-migration-write: the migration tool refuses
-  before writing any projection file when a manifest entry carries no uid, a duplicate
-  uid, or a phase outside the lifecycle vocabulary'
+context_clarifier: when the migration tool meets a manifest entry it cannot faithfully project - a missing
+  uid, a duplicate uid, or a phase outside the lifecycle vocabulary - it must refuse before any projection
+  file is written, and report every offending entry at once
+lens: functional.availability
+statement: 'minimize likelihood of a lossy-migration-write: the migration tool refuses before writing
+  any projection file when a manifest entry carries no uid, a duplicate uid, or a phase outside the lifecycle
+  vocabulary'
 acceptances:
 - given:
     abstract:
-    - A manifest whose third work item has no uid, and whose fifth duplicates the
-      uid of the first
+    - A manifest whose third work item has no uid, and whose fifth duplicates the uid of the first
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: an unmigratable manifest entry aborts the whole run before the first
-      projection file is written
+    purpose: an unmigratable manifest entry aborts the whole run before the first projection file is written
     urn: acc:migrate-projection-authority:C001-UNIT-001-refuses-before-any-write
   metadata:
     author: atdd:state-projection-plan
@@ -31,22 +28,19 @@ acceptances:
   then:
     abstract:
     - The tool exits non-zero without writing any file under .atdd/state/projection/
-    - 'RED: nothing guards this today, so a partial projection tree would be left
-      behind'
+    - 'RED: nothing guards this today, so a partial projection tree would be left behind'
   when:
     abstract: the migration tool is run against that manifest
 - given:
     abstract:
-    - 'A manifest with three distinct defects: a missing uid, a duplicate uid, and
-      an unknown phase'
+    - 'A manifest with three distinct defects: a missing uid, a duplicate uid, and an unknown phase'
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: the refusal report names every offending entry and its reason, not just
-      the first
+    purpose: the refusal report names every offending entry and its reason, not just the first
     urn: acc:migrate-projection-authority:C001-UNIT-002-reports-every-offending-entry
   metadata:
     author: atdd:state-projection-plan
@@ -57,3 +51,24 @@ acceptances:
     - The projection directory is absent or unchanged
   when:
     abstract: the migration tool is run against that manifest
+- identity:
+    urn: acc:migrate-projection-authority:C001-SMOKE-001-lossy-migration-write
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: lossy-migration-write holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising lossy-migration-write
+  when:
+    abstract: the C001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - lossy-migration-write is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

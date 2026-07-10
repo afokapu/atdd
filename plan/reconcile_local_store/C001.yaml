@@ -3,13 +3,12 @@ step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: dirty-store-overwrite
-context_clarifier: when reconcile runs against a store whose overlay_events are non-empty,
-  the gate classifies it dirty, backs up state.sqlite before any mutation, and routes
-  to replay; every plain hydrate-overwrite path raises before touching sqlite
+context_clarifier: when reconcile runs against a store whose overlay_events are non-empty, the gate classifies
+  it dirty, backs up state.sqlite before any mutation, and routes to replay; every plain hydrate-overwrite
+  path raises before touching sqlite
 lens: functional.sustainability
-statement: minimize likelihood of a dirty-store-overwrite by classifying a non-empty
-  overlay as dirty, backing up before any mutation, and raising on every overwrite
-  path
+statement: minimize likelihood of a dirty-store-overwrite by classifying a non-empty overlay as dirty,
+  backing up before any mutation, and raising on every overwrite path
 acceptances:
 - given:
     abstract:
@@ -21,8 +20,8 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: GREEN
-    purpose: a store with non-empty overlay_events is classified dirty, backed up
-      before any mutation, and routed to replay rather than overwrite
+    purpose: a store with non-empty overlay_events is classified dirty, backed up before any mutation,
+      and routed to replay rather than overwrite
     urn: acc:reconcile-local-store:C001-UNIT-001-dirty-store-is-backed-up-not-overwritten
   metadata:
     author: atdd:self-compliance
@@ -43,8 +42,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: RED
-    purpose: any code path that would replace a dirty store with hydrate(incoming)
-      raises before touching sqlite
+    purpose: any code path that would replace a dirty store with hydrate(incoming) raises before touching
+      sqlite
     urn: acc:reconcile-local-store:C001-UNIT-002-overwrite-path-raises-before-mutation
   metadata:
     author: atdd:self-compliance
@@ -56,3 +55,24 @@ acceptances:
     - The clean-store case still hydrates without a backup
   when:
     abstract: a caller invokes the overwrite path hydrate(incoming_projection) directly
+- identity:
+    urn: acc:reconcile-local-store:C001-SMOKE-001-dirty-store-overwrite
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: dirty-store-overwrite holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising dirty-store-overwrite
+  when:
+    abstract: the C001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - dirty-store-overwrite is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

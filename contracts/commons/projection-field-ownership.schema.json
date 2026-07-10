@@ -54,9 +54,9 @@
     "resource": "projection_field_ownership",
     "version": "1.0.0",
     "hash": "",
-    "producer": "wagon:govern-projection-fields",
+    "producer": "wagon:enforce-merge-authority",
     "consumers": [
-      "wagon:enforce-merge-authority",
+      "wagon:govern-projection-fields",
       "wagon:isolate-provider-boundary"
     ],
     "dependencies": [],
@@ -76,7 +76,7 @@
       ]
     },
     "traceability": {
-      "wagon_ref": "plan/govern_projection_fields/_govern_projection_fields.yaml",
+      "wagon_ref": "plan/enforce_merge_authority/_enforce_merge_authority.yaml",
       "feature_refs": [
         "feature:govern-projection-fields:define-actor-ownership"
       ]

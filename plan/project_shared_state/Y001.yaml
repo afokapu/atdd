@@ -3,13 +3,11 @@ step: modify
 direction: minimize
 dimension: likelihood
 object_of_control: slug-rename
-context_clarifier: when slug or title is renamed, they are mutable display metadata
-  only; identity and file location must not move, so no tombstone, no file rename,
-  and no new uid may result
-lens: "functional.availability"
-statement: 'minimize likelihood of a slug-rename mutating object identity: renaming
-  slug or title must leave uid and the .atdd/state/projection/<uid>.yaml filename
-  unchanged'
+context_clarifier: when slug or title is renamed, they are mutable display metadata only; identity and
+  file location must not move, so no tombstone, no file rename, and no new uid may result
+lens: functional.availability
+statement: 'minimize likelihood of a slug-rename mutating object identity: renaming slug or title must
+  leave uid and the .atdd/state/projection/<uid>.yaml filename unchanged'
 acceptances:
 - given:
     abstract:
@@ -20,8 +18,7 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: renaming a slug must not create a second projection file nor delete the
-      original
+    purpose: renaming a slug must not create a second projection file nor delete the original
     urn: acc:project-shared-state:Y001-UNIT-001-rename-does-not-move-file
   metadata:
     author: atdd:self-compliance
@@ -31,8 +28,7 @@ acceptances:
     - Still exactly one projection file exists and it is still named <uid>.yaml
     - No file named for either slug is created and no file is deleted
   when:
-    abstract: the object's slug is renamed to feature-y and project(store, out_dir=<tmp>)
-      is re-run
+    abstract: the object's slug is renamed to feature-y and project(store, out_dir=<tmp>) is re-run
 - given:
     abstract:
     - A projected object with uid wi_fixture and slug feature-x
@@ -42,17 +38,35 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: a slug or title rename updates only the display fields inside the existing
-      projection document
+    purpose: a slug or title rename updates only the display fields inside the existing projection document
     urn: acc:project-shared-state:Y001-UNIT-002-rename-updates-display-metadata-only
   metadata:
     author: atdd:self-compliance
     created: '2026-07-09'
   then:
     abstract:
-    - The projection document's slug field becomes feature-y while its uid field is
-      unchanged
-    - The projection digest changes, proving the rename was captured, but the filename
-      does not
+    - The projection document's slug field becomes feature-y while its uid field is unchanged
+    - The projection digest changes, proving the rename was captured, but the filename does not
   when:
     abstract: the slug is renamed to feature-y and the object is re-projected
+- identity:
+    urn: acc:project-shared-state:Y001-SMOKE-001-slug-rename
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: slug-rename holds against a real repo checkout, the installed atdd CLI, and
+      a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising slug-rename
+  when:
+    abstract: the Y001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - slug-rename is observed to hold end-to-end against real infrastructure, with no mocks or manual
+      patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

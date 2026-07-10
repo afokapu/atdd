@@ -3,29 +3,27 @@ step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: illegal-transition-merge
-context_clarifier: when CI is the merge authority (section 4), canonical YAML alone
-  is only well-formatted text; the legal-transition validator is the load-bearing
-  gate that diffs the projection against the merge-base and checks the lifecycle evidence
-  model
-lens: "functional.effectiveness"
-statement: minimize likelihood of an illegal-transition-merge, in which a canonical
-  and schema-valid projection diff whose phase change is not lifecycle-legal relative
-  to the merge-base, or which carries no evidence for a gate it skips, is admitted
-  to the protected branch
+context_clarifier: when CI is the merge authority (section 4), canonical YAML alone is only well-formatted
+  text; the legal-transition validator is the load-bearing gate that diffs the projection against the
+  merge-base and checks the lifecycle evidence model
+lens: functional.effectiveness
+statement: minimize likelihood of an illegal-transition-merge, in which a canonical and schema-valid projection
+  diff whose phase change is not lifecycle-legal relative to the merge-base, or which carries no evidence
+  for a gate it skips, is admitted to the protected branch
 acceptances:
 - given:
     abstract:
     - a merge-base projection for `wi_x` at phase PLANNED
-    - a head projection for `wi_x` at phase GREEN, canonical and schema-valid, carrying
-      no failing-test evidence and no operator token digest
+    - a head projection for `wi_x` at phase GREEN, canonical and schema-valid, carrying no failing-test
+      evidence and no operator token digest
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: No legal-transition validator exists, so a canonical projection that
-      jumps PLANNED->GREEN without RED evidence passes every existing check
+    purpose: No legal-transition validator exists, so a canonical projection that jumps PLANNED->GREEN
+      without RED evidence passes every existing check
     urn: acc:enforce-merge-authority:C001-UNIT-001-illegal-phase-jump-is-admitted
   metadata:
     author: atdd:self-compliance
@@ -36,32 +34,51 @@ acceptances:
     - the report names the skipped gate (PLANNED->RED) and the missing evidence
     - no legal-transition validator is registered, so the run fails (not_implemented)
   when:
-    abstract: the legal-transition validator is run over the merge-base/head projection
-      pair
+    abstract: the legal-transition validator is run over the merge-base/head projection pair
 - given:
     abstract:
-    - a matrix of merge-base/head projection pairs drawn from the section-6 lifecycle
-      evidence table, each labelled legal or illegal
+    - a matrix of merge-base/head projection pairs drawn from the section-6 lifecycle evidence table,
+      each labelled legal or illegal
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: The validator admits every transition satisfying the section-6 evidence
-      model and rejects backward, skipping, and unevidenced transitions
+    purpose: The validator admits every transition satisfying the section-6 evidence model and rejects
+      backward, skipping, and unevidenced transitions
     urn: acc:enforce-merge-authority:C001-UNIT-002-legal-transitions-pass-illegal-rejected
   metadata:
     author: atdd:self-compliance
     created: '2026-07-09'
   then:
     abstract:
-    - every legal pair (INIT->PLANNED with plan complete, PLANNED->RED with token
-      digest plus gate id, RED->GREEN with passing-test evidence, GREEN->SMOKE with
-      smoke evidence) is admitted
+    - every legal pair (INIT->PLANNED with plan complete, PLANNED->RED with token digest plus gate id,
+      RED->GREEN with passing-test evidence, GREEN->SMOKE with smoke evidence) is admitted
     - a backward transition (GREEN->RED) is rejected as non-monotonic
     - a skipping transition without evidence for every skipped gate is rejected
     - '`* -> TOMBSTONED` is admitted only with a reason digest and tombstone metadata'
     - each rejection carries the uid, the attempted transition, and the failed clause
   when:
     abstract: the legal-transition validator is run over every pair in the matrix
+- identity:
+    urn: acc:enforce-merge-authority:C001-SMOKE-001-illegal-transition-merge
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: illegal-transition-merge holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising illegal-transition-merge
+  when:
+    abstract: the C001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - illegal-transition-merge is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

@@ -3,11 +3,11 @@ step: execute
 direction: maximize
 dimension: likelihood
 object_of_control: uid-mint
-context_clarifier: when a work item is created, core mints its uid once; that uid
-  is globally unique, never reused, and is the sole identity that names .atdd/state/projection/<uid>.yaml
+context_clarifier: when a work item is created, core mints its uid once; that uid is globally unique,
+  never reused, and is the sole identity that names .atdd/state/projection/<uid>.yaml
 lens: functional.effectiveness
-statement: maximize likelihood of an immutable uid-mint that is globally unique, never
-  reused, and is the sole identity driving the projection filename
+statement: maximize likelihood of an immutable uid-mint that is globally unique, never reused, and is
+  the sole identity driving the projection filename
 acceptances:
 - given:
     abstract:
@@ -18,8 +18,7 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: creating a work item mints a globally unique uid that later writes cannot
-      rewrite
+    purpose: creating a work item mints a globally unique uid that later writes cannot rewrite
     urn: acc:project-shared-state:E004-UNIT-001-mints-unique-immutable-uid
   metadata:
     author: atdd:self-compliance
@@ -29,8 +28,7 @@ acceptances:
     - The two minted uids are distinct and match the wi_ identity shape
     - The rewrite attempt is refused and the stored uid is unchanged
   when:
-    abstract: each create call mints a uid and a later update attempts to rewrite
-      one uid
+    abstract: each create call mints a uid and a later update attempts to rewrite one uid
 - given:
     abstract:
     - A store holding one object whose slug differs from its uid
@@ -40,8 +38,7 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: the projection filename is derived from uid alone, never from slug or
-      title
+    purpose: the projection filename is derived from uid alone, never from slug or title
     urn: acc:project-shared-state:E004-UNIT-002-uid-names-projection-file
   metadata:
     author: atdd:self-compliance
@@ -52,3 +49,23 @@ acceptances:
     - No emitted path contains the object's slug or title
   when:
     abstract: project(store, out_dir=<tmp>) is invoked
+- identity:
+    urn: acc:project-shared-state:E004-SMOKE-001-uid-mint
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: uid-mint holds against a real repo checkout, the installed atdd CLI, and a real
+      .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising uid-mint
+  when:
+    abstract: the E004 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - uid-mint is observed to hold end-to-end against real infrastructure, with no mocks or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

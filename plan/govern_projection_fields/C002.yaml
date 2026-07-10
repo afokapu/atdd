@@ -3,26 +3,23 @@ step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: merge-matrix-blind-spot
-context_clarifier: when the merge-driver test matrix is checked for completeness,
-  every merge rule declared by the field-ownership policy must be exercised against
-  every divergence case
+context_clarifier: when the merge-driver test matrix is checked for completeness, every merge rule declared
+  by the field-ownership policy must be exercised against every divergence case
 lens: functional.sustainability
-statement: minimize likelihood of a merge-matrix-blind-spot, by exercising every ownership
-  merge rule against every divergence case (identical, no-op, evidence-backed, unsafe)
-  in the merge-driver test matrix
+statement: minimize likelihood of a merge-matrix-blind-spot, by exercising every ownership merge rule
+  against every divergence case (identical, no-op, evidence-backed, unsafe) in the merge-driver test matrix
 acceptances:
 - given:
     abstract:
-    - The merge-driver test matrix and the merge-rule set declared by the field-ownership
-      policy
+    - The merge-driver test matrix and the merge-rule set declared by the field-ownership policy
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: The merge-driver test matrix leaves ownership-class and divergence-case
-      combinations unexercised, so regressions in those cells go undetected
+    purpose: The merge-driver test matrix leaves ownership-class and divergence-case combinations unexercised,
+      so regressions in those cells go undetected
     urn: acc:govern-projection-fields:C002-UNIT-001-red-matrix-misses-cases
   metadata:
     author: atdd:self-compliance
@@ -32,8 +29,7 @@ acceptances:
     - The check reports at least one unexercised cell
     - The check exits non-zero
   when:
-    abstract: the matrix coverage check enumerates ownership class against divergence
-      case
+    abstract: the matrix coverage check enumerates ownership class against divergence case
 - given:
     abstract:
     - The merge-driver test matrix keyed by (merge rule, divergence case)
@@ -44,20 +40,37 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: Every merge rule in the policy is exercised against every divergence
-      case (identical, no-op, evidence-backed, unsafe), and the matrix check proves
-      no cell is missing
+    purpose: Every merge rule in the policy is exercised against every divergence case (identical, no-op,
+      evidence-backed, unsafe), and the matrix check proves no cell is missing
     urn: acc:govern-projection-fields:C002-UNIT-002-green-every-cell-exercised
   metadata:
     author: atdd:self-compliance
     created: '2026-07-09'
   then:
     abstract:
-    - Every declared merge rule appears against each of identical, no-op, evidence-backed,
-      and unsafe
+    - Every declared merge rule appears against each of identical, no-op, evidence-backed, and unsafe
     - Each cell asserts a merged result or a conflict, never an unasserted pass
-    - The check exits zero and a newly declared merge rule with no cells fails the
-      check
+    - The check exits zero and a newly declared merge rule with no cells fails the check
   when:
-    abstract: the matrix coverage check enumerates ownership class against divergence
-      case
+    abstract: the matrix coverage check enumerates ownership class against divergence case
+- identity:
+    urn: acc:govern-projection-fields:C002-SMOKE-001-merge-matrix-blind-spot
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: merge-matrix-blind-spot holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising merge-matrix-blind-spot
+  when:
+    abstract: the C002 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - merge-matrix-blind-spot is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

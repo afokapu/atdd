@@ -3,13 +3,12 @@ step: prepare
 direction: maximize
 dimension: likelihood
 object_of_control: cold-start-hydrate
-context_clarifier: when a fresh clone has a committed projection but no state.sqlite
-  and no store_base_commit, versus a store that is missing its base commit but shows
-  dirty overlay signs
+context_clarifier: when a fresh clone has a committed projection but no state.sqlite and no store_base_commit,
+  versus a store that is missing its base commit but shows dirty overlay signs
 lens: functional.effectiveness
-statement: maximize likelihood of cold-start-hydrate succeeding when no store or no
-  base commit exists and no overlay is present, while refusing and emitting remediation
-  when a store is missing its base commit but carries overlay events
+statement: maximize likelihood of cold-start-hydrate succeeding when no store or no base commit exists
+  and no overlay is present, while refusing and emitting remediation when a store is missing its base
+  commit but carries overlay events
 acceptances:
 - given:
     abstract:
@@ -49,3 +48,24 @@ acceptances:
     - cold-start-hydrate is controlled as specified
   when:
     abstract: the hydrate-cold-store behavior is invoked
+- identity:
+    urn: acc:reconcile-local-store:P002-SMOKE-001-cold-start-hydrate
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: cold-start-hydrate holds against a real repo checkout, the installed atdd CLI,
+      and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising cold-start-hydrate
+  when:
+    abstract: the P002 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - cold-start-hydrate is observed to hold end-to-end against real infrastructure, with no mocks or
+      manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

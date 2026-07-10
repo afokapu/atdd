@@ -3,27 +3,26 @@ step: execute
 direction: maximize
 dimension: likelihood
 object_of_control: commit-trailer-parse
-context_clarifier: when CI reads git history as the event log, the parser must turn
-  a raw commit message into the typed trailer group deterministically, tolerating
-  grouped trailers for multi-object commits and squash-merge summary trailers
+context_clarifier: when CI reads git history as the event log, the parser must turn a raw commit message
+  into the typed trailer group deterministically, tolerating grouped trailers for multi-object commits
+  and squash-merge summary trailers
 lens: functional.effectiveness
-statement: maximize likelihood of a deterministic commit-trailer-parse that lifts
-  a raw commit message into the schema-typed ATDD trailer group, handles grouped trailers
-  for a multi-object commit and the ATDD-Summary form for a squash merge, and refuses
-  a trailer block that violates the schema instead of silently dropping it
+statement: maximize likelihood of a deterministic commit-trailer-parse that lifts a raw commit message
+  into the schema-typed ATDD trailer group, handles grouped trailers for a multi-object commit and the
+  ATDD-Summary form for a squash merge, and refuses a trailer block that violates the schema instead of
+  silently dropping it
 acceptances:
 - given:
     abstract:
-    - a commit message whose trailer block carries a duplicate `ATDD-Object` and a
-      `ATDD-Token-Digest` that is not `sha256:<hex>`
+    - a commit message whose trailer block carries a duplicate `ATDD-Object` and a `ATDD-Token-Digest`
+      that is not `sha256:<hex>`
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: No parser exists, so a malformed trailer block is silently ignored rather
-      than refused
+    purpose: No parser exists, so a malformed trailer block is silently ignored rather than refused
     urn: acc:enforce-merge-authority:E001-UNIT-001-parser-drops-malformed-trailers
   metadata:
     author: atdd:self-compliance
@@ -37,17 +36,16 @@ acceptances:
     abstract: parse_trailers(commit_message) is called
 - given:
     abstract:
-    - 'three commit messages: one single-object transition commit; one multi-object
-      commit carrying grouped trailers; one squash merge carrying ATDD-Summary and
-      ATDD-Summary-Digest'
+    - 'three commit messages: one single-object transition commit; one multi-object commit carrying grouped
+      trailers; one squash merge carrying ATDD-Summary and ATDD-Summary-Digest'
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: parse_trailers returns the typed trailer group for single-object, grouped
-      multi-object, and squash-summary commits, and is deterministic
+    purpose: parse_trailers returns the typed trailer group for single-object, grouped multi-object, and
+      squash-summary commits, and is deterministic
     urn: acc:enforce-merge-authority:E001-UNIT-002-parses-grouped-and-summary-trailers
   metadata:
     author: atdd:self-compliance
@@ -60,3 +58,24 @@ acceptances:
     - both calls on the same input return byte-identical results
   when:
     abstract: parse_trailers is called on each message twice
+- identity:
+    urn: acc:enforce-merge-authority:E001-SMOKE-001-commit-trailer-parse
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: commit-trailer-parse holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising commit-trailer-parse
+  when:
+    abstract: the E001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - commit-trailer-parse is observed to hold end-to-end against real infrastructure, with no mocks or
+      manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

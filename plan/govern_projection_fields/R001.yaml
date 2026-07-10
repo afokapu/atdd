@@ -3,25 +3,24 @@ step: resolve
 direction: maximize
 dimension: likelihood
 object_of_control: unsafe-merge-conflict
-context_clarifier: when same-object divergence fails the ownership or evidence rules,
-  the driver must surface an operator-actionable report rather than picking a winner
+context_clarifier: when same-object divergence fails the ownership or evidence rules, the driver must
+  surface an operator-actionable report rather than picking a winner
 lens: functional.availability
-statement: maximize likelihood of an unsafe-merge-conflict being raised with an actionable
-  report naming the field, both sides' writers, and the failing ownership or evidence
-  rule, never resolved by blind max phase
+statement: maximize likelihood of an unsafe-merge-conflict being raised with an actionable report naming
+  the field, both sides' writers, and the failing ownership or evidence rule, never resolved by blind
+  max phase
 acceptances:
 - given:
     abstract:
-    - A base object whose body was edited differently on ours and theirs, with body
-      owned under conflict-unless-single-owner
+    - A base object whose body was edited differently on ours and theirs, with body owned under conflict-unless-single-owner
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: An unsafe same-object divergence currently fails without naming the field,
-      the two writers, or the rule that rejected it
+    purpose: An unsafe same-object divergence currently fails without naming the field, the two writers,
+      or the rule that rejected it
     urn: acc:govern-projection-fields:R001-UNIT-001-red-unsafe-conflict-is-silent
   metadata:
     author: atdd:self-compliance
@@ -29,14 +28,13 @@ acceptances:
   then:
     abstract:
     - The driver emits a conflict report naming the field body
-    - The report names both sides' writers and the ownership rule conflict-unless-single-owner
-      that rejected the merge
+    - The report names both sides' writers and the ownership rule conflict-unless-single-owner that rejected
+      the merge
   when:
     abstract: the projection merge driver is invoked on base, ours, and theirs
 - given:
     abstract:
-    - Unsafe triples covering a divergent body, a divergent train digest, and an evidence-less
-      phase advance
+    - Unsafe triples covering a divergent body, a divergent train digest, and an evidence-less phase advance
     - The committed field-ownership policy
   harness:
     category: backend
@@ -44,9 +42,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: Every unsafe divergence exits non-zero with a report naming the field,
-      both writers, and the failing ownership or evidence rule, and never resolves
-      by blind max phase
+    purpose: Every unsafe divergence exits non-zero with a report naming the field, both writers, and
+      the failing ownership or evidence rule, and never resolves by blind max phase
     urn: acc:govern-projection-fields:R001-UNIT-002-green-actionable-conflict-report
   metadata:
     author: atdd:self-compliance
@@ -54,8 +51,29 @@ acceptances:
   then:
     abstract:
     - Each invocation exits non-zero and writes no merged file
-    - Each conflict report names the offending field, the writer on each side, and
-      the failing ownership or evidence rule
+    - Each conflict report names the offending field, the writer on each side, and the failing ownership
+      or evidence rule
     - No report resolves a phase divergence by selecting the numerically further phase
   when:
     abstract: the projection merge driver is invoked on each unsafe triple
+- identity:
+    urn: acc:govern-projection-fields:R001-SMOKE-001-unsafe-merge-conflict
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: unsafe-merge-conflict holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising unsafe-merge-conflict
+  when:
+    abstract: the R001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - unsafe-merge-conflict is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

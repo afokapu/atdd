@@ -3,35 +3,34 @@ step: execute
 direction: maximize
 dimension: likelihood
 object_of_control: overlay-event-log
-context_clarifier: when a local authoring command mutates the store before its work
-  is committed into projection, it appends a typed replayable event in the same transaction,
-  so local intent is recorded explicitly rather than inferred from a SQLite diff
+context_clarifier: when a local authoring command mutates the store before its work is committed into
+  projection, it appends a typed replayable event in the same transaction, so local intent is recorded
+  explicitly rather than inferred from a SQLite diff
 lens: functional.effectiveness
-statement: maximize likelihood of a complete overlay-event-log in which every uncommitted
-  local authoring command appends one typed replayable event transactionally, rejecting
-  any object write that bypasses it
+statement: maximize likelihood of a complete overlay-event-log in which every uncommitted local authoring
+  command appends one typed replayable event transactionally, rejecting any object write that bypasses
+  it
 acceptances:
 - given:
     abstract:
     - A hydrated local store with an empty overlay_events table
-    - 'The seven authoring operations: object_created, body_updated, phase_transition_requested,
-      train_updated, wmbt_added, tombstone_requested, external_ref_applied'
+    - 'The seven authoring operations: object_created, body_updated, phase_transition_requested, train_updated,
+      wmbt_added, tombstone_requested, external_ref_applied'
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-001
     phase: GREEN
-    purpose: every local authoring command appends exactly one typed overlay event,
-      in the same transaction as its object_store write
+    purpose: every local authoring command appends exactly one typed overlay event, in the same transaction
+      as its object_store write
     urn: acc:reconcile-local-store:E001-UNIT-001-authoring-command-appends-overlay-event
   metadata:
     author: atdd:self-compliance
     created: '2026-07-09'
   then:
     abstract:
-    - overlay_events gains one ordered, typed event per command with its replayable
-      payload
+    - overlay_events gains one ordered, typed event per command with its replayable payload
     - The event and the object_store write commit or roll back together
     - Committing the objects into projection drains the corresponding overlay events
   when:
@@ -46,8 +45,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: RED
-    purpose: a write to object_store that does not append an overlay event is rejected,
-      so overlay is never inferred from a SQLite diff
+    purpose: a write to object_store that does not append an overlay event is rejected, so overlay is
+      never inferred from a SQLite diff
     urn: acc:reconcile-local-store:E001-UNIT-002-unlogged-object-write-is-rejected
   metadata:
     author: atdd:self-compliance
@@ -59,3 +58,24 @@ acceptances:
     - No overlay is derived by diffing SQLite against a hydrated baseline
   when:
     abstract: the unlogged write is attempted
+- identity:
+    urn: acc:reconcile-local-store:E001-SMOKE-001-overlay-event-log
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: overlay-event-log holds against a real repo checkout, the installed atdd CLI,
+      and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising overlay-event-log
+  when:
+    abstract: the E001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - overlay-event-log is observed to hold end-to-end against real infrastructure, with no mocks or manual
+      patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

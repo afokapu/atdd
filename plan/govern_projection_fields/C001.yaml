@@ -3,12 +3,11 @@ step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: policy-coverage-gap
-context_clarifier: when a field-ownership policy is authored or edited, every field
-  of projection schema v1 must resolve to a declared writer before the policy is accepted
+context_clarifier: when a field-ownership policy is authored or edited, every field of projection schema
+  v1 must resolve to a declared writer before the policy is accepted
 lens: functional.sustainability
-statement: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting
-  a field-ownership policy that omits any projection schema field or names a writer
-  outside the declared writer set
+statement: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting a field-ownership
+  policy that omits any projection schema field or names a writer outside the declared writer set
 acceptances:
 - given:
     abstract:
@@ -19,8 +18,8 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: A policy that omits a projection schema field is currently accepted,
-      leaving that field unowned and unmergeable
+    purpose: A policy that omits a projection schema field is currently accepted, leaving that field unowned
+      and unmergeable
     urn: acc:govern-projection-fields:C001-UNIT-001-red-omitted-field-accepted
   metadata:
     author: atdd:self-compliance
@@ -34,16 +33,15 @@ acceptances:
 - given:
     abstract:
     - A field-ownership policy omitting one projection field
-    - A second policy naming writer 'human' for phase, which is not in the declared
-      writer set
+    - A second policy naming writer 'human' for phase, which is not in the declared writer set
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: The coverage check rejects both an omitted field and a field naming a
-      writer outside the declared writer set, naming the offending field
+    purpose: The coverage check rejects both an omitted field and a field naming a writer outside the
+      declared writer set, naming the offending field
     urn: acc:govern-projection-fields:C001-UNIT-002-green-rejects-gap-and-unknown-writer
   metadata:
     author: atdd:self-compliance
@@ -51,8 +49,28 @@ acceptances:
   then:
     abstract:
     - The first policy is rejected with the omitted field name in the report
-    - The second policy is rejected with the field phase and the unknown writer 'human'
-      in the report
+    - The second policy is rejected with the field phase and the unknown writer 'human' in the report
     - A policy that covers every field with a declared writer is accepted
   when:
     abstract: the policy coverage check is invoked against each policy
+- identity:
+    urn: acc:govern-projection-fields:C001-SMOKE-001-policy-coverage-gap
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: policy-coverage-gap holds against a real repo checkout, the installed atdd CLI,
+      and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising policy-coverage-gap
+  when:
+    abstract: the C001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - policy-coverage-gap is observed to hold end-to-end against real infrastructure, with no mocks or
+      manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

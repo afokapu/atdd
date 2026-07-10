@@ -3,13 +3,12 @@ step: monitor
 direction: maximize
 dimension: likelihood
 object_of_control: head-change-reconcile
-context_clarifier: when any git operation moves HEAD (merge, checkout, rebase, amend),
-  the client hook invokes atdd state reconcile without blocking git; a bypassed hook
-  leaves a stale store_base_commit that the next ATDD command detects
+context_clarifier: when any git operation moves HEAD (merge, checkout, rebase, amend), the client hook
+  invokes atdd state reconcile without blocking git; a bypassed hook leaves a stale store_base_commit
+  that the next ATDD command detects
 lens: functional.efficiency
-statement: maximize likelihood of a head-change-reconcile firing on every HEAD-moving
-  git operation as non-blocking convenience, with a stale base commit detected whenever
-  the hook is bypassed
+statement: maximize likelihood of a head-change-reconcile firing on every HEAD-moving git operation as
+  non-blocking convenience, with a stale base commit detected whenever the hook is bypassed
 acceptances:
 - given:
     abstract:
@@ -21,16 +20,15 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: GREEN
-    purpose: post-merge, post-checkout, post-rewrite and pre-rebase hooks invoke `atdd
-      state reconcile` for the new HEAD
+    purpose: post-merge, post-checkout, post-rewrite and pre-rebase hooks invoke `atdd state reconcile`
+      for the new HEAD
     urn: acc:reconcile-local-store:M001-UNIT-001-head-moving-hooks-invoke-reconcile
   metadata:
     author: atdd:self-compliance
     created: '2026-07-09'
   then:
     abstract:
-    - Every HEAD-moving operation triggers exactly one reconcile invocation for the
-      new HEAD
+    - Every HEAD-moving operation triggers exactly one reconcile invocation for the new HEAD
     - pre-rebase additionally runs the dirty-store protection check
     - A hook failure reports but does not block the underlying git operation
   when:
@@ -45,8 +43,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: RED
-    purpose: when hooks are bypassed the store is left with a store_base_commit behind
-      HEAD, and that staleness is detected rather than silently tolerated
+    purpose: when hooks are bypassed the store is left with a store_base_commit behind HEAD, and that
+      staleness is detected rather than silently tolerated
     urn: acc:reconcile-local-store:M001-UNIT-002-bypassed-hook-leaves-detectable-stale-base
   metadata:
     author: atdd:self-compliance
@@ -58,3 +56,24 @@ acceptances:
     - Hook absence is treated as missing convenience, never as missing authority
   when:
     abstract: the next local ATDD command inspects store freshness
+- identity:
+    urn: acc:reconcile-local-store:M001-SMOKE-001-head-change-reconcile
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: head-change-reconcile holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising head-change-reconcile
+  when:
+    abstract: the M001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - head-change-reconcile is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

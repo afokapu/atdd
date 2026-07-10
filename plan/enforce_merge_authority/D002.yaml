@@ -3,14 +3,13 @@ step: define
 direction: maximize
 dimension: likelihood
 object_of_control: required-check-policy
-context_clarifier: a CI workflow that is not wired into branch protection is advisory;
-  the policy names the exact required check contexts and the protection settings that
-  make the merge-authority run the actual gate on the protected branch
-lens: "functional.availability"
-statement: maximize likelihood of a required-check-policy that names, for the protected
-  branch, the exact required status-check contexts emitted by the merge-authority
-  run plus the branch-protection settings (no bypass, up-to-date before merge) that
-  make CI the merge authority rather than an advisory signal
+context_clarifier: a CI workflow that is not wired into branch protection is advisory; the policy names
+  the exact required check contexts and the protection settings that make the merge-authority run the
+  actual gate on the protected branch
+lens: functional.availability
+statement: maximize likelihood of a required-check-policy that names, for the protected branch, the exact
+  required status-check contexts emitted by the merge-authority run plus the branch-protection settings
+  (no bypass, up-to-date before merge) that make CI the merge authority rather than an advisory signal
 acceptances:
 - given:
     abstract:
@@ -22,8 +21,8 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: No required-check policy exists, so the documented required contexts
-      and the contexts the workflow actually emits can drift apart unnoticed
+    purpose: No required-check policy exists, so the documented required contexts and the contexts the
+      workflow actually emits can drift apart unnoticed
     urn: acc:enforce-merge-authority:D002-UNIT-001-policy-check-contexts-drift
   metadata:
     author: atdd:self-compliance
@@ -34,8 +33,8 @@ acceptances:
     - every section-4 check the workflow emits is listed as required in the policy
     - no policy document exists, so the comparison fails (not_implemented)
   when:
-    abstract: the policy's required status-check contexts are compared against the
-      job contexts the workflow emits
+    abstract: the policy's required status-check contexts are compared against the job contexts the workflow
+      emits
 - given:
     abstract:
     - a required-check policy document and the merge-authority workflow
@@ -45,18 +44,38 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: The policy pins the required contexts and the no-bypass / up-to-date
-      protection settings, and stays in lockstep with the workflow
+    purpose: The policy pins the required contexts and the no-bypass / up-to-date protection settings,
+      and stays in lockstep with the workflow
     urn: acc:enforce-merge-authority:D002-UNIT-002-policy-pins-contexts-and-settings
   metadata:
     author: atdd:self-compliance
     created: '2026-07-09'
   then:
     abstract:
-    - the policy's required contexts and the workflow's emitted contexts are equal
-      sets
+    - the policy's required contexts and the workflow's emitted contexts are equal sets
     - the policy pins branch protection to disallow bypass on the protected branch
     - the policy requires branches to be up to date with the base before merge
     - the policy states that local hooks are convenience and CI is authority (I6)
   when:
     abstract: the policy is parsed and cross-checked against the workflow job contexts
+- identity:
+    urn: acc:enforce-merge-authority:D002-SMOKE-001-required-check-policy
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: required-check-policy holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising required-check-policy
+  when:
+    abstract: the D002 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - required-check-policy is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

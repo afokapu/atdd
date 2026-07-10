@@ -3,13 +3,12 @@ step: confirm
 direction: maximize
 dimension: likelihood
 object_of_control: provider-free-workflow
-context_clarifier: when the conformance suite drives the full core workflow (project,
-  hydrate, reconcile, transition, CI validators) against a bare git remote with zero
-  providers registered, which is the M5 exit criterion
+context_clarifier: when the conformance suite drives the full core workflow (project, hydrate, reconcile,
+  transition, CI validators) against a bare git remote with zero providers registered, which is the M5
+  exit criterion
 lens: functional.effectiveness
-statement: maximize likelihood of a provider-free-workflow completing end to end against
-  a bare git remote with zero providers registered, proving no lifecycle decision
-  depends on GitHub
+statement: maximize likelihood of a provider-free-workflow completing end to end against a bare git remote
+  with zero providers registered, proving no lifecycle decision depends on GitHub
 acceptances:
 - given:
     abstract:
@@ -21,8 +20,8 @@ acceptances:
   identity:
     id: AC-INTEGRATION-001
     phase: RED
-    purpose: the conformance suite fails loudly if any step of the workflow requires
-      a provider or reads external_refs
+    purpose: the conformance suite fails loudly if any step of the workflow requires a provider or reads
+      external_refs
     urn: acc:isolate-provider-boundary:C002-INTEGRATION-001-fails-when-lifecycle-reads-provider
   metadata:
     author: atdd:self-compliance
@@ -42,8 +41,8 @@ acceptances:
   identity:
     id: AC-INTEGRATION-002
     phase: GREEN
-    purpose: "the full core workflow passes against a bare git remote with zero providers\
-      \ \u2014 the M5 exit criterion"
+    purpose: the full core workflow passes against a bare git remote with zero providers — the M5 exit
+      criterion
     urn: acc:isolate-provider-boundary:C002-INTEGRATION-002-bare-remote-workflow-passes
   metadata:
     author: atdd:self-compliance
@@ -54,5 +53,25 @@ acceptances:
     - The committed projection is byte-identical to project(store)
     - No GitHub API call, gh invocation, or issue-number read occurs during the run
   when:
-    abstract: the conformance suite drives project, commit, push, hydrate, reconcile
-      and the CI validators
+    abstract: the conformance suite drives project, commit, push, hydrate, reconcile and the CI validators
+- identity:
+    urn: acc:isolate-provider-boundary:C002-SMOKE-001-provider-free-workflow
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: provider-free-workflow holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising provider-free-workflow
+  when:
+    abstract: the C002 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - provider-free-workflow is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

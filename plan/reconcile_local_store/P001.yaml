@@ -3,13 +3,12 @@ step: prepare
 direction: maximize
 dimension: likelihood
 object_of_control: store-base-commit
-context_clarifier: when the local store is hydrated from the committed projection,
-  the commit it was hydrated from is written to the store metadata table and advanced
-  only on a successful reconcile, so base_projection is resolvable without guessing
+context_clarifier: when the local store is hydrated from the committed projection, the commit it was hydrated
+  from is written to the store metadata table and advanced only on a successful reconcile, so base_projection
+  is resolvable without guessing
 lens: functional.availability
-statement: maximize likelihood of a durable store-base-commit stamped into the local
-  store metadata at every hydrate and advanced only on successful reconcile, so reconcile
-  can resolve base_projection deterministically
+statement: maximize likelihood of a durable store-base-commit stamped into the local store metadata at
+  every hydrate and advanced only on successful reconcile, so reconcile can resolve base_projection deterministically
 acceptances:
 - given:
     abstract:
@@ -21,8 +20,8 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: GREEN
-    purpose: hydrate() writes store_base_commit into the store metadata table, equal
-      to the commit the projection was read from
+    purpose: hydrate() writes store_base_commit into the store metadata table, equal to the commit the
+      projection was read from
     urn: acc:reconcile-local-store:P001-UNIT-001-hydrate-stamps-base-commit
   metadata:
     author: atdd:self-compliance
@@ -36,16 +35,15 @@ acceptances:
     abstract: hydrate(projection @ C) is called
 - given:
     abstract:
-    - A local store whose metadata has no store_base_commit, or one naming an unknown
-      commit sha
+    - A local store whose metadata has no store_base_commit, or one naming an unknown commit sha
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-002
     phase: RED
-    purpose: reconcile refuses to run when store_base_commit is absent or names a
-      commit not reachable in the repository
+    purpose: reconcile refuses to run when store_base_commit is absent or names a commit not reachable
+      in the repository
     urn: acc:reconcile-local-store:P001-UNIT-002-reconcile-refuses-absent-base-commit
   metadata:
     author: atdd:self-compliance
@@ -57,3 +55,24 @@ acceptances:
     - The operator is told to re-hydrate rather than reconcile
   when:
     abstract: reconcile(new_head) is called
+- identity:
+    urn: acc:reconcile-local-store:P001-SMOKE-001-store-base-commit
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: store-base-commit holds against a real repo checkout, the installed atdd CLI,
+      and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising store-base-commit
+  when:
+    abstract: the P001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - store-base-commit is observed to hold end-to-end against real infrastructure, with no mocks or manual
+      patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
