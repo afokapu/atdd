@@ -1,0 +1,82 @@
+urn: "wmbt:reconcile-dispositions:E002"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-convention-node-declaring-a-disposition-outside-the-known-treatment-vocabulary-slipping-through-unnoticed"
+context_clarifier: "the conventions metadata reader (`rule_metadata` in `src/atdd/enforce/conventions.py`) reads `metadata.disposition` off a bound rule's convention node and today accepts ANY string — a typo like `strick` or a stray wiring value like `bound` is passed straight through to the verdict mapping, where it silently fails closed (treated as strict) with no signal that the node is malformed. The vocabulary must be made first-class on `RuleMetadata` (sourced from the D001 model) and the reader must REJECT any node whose declared disposition is outside {strict, advisory, suppress-and-clean, documentation-only}, raising a clear error that names the offending value and the allowed vocabulary. A missing disposition still defaults to strict (in-vocabulary, unchanged); only an explicitly declared, out-of-vocabulary value is rejected. All 42+ committed vendored nodes already declare in-vocabulary treatments, so the rejection changes no existing verdict — it closes the door on the next malformed node."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a convention node declaring a disposition outside the known treatment vocabulary slipping through unnoticed by rejecting any node whose metadata.disposition is not one of strict, advisory, suppress-and-clean, or documentation-only with an error that names the value and the allowed vocabulary"
+acceptances:
+  - identity:
+      urn: "acc:reconcile-dispositions:E002-UNIT-001-out-of-vocabulary-disposition-is-rejected"
+      id: "AC-UNIT-001"
+      purpose: "A convention node whose metadata.disposition is outside the treatment vocabulary is rejected with an error naming the value and the allowed set"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A vendored convention node whose metadata.disposition is a value outside the treatment vocabulary (e.g. 'strick')"
+    when:
+      abstract: "The metadata reader reads that node's disposition"
+      action: "invoke"
+    then:
+      abstract:
+        - "Reading raises an error whose message names the offending value and the allowed vocabulary"
+      assertions:
+        - type: "raises"
+    signal: {}
+    metadata:
+      wagon: "reconcile-dispositions"
+      feature: "reconcile-dispositions"
+  - identity:
+      urn: "acc:reconcile-dispositions:E002-UNIT-002-each-valid-treatment-is-accepted-and-missing-defaults-strict"
+      id: "AC-UNIT-002"
+      purpose: "Each of the four valid treatments is accepted unchanged and a node with no disposition defaults to strict"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Convention nodes declaring each of strict, advisory, suppress-and-clean, and documentation-only, plus one declaring no disposition"
+    when:
+      abstract: "The metadata reader reads each node's disposition"
+      action: "invoke"
+    then:
+      abstract:
+        - "Each in-vocabulary treatment is returned unchanged with no error"
+        - "The node with no disposition defaults to strict"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "reconcile-dispositions"
+      feature: "reconcile-dispositions"
+  - identity:
+      urn: "acc:reconcile-dispositions:E002-SMOKE-001-every-vendored-node-declares-an-in-vocabulary-treatment"
+      id: "AC-SMOKE-001"
+      purpose: "Reading the disposition of every bound convention node in the committed vendored substrate raises no vocabulary error"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "The committed .atdd/binding.lock.yaml and the vendored .atdd/extensions convention nodes it binds"
+    when:
+      abstract: "The metadata reader reads the disposition of every bound convention node"
+      action: "invoke"
+    then:
+      abstract:
+        - "No read raises a vocabulary error — every vendored node declares an in-vocabulary treatment"
+      assertions:
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "`atdd enforce --verify-substrate` continues to pass against the vendored tree after vocabulary validation is active"
+      drift_resolved: "the enforce verdict runs to completion over all 26 bound rules without a vocabulary rejection"
+    signal: {}
+    metadata:
+      wagon: "reconcile-dispositions"
+      feature: "reconcile-dispositions"
