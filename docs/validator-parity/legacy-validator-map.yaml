@@ -3383,6 +3383,8 @@ excluded:
   reason: Leading-underscore shared helper module (dispatch-entry predicates), extracted from the retired test_dispatch_registry.py (#1385).
 - legacy_path: src/atdd/planner/validators/_feedback_loop.py
   reason: Leading-underscore shared helper module (feedback-loop close-the-loop scan), extracted from the retired test_feedback_loop_smoke_closes_the_loop.py (#1385).
+- legacy_path: src/atdd/planner/validators/_smoke_urn.py
+  reason: Leading-underscore shared helper module (SMOKE acceptance-URN scan), extracted from the retired test_wmbt_has_smoke_acceptance.py (#1385).
 - legacy_path: src/atdd/tester/validators/__init__.py
   reason: Package init module, not an executable validator.
 - legacy_path: src/atdd/tester/validators/_acceptance_walker.py

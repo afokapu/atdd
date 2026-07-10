@@ -13,7 +13,7 @@ broken-URN scanner (``atdd repo broken``) resolves ``acc:`` URNs through
 These tests pin that ``SMOKE`` is a first-class harness token in the
 acceptance-URN grammar so ``-SMOKE-NNN`` URNs validate as well-formed, and stay
 coherent with ``_SMOKE_URN_RE`` in
-``src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py``.
+``src/atdd/planner/validators/_smoke_urn.py``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import pytest
 from atdd.coach.utils.graph.urn import URNBuilder
 
 # Mirror of _SMOKE_URN_RE in
-# src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py — the two MUST
+# src/atdd/planner/validators/_smoke_urn.py — the two MUST
 # stay coherent: anything the SMOKE-acceptance validator demands must validate
 # as a well-formed acc URN.
 _SMOKE_URN_RE = re.compile(
