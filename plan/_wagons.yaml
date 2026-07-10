@@ -1091,18 +1091,14 @@ wagons:
     contract: contract:commons:projection-merge-event
     telemetry: null
     to: internal
+  - name: commons:enforce:field-ownership
+    contract: contract:commons:projection-field-ownership
+    telemetry: null
+    to: internal
   consume:
   - contract: contract:commons:projection-object
     from: wagon:project-shared-state
     name: commons:project:projection-object
-    telemetry: null
-  - contract: contract:commons:projection-field-ownership
-    from: wagon:govern-projection-fields
-    name: commons:govern:field-ownership
-    telemetry: null
-  - contract: contract:commons:provider-extensions-lock
-    from: wagon:isolate-provider-boundary
-    name: commons:isolate:extensions-lock
     telemetry: null
   wmbt:
     C001: minimize likelihood of an illegal-transition-merge, in which a canonical
@@ -1623,10 +1619,6 @@ wagons:
     a report naming the field, both writers, and the failing rule; wrong-writer field
     changes fail CI; tombstoned objects never resurrect
   produce:
-  - name: commons:govern:field-ownership
-    contract: contract:commons:projection-field-ownership
-    telemetry: null
-    to: internal
   - name: commons:govern:field-writer-validator
     contract: null
     telemetry: null
@@ -1660,10 +1652,10 @@ wagons:
     from: wagon:enforce-merge-authority
     name: commons:enforce:merge-event
     telemetry: null
-  - contract: contract:commons:provider-external-ref-update
-    from: wagon:isolate-provider-boundary
-    name: commons:isolate:external-ref-update
+  - name: commons:enforce:field-ownership
+    contract: contract:commons:projection-field-ownership
     telemetry: null
+    from: wagon:enforce-merge-authority
   wmbt:
     C001: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting
       a field-ownership policy that omits any projection schema field or names a writer
@@ -2019,8 +2011,8 @@ wagons:
     name: commons:project:projection-object
     telemetry: null
   - contract: contract:commons:projection-field-ownership
-    from: wagon:govern-projection-fields
-    name: commons:govern:field-ownership
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:field-ownership
     telemetry: null
   wmbt:
     C001: minimize likelihood of a core-provider-import surviving into main, by statically

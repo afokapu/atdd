@@ -129,9 +129,9 @@ artifacts:
     same-object and wrong-writer corruption. Humans may not write external_refs; extensions
     may not write lifecycle fields (section 4).
   path: contracts/commons/projection-field-ownership.schema.json
-  producer: wagon:govern-projection-fields
+  producer: wagon:enforce-merge-authority
   consumers:
-  - wagon:enforce-merge-authority
+  - wagon:govern-projection-fields
   - wagon:isolate-provider-boundary
 - id: commons:projection-merge-event
   urn: contract:commons:projection-merge-event
