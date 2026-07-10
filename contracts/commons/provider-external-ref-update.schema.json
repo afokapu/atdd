@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "contract:commons:provider-external-ref-update",
+  "$id": "commons:provider-external-ref-update",
   "title": "External Ref Update Contract",
   "description": "The ONLY record a SyncProvider.mirror() may return (doc section 8.2). Bot-namespaced. Core applies provider metadata only through a constrained external_refs.* update path. The extension never edits projection directly, and detect_drift() is alarm-only.",
   "version": "1.0.0",
@@ -43,12 +43,39 @@
   ],
   "additionalProperties": false,
   "x-artifact-metadata": {
-    "producers": [
-      "wagon:isolate-provider-boundary"
-    ],
+    "domain": "commons",
+    "resource": "provider_external_ref_update",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:isolate-provider-boundary",
     "consumers": [
       "wagon:govern-projection-fields",
       "wagon:migrate-projection-authority"
-    ]
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the provider_external_ref_update projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A provider_external_ref_update conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/isolate_provider_boundary/_isolate_provider_boundary.yaml",
+      "feature_refs": [
+        "feature:isolate-provider-boundary:define-provider-interface"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
   }
 }

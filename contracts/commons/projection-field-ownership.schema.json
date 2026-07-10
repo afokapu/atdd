@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "contract:commons:projection-field-ownership",
+  "$id": "commons:projection-field-ownership",
   "title": "Projection Field Ownership Policy",
   "description": "Which writer may write each projection field (doc section 7.1). Prevents same-object and wrong-writer corruption. Humans may not write external_refs; extensions may not write lifecycle fields (section 4).",
   "version": "1.0.0",
@@ -50,12 +50,39 @@
   ],
   "additionalProperties": false,
   "x-artifact-metadata": {
-    "producers": [
-      "wagon:govern-projection-fields"
-    ],
+    "domain": "commons",
+    "resource": "projection_field_ownership",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:govern-projection-fields",
     "consumers": [
       "wagon:enforce-merge-authority",
       "wagon:isolate-provider-boundary"
-    ]
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the projection_field_ownership projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A projection_field_ownership conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/govern_projection_fields/_govern_projection_fields.yaml",
+      "feature_refs": [
+        "feature:govern-projection-fields:define-actor-ownership"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
   }
 }

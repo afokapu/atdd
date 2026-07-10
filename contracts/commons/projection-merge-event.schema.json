@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "contract:commons:projection-merge-event",
+  "$id": "commons:projection-merge-event",
   "title": "Merge And Squash Event Policy",
   "description": "Allowed merge methods and the ATDD-Summary artifact format (doc section 5), plus the phase-merge admissibility rule (section 7.2). Same-object phase divergence auto-merges ONLY on identical transitions, a strict no-op side, or verifiable evidence for every skipped gate. NEVER blind max-phase.",
   "version": "1.0.0",
@@ -61,11 +61,38 @@
   ],
   "additionalProperties": false,
   "x-artifact-metadata": {
-    "producers": [
-      "wagon:enforce-merge-authority"
-    ],
+    "domain": "commons",
+    "resource": "projection_merge_event",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:enforce-merge-authority",
     "consumers": [
       "wagon:govern-projection-fields"
-    ]
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the projection_merge_event projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A projection_merge_event conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/enforce_merge_authority/_enforce_merge_authority.yaml",
+      "feature_refs": [
+        "feature:enforce-merge-authority:define-required-checks"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
   }
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "contract:commons:projection-object",
+  "$id": "commons:projection-object",
   "title": "Projection Object v1",
   "description": "The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`. Authoritative for shared project state (doc section 2.1). Identity is the immutable uid, never the slug; the filename is derived from the uid. Deletion is a tombstone, never file removal (section 10).",
   "version": "1.0.0",
@@ -108,15 +108,42 @@
   ],
   "additionalProperties": false,
   "x-artifact-metadata": {
-    "producers": [
-      "wagon:project-shared-state"
-    ],
+    "domain": "commons",
+    "resource": "projection_object",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:project-shared-state",
     "consumers": [
       "wagon:reconcile-local-store",
       "wagon:enforce-merge-authority",
       "wagon:govern-projection-fields",
       "wagon:isolate-provider-boundary",
       "wagon:migrate-projection-authority"
-    ]
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the projection_object projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A projection_object conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/project_shared_state/_project_shared_state.yaml",
+      "feature_refs": [
+        "feature:project-shared-state:compute-projection-digest"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
   }
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "contract:commons:projection-evidence",
+  "$id": "commons:projection-evidence",
   "title": "Lifecycle Evidence Policy v1",
   "description": "The evidence each lifecycle transition must carry (doc section 6). The legal-transition validator is the load-bearing gate: canonical YAML alone is formatting, not correctness (section 4). COMPLETE is DERIVED from merge-to-main for v1 (section 18 decision 1).",
   "version": "1.0.0",
@@ -95,12 +95,39 @@
   ],
   "additionalProperties": false,
   "x-artifact-metadata": {
-    "producers": [
-      "wagon:enforce-merge-authority"
-    ],
+    "domain": "commons",
+    "resource": "projection_evidence",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:enforce-merge-authority",
     "consumers": [
       "wagon:govern-projection-fields",
       "wagon:migrate-projection-authority"
-    ]
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the projection_evidence projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A projection_evidence conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/enforce_merge_authority/_enforce_merge_authority.yaml",
+      "feature_refs": [
+        "feature:enforce-merge-authority:define-required-checks"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
   }
 }

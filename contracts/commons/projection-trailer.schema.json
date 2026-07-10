@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "contract:commons:projection-trailer",
+  "$id": "commons:projection-trailer",
   "title": "ATDD Commit Trailer Group",
   "description": "The structured trailer group that makes git history a reliable event log (doc section 5). Free prose is insufficient. Raw tokens, bearer tokens, secrets or credentials are INVALID (rule 5, I8).",
   "version": "1.0.0",
@@ -66,12 +66,39 @@
   ],
   "additionalProperties": false,
   "x-artifact-metadata": {
-    "producers": [
-      "wagon:enforce-merge-authority"
-    ],
+    "domain": "commons",
+    "resource": "projection_trailer",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:enforce-merge-authority",
     "consumers": [
       "wagon:govern-projection-fields",
       "wagon:migrate-projection-authority"
-    ]
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the projection_trailer projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A projection_trailer conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/enforce_merge_authority/_enforce_merge_authority.yaml",
+      "feature_refs": [
+        "feature:enforce-merge-authority:define-required-checks"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
   }
 }
