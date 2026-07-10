@@ -1,5 +1,5 @@
-# Acceptance: acc:govern-lifecycle:E003-INTEGRATION-001-planner-validator-fires-on-zero-smoke-urns
-# Acceptance: acc:govern-lifecycle:E003-SMOKE-001-real-validator-suite-includes-this-validator
+# Phase: GREEN
+# Layer: backend.domain
 """
 planner.wmbt.must-have-smoke-acceptance validator (issue #681).
 
@@ -24,19 +24,14 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-import pytest
 import yaml
 
-from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
-pytestmark = [pytest.mark.planner]
-
 
 _RULE = bind_rule("planner.wmbt.must-have-smoke-acceptance")
-_VALIDATOR_ID = "wmbt_has_smoke_acceptance"
 
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
@@ -161,25 +156,3 @@ def scan_plan_for_smoke_coverage(
     root = repo_root or REPO_ROOT
     pdir = plan_dir or (root / "plan")
     return evaluate_wmbt_smoke_coverage(iter_wmbt_files(pdir), root)
-
-
-# ---------------------------------------------------------------------------
-# Test
-# ---------------------------------------------------------------------------
-
-
-def test_every_wmbt_has_smoke_acceptance():
-    """
-    SPEC: ``wmbt.convention.yaml::rules[planner.wmbt.must-have-smoke-acceptance]``.
-
-    Given: Every WMBT YAML under ``plan/<wagon>/``.
-    When:  Inspecting the WMBT's acceptance URN list.
-    Then:  At least one URN uses the SMOKE harness token. WMBTs with zero
-           SMOKE URNs surface as structured Violations the disposition
-           gate fails on (unless inline-suppressed on the urn: line).
-    """
-    violations = scan_plan_for_smoke_coverage()
-    assert_disposition_satisfied(
-        validator_id=_VALIDATOR_ID,
-        violations=violations,
-    )

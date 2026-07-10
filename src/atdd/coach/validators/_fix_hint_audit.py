@@ -1,8 +1,13 @@
-# URN: component:govern-lifecycle:enforcement-substrate:test_fix_hint_completeness:backend:domain
+# URN: component:govern-lifecycle:enforcement-substrate:fix_hint_audit:backend:domain
 # Runtime: python
 # Purpose: Audit every fix_hint (convention-declared or CLI-printed `Fix:`) against the C1-C4 completeness contract from rule-id.convention.yaml (issue #467).
 
-"""Coach meta-validator: fix-hint completeness contract (issue #467).
+"""Fix-hint completeness audit helpers (issue #467, extracted #1385).
+
+Enforcement lives in the convention variant
+``validators/conventions/presence/test_rule_has_fix_hint.py``; this module holds the
+audit functions so they outlive the retired legacy validator
+(``coach/validators/test_fix_hint_completeness.py``, #1207 sweep).
 
 Walks every ``*.convention.yaml`` file under the toolkit and every
 ``print(... Fix: ...)`` literal under ``src/atdd/**/{commands,validators}/``,
@@ -34,11 +39,11 @@ Rule emitted: ``coach.rule-id.fix-hint-completeness``.
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
-import pytest
 import yaml
 
 import atdd
@@ -49,8 +54,9 @@ from atdd.coach.utils.rule_binding import (
 )
 from atdd.coach.validators._violation import Violation
 
+_log = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.coach]
+
 
 
 _RULE = bind_rule("coach.rule-id.fix-hint-completeness")
@@ -125,6 +131,8 @@ def _relpath(p: Path) -> str:
     try:
         return str(p.resolve().relative_to(ATDD_PKG_DIR.parent.resolve()))
     except ValueError:
+        _log.debug("path outside the atdd package; using absolute form",
+                   extra={"path": str(p)})
         return str(p)
 
 
@@ -139,8 +147,9 @@ def _yaml_line_for_field(file_path: Path, field_value: str) -> int:
         for idx, raw in enumerate(file_path.read_text(encoding="utf-8").splitlines(), 1):
             if needle and needle in raw:
                 return idx
-    except OSError:
-        pass
+    except OSError as exc:
+        _log.info("could not read file for hint line lookup",
+                  extra={"path": str(file_path), "error": str(exc)})
     return 1
 
 
@@ -257,7 +266,9 @@ def build_deprecation_registry(cli_source: Optional[str] = None) -> dict:
     if cli_source is None:
         try:
             cli_source = CLI_FILE.read_text(encoding="utf-8")
-        except OSError:
+        except OSError as exc:
+            _log.info("cli.py unreadable; empty deprecation registry",
+                      extra={"path": str(CLI_FILE), "error": str(exc)})
             return {}
     out: dict = {}
     for m in _DEPRECATION_CALL_RE.finditer(cli_source):
@@ -292,7 +303,9 @@ def build_subcommand_registry(cli_source: Optional[str] = None) -> set:
     if cli_source is None:
         try:
             cli_source = CLI_FILE.read_text(encoding="utf-8")
-        except OSError:
+        except OSError as exc:
+            _log.info("cli.py unreadable; empty subcommand registry",
+                      extra={"path": str(CLI_FILE), "error": str(exc)})
             return set()
     return set(_TOP_LEVEL_SUBPARSER_RE.findall(cli_source))
 
@@ -310,7 +323,9 @@ def iter_deprecation_callsites(cli_source: Optional[str] = None) -> List[Tuple[s
     if cli_source is None:
         try:
             cli_source = CLI_FILE.read_text(encoding="utf-8")
-        except OSError:
+        except OSError as exc:
+            _log.info("cli.py unreadable; no deprecation callsites",
+                      extra={"path": str(CLI_FILE), "error": str(exc)})
             return []
     return [
         (m.group("old").strip(), m.group("new").strip())
@@ -364,7 +379,9 @@ def load_negative_exemplars(
     out: List[Tuple[str, int, int, int]] = []
     try:
         data = yaml.safe_load(convention_path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError) as exc:
+        _log.info("convention unreadable; no negative exemplars",
+                  extra={"path": str(convention_path), "error": str(exc)})
         return out
     block = (data.get("fix_hint_exemplars") or {}).get("negative") or []
     for entry in block:
@@ -543,37 +560,18 @@ def scan_hints() -> List[Violation]:
 # ===========================================================================
 # Test
 # ===========================================================================
-@pytest.mark.coach
-def test_every_fix_hint_satisfies_completeness_contract():
-    """Every fix_hint in convention YAMLs and CLI ``Fix:`` literals must
-    satisfy clauses C1-C2 of the contract declared in
-    ``rule-id.convention.yaml::rule_schema.fields.fix_hint`` (#467).
-
-    Sites pinned under ``fix_hint_exemplars.negative`` are exempted as
-    known-defective fixtures (each carries an ``owner_issue``).  The gate
-    becomes green automatically when the owning issue lands and the
-    exemplar entry is removed.
-    """
-    violations = scan_hints()
-    if not violations:
-        return
-    formatted = "\n".join(f"  - {v}" for v in violations)
-    pytest.fail(
-        f"\nFix-hint completeness contract violated by "
-        f"{len(violations)} hint(s):\n\n{formatted}\n\n"
-        "Repair per rule-id.convention.yaml::rule_schema.fields.fix_hint "
-        "(clauses C1-C4). See coach.rule-id.fix-hint-completeness.fix_hint."
-    )
 
 
 __all__ = [
     "Hint",
     "audit_c1_placeholder_resolution",
     "audit_c2_no_deprecation_contradiction",
+    "audit_c2b_no_dangling_replacement_target",
     "build_deprecation_registry",
+    "build_subcommand_registry",
     "collect_py_hints",
     "collect_yaml_hints",
+    "iter_deprecation_callsites",
     "load_negative_exemplars",
     "scan_hints",
-    "test_every_fix_hint_satisfies_completeness_contract",
 ]

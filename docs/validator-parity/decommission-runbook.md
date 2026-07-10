@@ -1,5 +1,12 @@
 # Tier-1 legacy-validator decommission runbook (canonical)
 
+> **HISTORICAL — the scaffolding this runbook drives was retired in #1385.**
+> `scripts/decommission_manifest.py` (the pre-flight classifier),
+> `docs/validator-parity/legacy-validator-map.yaml`, and the Y001/Y002 guards no longer
+> exist. The sweep they supported is complete, so the commands below will not run. The
+> document is kept as the historical record of the procedure and of the two batches whose
+> failures shaped it.
+
 > Supersedes the batch-1 addendum embedded in issue **#1207**. This file is the single
 > canonical procedure for safely retiring a **rule-bound** legacy validator once its
 > convention variant is executing at parity. Run the pre-flight classifier first; then

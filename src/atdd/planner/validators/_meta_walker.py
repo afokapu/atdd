@@ -1,11 +1,7 @@
-# Acceptance: acc:govern-lifecycle:E028-UNIT-004-validator-detects-fakemultiplexer
-# Acceptance: acc:govern-lifecycle:E028-UNIT-005-validator-detects-stub-popen-command
-# Acceptance: acc:govern-lifecycle:E028-INTEGRATION-001-no-false-positive-on-real-entry-point
-# Acceptance: acc:govern-lifecycle:E028-SMOKE-001-validate-planner-clean-after-retrofit
-# Acceptance: acc:govern-lifecycle:L002-UNIT-001-meta-walker-function-exists-and-classifies
-# Acceptance: acc:govern-lifecycle:L002-SMOKE-001-meta-walker-zero-hits-on-post-retrofit-repo
+# Phase: GREEN
+# Layer: backend.domain
 """
-planner.smoke.synthetic-fixture-bypass validator (issue #855).
+Synthetic-fixture anti-pattern scan helpers (issue #855, extracted #1385).
 
 Scans SMOKE-phase test files referenced by WMBT YAML acceptances and emits
 Violations for three synthetic-fixture anti-patterns:
@@ -18,6 +14,10 @@ Rule: ``planner.smoke.synthetic-fixture-bypass`` (severity 3)
 Convention: src/atdd/tester/conventions/smoke.convention.yaml::synthetic_fixture_anti_patterns
 
 Also provides ``walk_all_smoke_acceptances_for_anti_patterns`` for the L002 meta-walker.
+
+Enforcement lives in the convention variant
+``validators/conventions/policy/test_smoke_synthetic_fixture_bypass.py``; this module
+holds the scan helpers so they outlive the retired legacy validator (#1207 sweep).
 """
 from __future__ import annotations
 
@@ -25,14 +25,11 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-import pytest
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
-
-pytestmark = [pytest.mark.planner]
 
 _RULE_ID = "planner.smoke.synthetic-fixture-bypass"
 _RULE = bind_rule("planner.smoke.synthetic-fixture-bypass")
@@ -232,14 +229,3 @@ def walk_all_smoke_acceptances_for_anti_patterns(
 # ---------------------------------------------------------------------------
 # Pytest validator test (run by ``atdd validate planner``)
 # ---------------------------------------------------------------------------
-
-def test_no_smoke_tests_use_synthetic_fixtures():
-    """No phase:SMOKE acceptance in plan/ resolves to a test file with synthetic fixtures."""
-    bind_rule("planner.smoke.synthetic-fixture-bypass")
-    hits = walk_all_smoke_acceptances_for_anti_patterns(PLAN_DIR)
-    assert not hits, (
-        f"Found {len(hits)} SMOKE acceptance(s) with synthetic-fixture patterns:\n"
-        + "\n".join(f"  {urn}: {desc}" for urn, desc in hits)
-        + "\n\nFix: use real entry-point wiring or suppress inline with:\n"
-        "  # atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=YYYY-MM-DD"
-    )

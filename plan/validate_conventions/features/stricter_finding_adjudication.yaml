@@ -22,10 +22,9 @@ description: 'Adjudicate convention findings that legacy does not flag: classify
 sizing:
   footprint_score: 5
   footprint_size: S
-  wmbts: 3
+  wmbts: 2
 urn: feature:validate-conventions:stricter-finding-adjudication
 wagon: wagon:validate-conventions
 wmbts:
-- wmbt:validate-conventions:E024
 - wmbt:validate-conventions:E025
 - wmbt:validate-conventions:E026

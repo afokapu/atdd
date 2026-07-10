@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from atdd.planner.validators.test_no_orphan_nodes import orphan_nodes
+from atdd.planner.validators._orphan_scan import orphan_nodes
 
 
 def test_unreferenced_node_is_an_orphan() -> None:

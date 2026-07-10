@@ -1,6 +1,6 @@
-# Phase: SMOKE
-# Layer: backend.integration
-"""planner.smoke.feedback-loop-close-the-loop validator (issue #825).
+# Phase: GREEN
+# Layer: backend.domain
+"""Feedback-loop close-the-loop scan helpers (issue #825, extracted #1385).
 
 Walks every feature YAML under ``plan/<wagon>/features/`` that declares
 ``kind: feedback-loop``. For each such feature, inspects its WMBT files
@@ -15,7 +15,10 @@ enforcing the close-the-loop assertion pair on every feedback-loop feature.
 
 Convention: ``src/atdd/tester/conventions/smoke.convention.yaml::feedback_loop``
 Rule:       ``planner.smoke.feedback-loop-close-the-loop``
-Run:        ``atdd validate planner``
+
+Enforcement lives in the convention variant
+``validators/conventions/presence/test_feedback_loop_close_the_loop.py``; this module holds
+the scan helpers so they outlive the retired legacy validator (#1207 sweep).
 """
 from __future__ import annotations
 
@@ -23,19 +26,13 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-import pytest
 import yaml
 
-from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
-pytestmark = [pytest.mark.planner]
-
-
 _RULE = bind_rule("planner.smoke.feedback-loop-close-the-loop")
-_VALIDATOR_ID = "feedback_loop_smoke_closes_the_loop"
 
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
@@ -228,27 +225,3 @@ def scan_plan_for_feedback_loop_coverage(
     pdir = plan_dir or (root / "plan")
     features = iter_feedback_loop_features(pdir)
     return evaluate_feedback_loop_coverage(features, pdir, root)
-
-
-# ---------------------------------------------------------------------------
-# Test
-# ---------------------------------------------------------------------------
-
-
-def test_every_feedback_loop_feature_has_close_the_loop_smoke():
-    """
-    SPEC: ``smoke.convention.yaml::feedback_loop_rules[planner.smoke.feedback-loop-close-the-loop]``.
-
-    Given: Every feature YAML under ``plan/<wagon>/features/`` with ``kind: feedback-loop``.
-    When:  Inspecting the feature's WMBTs for a SMOKE acceptance with a
-           ``close_the_loop:`` block containing ``consumer_reacted`` and
-           ``drift_resolved``.
-    Then:  At least one such acceptance exists. Features lacking it surface as
-           structured Violations the disposition gate fails on (unless the kind:
-           line is inline-suppressed).
-    """
-    violations = scan_plan_for_feedback_loop_coverage()
-    assert_disposition_satisfied(
-        validator_id=_VALIDATOR_ID,
-        violations=violations,
-    )

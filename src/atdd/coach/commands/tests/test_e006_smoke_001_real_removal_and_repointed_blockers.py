@@ -173,7 +173,7 @@ def test_no_deprecation_warning_recommends_the_removed_command():
     a head, so the registry keeps only the first and would hide a dangling
     second (cli.py:2452 vs cli.py:2461).
     """
-    from atdd.coach.validators.test_fix_hint_completeness import (
+    from atdd.coach.validators._fix_hint_audit import (
         iter_deprecation_callsites,
     )
 

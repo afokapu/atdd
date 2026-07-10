@@ -14,7 +14,7 @@ Executes against the real rule registry (#1151: a smoke must execute, not skip):
 from __future__ import annotations
 
 from atdd.coach.utils.rule_binding import bind_rule
-from atdd.planner.validators.test_dispatch_registry import (
+from atdd.planner.validators._dispatch_registry import (
     check_composite_key_exceptional,
 )
 

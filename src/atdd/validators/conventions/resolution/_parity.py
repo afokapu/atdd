@@ -9,9 +9,6 @@ with the legacy validators they measure against.
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import List
 
@@ -48,19 +45,3 @@ def inject_patch(root, rel: str, old: str, new: str):
         yield
     finally:
         path.write_text(original, encoding="utf-8")
-
-
-def legacy_caught(root, nodeid: str) -> bool:
-    """Run a legacy pytest nodeid in a subprocess; True iff it FAILS (rc != 0).
-
-    A self-skip (rc == 0) is NOT a catch — it is the legacy validator declining
-    to block, which the differential records as legacy-vacuous, never as parity.
-    """
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=str(root),
-        env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True,
-        text=True,
-    ).returncode
-    return rc != 0
