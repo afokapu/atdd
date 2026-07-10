@@ -259,9 +259,12 @@ wagons:
   - name: commons:author:author-spine
     from: wagon:author-atdd-substrate
   wmbt:
-    total: 14
+    total: 15
     C001: minimize likelihood of the plan-artifact author guard accepting a malformed
       slug, URN, step-code, or a path escaping plan/
+    C008: minimize likelihood of non-object-author-spec by having the plan-author
+      spine reject any spec that is not a JSON object before a unit is admitted or
+      a per-kind writer runs
     E001: maximize likelihood of schema-valid wagon-manifest creation under the canonical
       plan/<slug>/_<slug>.yaml home
     C002: minimize likelihood of accepting a structurally invalid wagon manifest

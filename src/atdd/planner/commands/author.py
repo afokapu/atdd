@@ -347,6 +347,38 @@ def validate_plan_author_input(
         raise AuthorInputError("path", f"path {str(path)!r} escapes the plan home {home}{os.sep}")
 
 
+def _json_type_name(value: object) -> str:
+    """Name the JSON type of ``value`` the way an operator wrote it."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):  # bool before int: bool is a subclass of int
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "list"
+    return type(value).__name__
+
+
+def validate_author_spec(spec: object) -> None:
+    """Guard the author spec: it must be a JSON object (WMBT C008).
+
+    Every per-kind plan writer reads its input with ``spec.get(...)``, so a spec
+    that is valid JSON but not an object detonates inside the writer, after the
+    Confirm lock. Reject it at the input guard instead.
+
+    Raises ``AuthorInputError`` with ``.field == "spec"`` naming the JSON type
+    actually received. Returns ``None`` for any dict, including the empty dict.
+    """
+    if not isinstance(spec, dict):
+        raise AuthorInputError(
+            "spec",
+            f"author spec must be a JSON object, got {_json_type_name(spec)}",
+        )
+
+
 def _plan_root(root: Path | str | None) -> Path:
     return (Path(root) if root is not None else Path.cwd()) / _PLAN_ROOT
 
@@ -496,9 +528,29 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
             "train_id": tid,
             "title": spec.get("title", tid),
             "description": spec.get("description", ""),
-            "participants": [f"wagon:{w}" for w in spec.get("wagons", [])],
-            "status": "planned",
         }
+        # `themes` and `sequence` are schema-REQUIRED; `family`, `primary_wagon`,
+        # `dependencies` and `acceptances` are optional. All six are copied verbatim
+        # and only when supplied — inventing a default would write a schema-invalid
+        # value (`themes: []` fails minItems, `family: ""` fails the enum). `wagons`
+        # is deliberately absent: train.schema sets additionalProperties=false and
+        # defines no such property; it belongs to the _trains.yaml registry entry
+        # above, and expresses itself here as the `participants` fallback (#1401).
+        for key in ("themes", "family", "primary_wagon", "dependencies", "sequence",
+                    "acceptances"):
+            if key in spec:
+                train_doc[key] = spec[key]
+
+        # Preserve caller-supplied participants verbatim: train.schema admits
+        # wagon:/user:/system: principals, so deriving from `wagons` unconditionally
+        # would silently discard every non-wagon participant. Derive only as a
+        # fallback, which is what every pre-#1401 caller relied on.
+        participants = spec.get("participants")
+        if not participants:
+            participants = [f"wagon:{w}" for w in spec.get("wagons", [])]
+        train_doc["participants"] = list(participants)
+        train_doc["status"] = "planned"
+
         # Adjacent seam (#1265): carry the optional #1248 interlocking back-ref so a
         # train authored as a route's target self-describes its owning interlocking.
         # Pure traceability — it never alters train linearity (train.schema
