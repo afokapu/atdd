@@ -8,9 +8,6 @@ from __future__ import annotations
 
 import contextlib
 import logging
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Iterable, List
 
@@ -38,17 +35,6 @@ def legacy_theme_urn_violations(root: Path | None = None):
     variant sources) stays satisfied. Returns ThemeViolation records."""
     from atdd.planner.validators._theme_taxonomy import check_urn_namespace_matches
     return check_urn_namespace_matches(Path(root or repo_root()))
-
-
-def legacy_caught(nodeid: str, root: Path | None = None) -> bool:
-    """True iff the legacy pytest target FAILS (rc != 0) — i.e. catches the fault."""
-    root = root or repo_root()
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=root, env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True, text=True,
-    ).returncode
-    return rc != 0
 
 
 @contextlib.contextmanager

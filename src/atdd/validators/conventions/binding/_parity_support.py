@@ -27,9 +27,6 @@ makes that binding fail — the differential is real, not faked.
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import List
 
@@ -85,18 +82,6 @@ def _rename_rule_id(conv_path: Path, rule_id: str):
         conv_path.write_text(orig, encoding="utf-8")
 
 
-def _legacy_caught(root: Path, nodeid: str) -> bool:
-    """Run the legacy validator in a subprocess (no import). rc != 0 => caught."""
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=root,
-        env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True,
-        text=True,
-    ).returncode
-    return rc != 0
-
-
 def assert_clean_baseline(variant: str, root: Path) -> None:
     """Both binding templates must flag nothing on the real repo for this variant."""
     for tid in (_FORWARD, _ROUNDTRIP):
@@ -112,8 +97,7 @@ def assert_fault_convention_only(
     The legacy parity oracle has been decommissioned (#1207): parity to `both`
     was already proven and recorded (family-parity-report). The variant's own
     real-graph fault injection (here) + clean baseline are the live coverage, so
-    no legacy subprocess is run. Same shape as :func:`assert_fault_parity` minus
-    the legacy half.
+    no legacy subprocess is run.
     """
     conv_path = root / conv_rel
     assert conv_path.exists(), f"convention not found: {conv_path}"
@@ -143,52 +127,3 @@ def assert_fault_convention_only(
     )
 
     return {"convention_flags": len(conv_flags)}
-
-
-def assert_fault_parity(
-    variant: str, conv_rel: str, rule_id: str, legacy_nodeid: str, root: Path
-) -> dict:
-    """Inject the binding fault, prove BOTH paths catch it, revert. Returns the
-    measured parity verdict (never assumes it — the brief's honesty rule)."""
-    conv_path = root / conv_rel
-    assert conv_path.exists(), f"convention not found: {conv_path}"
-
-    # pre-state: convention roundtrip clean
-    assert evaluate(_ROUNDTRIP, variant, root) == [], f"{variant}: dirty before injection"
-
-    with _rename_rule_id(conv_path, rule_id):
-        conv_flags = evaluate(_ROUNDTRIP, variant, root)
-        legacy_caught = _legacy_caught(root, legacy_nodeid)
-
-    # post-revert: clean again (no residue)
-    assert evaluate(_ROUNDTRIP, variant, root) == [], f"{variant}: residue after revert"
-
-    conv_caught = bool(conv_flags)
-    verdict = {
-        (True, True): "both",
-        (True, False): "convention-only",
-        (False, True): "legacy-only",
-        (False, False): "neither",
-    }[(legacy_caught, conv_caught)]
-
-    # Parity is the wiring goal — assert it (the measurement above is honest; if a
-    # variant could NOT reach `both`, this assertion is where it would surface).
-    assert verdict == "both", (
-        f"{variant}: legacy/convention parity not achieved (verdict={verdict}; "
-        f"legacy_caught={legacy_caught}, convention_caught={conv_caught})"
-    )
-
-    # evidence keys must be a strict subset of the template's failure_evidence
-    allowed = set(_TEMPLATES[_ROUNDTRIP].failure_evidence)
-    for ev in conv_flags:
-        assert set(ev) <= allowed, (
-            f"{variant}: evidence keys {set(ev)} not subset of {sorted(allowed)}"
-        )
-
-    # the flagged binding break must be the injected rule, not collateral
-    broken = f"{rule_id}-PARITYBROKEN"
-    assert any(ev.get("declaration_id") == broken for ev in conv_flags), (
-        f"{variant}: convention flagged something other than the injected rule: {conv_flags[:3]}"
-    )
-
-    return {"verdict": verdict, "convention_flags": len(conv_flags)}
