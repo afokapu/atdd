@@ -54,9 +54,14 @@ def _graph(root: Path):
     return load_composed_graph(root)
 
 
-def evaluate(template_id: str, variant: str, root: Path) -> List[dict]:
-    """Official variant execution path: real composed graph -> template.evaluate."""
-    return _TEMPLATES[template_id].evaluate(_graph(root), config={"variant": variant})
+def evaluate(template_id: str, variant: str, root: Path, graph=None) -> List[dict]:
+    """Official variant execution path: real composed graph -> template.evaluate.
+
+    ``graph`` lets a read-only caller pass the session-scoped clean graph (#1414).
+    Callers that have mutated the tree must omit it so the graph is re-read.
+    """
+    g = graph if graph is not None else _graph(root)
+    return _TEMPLATES[template_id].evaluate(g, config={"variant": variant})
 
 
 @contextlib.contextmanager
@@ -82,10 +87,10 @@ def _rename_rule_id(conv_path: Path, rule_id: str):
         conv_path.write_text(orig, encoding="utf-8")
 
 
-def assert_clean_baseline(variant: str, root: Path) -> None:
+def assert_clean_baseline(variant: str, root: Path, graph=None) -> None:
     """Both binding templates must flag nothing on the real repo for this variant."""
     for tid in (_FORWARD, _ROUNDTRIP):
-        flags = evaluate(tid, variant, root)
+        flags = evaluate(tid, variant, root, graph=graph)
         assert flags == [], f"{variant}: {tid} flagged the clean repo: {flags[:3]}"
 
 
