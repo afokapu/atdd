@@ -49,9 +49,9 @@ def test_feedback_loop_close_the_loop_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_feedback_loop_clean_baseline(repo_root: Path) -> None:
+def test_feedback_loop_clean_baseline(clean_convention_graph) -> None:
     """Every non-suppressed feedback-loop feature has a close_the_loop SMOKE -> 0."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 def test_feedback_loop_fragment_catches_missing(repo_root: Path) -> None:

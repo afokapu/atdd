@@ -55,9 +55,9 @@ def test_rule_has_disposition_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_rule_has_disposition_clean_baseline(repo_root: Path) -> None:
+def test_rule_has_disposition_clean_baseline(clean_convention_graph) -> None:
     """Every allowlisted rule declares a legal disposition -> 0 violations."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 def test_rule_has_disposition_catches_injected_fault(repo_root: Path) -> None:
