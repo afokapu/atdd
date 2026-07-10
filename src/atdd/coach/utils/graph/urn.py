@@ -49,7 +49,7 @@ Each URN takes the form ``<resource>:<parent-coordinates>:<local-id>``, where
 ``<parent-coordinates>`` may require multiple colon-separated tokens depending on
 how the parent is uniquely identified. URN segment count reflects the parent's
 identification cost — it is not a fixed scheme depth. New resource families
-register one entry in ``URNBuilder.PATTERNS`` and inherit the same convention
+register one entry in ``URNGrammar.PATTERNS`` and inherit the same convention
 without re-litigating per-type rules.
 
 Per-resource segment-count table (verbatim from spec §3.2):
@@ -63,32 +63,32 @@ Per-resource segment-count table (verbatim from spec §3.2):
   | acc:<wagon>:<wmbt-id>-<harness>-<seq>     | WMBT (collapses)        | 2                             |
   | security:<wagon>:<feature-slug>:<seq>     | feature (2 tokens)      | 3                             |
 
-The machine-readable mirror of this table is ``URNBuilder.SEGMENT_COUNTS``;
+The machine-readable mirror of this table is ``URNGrammar.SEGMENT_COUNTS``;
 ``test_urn_segment_count_table`` parametrizes over both to keep them in lockstep.
 
 Usage:
-    from utils.graph import URNBuilder
+    from utils.graph import URNGrammar
     # or
-    from utils.graph.urn import URNBuilder
+    from utils.graph.urn import URNGrammar
 
     # Build a wagon URN (verb-object format)
-    wagon_urn = URNBuilder.wagon("manage-users")
+    wagon_urn = URNGrammar.wagon("manage-users")
 
     # Build a feature URN (verb-object format)
-    feature_urn = URNBuilder.feature("manage-users", "authenticate-user")
+    feature_urn = URNGrammar.feature("manage-users", "authenticate-user")
 
     # Build a WMBT URN
-    wmbt_urn = URNBuilder.wmbt("manage-users", "E001")
+    wmbt_urn = URNGrammar.wmbt("manage-users", "E001")
 
     # Build an acceptance URN
-    acc_urn = URNBuilder.acceptance("manage-users", "C004", "E2E", "019")
-    acc_urn_with_slug = URNBuilder.acceptance("manage-users", "C004", "E2E", "019", "user-login")
+    acc_urn = URNGrammar.acceptance("manage-users", "C004", "E2E", "019")
+    acc_urn_with_slug = URNGrammar.acceptance("manage-users", "C004", "E2E", "019", "user-login")
 
     # Build a component URN
-    comp_urn = URNBuilder.component("manage-users", "authenticate-user", "LoginForm", "frontend", "presentation")
+    comp_urn = URNGrammar.component("manage-users", "authenticate-user", "LoginForm", "frontend", "presentation")
 
     # Build a test URN
-    test_urn = URNBuilder.test("manage-users", "tc-login-success", feature_id="authenticate-user")
+    test_urn = URNGrammar.test("manage-users", "tc-login-success", feature_id="authenticate-user")
 """
 
 import re
@@ -98,7 +98,7 @@ from typing import Optional, Literal
 
 # No logger needed - removed _bootstrap dependency
 
-class URNBuilder:
+class URNGrammar:
     """Centralized URN builder for all entity types."""
 
     STEP_LEGEND = {
@@ -280,7 +280,7 @@ class URNBuilder:
             URN in format: wagon:[wagon_id]
 
         Example:
-            URNBuilder.wagon("manage-users") -> "wagon:manage-users"
+            URNGrammar.wagon("manage-users") -> "wagon:manage-users"
         """
         # Normalize the wagon ID
         wagon_id = cls._normalize_id(wagon_id)
@@ -309,7 +309,7 @@ class URNBuilder:
             URN in format: feature:[wagon_id]:[feature_id]
 
         Example:
-            URNBuilder.feature("manage-users", "authenticate-user") -> "feature:manage-users:authenticate-user"
+            URNGrammar.feature("manage-users", "authenticate-user") -> "feature:manage-users:authenticate-user"
         """
         # Normalize IDs
         wagon_id = cls._normalize_id(wagon_id)
@@ -345,10 +345,10 @@ class URNBuilder:
             URN in format: security:{wagon}:{feature_slug}:{NNN}
 
         Examples:
-            URNBuilder.security("auth", "session-management", "001")
+            URNGrammar.security("auth", "session-management", "001")
             -> "security:auth:session-management:001"
 
-            URNBuilder.security("auth", "session-management", "THREAT-1")
+            URNGrammar.security("auth", "session-management", "THREAT-1")
             -> "security:auth:session-management:001"
         """
         wagon_id = cls._normalize_id(wagon_id)
@@ -417,7 +417,7 @@ class URNBuilder:
             URN in format: wmbt:[wagon_id]:[sequence]
 
         Example:
-            URNBuilder.wmbt("user-auth", "E001") -> "wmbt:user-auth:E001"
+            URNGrammar.wmbt("user-auth", "E001") -> "wmbt:user-auth:E001"
         """
         # Normalize wagon ID
         wagon_id = cls._normalize_id(wagon_id)
@@ -568,10 +568,10 @@ class URNBuilder:
             URN in format: acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]
 
         Examples:
-            URNBuilder.acceptance("authenticate-user", "C004", "E2E", "019")
+            URNGrammar.acceptance("authenticate-user", "C004", "E2E", "019")
             -> "acc:authenticate-user:C004-E2E-019"
 
-            URNBuilder.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
+            URNGrammar.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
             -> "acc:maintain-ux:C004-E2E-019-user-connection"
         """
         # Normalize wagon ID
@@ -648,13 +648,13 @@ class URNBuilder:
             URN in format: component:{wagon_id}:{feature_id}:{component_name}:{side}:{layer}
 
         Examples:
-            URNBuilder.component("user-mgmt", "auth", "LoginForm", "frontend", "presentation")
+            URNGrammar.component("user-mgmt", "auth", "LoginForm", "frontend", "presentation")
             -> "component:user-mgmt:auth:LoginForm:frontend:presentation"
 
-            URNBuilder.component("navigate-domains", "browse-hierarchy", "composition", "backend", "assembly")
+            URNGrammar.component("navigate-domains", "browse-hierarchy", "composition", "backend", "assembly")
             -> "component:navigate-domains:browse-hierarchy:composition:backend:assembly"
 
-            URNBuilder.component("trains", "runner", "TrainRunner", "backend", "assembly")
+            URNGrammar.component("trains", "runner", "TrainRunner", "backend", "assembly")
             -> "component:trains:runner:TrainRunner:backend:assembly"
         """
         # Normalize IDs (but preserve component name case)
@@ -705,13 +705,13 @@ class URNBuilder:
             URN in format: plan:[wagon][.[feature][.[component].[side].[layer]]]
 
         Examples:
-            URNBuilder.plan("user-mgmt")
+            URNGrammar.plan("user-mgmt")
             -> "plan:user-mgmt"
 
-            URNBuilder.plan("user-mgmt", feature_id="auth")
+            URNGrammar.plan("user-mgmt", feature_id="auth")
             -> "plan:user-mgmt.auth"
 
-            URNBuilder.plan("user-mgmt", feature_id="auth",
+            URNGrammar.plan("user-mgmt", feature_id="auth",
                           component_name="LoginForm", side="fe", layer="presentation")
             -> "plan:user-mgmt.auth.LoginForm.fe.presentation"
         """
@@ -754,13 +754,13 @@ class URNBuilder:
             URN in format: contract:{theme}(:{segment})*(.{variant})?
 
         Examples:
-            URNBuilder.contract("mechanic", "timebank", variant="remaining")
+            URNGrammar.contract("mechanic", "timebank", variant="remaining")
             -> "contract:mechanic:timebank.remaining"
 
-            URNBuilder.contract("match", "dilemma", "current")
+            URNGrammar.contract("match", "dilemma", "current")
             -> "contract:match:dilemma:current"
 
-            URNBuilder.contract("commons", "ux", "foundations", "color")
+            URNGrammar.contract("commons", "ux", "foundations", "color")
             -> "contract:commons:ux:foundations:color"
         """
         # Normalize all segments
@@ -799,13 +799,13 @@ class URNBuilder:
             URN in format: telemetry:{theme}(:{segment})*(.{variant})?
 
         Examples:
-            URNBuilder.telemetry("mechanic", "decision", variant="choice")
+            URNGrammar.telemetry("mechanic", "decision", variant="choice")
             -> "telemetry:mechanic:decision.choice"
 
-            URNBuilder.telemetry("juggle", "goal", variant="detected")
+            URNGrammar.telemetry("juggle", "goal", variant="detected")
             -> "telemetry:juggle:goal.detected"
 
-            URNBuilder.telemetry("mechanic", "episode", variant="timer")
+            URNGrammar.telemetry("mechanic", "episode", variant="timer")
             -> "telemetry:mechanic:episode.timer"
         """
         # Normalize all segments
@@ -850,13 +850,13 @@ class URNBuilder:
             URN in format: test:[wagon][.[feature][.[component].[side].[layer]]].[test_case]
 
         Examples:
-            URNBuilder.test("user-mgmt", "tc-basic-flow")
+            URNGrammar.test("user-mgmt", "tc-basic-flow")
             -> "test:user-mgmt.tc-basic-flow"
 
-            URNBuilder.test("user-mgmt", "tc-login", feature_id="auth")
+            URNGrammar.test("user-mgmt", "tc-login", feature_id="auth")
             -> "test:user-mgmt.auth.tc-login"
 
-            URNBuilder.test("user-mgmt", "tc-render", feature_id="auth",
+            URNGrammar.test("user-mgmt", "tc-render", feature_id="auth",
                           component_name="LoginForm", side="fe", layer="presentation")
             -> "test:user-mgmt.auth.LoginForm.fe.presentation.tc-render"
         """
@@ -906,7 +906,7 @@ class URNBuilder:
             URN in format: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
 
         Example:
-            URNBuilder.test_acceptance("authenticate-identity", "verify-session",
+            URNGrammar.test_acceptance("authenticate-identity", "verify-session",
                                        "M002", "UNIT", "003", "trace-spans-created")
             -> "test:authenticate-identity:verify-session:M002-UNIT-003-trace-spans-created"
         """
@@ -955,7 +955,7 @@ class URNBuilder:
             URN in format: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
 
         Example:
-            URNBuilder.test_journey("0025-onboarding", "E2E", "001", "full-login-flow")
+            URNGrammar.test_journey("0025-onboarding", "E2E", "001", "full-login-flow")
             -> "test:train:0025-onboarding:E2E-001-full-login-flow"
         """
         harness = harness.upper()
@@ -1002,7 +1002,7 @@ class URNBuilder:
             Dictionary with URN components
 
         Example:
-            URNBuilder.parse_urn("acc:user-auth.001.AC-EXEC-201")
+            URNGrammar.parse_urn("acc:user-auth.001.AC-EXEC-201")
             -> {
                 'type': 'acceptance',
                 'wagon_id': 'user-auth',
@@ -1200,25 +1200,25 @@ def main() -> int:
 
     try:
         if args.entity == 'wagon':
-            urn = URNBuilder.wagon(args.wagon_id)
+            urn = URNGrammar.wagon(args.wagon_id)
             print(urn)
         elif args.entity == 'feature':
-            urn = URNBuilder.feature(args.wagon_id, args.feature_id)
+            urn = URNGrammar.feature(args.wagon_id, args.feature_id)
             print(urn)
         elif args.entity == 'wmbt':
-            urn = URNBuilder.wmbt(args.wagon_id, args.sequence)
+            urn = URNGrammar.wmbt(args.wagon_id, args.sequence)
             print(urn)
         elif args.entity == 'acceptance':
-            urn = URNBuilder.acceptance(args.wagon_id, args.wmbt_sequence, args.acceptance_id)
+            urn = URNGrammar.acceptance(args.wagon_id, args.wmbt_sequence, args.acceptance_id)
             print(urn)
         elif args.entity == 'component':
-            urn = URNBuilder.component(args.wagon_id, args.feature_id, args.component_name, args.side, args.layer)
+            urn = URNGrammar.component(args.wagon_id, args.feature_id, args.component_name, args.side, args.layer)
             print(urn)
         elif args.entity == 'parse':
-            result = URNBuilder.parse_urn(args.urn)
+            result = URNGrammar.parse_urn(args.urn)
             print(json.dumps(result, indent=2))
         elif args.entity == 'validate':
-            is_valid = URNBuilder.validate_urn(args.urn, args.entity_type)
+            is_valid = URNGrammar.validate_urn(args.urn, args.entity_type)
             if is_valid:
                 print(f"✓ Valid {args.entity_type} URN")
             else:

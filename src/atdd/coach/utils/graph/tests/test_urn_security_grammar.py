@@ -7,13 +7,13 @@ Issue #420 ships the ``security:<wagon>:<feature-slug>:<NNN>`` URN family
 parent-it-belongs-to principle. These tests pin both behaviors so a future
 refactor cannot silently drift either:
 
-- The new ``URNBuilder.security`` builder, ``parse_urn`` parser, and
+- The new ``URNGrammar.security`` builder, ``parse_urn`` parser, and
   ``validate_urn`` regex round-trip every documented form (digit-string,
   ``THREAT-N``, padded numeric, int).
 - The ``validate_grammar`` auto-detect entry point fails with a clear,
   actionable error when a known prefix has the wrong segment count, and a
   separate "unknown resource type" error when the prefix is not registered.
-- ``URNBuilder.SEGMENT_COUNTS`` and ``URNBuilder.PATTERNS`` stay in lockstep
+- ``URNGrammar.SEGMENT_COUNTS`` and ``URNGrammar.PATTERNS`` stay in lockstep
   with the spec §3.2 table — the parametrized test below guards both the
   numeric counts and the regex segment counts at once.
 
@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
 
 
 # ---------------------------------------------------------------------------
@@ -33,14 +33,14 @@ from atdd.coach.utils.graph.urn import URNBuilder
 
 
 class TestSecurityBuilder:
-    """URNBuilder.security() builds canonical 3-token security URNs."""
+    """URNGrammar.security() builds canonical 3-token security URNs."""
 
     def test_canonical_inputs_round_trip(self):
-        urn = URNBuilder.security("auth", "session-management", "001")
+        urn = URNGrammar.security("auth", "session-management", "001")
         assert urn == "security:auth:session-management:001"
-        assert URNBuilder.validate_urn(urn, "security") is True
+        assert URNGrammar.validate_urn(urn, "security") is True
 
-        parsed = URNBuilder.parse_urn(urn)
+        parsed = URNGrammar.parse_urn(urn)
         assert parsed == {
             "type": "security",
             "wagon_id": "auth",
@@ -66,24 +66,24 @@ class TestSecurityBuilder:
         ],
     )
     def test_threat_seq_normalization(self, given, expected):
-        urn = URNBuilder.security("auth", "session-management", given)
+        urn = URNGrammar.security("auth", "session-management", given)
         assert urn == f"security:auth:session-management:{expected}"
 
     @pytest.mark.parametrize("bad_seq", [0, 1000, -1, "0", "1000", "THREAT-1000"])
     def test_threat_seq_out_of_range_rejected(self, bad_seq):
         with pytest.raises(ValueError, match="between 1 and 999"):
-            URNBuilder.security("auth", "session-management", bad_seq)
+            URNGrammar.security("auth", "session-management", bad_seq)
 
     @pytest.mark.parametrize("bad_seq", ["", "abc", "THREAT-", "001a", "THREAT-x1"])
     def test_threat_seq_malformed_rejected(self, bad_seq):
         with pytest.raises(ValueError):
-            URNBuilder.security("auth", "session-management", bad_seq)
+            URNGrammar.security("auth", "session-management", bad_seq)
 
     def test_threat_seq_bool_rejected(self):
         # bool is a subclass of int — explicitly reject so True/False never
         # silently round-trips to "001"/"000".
         with pytest.raises(TypeError):
-            URNBuilder.security("auth", "session-management", True)
+            URNGrammar.security("auth", "session-management", True)
 
     # Note: ``_normalize_id`` lowercases, strips leading/trailing hyphens, and
     # collapses underscores → hyphens BEFORE the regex check. So inputs like
@@ -93,12 +93,12 @@ class TestSecurityBuilder:
     @pytest.mark.parametrize("bad_wagon", ["", "1auth", "auth!"])
     def test_invalid_wagon_id_rejected(self, bad_wagon):
         with pytest.raises(ValueError, match="(?i)wagon"):
-            URNBuilder.security(bad_wagon, "session-management", "001")
+            URNGrammar.security(bad_wagon, "session-management", "001")
 
     @pytest.mark.parametrize("bad_slug", ["", "1session", "session!"])
     def test_invalid_feature_slug_rejected(self, bad_slug):
         with pytest.raises(ValueError, match="(?i)feature slug"):
-            URNBuilder.security("auth", bad_slug, "001")
+            URNGrammar.security("auth", bad_slug, "001")
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +117,8 @@ class TestSecurityValidatorAndParser:
         ],
     )
     def test_valid_security_urns_pass(self, good_urn):
-        assert URNBuilder.validate_urn(good_urn, "security") is True
-        assert URNBuilder.validate_grammar(good_urn) is True
+        assert URNGrammar.validate_urn(good_urn, "security") is True
+        assert URNGrammar.validate_grammar(good_urn) is True
 
     @pytest.mark.parametrize(
         "bad_urn",
@@ -134,10 +134,10 @@ class TestSecurityValidatorAndParser:
         ],
     )
     def test_invalid_security_urns_fail_validate_urn(self, bad_urn):
-        assert URNBuilder.validate_urn(bad_urn, "security") is False
+        assert URNGrammar.validate_urn(bad_urn, "security") is False
 
     def test_parse_security_urn_returns_named_components(self):
-        parsed = URNBuilder.parse_urn(
+        parsed = URNGrammar.parse_urn(
             "security:checkout:cart-overflow:042"
         )
         assert parsed["type"] == "security"
@@ -147,7 +147,7 @@ class TestSecurityValidatorAndParser:
 
     def test_parse_security_urn_wrong_segment_count_raises(self):
         with pytest.raises(ValueError, match="segment count"):
-            URNBuilder.parse_urn("security:checkout:only-two-tokens")
+            URNGrammar.parse_urn("security:checkout:only-two-tokens")
 
 
 # ---------------------------------------------------------------------------
@@ -159,10 +159,10 @@ class TestValidateGrammar:
     """The auto-detecting validator that operationalizes spec §3.2."""
 
     def test_known_prefix_correct_segment_count_passes(self):
-        assert URNBuilder.validate_grammar("wagon:auth") is True
-        assert URNBuilder.validate_grammar("feature:auth:session") is True
-        assert URNBuilder.validate_grammar("wmbt:auth:E001") is True
-        assert URNBuilder.validate_grammar(
+        assert URNGrammar.validate_grammar("wagon:auth") is True
+        assert URNGrammar.validate_grammar("feature:auth:session") is True
+        assert URNGrammar.validate_grammar("wmbt:auth:E001") is True
+        assert URNGrammar.validate_grammar(
             "security:auth:session-management:001"
         ) is True
 
@@ -183,7 +183,7 @@ class TestValidateGrammar:
     ):
         prefix = bad_urn.split(":", 1)[0]
         with pytest.raises(ValueError) as exc:
-            URNBuilder.validate_grammar(bad_urn)
+            URNGrammar.validate_grammar(bad_urn)
 
         msg = str(exc.value)
         # Error must name the resource and the expected count so the user
@@ -194,11 +194,11 @@ class TestValidateGrammar:
 
     def test_unknown_resource_type_raises_explicit_error(self):
         with pytest.raises(ValueError, match="unknown resource type"):
-            URNBuilder.validate_grammar("zaphod:auth:beeblebrox")
+            URNGrammar.validate_grammar("zaphod:auth:beeblebrox")
 
     def test_malformed_urn_without_prefix_raises(self):
         with pytest.raises(ValueError, match="(?i)malformed|prefix"):
-            URNBuilder.validate_grammar("not-a-urn-at-all")
+            URNGrammar.validate_grammar("not-a-urn-at-all")
 
 
 # ---------------------------------------------------------------------------
@@ -212,8 +212,8 @@ class TestValidateGrammar:
 # present exactly N colon-separated tokens after the prefix — both halves of
 # the parent-it-belongs-to contract verified at once.
 #
-# When a new family is added, register it here AND in ``URNBuilder.PATTERNS``
-# / ``URNBuilder.SEGMENT_COUNTS`` — this test will fail loudly if any of the
+# When a new family is added, register it here AND in ``URNGrammar.PATTERNS``
+# / ``URNGrammar.SEGMENT_COUNTS`` — this test will fail loudly if any of the
 # three drift apart.
 SPEC_3_2_TABLE = [
     # (resource, expected_token_count_after_prefix, sample_urn)
@@ -230,17 +230,17 @@ SPEC_3_2_TABLE = [
 def test_urn_segment_count_table(resource, expected_count, sample_urn):
     """SEGMENT_COUNTS, PATTERNS, and spec §3.2 stay in lockstep."""
     # 1. SEGMENT_COUNTS matches the spec.
-    assert URNBuilder.SEGMENT_COUNTS[resource] == expected_count, (
+    assert URNGrammar.SEGMENT_COUNTS[resource] == expected_count, (
         f"SEGMENT_COUNTS[{resource!r}] does not match spec §3.2"
     )
 
     # 2. PATTERNS has an entry for this family.
-    assert resource in URNBuilder.PATTERNS, (
+    assert resource in URNGrammar.PATTERNS, (
         f"{resource!r} declared in SEGMENT_COUNTS but missing from PATTERNS"
     )
 
     # 3. The canonical sample URN is regex-valid for this family.
-    assert URNBuilder.validate_urn(sample_urn, resource), (
+    assert URNGrammar.validate_urn(sample_urn, resource), (
         f"sample URN {sample_urn!r} does not validate as {resource!r}"
     )
 
@@ -252,12 +252,12 @@ def test_urn_segment_count_table(resource, expected_count, sample_urn):
     )
 
     # 5. validate_grammar() (the auto-detect entry point) accepts the sample.
-    assert URNBuilder.validate_grammar(sample_urn) is True
+    assert URNGrammar.validate_grammar(sample_urn) is True
 
 
 def test_segment_counts_covers_documented_families():
     """Every family in SPEC_3_2_TABLE must be declared in SEGMENT_COUNTS."""
     documented = {name for name, _, _ in SPEC_3_2_TABLE}
-    declared = set(URNBuilder.SEGMENT_COUNTS)
+    declared = set(URNGrammar.SEGMENT_COUNTS)
     missing = documented - declared
     assert not missing, f"SEGMENT_COUNTS missing spec §3.2 families: {missing}"

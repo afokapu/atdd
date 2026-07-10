@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Protocol, Tuple
 from abc import ABC, abstractmethod
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
 
 LOG = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class BaseResolver(ABC):
 
     def _validate_urn_format(self, urn: str) -> Optional[str]:
         """Validate URN format against PATTERNS. Returns error message or None."""
-        pattern = URNBuilder.PATTERNS.get(self.family)
+        pattern = URNGrammar.PATTERNS.get(self.family)
         if not pattern:
             return f"No pattern defined for family '{self.family}'"
         if not re.match(pattern, urn):
@@ -390,7 +390,7 @@ class AcceptanceResolver(BaseResolver):
         if error:
             return URNResolution(urn=urn, family=self.family, error=error)
 
-        parsed = URNBuilder.parse_urn(urn)
+        parsed = URNGrammar.parse_urn(urn)
         wagon_slug = parsed.get("wagon_id")
         wmbt_id = parsed.get("wmbt_id")
 
@@ -1037,7 +1037,7 @@ class ComponentResolver(BaseResolver):
         if error:
             return URNResolution(urn=urn, family=self.family, error=error)
 
-        parsed = URNBuilder.parse_urn(urn)
+        parsed = URNGrammar.parse_urn(urn)
         wagon_id = parsed.get("wagon_id")
         feature_id = parsed.get("feature_id")
         component_name = parsed.get("component_name")
