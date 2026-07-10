@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:E002-UNIT-002-each-valid-treatment-is-accepted-and-missing-defaults-strict
+# URN: test:reconcile-dispositions:reconcile-dispositions:E002-UNIT-002-each-valid-treatment-is-accepted-and-missing-defaults-strict
 # Acceptance: acc:reconcile-dispositions:E002-UNIT-002-each-valid-treatment-is-accepted-and-missing-defaults-strict
 # WMBT: wmbt:reconcile-dispositions:E002
 # Phase: RED

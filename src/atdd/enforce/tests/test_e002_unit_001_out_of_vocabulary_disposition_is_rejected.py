@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:E002-UNIT-001-out-of-vocabulary-disposition-is-rejected
+# URN: test:reconcile-dispositions:reconcile-dispositions:E002-UNIT-001-out-of-vocabulary-disposition-is-rejected
 # Acceptance: acc:reconcile-dispositions:E002-UNIT-001-out-of-vocabulary-disposition-is-rejected
 # WMBT: wmbt:reconcile-dispositions:E002
 # Phase: RED

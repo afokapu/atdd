@@ -1,4 +1,4 @@
-# URN: component:reconcile-dispositions:reconcile-dispositions:disposition-model:backend:domain
+# URN: component:reconcile-dispositions:reconcile-dispositions:dispositions:backend:domain
 # Runtime: python
 # Purpose: Name the THREE distinct namespaces all spelled "disposition" as three
 #          separate, importable anchors, and carry the single TOTAL treatment ->

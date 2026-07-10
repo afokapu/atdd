@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:E001-UNIT-002-advisory-and-documentation-only-never-fail
+# URN: test:reconcile-dispositions:reconcile-dispositions:E001-UNIT-002-advisory-and-documentation-only-never-fail
 # Acceptance: acc:reconcile-dispositions:E001-UNIT-002-advisory-and-documentation-only-never-fail
 # WMBT: wmbt:reconcile-dispositions:E001
 # Phase: RED

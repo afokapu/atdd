@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:E001-UNIT-001-strict-and-suppress-and-clean-fail-on-any-violation
+# URN: test:reconcile-dispositions:reconcile-dispositions:E001-UNIT-001-strict-and-suppress-and-clean-fail-on-any-violation
 # Acceptance: acc:reconcile-dispositions:E001-UNIT-001-strict-and-suppress-and-clean-fail-on-any-violation
 # WMBT: wmbt:reconcile-dispositions:E001
 # Phase: RED

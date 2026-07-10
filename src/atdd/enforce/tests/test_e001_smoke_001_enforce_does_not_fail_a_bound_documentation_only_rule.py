@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:E001-SMOKE-001-enforce-does-not-fail-a-bound-documentation-only-rule
+# URN: test:reconcile-dispositions:reconcile-dispositions:E001-SMOKE-001-enforce-does-not-fail-a-bound-documentation-only-rule
 # Acceptance: acc:reconcile-dispositions:E001-SMOKE-001-enforce-does-not-fail-a-bound-documentation-only-rule
 # WMBT: wmbt:reconcile-dispositions:E001
 # Phase: SMOKE

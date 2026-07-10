@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:E002-SMOKE-001-every-vendored-node-declares-an-in-vocabulary-treatment
+# URN: test:reconcile-dispositions:reconcile-dispositions:E002-SMOKE-001-every-vendored-node-declares-an-in-vocabulary-treatment
 # Acceptance: acc:reconcile-dispositions:E002-SMOKE-001-every-vendored-node-declares-an-in-vocabulary-treatment
 # WMBT: wmbt:reconcile-dispositions:E002
 # Phase: SMOKE

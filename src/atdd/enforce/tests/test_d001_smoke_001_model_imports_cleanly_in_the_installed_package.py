@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:D001-SMOKE-001-model-imports-cleanly-in-the-installed-package
+# URN: test:reconcile-dispositions:reconcile-dispositions:D001-SMOKE-001-model-imports-cleanly-in-the-installed-package
 # Acceptance: acc:reconcile-dispositions:D001-SMOKE-001-model-imports-cleanly-in-the-installed-package
 # WMBT: wmbt:reconcile-dispositions:D001
 # Phase: SMOKE

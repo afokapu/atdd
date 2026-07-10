@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:D001-UNIT-002-three-namespaces-named-separately-without-collision
+# URN: test:reconcile-dispositions:reconcile-dispositions:D001-UNIT-002-three-namespaces-named-separately-without-collision
 # Acceptance: acc:reconcile-dispositions:D001-UNIT-002-three-namespaces-named-separately-without-collision
 # WMBT: wmbt:reconcile-dispositions:D001
 # Phase: RED

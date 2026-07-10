@@ -1,4 +1,4 @@
-# URN: test:reconcile-dispositions:D001-UNIT-001-treatment-vocabulary-is-the-four-treatments
+# URN: test:reconcile-dispositions:reconcile-dispositions:D001-UNIT-001-treatment-vocabulary-is-the-four-treatments
 # Acceptance: acc:reconcile-dispositions:D001-UNIT-001-treatment-vocabulary-is-the-four-treatments
 # WMBT: wmbt:reconcile-dispositions:D001
 # Phase: RED
