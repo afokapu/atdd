@@ -30,6 +30,10 @@ import contextlib
 from pathlib import Path
 from typing import List
 
+from atdd.validators.conventions._support.graph_mutations import (
+    clone_graph,
+    rename_rule_id,
+)
 from atdd.validators.conventions.binding.archetype import TEMPLATES
 
 _TEMPLATES = {t.template_id: t for t in TEMPLATES}
@@ -65,7 +69,14 @@ def evaluate(template_id: str, variant: str, root: Path, graph=None) -> List[dic
 
 
 @contextlib.contextmanager
-def _rename_rule_id(conv_path: Path, rule_id: str):
+def _rename_rule_id_on_disk(conv_path: Path, rule_id: str):
+    """Rewrite a rule id in a real ``*.convention.yaml`` on disk, reverting in ``finally``.
+
+    ⚠️ This MUTATES the working tree. It is retained ONLY as a characterization oracle for
+    the old fault-injection mechanism (E033-RED) — proving the on-disk write is what the
+    in-memory path (``graph_mutations``) removes. Template-evaluator fault tests must NOT
+    use it; they inject into a cloned graph instead (see ``assert_fault_convention_only``).
+    """
     orig = conv_path.read_text(encoding="utf-8")
     quoted = f'"{rule_id}"'
     # single-node nodes/ form: top-level `rule_id: <id>` (unquoted), anchored to a
@@ -95,26 +106,42 @@ def assert_clean_baseline(variant: str, root: Path, graph=None) -> None:
 
 
 def assert_fault_convention_only(
-    variant: str, conv_rel: str, rule_id: str, root: Path
+    variant: str, conv_rel: str, rule_id: str, root: Path, graph=None
 ) -> dict:
-    """Inject the binding fault, prove the CONVENTION path catches it, revert.
+    """Inject the binding fault into a CLONE of the clean graph, prove the roundtrip
+    template catches it — with NO filesystem write and NO revert (#1415).
 
-    The legacy parity oracle has been decommissioned (#1207): parity to `both`
-    was already proven and recorded (family-parity-report). The variant's own
-    real-graph fault injection (here) + clean baseline are the live coverage, so
-    no legacy subprocess is run.
+    ``graph`` is the session-scoped clean graph (#1414); pass it so the clone is deep-copied
+    in memory instead of rebuilt. The fault is injected by :func:`rename_rule_id` on the
+    clone: the rule's declaration id moves while its ``bind_rule`` emission stays put — the
+    same declaration<->implementation break the old on-disk ``rule_id:`` rewrite produced,
+    but the working tree (and the shared clean graph) are provably untouched.
+
+    The legacy parity oracle has been decommissioned (#1207); the variant's own real-graph
+    fault injection here + its clean baseline are the live coverage.
     """
     conv_path = root / conv_rel
+    # Coherence only — asserts the convention that DECLARES the rule still exists; the file
+    # is never opened or written. Guards against a convention being moved out from under a
+    # variant (which would otherwise make the fault silently un-injectable).
     assert conv_path.exists(), f"convention not found: {conv_path}"
 
-    # pre-state: convention roundtrip clean
-    assert evaluate(_ROUNDTRIP, variant, root) == [], f"{variant}: dirty before injection"
+    clean = graph if graph is not None else _graph(root)
 
-    with _rename_rule_id(conv_path, rule_id):
-        conv_flags = evaluate(_ROUNDTRIP, variant, root)
+    # pre-state: the clean graph's roundtrip flags nothing for this variant
+    assert evaluate(_ROUNDTRIP, variant, root, graph=clean) == [], (
+        f"{variant}: dirty before injection"
+    )
 
-    # post-revert: clean again (no residue)
-    assert evaluate(_ROUNDTRIP, variant, root) == [], f"{variant}: residue after revert"
+    faulted = clone_graph(clean)
+    broken = rename_rule_id(faulted, rule_id)
+    conv_flags = evaluate(_ROUNDTRIP, variant, root, graph=faulted)
+
+    # the shared clean graph must be provably unmutated by the injection
+    ids = clean.ids()
+    assert rule_id in ids and broken not in ids, (
+        f"{variant}: injection leaked into the shared clean graph (id {rule_id!r})"
+    )
 
     assert conv_flags, f"{variant}: convention path missed the injected binding break"
 
@@ -126,7 +153,6 @@ def assert_fault_convention_only(
         )
 
     # the flagged binding break must be the injected rule, not collateral
-    broken = f"{rule_id}-PARITYBROKEN"
     assert any(ev.get("declaration_id") == broken for ev in conv_flags), (
         f"{variant}: convention flagged something other than the injected rule: {conv_flags[:3]}"
     )
