@@ -1,0 +1,60 @@
+urn: wmbt:reconcile-local-store:R002
+step: resolve
+direction: maximize
+dimension: likelihood
+object_of_control: conflict-report
+context_clarifier: when replay of the overlay is invalid against the incoming projection,
+  reconcile stops, leaves state.sqlite unchanged, retains the backup, and reports
+  the offending events with the incoming object state and the backup path
+lens: functional.effectiveness
+statement: maximize likelihood of an actionable conflict-report that names the offending
+  overlay events, the incoming object state and the retained backup path, leaving
+  the store byte-identical and exiting non-zero
+acceptances:
+- given:
+    abstract:
+    - A reconcile whose overlay replay is invalid against the incoming projection
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: GREEN
+    purpose: an invalid replay produces an actionable conflict report naming the offending
+      overlay events, the incoming object state, and the retained backup path
+    urn: acc:reconcile-local-store:R002-UNIT-001-conflict-report-names-events-and-backup
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The report lists each offending overlay event with its object uid and event
+      kind
+    - The report shows the incoming projection state for those objects
+    - The report names the retained sqlite backup path
+    - The command exits non-zero
+  when:
+    abstract: the conflict report is rendered
+- given:
+    abstract:
+    - A dirty store and an incoming projection that conflicts with its overlay
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: RED
+    purpose: on conflict the backup is retained and the on-disk store is left exactly
+      as it was before reconcile started
+    urn: acc:reconcile-local-store:R002-UNIT-002-conflict-keeps-backup-and-store-unchanged
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The backup file still exists after the command returns
+    - state.sqlite is byte-identical to its pre-reconcile content, overlay_events
+      included
+    - No re-projection is written to .atdd/state/projection/
+  when:
+    abstract: atdd state reconcile is invoked and the replay is rejected

@@ -1,0 +1,64 @@
+urn: wmbt:govern-projection-fields:E002
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: safe-projection-merge
+context_clarifier: when git merges two branches that both touched the same per-uid
+  projection file, the driver auto-merges only the three safe cases and disjoint objects
+  always merge cleanly
+lens: functional.effectiveness
+statement: maximize likelihood of a safe-projection-merge completing without operator
+  intervention when the two sides are identical, one side is a strict no-op, or the
+  further phase carries verifiable evidence for every skipped gate
+acceptances:
+- given:
+    abstract:
+    - A base projection object at PLANNED
+    - Ours advanced to RED with gate evidence; theirs advanced to GREEN with no evidence
+      for the PLANNED to RED gate
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: Same-object phase divergence is currently resolved by taking the further
+      phase, with no evidence check for the skipped gates
+    urn: acc:govern-projection-fields:E002-UNIT-001-red-blind-max-phase-merge
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The driver does not silently emit GREEN
+    - The driver signals a conflict because theirs carries no evidence for the skipped
+      gate
+  when:
+    abstract: the projection merge driver is invoked on base, ours, and theirs
+- given:
+    abstract:
+    - 'A base projection object and three ours/theirs pairs: identical transitions,
+      one side a strict no-op, and a further phase with evidence for every skipped
+      gate'
+    - The committed field-ownership policy and the legal-transition validator
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: 'The merge driver auto-merges same-object divergence only in the three
+      safe cases: identical transitions, a strict no-op side, and a further phase
+      carrying evidence for every skipped gate'
+    urn: acc:govern-projection-fields:E002-UNIT-002-green-auto-merges-the-three-safe-cases
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Each of the three merges completes with exit code zero and no conflict markers
+    - The merged object is byte-identical to the deterministic projection of the merged
+      state
+    - Disjoint-field edits on the same object merge without conflict
+  when:
+    abstract: the projection merge driver is invoked on each triple

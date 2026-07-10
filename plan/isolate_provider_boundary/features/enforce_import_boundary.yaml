@@ -1,0 +1,23 @@
+components:
+  backend:
+    domain:
+    - count: 1
+      rationale: 'the forbidden-import specification: provider packages, gh, GitHub
+        API, issue labels and numbers'
+      type: specifications
+    presentation:
+    - count: 1
+      rationale: the static import-boundary check that fails on any forbidden core-to-provider
+        edge
+      type: validators
+description: 'Static import-graph test enforcing the boundary law: provider code imports
+  core, core never imports provider code, and no lifecycle module reaches gh or the
+  GitHub API (CORE-028).'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:isolate-provider-boundary:enforce-import-boundary
+wagon: wagon:isolate-provider-boundary
+wmbts:
+- wmbt:isolate-provider-boundary:C001

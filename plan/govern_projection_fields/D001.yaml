@@ -1,0 +1,62 @@
+urn: wmbt:govern-projection-fields:D001
+step: define
+direction: maximize
+dimension: likelihood
+object_of_control: field-ownership-policy
+context_clarifier: when authoring the M4 policy file that the field-writer validator
+  and the projection merge driver both read, so ownership is declared data rather
+  than prose in a plan document
+lens: functional.effectiveness
+statement: maximize likelihood of a machine-readable field-ownership-policy that names,
+  for every projection field, its single legal writer and its merge rule, so the field-writer
+  validator and the merge driver read one declared source instead of prose
+acceptances:
+- given:
+    abstract:
+    - A repo checkout with no field-ownership policy file committed
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: No field-ownership policy exists yet, so loading it must fail rather
+      than silently default to an empty ownership table
+    urn: acc:govern-projection-fields:D001-UNIT-001-red-policy-file-absent
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - A PolicyNotFound error is raised naming the expected policy path
+    - No implicit empty ownership table is returned
+  when:
+    abstract: the field-ownership policy loader is invoked
+- given:
+    abstract:
+    - The committed field-ownership policy file
+    - The projection schema v1 field list (uid, slug, phase, body, train, wmbts, extension_digests,
+      external_refs, state)
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: The policy file names, for every projection field, exactly one legal
+      writer and one merge rule, loadable as data
+    urn: acc:govern-projection-fields:D001-UNIT-002-green-policy-declares-writer-and-merge-rule
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Every projection schema field resolves to exactly one writer among core-create,
+      core-authoring, core-lifecycle, core-train, core-test, extension-bot
+    - Every projection schema field resolves to exactly one merge rule among immutable,
+      mutable, monotonic-gated, conflict-unless-single-owner, conflict-unless-same-digest,
+      policy-merge, derived, bot-only
+    - uid resolves to writer core-create with merge rule immutable, and external_refs
+      resolves to writer extension-bot with merge rule bot-only
+  when:
+    abstract: the field-ownership policy loader is invoked

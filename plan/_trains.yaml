@@ -16,11 +16,11 @@ trains:
       - validate-conventions
       - enforce-binding-plan
     - train_id: 0002-coach-drives-lifecycle
-      description: Replace polling-and-trust with an event-driven, observer-augmented
-        coach that drives the issue → merged-PR lifecycle (per atdd-coach-spec-v9.md).
-        Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces
-        durable state, two-tier verification, six judge call sites, and pre-coach
-        issue review.
+      description: "Replace polling-and-trust with an event-driven, observer-augmented\
+        \ coach that drives the issue \u2192 merged-PR lifecycle (per atdd-coach-spec-v9.md).\
+        \ Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces\
+        \ durable state, two-tier verification, six judge call sites, and pre-coach\
+        \ issue review."
       path: plan/_trains/0002-coach-drives-lifecycle.yaml
       wagons:
       - freeze-runtime-contracts
@@ -49,26 +49,69 @@ trains:
       - author-atdd-substrate
       - author-plan-substrate
     - train_id: 0004-admit-substrate
-      description: 'Admission substrate train: the front door that admits external
-        extension/workspace packages into a project — define the substrate/lock/registry
-        schemas, read registries, resolve+validate+compose an artifact against core,
-        then install it into a versioned home with a sha256 digest and a lockfile,
-        all without executing any runtime implementation. Sibling to the author-substrate
-        train; runtime binding is a later train.'
+      description: "Admission substrate train: the front door that admits external\
+        \ extension/workspace packages into a project \u2014 define the substrate/lock/registry\
+        \ schemas, read registries, resolve+validate+compose an artifact against core,\
+        \ then install it into a versioned home with a sha256 digest and a lockfile,\
+        \ all without executing any runtime implementation. Sibling to the author-substrate\
+        \ train; runtime binding is a later train."
       path: plan/_trains/0004-admit-substrate.yaml
       wagons:
       - admit-substrate
     - train_id: 0005-bind-substrate
-      description: 'Binding substrate train: the runtime back end that turns a locked,
-        inert .atdd/substrate.lock.yaml into running, gating capabilities. Define
-        a binding-plan schema, load enabled packages from the lock by installed_path,
-        re-verify each package''s sha256 digest before loading, compose the capability
-        graph and index implementations by realizes_convention, refuse contract-incompatible
-        bindings, then provider-spawn the implementation as an isolated subprocess
-        and route its Violations into the disposition gate — shadowing legacy on success
-        and failing safe to legacy on any failure. The third and final substrate stage,
-        downstream of the author-substrate and admit-substrate trains; this is the
-        binding train the admit-substrate train explicitly defers to.'
+      description: "Binding substrate train: the runtime back end that turns a locked,\
+        \ inert .atdd/substrate.lock.yaml into running, gating capabilities. Define\
+        \ a binding-plan schema, load enabled packages from the lock by installed_path,\
+        \ re-verify each package's sha256 digest before loading, compose the capability\
+        \ graph and index implementations by realizes_convention, refuse contract-incompatible\
+        \ bindings, then provider-spawn the implementation as an isolated subprocess\
+        \ and route its Violations into the disposition gate \u2014 shadowing legacy\
+        \ on success and failing safe to legacy on any failure. The third and final\
+        \ substrate stage, downstream of the author-substrate and admit-substrate\
+        \ trains; this is the binding train the admit-substrate train explicitly defers\
+        \ to."
       path: plan/_trains/0005-bind-substrate.yaml
       wagons:
       - bind-substrate-runtime
+  0-trains:
+    00-nominal:
+    - train_id: 0006-state-projection
+      description: 'State projection train: make the committed deterministic projection
+        the shared source of truth, the local SQLite store a private authoring workspace,
+        git history plus structured ATDD trailers the audit log, and CI the merge
+        authority. Core becomes git-native and provider-free; GitHub Issues becomes
+        a non-authoritative human mirror implemented as an extension. Builds the projection
+        spine, the reconcile spine with an explicit overlay event log, CI legal-transition
+        authority, field ownership and safe conflicts, the provider seam, and the
+        manifest-to-projection migration.'
+      path: plan/_trains/0006-state-projection.yaml
+      wagons:
+      - project-shared-state
+      - reconcile-local-store
+      - enforce-merge-authority
+      - govern-projection-fields
+      - isolate-provider-boundary
+      - migrate-projection-authority
+    - train_id: 0206-reconcile-dirty-store
+      description: "Alternate-path train (category 2): the HEAD-change reconcile flow\
+        \ when the local store is DIRTY \u2014 uncommitted overlay events exist. Instead\
+        \ of a plain hydrate-overwrite, the store is backed up, the incoming projection\
+        \ is hydrated into a public baseline, the explicit overlay events are replayed\
+        \ on top, affected objects are re-projected, and store_base_commit advances.\
+        \ An invalid replay stops with a conflict report and keeps the backup. This\
+        \ is invariant I5: reconcile is not overwrite."
+      path: plan/_trains/0206-reconcile-dirty-store.yaml
+      wagons:
+      - reconcile-local-store
+    - train_id: 0306-resolve-object-conflict
+      description: "Exception-path train (category 3): two branches change the SAME\
+        \ projection object. Disjoint objects merge cleanly by UID sharding; a same-object\
+        \ divergence is an EXPECTED failure handled gracefully \u2014 validity-gated,\
+        \ never resolved by blind max-phase. Auto-merge only when the transitions\
+        \ are identical, one side is a strict no-op, or the further phase carries\
+        \ verifiable evidence for every skipped gate. Otherwise the merge driver conflicts\
+        \ by design and emits an actionable report (section 7.2, section 11 'unsafe\
+        \ merges conflict by design')."
+      path: plan/_trains/0306-resolve-object-conflict.yaml
+      wagons:
+      - govern-projection-fields

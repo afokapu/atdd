@@ -1,0 +1,58 @@
+urn: wmbt:isolate-provider-boundary:E001
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: provider-registration
+context_clarifier: when core discovers zero or more SyncProvider implementations through
+  the registration seam, the registry is deterministic and empty by default, and no
+  lifecycle decision consults it
+lens: functional.effectiveness
+statement: maximize likelihood of a provider-registration and discovery seam that
+  is empty by default, deterministic in ordering, and never consulted by a lifecycle
+  decision
+acceptances:
+- given:
+    abstract:
+    - A core runtime with no SyncProvider registered
+    - A lifecycle transition that would previously have consulted a provider
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: with zero providers registered the mirror path is a no-op and lifecycle
+      never queries the registry
+    urn: acc:isolate-provider-boundary:E001-UNIT-001-unregistered-provider-never-invoked
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The mirror path is a no-op and returns an empty ExternalRefUpdate list
+    - The lifecycle transition succeeds without reading the provider registry
+    - A provider registered after the fact is never invoked by lifecycle code
+  when:
+    abstract: the lifecycle transition and the mirror path are both executed
+- given:
+    abstract:
+    - Two conforming SyncProvider implementations named 'zeta' and 'alpha'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: register_provider() makes a provider discoverable in deterministic order
+      via the discovery API
+    urn: acc:isolate-provider-boundary:E001-UNIT-002-discovers-registered-providers
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Both providers are discoverable by name
+    - Discovery returns them in a deterministic, name-sorted order
+    - Registering the same provider name twice is rejected rather than silently shadowed
+  when:
+    abstract: both providers are registered and the discovery API is queried

@@ -1,0 +1,54 @@
+urn: wmbt:project-shared-state:E004
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: uid-mint
+context_clarifier: when a work item is created, core mints its uid once; that uid
+  is globally unique, never reused, and is the sole identity that names .atdd/state/projection/<uid>.yaml
+lens: functional.effectiveness
+statement: maximize likelihood of an immutable uid-mint that is globally unique, never
+  reused, and is the sole identity driving the projection filename
+acceptances:
+- given:
+    abstract:
+    - An empty local store and two create calls carrying the same slug
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: creating a work item mints a globally unique uid that later writes cannot
+      rewrite
+    urn: acc:project-shared-state:E004-UNIT-001-mints-unique-immutable-uid
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The two minted uids are distinct and match the wi_ identity shape
+    - The rewrite attempt is refused and the stored uid is unchanged
+  when:
+    abstract: each create call mints a uid and a later update attempts to rewrite
+      one uid
+- given:
+    abstract:
+    - A store holding one object whose slug differs from its uid
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: the projection filename is derived from uid alone, never from slug or
+      title
+    urn: acc:project-shared-state:E004-UNIT-002-uid-names-projection-file
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Exactly one file is written and its name is <uid>.yaml
+    - No emitted path contains the object's slug or title
+  when:
+    abstract: project(store, out_dir=<tmp>) is invoked

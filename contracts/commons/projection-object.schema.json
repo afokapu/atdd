@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "contract:commons:projection-object",
+  "title": "Projection Object v1",
+  "description": "The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`. Authoritative for shared project state (doc section 2.1). Identity is the immutable uid, never the slug; the filename is derived from the uid. Deletion is a tombstone, never file removal (section 10).",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "body": {
+      "description": "Core-authored; conflict unless the single-owner rule proves safe.",
+      "type": "string"
+    },
+    "extension_digests": {
+      "additionalProperties": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "description": "Core writes; provider supplies. Derived from lock/provider digest.",
+      "type": "object"
+    },
+    "external_refs": {
+      "additionalProperties": true,
+      "description": "Extension-bot writable ONLY. Non-authoritative: lifecycle code MUST NOT read this (I7, section 8.2 rule 5).",
+      "type": "object"
+    },
+    "last_lifecycle_actor": {
+      "description": "Last actor to write a lifecycle field (phase/state). Lets the field-writer validator and the merge driver explain a conflict.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "owner_actor": {
+      "description": "The single actor that owns `body`. Section 7.1: body conflicts unless the single-owner rule proves safe. Without this the rule is not computable.",
+      "type": "string"
+    },
+    "phase": {
+      "description": "Monotonic and gate-validated (section 7.1). COMPLETE is NOT storable: it is DERIVED from merge-to-main (section 18 decision 1). A committed projection carrying phase=COMPLETE is invalid.",
+      "enum": [
+        "INIT",
+        "PLANNED",
+        "RED",
+        "GREEN",
+        "SMOKE",
+        "REFACTOR",
+        "BLOCKED",
+        "OBSOLETE"
+      ],
+      "type": "string"
+    },
+    "slug": {
+      "description": "Mutable display metadata; must not drive identity or file location.",
+      "type": "string"
+    },
+    "state": {
+      "description": "TOMBSTONED is a retirement record that prevents resurrection (section 7.1).",
+      "enum": [
+        "ACTIVE",
+        "TOMBSTONED"
+      ],
+      "type": "string"
+    },
+    "title": {
+      "description": "Mutable display metadata.",
+      "type": "string"
+    },
+    "tombstone": {
+      "additionalProperties": false,
+      "properties": {
+        "reason_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "retired_at_commit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason_digest"
+      ],
+      "type": "object"
+    },
+    "train": {
+      "description": "Core train ops; conflict unless same digest.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "uid": {
+      "description": "Immutable, globally unique, never reused (section 10 rule 1).",
+      "pattern": "^wi_[0-9A-HJKMNP-TV-Z]{26}$",
+      "type": "string"
+    },
+    "wmbts": {
+      "description": "Test-owned; policy-defined merge.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "uid",
+    "phase",
+    "state",
+    "owner_actor"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "producers": [
+      "wagon:project-shared-state"
+    ],
+    "consumers": [
+      "wagon:reconcile-local-store",
+      "wagon:enforce-merge-authority",
+      "wagon:govern-projection-fields",
+      "wagon:isolate-provider-boundary",
+      "wagon:migrate-projection-authority"
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: round-trip check composing hydrate then project and comparing the
+        resulting bytes
+      type: use_cases
+    presentation:
+    - count: 1
+      rationale: CI entrypoint exiting non-zero and reporting the canonical-versus-committed
+        diff per uid
+      type: controllers
+description: Canonical CI check proving project(hydrate(projection)) == projection,
+  so a committed projection is reproducible without GitHub and without a developer
+  SQLite store (CORE-008).
+sizing:
+  footprint_score: 6
+  footprint_size: S
+  wmbts: 1
+urn: feature:project-shared-state:verify-projection-canonicality
+wagon: wagon:project-shared-state
+wmbts:
+- wmbt:project-shared-state:C002

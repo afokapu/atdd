@@ -1,0 +1,57 @@
+urn: wmbt:migrate-projection-authority:P001
+step: prepare
+direction: maximize
+dimension: likelihood
+object_of_control: rollout-rollback-plan
+context_clarifier: 'when X-006 stages the cross-repo cutover: the plan must sequence
+  shadow mode before blocking mode, name the rollback trigger and the exact restore
+  procedure, and be agreed across the core and GitHub-extension repos before the first
+  irreversible step'
+lens: "functional.availability"
+statement: maximize likelihood of a rollout-rollback-plan that stages shadow mode
+  ahead of blocking mode, names its rollback trigger and restore procedure, and is
+  agreed across the core and extension repos before the first irreversible step
+acceptances:
+- given:
+    abstract:
+    - The authored migration rollout and rollback plan
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the rollout plan places shadow-mode CI strictly before the manifest read-fallback
+      removal
+    urn: acc:migrate-projection-authority:P001-UNIT-001-plan-orders-shadow-before-blocking
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Shadow-mode projection CI precedes both the GitHub hot-path removal and the
+      manifest fallback removal
+    - 'RED: no rollout plan exists today to order the steps'
+  when:
+    abstract: the plan's step ordering is checked
+- given:
+    abstract:
+    - The rollout plan with its steps classified reversible or irreversible
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: each irreversible step in the plan carries a named rollback trigger and
+      restore procedure
+    urn: acc:migrate-projection-authority:P001-UNIT-002-irreversible-steps-carry-a-rollback
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Every irreversible step names a rollback trigger and an exact restore procedure
+    - No irreversible step is scheduled before the shadow-mode step it depends on
+  when:
+    abstract: each irreversible step is checked for a rollback entry

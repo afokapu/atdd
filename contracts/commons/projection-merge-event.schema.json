@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "contract:commons:projection-merge-event",
+  "title": "Merge And Squash Event Policy",
+  "description": "Allowed merge methods and the ATDD-Summary artifact format (doc section 5), plus the phase-merge admissibility rule (section 7.2). Same-object phase divergence auto-merges ONLY on identical transitions, a strict no-op side, or verifiable evidence for every skipped gate. NEVER blind max-phase.",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "auto_merge_conditions": {
+      "description": "Section 7.2. Any other divergence MUST conflict.",
+      "items": {
+        "enum": [
+          "identical_transitions",
+          "strict_no_op",
+          "evidence_for_every_skipped_gate"
+        ],
+        "type": "string"
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "type": "array"
+    },
+    "blind_max_phase_allowed": {
+      "description": "Never. Section 7.2.",
+      "enum": [
+        false
+      ],
+      "type": "boolean"
+    },
+    "merge_method": {
+      "enum": [
+        "merge",
+        "squash",
+        "rebase"
+      ],
+      "type": "string"
+    },
+    "summary": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^\\.atdd/events/.+\\.json$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "digest"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "merge_method",
+    "auto_merge_conditions",
+    "blind_max_phase_allowed"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "producers": [
+      "wagon:enforce-merge-authority"
+    ],
+    "consumers": [
+      "wagon:govern-projection-fields"
+    ]
+  }
+}

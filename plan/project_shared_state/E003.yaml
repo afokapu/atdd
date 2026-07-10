@@ -1,0 +1,58 @@
+urn: wmbt:project-shared-state:E003
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: projection-digest
+context_clarifier: when the projection is stamped, the digest is taken over the canonical
+  bytes of the projection set and golden files pin those bytes so any unintended change
+  fails loudly instead of drifting silently
+lens: "functional.availability"
+statement: maximize likelihood of a stable projection-digest computed over the canonical
+  bytes and pinned by golden-file tests that fail on any unintended byte change
+acceptances:
+- given:
+    abstract:
+    - Two projections built from the same logical store, and a third with one phase
+      field mutated
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the projection digest is identical for identical canonical bytes and
+      changes when any byte changes
+    urn: acc:project-shared-state:E003-UNIT-001-digest-stable-and-change-sensitive
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - 'The first two digests are equal and carry the sha256: prefix'
+    - The third digest differs from the first two
+  when:
+    abstract: projection_digest(projection_dir) is computed for all three
+- given:
+    abstract:
+    - A committed golden fixture directory of canonical projection files and their
+      recorded digest
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: golden-file tests compare freshly projected bytes against committed golden
+      fixtures and fail on drift
+    urn: acc:project-shared-state:E003-UNIT-002-golden-files-pin-canonical-bytes
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Bytes and digest match the golden fixture exactly
+    - Mutating one golden byte makes the test fail with a diff naming the offending
+      file
+  when:
+    abstract: the golden-file test projects the same fixture store and compares bytes
+      and digest

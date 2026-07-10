@@ -1,0 +1,102 @@
+action: resolves every touched projection field to its single declared writer and
+  merge rule, rejects a diff whose committing writer does not own a touched field,
+  auto-merges only identical, no-op, or evidence-backed same-object divergence, and
+  records retirement as a non-deletable tombstone
+context: merging-two-branches-that-touched-the-same-per-uid-projection-object, and
+  validating a pushed projection diff against the writer identity carried by its commit
+  trailers
+description: Field ownership and safe conflicts for the committed projection (M4).
+  Declares, as machine-readable data, the single legal writer and merge rule of every
+  projection field; enforces that declaration in CI with a field-writer validator;
+  implements a projection merge driver that auto-merges disjoint objects and the three
+  safe same-object cases while conflicting with an actionable report on everything
+  else; proves the driver with an ownership-class by divergence-case test matrix;
+  and makes retirement a tombstone record that no later merge can resurrect. Prevents
+  same-object and wrong-writer corruption of the shared source of truth.
+features:
+- urn: feature:govern-projection-fields:define-field-ownership
+- urn: feature:govern-projection-fields:validate-field-writer
+- urn: feature:govern-projection-fields:merge-projection-objects
+- urn: feature:govern-projection-fields:verify-merge-matrix
+- urn: feature:govern-projection-fields:mark-object-tombstone
+- urn: feature:govern-projection-fields:define-actor-ownership
+goal: prevent same-object and wrong-writer corruption of the committed projection,
+  so the shared source of truth stays trustworthy without an operator adjudicating
+  every merge
+name: Govern Projection Fields
+outcome: disjoint objects merge cleanly; unsafe same-object conflicts block with a
+  report naming the field, both writers, and the failing rule; wrong-writer field
+  changes fail CI; tombstoned objects never resurrect
+subject: agent:coder
+theme: commons
+urn: wagon:govern-projection-fields
+wagon: govern-projection-fields
+produce:
+- name: commons:govern:field-ownership
+  contract: contract:commons:projection-field-ownership
+  telemetry: null
+  to: internal
+- name: commons:govern:field-writer-validator
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:govern:projection-merge-driver
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:govern:merge-driver-matrix
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:govern:tombstone-record
+  contract: null
+  telemetry: null
+  to: internal
+consume:
+- contract: contract:commons:projection-object
+  from: wagon:project-shared-state
+  name: commons:project:projection-object
+  telemetry: null
+- contract: contract:commons:projection-evidence
+  from: wagon:enforce-merge-authority
+  name: commons:enforce:lifecycle-evidence
+  telemetry: null
+- contract: contract:commons:projection-trailer
+  from: wagon:enforce-merge-authority
+  name: commons:enforce:commit-trailer
+  telemetry: null
+- contract: contract:commons:projection-merge-event
+  from: wagon:enforce-merge-authority
+  name: commons:enforce:merge-event
+  telemetry: null
+- contract: contract:commons:provider-external-ref-update
+  from: wagon:isolate-provider-boundary
+  name: commons:isolate:external-ref-update
+  telemetry: null
+wmbt:
+  C001: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting
+    a field-ownership policy that omits any projection schema field or names a writer
+    outside the declared writer set
+  C002: minimize likelihood of a merge-matrix-blind-spot, by exercising every ownership
+    merge rule against every divergence case (identical, no-op, evidence-backed, unsafe)
+    in the merge-driver test matrix
+  D001: maximize likelihood of a machine-readable field-ownership-policy that names,
+    for every projection field, its single legal writer and its merge rule, so the
+    field-writer validator and the merge driver read one declared source instead of
+    prose
+  D002: maximize likelihood of single-owner-body-rule-computability by carrying owner_actor
+    and last_lifecycle_actor on the projection object, so the field-writer validator
+    can accept or reject a body edit and the merge driver can explain a conflict
+  E001: minimize likelihood of a wrong-writer-field-change reaching main, by failing
+    CI when a human commit mutates external_refs or an extension bot commit mutates
+    a lifecycle field owned by core
+  E002: maximize likelihood of a safe-projection-merge completing without operator
+    intervention when the two sides are identical, one side is a strict no-op, or
+    the further phase carries verifiable evidence for every skipped gate
+  K001: minimize likelihood of a tombstoned-object-resurrection, by recording retirement
+    as state TOMBSTONED with a reason digest, never deleting the projection file,
+    and refusing any later merge that revives the uid
+  R001: maximize likelihood of an unsafe-merge-conflict being raised with an actionable
+    report naming the field, both sides' writers, and the failing ownership or evidence
+    rule, never resolved by blind max phase
+  total: 8

@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "contract:commons:provider-extensions-lock",
+  "title": "Extensions Lock Scope",
+  "description": "`.atdd/extensions.lock` must lock core schema, lifecycle policy, merge policy and provider digests (doc section 10 rule 5). Locking these is what lets a provider failure be non-blocking (section 12 rule 6).",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "core": {
+      "additionalProperties": false,
+      "properties": {
+        "atdd_version": {
+          "type": "string"
+        },
+        "lifecycle_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "merge_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "projection_schema_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "atdd_version",
+        "projection_schema_digest",
+        "lifecycle_policy_digest",
+        "merge_policy_digest"
+      ],
+      "type": "object"
+    },
+    "providers": {
+      "additionalProperties": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "digest"
+        ],
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "core",
+    "providers"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "producers": [
+      "wagon:isolate-provider-boundary"
+    ],
+    "consumers": [
+      "wagon:enforce-merge-authority",
+      "wagon:migrate-projection-authority"
+    ]
+  }
+}

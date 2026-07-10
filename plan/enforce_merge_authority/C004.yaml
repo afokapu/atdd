@@ -1,0 +1,53 @@
+urn: wmbt:enforce-merge-authority:C004
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: advisory-disposition-on-a-new-rule
+context_clarifier: when a new validator ships advisory because the author was unsure,
+  so a real violation is reported and ignored; the projection corpus starts empty,
+  so there is nothing to grandfather and advisory is pure debt
+lens: functional.effectiveness
+statement: 'minimize likelihood of advisory-disposition-on-a-new-rule by requiring
+  every convention node this program authors to ship disposition: strict, and permitting
+  advisory only with a written precondition and a named issue that discharges it'
+acceptances:
+- given:
+    abstract:
+    - A convention node authored by train 0006-state-projection
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: a new convention node may ship advisory with no stated precondition
+    urn: acc:enforce-merge-authority:C004-UNIT-001-not-implemented
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
+  then:
+    abstract:
+    - a new convention node may ship advisory with no stated precondition
+  when:
+    abstract: the disposition validator inspects its metadata
+- given:
+    abstract:
+    - A convention node authored by train 0006-state-projection
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: a new convention node ships strict, or advisory with a precondition and
+      a discharging issue
+    urn: acc:enforce-merge-authority:C004-UNIT-002-holds
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
+  then:
+    abstract:
+    - a new convention node ships strict, or advisory with a precondition and a discharging
+      issue
+  when:
+    abstract: the disposition validator inspects its metadata

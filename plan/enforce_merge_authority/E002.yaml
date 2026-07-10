@@ -1,0 +1,88 @@
+urn: wmbt:enforce-merge-authority:E002
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: merge-authority-run
+context_clarifier: invariant I6 says local hooks are convenience and CI is authority,
+  so every gate a local hook runs must have an equivalent server-side check wired
+  into the push/PR workflow, and a failing gate must fail the run
+lens: functional.effectiveness
+statement: maximize likelihood of a merge-authority-run on push and pull request that
+  executes the full section-4 required-check set (projection canonicality, projection
+  schema, legal transition, trailer/diff cross-check, field-writer, no-secrets, core
+  no-provider) and fails the run when any one of them fails
+acceptances:
+- given:
+    abstract:
+    - the repository CI workflow definitions
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: No merge-authority workflow exists, so the required-check set is not
+      executed on push or pull request
+    urn: acc:enforce-merge-authority:E002-UNIT-001-workflow-omits-required-checks
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - the workflow triggers on both `push` and `pull_request`
+    - every section-4 required check is present as a job
+    - no merge-authority workflow file exists, so the assertions fail (not_implemented)
+  when:
+    abstract: the merge-authority workflow is loaded and its job set is compared against
+      the section-4 required-check list
+- given:
+    abstract:
+    - a merge-authority workflow whose jobs are the section-4 required checks
+    - a stub harness that can force any single check to fail
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: The merge-authority workflow runs every required check and a single failing
+      check fails the whole run
+    urn: acc:enforce-merge-authority:E002-UNIT-002-any-failing-check-fails-the-run
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - with every check passing the run succeeds
+    - forcing any single check to fail fails the run
+    - no required check is marked continue-on-error or advisory
+  when:
+    abstract: the workflow job graph is evaluated with each check forced to fail in
+      turn
+- given:
+    abstract:
+    - a real repo checkout with a plain (non-GitHub) git remote
+    - a branch whose projection change is canonical, schema-valid, and jumps PLANNED->GREEN
+      with no RED evidence and no ATDD-Transition trailer
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: In a real checkout against a non-GitHub git remote, a branch carrying
+      a canonical but lifecycle-illegal projection change is rejected by the merge-authority
+      run
+    urn: acc:enforce-merge-authority:E002-SMOKE-001-illegal-projection-rejected-end-end
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - the run exits non-zero
+    - the legal-transition check names the illegal PLANNED->GREEN transition
+    - the trailer/diff cross-check names the missing ATDD-Transition trailer
+    - a branch whose projection change is legal and correctly trailered exits zero
+  when:
+    abstract: the merge-authority checks are executed against the branch as CI would
+      run them

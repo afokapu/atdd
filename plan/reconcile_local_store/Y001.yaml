@@ -1,0 +1,52 @@
+urn: wmbt:reconcile-local-store:Y001
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: overlay-event-replayed-twice
+context_clarifier: when an overlay event has been committed into projection but is
+  still replayed on the next reconcile, or when the log grows without compaction and
+  loses audit data
+lens: functional.effectiveness
+statement: minimize likelihood of overlay-event-replayed-twice by giving each event
+  a stable event_id and a status (pending/projected/committed/discarded/conflicted),
+  recording which events a projection represents, and replaying only pending or projected-but-uncommitted
+  events
+acceptances:
+- given:
+    abstract:
+    - A local store and a committed projection exercising overlay-event-replayed-twice
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: overlay-event-replayed-twice is not yet controlled
+    urn: acc:reconcile-local-store:Y001-UNIT-001-not-implemented
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
+  then:
+    abstract:
+    - overlay-event-replayed-twice is not yet controlled
+  when:
+    abstract: the archive-overlay-events behavior is invoked
+- given:
+    abstract:
+    - A local store and a committed projection exercising overlay-event-replayed-twice
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: overlay-event-replayed-twice is controlled as specified
+    urn: acc:reconcile-local-store:Y001-UNIT-002-holds
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
+  then:
+    abstract:
+    - overlay-event-replayed-twice is controlled as specified
+  when:
+    abstract: the archive-overlay-events behavior is invoked

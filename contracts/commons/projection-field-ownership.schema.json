@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "contract:commons:projection-field-ownership",
+  "title": "Projection Field Ownership Policy",
+  "description": "Which writer may write each projection field (doc section 7.1). Prevents same-object and wrong-writer corruption. Humans may not write external_refs; extensions may not write lifecycle fields (section 4).",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "fields": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "lifecycle_readable": {
+            "default": true,
+            "description": "False for external_refs.*: lifecycle code may not read it (section 8.2 rule 5).",
+            "type": "boolean"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "writer": {
+            "enum": [
+              "core_create",
+              "core_authoring",
+              "core_lifecycle",
+              "core_train_ops",
+              "core_test_ops",
+              "core",
+              "extension_bot"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "writer",
+          "rule"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "fields"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "producers": [
+      "wagon:govern-projection-fields"
+    ],
+    "consumers": [
+      "wagon:enforce-merge-authority",
+      "wagon:isolate-provider-boundary"
+    ]
+  }
+}

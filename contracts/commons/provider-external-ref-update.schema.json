@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "contract:commons:provider-external-ref-update",
+  "title": "External Ref Update Contract",
+  "description": "The ONLY record a SyncProvider.mirror() may return (doc section 8.2). Bot-namespaced. Core applies provider metadata only through a constrained external_refs.* update path. The extension never edits projection directly, and detect_drift() is alarm-only.",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "authoritative": {
+      "description": "Always false. I7: the mirror is non-authoritative.",
+      "enum": [
+        false
+      ],
+      "type": "boolean"
+    },
+    "namespace": {
+      "description": "Rule 1: bot-namespaced only.",
+      "pattern": "^bot:[a-z][a-z0-9-]*$",
+      "type": "string"
+    },
+    "provider": {
+      "description": "Provider name, e.g. github.",
+      "type": "string"
+    },
+    "ref_kind": {
+      "type": "string"
+    },
+    "ref_value": {
+      "type": "string"
+    },
+    "uid": {
+      "pattern": "^wi_[0-9A-HJKMNP-TV-Z]{26}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "uid",
+    "provider",
+    "namespace",
+    "ref_kind",
+    "ref_value",
+    "authoritative"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "producers": [
+      "wagon:isolate-provider-boundary"
+    ],
+    "consumers": [
+      "wagon:govern-projection-fields",
+      "wagon:migrate-projection-authority"
+    ]
+  }
+}

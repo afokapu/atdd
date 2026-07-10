@@ -1,0 +1,58 @@
+urn: wmbt:isolate-provider-boundary:C002
+step: confirm
+direction: maximize
+dimension: likelihood
+object_of_control: provider-free-workflow
+context_clarifier: when the conformance suite drives the full core workflow (project,
+  hydrate, reconcile, transition, CI validators) against a bare git remote with zero
+  providers registered, which is the M5 exit criterion
+lens: functional.effectiveness
+statement: maximize likelihood of a provider-free-workflow completing end to end against
+  a bare git remote with zero providers registered, proving no lifecycle decision
+  depends on GitHub
+acceptances:
+- given:
+    abstract:
+    - A bare git remote, a core checkout, and zero registered providers
+    - A lifecycle step instrumented to read external_refs or call a provider
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-INTEGRATION-001
+    phase: RED
+    purpose: the conformance suite fails loudly if any step of the workflow requires
+      a provider or reads external_refs
+    urn: acc:isolate-provider-boundary:C002-INTEGRATION-001-fails-when-lifecycle-reads-provider
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The suite fails and names the lifecycle step that touched a provider or external_refs
+    - The failure is attributed to invariant I7 (the mirror is non-authoritative)
+  when:
+    abstract: the non-GitHub remote conformance suite is run against the bare remote
+- given:
+    abstract:
+    - A bare git remote, a core checkout, and zero registered providers
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-INTEGRATION-002
+    phase: GREEN
+    purpose: "the full core workflow passes against a bare git remote with zero providers\
+      \ \u2014 the M5 exit criterion"
+    urn: acc:isolate-provider-boundary:C002-INTEGRATION-002-bare-remote-workflow-passes
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Every workflow step completes with zero providers registered
+    - The committed projection is byte-identical to project(store)
+    - No GitHub API call, gh invocation, or issue-number read occurs during the run
+  when:
+    abstract: the conformance suite drives project, commit, push, hydrate, reconcile
+      and the CI validators

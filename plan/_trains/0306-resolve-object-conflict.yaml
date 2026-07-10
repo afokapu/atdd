@@ -1,0 +1,42 @@
+train_id: 0306-resolve-object-conflict
+title: Resolve A Same Object Projection Conflict
+description: "Exception-path train (category 3): two branches change the SAME projection\
+  \ object. Disjoint objects merge cleanly by UID sharding; a same-object divergence\
+  \ is an EXPECTED failure handled gracefully \u2014 validity-gated, never resolved\
+  \ by blind max-phase. Auto-merge only when the transitions are identical, one side\
+  \ is a strict no-op, or the further phase carries verifiable evidence for every\
+  \ skipped gate. Otherwise the merge driver conflicts by design and emits an actionable\
+  \ report (section 7.2, section 11 'unsafe merges conflict by design')."
+themes:
+- commons
+family: behavior
+primary_wagon: govern-projection-fields
+sequence:
+- artifact: commons:govern-merge-driver
+  from: wagon:govern-projection-fields
+  intent: Detect same-object divergence on a sharded per-UID projection file
+  step: 1
+  to: system:git
+- artifact: commons:projection-field-ownership
+  from: wagon:govern-projection-fields
+  intent: 'Verify field ownership: reject any field written by a writer that does
+    not own it'
+  step: 2
+  to: system:ci
+- artifact: commons:projection-merge-event
+  from: wagon:govern-projection-fields
+  intent: Auto-merge only on identical transitions, a strict no-op side, or evidence
+    for every skipped gate
+  step: 3
+  to: system:git
+- artifact: commons:govern-conflict-report
+  from: wagon:govern-projection-fields
+  intent: Otherwise conflict by design and emit an actionable same-object conflict
+    report
+  step: 4
+  to: system:ci
+participants:
+- wagon:govern-projection-fields
+- system:git
+- system:ci
+status: planned
