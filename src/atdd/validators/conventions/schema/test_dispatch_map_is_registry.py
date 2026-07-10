@@ -55,10 +55,10 @@ def _contract():
     return by_id[TEMPLATE]
 
 
-def _evaluate(root: Path):
+def _evaluate(root: Path, graph=None):
     """Run the variant through the official path on the real composed graph."""
-    graph = load_composed_graph(root)
-    return _contract().evaluate(graph, config={"variant": VARIANT})
+    g = graph if graph is not None else load_composed_graph(root)
+    return _contract().evaluate(g, config={"variant": VARIANT})
 
 
 @contextlib.contextmanager
@@ -94,9 +94,9 @@ def test_evidence_keys_subset_of_contract() -> None:
 
 
 # --- clean baseline ---------------------------------------------------------
-def test_clean_baseline_is_silent() -> None:
+def test_clean_baseline_is_silent(clean_convention_graph) -> None:
     """The real declared registry conforms to its schema → zero violations."""
-    assert _evaluate(_repo_root()) == []
+    assert _evaluate(_repo_root(), graph=clean_convention_graph) == []
 
 
 # --- fault injection (convention path is the live coverage; oracle retired #1365) ---

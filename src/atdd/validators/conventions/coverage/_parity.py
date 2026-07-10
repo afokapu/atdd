@@ -44,5 +44,9 @@ def inject_patch(root: Path, relpath: str, old: str, new: str):
         p.write_text(orig, encoding='utf-8')
 
 
-def conv_violations(root: Path, evaluator: Callable, config: Optional[dict] = None) -> List[dict]:
-    return evaluator(load_composed_graph(root), config)
+def conv_violations(root: Path, evaluator: Callable, config: Optional[dict] = None,
+                    graph=None) -> List[dict]:
+    """``graph`` lets a read-only caller pass the session-scoped clean graph (#1414);
+    callers that have mutated the tree must omit it so the graph is re-read."""
+    g = graph if graph is not None else load_composed_graph(root)
+    return evaluator(g, config)

@@ -44,8 +44,8 @@ def test_runtime_artifacts_rule_binding_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_runtime_artifacts_rule_binding_clean_baseline() -> None:
-    P.assert_clean_baseline(VARIANT, P.repo_root())
+def test_runtime_artifacts_rule_binding_clean_baseline(clean_convention_graph) -> None:
+    P.assert_clean_baseline(VARIANT, P.repo_root(), graph=clean_convention_graph)
 
 
 def test_runtime_artifacts_rule_binding_convention_fault() -> None:

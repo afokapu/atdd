@@ -43,9 +43,9 @@ _REGISTRY = "plan/_wagons.yaml"
 _FAULT = ("from: wagon:freeze-runtime-contracts", "from: wagon:does-not-exist-xyz")
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """The variant returns no violations on the real, unmodified repo."""
-    assert evaluate_variant(TEMPLATE, VARIANT) == []
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
 def test_fault_injection() -> None:
