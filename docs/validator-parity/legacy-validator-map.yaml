@@ -3377,6 +3377,8 @@ excluded:
   reason: Leading-underscore shared helper module (theme taxonomy constants), imported by theme validators.
 - legacy_path: src/atdd/planner/validators/_wagon_cohesion.py
   reason: Leading-underscore shared helper module (wagon cohesion/coupling graph math), imported by separability validator.
+- legacy_path: src/atdd/planner/validators/_orphan_scan.py
+  reason: Leading-underscore shared helper module (orphan-node scan), extracted from the retired test_no_orphan_nodes.py (#1385).
 - legacy_path: src/atdd/tester/validators/__init__.py
   reason: Package init module, not an executable validator.
 - legacy_path: src/atdd/tester/validators/_acceptance_walker.py
