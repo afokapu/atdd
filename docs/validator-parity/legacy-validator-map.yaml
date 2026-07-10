@@ -3423,6 +3423,8 @@ excluded:
   reason: pytest support/fixtures file, not an executable validator
 - legacy_path: src/atdd/coach/validators/_core_bare_baseline.py
   reason: 'leading-underscore shared helper: poisoned core.bare baseline fixture data reused by validators'
+- legacy_path: src/atdd/coach/validators/_fix_hint_audit.py
+  reason: Leading-underscore shared helper module (fix-hint C1-C4 audit fns), extracted from the retired test_fix_hint_completeness.py (#1385).
 - legacy_path: src/atdd/coach/validators/_violation.py
   reason: 'leading-underscore shared helper: Violation dataclass used by validators'
 - legacy_path: src/atdd/coach/validators/claude_md_validators.py

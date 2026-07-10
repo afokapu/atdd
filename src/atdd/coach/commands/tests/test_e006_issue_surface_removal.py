@@ -67,7 +67,7 @@ class TestIssueSurfaceRemoved:
         Read as a SOURCE fact via the same regex the C2 validator uses, so this
         cannot be satisfied by a subparser that merely hides itself from --help.
         """
-        from atdd.coach.validators.test_fix_hint_completeness import (
+        from atdd.coach.validators._fix_hint_audit import (
             build_subcommand_registry,
         )
 

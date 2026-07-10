@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from atdd.coach.validators.test_fix_hint_completeness import (
+from atdd.coach.validators._fix_hint_audit import (
     audit_c1_placeholder_resolution,
     audit_c2_no_deprecation_contradiction,
     build_deprecation_registry,
