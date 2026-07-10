@@ -59,9 +59,9 @@ def _template():
     return next(t for t in TEMPLATES if t.template_id == TEMPLATE)
 
 
-def _evaluate(repo_root):
-    graph = load_composed_graph(repo_root)
-    return _template().evaluate(graph, config={"variant": VARIANT})
+def _evaluate(repo_root, graph=None):
+    g = graph if graph is not None else load_composed_graph(repo_root)
+    return _template().evaluate(g, config={"variant": VARIANT})
 
 
 
@@ -90,12 +90,12 @@ def test_evidence_keys_are_subset_of_template_failure_evidence() -> None:
 
 
 # --- clean baseline --------------------------------------------------------
-def test_clean_baseline_zero_on_real_repo() -> None:
+def test_clean_baseline_zero_on_real_repo(clean_convention_graph) -> None:
     """On the real composed graph the deployed freedom_layer is fully scoped, so
     the variant returns no evidence (non-vacuous: allowed_bash is non-empty)."""
-    fl = archetype._freedom_layer(load_composed_graph(_REPO_ROOT))
+    fl = archetype._freedom_layer(clean_convention_graph)
     assert fl.get("allowed_bash"), "selector vacuous: freedom_layer declares no allowed_bash"
-    assert _evaluate(_REPO_ROOT) == []
+    assert _evaluate(_REPO_ROOT, graph=clean_convention_graph) == []
 
 
 # --- fault injection + legacy parity ---------------------------------------
