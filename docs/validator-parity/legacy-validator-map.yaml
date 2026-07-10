@@ -3381,6 +3381,8 @@ excluded:
   reason: Leading-underscore shared helper module (orphan-node scan), extracted from the retired test_no_orphan_nodes.py (#1385).
 - legacy_path: src/atdd/planner/validators/_dispatch_registry.py
   reason: Leading-underscore shared helper module (dispatch-entry predicates), extracted from the retired test_dispatch_registry.py (#1385).
+- legacy_path: src/atdd/planner/validators/_feedback_loop.py
+  reason: Leading-underscore shared helper module (feedback-loop close-the-loop scan), extracted from the retired test_feedback_loop_smoke_closes_the_loop.py (#1385).
 - legacy_path: src/atdd/tester/validators/__init__.py
   reason: Package init module, not an executable validator.
 - legacy_path: src/atdd/tester/validators/_acceptance_walker.py
