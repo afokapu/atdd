@@ -42,9 +42,9 @@ _TRAIN_FILE = "plan/_trains/0001-self-compliance-validate.yaml"
 _FAULT = ('"wagon:validate-conventions"', '"wagon:does-not-exist-xyz"')
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """The variant returns no violations on the real, unmodified repo."""
-    assert evaluate_variant(TEMPLATE, VARIANT) == []
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
 def test_fault_injection_and_legacy_parity() -> None:
