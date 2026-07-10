@@ -19,6 +19,7 @@ features:
 - urn: feature:validate-conventions:anti-regression-gate
 - urn: feature:validate-conventions:convention-graph-query-contract
 - urn: feature:validate-conventions:stricter-finding-adjudication
+- urn: feature:validate-conventions:tune-convention-suite
 goal: organize validators by graph-question family rather than persona so new convention
   nodes are auto-captured by reusable templates, and prove parity before any legacy
   decommissioning
@@ -41,7 +42,10 @@ produce:
   to: external
 consume: []
 wmbt:
-  total: 17
+  total: 18
+  E032: minimize time of clean-convention-graph-construction — the composed convention
+    graph is built once per pytest session and reused by every read-only baseline and
+    contract test
   E001: minimize likelihood of registry-family-template-mismatch — registry.yaml declares exactly the 13 canonical families and 22 templates
   E002: minimize likelihood of registry-archetype-divergence — each family archetype.py exposes exactly the template ids registry.yaml assigns it
   E003: minimize likelihood of incomplete-template-contract — template_contract.py defines all eight mandatory template metadata fields

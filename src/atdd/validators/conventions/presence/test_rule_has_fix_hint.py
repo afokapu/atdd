@@ -61,9 +61,9 @@ def test_rule_has_fix_hint_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_rule_has_fix_hint_clean_baseline(repo_root: Path) -> None:
+def test_rule_has_fix_hint_clean_baseline(clean_convention_graph) -> None:
     """Every fix_hint-declaring rule carries a non-empty value -> 0 violations."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 def test_rule_has_fix_hint_fragment_catches_empty(repo_root: Path) -> None:
