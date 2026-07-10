@@ -2443,7 +2443,22 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 17
+    total: 22
+    E032: minimize time of clean-convention-graph-construction — the composed convention
+      graph is built once per pytest session and reused by every read-only baseline
+      and contract test
+    E033: minimize likelihood of binding-fault-filesystem-mutation — binding-family
+      faults are injected by renaming a rule id in a cloned graph while the emitted
+      bind_rule index is left unchanged, so no convention YAML is ever rewritten
+    E034: minimize likelihood of evaluator-fault-filesystem-mutation — every fault
+      test that proves evaluator behaviour mutates a cloned graph, and only graph-loader
+      integration tests still touch disk
+    E035: minimize likelihood of unmarked-filesystem-mutation-test — every convention
+      test that writes, deletes, renames or creates a path carries the convention_filesystem_mutation
+      marker and cannot request the session clean graph
+    E036: minimize time of convention-suite-ci-runtime — the validate-conventions
+      job runs the non-mutating subset under -n auto and the filesystem-mutation subset
+      serially
     E001: minimize likelihood of registry-family-template-mismatch — registry.yaml
       declares exactly the 13 canonical families and 22 templates
     E002: minimize likelihood of registry-archetype-divergence — each family archetype.py
