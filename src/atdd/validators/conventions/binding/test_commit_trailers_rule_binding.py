@@ -49,7 +49,9 @@ def test_commit_trailers_rule_binding_clean_baseline(clean_convention_graph) -> 
     P.assert_clean_baseline(VARIANT, P.repo_root(), graph=clean_convention_graph)
 
 
-def test_commit_trailers_rule_binding_convention_fault() -> None:
+def test_commit_trailers_rule_binding_convention_fault(clean_convention_graph) -> None:
     # Oracle retired (#1365): parity to `both` already proven+recorded; the variant's
     # own real-graph fault injection + clean baseline are the live coverage.
-    P.assert_fault_convention_only(VARIANT, CONVENTION, RULE_ID, P.repo_root())
+    P.assert_fault_convention_only(
+        VARIANT, CONVENTION, RULE_ID, P.repo_root(), graph=clean_convention_graph
+    )
