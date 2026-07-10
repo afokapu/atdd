@@ -44,6 +44,8 @@ def test_spawn_cli_rule_binding_clean_baseline(clean_convention_graph) -> None:
     P.assert_clean_baseline(VARIANT, P.repo_root(), graph=clean_convention_graph)
 
 
-def test_spawn_cli_rule_binding_convention_fault() -> None:
+def test_spawn_cli_rule_binding_convention_fault(clean_convention_graph) -> None:
     # Oracle retired (#1365): the variant's own real-graph fault injection is the live coverage.
-    P.assert_fault_convention_only(VARIANT, CONVENTION, RULE_ID, P.repo_root())
+    P.assert_fault_convention_only(
+        VARIANT, CONVENTION, RULE_ID, P.repo_root(), graph=clean_convention_graph
+    )
