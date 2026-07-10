@@ -1,15 +1,15 @@
-# Phase: RED
-# Layer: backend.integration
-"""planner.wagon.no-consume-cycle validator (#1145, Phase 1).
+# Phase: GREEN
+# Layer: backend.domain
+"""Cross-wagon produce/consume graph helpers (#1145, extracted #1385).
 
 Builds the directed wagon graph from produce->consume artifact NAMES across
-``plan/<wagon>/_<wagon>.yaml`` and rejects any strongly-connected component
-that spans more than one wagon (a cross-wagon dependency cycle). Keyed on the
-artifact NAME, never the nullable ``contract`` field.
+``plan/<wagon>/_<wagon>.yaml``. Keyed on the artifact NAME, never the nullable
+``contract`` field.
 
-Convention: src/atdd/planner/conventions/nodes/planner.wagon.no-consume-cycle.convention.yaml
-Rule:       planner.wagon.no-consume-cycle
-Run:        atdd validate planner
+Enforcement lives in the convention variant
+``validators/conventions/acyclicity/test_no_cross_wagon_consume_cycle.py``; this module
+holds the graph builders so they outlive the retired legacy validator (#1207 sweep).
+Also imported by the wagon-coupling metrics (``_wagon_metrics``).
 """
 from __future__ import annotations
 
@@ -17,21 +17,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-import pytest
 import yaml
-
-from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
-from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.utils.rule_binding import bind_rule
-from atdd.coach.validators._violation import Violation
-
-pytestmark = [pytest.mark.planner]
-
-_RULE = bind_rule("planner.wagon.no-consume-cycle")
-_VALIDATOR_ID = "no_cross_wagon_consume_cycle"
-
-REPO_ROOT = find_repo_root()
-PLAN_DIR = REPO_ROOT / "plan"
 
 
 def load_manifests(plan_dir: Path) -> Dict[str, Dict[str, list]]:
@@ -107,43 +93,3 @@ def find_consume_cycles(manifests: Dict[str, Dict[str, list]]) -> List[List[str]
         if v not in index:
             strongconnect(v)
     return sccs
-
-
-def _scan_live() -> List[Violation]:
-    violations: List[Violation] = []
-    for comp in find_consume_cycles(load_manifests(PLAN_DIR)):
-        w0 = comp[0].replace("-", "_")
-        loc = f"plan/{w0}/_{w0}.yaml:1"
-        violations.append(
-            Violation(
-                rule_id=_RULE.rule_id,
-                severity=_RULE.severity,
-                location=loc,
-                detail=f"cross-wagon produce/consume cycle: {' -> '.join(comp)} -> {comp[0]}",
-            )
-        )
-    return violations
-
-
-def test_no_cross_wagon_consume_cycle() -> None:
-    """Live corpus: the cross-wagon produce/consume graph must be a DAG."""
-    assert_disposition_satisfied(validator_id=_VALIDATOR_ID, violations=_scan_live())
-
-
-def test_validator_detects_synthetic_cycle() -> None:
-    """RED guard: a 2-wagon produce/consume cycle MUST be detected."""
-    manifests = {
-        "wagon-a": {"produce": ["x:art:from-a"], "consume": ["x:art:from-b"]},
-        "wagon-b": {"produce": ["x:art:from-b"], "consume": ["x:art:from-a"]},
-    }
-    cycles = find_consume_cycles(manifests)
-    assert any(set(c) == {"wagon-a", "wagon-b"} for c in cycles), f"no cycle detected: {cycles}"
-
-
-def test_validator_passes_on_acyclic_chain() -> None:
-    """A producer->consumer chain (no back-edge) yields no SCC>1."""
-    manifests = {
-        "wagon-a": {"produce": ["x:art:a"], "consume": []},
-        "wagon-b": {"produce": [], "consume": ["x:art:a"]},
-    }
-    assert find_consume_cycles(manifests) == []

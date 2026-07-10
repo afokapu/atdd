@@ -26,7 +26,7 @@ from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
 # Reuse the produce/consume graph builders from the cycle validator (single source).
-from atdd.planner.validators.test_no_cross_wagon_consume_cycle import (
+from atdd.planner.validators._wagon_graph import (
     build_edges,
     load_manifests,
 )

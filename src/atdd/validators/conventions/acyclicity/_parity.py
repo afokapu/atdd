@@ -1,33 +1,18 @@
-"""Real-repo fault-injection + legacy-subprocess helpers for the acyclicity variant.
+"""Real-repo fault-injection helpers for the acyclicity variant.
 
 The filesystem mutations live HERE (a non-`test_*` helper) so the variant test file
 stays free of direct filesystem operations (tester.test-isolation guard). The injection
-must touch the real ``plan/`` tree because the legacy validator reads it directly, so
+touches the real ``plan/`` tree because the composed graph loader reads it directly, so
 ``tmp_path`` is not an option — hence the helper + guaranteed revert.
+
+The legacy subprocess oracle (``run_legacy``/``LEGACY_NODEID``) was dropped with the
+retired legacy validator (#1207 sweep, #1385); the convention path is the live coverage.
 """
 from __future__ import annotations
 
 import contextlib
 import shutil
-import subprocess
-import sys
 from pathlib import Path
-
-LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_no_cross_wagon_consume_cycle.py"
-    "::test_no_cross_wagon_consume_cycle"
-)
-
-
-def run_legacy(repo_root: Path) -> int:
-    """Run the legacy validator's live test as a subprocess; return its rc.
-    Inherits the parent process environment (already carries PYTHONPATH=src)."""
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", LEGACY_NODEID, "-q", "-p", "no:cacheprovider"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    ).returncode
 
 
 @contextlib.contextmanager
