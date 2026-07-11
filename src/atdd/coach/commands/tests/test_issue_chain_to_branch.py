@@ -46,24 +46,34 @@ def _setup_lifecycle(tmp_path: Path):
 
 
 def _make_manifest_with_issue(tmp_path: Path, slug: str, issue_number: int) -> None:
+    """Register slug ↔ issue_number in the State Store.
+
+    #1400 CORE-034 (Y002): ``IssueLifecycle.create`` resolves slug → issue_number from the store
+    alone now. The manifest ``sessions`` entry this used to write was a read-fallback that
+    resolved duplicate slugs by taking the last one — a coin toss dressed as a lookup — and it is
+    retired. The name is kept so the four tests below read unchanged; what it seeds has moved to
+    the source of truth.
+    """
     atdd_dir = tmp_path / ".atdd"
     atdd_dir.mkdir(parents=True, exist_ok=True)
-    manifest = {
-        "sessions": [
-            {
-                "id": str(issue_number),
-                "slug": slug,
-                "issue_number": issue_number,
-                "status": "INIT",
-                "type": "implementation",
-                "created": "2026-05-13",
-                "archived": None,
-                "file": None,
-            }
-        ]
-    }
-    with open(atdd_dir / "manifest.yaml", "w") as f:
-        yaml.dump(manifest, f)
+    (atdd_dir / "config.yaml").write_text("version: '1.0'\n")
+
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    conn = connect(init_state_store(start=tmp_path))
+    try:
+        store = StateStore(conn)
+        store.objects.upsert(
+            slug, WORK_ITEM_KIND, state="INIT",
+            data={"id": str(issue_number), "type": "implementation", "created": "2026-05-13"},
+        )
+        store.external_refs.link(
+            slug, GITHUB_PROVIDER, "issue", str(issue_number), data={"source": "test-fixture"},
+        )
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
