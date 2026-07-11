@@ -26,6 +26,6 @@ artifacts:
 - id: atdd.workspace.python-pytest
   kind: workspace
   version: 0.1.0
-  digest: sha256:edd17f72208aa21d882b6f359bc935954ca0120deaf4cd3d854ddac25c855329
+  digest: sha256:3054aca4adc5cce07569658b013968a5a9f56fc73f5eef3a9721bcbc17e9d55f
   installed_path: .atdd/workspaces/atdd.workspace.python-pytest/0.1.0
   enabled: true
