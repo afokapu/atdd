@@ -2,10 +2,13 @@ urn: feature:reconcile-dispositions:reconcile-dispositions
 wagon: wagon:reconcile-dispositions
 description: The reconcile-dispositions lane of train 0007-enforce-extension-conventions.
 sizing:
-  wmbts: 0
+  wmbts: 3
   footprint_score: 6
   footprint_size: S
-wmbts: []
+wmbts:
+- "wmbt:reconcile-dispositions:D001"
+- "wmbt:reconcile-dispositions:E001"
+- "wmbt:reconcile-dispositions:E002"
 components:
   backend:
     application:

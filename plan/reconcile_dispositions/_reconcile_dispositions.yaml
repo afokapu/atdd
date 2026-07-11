@@ -23,4 +23,7 @@ consume:
 - name: commons:binding-lock
   from: wagon:bind-extension-conventions
 wmbt:
-  total: 0
+  total: 3
+  D001: "minimize likelihood of the three distinct things spelled disposition being conflated into one namespace"
+  E001: "minimize likelihood of a documentation-only node failing a build through an incomplete disposition-to-verdict mapping"
+  E002: "minimize likelihood of a convention node declaring a disposition outside the known treatment vocabulary slipping through unnoticed"
