@@ -17,13 +17,15 @@ contract to the ``category`` FIELD.
 """
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
 import pytest
 
-from atdd.planner.interlocking.tests.test_category_digit_retired import (
-    typed_interlocking_doc,
-    write_typed_tree,
+from atdd.planner.interlocking.tests._fixtures import (
+    NOMINAL_TRAIN_ID,
+    interlocking_doc,
+    write_tree,
 )
 from atdd.runtime.interlocking import (
     InterlockingResolution,
@@ -34,7 +36,7 @@ from atdd.runtime.interlocking import (
 
 @pytest.fixture()
 def typed_il_path(tmp_path: Path) -> Path:
-    return write_typed_tree(tmp_path)
+    return write_tree(tmp_path)
 
 
 def test_resolve_train_resolves_a_typed_digit_free_interlocking(typed_il_path: Path):
@@ -45,7 +47,7 @@ def test_resolve_train_resolves_a_typed_digit_free_interlocking(typed_il_path: P
 
     assert isinstance(res, InterlockingResolution)
     assert res.route_id == "nominal-all-voted"
-    assert res.train_id == "train:match-resolution:standard"
+    assert res.train_id == NOMINAL_TRAIN_ID
     assert res.category == "nominal"
 
 
@@ -67,9 +69,9 @@ def test_route_control_trace_publishes_category_not_a_digit(typed_il_path: Path)
 
 def test_resolve_train_fails_closed_on_category_field_mismatch(tmp_path: Path):
     """Fail-closed still holds — now judged on the train's ``category`` FIELD."""
-    doc = typed_interlocking_doc()
+    doc = copy.deepcopy(interlocking_doc())
     doc["routes"][0]["category"] = "exception"  # target train declares `nominal`
-    il_path = write_typed_tree(tmp_path, doc)
+    il_path = write_tree(tmp_path, doc)
 
     runner = InterlockingRunner(il_path)
     with pytest.raises(InterlockingResolutionError):
