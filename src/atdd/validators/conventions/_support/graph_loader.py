@@ -124,6 +124,22 @@ def scan_parse_errors(repo_root) -> List[dict]:
     return errs
 
 
+def find_train_file(repo_root, anchor: str) -> str:
+    """Repo-relative path of the train detail file carrying `anchor`.
+
+    Fault-injection fixtures address a train by the text they patch, never by a
+    hard-coded path: typed trains (#1421) live at plan/_trains/<subject>/<slug>.yaml
+    and relocate when a subject is reassigned.
+    """
+    root = Path(repo_root)
+    tdir = root / "plan" / "_trains"
+    for tf in sorted(tdir.rglob("*.yaml")) if tdir.is_dir() else []:
+        text = tf.read_text(encoding="utf-8")
+        if anchor in text and _safe_yaml(tf).get("train_id"):
+            return str(tf.relative_to(root))
+    raise AssertionError(f"no train file under plan/_trains carries anchor {anchor!r}")
+
+
 def load_composed_graph(repo_root) -> ConventionGraph:
     root = Path(repo_root)
     g = ConventionGraph(root=root)
