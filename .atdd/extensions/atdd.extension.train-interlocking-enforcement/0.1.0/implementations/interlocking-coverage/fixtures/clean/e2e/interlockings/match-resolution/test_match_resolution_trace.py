@@ -1,4 +1,4 @@
-# URN: test:match:match-resolution:E2E-002-trace-binding
+# URN: test:match:match-resolution:E001-E2E-002-trace-binding
 """Trace-binding e2e test for interlocking:match-resolution (CLEAN fixture).
 
 Captures the runtime trace from a production InterlockingRunner -> TrainRunner run

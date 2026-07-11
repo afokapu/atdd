@@ -1,4 +1,4 @@
-# URN: test:match:match-resolution:E2E-002-trace-binding
+# URN: test:match:match-resolution:E001-E2E-002-trace-binding
 """DIRTY fixture isolating tester.interlocking.trace-binds-declared-route.
 
 Both admissible routes are exercised through the production runners (route-coverage

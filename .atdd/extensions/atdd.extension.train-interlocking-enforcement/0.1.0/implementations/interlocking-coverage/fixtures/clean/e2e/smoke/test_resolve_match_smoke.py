@@ -1,4 +1,4 @@
-# URN: test:match:match-resolution:SMOKE-001-resolve-match
+# URN: test:match:match-resolution:E001-SMOKE-001-resolve-match
 """Station Master smoke test for the exposed resolve_match action (CLEAN fixture).
 
 Drives the exposed action through the REAL entrypoint -> Station Master ->

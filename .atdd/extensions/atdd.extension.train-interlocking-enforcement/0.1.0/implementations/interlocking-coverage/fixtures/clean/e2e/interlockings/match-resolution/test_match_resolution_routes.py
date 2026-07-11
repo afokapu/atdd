@@ -1,4 +1,4 @@
-# URN: test:match:match-resolution:E2E-001-route-coverage
+# URN: test:match:match-resolution:E001-E2E-001-route-coverage
 """End-to-end route coverage for interlocking:match-resolution (CLEAN fixture).
 
 Exercises EVERY admissible route of the interlocking through the production

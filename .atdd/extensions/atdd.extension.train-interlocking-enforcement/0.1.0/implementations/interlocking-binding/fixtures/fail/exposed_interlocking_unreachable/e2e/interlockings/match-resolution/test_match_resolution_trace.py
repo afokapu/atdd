@@ -1,4 +1,4 @@
-# URN: test:match:match-resolution:E2E-bilateral-trace-binding
+# URN: test:match:match-resolution:E001-E2E-003-bilateral-trace-binding
 """Bilateral trace-binding e2e test for interlocking:match-resolution (CLEAN fixture).
 
 Drives the PRODUCTION InterlockingRunner -> TrainRunner path (core afokapu/atdd#1251) — no mocks —

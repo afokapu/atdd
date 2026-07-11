@@ -1,4 +1,4 @@
-# URN: test:match:match-resolution:E2E-001-route-coverage
+# URN: test:match:match-resolution:E001-E2E-001-route-coverage
 """End-to-end route coverage for interlocking:match-resolution (DIRTY fixture).
 
 Exercises ONLY the nominal route. The interlocking's second admissible route (the

@@ -1,4 +1,4 @@
-# URN: test:match:match-resolution:E2E-001-route-coverage
+# URN: test:match:match-resolution:E001-E2E-001-route-coverage
 """DIRTY fixture isolating tester.interlocking.smoke-coverage-for-station-master.
 
 Both admissible routes are exercised through the production runners (route-coverage
