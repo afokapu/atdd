@@ -29,4 +29,7 @@ consume:
 - name: commons:provider-capability
   from: wagon:govern-providers
 wmbt:
-  total: 0
+  total: 3
+  L001: "minimize likelihood of an unbound gating obligation or a phantom binding going unnamed by the binding-gap inventory"
+  E001: "maximize quantity of gating obligations bound by fanning each multi-rule implementation out to every convention it realizes, without shipping a single new detector"
+  E002: "minimize likelihood of a gating extension node shipping with no bound mechanism, or a mechanism binding an obligation nobody declared, slipping past the gate"
