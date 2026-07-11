@@ -77,11 +77,10 @@ def test_fixture_fragments_valid_clean_invalid_flagged() -> None:
     assert _TEMPLATE.evaluate(F.INVALID_FRAGMENTS[VARIANT], cfg)
 
 
-def test_clean_baseline_on_real_composed_graph() -> None:
+def test_clean_baseline_on_real_composed_graph(clean_convention_graph) -> None:
     """On the live repo no wagon exceeds the soft coupling threshold (no false positives)."""
-    graph = load_composed_graph(find_repo_root())
-    assert _TEMPLATE.evaluate(graph, _CONFIG) == []
-    assert evaluate_coupling_complexity(graph) == []
+    assert _TEMPLATE.evaluate(clean_convention_graph, _CONFIG) == []
+    assert evaluate_coupling_complexity(clean_convention_graph) == []
 
 
 @contextlib.contextmanager

@@ -363,7 +363,7 @@ def test_walker_rejects_top_level_id_in_acceptance_block(fixture_repo: Path):
 
 
 def test_walker_skips_acceptance_with_malformed_urn(fixture_repo: Path):
-    """An acceptance whose URN fails URNBuilder.PATTERNS['acc'] is skipped.
+    """An acceptance whose URN fails URNGrammar.PATTERNS['acc'] is skipped.
 
     Per the spec issue text: "failure of (a) [URN pattern] is a parent-graph
     problem caught by `atdd repo validate`" — so the walker silently skips

@@ -1,0 +1,82 @@
+urn: wmbt:validate-conventions:E032
+step: execute
+direction: minimize
+dimension: time
+object_of_control: clean-convention-graph-construction
+context_clarifier: the composed convention graph is built once per pytest session and reused by every
+  read-only baseline and contract test
+lens: functional.efficiency
+statement: minimize time of clean-convention-graph-construction by ensuring the composed convention graph
+  is built once per pytest session and reused by every read-only baseline and contract test
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E032-RED-001-graph-rebuilt-per-evaluate
+    id: AC-RED-001
+    purpose: Before the session fixture exists, the read-only convention suite rebuilds the composed convention
+      graph once per evaluate() call rather than once per session — measured, not assumed.
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The conventions suite with load_composed_graph() instrumented to count invocations
+    - No session-scoped clean_convention_graph fixture exists
+  when:
+    abstract: The read-only convention suite is collected and run
+  then:
+    abstract:
+    - load_composed_graph() is invoked far more than once (measured at 116 on b6a42f17)
+    - A test asserting exactly one invocation therefore fails
+  metadata:
+    author: atdd:planner
+    created: '2026-07-10'
+- identity:
+    urn: acc:validate-conventions:E032-GREEN-001-graph-composed-once-per-session
+    id: AC-GREEN-001
+    purpose: A session-scoped clean_convention_graph fixture composes the graph exactly once; every read-only
+      baseline and contract test reuses it rather than rebuilding.
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A top-level src/atdd/validators/conventions/conftest.py exposing session-scoped repo_root and clean_convention_graph
+      fixtures
+    - Evaluator helpers accepting an optional graph= argument, defaulting to the per-call build
+    - load_composed_graph() instrumented to count invocations
+  when:
+    abstract: The read-only convention suite is run
+  then:
+    abstract:
+    - load_composed_graph() is invoked exactly once for the read-only suite
+    - All 218 conventions tests still pass — no test is skipped, deleted, or xfailed
+    - load_composed_graph() itself carries no lru_cache; the loader reads mutable files
+  metadata:
+    author: atdd:planner
+    created: '2026-07-10'
+- identity:
+    urn: acc:validate-conventions:E032-SMOKE-001-session-graph-in-real-checkout
+    id: AC-SMOKE-001
+    purpose: In a real checkout, running the read-only convention suite through the real pytest entrypoint
+      composes the convention graph exactly once, and coverage is preserved.
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout on the branch
+    - The real pytest entrypoint, no monkeypatched loader beyond the invocation counter
+  when:
+    abstract: pytest is invoked as a subprocess over src/atdd/validators/conventions/
+  then:
+    abstract:
+    - The suite exits 0 with the same test count as the pre-change baseline
+    - The counted invocations of load_composed_graph() collapse from 116 toward 1, filesystem-mutation
+      tests excepted
+    - The Y003 coverage-preserved guards remain green
+  metadata:
+    author: atdd:planner
+    created: '2026-07-10'
