@@ -1,0 +1,120 @@
+# The cross-repo migration rollout and rollback plan (#1400 X-006).
+#
+# Checked by `atdd state rollout-check` (src/atdd/state/rollout.py). The four rules it enforces:
+#
+#   shadow-before-blocking        shadow mode is scheduled strictly before every blocking step
+#                                 and before every irreversible removal
+#   irreversible-has-rollback     every irreversible step names a rollback TRIGGER and an exact
+#                                 RESTORE procedure
+#   irreversible-after-dependency no step runs before something it depends on
+#   agreed-before-irreversible    every repo the plan touches has signed off before the first
+#                                 one-way door
+#
+# `reversible: true` means: a single revert puts the world back. Everything else is a one-way
+# door and must earn its way through with a rollback that actually works — "revert the commit"
+# is not a restore procedure for a step that deleted the readers of a file which has since
+# gone stale.
+
+schema_version: 1
+
+# Both repos sign off BEFORE the first irreversible step (order 40). Recorded here because a
+# one-way door opened by one repo on behalf of two is not a migration, it is an outage with a
+# commit message.
+agreed_by:
+  core: "#1434 — the migrate-projection-authority wagon (this plan ships with the code it plans)"
+  github-extension: "#1400 X-006 — the extension holds no lifecycle read; its mirror is unaffected by every step below"
+
+steps:
+  - id: mint-uids
+    order: 10
+    mode: shadow
+    repos: [core]
+    reversible: true
+    summary: >-
+      Backfill an immutable uid into every legacy manifest entry and commit it. Reversible: the
+      manifest is still authoritative and the uids are inert until something reads them.
+    depends_on: []
+
+  - id: migrate-manifest
+    order: 20
+    mode: shadow
+    repos: [core]
+    reversible: true
+    summary: >-
+      Emit the uid-keyed projection from the manifest. Reversible: the projection is committed but
+      nothing reads it yet, so deleting the tree restores the previous world exactly.
+    depends_on: [mint-uids]
+
+  - id: shadow-ci
+    order: 30
+    mode: shadow
+    repos: [core, github-extension]
+    reversible: true
+    summary: >-
+      Turn on the non-blocking shadow projection CI. It reports drift against BOTH the committed
+      projection and the manifest-derived one, and exits 0 always. This is the step that buys the
+      evidence every later step spends. Hold here until drift has been zero for long enough that
+      the team believes it — that judgement is the point of the window, and it cannot be automated.
+    depends_on: [migrate-manifest]
+
+  - id: remove-github-hot-path
+    order: 40
+    mode: blocking
+    repos: [core, github-extension]
+    reversible: false
+    summary: >-
+      Stop every lifecycle decision, validator, and gate from calling the GitHub API. The phase
+      becomes the store's, and the store's alone. Irreversible in effect, not in diff: once gates
+      stop reading labels, the labels drift, and putting the read back would then resolve phases
+      from data that has been wrong for a week.
+    depends_on: [shadow-ci]
+    rollback:
+      trigger: >-
+        Any lifecycle decision resolves differently after the change than the shadow run predicted
+        — concretely: `atdd state shadow` reported zero drift, and a gate then disagrees with the
+        projection for any work item.
+      restore: >-
+        1. Revert the commit that removed the read (restores `_ProviderAbsentSource.read_phase` to
+        the adapter call). 2. Re-run `atdd state shadow` and `atdd coach reconcile` to re-sync
+        labels to the store, because the labels have drifted since the read was removed and the
+        restored reader would otherwise resolve phases from them. 3. Return to shadow-ci and hold.
+
+  - id: decommission-manifest
+    order: 50
+    mode: blocking
+    repos: [core]
+    reversible: false
+    summary: >-
+      Remove every core reader of .atdd/manifest.yaml (removed, not deprecated in place — a
+      deprecated reader still reads), then delete the file. Irreversible: the manifest goes stale
+      the moment the last writer stops, so restoring the readers restores readers of a lie.
+    depends_on: [shadow-ci, remove-github-hot-path]
+    rollback:
+      trigger: >-
+        Any core read returns a different result with the manifest absent than it did with the
+        manifest present — the exact claim `atdd state cutover` and Y002-UNIT-001 test.
+      restore: >-
+        1. Revert the removal commit. 2. Regenerate the manifest FROM THE STORE with
+        `atdd state import-manifest`'s inverse (`manifest_projection.write_manifest_projection`) —
+        never from git history, which is stale by exactly the time the fallback was gone.
+        3. Return to shadow-ci and hold until the drift that caused this is understood.
+
+  - id: blocking-mode
+    order: 60
+    mode: blocking
+    repos: [core, github-extension]
+    reversible: true
+    summary: >-
+      Make the projection canonicality check a REQUIRED status check. Reversible: it is a branch
+      protection setting, and turning it off restores the previous world in one click.
+    depends_on: [decommission-manifest]
+
+  - id: cutover
+    order: 70
+    mode: blocking
+    repos: [core, github-extension]
+    reversible: true
+    summary: >-
+      Evaluate the three M8 exit criteria (`atdd state cutover`). Declares the migration done; it
+      changes nothing, so it is trivially reversible.
+    depends_on: [blocking-mode]

@@ -63,6 +63,12 @@ PHASES: Tuple[str, ...] = (
     "INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "BLOCKED", "OBSOLETE",
 )
 
+#: Lifecycle phases a store object may carry that are NOT projected. ``COMPLETE`` is
+#: derived from merge-to-main (spec §18 decision 1): it has no legal projection
+#: document, so the projector passes over such objects rather than refusing them (see
+#: :func:`build_documents`). The store keeps the record; git keeps the completion.
+ARCHIVED_PHASES: Tuple[str, ...] = ("COMPLETE",)
+
 #: Retirement is a tombstone record, never a file deletion (spec §10 rule 3).
 STATES: Tuple[str, ...] = ("ACTIVE", "TOMBSTONED")
 
@@ -351,13 +357,25 @@ class ProjectionResult:
 
 
 def build_documents(store: StateStore) -> Dict[str, Dict[str, Any]]:
-    """Every projectable object as a validated document, keyed by uid.
+    """Every **projectable** object as a validated document, keyed by uid.
 
     Refuses the whole set if any document leaks nondeterministic content or breaks
     the contract — so a bad object cannot leave a half-written projection behind.
+
+    A ``COMPLETE`` object is **archived, not refused** (:data:`ARCHIVED_PHASES`).
+    ``COMPLETE`` is derived from merge-to-main (spec §18 decision 1), so a completed
+    work item has no legal projection document — and every real store holds them.
+    Refusing them would mean no real repo could ever be projected; fabricating a
+    phase for them ("it was probably SMOKE") would be the lossy write the migration
+    guard exists to prevent. So the projector passes over them: their completion
+    lives in the merge commit that caused it, and their record lives in the store.
+    A *document* still may not claim ``COMPLETE`` — :func:`validate_document`
+    refuses that, and should.
     """
     documents: Dict[str, Dict[str, Any]] = {}
     for obj in store.objects.list(kind=WORK_ITEM_KIND):
+        if obj.state in ARCHIVED_PHASES:
+            continue
         document = build_document(obj)
         assert_deterministic(document, uid=obj.uid)
         validate_document(document)

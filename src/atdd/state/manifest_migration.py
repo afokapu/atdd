@@ -59,6 +59,7 @@ import yaml
 from atdd.state.identity import is_uid, mint_uid
 from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
 from atdd.state.projection import (
+    ARCHIVED_PHASES,
     PHASES,
     PROJECTION_RELATIVE,
     STATE_ACTIVE,
@@ -83,7 +84,10 @@ ISSUE_KEY = "issue_number"
 
 #: The phase a completed work item carries in the manifest — and may never carry in a projection
 #: (spec §18 decision 1: COMPLETE is derived from merge-to-main). Not a defect: an outcome.
-COMPLETE_PHASE = "COMPLETE"
+#: The projector agrees, and passes over such objects (``projection.ARCHIVED_PHASES``); the two
+#: constants are bound by a test, because a migration that archived what the projector projected
+#: (or vice versa) would produce a corpus that fails canonicality on its first run.
+COMPLETE_PHASE = ARCHIVED_PHASES[0]
 
 #: The owner a legacy entry has, which is none. Better a name that says so than an invented person.
 UNATTRIBUTED_OWNER = "unattributed"
