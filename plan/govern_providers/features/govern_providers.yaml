@@ -2,10 +2,14 @@ urn: feature:govern-providers:govern-providers
 wagon: wagon:govern-providers
 description: The govern-providers lane of train 0007-enforce-extension-conventions.
 sizing:
-  wmbts: 0
+  wmbts: 4
   footprint_score: 6
   footprint_size: S
-wmbts: []
+wmbts:
+- wmbt:govern-providers:D001
+- wmbt:govern-providers:E001
+- wmbt:govern-providers:E002
+- wmbt:govern-providers:E003
 components:
   backend:
     application:
