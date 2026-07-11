@@ -22,9 +22,8 @@ description: The shadow-run report (docs/validator-parity/shadow-run-report.md) 
 sizing:
   footprint_score: 5
   footprint_size: S
-  wmbts: 2
+  wmbts: 1
 urn: feature:validate-conventions:shadow-and-promote
 wagon: wagon:validate-conventions
 wmbts:
-- wmbt:validate-conventions:E016
 - wmbt:validate-conventions:E018

@@ -13,13 +13,11 @@ in parallel with legacy validators (imports no persona validator module).
 from __future__ import annotations
 
 import contextlib
-import re
 
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
-from atdd.validators.conventions.sizing import _parity
 from atdd.validators.conventions.sizing import fixtures as F
 from atdd.validators.conventions.sizing.archetype import (
     TEMPLATE_IDS,
@@ -52,15 +50,6 @@ _INJECT = {
 }
 
 
-def _legacy_flagged(scan_violations) -> set:
-    out = set()
-    for v in scan_violations:
-        m = re.search(r"wagon '([^']+)'", v.detail)
-        if m:
-            out.add(m.group(1))
-    return out
-
-
 def test_wagon_separability_variant_contract() -> None:
     assert TEMPLATE in TEMPLATE_IDS, f"{TEMPLATE} not in sizing archetype"
     assert LEGACY_PARITY_SOURCES, "variant must record >=1 legacy parity source"
@@ -87,17 +76,22 @@ def test_fixture_fragments_valid_clean_invalid_flagged() -> None:
 def test_live_corpus_legacy_parity() -> None:
     """HONESTY NOTE: separability is an ADVISORY metric that genuinely fires on the
     valid live corpus (non-separable wagons are a real advisory signal, NOT false
-    positives), so a clean baseline of [] is NOT the right invariant here. Instead we
-    prove parity directly: the convention evaluator flags the EXACT SAME wagon set as
-    the legacy validator on the live graph. Identical findings on real data is the
-    strongest parity evidence available for an advisory metric.
+    positives), so a clean baseline of [] is NOT the right invariant here.
+
+    Parity against the legacy scan was proven and recorded (#1212); the legacy in-process
+    oracle was dropped with the retired legacy validator (#1207 sweep, #1385). What this
+    test still pins on the live graph is that the evaluator RUNS, surfaces findings, and
+    is deterministic. The real differential — a wagon flipped non-separable is caught —
+    lives in ``test_fault_injection_legacy_parity`` below.
     """
     root = find_repo_root()
-    graph = load_composed_graph(root)
-    conv = {ev["source_node_or_scope"].split(":", 1)[1] for ev in evaluate_separability(graph)}
-    leg = _legacy_flagged(_parity.legacy_separability_scan_live())
+    conv = {ev["source_node_or_scope"].split(":", 1)[1]
+            for ev in evaluate_separability(load_composed_graph(root))}
     assert conv, "advisory metric expected to surface findings on the live corpus"
-    assert conv == leg, f"live-corpus parity mismatch: conv-only={conv - leg}, legacy-only={leg - conv}"
+
+    again = {ev["source_node_or_scope"].split(":", 1)[1]
+             for ev in evaluate_separability(load_composed_graph(root))}
+    assert conv == again, f"evaluator is non-deterministic on the live graph: {conv ^ again}"
 
 
 @contextlib.contextmanager
@@ -119,18 +113,18 @@ def _inject_tokens(root, mapping):
 
 def test_fault_injection_legacy_parity() -> None:
     """Flip a currently-separable wagon to non-separable by rewriting its WMBTs'
-    tokens; assert BOTH the convention evaluator AND the legacy scan flag it, revert.
+    tokens; assert the convention evaluator flags it, then revert and assert it stops.
 
-    As with coupling, the legacy ADVISORY pytest test passes regardless of findings,
-    so parity is measured by running the legacy scan FUNCTION in-process on the
-    identical faulted tree — not by a subprocess return code.
+    The legacy in-process scan oracle was dropped with the retired legacy validator
+    (#1207 sweep, #1385); this differential is the live coverage.
     """
     root = find_repo_root()
     with _inject_tokens(root, _INJECT):
         graph = load_composed_graph(root)
         conv = {ev["source_node_or_scope"].split(":", 1)[1] for ev in evaluate_separability(graph)}
-        leg = _legacy_flagged(_parity.legacy_separability_scan_live())
 
     assert _TARGET_WAGON in conv, f"convention missed injected fault: {conv}"
-    assert _TARGET_WAGON in leg, f"legacy missed injected fault: {leg}"
-    assert _TARGET_WAGON in (conv & leg), "PARITY: both must catch the same wagon"
+
+    reverted = {ev["source_node_or_scope"].split(":", 1)[1]
+                for ev in evaluate_separability(load_composed_graph(root))}
+    assert _TARGET_WAGON not in reverted, "fault survived revert — injection leaked"

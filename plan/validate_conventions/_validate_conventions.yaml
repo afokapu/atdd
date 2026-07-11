@@ -11,7 +11,6 @@ description: 'Convention-graph validator family/template suite under src/atdd/va
 features:
 - urn: feature:validate-conventions:family-template-catalogue
 - urn: feature:validate-conventions:registry-archetype-conformance
-- urn: feature:validate-conventions:legacy-parity-audit
 - urn: feature:validate-conventions:p0-graph-integrity-variants
 - urn: feature:validate-conventions:p1-parity-variants
 - urn: feature:validate-conventions:variant-metadata-conformance
@@ -19,9 +18,8 @@ features:
 - urn: feature:validate-conventions:legacy-decommission
 - urn: feature:validate-conventions:anti-regression-gate
 - urn: feature:validate-conventions:convention-graph-query-contract
-- urn: feature:validate-conventions:sentinel-parity-gates
 - urn: feature:validate-conventions:stricter-finding-adjudication
-- urn: feature:validate-conventions:differential-catch-matrix-harness
+- urn: feature:validate-conventions:tune-convention-suite
 goal: organize validators by graph-question family rather than persona so new convention
   nodes are auto-captured by reusable templates, and prove parity before any legacy
   decommissioning
@@ -44,38 +42,27 @@ produce:
   to: external
 consume: []
 wmbt:
-  total: 34
+  total: 19
+  E032: minimize time of clean-convention-graph-construction — the composed convention
+    graph is built once per pytest session and reused by every read-only baseline and
+    contract test
+  E033: minimize likelihood of binding-fault-filesystem-mutation — binding-family faults
+    are injected by renaming a rule id in a cloned graph while the emitted bind_rule
+    index is left unchanged, so no convention YAML is ever rewritten
   E001: minimize likelihood of registry-family-template-mismatch — registry.yaml declares exactly the 13 canonical families and 22 templates
   E002: minimize likelihood of registry-archetype-divergence — each family archetype.py exposes exactly the template ids registry.yaml assigns it
   E003: minimize likelihood of incomplete-template-contract — template_contract.py defines all eight mandatory template metadata fields
   E004: minimize likelihood of malformed-family-folder — every family folder contains README.md, archetype.py and fixtures.py
   E005: minimize likelihood of legacy-validator-regression — legacy persona validator folders are unmoved and atdd validate behaviour is unchanged
-  E006: minimize likelihood of unaccounted-legacy-validator — every file under the four legacy validator roots appears in the parity map entries or the exclusion table
-  E007: minimize likelihood of invented-family-template — every mapped entry uses a canonical family and template from the #1204 registry
-  E008: minimize likelihood of invalid-parity-classification — every entry carries a parity_status from the seven-value enum and a priority of P0, P1 or P2
-  E009: minimize likelihood of unexplained-exclusion — every file in the exclusion table carries an explicit reason
   E010: minimize likelihood of unbuilt-p0-variant — every P0 direct/split/merged/superseded entry has a target implementation or explicit superseded evidence
   E011: minimize likelihood of variant-metadata-noncompliance — every variant references a registry family/template and declares the nine metadata fields including a legacy_parity_source
-  E012: minimize likelihood of unbuilt-p1-variant — every P1 parity entry is implemented or explicitly deferred with a recorded reason
   E013: minimize likelihood of legacy-import-coupling — no target convention validator imports a legacy persona validator module as its source of truth
   E014: minimize likelihood of parallel-run-collision — target convention validators and legacy persona validators run in parallel without collision
   E015: minimize likelihood of persona-folder-convention-validator — CI rejects any new convention-graph validator added under a legacy persona validator folder
-  E016: minimize likelihood of unresolved-p0-shadow-gap — the shadow-run report shows zero unresolved P0 parity gaps before promotion
-  E017: minimize likelihood of unaccounted-decommission-outcome — the decommission report records an outcome for every legacy validator, one-to-one with the parity audit
   E018: minimize likelihood of non-authoritative-convention-path — after promotion the convention validators run as the authoritative convention-graph enforcement path
-  Y001: minimize likelihood of unsafe-legacy-deletion — no legacy validator is deleted unless its parity status is direct/merged/split/superseded and its target implementation exists
   E019: minimize likelihood of unnormalized-graph-node — composed graph exposes id/kind/refs/theme/package/location on real nodes
   E020: minimize likelihood of vacuous-variant-selection — every variant selects >0 real nodes or declares an allowed-empty selection
   E021: minimize likelihood of untemplated-failure-evidence — variant evidence keys are a subset of its template failure_evidence
-  E022: minimize likelihood of unpaired-sentinel — every ported P0 variant has a fault-injection parity test vs its legacy validator
-  E023: minimize likelihood of unverified-parity-claim — no P0 pair is parity-verified without a passing legacy-vs-convention diff
-  E024: minimize likelihood of unadjudicated-stricter-finding — each convention-only finding is classified real-gap/schema-bug/loader-bug
   E025: minimize likelihood of train-representation-mismatch — train nodes loaded from detail files conform to the train schema
   E026: minimize likelihood of incomplete-harness-enum — the acceptance harness enum includes smoke so SMOKE accs are not false-flagged
-  E027: minimize likelihood of missing-fault-corpus — a seeded fault exists per legacy rule plus a clean baseline
-  E028: minimize likelihood of single-suite-run — each fault is run through both legacy and convention suites on identical input
-  E029: minimize likelihood of unclassified-catch-outcome — each fault yields a catch-matrix cell (both/convention-only/legacy-only/neither)
-  E030: minimize likelihood of clean-repo-false-positive — neither suite flags the clean baseline
-  E031: minimize likelihood of unmeasured-parity-delta — a gap report quantifies parity/improvements/regressions/false-positives from the matrix
-  Y002: maximize likelihood of decommission-preflight-visibility — every decommission-ready legacy validator is classified PLATFORM/RULE-BOUND/ACCEPTANCE-ANCHORED with its legacy-validator-map status and required retirement steps, naming the two CI catches, before any deletion
-  Y003: minimize likelihood of coverage-loss-on-legacy-validator-sweep-retirement — no rule implementation.ref/validator resolves to a deleted persona-folder validator and every repointed rule binds to an executing convention variant (not an xfail/stub); complements Y001 (map safety) and Y002 (preflight visibility)
+  Y003: minimize likelihood of coverage-loss-on-legacy-validator-sweep-retirement — no rule implementation.ref/validator resolves to a deleted persona-folder validator and every repointed rule binds to an executing convention variant (not an xfail/stub)

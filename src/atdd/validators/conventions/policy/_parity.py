@@ -9,9 +9,6 @@ subprocess plumbing; it is not a test module (no ``test_`` prefix → not collec
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -19,19 +16,6 @@ from typing import Optional
 def repo_root() -> Path:
     # .../src/atdd/validators/conventions/policy/_parity.py
     return Path(__file__).resolve().parents[5]
-
-
-def legacy_catches(nodeid: str) -> bool:
-    """Run the legacy validator test by nodeid; return True iff it FAILS (i.e. the
-    legacy validator caught the injected fault)."""
-    root = repo_root()
-    env = dict(os.environ)
-    env["PYTHONPATH"] = "src"
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=str(root), env=env, capture_output=True, text=True,
-    )
-    return proc.returncode != 0
 
 
 @contextlib.contextmanager

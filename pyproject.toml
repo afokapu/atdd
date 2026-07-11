@@ -79,6 +79,10 @@ exclude = ["atdd.*.validators.fixtures*"]
 # protocol-flow edges in consumer repos (graph/ is not a package; the glob
 # reaches into it from the atdd.coach package root).
 "atdd.coach" = ["graph/*.yaml"]
+# #1421: the URN grammar convention (urn_grammar.yaml) is read at import by the
+# URNGrammar engine, so it must ship in the wheel or a non-editable install
+# fails on first import.
+"atdd.coach.utils.graph" = ["*.yaml"]
 "atdd.planner.conventions" = ["*.yaml", "nodes/*.yaml"]
 "atdd.planner.schemas" = ["*.json", "author/*.json"]
 "atdd.tester.conventions" = ["*.yaml"]

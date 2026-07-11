@@ -49,7 +49,7 @@ Each URN takes the form ``<resource>:<parent-coordinates>:<local-id>``, where
 ``<parent-coordinates>`` may require multiple colon-separated tokens depending on
 how the parent is uniquely identified. URN segment count reflects the parent's
 identification cost — it is not a fixed scheme depth. New resource families
-register one entry in ``URNBuilder.PATTERNS`` and inherit the same convention
+register one entry in ``URNGrammar.PATTERNS`` and inherit the same convention
 without re-litigating per-type rules.
 
 Per-resource segment-count table (verbatim from spec §3.2):
@@ -63,42 +63,71 @@ Per-resource segment-count table (verbatim from spec §3.2):
   | acc:<wagon>:<wmbt-id>-<harness>-<seq>     | WMBT (collapses)        | 2                             |
   | security:<wagon>:<feature-slug>:<seq>     | feature (2 tokens)      | 3                             |
 
-The machine-readable mirror of this table is ``URNBuilder.SEGMENT_COUNTS``;
+The machine-readable mirror of this table is ``URNGrammar.SEGMENT_COUNTS``;
 ``test_urn_segment_count_table`` parametrizes over both to keep them in lockstep.
 
 Usage:
-    from utils.graph import URNBuilder
+    from utils.graph import URNGrammar
     # or
-    from utils.graph.urn import URNBuilder
+    from utils.graph.urn import URNGrammar
 
     # Build a wagon URN (verb-object format)
-    wagon_urn = URNBuilder.wagon("manage-users")
+    wagon_urn = URNGrammar.wagon("manage-users")
 
     # Build a feature URN (verb-object format)
-    feature_urn = URNBuilder.feature("manage-users", "authenticate-user")
+    feature_urn = URNGrammar.feature("manage-users", "authenticate-user")
 
     # Build a WMBT URN
-    wmbt_urn = URNBuilder.wmbt("manage-users", "E001")
+    wmbt_urn = URNGrammar.wmbt("manage-users", "E001")
 
     # Build an acceptance URN
-    acc_urn = URNBuilder.acceptance("manage-users", "C004", "E2E", "019")
-    acc_urn_with_slug = URNBuilder.acceptance("manage-users", "C004", "E2E", "019", "user-login")
+    acc_urn = URNGrammar.acceptance("manage-users", "C004", "E2E", "019")
+    acc_urn_with_slug = URNGrammar.acceptance("manage-users", "C004", "E2E", "019", "user-login")
 
     # Build a component URN
-    comp_urn = URNBuilder.component("manage-users", "authenticate-user", "LoginForm", "frontend", "presentation")
+    comp_urn = URNGrammar.component("manage-users", "authenticate-user", "LoginForm", "frontend", "presentation")
 
     # Build a test URN
-    test_urn = URNBuilder.test("manage-users", "tc-login-success", feature_id="authenticate-user")
+    test_urn = URNGrammar.test("manage-users", "tc-login-success", feature_id="authenticate-user")
 """
 
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Literal
 
+import yaml
+
 # No logger needed - removed _bootstrap dependency
 
-class URNBuilder:
+# ---------------------------------------------------------------------------
+# Convention-native grammar source (issue #1421).
+#
+# The URN grammar is DATA in ``urn_grammar.yaml``; this engine *executes* it, the
+# same way ``planner/naming.py::verb_lexicon`` executes ``feature.convention.yaml``.
+# Cycle safety is the non-negotiable constraint: this module imports zero atdd
+# modules, and reads its grammar with plain ``yaml.safe_load`` + ``pathlib`` +
+# ``@lru_cache`` ONLY — never through ``bind_rule`` or the convention-graph
+# loader (that import would cycle). This is the identical discipline that keeps
+# ``verb_lexicon`` cycle-free.
+# ---------------------------------------------------------------------------
+_GRAMMAR_PATH = Path(__file__).resolve().parent / "urn_grammar.yaml"
+
+
+@lru_cache(maxsize=1)
+def _load_grammar_families() -> dict:
+    """Return the ``families:`` block of the URN grammar convention.
+
+    Read once (``@lru_cache``) with plain ``yaml`` — the single source of the
+    URN grammar. ``URNGrammar.PATTERNS`` / ``SEGMENT_COUNTS`` are projections of
+    this; there is intentionally no second representation to drift from.
+    """
+    data = yaml.safe_load(_GRAMMAR_PATH.read_text(encoding="utf-8")) or {}
+    return data.get("families", {}) or {}
+
+
+class URNGrammar:
     """Centralized URN builder for all entity types."""
 
     STEP_LEGEND = {
@@ -144,74 +173,29 @@ class URNBuilder:
 
     _MANIFEST_STATE = {}
 
-    # Pattern validators
+    # ------------------------------------------------------------------
+    # Grammar tables — PROJECTIONS of the ``urn_grammar.yaml`` convention
+    # (issue #1421). These class attributes are no longer the source: they are
+    # computed once, at class-definition time, from ``_load_grammar_families()``.
+    # Every enforcing consumer (``validate_urn`` / ``validate_grammar`` /
+    # ``parse_urn`` / the builder methods, plus external callers that read
+    # ``URNGrammar.PATTERNS`` / ``SEGMENT_COUNTS``) sees the same single source,
+    # so a family is added by editing one convention row — never this file.
+    #
+    #   PATTERNS       {family: regex}                — every family
+    #   SEGMENT_COUNTS {family: token-count}          — only families that
+    #                  declare one (parent-it-belongs-to; count == 1 ⇒ root)
+    #   _FAMILY_SPECS  {family: full convention spec}  — drives segment-based parse
+    # ------------------------------------------------------------------
+    _FAMILY_SPECS = _load_grammar_families()
     PATTERNS = {
-        # Identities
-        'wagon': r'^wagon:[a-z][a-z0-9-]*$',
-        'feature': r'^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$',
-        'component': r'^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$',
-
-        # Artifacts (colon hierarchy with optional dot variant)
-        'plan': r'^plan:[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*(\.[a-z0-9-]+)?$',
-        'test': (
-            r'^test:('
-            # V3 acceptance: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
-            r'[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]\d{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\d{3}-[a-z0-9][a-z0-9-]*'
-            r'|'
-            # V3 journey: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
-            r'train:\d{4}-[a-z0-9][a-z0-9-]*:(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\d{3}-[a-z0-9][a-z0-9-]*'
-            r'|'
-            # Legacy dot format (migration support)
-            r'[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\.[a-z0-9-]+)?'
-            r')$'
-        ),
-        'contract': r'^contract:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)+(\.[a-z][a-z0-9-]+)?$',
-        'telemetry': r'^telemetry:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)*(\.[a-z][a-z0-9-]+)?$',
-
-        # ATDD Specific
-        'wmbt': r'^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$',
-        # Two shapes (substrate spec v12 §3.3):
-        #   WMBT acceptance: acc:<wagon>:<WMBT-id>-<HARNESS>-<NNN>[-<slug>]
-        #   Train acceptance: acc:<train-id>:<acceptance-slug>  (free-form kebab slug)
-        # The wagon/train segment now allows a leading digit so train ids like
-        # "0001-self-compliance-validate" are accepted. WMBT alternative is
-        # listed first; train alternative requires the slug to NOT match the
-        # WMBT shape (covered by alternation order — WMBT branch consumes
-        # `[DLPCEMYRK]\d{3}-<HARNESS>-\d{3}` greedily before the train branch).
-        'acc': (
-            r'^acc:[a-z0-9][a-z0-9-]*:('
-            r'[DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?'
-            r'|'
-            r'[a-z][a-z0-9-]*'
-            r')$'
-        ),
-        'security': r'^security:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:\d{3}$',
-
-        # Resources
-        'endpoint': r'^endpoint:[a-z0-9-]+\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\.[a-z0-9-/]+$',
-        'topic': r'^topic:[a-z0-9-]+$',
-        'table': r'^table:[a-z0-9_]+$',
-        'team': r'^team:[a-z0-9-]+$',
-
-        # Security artifacts (spec v12 §3.2: parent = feature, 3 tokens)
-        'security': r'^security:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[0-9]{3}$',
-
-        # Release management
-        'train': r'^train:\d{4}-[a-z0-9][a-z0-9-]*$',
-        'migration': r'^migration:\d{14}_[a-z][a-z0-9_]*$',
+        family: spec["pattern"]
+        for family, spec in _FAMILY_SPECS.items()
     }
-
-    # Per-resource segment-count table (spec v12 §3.2 parent-it-belongs-to).
-    # Token count = number of colon-separated tokens AFTER the resource prefix.
-    # Adding a new family REQUIRES adding an entry here in lockstep with PATTERNS;
-    # ``test_urn_segment_count_table`` enforces parity.
     SEGMENT_COUNTS = {
-        'wagon':    1,  # parent: none
-        'train':    1,  # parent: none
-        'feature':  2,  # parent: wagon (1 token)
-        'wmbt':     2,  # parent: wagon (1 token)
-        'acc':      2,  # parent: WMBT collapses into local-id segment
-        'security': 3,  # parent: feature (2 tokens) + threat-seq
+        family: spec["segment_count"]
+        for family, spec in _FAMILY_SPECS.items()
+        if spec.get("segment_count") is not None
     }
 
     @classmethod
@@ -280,7 +264,7 @@ class URNBuilder:
             URN in format: wagon:[wagon_id]
 
         Example:
-            URNBuilder.wagon("manage-users") -> "wagon:manage-users"
+            URNGrammar.wagon("manage-users") -> "wagon:manage-users"
         """
         # Normalize the wagon ID
         wagon_id = cls._normalize_id(wagon_id)
@@ -309,7 +293,7 @@ class URNBuilder:
             URN in format: feature:[wagon_id]:[feature_id]
 
         Example:
-            URNBuilder.feature("manage-users", "authenticate-user") -> "feature:manage-users:authenticate-user"
+            URNGrammar.feature("manage-users", "authenticate-user") -> "feature:manage-users:authenticate-user"
         """
         # Normalize IDs
         wagon_id = cls._normalize_id(wagon_id)
@@ -325,6 +309,55 @@ class URNBuilder:
 
         if not cls.validate_urn(urn, 'feature'):
             raise ValueError(f"Generated invalid feature URN: {urn}")
+
+        return urn
+
+    @classmethod
+    def subject(cls, name: str) -> str:
+        """
+        Build a subject URN (issue #1421).
+
+        ``subject:<name>`` is a 1-token root family — the durable noun object of
+        a train's change (e.g. ``subject:artifact-identity``). It exists so a
+        typed 2-token ``train:<subject>:<slug>`` has a real parent and is not
+        flagged orphan by the graph model.
+
+        Example:
+            URNGrammar.subject("artifact-identity") -> "subject:artifact-identity"
+        """
+        name = cls._normalize_id(name)
+        if not re.match(r'^[a-z][a-z0-9-]*$', name):
+            raise ValueError(f"Invalid subject name: {name}. Must be kebab-case.")
+
+        urn = f"subject:{name}"
+        if not cls.validate_urn(urn, 'subject'):
+            raise ValueError(f"Generated invalid subject URN: {urn}")
+
+        return urn
+
+    @classmethod
+    def train(cls, subject: str, slug: str) -> str:
+        """
+        Build a typed train URN (issue #1421).
+
+        ``train:<subject>:<slug>`` replaces the legacy ``train:NNNN-slug`` form.
+        ``category`` is a validated FIELD, never an identity digit, so a
+        reclassification changes metadata — not the identity.
+
+        Example:
+            URNGrammar.train("artifact-identity", "migrate-with-alias")
+            -> "train:artifact-identity:migrate-with-alias"
+        """
+        subject = cls._normalize_id(subject)
+        slug = cls._normalize_id(slug)
+        if not re.match(r'^[a-z][a-z0-9-]*$', subject):
+            raise ValueError(f"Invalid train subject: {subject}. Must be kebab-case.")
+        if not re.match(r'^[a-z][a-z0-9-]*$', slug):
+            raise ValueError(f"Invalid train slug: {slug}. Must be kebab-case.")
+
+        urn = f"train:{subject}:{slug}"
+        if not cls.validate_urn(urn, 'train'):
+            raise ValueError(f"Generated invalid train URN: {urn}")
 
         return urn
 
@@ -345,10 +378,10 @@ class URNBuilder:
             URN in format: security:{wagon}:{feature_slug}:{NNN}
 
         Examples:
-            URNBuilder.security("auth", "session-management", "001")
+            URNGrammar.security("auth", "session-management", "001")
             -> "security:auth:session-management:001"
 
-            URNBuilder.security("auth", "session-management", "THREAT-1")
+            URNGrammar.security("auth", "session-management", "THREAT-1")
             -> "security:auth:session-management:001"
         """
         wagon_id = cls._normalize_id(wagon_id)
@@ -417,7 +450,7 @@ class URNBuilder:
             URN in format: wmbt:[wagon_id]:[sequence]
 
         Example:
-            URNBuilder.wmbt("user-auth", "E001") -> "wmbt:user-auth:E001"
+            URNGrammar.wmbt("user-auth", "E001") -> "wmbt:user-auth:E001"
         """
         # Normalize wagon ID
         wagon_id = cls._normalize_id(wagon_id)
@@ -568,10 +601,10 @@ class URNBuilder:
             URN in format: acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]
 
         Examples:
-            URNBuilder.acceptance("authenticate-user", "C004", "E2E", "019")
+            URNGrammar.acceptance("authenticate-user", "C004", "E2E", "019")
             -> "acc:authenticate-user:C004-E2E-019"
 
-            URNBuilder.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
+            URNGrammar.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
             -> "acc:maintain-ux:C004-E2E-019-user-connection"
         """
         # Normalize wagon ID
@@ -648,13 +681,13 @@ class URNBuilder:
             URN in format: component:{wagon_id}:{feature_id}:{component_name}:{side}:{layer}
 
         Examples:
-            URNBuilder.component("user-mgmt", "auth", "LoginForm", "frontend", "presentation")
+            URNGrammar.component("user-mgmt", "auth", "LoginForm", "frontend", "presentation")
             -> "component:user-mgmt:auth:LoginForm:frontend:presentation"
 
-            URNBuilder.component("navigate-domains", "browse-hierarchy", "composition", "backend", "assembly")
+            URNGrammar.component("navigate-domains", "browse-hierarchy", "composition", "backend", "assembly")
             -> "component:navigate-domains:browse-hierarchy:composition:backend:assembly"
 
-            URNBuilder.component("trains", "runner", "TrainRunner", "backend", "assembly")
+            URNGrammar.component("trains", "runner", "TrainRunner", "backend", "assembly")
             -> "component:trains:runner:TrainRunner:backend:assembly"
         """
         # Normalize IDs (but preserve component name case)
@@ -705,13 +738,13 @@ class URNBuilder:
             URN in format: plan:[wagon][.[feature][.[component].[side].[layer]]]
 
         Examples:
-            URNBuilder.plan("user-mgmt")
+            URNGrammar.plan("user-mgmt")
             -> "plan:user-mgmt"
 
-            URNBuilder.plan("user-mgmt", feature_id="auth")
+            URNGrammar.plan("user-mgmt", feature_id="auth")
             -> "plan:user-mgmt.auth"
 
-            URNBuilder.plan("user-mgmt", feature_id="auth",
+            URNGrammar.plan("user-mgmt", feature_id="auth",
                           component_name="LoginForm", side="fe", layer="presentation")
             -> "plan:user-mgmt.auth.LoginForm.fe.presentation"
         """
@@ -754,13 +787,13 @@ class URNBuilder:
             URN in format: contract:{theme}(:{segment})*(.{variant})?
 
         Examples:
-            URNBuilder.contract("mechanic", "timebank", variant="remaining")
+            URNGrammar.contract("mechanic", "timebank", variant="remaining")
             -> "contract:mechanic:timebank.remaining"
 
-            URNBuilder.contract("match", "dilemma", "current")
+            URNGrammar.contract("match", "dilemma", "current")
             -> "contract:match:dilemma:current"
 
-            URNBuilder.contract("commons", "ux", "foundations", "color")
+            URNGrammar.contract("commons", "ux", "foundations", "color")
             -> "contract:commons:ux:foundations:color"
         """
         # Normalize all segments
@@ -799,13 +832,13 @@ class URNBuilder:
             URN in format: telemetry:{theme}(:{segment})*(.{variant})?
 
         Examples:
-            URNBuilder.telemetry("mechanic", "decision", variant="choice")
+            URNGrammar.telemetry("mechanic", "decision", variant="choice")
             -> "telemetry:mechanic:decision.choice"
 
-            URNBuilder.telemetry("juggle", "goal", variant="detected")
+            URNGrammar.telemetry("juggle", "goal", variant="detected")
             -> "telemetry:juggle:goal.detected"
 
-            URNBuilder.telemetry("mechanic", "episode", variant="timer")
+            URNGrammar.telemetry("mechanic", "episode", variant="timer")
             -> "telemetry:mechanic:episode.timer"
         """
         # Normalize all segments
@@ -850,13 +883,13 @@ class URNBuilder:
             URN in format: test:[wagon][.[feature][.[component].[side].[layer]]].[test_case]
 
         Examples:
-            URNBuilder.test("user-mgmt", "tc-basic-flow")
+            URNGrammar.test("user-mgmt", "tc-basic-flow")
             -> "test:user-mgmt.tc-basic-flow"
 
-            URNBuilder.test("user-mgmt", "tc-login", feature_id="auth")
+            URNGrammar.test("user-mgmt", "tc-login", feature_id="auth")
             -> "test:user-mgmt.auth.tc-login"
 
-            URNBuilder.test("user-mgmt", "tc-render", feature_id="auth",
+            URNGrammar.test("user-mgmt", "tc-render", feature_id="auth",
                           component_name="LoginForm", side="fe", layer="presentation")
             -> "test:user-mgmt.auth.LoginForm.fe.presentation.tc-render"
         """
@@ -906,7 +939,7 @@ class URNBuilder:
             URN in format: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
 
         Example:
-            URNBuilder.test_acceptance("authenticate-identity", "verify-session",
+            URNGrammar.test_acceptance("authenticate-identity", "verify-session",
                                        "M002", "UNIT", "003", "trace-spans-created")
             -> "test:authenticate-identity:verify-session:M002-UNIT-003-trace-spans-created"
         """
@@ -955,7 +988,7 @@ class URNBuilder:
             URN in format: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
 
         Example:
-            URNBuilder.test_journey("0025-onboarding", "E2E", "001", "full-login-flow")
+            URNGrammar.test_journey("0025-onboarding", "E2E", "001", "full-login-flow")
             -> "test:train:0025-onboarding:E2E-001-full-login-flow"
         """
         harness = harness.upper()
@@ -989,152 +1022,144 @@ class URNBuilder:
         """
         Parse a URN into its components.
 
-        The per-family ``if/elif urn.startswith('X:')`` branches below are the
-        documented extension point for new URN types: adding a new family
-        requires (a) a resolver class in resolver.py, (b) a PATTERNS entry,
-        (c) one new branch here, (d) optionally a builder method — and
-        nothing else. Audit reference: docs/urn-prefix-audit-2026.md.
+        Parsing is DATA-DRIVEN (issue #1421): the family is detected from the
+        prefix and its colon tokens are mapped positionally onto the family's
+        ``segments`` names declared in ``urn_grammar.yaml``. Adding a colon-only
+        family therefore needs no branch here — just the convention row (plus a
+        resolver in resolver.py and, optionally, a builder method).
+
+        Two families whose terminal token is a dash-facet / multi-format
+        sub-grammar (``acc``: ``wmbt_id-harness-seq[-slug]``; ``test``: the V3
+        journey / acceptance / legacy-dot polymorphism whose train facet is tied
+        to the still-legacy test-identity migration, #1421 Layer 6) are flagged
+        ``parse: custom`` in the convention and keep dedicated parsers below.
 
         Args:
             urn: The URN to parse
 
         Returns:
-            Dictionary with URN components
-
-        Example:
-            URNBuilder.parse_urn("acc:user-auth.001.AC-EXEC-201")
-            -> {
-                'type': 'acceptance',
-                'wagon_id': 'user-auth',
-                'wmbt_sequence': '001',
-                'acceptance_id': 'AC-EXEC-201'
-            }
+            Dictionary with URN components (always includes a ``type`` key).
         """
-        # Determine the type
-        if urn.startswith('wagon:'):
-            return {
-                'type': 'wagon',
-                'wagon_id': urn.replace('wagon:', '')
-            }
-        elif urn.startswith('feature:'):
-            parts = urn.replace('feature:', '').split(':')
-            return {
-                'type': 'feature',
-                'wagon_id': parts[0],
-                'feature_id': parts[1] if len(parts) > 1 else None
-            }
-        elif urn.startswith('wmbt:'):
-            parts = urn.replace('wmbt:', '').split(':')
-            return {
-                'type': 'wmbt',
-                'wagon_id': parts[0],
-                'sequence': parts[1] if len(parts) > 1 else None
-            }
-        elif urn.startswith('acc:'):
-            main_part = urn.replace('acc:', '')
-            parts = main_part.split(':')
-            # Format: wagon_id:wmbt_id-harness-seq[-slug]
-            result = {
-                'type': 'acceptance',
-                'wagon_id': parts[0] if len(parts) > 0 else None,
-            }
-
-            # Parse facets: wmbt_id-harness-seq[-slug]
-            if len(parts) > 1:
-                facets = parts[1].split('-')
-                if len(facets) >= 3:
-                    result['wmbt_id'] = facets[0]  # e.g., C004
-                    result['harness'] = facets[1]  # e.g., E2E
-                    result['sequence'] = facets[2]  # e.g., 019
-                    # Optional slug (remaining parts joined with hyphens)
-                    if len(facets) > 3:
-                        result['slug'] = '-'.join(facets[3:])
-
-            return result
-        elif urn.startswith('test:'):
-            main_part = urn[5:]  # strip 'test:'
-
-            # V3 journey format: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
-            if main_part.startswith('train:'):
-                train_part = main_part[6:]  # strip 'train:'
-                colon_idx = train_part.find(':')
-                if colon_idx > 0:
-                    train_id = train_part[:colon_idx]
-                    tail = train_part[colon_idx + 1:]
-                    # Parse: {HARNESS}-{NNN}-{slug}
-                    segments = tail.split('-', 2)
-                    return {
-                        'type': 'test',
-                        'format': 'journey',
-                        'train_id': train_id,
-                        'harness': segments[0] if len(segments) > 0 else None,
-                        'sequence': segments[1] if len(segments) > 1 else None,
-                        'slug': segments[2] if len(segments) > 2 else None,
-                    }
-                return {'type': 'test', 'format': 'journey', 'train_id': train_part}
-
-            # V3 acceptance format: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
-            colon_parts = main_part.split(':')
-            if len(colon_parts) == 3:
-                wagon_id, feature_id, tail = colon_parts
-                # Parse tail: {WMBT_ID}-{HARNESS}-{NNN}-{slug}
-                # First 3 dash-segments = WMBT_ID, HARNESS, NNN; rest = slug
-                segments = tail.split('-', 3)
-                if len(segments) >= 3 and re.match(r'^[A-Z]\d{3}$', segments[0]):
-                    return {
-                        'type': 'test',
-                        'format': 'acceptance',
-                        'wagon_id': wagon_id,
-                        'feature_id': feature_id,
-                        'wmbt_id': segments[0],
-                        'harness': segments[1],
-                        'sequence': segments[2],
-                        'slug': segments[3] if len(segments) > 3 else None,
-                    }
-
-            # Legacy dot format: test:wagon.feature.tc-name
-            parts = main_part.split('.')
-            test_case = parts[-1] if parts else None
-            result = {
-                'type': 'test',
-                'format': 'legacy',
-                'wagon_id': parts[0] if len(parts) > 0 else None,
-                'test_case': test_case
-            }
-            if len(parts) > 2:
-                result['feature_id'] = parts[1]
-            if len(parts) > 5:
-                result['component_name'] = parts[2]
-                result['side'] = parts[3]
-                result['layer'] = parts[4]
-            return result
-        elif urn.startswith('component:'):
-            parts = urn.replace('component:', '').split(':')
-            return {
-                'type': 'component',
-                'wagon_id': parts[0] if len(parts) > 0 else None,
-                'feature_id': parts[1] if len(parts) > 1 else None,
-                'component_name': parts[2] if len(parts) > 2 else None,
-                'side': parts[3] if len(parts) > 3 else None,
-                'layer': parts[4] if len(parts) > 4 else None
-            }
-        elif urn.startswith('security:'):
-            parts = urn[len('security:'):].split(':')
-            expected = cls.SEGMENT_COUNTS['security']
-            if len(parts) != expected:
-                raise ValueError(
-                    f"Invalid security URN segment count: expected {expected} "
-                    f"tokens after 'security:' (wagon, feature_slug, threat_seq), "
-                    f"got {len(parts)} in {urn!r}"
-                )
-            return {
-                'type': 'security',
-                'wagon_id': parts[0],
-                'feature_id': parts[1],
-                'threat_seq': parts[2],
-            }
-        else:
+        if not isinstance(urn, str) or ':' not in urn:
             raise ValueError(f"Unknown URN type: {urn}")
+
+        prefix = urn.split(':', 1)[0]
+        spec = cls._FAMILY_SPECS.get(prefix)
+
+        # Families with a dash-facet / multi-format terminal token keep a
+        # dedicated parser (declared ``parse: custom`` in the convention).
+        if spec is not None and spec.get('parse') == 'custom':
+            if prefix == 'acc':
+                return cls._parse_acc(urn)
+            if prefix == 'test':
+                return cls._parse_test(urn)
+
+        # Generic, segment-driven parse for every colon-only family.
+        segments = (spec or {}).get('segments')
+        if not spec or not segments:
+            raise ValueError(f"Unknown URN type: {urn}")
+
+        tokens = urn[len(prefix) + 1:].split(':')
+
+        expected = spec.get('segment_count')
+        if expected is not None and len(tokens) != expected:
+            raise ValueError(
+                f"Invalid {prefix} URN segment count: expected {expected} "
+                f"token{'s' if expected != 1 else ''} after '{prefix}:' "
+                f"(parent-it-belongs-to, spec §3.2), got {len(tokens)} in {urn!r}"
+            )
+
+        result = {'type': spec.get('parse_type', prefix)}
+        for i, name in enumerate(segments):
+            result[name] = tokens[i] if i < len(tokens) else None
+        return result
+
+    @classmethod
+    def _parse_acc(cls, urn: str) -> dict:
+        """Custom parser for ``acc:<wagon>:<wmbt_id>-<harness>-<seq>[-<slug>]``."""
+        main_part = urn.replace('acc:', '')
+        parts = main_part.split(':')
+        # Format: wagon_id:wmbt_id-harness-seq[-slug]
+        result = {
+            'type': 'acceptance',
+            'wagon_id': parts[0] if len(parts) > 0 else None,
+        }
+
+        # Parse facets: wmbt_id-harness-seq[-slug]
+        if len(parts) > 1:
+            facets = parts[1].split('-')
+            if len(facets) >= 3:
+                result['wmbt_id'] = facets[0]  # e.g., C004
+                result['harness'] = facets[1]  # e.g., E2E
+                result['sequence'] = facets[2]  # e.g., 019
+                # Optional slug (remaining parts joined with hyphens)
+                if len(facets) > 3:
+                    result['slug'] = '-'.join(facets[3:])
+
+        return result
+
+    @classmethod
+    def _parse_test(cls, urn: str) -> dict:
+        """Custom parser for the polymorphic ``test:`` family (journey /
+        acceptance / legacy-dot). Its train facet still carries the legacy
+        ``NNNN-slug`` train id, migrated by the test-identity work (#1421
+        Layer 6), so this stays format-specific for now."""
+        main_part = urn[5:]  # strip 'test:'
+
+        # V3 journey format: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
+        if main_part.startswith('train:'):
+            train_part = main_part[6:]  # strip 'train:'
+            colon_idx = train_part.find(':')
+            if colon_idx > 0:
+                train_id = train_part[:colon_idx]
+                tail = train_part[colon_idx + 1:]
+                # Parse: {HARNESS}-{NNN}-{slug}
+                segments = tail.split('-', 2)
+                return {
+                    'type': 'test',
+                    'format': 'journey',
+                    'train_id': train_id,
+                    'harness': segments[0] if len(segments) > 0 else None,
+                    'sequence': segments[1] if len(segments) > 1 else None,
+                    'slug': segments[2] if len(segments) > 2 else None,
+                }
+            return {'type': 'test', 'format': 'journey', 'train_id': train_part}
+
+        # V3 acceptance format: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
+        colon_parts = main_part.split(':')
+        if len(colon_parts) == 3:
+            wagon_id, feature_id, tail = colon_parts
+            # Parse tail: {WMBT_ID}-{HARNESS}-{NNN}-{slug}
+            # First 3 dash-segments = WMBT_ID, HARNESS, NNN; rest = slug
+            segments = tail.split('-', 3)
+            if len(segments) >= 3 and re.match(r'^[A-Z]\d{3}$', segments[0]):
+                return {
+                    'type': 'test',
+                    'format': 'acceptance',
+                    'wagon_id': wagon_id,
+                    'feature_id': feature_id,
+                    'wmbt_id': segments[0],
+                    'harness': segments[1],
+                    'sequence': segments[2],
+                    'slug': segments[3] if len(segments) > 3 else None,
+                }
+
+        # Legacy dot format: test:wagon.feature.tc-name
+        parts = main_part.split('.')
+        test_case = parts[-1] if parts else None
+        result = {
+            'type': 'test',
+            'format': 'legacy',
+            'wagon_id': parts[0] if len(parts) > 0 else None,
+            'test_case': test_case
+        }
+        if len(parts) > 2:
+            result['feature_id'] = parts[1]
+        if len(parts) > 5:
+            result['component_name'] = parts[2]
+            result['side'] = parts[3]
+            result['layer'] = parts[4]
+        return result
 
     @staticmethod
     def _normalize_id(identifier: str) -> str:
@@ -1200,25 +1225,25 @@ def main() -> int:
 
     try:
         if args.entity == 'wagon':
-            urn = URNBuilder.wagon(args.wagon_id)
+            urn = URNGrammar.wagon(args.wagon_id)
             print(urn)
         elif args.entity == 'feature':
-            urn = URNBuilder.feature(args.wagon_id, args.feature_id)
+            urn = URNGrammar.feature(args.wagon_id, args.feature_id)
             print(urn)
         elif args.entity == 'wmbt':
-            urn = URNBuilder.wmbt(args.wagon_id, args.sequence)
+            urn = URNGrammar.wmbt(args.wagon_id, args.sequence)
             print(urn)
         elif args.entity == 'acceptance':
-            urn = URNBuilder.acceptance(args.wagon_id, args.wmbt_sequence, args.acceptance_id)
+            urn = URNGrammar.acceptance(args.wagon_id, args.wmbt_sequence, args.acceptance_id)
             print(urn)
         elif args.entity == 'component':
-            urn = URNBuilder.component(args.wagon_id, args.feature_id, args.component_name, args.side, args.layer)
+            urn = URNGrammar.component(args.wagon_id, args.feature_id, args.component_name, args.side, args.layer)
             print(urn)
         elif args.entity == 'parse':
-            result = URNBuilder.parse_urn(args.urn)
+            result = URNGrammar.parse_urn(args.urn)
             print(json.dumps(result, indent=2))
         elif args.entity == 'validate':
-            is_valid = URNBuilder.validate_urn(args.urn, args.entity_type)
+            is_valid = URNGrammar.validate_urn(args.urn, args.entity_type)
             if is_valid:
                 print(f"✓ Valid {args.entity_type} URN")
             else:

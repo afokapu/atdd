@@ -22,11 +22,8 @@ description: Per-file decommission outcome (remove/shim/keep/move) for every leg
 sizing:
   footprint_score: 5
   footprint_size: S
-  wmbts: 4
+  wmbts: 1
 urn: feature:validate-conventions:legacy-decommission
 wagon: wagon:validate-conventions
 wmbts:
-- wmbt:validate-conventions:E017
-- wmbt:validate-conventions:Y001
-- wmbt:validate-conventions:Y002
 - wmbt:validate-conventions:Y003

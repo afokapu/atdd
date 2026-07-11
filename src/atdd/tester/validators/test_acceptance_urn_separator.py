@@ -3,7 +3,7 @@ Platform validation for Acceptance URN format (Updated for SPEC-COACH-UTILS-0282
 
 SPEC-COACH-UTILS-0282: Acceptance URN refactored to include WMBT ID and harness
 SPEC-PLANNER-CONV-0052: Acceptance URN separator follows hierarchy-facet rule
-SPEC-PLANNER-CONV-0057: URNBuilder.acceptance updated for new separator pattern
+SPEC-PLANNER-CONV-0057: URNGrammar.acceptance updated for new separator pattern
 SPEC-PLANNER-CONV-0058: Acceptance schema updated to reflect new URN pattern
 SPEC-TESTER-CONV-0068 through SPEC-TESTER-CONV-0078: Test filename generation from URNs
 
@@ -92,17 +92,17 @@ def test_acceptance_urn_format_updated():
 # SPEC-COACH-UTILS-0282
 def test_urn_builder_acceptance_separator(monkeypatch):
     """
-    Given: URNBuilder utility exists
+    Given: URNGrammar utility exists
     When: Using new format with WMBT ID and harness
     Then: acceptance() method generates: acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]
     """
-    # Try to import URNBuilder from current location
+    # Try to import URNGrammar from current location
     try:
-        from atdd.coach.utils.graph.urn import URNBuilder
+        from atdd.coach.utils.graph.urn import URNGrammar
 
-        # Test URNBuilder.acceptance method with new signature
+        # Test URNGrammar.acceptance method with new signature
         # New signature: acceptance(wagon_id, wmbt_id, harness_code, seq, slug=None)
-        urn = URNBuilder.acceptance("authenticate-user", "E005", "UNIT", "201")
+        urn = URNGrammar.acceptance("authenticate-user", "E005", "UNIT", "201")
 
         assert urn == "acc:authenticate-user:E005-UNIT-201", \
             f"Expected 'acc:authenticate-user:E005-UNIT-201', got '{urn}'"
@@ -114,12 +114,12 @@ def test_urn_builder_acceptance_separator(monkeypatch):
             f"URN should have at least 2 dashes (facet separators), got: {urn}"
 
         # Test with optional slug
-        urn_with_slug = URNBuilder.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
+        urn_with_slug = URNGrammar.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
         assert urn_with_slug == "acc:maintain-ux:C004-E2E-019-user-connection", \
             f"Expected 'acc:maintain-ux:C004-E2E-019-user-connection', got '{urn_with_slug}'"
 
     except ImportError as e:
-        pytest.skip(f"URNBuilder not yet implemented or location changed: {e}")
+        pytest.skip(f"URNGrammar not yet implemented or location changed: {e}")
 
 
 # SPEC-PLANNER-CONV-0058

@@ -44,9 +44,8 @@ def test_bypass_inventory_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE) <= set(_template().failure_evidence)
 
 
-def test_clean_baseline_zero_on_real_graph() -> None:
-    graph = load_composed_graph(_parity.repo_root())
-    violations = _template().evaluate(graph, {"variant": VARIANT})
+def test_clean_baseline_zero_on_real_graph(clean_convention_graph) -> None:
+    violations = _template().evaluate(clean_convention_graph, {"variant": VARIANT})
     assert violations == [], (
         f"{VARIANT}: clean repo must yield zero violations, got: {violations}"
     )

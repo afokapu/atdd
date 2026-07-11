@@ -33,6 +33,7 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import (
     PlanTrainDiscovery,
+    e2e_dir_for,
     SmokeScanner,
     Violation,
 )
@@ -104,7 +105,7 @@ class TrainRouteSmokeAnalyzer:
         statuses = []
 
         for tid in train_ids:
-            train_e2e = self.e2e_dir / tid
+            train_e2e = e2e_dir_for(self.e2e_dir, tid)
             smoke_files = self._find_smoke_files(train_e2e)
 
             status = TrainRouteSmokeStatus(
