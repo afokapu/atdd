@@ -1,5 +1,5 @@
 # URN: test:train:0206-reconcile-dirty-store:E2E-001-reconcile-dirty-store-journey
-# Train: train:0206-reconcile-dirty-store
+# Train: train:object-conflict-resolution:reconcile-dirty-store
 # Phase: SMOKE
 # Layer: assembly
 # Runtime: python
@@ -37,7 +37,7 @@ def _atdd(args, cwd):
 
 
 @pytest.mark.smoke
-@pytest.mark.xfail(strict=True, reason="train 0206-reconcile-dirty-store not yet implemented (RED; #1400)")
+@pytest.mark.xfail(strict=True, reason="train train:object-conflict-resolution:reconcile-dirty-store not yet implemented (RED; #1400)")
 def test_dirty_store_reconcile_preserves_overlay(tmp_path: Path) -> None:
     project = tmp_path / "proj"
     (project / ".atdd").mkdir(parents=True)

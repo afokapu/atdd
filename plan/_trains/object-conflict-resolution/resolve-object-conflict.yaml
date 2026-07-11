@@ -1,6 +1,6 @@
-train_id: 0306-resolve-object-conflict
+train_id: train:object-conflict-resolution:resolve-object-conflict
 title: Resolve A Same Object Projection Conflict
-description: "Exception-path train (category 3): two branches change the SAME projection\
+description: "Exception-path train (category: exception): two branches change the SAME projection\
   \ object. Disjoint objects merge cleanly by UID sharding; a same-object divergence\
   \ is an EXPECTED failure handled gracefully \u2014 validity-gated, never resolved\
   \ by blind max-phase. Auto-merge only when the transitions are identical, one side\
@@ -40,3 +40,4 @@ participants:
 - system:git
 - system:ci
 status: planned
+category: exception

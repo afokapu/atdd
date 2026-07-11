@@ -1,5 +1,5 @@
 # URN: test:train:0306-resolve-object-conflict:E2E-001-resolve-object-conflict-journey
-# Train: train:0306-resolve-object-conflict
+# Train: train:object-conflict-resolution:resolve-object-conflict
 # Phase: SMOKE
 # Layer: assembly
 # Runtime: python
@@ -38,7 +38,7 @@ def _atdd(args, cwd):
 
 
 @pytest.mark.smoke
-@pytest.mark.xfail(strict=True, reason="train 0306-resolve-object-conflict not yet implemented (RED; #1400)")
+@pytest.mark.xfail(strict=True, reason="train train:object-conflict-resolution:resolve-object-conflict not yet implemented (RED; #1400)")
 def test_same_object_conflict_is_validity_gated(tmp_path: Path) -> None:
     project = tmp_path / "proj"
     (project / ".atdd").mkdir(parents=True)

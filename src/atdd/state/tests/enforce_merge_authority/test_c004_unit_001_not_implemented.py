@@ -5,7 +5,7 @@
 # Layer: unit
 # Runtime: python
 # Assertion: behavioral
-# Purpose: a convention node authored by train 0006-state-projection that ships disposition advisory with no stated precondition is refused by the disposition validator, which names the rule and the unpaid-advisory clause. Refs #1400.
+# Purpose: a convention node authored by train train:object-conflict-resolution:project-state that ships disposition advisory with no stated precondition is refused by the disposition validator, which names the rule and the unpaid-advisory clause. Refs #1400.
 """An advisory node with no precondition is refused (C004-UNIT-001).
 
 wagon: enforce-merge-authority | feature: enforce-rule-disposition | phase: RED

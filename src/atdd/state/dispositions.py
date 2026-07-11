@@ -6,14 +6,14 @@ starts **empty**. There is nothing to grandfather. A new rule that ships advisor
 a real violation and is ignored, and by the time anyone notices, the corpus it was meant
 to protect has grown a backlog of exactly the fault it was written to catch (C004).
 
-So the rule is: every convention node authored by train ``0006-state-projection`` ships
+So the rule is: every convention node authored by train ``train:object-conflict-resolution:project-state`` ships
 ``disposition: strict``. ``advisory`` is permitted only when it is *paid for* — a written
 precondition saying what must be true before it can go strict, and a named issue that
 discharges it. An advisory with neither is refused.
 
 A convention file opts into this rule by declaring its authoring train::
 
-    authored_by_train: "0006-state-projection"
+    authored_by_train: "train:object-conflict-resolution:project-state"
 
 which is what makes the check honest rather than global: it governs the nodes this
 program is responsible for, and says nothing about anyone else's.
@@ -32,7 +32,7 @@ import yaml
 _log = logging.getLogger(__name__)
 
 #: The train whose convention nodes this rule governs.
-TRAIN_ID = "0006-state-projection"
+TRAIN_ID = "train:object-conflict-resolution:project-state"
 
 #: The key a convention file uses to declare the train that authored it.
 AUTHORED_BY_TRAIN = "authored_by_train"

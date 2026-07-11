@@ -5,7 +5,7 @@
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-# Purpose: end-to-end through the real `atdd state disposition-check` CLI over a real checkout, a convention node authored by train 0006-state-projection that ships advisory with no precondition is refused non-zero naming the rule and the unpaid-advisory clause; the same node shipping strict, or advisory with a precondition and a discharging issue, exits zero; and this working copy's own conventions pass. Refs #1400.
+# Purpose: end-to-end through the real `atdd state disposition-check` CLI over a real checkout, a convention node authored by train train:object-conflict-resolution:project-state that ships advisory with no precondition is refused non-zero naming the rule and the unpaid-advisory clause; the same node shipping strict, or advisory with a precondition and a discharging issue, exits zero; and this working copy's own conventions pass. Refs #1400.
 """advisory-disposition-on-a-new-rule holds end-to-end (C004-SMOKE-001).
 
 wagon: enforce-merge-authority | feature: enforce-rule-disposition | phase: SMOKE

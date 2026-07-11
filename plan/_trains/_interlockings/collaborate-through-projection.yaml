@@ -5,7 +5,7 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/collaborate-through-projection.yaml
-  content_digest: b3de8fde1611867fb89062be8a3c58959cdd268d484d55fc1d17f295b3ba68de
+  content_digest: fc99ecd5639cd8291582f99a809032c2d5ad14c6aafcb7803cc254843b61ab47
 entrypoint:
   actions:
   - project_store
@@ -180,7 +180,6 @@ residuals:
   validator_ref: test_sequence_diagram_sanity::test_disjoint_uids_need_no_route
 routes:
 - category: nominal
-  category_digit: '0'
   guard_ref: guard:overlay-absent
   priority: 0
   projection:
@@ -192,10 +191,9 @@ routes:
     - artifact
     expected_sequence_digest: 9853562b86ccb87ef0bd56b3b8020b3fb855000c5a3b88d3ba76eb617c80db53
   route_id: project-and-merge-nominal
-  train_id: 0006-state-projection
-  train_path: plan/_trains/0006-state-projection.yaml
+  train_id: train:object-conflict-resolution:project-state
+  train_path: plan/_trains/object-conflict-resolution/project-state.yaml
 - category: alternate
-  category_digit: '2'
   guard_ref: guard:overlay-present
   priority: 1
   projection:
@@ -207,10 +205,9 @@ routes:
     - artifact
     expected_sequence_digest: bb488c449e5047bf5044ab35e0288d71b1e590b367cc69e137b2dac30a5c5e1c
   route_id: reconcile-dirty-store
-  train_id: 0206-reconcile-dirty-store
-  train_path: plan/_trains/0206-reconcile-dirty-store.yaml
+  train_id: train:object-conflict-resolution:reconcile-dirty-store
+  train_path: plan/_trains/object-conflict-resolution/reconcile-dirty-store.yaml
 - category: exception
-  category_digit: '3'
   guard_ref: guard:same-object-conflict
   priority: 2
   projection:
@@ -222,5 +219,5 @@ routes:
     - artifact
     expected_sequence_digest: d61825a1a22d7c3f13e33c2007b98964ce602f7e7c25021868fe4e9dd568fd71
   route_id: resolve-object-conflict
-  train_id: 0306-resolve-object-conflict
-  train_path: plan/_trains/0306-resolve-object-conflict.yaml
+  train_id: train:object-conflict-resolution:resolve-object-conflict
+  train_path: plan/_trains/object-conflict-resolution/resolve-object-conflict.yaml

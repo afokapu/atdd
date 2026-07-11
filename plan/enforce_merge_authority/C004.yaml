@@ -13,7 +13,7 @@ statement: 'minimize likelihood of advisory-disposition-on-a-new-rule by requiri
 acceptances:
 - given:
     abstract:
-    - A convention node authored by train 0006-state-projection
+    - A convention node authored by train train:object-conflict-resolution:project-state
   harness:
     category: backend
     type: unit
@@ -32,7 +32,7 @@ acceptances:
     abstract: the disposition validator inspects its metadata
 - given:
     abstract:
-    - A convention node authored by train 0006-state-projection
+    - A convention node authored by train train:object-conflict-resolution:project-state
   harness:
     category: backend
     type: unit

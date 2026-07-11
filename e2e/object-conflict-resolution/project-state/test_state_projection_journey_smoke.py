@@ -1,5 +1,5 @@
 # URN: test:train:0006-state-projection:E2E-001-state-projection-journey
-# Train: train:0006-state-projection
+# Train: train:object-conflict-resolution:project-state
 # Phase: SMOKE
 # Layer: assembly
 # Runtime: python
@@ -44,7 +44,7 @@ def _atdd(args, cwd):
 
 
 @pytest.mark.smoke
-@pytest.mark.xfail(strict=True, reason="train 0006-state-projection not yet implemented (RED; #1400)")
+@pytest.mark.xfail(strict=True, reason="train train:object-conflict-resolution:project-state not yet implemented (RED; #1400)")
 def test_project_commit_reconcile_journey(tmp_path: Path) -> None:
     project = tmp_path / "proj"
     (project / ".atdd").mkdir(parents=True)

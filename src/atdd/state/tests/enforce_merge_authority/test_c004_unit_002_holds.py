@@ -5,7 +5,7 @@
 # Layer: unit
 # Runtime: python
 # Assertion: behavioral
-# Purpose: a convention node authored by train 0006-state-projection is admitted when it ships disposition strict, or when it ships advisory WITH a written precondition and a named issue that discharges it; the scan is scoped to this train's nodes and leaves every other convention alone. Refs #1400.
+# Purpose: a convention node authored by train train:object-conflict-resolution:project-state is admitted when it ships disposition strict, or when it ships advisory WITH a written precondition and a named issue that discharges it; the scan is scoped to this train's nodes and leaves every other convention alone. Refs #1400.
 """Strict, or a paid-for advisory — nothing else (C004-UNIT-002).
 
 wagon: enforce-merge-authority | feature: enforce-rule-disposition | phase: RED

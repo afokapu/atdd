@@ -1,4 +1,4 @@
-train_id: 0006-state-projection
+train_id: train:object-conflict-resolution:project-state
 title: State Projection Collaboration Model
 description: 'State projection train: make the committed deterministic projection the shared source of
   truth, the local SQLite store a private authoring workspace, git history plus structured ATDD trailers
@@ -78,3 +78,4 @@ participants:
 - system:git
 - system:ci
 status: planned
+category: nominal

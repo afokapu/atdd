@@ -1,6 +1,6 @@
-train_id: 0206-reconcile-dirty-store
+train_id: train:object-conflict-resolution:reconcile-dirty-store
 title: Reconcile A Dirty Store With Local Overlay
-description: "Alternate-path train (category 2): the HEAD-change reconcile flow when\
+description: "Alternate-path train (category: alternate): the HEAD-change reconcile flow when\
   \ the local store is DIRTY \u2014 uncommitted overlay events exist. Instead of a\
   \ plain hydrate-overwrite, the store is backed up, the incoming projection is hydrated\
   \ into a public baseline, the explicit overlay events are replayed on top, affected\
@@ -45,3 +45,4 @@ participants:
 - system:atdd-cli
 - system:git
 status: planned
+category: alternate

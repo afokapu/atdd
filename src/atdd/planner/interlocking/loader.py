@@ -99,7 +99,10 @@ def _build_route(raw: Mapping[str, Any]) -> Route:
     return Route(
         route_id=raw["route_id"],
         category=raw["category"],
-        category_digit=raw["category_digit"],
+        # RETIRED (#1421): category is a FIELD on the target train, not an identity
+        # digit. The schema already dropped it from `required`; legacy YAMLs may
+        # still carry one, so read it optionally rather than demanding it.
+        category_digit=raw.get("category_digit", ""),
         priority=int(raw["priority"]),
         guard_ref=raw["guard_ref"],
         train_id=raw["train_id"],

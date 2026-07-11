@@ -82,16 +82,19 @@ trains:
       path: plan/_trains/substrate/bind-runtime.yaml
       wagons:
       - bind-substrate-runtime
-    - train_id: 0006-state-projection
+  object-conflict-resolution:
+    nominal:
+    - train_id: train:object-conflict-resolution:project-state
+      category: nominal
       description: 'State projection train: make the committed deterministic projection
         the shared source of truth, the local SQLite store a private authoring workspace,
-        git history plus structured ATDD trailers the audit log, and CI the merge
-        authority. Core becomes git-native and provider-free; GitHub Issues becomes
-        a non-authoritative human mirror implemented as an extension. Builds the projection
-        spine, the reconcile spine with an explicit overlay event log, CI legal-transition
-        authority, field ownership and safe conflicts, the provider seam, and the
-        manifest-to-projection migration.'
-      path: plan/_trains/0006-state-projection.yaml
+        git history plus structured ATDD trailers the audit log, and CI the merge authority.
+        Core becomes git-native and provider-free; GitHub Issues becomes a non-authoritative
+        human mirror implemented as an extension. Builds the projection spine, the reconcile
+        spine with an explicit overlay event log, CI legal-transition authority, field
+        ownership and safe conflicts, the provider seam, and the manifest-to-projection
+        migration.'
+      path: plan/_trains/object-conflict-resolution/project-state.yaml
       wagons:
       - project-shared-state
       - reconcile-local-store
@@ -99,28 +102,30 @@ trains:
       - govern-projection-fields
       - isolate-provider-boundary
       - migrate-projection-authority
-    02-commons-alternate:
-    - train_id: 0206-reconcile-dirty-store
-      description: 'Alternate-path train (category 2): the HEAD-change reconcile flow
-        when the local store is DIRTY — uncommitted overlay events exist. Instead
-        of a plain hydrate-overwrite, the store is backed up, the incoming projection
-        is hydrated into a public baseline, the explicit overlay events are replayed
-        on top, affected objects are re-projected, and store_base_commit advances.
-        An invalid replay stops with a conflict report and keeps the backup. This
-        is invariant I5: reconcile is not overwrite.'
-      path: plan/_trains/0206-reconcile-dirty-store.yaml
+    alternate:
+    - train_id: train:object-conflict-resolution:reconcile-dirty-store
+      category: alternate
+      description: "Alternate-path train (category: alternate): the HEAD-change reconcile flow\
+        \ when the local store is DIRTY \u2014 uncommitted overlay events exist. Instead\
+        \ of a plain hydrate-overwrite, the store is backed up, the incoming projection\
+        \ is hydrated into a public baseline, the explicit overlay events are replayed\
+        \ on top, affected objects are re-projected, and store_base_commit advances.\
+        \ An invalid replay stops with a conflict report and keeps the backup. This\
+        \ is invariant I5: reconcile is not overwrite."
+      path: plan/_trains/object-conflict-resolution/reconcile-dirty-store.yaml
       wagons:
       - reconcile-local-store
-    03-commons-exception:
-    - train_id: 0306-resolve-object-conflict
-      description: 'Exception-path train (category 3): two branches change the SAME
-        projection object. Disjoint objects merge cleanly by UID sharding; a same-object
-        divergence is an EXPECTED failure handled gracefully — validity-gated, never
-        resolved by blind max-phase. Auto-merge only when the transitions are identical,
-        one side is a strict no-op, or the further phase carries verifiable evidence
-        for every skipped gate. Otherwise the merge driver conflicts by design and
-        emits an actionable report (section 7.2, section 11 ''unsafe merges conflict
-        by design'').'
-      path: plan/_trains/0306-resolve-object-conflict.yaml
+    exception:
+    - train_id: train:object-conflict-resolution:resolve-object-conflict
+      category: exception
+      description: "Exception-path train (category: exception): two branches change the SAME\
+        \ projection object. Disjoint objects merge cleanly by UID sharding; a same-object\
+        \ divergence is an EXPECTED failure handled gracefully \u2014 validity-gated,\
+        \ never resolved by blind max-phase. Auto-merge only when the transitions are\
+        \ identical, one side is a strict no-op, or the further phase carries verifiable\
+        \ evidence for every skipped gate. Otherwise the merge driver conflicts by design\
+        \ and emits an actionable report (section 7.2, section 11 'unsafe merges conflict\
+        \ by design')."
+      path: plan/_trains/object-conflict-resolution/resolve-object-conflict.yaml
       wagons:
       - govern-projection-fields
