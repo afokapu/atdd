@@ -31,7 +31,7 @@ from atdd.coach.utils.graph.resolver import (
     URNDeclaration,
     URNResolution,
 )
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
 
 
 class EdgeType(Enum):
@@ -470,14 +470,14 @@ class TraceabilityGraph:
 
         # ── gaps ───────────────────────────────────────────────
         # Nodes with zero incoming edges (excluding root families).
-        # Root families derived from URNBuilder.SEGMENT_COUNTS (parent-it-belongs-to,
+        # Root families derived from URNGrammar.SEGMENT_COUNTS (parent-it-belongs-to,
         # spec v12 §3.2): a family is a root when its segment count after the
         # prefix is 1 (no parent coordinates). Adding a new top-level family in
         # PATTERNS + SEGMENT_COUNTS automatically extends this set.
         # Audit reference: docs/urn-prefix-audit-2026.md (finding #2).
         root_families = {
             family
-            for family, count in URNBuilder.SEGMENT_COUNTS.items()
+            for family, count in URNGrammar.SEGMENT_COUNTS.items()
             if count == 1
         }
         all_targets = set()
@@ -793,6 +793,7 @@ class GraphBuilder:
         self._build_containment_edges(graph)
         self._build_produce_consume_edges(graph)
         self._build_train_edges(graph)
+        self._build_subject_edges(graph)
         self._build_component_edges(graph)
         self._build_security_edges(graph)
         # Phase 3: pass content cache to edge builders that read files
@@ -1149,6 +1150,35 @@ class GraphBuilder:
 
             except Exception:
                 continue
+
+    def _build_subject_edges(self, graph: TraceabilityGraph) -> None:
+        """Build subject -> train (CONTAINS) edges for typed trains (#1421).
+
+        A typed ``train:<subject>:<slug>`` is a 2-token URN parented by its
+        ``subject:<subject>`` root (grammar: ``train.parent == subject``). This
+        edge makes the subject a real parent node so the typed train is not a
+        topological orphan. The subject node is auto-synthesized by ``add_edge``
+        if the registry has not declared it yet.
+
+        Legacy ``train:NNNN-slug`` (a single token) has no subject parent and is
+        skipped — dual-resolution keeps it resolving during the migration
+        window (see ``TrainResolver``).
+        """
+        for urn, node in graph.nodes.items():
+            if node.family != "train":
+                continue
+            tokens = urn[len("train:"):].split(":")
+            if len(tokens) != 2 or not all(tokens):
+                continue
+            subject_urn = f"subject:{tokens[0]}"
+            graph.add_edge(
+                URNEdge(
+                    source_urn=subject_urn,
+                    target_urn=urn,
+                    edge_type=EdgeType.CONTAINS,
+                    metadata={"source": "urn-structure"},
+                )
+            )
 
     def _build_security_edges(self, graph: TraceabilityGraph) -> None:
         """

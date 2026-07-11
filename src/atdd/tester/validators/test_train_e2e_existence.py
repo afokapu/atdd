@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import List
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery
+from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery, e2e_dir_for
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
@@ -67,7 +67,7 @@ class E2EExistenceAnalyzer:
         statuses = []
 
         for tid in train_ids:
-            train_e2e = self.e2e_dir / tid
+            train_e2e = e2e_dir_for(self.e2e_dir, tid)
             status = TrainE2EStatus(train_id=tid, e2e_dir=train_e2e)
 
             if train_e2e.is_dir():

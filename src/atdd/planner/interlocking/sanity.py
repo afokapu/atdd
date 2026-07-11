@@ -38,7 +38,7 @@ from .digest import route_projection_digest
 from .discovery import INTERLOCKINGS_HOME, registry_entries
 from .guards import GuardSyntaxError, parse_guard
 from .loader import InterlockingError
-from .models import CATEGORY_BY_DIGIT, TrainInterlocking
+from .models import TrainInterlocking
 from .projections import project_route_to_train_sequence
 
 __all__ = [
@@ -61,7 +61,6 @@ __all__ = [
     "does_not_carry_cargo_violations",
 ]
 
-_CATEGORY_DIGIT = {v: k for k, v in CATEGORY_BY_DIGIT.items()}
 # Field-name tokens that would smuggle Cargo runtime state into a YAML that is
 # only allowed to SELECT routes and name contract identities (#1249 node 13).
 _FORBIDDEN_CARGO_TOKENS = ("cargo", "train_result", "artifact_data", "artifact_value")
@@ -109,15 +108,49 @@ def entrypoint_shape_violations(il: TrainInterlocking, root=None) -> List[dict]:
 
 
 # --- 3. route category matches train id -------------------------------------
+def _target_train_category(train_path: str, root) -> "str | None":
+    """Read the ``category`` FIELD of the target train YAML (issue #1421).
+
+    Returns ``None`` when the target cannot be resolved or declares no category —
+    existence/resolvability of the train is owned by other rules (the author
+    refuses a route whose target train is missing; the schema owns shape). This
+    helper only surfaces the *category field* so the rule can judge AGREEMENT.
+    Stdlib + yaml only; no cross-layer import.
+    """
+    if not train_path or root is None:
+        return None
+    p = Path(root) / train_path
+    if not p.is_file():
+        return None
+    try:
+        doc = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        _log.debug("route-category skipped (unparseable target train yaml)",
+                   extra={"path": str(p), "error": str(exc).splitlines()[0][:120]})
+        return None
+    cat = doc.get("category") if isinstance(doc, dict) else None
+    return cat if isinstance(cat, str) else None
+
+
 def route_category_violations(il: TrainInterlocking, root=None) -> List[dict]:
+    """``planner.train.interlocking-route-category-matches-train-id``: a route's
+    declared ``category`` must agree with the ``category`` FIELD of the target
+    train it selects (issue #1421).
+
+    Category is now a validated field on the train, never a digit embedded in the
+    identity, so this is a field COMPARE — it does not parse ``train_id`` and
+    does not consult the retired ``category_digit``. A route whose target train
+    declares no category (unmigrated during transition) is not judged here.
+    """
     out: List[dict] = []
     for route in il.routes:
-        actual_digit = route.train_id[1] if len(route.train_id) >= 2 else ""
-        expected_digit = _CATEGORY_DIGIT.get(route.category, route.category_digit)
-        if route.category_digit != actual_digit or route.category_digit != expected_digit:
+        train_category = _target_train_category(route.train_path, root)
+        if train_category is None:
+            continue
+        if route.category != train_category:
             out.append({"interlocking_id": _iid(il), "route_id": route.route_id,
-                        "category": route.category, "expected_digit": expected_digit,
-                        "actual_train_id": route.train_id, "actual_digit": actual_digit})
+                        "category": route.category, "train_id": route.train_id,
+                        "train_category": train_category, "train_path": route.train_path})
     return out
 
 
