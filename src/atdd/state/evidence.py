@@ -233,7 +233,15 @@ def check_transition(
     if before is not None and PHASE_RANK[after] == PHASE_RANK[before]:
         return []  # a no-op phase-wise; other validators cover the rest of the diff
 
-    gates = gate_path(before, after) if before is not None else [(None, after)]
+    if before is None:
+        # A newly-committed object is born at INIT and walks up from there. Introducing it
+        # straight into PLANNED does not skip the mint — it just leaves it unevidenced.
+        gates: Optional[List[Tuple[Optional[str], str]]] = [(None, "INIT")]
+        if after != "INIT":
+            walk = gate_path("INIT", after)
+            gates = None if walk is None else gates + list(walk)
+    else:
+        gates = gate_path(before, after)
     if gates is None:
         return [Violation(
             uid, transition, CLAUSE_UNKNOWN_TRANSITION,
