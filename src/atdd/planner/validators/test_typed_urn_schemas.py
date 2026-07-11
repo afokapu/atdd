@@ -1,4 +1,4 @@
-# URN: component:plan:typed-urn-schemas:TypedUrnSchemas:backend:tests
+# Component: component:plan:typed-urn-schemas:TypedUrnSchemas:backend:tests
 # Runtime: python
 # Purpose: The train + interlocking JSON schemas accept the typed URN grammar (#1421) and record the #1410 payload-contract segment decision.
 """Schema-first tests for the typed URN grammar migration (issue #1421).

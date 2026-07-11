@@ -1,4 +1,4 @@
-# URN: test:coach:graph:subject_and_train_resolvers
+# URN: test:coach:graph:subject-and-train-resolvers
 """
 Graph & resolver behavior for the typed URN grammar (issue #1421, worker C2).
 

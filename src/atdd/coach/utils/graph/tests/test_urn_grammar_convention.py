@@ -1,4 +1,4 @@
-# URN: test:coach:urn:grammar_convention
+# URN: test:coach:urn:grammar-convention
 """
 Convention-native URN grammar engine (issue #1421).
 

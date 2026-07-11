@@ -1,4 +1,4 @@
-# URN: component:test:grammar-delegation:GrammarValidatorsDelegate:backend:tests
+# Component: component:test:grammar-delegation:GrammarValidatorsDelegate:backend:tests
 # Runtime: python
 # Purpose: The 6 grammar hard-coder validators are superseded onto URNGrammar — no local train-grammar literal survives, and typed identities are accepted (#1421).
 """Supersession proof for the grammar hard-coder validators (issue #1421).

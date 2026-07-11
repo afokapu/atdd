@@ -1,4 +1,4 @@
-# URN: component:atdd-plan-core:subjects:SubjectInvariants:backend:tests
+# Component: component:atdd-plan-core:subjects:SubjectInvariants:backend:tests
 # Purpose: subject:<name> is a durable-noun URN family with a registry and coherence invariants (#1421).
 """Validators for ``planner.subject.invariants`` (#1421).
 
