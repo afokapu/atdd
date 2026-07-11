@@ -84,11 +84,10 @@ def test_template_evaluate_dispatches_to_real_evaluator() -> None:
 
 
 # --- clean baseline on the REAL composed graph ------------------------------
-def test_clean_baseline_real_graph_is_zero() -> None:
+def test_clean_baseline_real_graph_is_zero(clean_convention_graph) -> None:
     """The real repo's produce/consume wagon graph is a DAG (baseline = 0), and
     the selection is non-vacuous (there ARE cross-wagon produce/consume edges)."""
-    repo_root = _repo_root()
-    g = load_composed_graph(repo_root)
+    g = clean_convention_graph
     edges = build_consume_edges(g)
     total_cross_edges = sum(len(v) for v in edges.values())
     assert total_cross_edges > 0, "vacuous: no cross-wagon produce/consume edges in corpus"

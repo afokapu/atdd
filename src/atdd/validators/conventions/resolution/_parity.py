@@ -25,12 +25,16 @@ def repo_root() -> Path:
     raise RuntimeError("could not locate repo root from %s" % here)
 
 
-def evaluate_variant(template_id: str, variant: str, root=None) -> List[dict]:
-    """Execute `template_id` for `variant` against the real composed graph."""
+def evaluate_variant(template_id: str, variant: str, root=None, graph=None) -> List[dict]:
+    """Execute `template_id` for `variant` against the real composed graph.
+
+    ``graph`` lets a read-only caller pass the session-scoped clean graph (#1414);
+    callers that have mutated the tree must omit it so the graph is re-read.
+    """
     root = Path(root) if root else repo_root()
-    graph = load_composed_graph(root)
+    g = graph if graph is not None else load_composed_graph(root)
     template = next(t for t in TEMPLATES if t.template_id == template_id)
-    return template.evaluate(graph, config={"variant": variant})
+    return template.evaluate(g, config={"variant": variant})
 
 
 @contextlib.contextmanager

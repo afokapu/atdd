@@ -38,9 +38,9 @@ def test_contract_consumer_resolution_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """The template executes against the real composed graph with no violations."""
-    assert evaluate_variant(TEMPLATE, VARIANT) == []
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
 def test_legacy_parity_not_measurable_via_injection() -> None:

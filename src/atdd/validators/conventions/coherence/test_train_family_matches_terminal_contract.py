@@ -48,8 +48,8 @@ def test_train_family_matches_terminal_contract_variant_contract() -> None:
 _FAULT = ("family: behavior", "family: delivery")
 
 
-def test_clean_baseline_is_zero() -> None:
-    assert _parity.conv_violations(VARIANT) == []
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
+    assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
 def test_fault_injection() -> None:
