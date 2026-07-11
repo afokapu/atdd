@@ -157,11 +157,18 @@ def load_composed_graph(repo_root) -> ConventionGraph:
     # _trains.yaml index. refs = wagon participants (system:* terminals excluded).
     tdir = plan / "_trains"
     if tdir.is_dir():
-        for tf in sorted(tdir.glob("*.yaml")):
+        # rglob: typed trains (issue #1421) live under plan/_trains/<subject>/<slug>.yaml;
+        # legacy flat trains under plan/_trains/*.yaml. Non-train files (_aliases.yaml,
+        # _interlockings/*) carry no train_id and are skipped below.
+        for tf in sorted(tdir.rglob("*.yaml")):
             d = _safe_yaml(tf)
             if not d.get("train_id"):
                 continue
-            g._add(Node(id=f"train:{d['train_id']}", kind="train",
+            # train_id may already be a typed urn (train:<subject>:<slug>, #1421) or a
+            # legacy NNNN-slug; prefix only the legacy form.
+            _tid = str(d["train_id"])
+            _node_id = _tid if _tid.startswith("train:") else f"train:{_tid}"
+            g._add(Node(id=_node_id, kind="train",
                         location=str(tf.relative_to(root)),
                         refs=[p for p in (d.get("participants") or [])
                               if isinstance(p, str) and p.startswith("wagon:")],
