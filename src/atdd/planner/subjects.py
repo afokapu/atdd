@@ -155,6 +155,9 @@ def _iter_typed_trains(root: Path):
     if not tdir.exists():
         return
     for path in sorted(tdir.rglob("*.yaml")):
+        # Registry / alias sidecars (``_aliases.yaml`` etc.) are not trains.
+        if path.name.startswith("_"):
+            continue
         spec = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if not isinstance(spec, dict):
             continue
