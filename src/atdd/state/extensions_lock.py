@@ -315,8 +315,18 @@ def _provider_problems(
         stamp = provider.digest()
         entry = _entry(name, stamp)
     except LockError as exc:
+        # Logged as well as reported: the operator reads the report, and whoever reads the CI run's
+        # log next week reads this.
+        _log.warning(
+            "a registered provider's digest could not be verified against the lock",
+            extra={"provider": name, "error": str(exc), "type": type(exc).__name__},
+        )
         return [f"provider {name!r}: {exc}"]
     except Exception as exc:  # noqa: BLE001 - a provider that cannot self-describe is drift
+        _log.warning(
+            "a registered provider could not produce a digest; it cannot be pinned",
+            extra={"provider": name, "error": str(exc), "type": type(exc).__name__},
+        )
         return [f"provider {name!r} could not produce a digest ({exc})"]
     if entry["digest"] != recorded["digest"]:
         problems.append(
