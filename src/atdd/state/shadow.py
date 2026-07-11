@@ -163,15 +163,28 @@ def _manifest_documents(root: Path) -> Tuple[Optional[Dict[str, Dict[str, Any]]]
     try:
         document = migration.read_manifest(migration.manifest_path(root))
     except migration.MigrationError as exc:
+        # Not an error: a repo with no manifest is the cutover's GOAL. Said out loud anyway, so
+        # that "the manifest comparison was skipped" is a fact in the log and not an inference
+        # from a report that quietly compared one source instead of two.
+        _log.info(
+            "the manifest-derived projection is unavailable; comparing against the committed "
+            "projection only",
+            extra={"root": str(root), "reason": str(exc)},
+        )
         return None, str(exc)
 
     sessions = migration.sessions_of(document)
     defects = migration.inspect(sessions)
     if defects:
-        return None, (
+        reason = (
             f"{len(defects)} manifest entr(ies) cannot be projected "
             f"(run `atdd state migrate-manifest` to see them)"
         )
+        _log.warning(
+            "the legacy manifest cannot be projected, so shadow mode cannot compare against it",
+            extra={"root": str(root), "defects": len(defects)},
+        )
+        return None, reason
     documents, _archived = migration.build_documents(sessions)
     return documents, ""
 
