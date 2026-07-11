@@ -115,9 +115,14 @@ def install_policy(root: Path) -> None:
 
 
 def commit(repo: Path, msg: str) -> str:
-    """Commit everything in ``repo``; return the new sha."""
+    """Commit everything in ``repo``; return the new sha.
+
+    ``--allow-empty`` because several acceptances re-commit the *same tree* under a
+    different message: the trailer group is the thing under test, and a commit that
+    changes nothing but its trailers is exactly the case the cross-check must judge.
+    """
     _git(repo, "add", "-A")
-    _git(repo, "commit", "--quiet", "-m", msg)
+    _git(repo, "commit", "--quiet", "--allow-empty", "-m", msg)
     return _git(repo, "rev-parse", "HEAD")
 
 
