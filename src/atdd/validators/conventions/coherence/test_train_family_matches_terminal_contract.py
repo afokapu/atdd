@@ -12,6 +12,7 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
+from atdd.validators.conventions._support.graph_loader import find_train_file
 from atdd.validators.conventions.coherence import _parity
 from atdd.validators.conventions.coherence.archetype import (
     TEMPLATE_IDS,
@@ -41,10 +42,10 @@ def test_train_family_matches_terminal_contract_variant_contract() -> None:
 
 
 # --- executable graph-question tests ---------------------------------------
-# Clean baseline is 0 (only train 0002 declares a family, `behavior`, with a
-# non-receipt terminal -> agrees). The fault (flip 0002 to family=delivery while its
-# terminal is NOT a commit-receipt) is caught by the convention evaluator.
-_TRAIN_FILE = "plan/_trains/0002-coach-drives-lifecycle.yaml"
+# Clean baseline is 0 (the one train that declares a family declares `behavior`,
+# with a non-receipt terminal -> agrees). The fault (flip it to family=delivery
+# while its terminal is NOT a commit-receipt) is caught by the convention evaluator.
+_FAULT = ("family: behavior", "family: delivery")
 
 
 def test_clean_baseline_is_zero(clean_convention_graph) -> None:
@@ -61,7 +62,8 @@ def test_fault_injection() -> None:
     planner.train.family-matches-terminal-contract now binds its implementation.ref
     to this variant. The convention fault-injection is the live coverage."""
     root = _parity.repo_root()
-    with _parity.patch_file(root, _TRAIN_FILE, "family: behavior", "family: delivery"):
+    train_file = find_train_file(root, _FAULT[0])
+    with _parity.patch_file(root, train_file, *_FAULT):
         conv = _parity.conv_violations(VARIANT, root)
     assert conv, "convention evaluator did not catch the family/terminal disagreement"
     assert _parity.conv_violations(VARIANT, root) == [], "fault did not revert cleanly"
