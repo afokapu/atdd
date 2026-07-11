@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
+from atdd.state import ownership
 from atdd.state.evidence import diff_phases
 from atdd.state.projection import DIGEST_PREFIX, object_digest
 from atdd.state.trailers import SQUASH_MERGE, TrailerBlock
@@ -214,15 +215,8 @@ def _check_summary(block: TrailerBlock, repo_root: Optional[Path]) -> List[Disag
 # --------------------------------------------------------------------------- #
 # Field ownership (spec §7.1) — the writer half of the required-check set
 # --------------------------------------------------------------------------- #
-#: Who may write each projection field (``commons:projection-field-ownership``). The two
-#: rules the merge authority can enforce from the committed diff alone are the two that
-#: matter most: a human may not write ``external_refs``, and an extension may not write a
-#: lifecycle field. The full policy is the ``govern-projection-fields`` wagon's subject;
-#: this is the subset the merge-authority run needs today.
-LIFECYCLE_FIELDS = ("uid", "phase", "state", "train", "wmbts", "tombstone")
-EXTENSION_FIELDS = ("external_refs",)
-
-#: The bot namespace an extension writes under. A core actor is anything else.
+#: The bot namespace core's own actors write under. Wider bot spellings (``…[bot]``, a
+#: ``*-bot@`` email) are recognised by :func:`atdd.state.ownership.actor_class`.
 EXTENSION_ACTOR_PREFIX = "bot:"
 
 
@@ -250,38 +244,22 @@ def check_field_ownership(
     head: Mapping[str, Mapping[str, Any]],
     *,
     actor: str = "",
+    policy: Optional["ownership.FieldOwnershipPolicy"] = None,
 ) -> OwnershipReport:
     """Refuse a diff whose fields were written by an actor that does not own them (§7.1).
 
-    An extension bot writing a lifecycle field, or a human writing ``external_refs``, is
-    the wrong-writer corruption the ownership table exists to prevent — and it is exactly
-    the change that *looks* legal to every other check in the set.
+    An extension bot writing a lifecycle field, or a human writing ``external_refs``, is the
+    wrong-writer corruption the ownership table exists to prevent — and it is exactly the
+    change that *looks* legal to every other check in the set.
+
+    The table is not written here: it is the declared field-ownership policy
+    (:mod:`atdd.state.ownership`), so the merge-authority run and the merge driver enforce
+    one declaration rather than two that can drift apart.
     """
-    violations: List[str] = []
-    is_extension = actor.startswith(EXTENSION_ACTOR_PREFIX)
-    for uid in changed_objects(base, head):
-        before, after = base.get(uid) or {}, head.get(uid) or {}
-        moved = [
-            key for key in sorted(set(before) | set(after))
-            if before.get(key) != after.get(key)
-        ]
-        if uid in base and uid not in head:
-            violations.append(
-                f"{uid}: the projection file was deleted; retirement is a tombstone record, "
-                "never a file deletion (spec §10 rule 3)"
-            )
-            continue
-        if before.get("uid") is not None and after.get("uid") != before.get("uid"):
-            violations.append(f"{uid}: uid is immutable and was rewritten to {after.get('uid')!r}")
-        for key in moved:
-            if is_extension and key in LIFECYCLE_FIELDS:
-                violations.append(
-                    f"{uid}: the extension actor {actor!r} wrote the lifecycle field {key!r}; "
-                    "the GitHub mirror is non-authoritative (I7)"
-                )
-            if not is_extension and key in EXTENSION_FIELDS and actor:
-                violations.append(
-                    f"{uid}: the core actor {actor!r} wrote {key!r}; only the extension bot may "
-                    "write external_refs (spec §7.1)"
-                )
-    return OwnershipReport(checked=len(changed_objects(base, head)), violations=violations)
+    report = ownership.check_diff(
+        policy or ownership.default_policy(), base, head, actor=actor,
+    )
+    return OwnershipReport(
+        checked=report.checked,
+        violations=[violation.render() for violation in report.violations],
+    )

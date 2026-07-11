@@ -39,7 +39,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import yaml
 
-from atdd.state import crosscheck, dispositions, evidence, secrets
+from atdd.state import crosscheck, dispositions, evidence, ownership, secrets
 from atdd.state.projection import (
     PROJECTION_RELATIVE,
     PROJECTION_SUFFIX,
@@ -77,6 +77,7 @@ REQUIRED_CHECKS: Tuple[str, ...] = (
 HOT_PATH_MODULES: Tuple[str, ...] = (
     "projection", "identity", "overlay", "reconcile", "metadata", "authoring",
     "trailers", "evidence", "crosscheck", "secrets", "merge_authority", "policy",
+    "ownership", "merge_driver", "merge_matrix", "tombstone",
 )
 
 #: An import of any of these from a hot-path module means core has grown a provider
@@ -199,6 +200,16 @@ def changed_paths(repo: Path, base: Optional[str], head: str = "HEAD") -> List[s
 def commit_message(repo: Path, ref: str = "HEAD") -> str:
     """The full message of a commit — the raw material the trailer parser reads."""
     return _git(repo, "log", "-1", "--format=%B", ref)
+
+
+def commit_author(repo: Path, ref: str = "HEAD") -> str:
+    """The identity that authored a commit — ``Name <email>``, git's own answer.
+
+    This is the *actor* the field-writer check judges against the ownership table. Whether
+    the writer was a person or an extension bot is a fact about the commit, not a flag its
+    author passes (spec §7.1).
+    """
+    return _git(repo, "log", "-1", "--format=%an <%ae>", ref).strip()
 
 
 def merge_base(repo: Path, base_ref: str, head: str = "HEAD") -> Optional[str]:
@@ -335,8 +346,25 @@ def check_trailers(context: Context) -> CheckResult:
     return CheckResult(CHECK_TRAILER, report.ok, report.render())
 
 
+def field_ownership_policy(repo: Path) -> ownership.FieldOwnershipPolicy:
+    """The ownership table this run judges by: the repo's committed policy, or the shipped one.
+
+    A checkout that has not declared a policy is not thereby ungoverned — it is governed by
+    the table core ships, which is the executable form of the same document. What it may not
+    be is governed by *nothing*, which is what an empty table would mean (spec §7.1).
+    """
+    try:
+        return ownership.load_policy(repo)
+    except ownership.PolicyNotFound:
+        return ownership.default_policy()
+
+
 def check_field_writer(context: Context) -> CheckResult:
-    report = crosscheck.check_field_ownership(context.base, context.head, actor=context.actor)
+    report = crosscheck.check_field_ownership(
+        context.base, context.head,
+        actor=context.actor,
+        policy=field_ownership_policy(context.repo),
+    )
     return CheckResult(CHECK_FIELD_WRITER, report.ok, report.render())
 
 
