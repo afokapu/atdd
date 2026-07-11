@@ -19,6 +19,31 @@ import pytest
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.graph.resolver import TestResolver
+from atdd.coach.utils.graph.urn import URNGrammar
+
+
+def _is_valid_train_ref(train_ref: str) -> bool:
+    """Is ``train_ref`` a valid train URN? Delegates to ``URNGrammar`` (#1421,
+    Decision 8) — no local four-digit train-grammar literal.
+
+    Accepts the typed ``train:<subject>:<slug>`` family directly. During the
+    Layer-6 journey/test-identity migration the engine still recognises the
+    legacy ``train:NNNN-slug`` facet *inside* the ``test`` (journey) family, so a
+    legacy header is validated by round-tripping a probe journey URN through the
+    engine rather than re-encoding the digits here. When Layer 6 retires the
+    legacy facet from the convention, this predicate tightens automatically.
+    """
+    if not isinstance(train_ref, str):
+        return False
+    try:
+        if URNGrammar.validate_grammar(train_ref):  # typed train:<subject>:<slug>
+            return True
+    except ValueError:
+        pass
+    try:
+        return bool(URNGrammar.validate_grammar(f"test:{train_ref}:E2E-001-probe"))
+    except ValueError:
+        return False
 
 
 REPO_ROOT = find_repo_root()
@@ -284,10 +309,10 @@ def test_v3_journey_tests_have_train_header():
             rel = test_file.relative_to(REPO_ROOT)
             if not header["train"]:
                 violations.append(f"{rel}: journey test URN but no Train: header")
-            elif not re.match(r"^train:\d{4}-[a-z0-9][a-z0-9-]*$", header["train"]):
+            elif not _is_valid_train_ref(header["train"]):
                 violations.append(
                     f"{rel}: Train: value '{header['train']}' is not a valid "
-                    f"train URN (expected train:NNNN-kebab-case)"
+                    f"train URN (expected train:<subject>:<slug>)"
                 )
 
     if violations:
