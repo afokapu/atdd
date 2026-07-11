@@ -47,6 +47,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from atdd.state import gitstore, metadata, overlay
 from atdd.state.db import connect
+from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.metadata import StoreBaseCommitError
 from atdd.state.overlay import OverlayEvent
 from atdd.state.paths import STATE_STORE_RELATIVE
@@ -229,25 +230,40 @@ def backup_store(db_path: Path) -> Path:
 # --------------------------------------------------------------------------- #
 # Hydrate — the anchored, dirty-gated entry point (P001, P002, C001)
 # --------------------------------------------------------------------------- #
+def resolve_head(repo: Path) -> Optional[str]:
+    """HEAD, or ``None`` when the repository has no commits yet (P002).
+
+    A checkout with no commits is a legitimate cold start — ``atdd init`` before the
+    first commit — and hydrating there must work. There is simply no commit to anchor
+    to, and pretending otherwise would stamp a lie.
+    """
+    try:
+        return gitstore.head(repo)
+    except gitstore.GitError:
+        return None
+
+
 def hydrate_store(
     control_root: Path,
     *,
     commit: Optional[str] = None,
     projection_dir: Optional[Path] = None,
-) -> Tuple[int, str]:
+) -> Tuple[int, Optional[str]]:
     """Hydrate the store from the committed projection and stamp its base commit.
 
     This is the *overwrite* path, and it is exactly where I5 has to bite: a store
     carrying uncommitted overlay would lose that work, so it raises
     :class:`DirtyStoreError` **before** touching sqlite and names the events that
     would have been lost (C001). A clean store hydrates with no backup and no fuss —
-    including a cold start, where there is no store and no base commit at all (P002).
+    including a cold start, where there is no store, no base commit, and possibly not
+    even a first commit to anchor to (P002).
 
-    Returns ``(objects_hydrated, base_commit)``.
+    Returns ``(objects_hydrated, base_commit)``; the commit is ``None`` on a
+    repository that has no commits yet.
     """
     control_root = Path(control_root)
     repo = control_root
-    resolved = gitstore.head(repo) if commit is None else commit
+    resolved = resolve_head(repo) if commit is None else commit
     projection_dir = projection_path(control_root) if projection_dir is None else Path(projection_dir)
 
     from atdd.state.db import init_state_store  # local: keeps the import surface small
@@ -266,11 +282,36 @@ def hydrate_store(
                 events=events,
             )
         store = StateStore(conn)
+        _replace_public_state(store, projection_dir)
         result = hydrate(projection_dir, store)
-        metadata.stamp_base_commit(conn, resolved)
+        if resolved is None:
+            # Nothing to anchor to yet. Record the shape of the store, but do not
+            # invent a base commit — reconcile would rather refuse than replay onto a
+            # commit that never existed (P001-UNIT-002).
+            metadata.mark_dirty(conn, False)
+        else:
+            metadata.stamp_base_commit(conn, resolved)
         return result.hydrated, resolved
     finally:
         conn.close()
+
+
+def _replace_public_state(store: StateStore, projection_dir: Path) -> None:
+    """Drop every work item the incoming projection does not carry.
+
+    Hydrate *replaces* the public half; it does not merge into it. If it merged, an
+    object the projection had dropped would linger in the store forever, and
+    ``store == hydrate(projection)`` — the left half of I3 — would quietly stop being
+    true. Safe to do unconditionally here: this path only ever runs against a clean
+    store, and a purely local object is either in the overlay (so the store is dirty
+    and we are not on this path) or already has a projection file of its own.
+    """
+    from atdd.state.projection import read_projection  # local: keeps the surface small
+
+    incoming = read_projection(projection_dir)
+    for obj in store.objects.list(kind=WORK_ITEM_KIND):
+        if obj.uid not in incoming:
+            store.objects.delete(obj.uid)
 
 
 def freshness(control_root: Path, *, head: Optional[str] = None) -> StoreFreshness:
@@ -299,67 +340,95 @@ def _incoming_documents(projection_dir: Path) -> Dict[str, Dict[str, Any]]:
     return read_projection(projection_dir)
 
 
-def _already_carried(incoming: Optional[Dict[str, Any]], event: OverlayEvent) -> bool:
+def already_carried(incoming: Optional[Dict[str, Any]], event: OverlayEvent) -> bool:
     """True when the incoming projection already reflects ``event`` (Y001).
 
-    This is what stops an event being replayed twice. Once B's own work comes back
-    through the shared truth — B projected it, committed it, merged it, pulled it —
-    the incoming document already *is* the event's effect. Replaying it would apply
-    the same intent a second time; instead it is marked committed and dropped.
+    This is what stops an event being replayed twice. Once a developer's own work comes
+    back through the shared truth — projected, committed, merged, pulled — the incoming
+    document already *is* that event's effect, and replaying it would apply the same
+    intent a second time. So the event is marked committed and dropped instead.
+
+    The test is per-kind rather than "would applying it change anything", because those
+    are not the same question. Re-applying ``object_created`` would reset the phase to
+    the value it was created at, so it *would* change the document — yet the create has
+    plainly already reached the shared truth. What matters is whether the event's
+    *intent* is satisfied, not whether its payload is idempotent.
     """
     if incoming is None:
-        return False
-    produced = overlay.project_event(dict(incoming), event)
-    return produced == dict(incoming)
+        return False  # the object is still private; nothing was carried anywhere
+
+    payload = event.payload
+    if event.kind == overlay.OBJECT_CREATED:
+        return True  # the uid is in the shared truth: the create landed
+    if event.kind == overlay.PHASE_TRANSITION_REQUESTED:
+        return incoming.get("phase") == payload.get("to_phase")
+    if event.kind == overlay.BODY_UPDATED:
+        return incoming.get("body") == payload.get("body")
+    if event.kind == overlay.TRAIN_UPDATED:
+        return incoming.get("train") == payload.get("train")
+    if event.kind == overlay.WMBT_ADDED:
+        return payload.get("wmbt") in (incoming.get("wmbts") or [])
+    if event.kind == overlay.TOMBSTONE_REQUESTED:
+        return incoming.get("state") == STATE_TOMBSTONED
+    if event.kind == overlay.EXTERNAL_REF_APPLIED:
+        refs = incoming.get("external_refs") or {}
+        return refs.get(payload.get("provider")) == payload.get("ref")
+    return False
 
 
 def validate_event(
-    incoming: Optional[Dict[str, Any]], event: OverlayEvent
+    current: Optional[Dict[str, Any]], event: OverlayEvent
 ) -> Optional[Conflict]:
-    """The conflict ``event`` raises against the incoming public state, or ``None``.
+    """The conflict ``event`` raises against ``current``, or ``None`` if it still applies.
 
-    The rules are deliberately conservative. An event whose object the shared truth
-    has since tombstoned no longer applies (R001). A phase transition whose *starting*
-    phase disagrees with the incoming phase is a same-object divergence: two people
-    moved the same object from different places, and only they know which is right
-    (K001). Nothing is auto-merged by taking the "further along" phase — that would
-    silently pick a winner.
+    ``current`` is the state the event is about to be applied to: the incoming public
+    state with every previously replayed event already on top of it. That distinction
+    matters — an event editing an object the developer *created locally* is perfectly
+    valid even though the shared truth has never heard of that object, because the
+    create is sitting right there earlier in the same overlay.
+
+    The rules are deliberately conservative. An event whose object the shared truth has
+    since tombstoned no longer applies (R001). A phase transition whose *starting* phase
+    disagrees is a same-object divergence: two people moved the same object from
+    different places, and only they know which is right (K001). Nothing is auto-merged
+    by taking the "further along" phase — that silently picks a winner.
     """
     if event.kind == overlay.OBJECT_CREATED:
-        if incoming is not None:
+        if current is not None:
             return Conflict(
                 event=event,
                 reason=(
-                    "the incoming projection already carries this uid — a local create "
-                    "cannot be replayed over an object that already exists"
+                    "this uid already exists — a create cannot be replayed over an "
+                    "object that is already there"
                 ),
-                incoming=incoming,
+                incoming=current,
             )
         return None
 
-    if incoming is None:
+    if current is None:
         return Conflict(
             event=event,
             reason=(
-                f"{event.kind} targets {event.object_uid}, which the incoming projection "
-                "does not carry — the object it edits is not in the shared truth"
+                f"{event.kind} targets {event.object_uid}, which neither the incoming "
+                "projection nor the replayed overlay carries — the object it edits "
+                "does not exist"
             ),
             incoming=None,
         )
 
-    if incoming.get("state") == STATE_TOMBSTONED and event.kind != overlay.TOMBSTONE_REQUESTED:
+    if current.get("state") == STATE_TOMBSTONED and event.kind != overlay.TOMBSTONE_REQUESTED:
         return Conflict(
             event=event,
             reason=(
                 f"the incoming projection has TOMBSTONED {event.object_uid}, so "
                 f"{event.kind} no longer applies to it"
             ),
-            incoming=incoming,
+            incoming=current,
         )
 
     if event.kind == overlay.PHASE_TRANSITION_REQUESTED:
         expected = event.payload.get("from_phase")
-        actual = incoming.get("phase")
+        actual = current.get("phase")
         if expected is not None and expected != actual:
             return Conflict(
                 event=event,
@@ -369,7 +438,7 @@ def validate_event(
                     f"{actual!r}. Two developers moved the same object from different "
                     "states; reconcile will not pick a winner by phase order"
                 ),
-                incoming=incoming,
+                incoming=current,
             )
 
     return None
@@ -475,25 +544,33 @@ def _replay_onto_incoming(
         # public := hydrate(incoming). Replace, do not merge: an object the incoming
         # projection does not carry is not public state, and the overlay — not a
         # leftover row — is what re-creates a purely local one.
-        for obj in store.objects.list(kind="work_item"):
-            store.objects.delete(obj.uid)
+        _replace_public_state(store, projection_dir)
         hydrated = hydrate(projection_dir, store).hydrated
+
+        # ``working`` is the state each event is judged against: the incoming public
+        # state, plus every event already replayed on top of it. An event editing a
+        # locally-created object is valid precisely because its create is earlier in
+        # this same overlay — judging against the incoming projection alone would
+        # reject the private work this whole wagon exists to preserve.
+        working: Dict[str, Optional[Dict[str, Any]]] = dict(incoming)
 
         conflicts: List[Conflict] = []
         replayed: List[str] = []
         committed: List[str] = []
         for event in events:
-            carried = incoming.get(event.object_uid)
-            if _already_carried(carried, event):
+            uid = event.object_uid
+            if already_carried(incoming.get(uid), event):
                 committed.append(event.event_id)
                 continue
-            conflict = validate_event(carried, event)
+            conflict = validate_event(working.get(uid), event)
             if conflict is not None:
-                # Stop at the FIRST invalid event: everything after it was authored
-                # against a state that no longer exists, so its validity is unknowable.
+                # Stop at the FIRST invalid event: everything queued behind it was
+                # authored against a state that no longer exists, so its validity is
+                # not merely unknown — it is unknowable.
                 conflicts.append(conflict)
                 break
             overlay.apply_event(conn, event)
+            working[uid] = object_document(conn, uid)
             replayed.append(event.event_id)
 
         if conflicts:

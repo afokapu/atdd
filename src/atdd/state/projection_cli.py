@@ -180,8 +180,15 @@ def _cmd_hydrate(args) -> int:
         _log.warning("hydration refused", extra={"error": str(exc)})
         print(f"ERROR: {exc}")
         return 1
+    from atdd.state.projection import read_projection
+
     print(f"hydrated {hydrated} object(s) from {projection_dir}")
-    print(f"store_base_commit: {base}")
+    for uid in sorted(read_projection(projection_dir)):
+        print(f"  {uid}")
+    if base is None:
+        print("store_base_commit: (none — the repository has no commits yet)")
+    else:
+        print(f"store_base_commit: {base}")
     return 0
 
 

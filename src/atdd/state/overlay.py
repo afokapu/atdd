@@ -232,6 +232,12 @@ def mark_projected(conn: sqlite3.Connection, digest: str) -> int:
 # --------------------------------------------------------------------------- #
 # Applying an event to a store — the ONE function authoring and replay share
 # --------------------------------------------------------------------------- #
+#: The ticket table the guard trigger consults. Created on demand, because
+#: :func:`apply_event` also runs during *replay* — outside any authoring session, where
+#: no guard is installed — and must present a ticket there too rather than crash.
+_TICKET_DDL = "CREATE TEMP TABLE IF NOT EXISTS _atdd_overlay_ticket (uid TEXT PRIMARY KEY)"
+
+
 def _write_object(
     conn: sqlite3.Connection, uid: str, *, state: Optional[str], data: Dict[str, Any]
 ) -> None:
@@ -240,6 +246,7 @@ def _write_object(
     The ticket is issued for this one write and withdrawn immediately after, so a
     *second*, unlogged write to the same uid in the same session is still refused.
     """
+    conn.execute(_TICKET_DDL)
     conn.execute("INSERT OR REPLACE INTO temp._atdd_overlay_ticket (uid) VALUES (?)", (uid,))
     conn.execute(
         """
@@ -324,7 +331,7 @@ def project_event(
 #: public state — state that already exists in the shared truth or in the log — and
 #: are not authoring, so they run outside a session and are not guarded.
 _GUARD_SQL = f"""
-CREATE TEMP TABLE IF NOT EXISTS _atdd_overlay_ticket (uid TEXT PRIMARY KEY);
+{_TICKET_DDL};
 DELETE FROM temp._atdd_overlay_ticket;
 
 CREATE TEMP TRIGGER _atdd_overlay_guard_insert BEFORE INSERT ON objects
