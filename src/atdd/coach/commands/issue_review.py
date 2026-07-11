@@ -133,7 +133,7 @@ def _csv(value: str) -> List[str]:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="atdd issue review",
+        prog="atdd coach issue-review",
         description=(
             "Multi-pass cross-LLM review of an ATDD parent issue body. "
             "Runs N independent passes (default 3, min 2) by distinct LLMs, "

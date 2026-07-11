@@ -7,11 +7,15 @@ so this facade resolves a GitHub ``issue_number`` to its work item through the
 ``external_refs`` projection (provider ``github`` / ref_kind ``issue``) before
 reading status/train/branch off the stored object.
 
-Decision #3 (single import path): if the store holds no ``work_item`` objects on
-first read, the manifest is imported once via the #1183 ``import_manifest`` path,
-then the store is authoritative for the read. A missing manifest is tolerated —
-reads simply return ``None`` (an unregistered issue is valid and must not crash
-the lifecycle).
+Cold-start seed (#1270 Slice G — provider-agnostic): if the store holds no
+``work_item`` objects on first read, the store self-seeds from whatever
+:class:`~atdd.state.sync_engine.SyncProvider` implementations are registered — it
+asks each provider to ``ingest`` from its remote and drains the resulting
+canonical events into local state, then the store is authoritative for the read.
+Core imports **no** provider: with zero providers installed the seed is a no-op,
+the store stays empty, and reads return ``None`` (an unregistered issue — or a
+cold store with no seeding provider — is valid and must not crash the lifecycle).
+The former ``.atdd/manifest.yaml`` auto-import was retired with the mirror.
 
 This module is the **read** half only; it makes no operational writes (the
 authoritative-write cutover is Phase 2). Dependency discipline: stdlib +
@@ -27,9 +31,11 @@ from types import TracebackType
 from typing import Optional, Type
 
 from atdd.state.db import connect, init_state_store
-from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND, import_manifest
-from atdd.state.paths import ATDD_DIR, resolve_control_root
+from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+from atdd.state.paths import resolve_control_root
+from atdd.state.providers import discover_providers
 from atdd.state.store import Object, StateStore
+from atdd.state.sync_engine import apply_inbox, ingest_inbox
 
 _log = logging.getLogger(__name__)
 
@@ -45,15 +51,17 @@ _FEATURE_KEY = "feature"
 class WorkItemReader:
     """Read work-item lifecycle state from the State Store, keyed by issue number.
 
-    Open with a Control Root (default: resolved from cwd); ``db_path`` /
-    ``manifest_path`` override locations for tests. Holds one read connection for
-    its lifetime — use it as a context manager (or call :meth:`close`)::
+    Open with a Control Root (default: resolved from cwd); ``db_path`` overrides
+    the store location for tests, and ``manifest_path`` (retained for backward
+    compatibility) is used only to derive the Control Root from its parent.
+    Holds one read connection for its lifetime — use it as a context manager
+    (or call :meth:`close`)::
 
         with WorkItemReader(control_root=repo) as reader:
             status = reader.status(1203)
 
-    The store is migrated and (if empty) imported from the manifest at
-    construction, so every read after that is a pure store query.
+    The store is migrated and (if empty) seeded from the registered sync
+    providers at construction, so every read after that is a pure store query.
     """
 
     def __init__(
@@ -73,18 +81,12 @@ class WorkItemReader:
             except Exception:  # noqa: BLE001 — no Control Root is a tolerable read miss
                 self._root = None
 
-        self._manifest_path = (
-            Path(manifest_path)
-            if manifest_path is not None
-            else (self._root / ATDD_DIR / "manifest.yaml" if self._root is not None else None)
-        )
-
-        # Ensure the store exists + is migrated, then auto-import once if empty.
+        # Ensure the store exists + is migrated, then self-seed once if empty.
         if db_path is not None:
             self._db_path: Path = init_state_store(db_path=Path(db_path))
         else:
             self._db_path = init_state_store(start=self._root)
-        self._auto_import_if_empty(db_path=db_path)
+        self._auto_seed_if_empty()
 
         self._conn: sqlite3.Connection = connect(self._db_path)
         self._store = StateStore(self._conn)
@@ -200,29 +202,64 @@ class WorkItemReader:
             return None
         return {**obj.data, "slug": obj.uid, "status": obj.state}
 
-    # -- internals ---------------------------------------------------------- #
-    def _auto_import_if_empty(self, *, db_path: Optional[Path]) -> None:
-        """Import the manifest into the store once, only when the store is empty.
+    def all_work_items(self) -> list[dict]:
+        """Every work item as a manifest-``sessions``-shaped dict, from the store.
 
-        Idempotent in effect: a non-empty store is left untouched, so the import
-        runs at most once per store (Decision #3). A missing manifest is a no-op
-        — reads then return ``None`` rather than raising.
+        The store-backed analog of scanning the manifest ``sessions`` list:
+        returns ``{**data, "slug": <uid>, "status": <state>, "issue_number": <n>}``
+        for every ``work_item`` object, with the GitHub issue number folded in
+        from the ``external_refs`` projection (omitted when the item carries no
+        GitHub ref). Returns ``[]`` on any store error so callers that scanned a
+        possibly-absent manifest keep their fail-closed behaviour unchanged.
+        """
+        try:
+            by_uid: dict[str, int] = {}
+            for ref in self._store.external_refs.all():
+                if ref.provider == GITHUB_PROVIDER and ref.ref_kind == _ISSUE_REF_KIND:
+                    try:
+                        by_uid[ref.object_uid] = int(ref.ref_value)
+                    except (TypeError, ValueError):
+                        continue
+            rows: list[dict] = []
+            for obj in self._store.objects.list(kind=WORK_ITEM_KIND):
+                entry = {**obj.data, "slug": obj.uid, "status": obj.state}
+                if obj.uid in by_uid:
+                    entry["issue_number"] = by_uid[obj.uid]
+                rows.append(entry)
+            return rows
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            _log.debug("all_work_items unavailable; returning empty", extra={"error": str(exc)})
+            return []
+
+    # -- internals ---------------------------------------------------------- #
+    def _auto_seed_if_empty(self) -> None:
+        """Seed the store once from registered sync providers when it is empty.
+
+        Provider-agnostic cold start (#1270 Slice G): if the store holds no
+        ``work_item`` objects, ask every registered
+        :class:`~atdd.state.sync_engine.SyncProvider` to ``ingest`` from its
+        remote (:func:`~atdd.state.sync_engine.ingest_inbox`) and drain the
+        resulting canonical events into local state
+        (:func:`~atdd.state.sync_engine.apply_inbox`). Core imports no provider —
+        with **zero** providers registered this is a no-op, so the store stays
+        empty and reads return ``None`` (a tolerated cold miss, never a crash).
+        Idempotent in effect: a non-empty store is left untouched, so seeding
+        runs at most once per store.
         """
         conn = connect(self._db_path)
         try:
-            empty = not StateStore(conn).objects.list(kind=WORK_ITEM_KIND)
+            store = StateStore(conn)
+            if store.objects.list(kind=WORK_ITEM_KIND):
+                return
+            providers = discover_providers()
+            if not providers:
+                return
+            ingest_inbox(store, providers)
+            apply_inbox(store)
+            seeded = len(store.objects.list(kind=WORK_ITEM_KIND))
         finally:
             conn.close()
-        if not empty:
-            return
-        if self._manifest_path is None or not self._manifest_path.is_file():
-            return
-        import_manifest(
-            control_root=self._root,
-            db_path=db_path,
-            manifest_path=self._manifest_path,
-        )
         _log.info(
-            "work-item store empty — imported manifest on first read",
-            extra={"manifest": str(self._manifest_path), "db": str(self._db_path)},
+            "work-item store empty — seeded from registered sync providers on first read",
+            extra={"providers": len(providers), "seeded": seeded, "db": str(self._db_path)},
         )

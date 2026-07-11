@@ -3,7 +3,7 @@
 #
 # Installed by `atdd init`. Greps the staged diff for *added* lines that bake a
 # `gh issue create` call into committed source, and rejects the commit with an
-# educational pointer to `atdd issue`. Markdown files (*.md) are exempt so docs
+# educational pointer to `atdd author issue`. Markdown files (*.md) are exempt so docs
 # may quote the forbidden command in code fences.
 #
 # This is a standalone, fully-functional pre-commit hook — it may be installed
@@ -31,7 +31,7 @@ ATDD: `gh issue create` found in staged changes — commit blocked.
 GitHub issues must be created through the toolkit so they are registered in the
 manifest and the project board. Do not bake `gh issue create` into source.
 
-  Use:  atdd issue <slug>
+  Use:  atdd author issue --title <title> --slug <slug>
 
 (Markdown docs are exempt; this guard only flags executable/source files.)
 EOF

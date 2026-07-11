@@ -25,7 +25,7 @@ from typing import Dict, List, Optional
 
 import yaml
 
-from atdd.coach.commands.issue import TYPE_TO_PREFIX
+from atdd.coach.commands.issue_prefixes import TYPE_TO_PREFIX
 from atdd.coach.utils.default_branch import resolve_default_branch
 from atdd.coach.utils.ff_default_branch import fast_forward_default_branch
 from atdd.coach.utils.risk_score import (

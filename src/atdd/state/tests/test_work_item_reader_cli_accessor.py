@@ -11,29 +11,39 @@ pr/branch/issue_lifecycle/sync_wmbts repoints. Isolated tmp-store tests
 """
 from __future__ import annotations
 
-import yaml
 import pytest
 
+from atdd.state.db import connect, init_state_store
+from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+from atdd.state.store import StateStore
 from atdd.state.work_item_reader import WorkItemReader
 
-_MANIFEST = {
-    "version": "2.0",
-    "sessions": [
-        {"id": "1203", "slug": "state-store-authoritative", "issue_number": 1203,
-         "type": "implementation", "status": "PLANNED", "train": "0002",
-         "branch": "feat/ssa", "feature": "feature:atdd:state-store",
-         "wagon": "govern-lifecycle", "created": "2026-06-01", "archived": None},
-        {"id": "900", "slug": "older-thing", "issue_number": 900, "type": "refactor",
-         "status": "COMPLETE", "train": "0001", "branch": "fix/older"},
-    ],
-}
+# #1270 Slice G: the manifest mirror was deleted — seed the store directly.
+_SESSIONS = [
+    {"slug": "state-store-authoritative", "issue_number": 1203,
+     "type": "implementation", "status": "PLANNED", "train": "0002",
+     "branch": "feat/ssa", "feature": "feature:atdd:state-store",
+     "wagon": "govern-lifecycle", "created": "2026-06-01", "archived": None},
+    {"slug": "older-thing", "issue_number": 900, "type": "refactor",
+     "status": "COMPLETE", "train": "0001", "branch": "fix/older"},
+]
 
 
 @pytest.fixture()
 def reader(tmp_path):
-    (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
-    (tmp_path / ".atdd" / "manifest.yaml").write_text(yaml.safe_dump(_MANIFEST), encoding="utf-8")
-    db = tmp_path / ".atdd" / "state" / "state.sqlite"
+    db = init_state_store(db_path=tmp_path / ".atdd" / "state" / "state.sqlite")
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        for s in _SESSIONS:
+            data = {k: v for k, v in s.items() if k not in ("slug", "status")}
+            store.objects.upsert(s["slug"], WORK_ITEM_KIND, state=s["status"], data=data)
+            store.external_refs.link(
+                s["slug"], GITHUB_PROVIDER, "issue", str(s["issue_number"]),
+                data={"source": "test-seed"},
+            )
+    finally:
+        conn.close()
     with WorkItemReader(control_root=tmp_path, db_path=db) as r:
         yield r
 

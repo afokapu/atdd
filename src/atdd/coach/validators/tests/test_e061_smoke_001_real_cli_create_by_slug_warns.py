@@ -49,17 +49,18 @@ def test_e061_smoke_001_real_cli_create_by_slug_warns():
         env=env,
     )
 
-    assert result.returncode == 0, (
-        f"the deprecated `atdd issue <slug>` alias must still exit 0; got "
+    # C5b (#1309): the alias is REMOVED. It must refuse, never silently create.
+    assert result.returncode != 0, (
+        f"the removed `atdd issue <slug>` alias must exit non-zero; got "
         f"{result.returncode}\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
-    # The deprecation notice fires on the real create-by-slug CLI surface, on stderr.
+    # The real CLI still points operators at the canonical create, on stderr.
     assert "author issue" in result.stderr, (
         "the real `atdd issue <slug>` CLI must point operators to `atdd author "
         f"issue` on stderr; stderr was:\n{result.stderr!r}"
     )
-    assert "deprecat" in result.stderr.lower()
-    # The warning must not pollute the rendered body payload on stdout.
+    assert "REMOVED" in result.stderr
+    # The notice must not pollute stdout.
     assert "author issue" not in result.stdout, (
-        "the deprecation notice must go to stderr, not the stdout body payload"
+        "the notice must go to stderr, not the stdout payload"
     )

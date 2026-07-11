@@ -143,7 +143,7 @@ def _evaluate_pr(mgr: "PRManager", pr: dict) -> Optional[str]:
             f"PR #{pr_number} merged ({merged_at}) but linked issue "
             f"#{issue_number} is still at {phase} — expected phase "
             f"advancement after merge. "
-            f"Fix: atdd issue {issue_number} --status <next-phase> "
+            f"Fix: atdd coach transition {issue_number} <next-phase> "
             f'(e.g. "REFACTOR" or "COMPLETE"; '
             f"see CLAUDE.md::state_machine.transitions for the valid "
             f"transitions out of {phase})."

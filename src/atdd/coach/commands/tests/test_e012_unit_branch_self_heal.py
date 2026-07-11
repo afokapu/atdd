@@ -38,6 +38,15 @@ def _write_manifest(path: Path, sessions: list[dict]) -> None:
     path.write_text(yaml.dump({"sessions": sessions}, default_flow_style=False))
 
 
+def _store_registered_issue_numbers(control_root: Path) -> list[int]:
+    """Every GitHub issue number registered as a store work item (#1270 Slice G)."""
+    from atdd.state.work_item_reader import WorkItemReader
+
+    with WorkItemReader(control_root=control_root) as reader:
+        return [e["issue_number"] for e in reader.all_work_items()
+                if e.get("issue_number") is not None]
+
+
 def _make_gh_issue_json(number: int, slug: str, status: str = "INIT") -> dict:
     """Minimal gh issue JSON as returned by `gh issue view --json ...`."""
     return {
@@ -190,18 +199,13 @@ class TestIssueManagerReconcile:
         )
 
     def test_reconcile_adds_missing_issues(self, tmp_path: Path) -> None:
-        """Y005-UNIT-001: reconcile() backfills issues found on GitHub but absent from manifest."""
-        manifest_path = tmp_path / ".atdd" / "manifest.yaml"
-        # Manifest has issue 100 but NOT 101
-        _write_manifest(manifest_path, sessions=[
-            {"id": "100", "slug": "existing-issue", "issue_number": 100,
-             "type": "implementation", "status": "INIT", "created": "2026-01-01"},
-        ])
+        """Y005-UNIT-001: reconcile() backfills GitHub atdd-issues absent from the
+        State Store (#1270 Slice G: the manifest mirror is deleted — the store is
+        the sole registry)."""
+        config_path = tmp_path / ".atdd"
+        config_path.mkdir(parents=True, exist_ok=True)
+        (config_path / "config.yaml").write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
 
-        config_path = tmp_path / ".atdd" / "config.yaml"
-        config_path.write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
-
-        # Simulate two open atdd-issues on GitHub: #100 (already in manifest) and #101 (missing)
         open_issues = [
             {"number": 100, "title": "existing issue", "createdAt": "2026-01-01T00:00:00Z",
              "labels": [{"name": "atdd-issue"}, {"name": "atdd:INIT"}]},
@@ -222,25 +226,17 @@ class TestIssueManagerReconcile:
 
         assert rc == 0, f"reconcile() must return 0 on success; got {rc}"
 
-        updated = yaml.safe_load(manifest_path.read_text()) or {}
-        numbers = [s.get("issue_number") for s in updated.get("sessions", [])]
-        assert 101 in numbers, (
-            f"reconcile() must add issue #101 to the manifest; sessions={updated['sessions']}"
+        numbers = _store_registered_issue_numbers(tmp_path)
+        assert 100 in numbers and 101 in numbers, (
+            f"reconcile() must register #100 and #101 in the store; got {numbers}"
         )
-        assert 100 in numbers, (
-            f"reconcile() must keep existing issue #100; sessions={updated['sessions']}"
-        )
+        assert not (tmp_path / ".atdd" / "manifest.yaml").exists()
 
     def test_reconcile_is_idempotent(self, tmp_path: Path) -> None:
-        """Y005-UNIT-001: reconcile() running twice must not duplicate entries."""
-        manifest_path = tmp_path / ".atdd" / "manifest.yaml"
-        _write_manifest(manifest_path, sessions=[
-            {"id": "100", "slug": "existing-issue", "issue_number": 100,
-             "type": "implementation", "status": "INIT", "created": "2026-01-01"},
-        ])
-
-        config_path = tmp_path / ".atdd" / "config.yaml"
-        config_path.write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
+        """Y005-UNIT-001: reconcile() running twice must not duplicate store entries."""
+        config_path = tmp_path / ".atdd"
+        config_path.mkdir(parents=True, exist_ok=True)
+        (config_path / "config.yaml").write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
 
         open_issues = [
             {"number": 100, "title": "existing issue", "createdAt": "2026-01-01T00:00:00Z",
@@ -259,8 +255,7 @@ class TestIssueManagerReconcile:
             manager.reconcile()
             manager.reconcile()
 
-        updated = yaml.safe_load(manifest_path.read_text()) or {}
-        numbers = [s.get("issue_number") for s in updated.get("sessions", [])]
+        numbers = _store_registered_issue_numbers(tmp_path)
         assert numbers.count(100) == 1, (
-            f"reconcile() must not duplicate entries; numbers={numbers}"
+            f"reconcile() must not duplicate store entries; numbers={numbers}"
         )

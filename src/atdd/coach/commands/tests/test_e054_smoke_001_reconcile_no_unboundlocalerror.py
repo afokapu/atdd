@@ -41,7 +41,7 @@ def test_real_reconcile_subprocess_has_no_unboundlocalerror(tmp_path) -> None:
     # still constructs IssueManager and calls reconcile(), then bails at the
     # manifest guard — no gh/git side effects against the live worktree.
     proc = subprocess.run(
-        [sys.executable, "-m", "atdd", "issue", "reconcile"],
+        [sys.executable, "-m", "atdd", "coach", "reconcile"],
         cwd=str(tmp_path),
         capture_output=True,
         text=True,

@@ -1,254 +1,164 @@
 """
-Release versioning validation.
+Release versioning validation (#1172 State Store SoT model).
 
-Ensures:
-- .atdd/config.yaml defines release.version_file
-- Version file exists and contains a version
-- Git tag on HEAD matches tag_prefix + version
+Post-#1172 the authoritative release version lives in the **State Store**
+singleton ``release`` object, not a static ``version = "..."`` line in
+``pyproject.toml`` (now ``dynamic = ["version"]``, resolved by the in-tree build
+backend from the store). ``IssueManager._verify_release_gate`` — the release
+gate on the COMPLETE transition — therefore reads the store version via
+``atdd.state.version.emit`` (non-raising: real version, or the local fallback
+``0.0.0+local`` when none is set).
+
+These tests pin that behavior AND carry the RED discriminator for the #1172
+follow-up fix: a **dynamic** ``pyproject.toml`` (no static ``version =`` line)
+plus a store that HAS a version — where the OLD pyproject-parsing gate returned
+``(False, "could not parse version")`` and the NEW store-reading gate returns
+``(True, ...)``.
 """
 
-import json
-import re
-import subprocess
-from pathlib import Path
-from typing import Optional
-
 import pytest
-import yaml
 
-from atdd.coach.utils.repo import find_repo_root
-
-
-REPO_ROOT = find_repo_root()
-CONFIG_FILE = REPO_ROOT / ".atdd" / "config.yaml"
+from atdd.coach.commands.issue import IssueManager
+from atdd.state.db import connect, init_state_store
+from atdd.state.store import ObjectStore
+from atdd.state import version as ver
 
 
-def _load_config() -> dict:
-    if not CONFIG_FILE.exists():
-        pytest.skip(f"Config not found: {CONFIG_FILE}. Run 'atdd init' first.")
-
-    with open(CONFIG_FILE) as f:
-        return yaml.safe_load(f) or {}
+pytestmark = pytest.mark.platform
 
 
-def _get_release_config(config: dict) -> tuple[str, str]:
-    release = config.get("release")
-    if not isinstance(release, dict):
-        pytest.fail(
-            "Missing release config in .atdd/config.yaml. "
-            "Add release.version_file and release.tag_prefix."
-        )
+# A dynamic pyproject.toml as it exists post-#1172: NO static ``version =`` line;
+# the version is an ``attr`` resolved from the build backend at build time. The
+# OLD gate's ``_read_version_from_file`` regex finds nothing here.
+DYNAMIC_PYPROJECT = """\
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "atdd_version_backend"
+backend-path = ["build_meta_shim"]
 
-    version_file = release.get("version_file")
-    if not version_file or not isinstance(version_file, str):
-        pytest.fail("Missing release.version_file in .atdd/config.yaml.")
+[project]
+name = "atdd"
+dynamic = ["version"]
 
-    tag_prefix = release.get("tag_prefix", "v")
-    if tag_prefix is None:
-        tag_prefix = ""
-    if not isinstance(tag_prefix, str):
-        pytest.fail("release.tag_prefix must be a string.")
+[tool.setuptools.dynamic]
+version = {attr = "atdd_version_backend.VERSION"}
+"""
 
-    return version_file, tag_prefix
-
-
-def _read_version_from_file(path: Path) -> str:
-    if not path.exists():
-        pytest.fail(f"Version file not found: {path}")
-
-    if path.name == "pyproject.toml":
-        version = _parse_pyproject_version(path)
-    elif path.name == "package.json":
-        version = _parse_package_json_version(path)
-    else:
-        version = _parse_plain_version(path)
-        if not version:
-            pytest.fail(
-                f"Could not read version from {path}. "
-                "Expected first non-comment line to contain a semver like "
-                "'1.2.3' or '1.2.3 - short summary'."
-            )
-
-    if not version:
-        pytest.fail(f"Could not read version from {path}")
-
-    return version
+RELEASE_CONFIG = """\
+release:
+  version_file: pyproject.toml
+  tag_prefix: v
+"""
 
 
-def _parse_pyproject_version(path: Path) -> Optional[str]:
-    text = path.read_text()
+def _make_repo(tmp_path, *, config: str = RELEASE_CONFIG, pyproject: str = DYNAMIC_PYPROJECT):
+    """A hermetic repo dir with a dynamic pyproject + an initialized State Store.
 
-    # Try tomllib/tomli first for correctness
-    data = _load_toml(text)
-    if isinstance(data, dict):
-        project = data.get("project", {})
-        if isinstance(project, dict) and project.get("version"):
-            return str(project["version"]).strip()
-        tool = data.get("tool", {})
-        if isinstance(tool, dict):
-            poetry = tool.get("poetry", {})
-            if isinstance(poetry, dict) and poetry.get("version"):
-                return str(poetry["version"]).strip()
-
-    # Fallback to lightweight parsing
-    return _parse_pyproject_version_text(text)
+    The ``.atdd/config.yaml`` marker makes ``tmp_path`` a Control Root, so the
+    gate's ``init_state_store(start=self.target_dir)`` resolves the store to
+    ``tmp_path/.atdd/state/state.sqlite``. Returns ``(IssueManager, store_path)``.
+    """
+    atdd_dir = tmp_path / ".atdd"
+    atdd_dir.mkdir(parents=True, exist_ok=True)
+    if config is not None:
+        (atdd_dir / "config.yaml").write_text(config)
+    (tmp_path / "pyproject.toml").write_text(pyproject)
+    db = init_state_store(db_path=atdd_dir / "state" / "state.sqlite")
+    return IssueManager(target_dir=tmp_path), db
 
 
-def _load_toml(text: str) -> Optional[dict]:
+@pytest.fixture(autouse=True)
+def _no_control_root_env(monkeypatch):
+    """Hermetic store resolution: never let an interim ATDD_CONTROL_ROOT override
+    (the #1315 workaround) redirect the gate's store lookup away from tmp_path."""
+    monkeypatch.delenv("ATDD_CONTROL_ROOT", raising=False)
+
+
+# --------------------------------------------------------------------------- #
+# SPEC-RELEASE-0001: PASS when the State Store holds a real release version.
+# --------------------------------------------------------------------------- #
+def test_release_gate_passes_when_store_has_version(tmp_path):
+    """A store with a real release version passes the gate — even with a dynamic
+    pyproject that has NO static ``version =`` line."""
+    manager, db = _make_repo(tmp_path)
+    conn = connect(db)
     try:
-        import tomllib  # type: ignore[attr-defined]
-        return tomllib.loads(text)
-    except Exception:
-        try:
-            import tomli  # type: ignore
-            return tomli.loads(text)
-        except Exception:
-            return None
+        ver.set_version(conn, "1.2.3")
+    finally:
+        conn.close()
+
+    passed, messages = manager._verify_release_gate(force=False)
+
+    assert passed, "\n".join(messages)
+    assert any("1.2.3" in m and "State Store SoT" in m for m in messages), messages
 
 
-def _parse_pyproject_version_text(text: str) -> Optional[str]:
-    current_section = None
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            current_section = stripped.strip("[]").strip()
-            continue
-        if current_section in {"project", "tool.poetry"}:
-            match = re.match(r'version\s*=\s*["\']([^"\']+)["\']', stripped)
-            if match:
-                return match.group(1).strip()
-    return None
-
-
-def _parse_package_json_version(path: Path) -> Optional[str]:
+# --------------------------------------------------------------------------- #
+# SPEC-RELEASE-0002: RED discriminator — dynamic pyproject + store WITH version.
+# OLD gate: (False, "could not parse version"). NEW gate: (True, ...).
+# --------------------------------------------------------------------------- #
+def test_release_gate_dynamic_pyproject_reads_store_not_file(tmp_path):
+    """The exact #1172 regression: a dynamic pyproject (no static version) blocked
+    every COMPLETE under the OLD gate. The store holds the version → NEW passes."""
+    manager, db = _make_repo(tmp_path)
+    conn = connect(db)
     try:
-        data = json.loads(path.read_text())
-    except json.JSONDecodeError:
-        return None
+        ver.set_version(conn, "3.149.0")
+        # Pin the OLD failure mode: the dynamic pyproject genuinely carries no
+        # static ``version =`` line, so file-parsing has nothing to read.
+        import re
+        assert not re.search(
+            r'(?m)^\s*version\s*=\s*["\']', (tmp_path / "pyproject.toml").read_text()
+        ), "fixture pyproject must be dynamic (no static version line)"
+    finally:
+        conn.close()
 
-    version = data.get("version")
-    return str(version).strip() if version else None
+    passed, messages = manager._verify_release_gate(force=False)
 
-
-def _parse_plain_version(path: Path) -> Optional[str]:
-    version_pattern = re.compile(
-        r"\bv?(?P<version>\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)\b"
-    )
-    for line in path.read_text().splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        match = version_pattern.search(stripped)
-        if match:
-            return match.group("version")
-        return None
-    return None
+    assert passed, "\n".join(messages)
+    assert not any("could not parse version" in m for m in messages), messages
 
 
-def _git_tags_on_head(repo_root: Path) -> list[str]:
-    result = subprocess.run(
-        ["git", "tag", "--points-at", "HEAD"],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        stderr = result.stderr.strip() or "git tag --points-at HEAD failed"
-        pytest.fail(stderr)
+# --------------------------------------------------------------------------- #
+# SPEC-RELEASE-0003: FAIL when only the local fallback is resolvable.
+# --------------------------------------------------------------------------- #
+def test_release_gate_fails_on_local_fallback(tmp_path):
+    """No release object in the store → ``emit`` returns the local fallback →
+    the gate correctly blocks and points at ``atdd state version bump``."""
+    manager, db = _make_repo(tmp_path)
+    conn = connect(db)
+    try:
+        ObjectStore(conn).delete(ver.RELEASE_UID)  # remove the migration-v2 seed
+        assert ver.emit(conn) == ver.LOCAL_FALLBACK_VERSION
+    finally:
+        conn.close()
 
-    tags = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    return tags
+    passed, messages = manager._verify_release_gate(force=False)
 
-
-def _tag_reachable_from_head(repo_root: Path, tag: str) -> bool:
-    """Check if a tag is an ancestor of HEAD (handles merge commits).
-
-    After a GitHub merge-commit, HEAD is a new SHA but the tagged
-    version-bump commit is a direct parent.  ``git merge-base --is-ancestor``
-    returns 0 when the tag's commit is reachable from HEAD.
-    """
-    result = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", tag, "HEAD"],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-    )
-    return result.returncode == 0
+    assert not passed, "\n".join(messages)
+    assert any(ver.LOCAL_FALLBACK_VERSION in m for m in messages), messages
+    assert any("version bump" in m for m in messages), messages
 
 
-def _commits_since_tag(repo_root: Path, tag: str) -> int:
-    """Count commits between a tag and HEAD (0 = tag IS HEAD)."""
-    result = subprocess.run(
-        ["git", "rev-list", "--count", f"{tag}..HEAD"],
-        cwd=str(repo_root),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return -1
-    return int(result.stdout.strip())
+# --------------------------------------------------------------------------- #
+# SPEC-RELEASE-0004: early SKIPPED paths preserved.
+# --------------------------------------------------------------------------- #
+def test_release_gate_skipped_on_force(tmp_path):
+    manager, _ = _make_repo(tmp_path)
+    passed, messages = manager._verify_release_gate(force=True)
+    assert passed
+    assert any("SKIPPED (--force)" in m for m in messages), messages
 
 
-def test_release_version_file_and_tag_on_head():
-    """
-    SPEC-RELEASE-0001: Version file exists and tag on HEAD matches version.
+def test_release_gate_skipped_without_config(tmp_path):
+    manager = IssueManager(target_dir=tmp_path)  # no .atdd/config.yaml at all
+    passed, messages = manager._verify_release_gate(force=False)
+    assert passed
+    assert any("no .atdd/config.yaml" in m for m in messages), messages
 
-    The tag must either point directly at HEAD or be reachable within
-    a short distance (≤ 3 commits) to accommodate merge commits created
-    by GitHub pull request merges.
-    """
-    import os
-    base_ref = os.environ.get("GITHUB_BASE_REF", "")
-    github_ref = os.environ.get("GITHUB_REF", "")
-    is_ci = os.environ.get("CI", "").lower() == "true"
-    if base_ref or (github_ref and github_ref != "refs/heads/main"):
-        pytest.skip("Tag check skipped on PR branches (tag created post-merge)")
-    if is_ci and github_ref == "refs/heads/main":
-        pytest.skip("Tag check skipped on main push in CI (tag-release job handles tagging)")
-    if not is_ci:
-        # Release tagging is a CI/release-time concern. In a local run (e.g. the
-        # `atdd validate ... --local` pre-push gate) HEAD is a feature branch
-        # with no release tag, so this would always fail on state unrelated to
-        # the diff. Skip locally; CI is the authoritative tag gate (#932).
-        pytest.skip("Release-tag check is CI/release-time only; skipped in local runs (#932)")
 
-    config = _load_config()
-    version_file, tag_prefix = _get_release_config(config)
-
-    version_path = Path(version_file)
-    if not version_path.is_absolute():
-        version_path = (REPO_ROOT / version_path).resolve()
-
-    version = _read_version_from_file(version_path)
-    expected_tag = f"{tag_prefix}{version}"
-
-    # Fast path: tag directly on HEAD
-    tags = _git_tags_on_head(REPO_ROOT)
-    if expected_tag in tags:
-        return
-
-    # Merge-commit path: tag is a recent ancestor of HEAD
-    # (e.g., GitHub merge commit sits on top of the tagged version-bump)
-    if _tag_reachable_from_head(REPO_ROOT, expected_tag):
-        distance = _commits_since_tag(REPO_ROOT, expected_tag)
-        if 0 < distance <= 3:
-            return
-        if distance > 3:
-            pytest.fail(
-                f"Tag '{expected_tag}' exists but is {distance} commits behind HEAD. "
-                f"Expected tag on HEAD or within 3 commits (merge tolerance). "
-                f"Re-tag HEAD: git tag -f {expected_tag} && git push origin -f {expected_tag}"
-            )
-
-    if not tags and not _tag_reachable_from_head(REPO_ROOT, expected_tag):
-        pytest.fail(
-            "No git tag found on HEAD. "
-            f"Create tag: git tag {expected_tag}"
-        )
-
-    found = ", ".join(tags) if tags else "none"
-    pytest.fail(
-        f"Expected tag '{expected_tag}' on HEAD, found: {found}"
-    )
+def test_release_gate_skipped_without_release_config(tmp_path):
+    manager, _ = _make_repo(tmp_path, config="code:\n  toolkit: src/atdd\n")
+    passed, messages = manager._verify_release_gate(force=False)
+    assert passed
+    assert any("no release config" in m for m in messages), messages

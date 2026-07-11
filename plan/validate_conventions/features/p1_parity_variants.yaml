@@ -22,9 +22,8 @@ description: Concrete P1 parity validator variants (coverage-source, sizing, coh
 sizing:
   footprint_score: 5
   footprint_size: S
-  wmbts: 2
+  wmbts: 1
 urn: feature:validate-conventions:p1-parity-variants
 wagon: wagon:validate-conventions
 wmbts:
-- wmbt:validate-conventions:E012
 - wmbt:validate-conventions:E014

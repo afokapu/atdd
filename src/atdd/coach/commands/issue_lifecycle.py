@@ -52,14 +52,15 @@ def _check_on_main_branch(repo_root: Path) -> tuple:
         return True, None
 
     msg = (
-        f"Error: `atdd issue` must be run from the 'main' branch.\n"
+        f"Error: `atdd author issue` must be run from the 'main' branch.\n"
         f"  Current branch: {branch}\n"
         f"  The manifest commit will land on '{branch}', not main.\n"
         f"  Fix:\n"
         f"    git checkout main\n"
-        f'    atdd author issue --title "My Feature" --slug my-feature   # canonical store-first create (#1272)\n'
-        f"  Override: atdd issue my-feature --force   # re-run with your slug"
+        f'    atdd author issue --title "My Feature" --slug my-feature   # canonical store-first create (#1272)'
     )
+    # No override line: the removed `atdd issue <slug> --force` was the only form
+    # that could bypass this guard, and `atdd author issue` has no --force.
     return False, msg
 
 # Statuses from PLANNED onward require a template-compliant issue body.
@@ -338,22 +339,22 @@ class IssueLifecycle:
         print()
         if status == "INIT":
             print("  Next: Fill issue scope, then transition:")
-            print(f"         atdd issue {number} --status PLANNED")
+            print(f"         atdd coach transition {number} PLANNED")
         elif status == "PLANNED":
             print("  Next: Write failing tests (RED phase), then transition:")
-            print(f"         atdd issue {number} --status RED")
+            print(f"         atdd coach transition {number} RED")
         elif status == "RED":
             print("  Next: Implement to make tests pass (GREEN), then transition:")
-            print(f"         atdd issue {number} --status GREEN")
+            print(f"         atdd coach transition {number} GREEN")
         elif status == "GREEN":
             print("  Next: Run tester SMOKE verification, then transition:")
-            print(f"         atdd issue {number} --status SMOKE")
+            print(f"         atdd coach transition {number} SMOKE")
         elif status == "SMOKE":
             print("  Next: Refactor to clean architecture, then transition:")
-            print(f"         atdd issue {number} --status REFACTOR")
+            print(f"         atdd coach transition {number} REFACTOR")
         elif status == "REFACTOR":
             print("  Next: Complete and close:")
-            print(f"         atdd issue {number} --status COMPLETE")
+            print(f"         atdd coach transition {number} COMPLETE")
         elif status in _TERMINAL_STATUSES:
             print(f"  This issue is {status}. No further action needed.")
         elif status == "BLOCKED":
@@ -470,16 +471,27 @@ class IssueLifecycle:
         )
         for f in outcome.failures:
             print(f"  ✗ [{f.gate_id} / {f.rule_id}] {f.message}")
-        print(f"  Bypass: atdd issue {issue_number} --status {target_status.upper()} --force")
+        print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
         return 1
 
     def transition(self, issue_number: int, status: str, force: bool = False) -> int:
         """Transition an issue to a new status, then re-enter to show updated state.
 
-        Delegates to IssueManager.update() for state machine validation, train
-        enforcement, COMPLETE gates, label swapping, and Project field updates.
-        If status is COMPLETE, also calls IssueManager.archive() to auto-close
-        WMBTs and the parent issue.
+        #1304: the orchestration was MOVED to
+        :func:`atdd.coach.commands.issue_transition.apply_transition` (the home
+        of ``atdd coach transition``); this method now delegates to it so the
+        deprecated ``atdd update``/``atdd archive`` shims and the #1020/#1017
+        gate tests keep running through the one implementation. The moved
+        orchestration still delegates to ``IssueManager.update()`` for
+        state-machine validation, train enforcement, COMPLETE gates, the github
+        label swap, the store-first write, and the manifest mirror; COMPLETE
+        also auto-archives.
+
+        NOTE: this path intentionally does NOT register the operator-approval
+        gate check — only the ``atdd coach transition`` verb (and the deprecated
+        ``atdd issue --status`` shim that delegates to it) does. That preserves
+        the historical behavior where ``atdd update``/``atdd archive`` never
+        enforced the operator token.
 
         Args:
             issue_number: GitHub issue number.
@@ -489,45 +501,11 @@ class IssueLifecycle:
         Returns:
             0 on success, 1 on failure.
         """
-        from atdd.coach.commands.issue import IssueManager
+        from atdd.coach.commands.issue_transition import apply_transition
 
-        # Enforcing per-transition gate — the #1020 keystone. Acts on the gate
-        # verdict (unlike the advisory _run_gate it replaces): a failing
-        # registered check returns non-zero here, so we never reach
-        # IssueManager.update()'s label/phase swap. Empty registry => no-op.
-        gate_rc = self._transition_gate(issue_number, status, force=force)
-        if gate_rc != 0:
-            return gate_rc
-
-        # Template compliance gate — PLANNED and beyond require a fully
-        # populated issue body (SPEC-COACH-ORCH-0011). --force overrides.
-        if not force:
-            gate_rc = self._compliance_gate(issue_number, status)
-            if gate_rc != 0:
-                return gate_rc
-
-        manager = IssueManager(self.target_dir)
-        issue_id = str(issue_number)
-
-        rc = manager.update(
-            issue_id=issue_id,
-            status=status,
-            force=force,
+        return apply_transition(
+            issue_number, status, force=force, target_dir=self.target_dir
         )
-        if rc != 0:
-            return rc
-
-        # COMPLETE auto-archives: close WMBTs + parent issue
-        if status.upper() == "COMPLETE":
-            arc_rc = manager.archive(issue_id=issue_id)
-            if arc_rc != 0:
-                print(f"Warning: Archive step returned {arc_rc} after COMPLETE transition.")
-
-        # R002: re-enter in display-only mode so the post-transition path does
-        # not attempt to create a worktree branch (and therefore cannot fail on
-        # the branch-creation layout check). The transition itself already
-        # landed — all the re-enter step needs to do is print updated state.
-        return self._reenter_display_only(issue_number)
 
     def _reenter_display_only(self, issue_number: int) -> int:
         """Print the current state of an issue without touching worktrees.
@@ -644,7 +622,7 @@ class IssueLifecycle:
             return 1
 
         # Phase 2: chain to worktree creation (default) or print intent (--no-branch).
-        from atdd.coach.commands.issue import TYPE_TO_PREFIX
+        from atdd.coach.commands.issue_prefixes import TYPE_TO_PREFIX
         prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
 
         if not no_branch:
@@ -721,7 +699,7 @@ class IssueLifecycle:
             print()
             print(f"ATDD: Issue #{issue_number} requires worktree: {prefix}/{slug}")
             print(f"  cd {worktree_path}")
-            print(f"  atdd issue {issue_number}")
+            print(f"  atdd coach enter {issue_number}")
             print()
             return 0
 

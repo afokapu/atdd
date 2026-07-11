@@ -6,7 +6,7 @@ name: No cross-wagon produce/consume cycle
 statement: The directed wagon graph built from produce->consume artifact NAMES must be acyclic; no strongly-connected component may span more than one wagon.
 implementation:
   type: validator
-  ref: test_no_cross_wagon_consume_cycle::test_no_cross_wagon_consume_cycle
+  ref: conventions/acyclicity/test_no_cross_wagon_consume_cycle::test_fault_injection_convention_catches
 source:
   legacy_path: docs/recompose
   legacy_section: complexity-sizing

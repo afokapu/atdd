@@ -9,27 +9,10 @@ from __future__ import annotations
 
 import contextlib
 import logging
-import subprocess
-import sys
 from pathlib import Path
 
 _log = logging.getLogger(__name__)
 
-LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_theme_commons_coach_boundary.py"
-    "::test_commons_wagons_do_not_import_coach"
-)
-
-
-def run_legacy(root: Path) -> subprocess.CompletedProcess:
-    """Run the legacy boundary validator as a subprocess (inherits parent env,
-    which carries PYTHONPATH=src)."""
-    return subprocess.run(
-        [sys.executable, "-m", "pytest", LEGACY_NODEID, "-q", "-p", "no:cacheprovider"],
-        cwd=str(root),
-        capture_output=True,
-        text=True,
-    )
 
 
 @contextlib.contextmanager

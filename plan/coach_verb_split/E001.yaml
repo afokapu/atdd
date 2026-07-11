@@ -1,0 +1,75 @@
+urn: "wmbt:coach-verb-split:E001"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "behavior-drift-between-atdd-issue-status-and-atdd-coach-transition"
+context_clarifier: "when umbrella #1303 splits `atdd issue` across the author and coach archetypes: the ~10 existing `atdd issue --status` callers must keep working unchanged, the operator-approval token and the store-first / manifest-mirror / github-label / strict-vs-non-strict write paths must survive the move, and C2-C4 (#1305/#1307/#1308) must be able to add their extracted verbs in parallel without merge conflicts"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of behavior-drift-between-atdd-issue-status-and-atdd-coach-transition by moving the phase-transition orchestration into a single engine (issue_transition.apply_transition) that both the new `atdd coach transition` verb and the deprecated `atdd issue --status` shim call, preserving operator-token enforcement, store-first write, manifest mirror, github label swap and the strict/non-strict commit paths identically, and registering each extracted verb as a drop-in module in the coach_verbs auto-discovery package so parallel children edit nothing shared"
+acceptances:
+  - identity:
+      urn: "acc:coach-verb-split:E001-UNIT-001-verb-auto-discovery"
+      id: "AC-UNIT-001"
+      purpose: "coach_verbs.resolve_verb('transition') returns the issue_transition.run entry point, and a drop-in is discovered with zero edits to any shared file"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The coach_verbs auto-discovery package with the transition.py drop-in present"
+    when:
+      abstract: "resolve_verb('transition') and discover() are called"
+    then:
+      abstract:
+        - "resolve_verb('transition') is the same callable as issue_transition.run"
+        - "discover()['transition'] is that same callable"
+        - "resolve_verb of an unknown token or a bare issue number returns None"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-04"
+  - identity:
+      urn: "acc:coach-verb-split:E001-INTEGRATION-001-coach-transition-applies-identically"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd coach transition applies the transition identically to the old atdd issue --status path, enforces the operator token, and the deprecated shim warns + delegates"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The gate/compliance/re-enter helpers and IssueManager.update stubbed via class-level patches"
+        - "A throwaway issue number (never a live issue) under a temp control root"
+    when:
+      abstract: "coach.run_cli(['transition', N, TO]) is called, and separately cli.main for `issue N --status TO`"
+    then:
+      abstract:
+        - "IssueManager.update is reached with issue_id=str(N), status=TO, force forwarded"
+        - "With the approval check registered + the transition gated and no token, run_cli returns non-zero and IssueManager.update is NEVER called"
+        - "The deprecated `atdd issue --status` prints a stderr deprecation notice naming `atdd coach transition` and delegates with argv [N, TO, --force?]"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-04"
+  - identity:
+      urn: "acc:coach-verb-split:E001-SMOKE-001-real-transition-in-temp-control-root"
+      id: "AC-SMOKE-001"
+      purpose: "against a temp ATDD_CONTROL_ROOT with a throwaway slug (never a live issue), atdd coach transition drives a real State Store phase write and the deprecated shim still routes to it (the manifest mirror is no longer written — decommissioned by #1270 Slices D-G; the store is the sole SoT)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp control root (ATDD_CONTROL_ROOT) seeded with a throwaway work item whose slug is not any real issue"
+        - "The operator-approval gate disabled for the target transition (or a real signed token written into the temp worktree)"
+        - "GitHub label I/O stubbed — the smoke exercises the real State Store write, never a live GitHub issue"
+    when:
+      abstract: "atdd coach transition <throwaway-N> <TO> is executed end-to-end against the temp control root"
+    then:
+      abstract:
+        - "The throwaway work item's State Store state becomes TO (the store is the sole SoT; the manifest mirror was decommissioned by #1270 Slices D-G and is no longer written)"
+        - "Running the deprecated `atdd issue <throwaway-N> --status <TO>` reaches the same engine (proven by the same resulting state) and prints the deprecation notice"
+        - "No live GitHub issue and no real control root outside the temp dir is ever touched"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-04"

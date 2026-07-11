@@ -100,7 +100,7 @@ def test_cli_dispatcher_routes_issue_review_and_writes_aggregate(tmp_path: Path)
     _write_workspace(tmp_path)
     proc = _run_cli(
         tmp_path,
-        "issue", "review", "777",
+        "coach", "issue-review", "777",
         "--passes", "3",
         "--llms", "haiku,mini,flash",
     )
@@ -130,7 +130,7 @@ def test_cli_passes_below_minimum_exits_nonzero(tmp_path: Path):
     _write_workspace(tmp_path)
     proc = _run_cli(
         tmp_path,
-        "issue", "review", "778",
+        "coach", "issue-review", "778",
         "--passes", "1",
         "--llms", "haiku",
     )
@@ -141,7 +141,7 @@ def test_cli_passes_below_minimum_exits_nonzero(tmp_path: Path):
 def test_cli_idempotent_without_force(tmp_path: Path):
     _write_workspace(tmp_path)
     args = (
-        "issue", "review", "779",
+        "coach", "issue-review", "779",
         "--passes", "2",
         "--llms", "haiku,mini",
     )

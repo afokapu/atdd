@@ -18,7 +18,7 @@ from atdd.validators.conventions.presence import archetype, fixtures
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 
-from .conftest import legacy_catches, patched
+from .conftest import patched
 
 FAMILY = "presence"
 TEMPLATE = "conditional_requirement"
@@ -37,10 +37,6 @@ _TC = {t.template_id: t for t in archetype.TEMPLATES}
 # whose only close_the_loop SMOKE acceptance lives in WMBT P001.
 P001_WMBT = "plan/observe_and_correct/P001.yaml"
 _TARGET_FEATURE = "feature:observe-and-correct:observer-runtime-and-rules"
-LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_feedback_loop_smoke_closes_the_loop.py"
-    "::test_every_feedback_loop_feature_has_close_the_loop_smoke"
-)
 
 
 def _evaluate(graph) -> list:
@@ -53,9 +49,9 @@ def test_feedback_loop_close_the_loop_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_feedback_loop_clean_baseline(repo_root: Path) -> None:
+def test_feedback_loop_clean_baseline(clean_convention_graph) -> None:
     """Every non-suppressed feedback-loop feature has a close_the_loop SMOKE -> 0."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 def test_feedback_loop_fragment_catches_missing(repo_root: Path) -> None:
@@ -75,15 +71,14 @@ def test_feedback_loop_catches_injected_fault(repo_root: Path) -> None:
     assert any(v["node_id"] == _TARGET_FEATURE for v in violations)
 
 
-def test_feedback_loop_legacy_parity(repo_root: Path) -> None:
-    """PARITY: BOTH catch. One injected fault (the feature's only close_the_loop
-    SMOKE acceptance is disabled) is caught by the convention evaluator AND by the
-    legacy validator run via subprocess."""
+def test_feedback_loop_convention_fault(repo_root: Path) -> None:
+    """The convention evaluator catches the injected fault (the feature's only
+    close_the_loop SMOKE acceptance is disabled). Oracle retired (#1365)."""
     with patched(repo_root, P001_WMBT, "    close_the_loop:", "    close_the_loop_DISABLED:"):
         convention_caught = any(
             v["node_id"] == _TARGET_FEATURE for v in _evaluate(load_composed_graph(repo_root))
         )
-        legacy_caught = legacy_catches(repo_root, LEGACY_NODEID)
-    assert convention_caught and legacy_caught, (
-        f"parity break: convention_caught={convention_caught} legacy_caught={legacy_caught}"
+    # oracle retired (#1365): the convention evaluator is the live coverage
+    assert convention_caught, (
+        f"convention evaluator did not catch the disabled close_the_loop SMOKE acceptance"
     )

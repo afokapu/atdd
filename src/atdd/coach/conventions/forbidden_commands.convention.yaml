@@ -34,7 +34,7 @@ patterns:
       generation, and Project v2 field setup. Any issue created this way will
       be missing from .atdd/manifest.yaml and flagged by atdd validate coach.
       Incident: #659 was filed with gh issue create and lacked manifest entry.
-    alternative: "atdd issue <slug>"
+    alternative: "atdd author issue --title <title> --slug <slug>"
 
   - id: ATDD-FORBID-GH-PR-CREATE
     match_type: hard_block

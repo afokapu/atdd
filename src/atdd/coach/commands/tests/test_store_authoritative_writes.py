@@ -5,10 +5,10 @@
 # Assertion: behavioral
 """#1203 Phase 2 — `atdd issue` writes the State Store authoritatively.
 
-Each rerouted manifest writer now writes the store first (resolved by GitHub
-issue number through the external_ref), keeping the manifest mirror as a
-compatibility projection. These tests assert the store actually receives the
-write; they are added one writer at a time as the rerouting lands.
+Each rerouted writer writes the State Store (resolved by GitHub issue number
+through the external_ref). #1270 Slice G deleted the ``.atdd/manifest.yaml``
+mirror, so the store is the sole registry: these tests seed the store directly
+and assert the store receives the write — and that no manifest is resurrected.
 """
 from __future__ import annotations
 
@@ -16,26 +16,32 @@ import json
 import subprocess
 from types import SimpleNamespace
 
-import yaml
-
 from atdd.coach.commands.issue import IssueManager
-from atdd.state.db import connect
-from atdd.state.manifest_import import GITHUB_PROVIDER
+from atdd.state.db import connect, init_state_store
+from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
 from atdd.state.store import StateStore
-
-_MANIFEST = {
-    "version": "2.0",
-    "created": "2026-06-22",
-    "sessions": [
-        {"id": "1203", "slug": "state-store-authoritative", "issue_number": 1203,
-         "type": "implementation", "status": "GREEN", "train": "0002"},
-    ],
-}
 
 
 def _init_repo(tmp_path):
+    """A control root whose store is seeded with #1203 at GREEN (no manifest)."""
     (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
-    (tmp_path / ".atdd" / "manifest.yaml").write_text(yaml.safe_dump(_MANIFEST), encoding="utf-8")
+    (tmp_path / ".atdd" / "config.yaml").write_text(
+        "github:\n  repo: owner/repo\n  project_id: PVT_test\n", encoding="utf-8"
+    )
+    db = init_state_store(db_path=tmp_path / ".atdd" / "state" / "state.sqlite")
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        store.objects.upsert(
+            "state-store-authoritative", WORK_ITEM_KIND, state="GREEN",
+            data={"id": "1203", "issue_number": 1203, "type": "implementation", "train": "0002"},
+        )
+        store.external_refs.link(
+            "state-store-authoritative", GITHUB_PROVIDER, "issue", "1203",
+            data={"source": "test-seed"},
+        )
+    finally:
+        conn.close()
     return IssueManager(target_dir=tmp_path)
 
 
@@ -63,12 +69,17 @@ def test_update_status_unregistered_issue_is_noop_not_crash(tmp_path):
     assert mgr._store_set_status(999999, "SMOKE") is False
 
 
-def test_update_status_still_mirrors_manifest(tmp_path):
+def test_update_status_no_longer_mirrors_manifest(tmp_path):
+    """#1270 Slice G: the status transition lands in the store only; no
+    ``.atdd/manifest.yaml`` is written or resurrected."""
     mgr = _init_repo(tmp_path)
     mgr._update_manifest_status(1203, "SMOKE")
-    doc = yaml.safe_load((tmp_path / ".atdd" / "manifest.yaml").read_text())
-    entry = next(s for s in doc["sessions"] if s["issue_number"] == 1203)
-    assert entry["status"] == "SMOKE"
+    # Store is authoritative → SMOKE.
+    store = _store(tmp_path)
+    ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "1203")
+    assert store.objects.get(ref.object_uid).state == "SMOKE"
+    # No manifest mirror exists.
+    assert not (tmp_path / ".atdd" / "manifest.yaml").exists()
 
 
 def test_update_fields_writes_store_authoritatively(tmp_path):
@@ -89,12 +100,17 @@ def test_update_fields_unregistered_issue_is_noop_not_crash(tmp_path):
     assert mgr._store_update_fields(999999, {"branch": "feat/x"}) is False
 
 
-def test_update_fields_still_mirrors_manifest(tmp_path):
+def test_update_fields_no_longer_mirrors_manifest(tmp_path):
+    """#1270 Slice G: metadata lands in the store only; no ``.atdd/manifest.yaml``
+    is written or resurrected."""
     mgr = _init_repo(tmp_path)
     mgr._update_manifest_fields(1203, {"branch": "feat/foo"})
-    doc = yaml.safe_load((tmp_path / ".atdd" / "manifest.yaml").read_text())
-    entry = next(s for s in doc["sessions"] if s["issue_number"] == 1203)
-    assert entry["branch"] == "feat/foo"
+    # Store is authoritative → branch recorded.
+    store = _store(tmp_path)
+    ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "1203")
+    assert store.objects.get(ref.object_uid).data["branch"] == "feat/foo"
+    # No manifest mirror exists.
+    assert not (tmp_path / ".atdd" / "manifest.yaml").exists()
 
 
 def test_register_issue_creates_store_work_item_and_ref(tmp_path):
@@ -113,7 +129,7 @@ def test_register_issue_creates_store_work_item_and_ref(tmp_path):
 
 def test_create_work_item_preserves_existing_state_on_reregister(tmp_path):
     mgr = _init_repo(tmp_path)
-    # #1203 already exists at GREEN (imported from the manifest on first store touch).
+    # #1203 already exists at GREEN (seeded directly into the store).
     mgr._store_set_status(1203, "SMOKE")
     # Re-registering must not reset the live phase back to INIT.
     mgr._store_create_work_item(1203, "state-store-authoritative", status="INIT", data={"train": "0002"})
@@ -154,7 +170,7 @@ def test_archive_store_writes_are_noop_for_unregistered_issue(tmp_path):
 def test_reconcile_backfill_creates_store_work_item_and_ref(tmp_path, monkeypatch):
     mgr = _init_repo(tmp_path)
 
-    # Fake `gh issue list` → one open atdd-issue absent from the manifest.
+    # Fake `gh issue list` → one open atdd-issue absent from the store.
     gh_payload = json.dumps([
         {"number": 5151, "title": "feat(atdd): brand new reconciled thing (#5151)",
          "state": "open", "createdAt": "2026-06-30T00:00:00Z",
@@ -165,9 +181,6 @@ def test_reconcile_backfill_creates_store_work_item_and_ref(tmp_path, monkeypatc
         return SimpleNamespace(returncode=0, stdout=gh_payload, stderr="")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
-    # The manifest commit is irrelevant to this assertion; tmp_path is not a git
-    # repo, so make the mirror commit a no-op.
-    monkeypatch.setattr(mgr, "_commit_manifest_change", lambda *a, **k: None)
 
     assert mgr.reconcile() == 0
 

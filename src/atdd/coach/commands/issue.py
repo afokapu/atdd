@@ -36,20 +36,15 @@ GRAPH_CONTEXT_UNAVAILABLE = (
     "`atdd issue <N> --refresh-graph`)"
 )
 
-# Issue type → conventional commit / branch prefix mapping.
-# Used by `atdd new` (title prefix) and `atdd branch` (worktree prefix).
-TYPE_TO_PREFIX = {
-    "implementation": "feat",
-    "migration": "feat",
-    "refactor": "refactor",
-    "analysis": "chore",
-    "planning": "chore",
-    "cleanup": "chore",
-    "tracking": "chore",
-}
-
-# Allowed branch prefixes (derived from TYPE_TO_PREFIX values + fix, docs, devops).
-ALLOWED_BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
+# Issue type → conventional commit / branch prefix mapping, and the allowed
+# branch prefixes. MOVED to the neutral ``issue_prefixes`` module by C5a (#1382)
+# so branch.py/pr.py no longer hard-depend on this monolith; re-exported here
+# (identical objects) so existing ``from ...issue import TYPE_TO_PREFIX`` callers
+# keep working until C5b (#1309) deletes the monolith. Do not redefine here.
+from atdd.coach.commands.issue_prefixes import (  # noqa: E402  (re-export, single source of truth)
+    ALLOWED_BRANCH_PREFIXES,
+    TYPE_TO_PREFIX,
+)
 
 # Step code to step name mapping
 STEP_CODES = {
@@ -331,33 +326,16 @@ class IssueManager:
             return False
 
     def _update_manifest_status(self, issue_number: int, status: str) -> None:
-        """Record a successful GitHub status transition.
+        """Record a successful GitHub status transition into the State Store.
 
-        #1203 Phase 2: the State Store is authoritative for the work-item phase —
-        this writes the store first, then mirrors the manifest ``sessions`` entry
-        (a compatibility projection, retained until the manifest is fully demoted).
-        A missing manifest or a manifest without a matching session is a no-op for
-        the mirror — transitions for unregistered issues are valid (e.g. issues
-        created outside the atdd CLI) and must not crash the lifecycle.
+        #1270 slice F: the State Store is authoritative for the work-item phase
+        (#1203 Phase 2) and every reader now resolves the phase from it (slices
+        A–E). The former ``.atdd/manifest.yaml`` mirror write is retired — keeping
+        a mirror nothing reads in sync was dead work (and the source of the
+        parallel-session clobber #1270 removes). The manifest survives only as the
+        store's cold-start seed until Slice G.
         """
         self._store_set_status(issue_number, status)
-        if not self.manifest_file.exists():
-            return
-        manifest = self._load_manifest()
-        sessions = manifest.get("sessions") or []
-        mutated = False
-        for entry in sessions:
-            if entry.get("issue_number") == issue_number:
-                entry["status"] = status
-                mutated = True
-        if mutated:
-            self._save_manifest(manifest)
-            self._commit_manifest_change(
-                verb="atdd update --status",
-                message=(
-                    f"chore(coach): mirror issue #{issue_number} status → {status} in manifest"
-                ),
-            )
 
     def _store_work_item_field(
         self, issue_number: int, field: str
@@ -485,36 +463,15 @@ class IssueManager:
     def _update_manifest_fields(
         self, issue_number: int, fields: Dict[str, Any]
     ) -> None:
-        """Record work-item metadata (branch/train/...).
+        """Record work-item metadata (branch/train/...) into the State Store.
 
-        #1203 Phase 2: the State Store is authoritative — this writes the store
-        first (merging into the work item's ``data``), then mirrors the manifest
-        ``sessions`` entry and the ``issues.<n>`` record (a compatibility
-        projection). A missing manifest is a no-op for the mirror — transitions
-        for issues created outside the atdd CLI remain valid.
+        #1270 slice F: the State Store is authoritative (#1203 Phase 2) and every
+        reader resolves metadata from it (slices A–E). The former
+        ``.atdd/manifest.yaml`` mirror write (``sessions`` + ``issues.<n>``) is
+        retired — nothing reads it. The manifest survives only as the store's
+        cold-start seed until Slice G.
         """
         self._store_update_fields(issue_number, fields)
-        if not self.manifest_file.exists():
-            return
-        manifest = self._load_manifest()
-        mutated = False
-        for session in manifest.get("sessions") or []:
-            if session.get("issue_number") == issue_number:
-                session.update(fields)
-                mutated = True
-        issues = manifest.setdefault("issues", {})
-        record = issues.get(str(issue_number))
-        if record is not None:
-            record.update(fields)
-            mutated = True
-        if mutated:
-            self._save_manifest(manifest)
-            self._commit_manifest_change(
-                verb="atdd update",
-                message=(
-                    f"chore(coach): mirror issue #{issue_number} metadata in manifest"
-                ),
-            )
 
     def _slugify(self, text: str) -> str:
         """Convert text to kebab-case slug."""
@@ -1142,21 +1099,16 @@ class IssueManager:
         slug: str,
         train: Optional[str] = None,
     ) -> None:
-        """Register a newly published issue.
+        """Register a newly published issue in the State Store (authoritative).
 
-        #1203 Phase 2: writes the work item to the State Store first (authoritative),
-        then mirrors the manifest ``issues.<n>`` record (a compatibility projection).
+        #1270 Slice G: the ``.atdd/manifest.yaml`` mirror was deleted, so this
+        writes the work item to the State Store only (#1203/#1272 already made the
+        store the source of truth; the store write ran first even while the mirror
+        existed). The method name is retained for its call sites.
         """
         self._store_create_work_item(
             issue_number, slug, status="INIT", data={"train": train}
         )
-        if not self.manifest_file.exists():
-            return
-        manifest = self._load_manifest()
-        issues = manifest.setdefault("issues", {})
-        issues[str(issue_number)] = {"slug": slug, "train": train}
-        self._save_manifest(manifest)
-        self._commit_manifest_change("atdd issue", f"Add issue #{issue_number} ({slug})")
 
     def create_new_issue(
         self,
@@ -1409,8 +1361,9 @@ class IssueManager:
 
                 wmbt_count += 1
 
-        # Update manifest
-        manifest = self._load_manifest()
+        # Register the new work item in the State Store (authoritative). #1270
+        # Slice G deleted the ``.atdd/manifest.yaml`` mirror, so this is the only
+        # registration write — no session-mirror append and no manifest commit.
         issue_entry = {
             "id": f"{parent_number:02d}" if parent_number < 100 else str(parent_number),
             "slug": slug,
@@ -1421,34 +1374,19 @@ class IssueManager:
             "created": today,
             "archived": None,
         }
-        if "sessions" not in manifest:
-            manifest["sessions"] = []
-        manifest["sessions"].append(issue_entry)
-        # #1203 Phase 2: the State Store is authoritative — record the new work item
-        # there too (slug + github external_ref), keeping the manifest as a mirror.
-        self._store_create_work_item(
+        registered = self._store_create_work_item(
             parent_number, slug, status="INIT",
             data={k: v for k, v in issue_entry.items() if k not in ("slug", "status")},
         )
-        self._save_manifest(manifest)
         # Registration must land or fail loudly — never a silent exit-0 with an
-        # unregistered issue (#738). _commit_manifest_change(strict=True) for the
-        # registration verb re-raises a genuine ManifestCommitError.
-        from atdd.coach.utils.git import ManifestCommitError
-        try:
-            self._commit_manifest_change(
-                verb=_MANIFEST_REGISTRATION_VERB,
-                message=f"chore(coach): register issue #{parent_number} in manifest",
-                allow_main=allow_main_commit,
-            )
-        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        # unregistered issue (#738, preserved on the State Store after #1270 Slice
+        # G retired the manifest mirror). The GitHub issue already exists, so a
+        # failed store registration must surface a non-zero exit and no success.
+        if not registered:
             print(
                 f"Error: issue #{parent_number} created on GitHub but its "
-                f".atdd/manifest.yaml registration could not be committed — {exc}"
-            )
-            print(
-                "    The issue is NOT registered. Resolve the cause, then run "
-                "`git add .atdd/manifest.yaml && git commit`."
+                f"State Store registration could not be completed — the issue is "
+                f"NOT registered. Resolve the cause, then run `atdd issue reconcile`."
             )
             return 1
 
@@ -1643,21 +1581,11 @@ class IssueManager:
         # the archived date), then mirror the manifest below. Both calls degrade
         # to a logged no-op if the store is unavailable; the GitHub close +
         # manifest record below still apply.
+        # #1270 slice F: the State Store is authoritative for the terminal
+        # COMPLETE/archived state; the manifest mirror write is retired (nothing
+        # reads it — slices A–E). Manifest survives only as the cold-start seed.
         self._store_set_status(issue_number, "COMPLETE")
         self._store_update_fields(issue_number, {"archived": date.today().isoformat()})
-
-        # Update manifest
-        manifest = self._load_manifest()
-        for s in manifest.get("sessions", []):
-            if s.get("issue_number") == issue_number:
-                s["status"] = "COMPLETE"
-                s["archived"] = date.today().isoformat()
-                break
-        self._save_manifest(manifest)
-        self._commit_manifest_change(
-            verb="atdd archive",
-            message=f"chore(coach): archive issue #{issue_number} in manifest",
-        )
 
         total_subs = len(subs) if subs else 0
         print(f"\nArchived #{issue_number}: closed {closed_count} sub-issues, "
@@ -1960,10 +1888,21 @@ class IssueManager:
     def _verify_release_gate(
         self, force: bool = False,
     ) -> Tuple[bool, List[str]]:
-        """Verify release gate: version bumped + tag on HEAD or ancestor.
+        """Verify the release gate against the State Store version (#1172).
 
-        Reuses the same logic as test_release_versioning.py but returns
-        (passed, messages) instead of raising pytest assertions.
+        Post-#1172 the authoritative release version lives in the State Store's
+        singleton ``release`` object (``atdd state version show``), NOT a static
+        ``version = "..."`` line in ``pyproject.toml``. ``pyproject.toml`` is now
+        *dynamic* (``dynamic = ["version"]`` resolved by the in-tree build
+        backend from the store), so it carries no static version line to parse —
+        the old pyproject-read / git-diff-vs-main / git-tag checks are obsolete
+        (tag + publish are operator-coordinated post-merge per
+        ``CLAUDE.md::release``). The gate now PASSES when the store resolves a
+        real release version and FAILS (pointing at ``atdd state version bump``)
+        when only the local fallback is resolvable.
+
+        Returns ``(passed, messages)`` instead of raising, mirroring the other
+        ``_verify_*`` gate helpers.
         """
         messages = []
 
@@ -1985,96 +1924,44 @@ class IssueManager:
             messages.append("  Release gate: SKIPPED (no release config)")
             return True, messages
 
-        version_file = release.get("version_file")
-        if not version_file:
-            messages.append("  Release gate: SKIPPED (no version_file configured)")
-            return True, messages
+        # Read the authoritative release version from the State Store (#1172).
+        # ``emit`` is non-raising and returns ``LOCAL_FALLBACK_VERSION`` when no
+        # release version is resolvable — the same contract as the build hook.
+        from atdd.state import version as _v
+        from atdd.state.db import connect, init_state_store
 
-        tag_prefix = release.get("tag_prefix", "v") or ""
-
-        # Resolve version file path
-        version_path = Path(version_file)
-        if not version_path.is_absolute():
-            version_path = (self.target_dir / version_path).resolve()
-
-        if not version_path.exists():
-            messages.append(f"  Version file: {version_file} — MISSING")
-            return False, messages
-
-        # Read version
-        version = self._read_version_from_file(version_path)
-        if not version:
-            messages.append(f"  Version file: {version_file} — could not parse version")
-            return False, messages
-
-        expected_tag = f"{tag_prefix}{version}"
-
-        # Check version changed vs main
-        diff_result = subprocess.run(
-            ["git", "diff", "main", "--", str(version_path)],
-            capture_output=True, text=True, cwd=str(self.target_dir),
-        )
-        if not diff_result.stdout.strip():
-            messages.append(f"  Version file: {version_file} — NOT CHANGED vs main")
-            return False, messages
-
-        messages.append(f"  Version file: {version_file} = {version} — CHANGED vs main")
-
-        # Check tag on HEAD (fast path)
-        tag_result = subprocess.run(
-            ["git", "tag", "--points-at", "HEAD"],
-            capture_output=True, text=True, cwd=str(self.target_dir),
-        )
-        tags = [t.strip() for t in tag_result.stdout.splitlines() if t.strip()]
-
-        if expected_tag in tags:
-            messages.append(f"  Tag: {expected_tag} — ON HEAD")
-            return True, messages
-
-        # Merge-commit tolerance: tag is a recent ancestor
-        ancestor_result = subprocess.run(
-            ["git", "merge-base", "--is-ancestor", expected_tag, "HEAD"],
-            capture_output=True, text=True, cwd=str(self.target_dir),
-        )
-        if ancestor_result.returncode == 0:
-            count_result = subprocess.run(
-                ["git", "rev-list", "--count", f"{expected_tag}..HEAD"],
-                capture_output=True, text=True, cwd=str(self.target_dir),
+        try:
+            db = init_state_store(start=self.target_dir)
+            conn = connect(db)
+            try:
+                version = _v.emit(conn)
+            finally:
+                conn.close()
+        except Exception as exc:  # noqa: BLE001 — logged, then surfaced as a gate failure
+            logger.warning(
+                "release gate: State Store version read failed",
+                extra={"error": str(exc), "action": "gate_fail"},
             )
-            distance = int(count_result.stdout.strip()) if count_result.returncode == 0 else -1
-            if 0 < distance <= 3:
-                messages.append(f"  Tag: {expected_tag} — {distance} commit(s) behind HEAD (merge tolerance)")
-                return True, messages
+            messages.append(f"  Release version: State Store read failed — {exc}")
+            messages.append(
+                "  Fix: seed/bump the version — "
+                "atdd state version bump --class PATCH|MINOR|MAJOR"
+            )
+            return False, messages
 
-        messages.append(f"  Tag: {expected_tag} — NOT FOUND (create: git tag {expected_tag})")
-        return False, messages
+        if version == _v.LOCAL_FALLBACK_VERSION:
+            messages.append(
+                f"  Release version: {version} (local fallback — no release "
+                "version set in the State Store)"
+            )
+            messages.append(
+                "  Fix: bump the version — "
+                "atdd state version bump --class PATCH|MINOR|MAJOR"
+            )
+            return False, messages
 
-    @staticmethod
-    def _read_version_from_file(path: Path) -> Optional[str]:
-        """Read version string from a version file (pyproject.toml, package.json, plain)."""
-        if path.name == "pyproject.toml":
-            text = path.read_text()
-            # Lightweight regex parsing (no toml dependency needed in CLI)
-            for line in text.splitlines():
-                stripped = line.strip()
-                match = re.match(r'version\s*=\s*["\']([^"\']+)["\']', stripped)
-                if match:
-                    return match.group(1).strip()
-        elif path.name == "package.json":
-            import json
-            data = json.loads(path.read_text())
-            return str(data.get("version", "")).strip() or None
-        else:
-            # Plain text: first semver-like string
-            pattern = re.compile(r"\bv?(\d+\.\d+(?:\.\d+)?)\b")
-            for line in path.read_text().splitlines():
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                m = pattern.search(stripped)
-                if m:
-                    return m.group(1)
-        return None
+        messages.append(f"  Release version: {version} (State Store SoT, #1172) — OK")
+        return True, messages
 
     def _validate_train_against_trains_yaml(
         self, train_value: str,
@@ -2249,7 +2136,7 @@ class IssueManager:
                     print( "       cd /path/to/<feat-or-fix>-<slug>")
                     print( "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")")
                     print( "    3. Run:")
-                    print(f"       atdd issue {issue_id} --status {status} --train <train_id>")
+                    print(f"       atdd update {issue_id} --train <train_id>   # then: atdd coach transition {issue_id} {status}")
                     print( "  Why train: implementation-type issues require lineage to a Train past PLANNED")
                     print( "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)")
                     return 1
@@ -2295,10 +2182,10 @@ class IssueManager:
                             print( "       git add <files> && git commit -m \"<message>\"")
                             print( "       git push")
                             print(f"    3. atdd pr {issue_id}")
-                            print(f"    4. atdd issue {issue_id} --status PLANNED")
+                            print(f"    4. atdd coach transition {issue_id} PLANNED")
                             print( "  Why PR: PLANNED transition assumes the branch is reviewable;")
                             print( "          a draft PR is the canonical review surface. (See #478.)")
-                            print(f"  Bypass: atdd issue {issue_id} --status PLANNED --force")
+                            print(f"  Bypass: atdd coach transition {issue_id} PLANNED --force")
                             return 1
 
             # Train cross-reference: validate --train value against _trains.yaml
@@ -2530,17 +2417,23 @@ class IssueManager:
         return 0
 
     def reconcile(self) -> int:
-        """Backfill every open GitHub atdd-issue missing from .atdd/manifest.yaml.
+        """Backfill every open GitHub atdd-issue missing from the State Store.
 
-        Self-heal path (#775): the manifest is a derived registry; the GitHub
-        issue is the source of truth. Any issue labelled `atdd-issue` that is
-        open on GitHub but absent from the manifest is synthesised and appended.
-        Existing entries are left untouched (idempotent).
+        Self-heal path (#775): the State Store is the local registry and the
+        GitHub issue is the source of truth. Any issue labelled `atdd-issue` that
+        is open on GitHub but absent from the store is synthesised and created as
+        a work item. Existing entries are left untouched (idempotent). #1270 Slice
+        G: the ``.atdd/manifest.yaml`` mirror was deleted — the store is the sole
+        registry, so no manifest read/write happens here.
 
         Returns 0 on success, 1 on hard error.
         """
-        if not self.manifest_file.exists():
-            print("Error: .atdd/manifest.yaml not found. Run `atdd init` first.")
+        # Initialisation guard (#1270 Slice G): key on ``.atdd/config.yaml`` (the
+        # control-root marker that replaced the deleted manifest). Bailing here —
+        # before any gh/git call — keeps the verb hermetic in an uninitialised
+        # tree and never touches live GitHub.
+        if not self.config_file.exists():
+            print("Error: .atdd/config.yaml not found. Run `atdd init` first.")
             return 1
 
         # Fetch open atdd-issues from GitHub
@@ -2564,9 +2457,20 @@ class IssueManager:
             print(f"Error: could not parse gh output: {exc}")
             return 1
 
-        manifest = self._load_manifest()
-        sessions = manifest.get("sessions") or []
-        registered = {s.get("issue_number") for s in sessions}
+        # The set of issue numbers already registered in the State Store.
+        registered: set = set()
+        try:
+            from atdd.state.work_item_reader import WorkItemReader
+
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                registered = {
+                    entry["issue_number"]
+                    for entry in reader.all_work_items()
+                    if entry.get("issue_number") is not None
+                }
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+            logger.debug("reconcile: store read failed; treating store as empty",
+                         extra={"error": str(exc)})
 
         added = 0
         for issue in gh_issues:
@@ -2589,7 +2493,7 @@ class IssueManager:
             created_raw = issue.get("createdAt", "")
             created = created_raw[:10] if created_raw else str(date.today())
 
-            session_entry = {
+            entry = {
                 "id": str(number),
                 "slug": slug,
                 "file": None,
@@ -2599,28 +2503,19 @@ class IssueManager:
                 "created": created,
                 "archived": None,
             }
-            # #1203 Phase 2: the State Store is authoritative — create the
-            # backfilled work item there first (slug + github external_ref),
-            # keeping the manifest session entry below as a mirror.
+            # The State Store is the sole registry (#1270 Slice G) — create the
+            # backfilled work item there (slug + github external_ref).
             self._store_create_work_item(
                 number, slug, status=status,
-                data={k: v for k, v in session_entry.items() if k not in ("slug", "status")},
+                data={k: v for k, v in entry.items() if k not in ("slug", "status")},
             )
-            sessions.append(session_entry)
             registered.add(number)
             added += 1
             print(f"  Backfilled: #{number} {slug}")
 
         if added == 0:
-            print("reconcile: manifest is up-to-date — no missing issues found.")
+            print("reconcile: State Store is up-to-date — no missing issues found.")
             return 0
 
-        manifest["sessions"] = sessions
-        self._save_manifest(manifest)
-        self._commit_manifest_change(
-            verb="atdd issue reconcile",
-            message=f"chore(coach): reconcile manifest — backfill {added} unregistered issue(s)",
-            strict=False,
-        )
-        print(f"reconcile: added {added} issue(s) to .atdd/manifest.yaml")
+        print(f"reconcile: added {added} issue(s) to the State Store")
         return 0

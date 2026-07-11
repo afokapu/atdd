@@ -1,4 +1,7 @@
 # URN: test:validate-conventions:presence-variants:theme_zero_mandatory
+# Acceptance: acc:govern-lifecycle:C006-UNIT-001-override-cannot-remove-commons-floor
+# Acceptance: acc:govern-lifecycle:C006-UNIT-002-defaults-contain-commons-floor
+# Acceptance: acc:govern-lifecycle:C006-SMOKE-001-repo-config-keeps-commons-floor
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration
@@ -18,7 +21,7 @@ from atdd.validators.conventions.presence import archetype
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 
-from .conftest import legacy_catches, patched
+from .conftest import patched
 
 FAMILY = "presence"
 TEMPLATE = "required_field_presence"
@@ -46,9 +49,9 @@ def test_theme_zero_mandatory_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_theme_zero_clean_baseline(repo_root: Path) -> None:
+def test_theme_zero_clean_baseline(clean_convention_graph) -> None:
     """Real composed graph: the commons floor is declared, so 0 violations."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 def test_theme_zero_catches_injected_fault(repo_root: Path) -> None:
@@ -74,15 +77,11 @@ def test_theme_zero_is_convention_only_legacy_is_tautological(repo_root: Path) -
     legacy never provided. Parity-both is therefore not achievable; we assert the
     divergence explicitly rather than fake it.
     """
-    legacy = (
-        "src/atdd/planner/validators/test_theme_zero_mandatory.py"
-        "::test_commons_is_always_in_resolved_theme_set"
-    )
     with patched(repo_root, THEME_CONVENTION,
                  'theme_zero_token: "commons"', 'theme_zero_token: "platform"'):
         convention_caught = bool(_evaluate(load_composed_graph(repo_root)))
-        legacy_caught = legacy_catches(repo_root, legacy)
-    assert convention_caught and not legacy_caught, (
-        "expected convention-only divergence: "
-        f"convention_caught={convention_caught} legacy_caught={legacy_caught}"
+    # oracle retired (#1365): the convention evaluator is the live coverage (it was
+    # already stricter than the legacy tautology — convention-only by construction).
+    assert convention_caught, (
+        "convention evaluator did not catch the theme_zero-token fault"
     )

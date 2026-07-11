@@ -4,9 +4,19 @@ The train-required error path at IssueManager.update prints a Fix block when
 an implementation-type issue tries to transition past PLANNED without a Train
 assigned. Issue #466 rewrote that hint to:
 
-  C1: NOT recommend the deprecated `atdd update` invocation.
+  C1: NOT recommend a deprecated or removed invocation.
   C2: Cite `plan/_trains.yaml` as the resolver for <train_id>.
   C3: Disclose the worktree prereq (`cd` step) as step 1 of a numbered fix.
+
+C1 restated by C5b (#1309). When #466 was written, bare `atdd update` was
+wholesale-deprecated toward `atdd issue <N> --status <S>`. #1309 removed
+`atdd issue` and deprecated only the STATUS form (`atdd update --status`),
+because train/feature/archetypes have no coach or author home — `atdd update
+<N> --train <T>` is now their canonical (and only) surface. The hint therefore
+MUST cite it. What C1 forbids is the removed `atdd issue` and the deprecated
+`atdd update --status`. (The pre-#1309 hint named `atdd issue <N> --status <S>
+--train <T>`, which never worked: the `--status` shim built `[N, status]` and
+dropped `--train` entirely.)
 
 Run: PYTHONPATH=src python3 -m pytest -q \\
      src/atdd/coach/commands/tests/test_issue_train_required_hint.py -v
@@ -64,11 +74,17 @@ def _capture_train_required_hint(tmp_path: Path, capsys) -> str:
 
 
 def test_hint_does_not_recommend_deprecated_atdd_update(tmp_path, capsys):
-    """C1: hint must NOT cite the deprecated `atdd update` invocation."""
+    """C1: hint must cite no removed or deprecated invocation."""
     out = _capture_train_required_hint(tmp_path, capsys)
-    assert "atdd update" not in out, (
-        "hint regressed: still recommends deprecated `atdd update`"
+    assert "atdd issue" not in out, (
+        "hint regressed: recommends the removed `atdd issue` (#1309)"
     )
+    assert "atdd update --status" not in out, (
+        "hint regressed: recommends the deprecated `atdd update --status` form"
+    )
+    # The canonical train setter IS `atdd update <N> --train <T>` (#1309): it is
+    # the only surface for train/feature/archetypes.
+    assert "--train" in out, "hint must name the canonical train setter"
 
 
 def test_hint_cites_plan_trains_yaml_as_resolver(tmp_path, capsys):

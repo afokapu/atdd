@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from atdd.planner.validators.test_feedback_loop_smoke_closes_the_loop import (
+from atdd.planner.validators._feedback_loop import (
     _RULE,
     _SMOKE_URN_RE,
     acceptance_has_close_the_loop,

@@ -35,11 +35,12 @@ CONTROL_ROOT_ENV = "ATDD_CONTROL_ROOT"
 
 #: Initialized-Control-Root signals inside a ``.atdd/`` (#1179). A ``.atdd/`` is
 #: a *real* Control Root only if it carries one of these — an explicit marker
-#: file, ``config.yaml``, ``manifest.yaml``, or the ``state/`` directory.
-#: Anything else (a ``.atdd/`` holding only scratch such as
-#: ``cache/`` / ``runtime/`` / ``diagnostics/``) is tool scratch, NOT a root,
-#: and must not be treated as a parent Control Root by the resolver.
-CONTROL_ROOT_MARKER_FILES = ("control-root.yaml", "config.yaml", "manifest.yaml")
+#: file, ``config.yaml``, or the ``state/`` directory. Anything else (a
+#: ``.atdd/`` holding only scratch such as ``cache/`` / ``runtime/`` /
+#: ``diagnostics/``) is tool scratch, NOT a root, and must not be treated as a
+#: parent Control Root by the resolver. (``manifest.yaml`` was retired as a
+#: marker in #1270 Slice G when the mirror was deleted.)
+CONTROL_ROOT_MARKER_FILES = ("control-root.yaml", "config.yaml")
 CONTROL_ROOT_MARKER_DIRS = ("state",)
 #: Subdirectories that, alone, mark a ``.atdd/`` as scratch-only (diagnostic).
 SCRATCH_ATDD_DIRS = ("cache", "runtime", "diagnostics")
@@ -278,7 +279,7 @@ def resolve_control_root(
     # Rule 1.5 (#1315) — single shared store per project. In a flat-sibling
     # worktree layout the store is anchored at the project root (the parent of
     # the primary ``main/`` checkout), shared by every worktree regardless of the
-    # per-worktree ``.atdd/`` config.yaml/manifest.yaml markers. Falls through to
+    # per-worktree ``.atdd/`` config.yaml markers. Falls through to
     # the marker-based rules below when git is unavailable or the layout is not a
     # flat-sibling ``main/`` one (single-repo, hermetic tests, consumer repos).
     shared_root = _shared_store_root(start, git_common_dir)
