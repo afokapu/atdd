@@ -125,6 +125,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     add_govern_parsers(sub)
 
+    # Provider boundary (#1400): import-boundary, conformance, providers, extensions-lock,
+    # mirror. Its parsers live next to their implementation.
+    from atdd.state.provider_cli import add_parsers as add_provider_parsers
+
+    add_provider_parsers(sub)
+
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
     t_list = trace_sub.add_parser("list", help="List Hub sessions.")
@@ -686,6 +692,11 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.op in GOVERN_OPS:
         return govern_dispatch(args)
+
+    from atdd.state.provider_cli import OPS as PROVIDER_OPS, dispatch as provider_dispatch
+
+    if args.op in PROVIDER_OPS:
+        return provider_dispatch(args)
 
     parser.print_help()
     return 2

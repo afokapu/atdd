@@ -378,7 +378,21 @@ def check_no_secrets(context: Context) -> CheckResult:
 
 
 def hot_path_provider_imports() -> List[str]:
-    """Every hot-path module that imports a provider — empty is the invariant (spec §8.1)."""
+    """Every hot-path module that imports a provider — empty is the invariant (spec §8.1).
+
+    Two rules, because they catch two different mistakes:
+
+    - The **direct** rule (:data:`FORBIDDEN_IMPORT_RE`) refuses a lifecycle module that reaches
+      the provider registry or the sync engine *itself*. It is direct-only by necessity: the sync
+      engine is re-exported from ``atdd.state``'s ``__init__``, so it is transitively reachable
+      from everything, and a transitive rule naming it would be permanently red for no reason.
+    - The **transitive** rule (:mod:`atdd.state.import_boundary`) walks the whole import graph and
+      refuses a provider, GitHub-API or ``gh`` dependency reachable from *anywhere* under a
+      lifecycle module. This is the one that catches a lifecycle module importing a core helper
+      that imports ``github`` — which the direct rule sails straight past.
+    """
+    from atdd.state import import_boundary  # local: keeps the module's import surface stdlib-only
+
     here = Path(__file__).resolve().parent
     offenders: List[str] = []
     for name in HOT_PATH_MODULES:
@@ -387,17 +401,23 @@ def hot_path_provider_imports() -> List[str]:
             continue
         for match in FORBIDDEN_IMPORT_RE.finditer(path.read_text(encoding="utf-8")):
             offenders.append(f"{name}.py imports {match.group('target')}")
-    return sorted(offenders)
+    return sorted(set(offenders) | set(import_boundary.offenders()))
 
 
 def check_no_provider(context: Context) -> CheckResult:
+    from atdd.state import import_boundary
+
     offenders = hot_path_provider_imports()
     if offenders:
-        return CheckResult(CHECK_NO_PROVIDER, False, "\n".join(offenders))
+        return CheckResult(
+            CHECK_NO_PROVIDER, False,
+            "\n".join([*offenders, import_boundary.BOUNDARY_LAW]),
+        )
+    report = import_boundary.check()
     return CheckResult(
         CHECK_NO_PROVIDER, True,
-        f"core's lifecycle path imports no provider ({len(HOT_PATH_MODULES)} module(s)); "
-        "the run is satisfiable by git alone",
+        f"core's lifecycle path imports no provider ({len(HOT_PATH_MODULES)} hot-path module(s), "
+        f"{len(report.scanned)} transitively reachable); the run is satisfiable by git alone",
     )
 
 
