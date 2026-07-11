@@ -40,11 +40,11 @@ git:
     format: "conventional commits (feat:, fix:, docs:, refactor:, test:)"
   commit_discipline:
     rule: "Commit after every completed sub-task. Never accumulate >5 modified files."
-    on_main_detection: "STOP immediately. git stash → atdd branch <N> → cd worktree → git stash pop"
+    on_main_detection: "STOP immediately. git stash → atdd worktree create <N> → cd worktree → git stash pop"
   branching:
     rule: "Every new branch MUST be created as a git worktree (flat sibling of main)"
     procedure:
-      - "New branch: git worktree add ../<prefix>-<slug> -b <prefix>/<slug>"
+      - "New branch: atdd worktree create <N>  (derives prefix/slug from the issue, bases on origin/main, registers the branch↔issue↔worktree binding in the State Store — never a commit on local main; `atdd branch <N>` is a deprecated alias)"
       - "Work inside the worktree directory"
     prefixes: ["feat/", "fix/", "refactor/", "chore/", "docs/", "devops/"]
   worktree_config:
@@ -91,14 +91,30 @@ issues:
   convention: "src/atdd/coach/conventions/issue.convention.yaml"
   commands:
     new: "atdd author issue --title <title> --slug <slug>"   # store-first canonical create (#1272)
-    enter: "atdd issue <N>"
-    update: "atdd issue <N> --status <STATUS>"
+    enter: "atdd coach enter <N>"
+    show: "atdd coach issues <N>"
+    update: "atdd coach transition <N> <STATUS>"
     pr: "atdd pr <N>"
+  removed_commands:
+    # #1309 (4.0.0, BREAKING): the `atdd issue` monolith is GONE. Umbrella #1303
+    # split it across the author (create) and coach (lifecycle) archetypes.
+    # Running it now exits non-zero and names the replacement.
+    - "atdd issue <slug>              → use: atdd author issue --title <title> --slug <slug>"
+    - "atdd issue <N>                 → use: atdd coach enter <N>  (or: atdd coach issues <N>)"
+    - "atdd issue open                → use: atdd coach issues open"
+    - "atdd issue <N> --status <S>    → use: atdd coach transition <N> <S>"
+    - "atdd issue <N> --close-wmbt <ID> → use: atdd coach close-wmbt <N> <ID>"
+    - "atdd issue <N> --check         → use: atdd coach check <N>"
+    - "atdd issue <N> --sync-wmbts    → use: atdd coach sync-wmbts <N>"
+    - "atdd issue reconcile           → use: atdd coach reconcile"
+    - "atdd issue sync-labels         → use: atdd coach sync-labels [<N>|--all]"
+    - "atdd issue is-registered <br>  → use: atdd coach is-registered <branch>"
+    - "atdd issue review <N>          → use: atdd coach issue-review <N>"
+    - "atdd issue <slug> --dry-run    → use: atdd author issue --slug <slug> --dry-run"
   deprecated_commands:
-    # #1349: the create-by-slug alias still works but warns on stderr and
-    # points to the canonical `atdd author issue` (store-first, fail-loud).
-    - "atdd issue <slug>  → use: atdd author issue --title <title> --slug <slug>"
     - "atdd new <slug>    → use: atdd author issue --title <title> --slug <slug>"
+    - "atdd archive <N>   → use: atdd coach transition <N> COMPLETE"
+    - "atdd branch <N>    → use: atdd worktree create <N>"
   prohibited_commands:
     - "gh issue create    → use: atdd author issue --title <title> --slug <slug>"
     - "gh pr create       → use: atdd pr <N>"
@@ -125,5 +141,17 @@ The named rule MUST exist in a convention's `rules:` block. This is the bidirect
 # Agent-specific: claude
 # Claude-specific additions
 # This content is appended to the base CONDUCTOR.md when syncing to CLAUDE.md
+
+# Theme map (merged from .atdd/config.yaml)
+#   0: commons
+#   1: plan  (override; default was mechanic)
+#   2: test  (override; default was scenario)
+#   3: code  (override; default was match)
+#   4: coach  (override; default was sensory)
+#   5: player
+#   6: league
+#   7: audience
+#   8: monetization
+#   9: partnership
 
 # --- ATDD:END ---

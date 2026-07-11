@@ -124,6 +124,22 @@ def scan_parse_errors(repo_root) -> List[dict]:
     return errs
 
 
+def find_train_file(repo_root, anchor: str) -> str:
+    """Repo-relative path of the train detail file carrying `anchor`.
+
+    Fault-injection fixtures address a train by the text they patch, never by a
+    hard-coded path: typed trains (#1421) live at plan/_trains/<subject>/<slug>.yaml
+    and relocate when a subject is reassigned.
+    """
+    root = Path(repo_root)
+    tdir = root / "plan" / "_trains"
+    for tf in sorted(tdir.rglob("*.yaml")) if tdir.is_dir() else []:
+        text = tf.read_text(encoding="utf-8")
+        if anchor in text and _safe_yaml(tf).get("train_id"):
+            return str(tf.relative_to(root))
+    raise AssertionError(f"no train file under plan/_trains carries anchor {anchor!r}")
+
+
 def load_composed_graph(repo_root) -> ConventionGraph:
     root = Path(repo_root)
     g = ConventionGraph(root=root)
@@ -157,11 +173,18 @@ def load_composed_graph(repo_root) -> ConventionGraph:
     # _trains.yaml index. refs = wagon participants (system:* terminals excluded).
     tdir = plan / "_trains"
     if tdir.is_dir():
-        for tf in sorted(tdir.glob("*.yaml")):
+        # rglob: typed trains (issue #1421) live under plan/_trains/<subject>/<slug>.yaml;
+        # legacy flat trains under plan/_trains/*.yaml. Non-train files (_aliases.yaml,
+        # _interlockings/*) carry no train_id and are skipped below.
+        for tf in sorted(tdir.rglob("*.yaml")):
             d = _safe_yaml(tf)
             if not d.get("train_id"):
                 continue
-            g._add(Node(id=f"train:{d['train_id']}", kind="train",
+            # train_id may already be a typed urn (train:<subject>:<slug>, #1421) or a
+            # legacy NNNN-slug; prefix only the legacy form.
+            _tid = str(d["train_id"])
+            _node_id = _tid if _tid.startswith("train:") else f"train:{_tid}"
+            g._add(Node(id=_node_id, kind="train",
                         location=str(tf.relative_to(root)),
                         refs=[p for p in (d.get("participants") or [])
                               if isinstance(p, str) and p.startswith("wagon:")],

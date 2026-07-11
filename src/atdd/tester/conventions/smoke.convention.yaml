@@ -574,7 +574,7 @@ synthetic_fixture_anti_patterns:
     - id: "planner.smoke.synthetic-fixture-bypass"
       severity: 3
       disposition: suppress-and-clean
-      validator: "test_smoke_synthetic_fixture_bypass::test_no_smoke_tests_use_synthetic_fixtures"
+      validator: "conventions/policy/test_smoke_synthetic_fixture_bypass::test_fault_injection_legacy_parity"
       introduced_in: "3.83.0"
       description: |
         A SMOKE-phase test must not drive a synthetic subprocess stub (FakeMultiplexer,
@@ -618,7 +618,7 @@ feedback_loop_rules:
     - id: "planner.smoke.feedback-loop-close-the-loop"
       severity: 3
       disposition: suppress-and-clean
-      validator: "test_feedback_loop_smoke_closes_the_loop::test_every_feedback_loop_feature_has_close_the_loop_smoke"
+      validator: "conventions/presence/test_feedback_loop_close_the_loop::test_feedback_loop_convention_fault"
       description: "A feature marked `kind: feedback-loop` must have at least one smoke acceptance (on any of its WMBTs) whose acceptance block contains a `close_the_loop:` field with both `consumer_reacted` and `drift_resolved` sub-fields. Producer-only smoke assertions (artifact existence, schema validation) are insufficient for feedback-loop features — they produce false-positive green CI while the consumer end of the loop is never exercised."
       introduced_in: "3.79.0"
       fix_hint: |

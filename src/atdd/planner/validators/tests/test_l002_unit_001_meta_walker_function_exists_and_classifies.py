@@ -25,7 +25,7 @@ pytestmark = [pytest.mark.planner]
 
 def test_meta_walker_function_exists_and_classifies(tmp_path):
     """walk_all_smoke_acceptances_for_anti_patterns returns hits for synthetic, none for real."""
-    from atdd.planner.validators.test_smoke_synthetic_fixture_bypass import (
+    from atdd.planner.validators._meta_walker import (
         walk_all_smoke_acceptances_for_anti_patterns,
     )
 

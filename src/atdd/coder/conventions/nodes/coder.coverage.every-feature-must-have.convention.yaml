@@ -10,7 +10,7 @@ terms:
     supabase/, or web/.
 implementation:
   type: validator
-  ref: test_hierarchy_coverage::test_all_features_have_implementations
+  ref: conventions/coverage/test_hierarchy_coverage::test_fault_injection_convention_catches
 source:
   legacy_path: src/atdd/coder/conventions/coverage.convention.yaml
   legacy_section: rules

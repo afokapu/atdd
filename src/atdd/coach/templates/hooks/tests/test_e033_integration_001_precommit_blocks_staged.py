@@ -28,4 +28,4 @@ def test_precommit_blocks_staged_script(tmp_path: Path) -> None:
     result = run_precommit(repo)
     assert result.returncode == 1, f"expected block (exit 1), got {result.returncode}"
     combined = result.stdout + result.stderr
-    assert "atdd issue" in combined, f"educational alternative missing: {combined!r}"
+    assert "atdd author issue" in combined, f"educational alternative missing: {combined!r}"

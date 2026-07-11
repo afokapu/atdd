@@ -129,29 +129,32 @@ def test_complete_issues_artifacts_valid(github_complete_issues):
 
 def test_complete_issues_release_gate(github_complete_issues):
     """
-    SPEC-GATE-0003: COMPLETE issues must have version bumped and tag on HEAD.
+    SPEC-GATE-0003: COMPLETE issues require a resolved release version (#1172).
 
     Given: Issues labelled atdd:COMPLETE
-    When: Checking the release config (version_file, tag)
-    Then: Version is changed vs main and tag exists on HEAD or recent ancestor
+    When: Checking the release gate
+    Then: The State Store's singleton ``release`` object resolves a real version
+          (``atdd state version show``) — NOT the local ``0.0.0+local`` fallback.
 
-    Note: This validates the overall release state, not per-issue.
-    If any COMPLETE issue exists, the release gate must be satisfied.
+    Post-#1172 the release version lives in the State Store, not a static
+    ``pyproject.toml`` line or a git tag (tag + publish are operator-coordinated
+    post-merge per ``CLAUDE.md::release``). This validates the overall release
+    state, not per-issue: if any COMPLETE issue exists, a version must be set.
     """
     import os
     base_ref = os.environ.get("GITHUB_BASE_REF", "")
     github_ref = os.environ.get("GITHUB_REF", "")
     if base_ref or (github_ref and github_ref != "refs/heads/main"):
-        pytest.skip("Release gate skipped on PR branches (tag created post-merge)")
+        pytest.skip("Release gate skipped on PR branches (version bumped post-merge)")
 
     manager = IssueManager(target_dir=REPO_ROOT)
 
-    # Release gate is a repo-level check, not per-issue.
-    # If there are any COMPLETE issues, the release must be tagged.
+    # Release gate is a repo-level check, not per-issue: the store must hold a
+    # real release version.
     valid, messages = manager._verify_release_gate(force=False)
 
     assert valid, (
         f"\nRelease gate not satisfied for COMPLETE issues.\n"
-        f"Fix: Bump version, commit, create tag.\n\n"
+        f"Fix: bump the version — atdd state version bump --class PATCH|MINOR|MAJOR.\n\n"
         + "\n".join(messages)
     )

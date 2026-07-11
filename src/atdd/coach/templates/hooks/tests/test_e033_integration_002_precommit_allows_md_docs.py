@@ -27,7 +27,7 @@ def test_precommit_allows_markdown_docs(tmp_path: Path) -> None:
     stage(
         repo,
         "docs/rule.md",
-        "# The rule\n\nDo not run this:\n\n```sh\ngh issue create --title x\n```\n\nUse `atdd issue` instead.\n",
+        "# The rule\n\nDo not run this:\n\n```sh\ngh issue create --title x\n```\n\nUse `atdd author issue` instead.\n",
     )
     result = run_precommit(repo)
     assert result.returncode == 0, (

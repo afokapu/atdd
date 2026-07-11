@@ -52,14 +52,15 @@ def _check_on_main_branch(repo_root: Path) -> tuple:
         return True, None
 
     msg = (
-        f"Error: `atdd issue` must be run from the 'main' branch.\n"
+        f"Error: `atdd author issue` must be run from the 'main' branch.\n"
         f"  Current branch: {branch}\n"
         f"  The manifest commit will land on '{branch}', not main.\n"
         f"  Fix:\n"
         f"    git checkout main\n"
-        f'    atdd author issue --title "My Feature" --slug my-feature   # canonical store-first create (#1272)\n'
-        f"  Override: atdd issue my-feature --force   # re-run with your slug"
+        f'    atdd author issue --title "My Feature" --slug my-feature   # canonical store-first create (#1272)'
     )
+    # No override line: the removed `atdd issue <slug> --force` was the only form
+    # that could bypass this guard, and `atdd author issue` has no --force.
     return False, msg
 
 # Statuses from PLANNED onward require a template-compliant issue body.
@@ -338,22 +339,22 @@ class IssueLifecycle:
         print()
         if status == "INIT":
             print("  Next: Fill issue scope, then transition:")
-            print(f"         atdd issue {number} --status PLANNED")
+            print(f"         atdd coach transition {number} PLANNED")
         elif status == "PLANNED":
             print("  Next: Write failing tests (RED phase), then transition:")
-            print(f"         atdd issue {number} --status RED")
+            print(f"         atdd coach transition {number} RED")
         elif status == "RED":
             print("  Next: Implement to make tests pass (GREEN), then transition:")
-            print(f"         atdd issue {number} --status GREEN")
+            print(f"         atdd coach transition {number} GREEN")
         elif status == "GREEN":
             print("  Next: Run tester SMOKE verification, then transition:")
-            print(f"         atdd issue {number} --status SMOKE")
+            print(f"         atdd coach transition {number} SMOKE")
         elif status == "SMOKE":
             print("  Next: Refactor to clean architecture, then transition:")
-            print(f"         atdd issue {number} --status REFACTOR")
+            print(f"         atdd coach transition {number} REFACTOR")
         elif status == "REFACTOR":
             print("  Next: Complete and close:")
-            print(f"         atdd issue {number} --status COMPLETE")
+            print(f"         atdd coach transition {number} COMPLETE")
         elif status in _TERMINAL_STATUSES:
             print(f"  This issue is {status}. No further action needed.")
         elif status == "BLOCKED":
@@ -470,7 +471,7 @@ class IssueLifecycle:
         )
         for f in outcome.failures:
             print(f"  ✗ [{f.gate_id} / {f.rule_id}] {f.message}")
-        print(f"  Bypass: atdd issue {issue_number} --status {target_status.upper()} --force")
+        print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
         return 1
 
     def transition(self, issue_number: int, status: str, force: bool = False) -> int:
@@ -621,7 +622,7 @@ class IssueLifecycle:
             return 1
 
         # Phase 2: chain to worktree creation (default) or print intent (--no-branch).
-        from atdd.coach.commands.issue import TYPE_TO_PREFIX
+        from atdd.coach.commands.issue_prefixes import TYPE_TO_PREFIX
         prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
 
         if not no_branch:
@@ -698,7 +699,7 @@ class IssueLifecycle:
             print()
             print(f"ATDD: Issue #{issue_number} requires worktree: {prefix}/{slug}")
             print(f"  cd {worktree_path}")
-            print(f"  atdd issue {issue_number}")
+            print(f"  atdd coach enter {issue_number}")
             print()
             return 0
 

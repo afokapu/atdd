@@ -38,7 +38,7 @@ def test_gh_issue_create_is_blocked(tmp_path: Path) -> None:
     d = _classify("gh issue create test-slug", tmp_path)
     assert d.action == "block"
     assert d.rule_id == "ATDD-FORBID-GH-ISSUE-CREATE"
-    assert d.alternative is not None and "atdd issue" in d.alternative
+    assert d.alternative is not None and "atdd author issue" in d.alternative
 
 
 def test_gh_issue_create_with_flags_is_blocked(tmp_path: Path) -> None:
@@ -245,7 +245,7 @@ def test_audit_log_appends_multiple_records(tmp_path: Path) -> None:
     "git add src/foo.py",
     "git commit -m 'feat: x'",
     "atdd validate",
-    "atdd issue open",
+    "atdd coach issues open",
     "atdd pr 668",
     "pytest src/atdd/coach/utils/tests/ -x",
     "ls -la",

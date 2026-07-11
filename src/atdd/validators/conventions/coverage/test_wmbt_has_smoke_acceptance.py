@@ -1,4 +1,6 @@
 # URN: test:validate-conventions:coverage-variants:wmbt_has_smoke_acceptance
+# Acceptance: acc:govern-lifecycle:E003-INTEGRATION-001-planner-validator-fires-on-zero-smoke-urns
+# Acceptance: acc:govern-lifecycle:E003-SMOKE-001-real-validator-suite-includes-this-validator
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration
@@ -33,28 +35,24 @@ AUTO_CAPTURE = 'a new node is included if it declares coverage requirements'
 FAILURE_EVIDENCE = ['source_node', 'required_target_kind', 'required_path', 'actual_targets']
 LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py']
 
-_LEGACY_TARGET = ("src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py"
-                  "::test_every_wmbt_has_smoke_acceptance")
-
-
 def test_wmbt_has_smoke_acceptance_variant_contract() -> None:
     assert TEMPLATE in TEMPLATE_IDS, f"{TEMPLATE} not in coverage archetype"
     assert LEGACY_PARITY_SOURCES, "variant must record >=1 legacy parity source"
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """Real repo: every WMBT either has a SMOKE acceptance or is inline-suppressed."""
     root = _parity.repo_root()
     viols = _parity.conv_violations(root, _source_has_required_target,
-                                    {"variant": VARIANT})
+                                    {"variant": VARIANT}, graph=clean_convention_graph)
     assert viols == [], f"clean baseline must be 0, got {viols[:3]}"
 
 
 def test_fault_injection_legacy_parity_both_catch() -> None:
     """Inject a WMBT whose only acceptance lacks the SMOKE token (and no inline
-    suppression). The convention evaluator AND the legacy validator must BOTH
-    catch it on the identical faulted tree."""
+    suppression); the convention evaluator must catch it on the faulted tree and
+    stay clean once reverted."""
     root = _parity.repo_root()
     rel = "plan/validate_conventions/E997.yaml"
     content = (
@@ -64,16 +62,16 @@ def test_fault_injection_legacy_parity_both_catch() -> None:
         "      urn: acc:validate-conventions:E997-UNIT-001-no-smoke-here\n"
     )
 
-    assert not _parity.legacy_red(root, _LEGACY_TARGET), "legacy red on CLEAN tree"
     with _parity.inject_tempfile(root, rel, content):
         conv = _parity.conv_violations(root, _source_has_required_target,
                                        {"variant": VARIANT})
-        legacy = _parity.legacy_red(root, _LEGACY_TARGET)
     caught = [v for v in conv if v["source_node"] == "wmbt:validate-conventions:E997"]
     assert caught, "convention evaluator must catch the no-SMOKE WMBT"
     assert caught[0]["required_target_kind"] == "acceptance:SMOKE"
     assert set(caught[0]).issubset(set(FAILURE_EVIDENCE))
-    assert legacy is True, "legacy validator must ALSO catch (parity: both)"
+    # oracle retired (#1385): convention path above is the live coverage
+    assert _parity.conv_violations(root, _source_has_required_target,
+                                   {"variant": VARIANT}) == []
 
 
 def test_inline_suppression_is_respected() -> None:

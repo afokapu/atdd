@@ -7,7 +7,7 @@ statement: 'Every fix_hint (convention-declared or CLI-printed) must satisfy the
   placeholder resolution, no deprecation contradiction, prerequisite disclosure, and runnable-as-printed.'
 implementation:
   type: validator
-  ref: test_fix_hint_completeness::test_every_fix_hint_satisfies_completeness_contract
+  ref: conventions/presence/test_rule_has_fix_hint::test_rule_has_fix_hint_convention_fault
 source:
   legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
   legacy_section: rules
@@ -16,7 +16,7 @@ source:
   legacy_rule_id: coach.rule-id.fix-hint-completeness
 content:
   fix_hint: "The named fix_hint fails one or more contract clauses (C1-C4). Repair as follows:\n  1. Re-run\
-    \ the validator to read which clause failed\n     (run: pytest src/atdd/coach/validators/test_fix_hint_completeness.py\
+    \ the validator to read which clause failed\n     (run: pytest src/atdd/validators/conventions/presence/test_rule_has_fix_hint.py\
     \ -v).\n     The Violation message names the clause + the offending token,\n     command, or structural\
     \ shape.\n  2. Resolve per the failed clause:\n       - C1 placeholder resolution: for each bare ``<token>``,\
     \ append\n         a resolver line in the same hint block. Patterns\n         (e.g. \"(see plan/_trains.yaml::trains.id)\"\

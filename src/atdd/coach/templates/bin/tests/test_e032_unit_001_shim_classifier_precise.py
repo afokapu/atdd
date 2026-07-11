@@ -30,7 +30,7 @@ def test_shim_blocks_exact_issue_create(shim_worktree) -> None:
     worktree, real_bin, record = shim_worktree
     result = run_gh_via_shim(worktree, real_bin, ["issue", "create"])
     assert result.returncode == 1, f"expected block (exit 1), got {result.returncode}: {result.stderr}"
-    assert "atdd issue" in result.stderr, f"alternative missing from stderr: {result.stderr!r}"
+    assert "atdd author issue" in result.stderr, f"alternative missing from stderr: {result.stderr!r}"
     assert not record.exists(), "real gh was invoked for a blocked `gh issue create`"
 
 
@@ -39,7 +39,7 @@ def test_shim_blocks_issue_create_with_flags(shim_worktree) -> None:
     worktree, real_bin, record = shim_worktree
     result = run_gh_via_shim(worktree, real_bin, ["issue", "create", "--title", "x"])
     assert result.returncode == 1
-    assert "atdd issue" in result.stderr
+    assert "atdd author issue" in result.stderr
     assert not record.exists(), "real gh was invoked for `gh issue create --title x`"
 
 

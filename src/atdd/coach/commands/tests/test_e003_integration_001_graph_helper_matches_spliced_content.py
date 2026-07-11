@@ -35,27 +35,30 @@ pytestmark = [pytest.mark.platform]
 
 
 def _make_repo(tmp_path: Path, wagon_slug: str) -> Path:
-    """Scaffold a minimal ATDD repo under tmp_path."""
-    manifest = tmp_path / ".atdd" / "manifest.yaml"
-    manifest.parent.mkdir(parents=True)
-    manifest.write_text(
-        textwrap.dedent(f"""\
-            version: '2.0'
-            created: '2026-05-13'
-            sessions:
-            - id: '950'
-              slug: integration-test-issue
-              file: null
-              issue_number: 950
-              type: implementation
-              status: RED
-              train: 0002-test-train
-              wagon: {wagon_slug}
-              feature: test-feature
-              created: '2026-05-13'
-              archived: null
-        """)
-    )
+    """Scaffold a minimal ATDD repo under tmp_path.
+
+    #1270 Slice G: the ``.atdd/manifest.yaml`` mirror is deleted — the issue→wagon
+    mapping the graph helper reads is seeded straight into the State Store.
+    """
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    (tmp_path / ".atdd").mkdir(parents=True)
+    db = init_state_store(db_path=tmp_path / ".atdd" / "state" / "state.sqlite")
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        store.objects.upsert(
+            "integration-test-issue", WORK_ITEM_KIND, state="RED",
+            data={"issue_number": 950, "type": "implementation",
+                  "train": "0002-test-train", "wagon": wagon_slug,
+                  "feature": "test-feature"},
+        )
+        store.external_refs.link("integration-test-issue", GITHUB_PROVIDER, "issue", "950",
+                                 data={"source": "test-seed"})
+    finally:
+        conn.close()
 
     wagon_dir = tmp_path / "plan" / wagon_slug.replace("-", "_")
     wagon_dir.mkdir(parents=True)

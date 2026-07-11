@@ -143,7 +143,7 @@ rules:
 # Lifecycle phases relevant to this convention
 # =============================================================================
 # Phase labels live on GitHub issues as `atdd:<PHASE>` and are managed by
-# `atdd issue <N> --status <PHASE>`. This convention treats the following
+# `atdd coach transition <N> <PHASE>`. This convention treats the following
 # phases as MERGE-INELIGIBLE for any PR with an auto-close keyword:
 #
 #   atdd:INIT        — planner has not delivered a wagon yet

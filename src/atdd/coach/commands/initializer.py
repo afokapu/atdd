@@ -5,8 +5,9 @@ Creates the following structure:
     consumer-repo/
     ├── CLAUDE.md                (with managed ATDD block)
     └── .atdd/
-        ├── manifest.yaml        (machine-readable issue tracking)
         └── config.yaml          (agent sync + GitHub integration config)
+    (Operational issue state lives in the State Store under .atdd/state/, not a
+    .atdd/manifest.yaml mirror — the mirror was deleted in #1270 Slice G.)
 
 GitHub infrastructure (requires `gh` CLI):
     - Labels: atdd-issue, atdd-wmbt, atdd:*, archetype:*, wagon:*
@@ -25,7 +26,6 @@ import logging
 import os
 import shutil
 import subprocess
-from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -530,8 +530,10 @@ class ProjectInitializer:
             # not git history.
             self._ensure_gitignore_entry(".atdd/diagnostics/")
 
-            # Create manifest.yaml
-            self._create_manifest(force)
+            # #1270 Slice G: the ``.atdd/manifest.yaml`` mirror was deleted — the
+            # State Store is the sole operational registry. Genesis no longer
+            # writes a manifest; a cold store self-seeds from registered sync
+            # providers on first read (WorkItemReader).
 
             # Create config.yaml
             self._create_config(force)
@@ -572,7 +574,6 @@ class ProjectInitializer:
             print("=" * 60)
             print("\nStructure created:")
             print(f"  {self.atdd_config_dir}/")
-            print(f"  {self.manifest_file}")
             print(f"  {self.config_file}")
             print(f"  CLAUDE.md (with ATDD managed block)")
             if github_summary:
@@ -694,44 +695,6 @@ class ProjectInitializer:
             print(f"  installed: {__version__}")
             print("Run: atdd init --export-schemas   (or atdd sync)")
             return 1
-
-    def _create_manifest(self, force: bool = False) -> None:
-        """
-        Create or update .atdd/manifest.yaml.
-
-        When force=True and a manifest already exists, the sessions list is
-        preserved — only schema-level fields (version, created) are refreshed.
-        This mirrors the deep-merge behaviour of _create_config so that a
-        routine `atdd sync && atdd init --force` version-upgrade step never
-        destroys session history (issue #580).
-
-        Args:
-            force: If True, refresh schema fields while preserving sessions.
-        """
-        if self.manifest_file.exists() and not force:
-            print(f"Manifest already exists: {self.manifest_file}")
-            return
-
-        # Preserve existing sessions when force-reinitialising.
-        existing_sessions: list = []
-        if self.manifest_file.exists():
-            try:
-                with open(self.manifest_file) as f:
-                    existing = yaml.safe_load(f) or {}
-                existing_sessions = existing.get("sessions") or []
-            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-                pass
-
-        manifest = {
-            "version": "2.0",
-            "created": date.today().isoformat(),
-            "sessions": existing_sessions,
-        }
-
-        with open(self.manifest_file, "w") as f:
-            yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
-
-        print(f"Created: {self.manifest_file}")
 
     def _create_config(self, force: bool = False) -> None:
         """
@@ -1112,8 +1075,12 @@ class ProjectInitializer:
             print("All harness templates already installed.")
 
     def is_initialized(self) -> bool:
-        """Check if ATDD is already initialized in target directory."""
-        return self.atdd_config_dir.exists() and self.manifest_file.exists()
+        """Check if ATDD is already initialized in target directory.
+
+        #1270 Slice G: keyed on ``.atdd/config.yaml`` — the manifest mirror it
+        used to check was deleted and is no longer written at genesis.
+        """
+        return self.atdd_config_dir.exists() and self.config_file.exists()
 
     # -------------------------------------------------------------------------
     # E007: GitHub infrastructure bootstrap

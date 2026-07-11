@@ -7,7 +7,7 @@ statement: 'Each train needs two files: a registry entry in plan/_trains.yaml an
   every registry entry MUST have a corresponding spec file.'
 implementation:
   type: validator
-  ref: test_train_validation::test_train_files_exist_for_registry_entries
+  ref: conventions/resolution/test_train_validation::test_fault_injection_and_legacy_parity
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_section: registry

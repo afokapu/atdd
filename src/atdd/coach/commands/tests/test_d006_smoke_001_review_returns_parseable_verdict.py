@@ -114,7 +114,7 @@ def test_cli_review_returns_parseable_aggregate(tmp_path: Path):
     _write_workspace(tmp_path)
     proc = _run_cli(
         tmp_path,
-        "issue", "review", "721",
+        "coach", "issue-review", "721",
         "--passes", "3",
         "--llms", "haiku,mini,flash",
     )
@@ -138,7 +138,7 @@ def test_cli_review_emits_no_prose_or_typeerror_failure(tmp_path: Path):
     _write_workspace(tmp_path)
     proc = _run_cli(
         tmp_path,
-        "issue", "review", "721",
+        "coach", "issue-review", "721",
         "--passes", "3",
         "--llms", "haiku,mini,flash",
     )

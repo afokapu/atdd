@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from atdd.coach.commands.issue import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
+from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
 from atdd.coach.github import GitHubClient, GitHubClientError, ProjectConfig
 from atdd.coach.utils.default_branch import resolve_default_branch
 
@@ -401,8 +401,8 @@ class BranchManager:
             print(
                 f"Error: Issue #{issue_number} not found in manifest and could not be "
                 f"fetched from GitHub.\n"
-                f"Create it first with: atdd issue <slug>\n"
-                f"Or backfill all missing issues: atdd issue reconcile"
+                f"Create it first with: atdd author issue --title <title> --slug <slug>\n"
+                f"Or backfill all missing issues: atdd coach reconcile"
             )
             return 1
 
