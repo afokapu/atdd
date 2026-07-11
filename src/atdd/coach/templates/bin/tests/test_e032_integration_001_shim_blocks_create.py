@@ -21,5 +21,5 @@ def test_shim_blocks_create_and_does_not_forward(shim_worktree) -> None:
     worktree, real_bin, record = shim_worktree
     result = run_gh_via_shim(worktree, real_bin, ["issue", "create", "--title", "x", "--body", "y"])
     assert result.returncode == 1, f"expected exit 1, got {result.returncode}: {result.stderr}"
-    assert "atdd issue" in result.stderr, f"alternative missing: {result.stderr!r}"
+    assert "atdd author issue" in result.stderr, f"alternative missing: {result.stderr!r}"
     assert not record.exists(), "real gh was invoked despite the shim block"

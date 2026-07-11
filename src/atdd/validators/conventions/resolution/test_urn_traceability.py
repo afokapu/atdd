@@ -45,9 +45,9 @@ _FEATURE_URN = "feature:admit-substrate:substrate-admission"
 _FAULT = (f'"{_FEATURE_URN}"', f'"{_FEATURE_URN}-does-not-exist-xyz"')
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """The variant returns no violations on the real, unmodified repo."""
-    assert evaluate_variant(TEMPLATE, VARIANT) == []
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
 def test_fault_injection_convention_catches() -> None:
@@ -62,22 +62,7 @@ def test_fault_injection_convention_catches() -> None:
     assert evaluate_variant(TEMPLATE, VARIANT, root=root) == []
 
 
-def test_legacy_is_vacuous_on_chain_faults() -> None:
-    """Honest parity verdict: convention-only.
-
-    The legacy coach validator self-suppresses every traceability finding via
-    `pytest.skip(...)` rather than failing, so it can never be credited with
-    catching an injected chain fault. We assert this structurally (fast, exact)
-    instead of running its ~90s real-graph build only to observe a skip: every
-    issue-reporting branch in the legacy source ends in `pytest.skip`, and the
-    only `assert`s are graph/result sanity checks that do not block on broken
-    chains.
-    """
-    legacy_src = Path(LEGACY_PARITY_SOURCES[0])
-    if not legacy_src.is_absolute():
-        legacy_src = repo_root() / legacy_src
-    text = legacy_src.read_text(encoding="utf-8")
-    # The issue-reporting paths suppress rather than fail.
-    assert "pytest.skip(message)" in text
-    # No issue path raises pytest.fail — confirming non-blocking behaviour.
-    assert "pytest.fail" not in text
+# Legacy-vacuity cross-check removed (#1365): the legacy coach validator (which
+# self-suppressed every finding via pytest.skip, making this a convention-only
+# improvement) is being decommissioned. The variant's own real-graph fault
+# injection above (`test_fault_injection_convention_catches`) is the live coverage.

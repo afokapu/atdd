@@ -18,7 +18,6 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
-from atdd.validators.conventions.sizing import _parity
 from atdd.validators.conventions.sizing import fixtures as F
 from atdd.validators.conventions.sizing.archetype import (
     TEMPLATE_IDS,
@@ -78,11 +77,10 @@ def test_fixture_fragments_valid_clean_invalid_flagged() -> None:
     assert _TEMPLATE.evaluate(F.INVALID_FRAGMENTS[VARIANT], cfg)
 
 
-def test_clean_baseline_on_real_composed_graph() -> None:
+def test_clean_baseline_on_real_composed_graph(clean_convention_graph) -> None:
     """On the live repo no wagon exceeds the soft coupling threshold (no false positives)."""
-    graph = load_composed_graph(find_repo_root())
-    assert _TEMPLATE.evaluate(graph, _CONFIG) == []
-    assert evaluate_coupling_complexity(graph) == []
+    assert _TEMPLATE.evaluate(clean_convention_graph, _CONFIG) == []
+    assert evaluate_coupling_complexity(clean_convention_graph) == []
 
 
 @contextlib.contextmanager
@@ -100,22 +98,20 @@ def _inject_consumes(root, rel, consumes):
 
 
 def test_fault_injection_legacy_parity() -> None:
-    """Inject an over-coupling fault into a real wagon manifest; assert BOTH the
-    convention evaluator AND the legacy validator flag the same wagon, then revert.
+    """Inject an over-coupling fault into a real wagon manifest; assert the convention
+    evaluator flags that wagon, then revert and assert it no longer does.
 
-    The legacy validator's ADVISORY pytest test (assert_disposition_satisfied) PASSES
-    even with findings, so a subprocess return code is NOT a parity signal here; we run
-    the legacy SCAN function in-process on the identical faulted tree — the direct,
-    honest measurement of whether legacy catches the same fault.
+    The legacy in-process scan oracle was dropped with the retired legacy validator
+    (#1207 sweep, #1385); the differential below is the live coverage.
     """
     root = find_repo_root()
     with _inject_consumes(root, _TARGET_FILE, _INJECT_CONSUMES):
         graph = load_composed_graph(root)
         conv = {_norm(ev["source_node_or_scope"].split(":", 1)[1])
                 for ev in evaluate_coupling_complexity(graph)}
-        leg = {_norm(v.location.split("/")[1])
-               for v in _parity.legacy_coupling_scan(root)}
 
     assert _TARGET_WAGON in conv, f"convention missed injected fault: {conv}"
-    assert _TARGET_WAGON in leg, f"legacy missed injected fault: {leg}"
-    assert _TARGET_WAGON in (conv & leg), "PARITY: both must catch the same wagon"
+
+    reverted = {_norm(ev["source_node_or_scope"].split(":", 1)[1])
+                for ev in evaluate_coupling_complexity(load_composed_graph(root))}
+    assert _TARGET_WAGON not in reverted, "fault survived revert — injection leaked"

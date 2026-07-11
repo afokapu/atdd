@@ -4,11 +4,12 @@ kind: constraint
 status: active
 name: Interlocking route category matches train id
 statement: Every interlocking route declares nominal/error/alternate/exception and
-  its category digit must match the referenced train_id digit.
+  that category must equal the `category` field of the target train it selects
+  (issue #1421 — category is a validated field, not an identity digit).
 terms:
-- term_id: category_digit_mapping
-  text: nominal->0, error->1, alternate->2, exception->3; route.category_digit must
-    equal the train_id category digit
+- term_id: category_field_agreement
+  text: route.category must equal the target train's `category` field (nominal/error/alternate/exception);
+    the legacy identity digit is retired and no longer parsed
 implementation:
   type: validator
   ref: test_sequence_diagram_sanity::test_interlocking_route_category_matches_train_id
@@ -26,6 +27,6 @@ validation:
   - interlocking_id
   - route_id
   - category
-  - expected_digit
-  - actual_train_id
-  - actual_digit
+  - train_id
+  - train_category
+  - train_path

@@ -20,9 +20,6 @@ Imports no persona validator module, so it is parallel-safe with legacy validato
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
@@ -40,10 +37,6 @@ FAILURE_EVIDENCE = ['node_id', 'schema_id', 'schema_error_path', 'schema_error_m
 LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_dispatch_registry.py']
 
 # The schema-conformance counterpart in the legacy suite: same artifact, same schema.
-_LEGACY_SCHEMA_NODEID = (
-    "src/atdd/planner/validators/test_dispatch_registry.py"
-    "::test_real_dispatch_registry_is_declared_and_schema_valid"
-)
 _DISPATCH = "plan/_dispatch.yaml"
 # Faulted registry: a dispatch entry missing the schema-required `train_id`.
 _FAULT_ANCHOR = "dispatch: []"
@@ -62,10 +55,10 @@ def _contract():
     return by_id[TEMPLATE]
 
 
-def _evaluate(root: Path):
+def _evaluate(root: Path, graph=None):
     """Run the variant through the official path on the real composed graph."""
-    graph = load_composed_graph(root)
-    return _contract().evaluate(graph, config={"variant": VARIANT})
+    g = graph if graph is not None else load_composed_graph(root)
+    return _contract().evaluate(g, config={"variant": VARIANT})
 
 
 @contextlib.contextmanager
@@ -78,15 +71,6 @@ def _patched(root: Path, rel: str, old: str, new: str):
         yield
     finally:
         p.write_text(orig, encoding="utf-8")
-
-
-def _legacy_caught(root: Path, nodeid: str) -> bool:
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=root, env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True, text=True,
-    ).returncode
-    return rc != 0
 
 
 # --- contract ---------------------------------------------------------------
@@ -110,22 +94,15 @@ def test_evidence_keys_subset_of_contract() -> None:
 
 
 # --- clean baseline ---------------------------------------------------------
-def test_clean_baseline_is_silent() -> None:
+def test_clean_baseline_is_silent(clean_convention_graph) -> None:
     """The real declared registry conforms to its schema → zero violations."""
-    assert _evaluate(_repo_root()) == []
+    assert _evaluate(_repo_root(), graph=clean_convention_graph) == []
 
 
-# --- fault injection + legacy parity ----------------------------------------
-def test_fault_caught_by_convention_and_legacy() -> None:
-    """Inject one schema fault (entry missing `train_id`); BOTH the convention path
-    and the legacy validator must catch it. Legacy is first confirmed GREEN on the
-    clean tree so its red is credited to the injected fault, not pre-existing."""
+# --- fault injection (convention path is the live coverage; oracle retired #1365) ---
+def test_fault_caught_by_convention() -> None:
+    """Inject one schema fault (entry missing `train_id`); the convention path catches it."""
     root = _repo_root()
-    assert not _legacy_caught(root, _LEGACY_SCHEMA_NODEID), \
-        "legacy target already red on the clean tree — parity inconclusive"
     with _patched(root, _DISPATCH, _FAULT_ANCHOR, _FAULT_REPLACEMENT):
         convention_caught = bool(_evaluate(root))
-        legacy_caught = _legacy_caught(root, _LEGACY_SCHEMA_NODEID)
     assert convention_caught, "convention path missed the schema fault"
-    assert legacy_caught, "legacy validator missed the schema fault"
-    # parity verdict: BOTH

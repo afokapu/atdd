@@ -8,9 +8,6 @@ the variant tests stay self-contained. Underscore-prefixed: not collected by pyt
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -47,15 +44,9 @@ def inject_patch(root: Path, relpath: str, old: str, new: str):
         p.write_text(orig, encoding='utf-8')
 
 
-def legacy_red(root: Path, target: str) -> bool:
-    """True iff the legacy pytest target FAILS on the current tree."""
-    rc = subprocess.run(
-        [sys.executable, '-m', 'pytest', target, '-q', '-p', 'no:cacheprovider'],
-        cwd=root, env={'PYTHONPATH': 'src', 'PATH': os.environ['PATH']},
-        capture_output=True, text=True,
-    ).returncode
-    return rc != 0
-
-
-def conv_violations(root: Path, evaluator: Callable, config: Optional[dict] = None) -> List[dict]:
-    return evaluator(load_composed_graph(root), config)
+def conv_violations(root: Path, evaluator: Callable, config: Optional[dict] = None,
+                    graph=None) -> List[dict]:
+    """``graph`` lets a read-only caller pass the session-scoped clean graph (#1414);
+    callers that have mutated the tree must omit it so the graph is re-read."""
+    g = graph if graph is not None else load_composed_graph(root)
+    return evaluator(g, config)

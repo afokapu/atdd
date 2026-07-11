@@ -141,35 +141,3 @@ class TestCoachSyncLabelsDelegatesIdentically:
 # ---------------------------------------------------------------------------
 # 3. Deprecated shim: `atdd issue sync-labels` warns on stderr + delegates
 # ---------------------------------------------------------------------------
-class TestDeprecatedIssueSyncLabelsShim:
-    def test_issue_sync_labels_warns_and_delegates(self, hermetic, capsys, monkeypatch):
-        import atdd.cli as cli
-        import atdd.coach.commands.coach_verbs.sync_labels as sl
-
-        monkeypatch.setattr(
-            "sys.argv", ["atdd", "issue", "sync-labels", str(_FAKE_ISSUE)]
-        )
-        # Patch the delegate so NO real sync can occur even if wiring drifts.
-        delegate_spy = MagicMock(return_value=0)
-        with patch.object(sl, "run", delegate_spy):
-            rc = cli.main()
-
-        assert rc == 0
-        delegate_spy.assert_called_once_with([str(_FAKE_ISSUE)])
-        err = capsys.readouterr().err
-        assert "deprecated" in err.lower()
-        assert "atdd coach sync-labels" in err
-
-    def test_issue_sync_labels_forwards_all_and_dry_run(self, hermetic, monkeypatch):
-        import atdd.cli as cli
-        import atdd.coach.commands.coach_verbs.sync_labels as sl
-
-        monkeypatch.setattr(
-            "sys.argv", ["atdd", "issue", "sync-labels", "--all", "--dry-run"]
-        )
-        delegate_spy = MagicMock(return_value=0)
-        with patch.object(sl, "run", delegate_spy):
-            rc = cli.main()
-
-        assert rc == 0
-        delegate_spy.assert_called_once_with(["--all", "--dry-run"])

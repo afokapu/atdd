@@ -84,32 +84,22 @@ def test_template_evaluate_dispatches_to_real_evaluator() -> None:
 
 
 # --- clean baseline on the REAL composed graph ------------------------------
-def test_clean_baseline_real_graph_is_zero() -> None:
+def test_clean_baseline_real_graph_is_zero(clean_convention_graph) -> None:
     """The real repo's produce/consume wagon graph is a DAG (baseline = 0), and
     the selection is non-vacuous (there ARE cross-wagon produce/consume edges)."""
-    repo_root = _repo_root()
-    g = load_composed_graph(repo_root)
+    g = clean_convention_graph
     edges = build_consume_edges(g)
     total_cross_edges = sum(len(v) for v in edges.values())
     assert total_cross_edges > 0, "vacuous: no cross-wagon produce/consume edges in corpus"
     assert forbidden_cycle_absence(g) == [], "real corpus unexpectedly has a cross-wagon cycle"
 
 
-# --- fault injection + legacy parity (BOTH must catch) ----------------------
-def test_fault_injection_legacy_parity() -> None:
+# --- fault injection (convention path is the live coverage; oracle retired #1365) ---
+def test_fault_injection_convention_catches() -> None:
     repo_root = _repo_root()
     with _parity.injected_cross_wagon_cycle(repo_root) as members:
         conv = forbidden_cycle_absence(load_composed_graph(repo_root))
-        legacy_rc = _parity.run_legacy(repo_root)
     conv_caught = any(set(members).issubset(set(v["cycle_path"])) for v in conv)
-    legacy_caught = legacy_rc != 0
-    assert conv_caught and legacy_caught, (
-        f"parity break: convention_caught={conv_caught} legacy_caught={legacy_caught} "
-        "(both must catch the injected cross-wagon cycle)"
+    assert conv_caught, (
+        "convention path did not catch the injected cross-wagon cycle"
     )
-
-
-def test_clean_baseline_legacy_also_green() -> None:
-    """Sanity: the legacy target is GREEN on the clean tree, so its red under
-    injection is attributable to the fault (not a pre-existing failure)."""
-    assert _parity.run_legacy(_repo_root()) == 0, "legacy target unexpectedly red on clean tree"

@@ -27,39 +27,32 @@ pytestmark = [pytest.mark.platform]
 
 
 def _scaffold_repo(tmp_path: Path) -> None:
-    """Minimal ATDD repo: manifest mapping two issues to two wagons, where
-    wagon-b consumes from wagon-a."""
-    manifest = tmp_path / ".atdd" / "manifest.yaml"
-    manifest.parent.mkdir(parents=True)
-    manifest.write_text(
-        textwrap.dedent("""\
-            version: '2.0'
-            created: '2026-05-18'
-            sessions:
-            - id: '9001'
-              slug: upstream-issue
-              file: null
-              issue_number: 9001
-              type: implementation
-              status: PLANNED
-              train: 0002-test-train
-              wagon: wagon-a
-              feature: test-feature
-              created: '2026-05-18'
-              archived: null
-            - id: '9002'
-              slug: downstream-issue
-              file: null
-              issue_number: 9002
-              type: implementation
-              status: PLANNED
-              train: 0002-test-train
-              wagon: wagon-b
-              feature: test-feature
-              created: '2026-05-18'
-              archived: null
-        """)
-    )
+    """Minimal ATDD repo: two issues mapped to two wagons (wagon-b consumes from
+    wagon-a). #1270 Slice G: the issue→wagon mapping is seeded straight into the
+    State Store (the ``.atdd/manifest.yaml`` mirror is deleted)."""
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    (tmp_path / ".atdd").mkdir(parents=True)
+    db = init_state_store(db_path=tmp_path / ".atdd" / "state" / "state.sqlite")
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        for slug, number, wagon in (
+            ("upstream-issue", 9001, "wagon-a"),
+            ("downstream-issue", 9002, "wagon-b"),
+        ):
+            store.objects.upsert(
+                slug, WORK_ITEM_KIND, state="PLANNED",
+                data={"issue_number": number, "type": "implementation",
+                      "train": "0002-test-train", "wagon": wagon,
+                      "feature": "test-feature"},
+            )
+            store.external_refs.link(slug, GITHUB_PROVIDER, "issue", str(number),
+                                     data={"source": "test-seed"})
+    finally:
+        conn.close()
     plan = tmp_path / "plan"
     (plan / "wagon_a").mkdir(parents=True)
     (plan / "wagon_a" / "_wagon_a.yaml").write_text(

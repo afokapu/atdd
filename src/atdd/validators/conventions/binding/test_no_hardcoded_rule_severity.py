@@ -41,12 +41,6 @@ RULE_ID = "coach.rule-id.no-hardcoded-rule-severity"
 CONVENTION = (
     "src/atdd/coach/conventions/nodes/coach.rule-id.no-hardcoded-rule-severity.convention.yaml"
 )
-LEGACY_NODEID = (
-    "src/atdd/coach/validators/test_no_hardcoded_rule_severity.py"
-    "::test_no_hardcoded_rule_severity_in_migrated_validators"
-)
-
-
 def test_no_hardcoded_rule_severity_variant_contract() -> None:
     assert TEMPLATE in TEMPLATE_IDS, f"{TEMPLATE} not in binding archetype"
     assert PARITY_TEMPLATE in TEMPLATE_IDS, f"{PARITY_TEMPLATE} not in binding archetype"
@@ -54,12 +48,13 @@ def test_no_hardcoded_rule_severity_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_no_hardcoded_rule_severity_clean_baseline() -> None:
+def test_no_hardcoded_rule_severity_clean_baseline(clean_convention_graph) -> None:
     """Both binding templates flag nothing on the real repo for this variant."""
-    P.assert_clean_baseline(VARIANT, P.repo_root())
+    P.assert_clean_baseline(VARIANT, P.repo_root(), graph=clean_convention_graph)
 
 
-def test_no_hardcoded_rule_severity_legacy_parity() -> None:
-    """Inject the binding fault; convention path AND legacy validator both catch."""
-    result = P.assert_fault_parity(VARIANT, CONVENTION, RULE_ID, LEGACY_NODEID, P.repo_root())
-    assert result["verdict"] == "both"
+def test_no_hardcoded_rule_severity_convention_fault(clean_convention_graph) -> None:
+    """Inject the binding fault; the convention path catches it (oracle retired #1365)."""
+    P.assert_fault_convention_only(
+        VARIANT, CONVENTION, RULE_ID, P.repo_root(), graph=clean_convention_graph
+    )

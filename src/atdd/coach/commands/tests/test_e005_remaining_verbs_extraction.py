@@ -176,21 +176,6 @@ class TestIssueReviewDelegation:
         assert rc == 1
         spy.assert_not_called()
 
-    def test_deprecated_issue_review_warns_and_delegates(self, hermetic, capsys, monkeypatch):
-        import atdd.cli as cli
-        import atdd.coach.commands.issue_review as ir
-
-        monkeypatch.setattr("sys.argv", ["atdd", "issue", "review", str(_FAKE_ISSUE)])
-        spy = MagicMock(return_value=_SENTINEL_RC)
-        with patch.object(ir, "run", spy):
-            rc = cli.main()
-
-        assert rc == _SENTINEL_RC
-        spy.assert_called_once()
-        assert spy.call_args.kwargs["issue_number"] == _FAKE_ISSUE
-        err = capsys.readouterr().err
-        assert "deprecated" in err.lower()
-        assert "atdd coach issue-review" in err
 
 
 class TestIsRegisteredDelegation:
@@ -223,19 +208,6 @@ class TestIsRegisteredDelegation:
         assert rc == 2
         spy.assert_not_called()
 
-    def test_deprecated_issue_is_registered_warns_and_delegates(self, hermetic, capsys, monkeypatch):
-        import atdd.cli as cli
-        from atdd.coach.commands.issue import IssueManager
-
-        monkeypatch.setattr("sys.argv", ["atdd", "issue", "is-registered", _FAKE_BRANCH])
-        spy = MagicMock(return_value=True)
-        with patch.object(IssueManager, "branch_is_registered", spy):
-            rc = cli.main()
-        assert rc == 0
-        spy.assert_called_once_with(_FAKE_BRANCH)
-        err = capsys.readouterr().err
-        assert "deprecated" in err.lower()
-        assert "atdd coach is-registered" in err
 
 
 class TestCheckDelegation:
@@ -249,19 +221,6 @@ class TestCheckDelegation:
         assert rc == _SENTINEL_RC
         spy.assert_called_once_with(_FAKE_ISSUE)
 
-    def test_deprecated_issue_check_warns_and_delegates(self, hermetic, capsys, monkeypatch):
-        import atdd.cli as cli
-        from atdd.coach.commands.issue_lifecycle import IssueLifecycle
-
-        monkeypatch.setattr("sys.argv", ["atdd", "issue", str(_FAKE_ISSUE), "--check"])
-        spy = MagicMock(return_value=_SENTINEL_RC)
-        with patch.object(IssueLifecycle, "check", spy):
-            rc = cli.main()
-        assert rc == _SENTINEL_RC
-        spy.assert_called_once_with(_FAKE_ISSUE)
-        err = capsys.readouterr().err
-        assert "deprecated" in err.lower()
-        assert "atdd coach check" in err
 
 
 class TestCloseWmbtDelegation:
@@ -284,22 +243,6 @@ class TestCloseWmbtDelegation:
             coach.run_cli(["close-wmbt", str(_FAKE_ISSUE), "E005"])
         spy.assert_called_once_with(_FAKE_ISSUE, "E005", force=False)
 
-    def test_deprecated_issue_close_wmbt_warns_and_delegates(self, hermetic, capsys, monkeypatch):
-        import atdd.cli as cli
-        from atdd.coach.commands.issue_lifecycle import IssueLifecycle
-
-        monkeypatch.setattr(
-            "sys.argv",
-            ["atdd", "issue", str(_FAKE_ISSUE), "--close-wmbt", "E005"],
-        )
-        spy = MagicMock(return_value=_SENTINEL_RC)
-        with patch.object(IssueLifecycle, "close_wmbt", spy):
-            rc = cli.main()
-        assert rc == _SENTINEL_RC
-        spy.assert_called_once_with(_FAKE_ISSUE, "E005", force=False)
-        err = capsys.readouterr().err
-        assert "deprecated" in err.lower()
-        assert "atdd coach close-wmbt" in err
 
 
 class TestSyncWmbtsDelegation:
@@ -322,19 +265,6 @@ class TestSyncWmbtsDelegation:
             rc = coach.run_cli(["sync-wmbts", str(_FAKE_ISSUE)])
         assert rc == 1
 
-    def test_deprecated_issue_sync_wmbts_warns_and_delegates(self, hermetic, capsys, monkeypatch):
-        import atdd.cli as cli
-        from atdd.coach.commands.issue import IssueManager
-
-        monkeypatch.setattr("sys.argv", ["atdd", "issue", str(_FAKE_ISSUE), "--sync-wmbts"])
-        spy = MagicMock(return_value=0)
-        with patch.object(IssueManager, "sync_wmbts", spy):
-            rc = cli.main()
-        assert rc == 0
-        spy.assert_called_once_with(_FAKE_ISSUE)
-        err = capsys.readouterr().err
-        assert "deprecated" in err.lower()
-        assert "atdd coach sync-wmbts" in err
 
 
 class TestEnterDelegation:
@@ -348,20 +278,6 @@ class TestEnterDelegation:
         assert rc == _SENTINEL_RC
         spy.assert_called_once_with(_FAKE_ISSUE)
 
-    def test_bare_issue_number_still_reaches_enter(self, hermetic):
-        """The bare `atdd issue <N>` shim (#1307, unchanged) still reaches the
-        SAME IssueLifecycle.enter engine that `atdd coach enter` delegates to —
-        behavior parity is preserved without re-pointing #1307's shim."""
-        import atdd.cli as cli
-        from atdd.coach.commands.issue_lifecycle import IssueLifecycle
-
-        with patch("sys.argv", ["atdd", "issue", str(_FAKE_ISSUE)]):
-            spy = MagicMock(return_value=0)
-            with patch.object(IssueLifecycle, "enter", spy):
-                cli.main()
-        spy.assert_called_once()
-        args, _ = spy.call_args
-        assert args[0] == _FAKE_ISSUE
 
 
 # ===========================================================================
@@ -408,14 +324,6 @@ class TestRemainingVerbsSmokeInTempControlRoot:
         assert "Traceback" not in combined, combined
         assert proc.returncode == 0, combined
 
-    def test_deprecated_issue_is_registered_reaches_same_gate_and_warns(self, tmp_path):
-        proc, combined = self._run(["issue", "is-registered", _FAKE_BRANCH], tmp_path)
-        assert "UnboundLocalError" not in combined, combined
-        assert proc.returncode == 0, combined
-        assert "atdd coach is-registered" in (proc.stderr or ""), (
-            "deprecated path must signpost the canonical verb on stderr.\n"
-            f"--- stderr ---\n{proc.stderr}"
-        )
 
     def test_pre_commit_hook_invokes_coach_is_registered(self):
         """The pre-commit hook's branch-registration gate must call `atdd coach

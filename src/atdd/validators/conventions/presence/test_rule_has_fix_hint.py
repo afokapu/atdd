@@ -18,7 +18,7 @@ from atdd.validators.conventions.presence import archetype, fixtures
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 
-from .conftest import legacy_catches, temp_file
+from .conftest import temp_file
 
 FAMILY = "presence"
 TEMPLATE = "required_field_presence"
@@ -33,10 +33,6 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_fix_hint_completeness.p
 
 
 _TC = {t.template_id: t for t in archetype.TEMPLATES}
-LEGACY_NODEID = (
-    "src/atdd/coach/validators/test_fix_hint_completeness.py"
-    "::test_every_fix_hint_satisfies_completeness_contract"
-)
 
 _EMPTY_HINT_CONV = "src/atdd/coach/conventions/_tmp_presence_emptyhint.convention.yaml"
 _EMPTY_HINT_RULE = "coach.tmp.empty-hint-probe"
@@ -65,9 +61,9 @@ def test_rule_has_fix_hint_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_rule_has_fix_hint_clean_baseline(repo_root: Path) -> None:
+def test_rule_has_fix_hint_clean_baseline(clean_convention_graph) -> None:
     """Every fix_hint-declaring rule carries a non-empty value -> 0 violations."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 def test_rule_has_fix_hint_fragment_catches_empty(repo_root: Path) -> None:
@@ -81,7 +77,7 @@ def test_rule_has_fix_hint_fragment_catches_empty(repo_root: Path) -> None:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
 
 
-def test_rule_has_fix_hint_is_convention_only_not_legacy_parity(repo_root: Path) -> None:
+def test_rule_has_fix_hint_convention_fault(repo_root: Path) -> None:
     """PARITY CLASSIFICATION: CONVENTION-ONLY (representation mismatch).
 
     The legacy validator (``test_fix_hint_completeness``) checks fix-hint
@@ -96,22 +92,21 @@ def test_rule_has_fix_hint_is_convention_only_not_legacy_parity(repo_root: Path)
     Parity-both is therefore impossible by construction; we assert the two-way
     divergence rather than fake parity.
     """
-    # Direction 1: empty hint — convention-only.
+    # Oracle retired (#1365): the convention variant is the live coverage. It checks
+    # PRESENCE-of-value of the fix_hint; the two directions now assert the CONVENTION's
+    # scope directly (the legacy divergence is no longer cross-checked).
+
+    # Direction 1: an EMPTY fix_hint is caught (presence-of-value).
     with temp_file(repo_root, _EMPTY_HINT_CONV, _EMPTY_HINT_YAML):
         conv_empty = any(
             v["node_id"] == _EMPTY_HINT_RULE for v in _evaluate(load_composed_graph(repo_root))
         )
-        legacy_empty = legacy_catches(repo_root, LEGACY_NODEID)
-    assert conv_empty and not legacy_empty, (
-        f"empty-hint direction: convention_caught={conv_empty} legacy_caught={legacy_empty}"
-    )
+    assert conv_empty, "convention did not catch the empty fix_hint (presence-of-value)"
 
-    # Direction 2: malformed (unresolved placeholder) hint — legacy-only.
+    # Direction 2: a MALFORMED-but-present hint is OUT of scope (completeness was the
+    # legacy's job, not this presence check) — the convention must NOT flag it.
     with temp_file(repo_root, _MALFORMED_HINT_CONV, _MALFORMED_HINT_YAML):
         conv_mal = any(
             v["node_id"] == _MALFORMED_HINT_RULE for v in _evaluate(load_composed_graph(repo_root))
         )
-        legacy_mal = legacy_catches(repo_root, LEGACY_NODEID)
-    assert (not conv_mal) and legacy_mal, (
-        f"malformed-hint direction: convention_caught={conv_mal} legacy_caught={legacy_mal}"
-    )
+    assert not conv_mal, "convention should not flag a present-but-malformed hint (out of scope)"

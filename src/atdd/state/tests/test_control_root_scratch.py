@@ -6,7 +6,8 @@
 """#1179 — distinguish a real Control Root from a scratch ``.atdd/``.
 
 A ``.atdd/`` is a Control Root only if it carries an initialized-root signal
-(``config.yaml`` / ``manifest.yaml`` / ``state/`` / an explicit marker). A
+(``config.yaml`` / ``state/`` / an explicit marker; ``manifest.yaml`` was retired
+as a marker in #1270 Slice G). A
 scratch-only ``.atdd/`` (just ``cache/`` / ``runtime/`` / ``diagnostics/``, as
 tools leave at a flat-worktree parent) must be ignored — it must NOT shadow a
 real worktree Control Root nor trigger a false ambiguity. This is the bug the
@@ -46,7 +47,7 @@ def _scratch_atdd(path: Path) -> Path:
     return path
 
 
-def _real_atdd(path: Path, marker: str = "manifest.yaml") -> Path:
+def _real_atdd(path: Path, marker: str = "config.yaml") -> Path:
     """A .atdd/ carrying an initialized-root signal."""
     (path / ".atdd").mkdir(parents=True, exist_ok=True)
     if marker == "state":
@@ -65,7 +66,7 @@ def test_scratch_only_atdd_is_not_a_control_root(tmp_path):
     assert is_scratch_atdd(d) is True
 
 
-@pytest.mark.parametrize("marker", ["config.yaml", "manifest.yaml", "state", "control-root.yaml"])
+@pytest.mark.parametrize("marker", ["config.yaml", "state", "control-root.yaml"])
 def test_control_root_recognized_by_any_marker(tmp_path, marker):
     d = _real_atdd(tmp_path / f"root-{marker}", marker=marker)
     assert is_control_root(d) is True

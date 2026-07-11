@@ -7,7 +7,7 @@ statement: 'Theme digit 0 (commons) is the mandatory, non-removable floor of eve
   consumers may add/override themes 1-9 but MUST keep commons at digit 0.'
 implementation:
   type: validator
-  ref: test_theme_zero_mandatory::test_commons_is_always_in_resolved_theme_set
+  ref: conventions/presence/test_theme_zero_mandatory::test_theme_zero_catches_injected_fault
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
   legacy_section: rules + taxonomy.theme_zero_token

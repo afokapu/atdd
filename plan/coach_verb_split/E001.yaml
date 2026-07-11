@@ -53,7 +53,7 @@ acceptances:
   - identity:
       urn: "acc:coach-verb-split:E001-SMOKE-001-real-transition-in-temp-control-root"
       id: "AC-SMOKE-001"
-      purpose: "against a temp ATDD_CONTROL_ROOT with a throwaway slug (never a live issue), atdd coach transition drives a real store + manifest phase write and the deprecated shim still routes to it"
+      purpose: "against a temp ATDD_CONTROL_ROOT with a throwaway slug (never a live issue), atdd coach transition drives a real State Store phase write and the deprecated shim still routes to it (the manifest mirror is no longer written — decommissioned by #1270 Slices D-G; the store is the sole SoT)"
       phase: "SMOKE"
     harness:
       type: "integration"
@@ -62,12 +62,12 @@ acceptances:
       abstract:
         - "A temp control root (ATDD_CONTROL_ROOT) seeded with a throwaway work item whose slug is not any real issue"
         - "The operator-approval gate disabled for the target transition (or a real signed token written into the temp worktree)"
-        - "GitHub label I/O stubbed — the smoke exercises the real State Store + manifest writes, never a live GitHub issue"
+        - "GitHub label I/O stubbed — the smoke exercises the real State Store write, never a live GitHub issue"
     when:
       abstract: "atdd coach transition <throwaway-N> <TO> is executed end-to-end against the temp control root"
     then:
       abstract:
-        - "The throwaway work item's State Store state becomes TO and the manifest mirror matches"
+        - "The throwaway work item's State Store state becomes TO (the store is the sole SoT; the manifest mirror was decommissioned by #1270 Slices D-G and is no longer written)"
         - "Running the deprecated `atdd issue <throwaway-N> --status <TO>` reaches the same engine (proven by the same resulting state) and prints the deprecation notice"
         - "No live GitHub issue and no real control root outside the temp dir is ever touched"
     metadata:

@@ -1,4 +1,5 @@
 # URN: test:validate-conventions:policy-variants:freedom_layer_bash_scope
+# Acceptance: acc:spawn-agents:E032-SMOKE-001-live-freedom-layer-passes-flipped-validator
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration
@@ -35,11 +36,6 @@ FAILURE_EVIDENCE = ['matched_construct', 'policy_id', 'location', 'reason', 'sug
 LEGACY_PARITY_SOURCES = [
     'src/atdd/coach/validators/test_e032_smoke_001_live_freedom_layer_passes_flipped_validator.py'
 ]
-_LEGACY_NODEID = (
-    'src/atdd/coach/validators/'
-    'test_e032_smoke_001_live_freedom_layer_passes_flipped_validator.py'
-    '::test_live_freedom_layer_passes_flipped_validator'
-)
 
 
 def _template():
@@ -52,9 +48,8 @@ def test_freedom_layer_bash_scope_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE) <= set(_template().failure_evidence)
 
 
-def test_clean_baseline_zero_on_real_graph() -> None:
-    graph = load_composed_graph(_parity.repo_root())
-    violations = _template().evaluate(graph, {"variant": VARIANT})
+def test_clean_baseline_zero_on_real_graph(clean_convention_graph) -> None:
+    violations = _template().evaluate(clean_convention_graph, {"variant": VARIANT})
     assert violations == [], (
         f"{VARIANT}: clean repo must yield zero violations, got: {violations}"
     )
@@ -74,8 +69,6 @@ def test_fault_injection_legacy_parity() -> None:
         assert any("git push" in v.get("matched_construct", "") for v in conv), (
             f"{VARIANT}: convention evaluator did not catch the forbidden allowed_bash entry"
         )
-        assert _parity.legacy_catches(_LEGACY_NODEID), (
-            "legacy E032 freedom-layer validator did not catch the injected fault"
-        )
+        # oracle retired (#1365): convention path above is the live coverage
 
     assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []

@@ -9,9 +9,6 @@ with the legacy validators they measure against.
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import List
 
@@ -28,12 +25,16 @@ def repo_root() -> Path:
     raise RuntimeError("could not locate repo root from %s" % here)
 
 
-def evaluate_variant(template_id: str, variant: str, root=None) -> List[dict]:
-    """Execute `template_id` for `variant` against the real composed graph."""
+def evaluate_variant(template_id: str, variant: str, root=None, graph=None) -> List[dict]:
+    """Execute `template_id` for `variant` against the real composed graph.
+
+    ``graph`` lets a read-only caller pass the session-scoped clean graph (#1414);
+    callers that have mutated the tree must omit it so the graph is re-read.
+    """
     root = Path(root) if root else repo_root()
-    graph = load_composed_graph(root)
+    g = graph if graph is not None else load_composed_graph(root)
     template = next(t for t in TEMPLATES if t.template_id == template_id)
-    return template.evaluate(graph, config={"variant": variant})
+    return template.evaluate(g, config={"variant": variant})
 
 
 @contextlib.contextmanager
@@ -48,19 +49,3 @@ def inject_patch(root, rel: str, old: str, new: str):
         yield
     finally:
         path.write_text(original, encoding="utf-8")
-
-
-def legacy_caught(root, nodeid: str) -> bool:
-    """Run a legacy pytest nodeid in a subprocess; True iff it FAILS (rc != 0).
-
-    A self-skip (rc == 0) is NOT a catch — it is the legacy validator declining
-    to block, which the differential records as legacy-vacuous, never as parity.
-    """
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=str(root),
-        env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True,
-        text=True,
-    ).returncode
-    return rc != 0
