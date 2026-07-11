@@ -14,8 +14,14 @@ WMBT: wmbt:project-shared-state:C001
 The unit guard proves the serializer refuses a leak. This proves the *shipped
 command* refuses it too — against a real checkout, a real state.sqlite, and the real
 ``.atdd/state/projection/`` directory an operator would then commit. The leak here is
-the one that actually happens: the absolute path of the developer's own store.
-Refs #1433 / #1400.
+the one that actually happens: the absolute path of the developer's own store,
+injected into the machine-written ``external_refs`` subtree.
+
+The same path typed into the free-text ``body`` is *not* a leak, and the real CLI
+accepts it: the projector preserves prose byte for byte, so a human quoting a path
+or a date yields the same bytes on every host. Both halves are driven here through
+the shipped command, because a guard that refuses legal issue bodies is a bug the
+unit tests alone would never show. Refs #1433 / #1400.
 """
 from __future__ import annotations
 
@@ -60,18 +66,31 @@ def test_c001_smoke_001_nondeterministic_projection_content(tmp_path) -> None:
     assert "generated_at" in refused.stdout
     assert "wall-clock timestamp" in refused.stdout
 
-    # Leak 2: the absolute path of the developer's own store — the leak that
-    # actually happens.
+    # Leak 2: the absolute path of the developer's own store, injected by a machine
+    # into the external_refs subtree — the host-path leak that actually happens.
     store_path = repo / ".atdd" / "state" / "state.sqlite"
-    _plant(repo, uid, {"generated_at": None, "body": f"store lives at {store_path}"})
+    _plant(repo, uid, {"generated_at": None, "external_refs": {"mirror_path": str(store_path)}})
     refused = atdd_state(repo, "project")
     assert refused.returncode != 0, refused.stdout
-    assert "'body'" in refused.stdout
+    assert "'external_refs.mirror_path'" in refused.stdout
     assert "absolute host path" in refused.stdout
 
     # Through both refusals the previously written file is untouched: the guard runs
     # before every write, so a leaky store never leaves a half-applied projection.
     assert (projection / f"{uid}.yaml").read_bytes() == before
+
+    # And the narrowing, through the shipped command: that same path and that same
+    # date, authored by a human into the free-text body, are fixed content. The
+    # projector preserves them, the command accepts them, and a second run reproduces
+    # the same bytes — which is what I1 actually asks for.
+    prose = f"Repro: the store at {store_path} was corrupted on 2026-07-11T09:41:02."
+    _plant(repo, uid, {"external_refs": None, "body": prose})
+    accepted = atdd_state(repo, "project")
+    assert accepted.returncode == 0, accepted.stdout + accepted.stderr
+    projected_bytes = (projection / f"{uid}.yaml").read_bytes()
+    assert prose in projected_bytes.decode("utf-8")
+    assert atdd_state(repo, "project").returncode == 0
+    assert (projection / f"{uid}.yaml").read_bytes() == projected_bytes
 
 
 def _plant(repo, uid, fields) -> None:

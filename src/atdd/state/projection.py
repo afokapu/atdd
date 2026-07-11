@@ -137,6 +137,24 @@ _HOST_PATH_RE = re.compile(
     r"(?:/Users/|/home/|/root/|/private/var/|/var/folders/|/var/tmp/|/tmp/|[A-Za-z]:\\)"
 )
 
+#: The free-text fields, exempt from the *value* scan.
+#:
+#: I1 is about content the **projector** generates. A path or a date inside the
+#: issue body is not generated — it is *preserved*: the projector copies what a
+#: human wrote, byte for byte, and copies the same bytes on every host and every
+#: run. Prose that happens to quote ``/Users/alec/…`` or ``2026-07-11`` is
+#: therefore deterministic by preservation, and refusing it would refuse a
+#: perfectly legal issue body while catching nothing (spec §2.2 I1: "no timestamps,
+#: host paths, or unstable ordering" names the three ways *machine-injected*
+#: volatility reaches a shared artifact).
+#:
+#: The scan is narrowed to the generated and structured fields — where a leak means
+#: the projector reached for the wall clock or the local filesystem, which is the
+#: fault I1 exists to catch. The *key*-name rule (below) still applies to every
+#: field, free-text included: a field named ``body_at`` is a timestamp field
+#: whatever it holds.
+FREE_TEXT_FIELDS: frozenset = frozenset({"body"})
+
 
 def _scalar_fault(value: str) -> Optional[str]:
     """The determinism fault a string *value* carries, or ``None`` if it is clean."""
@@ -156,13 +174,20 @@ def _key_fault(key: str) -> Optional[str]:
 
 
 def _walk_for_faults(node: Any, path: str, faults: List[Tuple[str, str]]) -> None:
-    """Collect ``(field_path, reason)`` for every determinism leak under ``node``."""
+    """Collect ``(field_path, reason)`` for every determinism leak under ``node``.
+
+    A top-level free-text field has its *value* skipped (see :data:`FREE_TEXT_FIELDS`);
+    its key is still judged, and a field of the same name nested inside a structured
+    field — ``external_refs.body``, say — is machine-written and is scanned.
+    """
     if isinstance(node, Mapping):
         for key, value in node.items():
             child = f"{path}.{key}" if path else str(key)
             reason = _key_fault(str(key))
             if reason is not None:
                 faults.append((child, reason))
+            if child in FREE_TEXT_FIELDS:
+                continue
             _walk_for_faults(value, child, faults)
         return
     if isinstance(node, (list, tuple, set, frozenset)):
@@ -176,11 +201,15 @@ def _walk_for_faults(node: Any, path: str, faults: List[Tuple[str, str]]) -> Non
 
 
 def assert_deterministic(document: Mapping[str, Any], *, uid: Optional[str] = None) -> None:
-    """Refuse ``document`` if it carries a timestamp or a host path (I1, C001).
+    """Refuse ``document`` if a *generated* field carries a timestamp or host path (I1, C001).
 
     Raises :class:`NondeterministicProjectionError` naming the first offending
     field. Callers run this over *every* document before writing *any* file, so a
     single leak leaves the whole projection unwritten rather than half-applied.
+
+    The scan covers the projector-generated and structured fields. The free-text
+    body is exempt from the value scan: its content is authored, not generated, so
+    it is deterministic by preservation (see :data:`FREE_TEXT_FIELDS`).
     """
     faults: List[Tuple[str, str]] = []
     _walk_for_faults(document, "", faults)
