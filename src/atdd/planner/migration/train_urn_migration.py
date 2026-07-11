@@ -24,9 +24,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import logging
+
 import yaml
 
 from atdd.coach.utils.graph.urn import URNGrammar
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Hand-authored forward map: legacy train id -> (subject, slug).
@@ -400,8 +404,11 @@ def revert(root: Path) -> List[Tuple[str, str]]:
             # prune the now-empty subject directory
             try:
                 dst.parent.rmdir()
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug(
+                    "revert: subject dir not empty, leaving in place",
+                    extra={"dir": str(dst.parent), "error": str(exc)},
+                )
             restored.append((legacy_id, str(flat)))
 
     _rewrite_registry_legacy(root, existing)

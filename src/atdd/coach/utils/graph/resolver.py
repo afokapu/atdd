@@ -1000,7 +1000,9 @@ class SubjectResolver(BaseResolver):
             import yaml
 
             data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as exc:
+            LOG.debug("subject registry unreadable; treating as empty",
+                      extra={"path": str(path), "error": str(exc)})
             return {}
         return self._normalize_registry(data)
 
