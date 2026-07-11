@@ -1,4 +1,4 @@
-# URN: test:coach:graph_builder:typed_trains_and_registry_files
+# URN: test:coach:graph-builder:typed-trains-and-registry-files
 # Issue: #1440 (follows #1421)
 # Phase: RED
 # Layer: unit
@@ -163,3 +163,24 @@ def test_alias_registry_file_never_yields_a_train(tmp_path):
     touched = {e.source_urn for e in graph.edges} | {e.target_urn for e in graph.edges}
     touched |= {e.metadata.get("train") for e in graph.edges}
     assert "train:_aliases" not in touched
+
+
+def test_resolver_declarations_skip_registry_files(tmp_path):
+    """``atdd repo broken`` resolves train URNs through ``TrainResolver``, so pin
+    the registry-file skip there too — that is the path that would surface a
+    bogus ``train:_aliases`` as a broken URN.
+    """
+    from atdd.coach.utils.graph.resolver import TrainResolver
+
+    plan = tmp_path / "plan"
+    _write_aliases(plan)
+    (plan / "_trains.yaml").write_text("trains: {}\n", encoding="utf-8")
+    _write_typed_train(
+        plan, "substrate", "author-artifacts", "nominal",
+        'participants: ["wagon:stage-request"]',
+    )
+
+    urns = {d.urn for d in TrainResolver(tmp_path).find_declarations()}
+
+    assert urns == {"train:substrate:author-artifacts"}
+    assert not any("_aliases" in u or "_trains" in u for u in urns)
