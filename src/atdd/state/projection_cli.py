@@ -165,6 +165,7 @@ def _cmd_hydrate(args) -> int:
     what anchors the store so a later reconcile can resolve its base without
     guessing (P001).
     """
+    from atdd.state.metadata import StoreBaseCommitError
     from atdd.state.reconcile import DirtyStoreError, hydrate_store
 
     projection_dir = _projection_dir(args)
@@ -172,8 +173,10 @@ def _cmd_hydrate(args) -> int:
         hydrated, base = hydrate_store(
             _control_root(args.root), projection_dir=projection_dir,
         )
-    except DirtyStoreError as exc:
-        _log.warning("hydration refused: dirty store", extra={"error": str(exc)})
+    except (DirtyStoreError, StoreBaseCommitError) as exc:
+        # Both refusals are the operator's to act on, so they get a report on stdout and
+        # a non-zero exit — never a traceback (ColdStartError is a StoreBaseCommitError).
+        _log.warning("hydration refused", extra={"error": str(exc)})
         print(f"ERROR: {exc}")
         return 1
     except ProjectionError as exc:

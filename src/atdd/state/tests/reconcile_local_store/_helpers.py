@@ -50,6 +50,13 @@ def checkout(path: Path) -> Path:
     (path / ".atdd").mkdir(exist_ok=True)
     (path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
     (path / "README.md").write_text("fixture\n", encoding="utf-8")
+    # The store is the PRIVATE authoring workspace and is never committed (spec §2.1);
+    # `version_cache.json` is the CLI's local upgrade-check cache. Committing either
+    # would push one developer's private state at everyone else — and a tracked store
+    # makes `git checkout` delete and resurrect it under the developer's feet.
+    (path / ".gitignore").write_text(
+        ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n", encoding="utf-8",
+    )
     git(path, "add", "-A")
     git(path, "commit", "--quiet", "-m", "initial")
     return path

@@ -75,7 +75,12 @@ def bare_remote(tmp_path: Path) -> Path:
     (seed / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
     (seed / ".atdd" / "state" / "projection" / ".gitkeep").write_text("", encoding="utf-8")
     # The store is NEVER committed: it is the private authoring workspace (spec §2.1).
-    (seed / ".gitignore").write_text(".atdd/state/state.sqlite*\n", encoding="utf-8")
+    # `version_cache.json` is the CLI's local upgrade-check cache — operational, per-
+    # checkout, and equally unshareable. Committing either would push one developer's
+    # private state at another.
+    (seed / ".gitignore").write_text(
+        ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n", encoding="utf-8",
+    )
     _git(seed, "add", "-A")
     _git(seed, "commit", "--quiet", "-m", "seed: control root + empty projection")
     _git(seed, "push", "--quiet", "origin", "main")
@@ -100,12 +105,18 @@ def two_developers(tmp_path: Path) -> Tuple[Path, Path, Path]:
     return remote, dev_a, dev_b
 
 
-def commit_push(repo: Path, message: str) -> str:
-    """Commit everything in ``repo`` and push it to ``main``; return the new sha."""
+def commit(repo: Path, message: str) -> str:
+    """Commit everything in ``repo`` locally; return the new sha."""
     _git(repo, "add", "-A")
     _git(repo, "commit", "--quiet", "-m", message)
-    _git(repo, "push", "--quiet", "origin", "main")
     return _git(repo, "rev-parse", "HEAD")
+
+
+def commit_push(repo: Path, message: str) -> str:
+    """Commit everything in ``repo`` and push it to ``main``; return the new sha."""
+    sha = commit(repo, message)
+    _git(repo, "push", "--quiet", "origin", "main")
+    return sha
 
 
 def pull(repo: Path) -> str:
@@ -116,3 +127,8 @@ def pull(repo: Path) -> str:
 
 def head(repo: Path) -> str:
     return _git(repo, "rev-parse", "HEAD")
+
+
+def git_tracked(repo: Path) -> list:
+    """Every file git is tracking. The store must never appear here (spec §2.1)."""
+    return _git(repo, "ls-files").splitlines()

@@ -236,6 +236,22 @@ def projection_path(control_root: Path) -> Path:
     return Path(control_root) / PROJECTION_RELATIVE
 
 
+def checkpoint(db_path: Path) -> None:
+    """Fold the write-ahead log back into ``state.sqlite`` before it is copied.
+
+    The store runs in WAL mode, so recent commits can still be sitting in
+    ``state.sqlite-wal`` rather than in the database file itself. A plain file copy taken
+    at that moment silently omits them — which would make a *backup* that is missing the
+    very work it exists to protect, and a replay scratch copy that has quietly rewound.
+    Checkpointing first makes the file a complete snapshot of the store.
+    """
+    conn = sqlite3.connect(str(db_path))
+    try:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    finally:
+        conn.close()
+
+
 def backup_store(db_path: Path) -> Path:
     """Copy ``state.sqlite`` aside before any mutation; return the backup path (C001).
 
@@ -244,6 +260,7 @@ def backup_store(db_path: Path) -> Path:
     is untouched by the act of backing it up.
     """
     db_path = Path(db_path)
+    checkpoint(db_path)
     candidate = db_path.with_suffix(db_path.suffix + BACKUP_SUFFIX)
     counter = 1
     while candidate.exists():
@@ -480,6 +497,7 @@ def validate_event(
 # --------------------------------------------------------------------------- #
 def _scratch_copy(db_path: Path, workdir: Path) -> Path:
     """A working copy of the store. The live file is not touched until we succeed."""
+    checkpoint(db_path)
     scratch = Path(workdir) / "state.sqlite"
     shutil.copy2(db_path, scratch)
     return scratch
