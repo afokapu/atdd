@@ -135,9 +135,12 @@ def _cmd_reconcile(args) -> int:
         print(f"ERROR: {exc}")
         return 1
     except ReplayConflictError as exc:
+        _log.warning("reconcile stopped with a conflict; the backup is kept",
+                     extra={"conflicts": len(exc.report.conflicts)})
         print(exc.report.render())
         return 1
     except DirtyStoreError as exc:
+        _log.warning("reconcile refused: dirty store", extra={"error": str(exc)})
         print(f"ERROR: {exc}")
         return 1
     print(result.render())

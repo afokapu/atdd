@@ -150,7 +150,9 @@ def mint_event_id() -> str:
 # Reading the log
 # --------------------------------------------------------------------------- #
 def _rows(conn: sqlite3.Connection, sql: str, params: Sequence[Any] = ()) -> List[OverlayEvent]:
-    return [OverlayEvent._from_row(r) for r in conn.execute(sql, tuple(params)).fetchall()]
+    # One query, then a pure mapping over its rows — never a query per row.
+    fetched = conn.execute(sql, tuple(params)).fetchall()
+    return [OverlayEvent._from_row(row) for row in fetched]
 
 
 def all_events(conn: sqlite3.Connection) -> List[OverlayEvent]:

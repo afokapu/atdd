@@ -283,7 +283,11 @@ def resolve_head(repo: Path) -> Optional[str]:
     """
     try:
         return gitstore.head(repo)
-    except gitstore.GitError:
+    except gitstore.GitError as exc:
+        _log.info(
+            "repository has no HEAD; treating as a cold start",
+            extra={"repo": str(repo), "error": str(exc)},
+        )
         return None
 
 

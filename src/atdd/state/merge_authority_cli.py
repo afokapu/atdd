@@ -81,12 +81,14 @@ def _cmd_trailers(args) -> int:
         try:
             message = merge_authority.commit_message(_root(args), args.commit)
         except MergeAuthorityError as exc:
+            _log.warning("could not read the commit message", extra={"error": str(exc)})
             print(f"ERROR: {exc}")
             return 1
     try:
         block = parse_trailers(message)
     except TrailerParseError as exc:
         # Named, not merely refused: the author has to know *which* trailer to amend.
+        _log.warning("commit trailer block refused", extra={"keys": exc.keys})
         print(f"ERROR: {exc}")
         for key in exc.keys:
             print(f"  offending trailer: {key}")
@@ -116,6 +118,7 @@ def _cmd_policy_check(args) -> int:
     try:
         report = policy.check_policy(_root(args))
     except policy.PolicyError as exc:
+        _log.warning("required-check policy could not be read", extra={"error": str(exc)})
         print(f"ERROR: {exc}")
         return 1
     print(report.render())

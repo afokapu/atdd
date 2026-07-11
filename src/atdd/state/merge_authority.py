@@ -205,7 +205,11 @@ def merge_base(repo: Path, base_ref: str, head: str = "HEAD") -> Optional[str]:
     """The merge base of ``base_ref`` and ``head``, or ``None`` when they share no history."""
     try:
         out = _git(repo, "merge-base", base_ref, head).strip()
-    except MergeAuthorityError:
+    except MergeAuthorityError as exc:
+        _log.info(
+            "no merge base; the diff is taken against the empty projection",
+            extra={"base_ref": base_ref, "head": head, "error": str(exc)},
+        )
         return None
     return out or None
 
@@ -295,6 +299,7 @@ def check_canonicality_(context: Context) -> CheckResult:
     try:
         report = check_canonicality(context.projection_dir)
     except ProjectionError as exc:
+        _log.warning("canonicality check refused the projection", extra={"error": str(exc)})
         return CheckResult(CHECK_CANONICALITY, False, str(exc))
     return CheckResult(CHECK_CANONICALITY, report.ok, report.render())
 
