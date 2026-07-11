@@ -44,11 +44,13 @@ def test_runtime_artifacts_rule_binding_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_runtime_artifacts_rule_binding_clean_baseline() -> None:
-    P.assert_clean_baseline(VARIANT, P.repo_root())
+def test_runtime_artifacts_rule_binding_clean_baseline(clean_convention_graph) -> None:
+    P.assert_clean_baseline(VARIANT, P.repo_root(), graph=clean_convention_graph)
 
 
-def test_runtime_artifacts_rule_binding_convention_fault() -> None:
+def test_runtime_artifacts_rule_binding_convention_fault(clean_convention_graph) -> None:
     # Legacy parity oracle retired (#1207); the variant's own real-graph fault
     # injection is the live coverage. LEGACY_PARITY_SOURCES kept as provenance.
-    P.assert_fault_convention_only(VARIANT, CONVENTION, RULE_ID, P.repo_root())
+    P.assert_fault_convention_only(
+        VARIANT, CONVENTION, RULE_ID, P.repo_root(), graph=clean_convention_graph
+    )

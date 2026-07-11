@@ -315,6 +315,11 @@ _PLAN_ROOT = "plan"
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 _WMBT_CODE_RE = re.compile(r"^[DLPCEMYRK][0-9]{3}$")
 _TRAIN_ID_RE = re.compile(r"^[0-9]{4}-[a-z][a-z0-9-]*$")
+# Typed train identity (issue #1421): train:<subject>:<slug>. Matches the
+# schema's train_id pattern for the typed form; the legacy NNNN-slug form above
+# is still accepted during the migration transition.
+_TYPED_TRAIN_ID_RE = re.compile(r"^train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$")
+_TRAIN_CATEGORIES = ("nominal", "error", "alternate", "exception")
 _IL_ID_RE = re.compile(r"^interlocking:[a-z][a-z0-9-]*$")
 _PLAN_URN_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(:[A-Za-z0-9-]+)*$")
 
@@ -491,10 +496,24 @@ def create_wmbt(spec: dict, *, root: Path | str | None = None) -> Path:
 
 
 def validate_train(spec: dict) -> None:
-    """Reject a structurally invalid train before any write (WMBT C005)."""
+    """Reject a structurally invalid train before any write (WMBT C005).
+
+    Accepts the typed ``train:<subject>:<slug>`` identity (issue #1421) and, for
+    the migration transition, the legacy ``NNNN-slug`` form.
+    """
     tid = spec.get("train_id", "")
-    if not _TRAIN_ID_RE.match(tid or ""):
-        raise AuthorInputError("train_id", f"invalid train_id {tid!r}; expected NNNN-kebab-slug")
+    if not (_TYPED_TRAIN_ID_RE.match(tid or "") or _TRAIN_ID_RE.match(tid or "")):
+        raise AuthorInputError(
+            "train_id",
+            f"invalid train_id {tid!r}; expected typed train:<subject>:<slug> "
+            f"or legacy NNNN-kebab-slug",
+        )
+    category = spec.get("category")
+    if category is not None and category not in _TRAIN_CATEGORIES:
+        raise AuthorInputError(
+            "category",
+            f"invalid category {category!r}; expected one of {_TRAIN_CATEGORIES}",
+        )
 
 
 def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
@@ -503,22 +522,40 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
     tid = spec["train_id"]
     plan = _plan_root(root)
     registry_path = plan / "_trains.yaml"
-    per_train = plan / "_trains" / f"{tid}.yaml"
+
+    # Bucket + on-disk home derivation. Typed ids (issue #1421) nest under
+    # plan/_trains/<subject>/<slug>.yaml and bucket by subject/category — the
+    # legacy `{tid[0]}-trains` derivation would place a `train:...` id under a
+    # nonsense `t-trains` bucket at a colon-named file. The legacy NNNN-slug
+    # form keeps its flat home + digit buckets during the transition.
+    if _TYPED_TRAIN_ID_RE.match(tid):
+        subject, slug = tid[len("train:"):].split(":", 1)
+        category = spec.get("category", "nominal")
+        group = subject
+        sub = category
+        rel_path = f"plan/_trains/{subject}/{slug}.yaml"
+        per_train = plan / "_trains" / subject / f"{slug}.yaml"
+    else:
+        group = f"{tid[0]}-trains"
+        sub = f"{tid[0]}0-nominal"
+        rel_path = f"plan/_trains/{tid}.yaml"
+        per_train = plan / "_trains" / f"{tid}.yaml"
 
     registry = {}
     if registry_path.exists():
         registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
     registry.setdefault("trains", {})
-    group = f"{tid[0]}-trains"
-    sub = f"{tid[0]}0-nominal"
     bucket = registry["trains"].setdefault(group, {}).setdefault(sub, [])
     if not any(isinstance(e, dict) and e.get("train_id") == tid for e in bucket):
-        bucket.append({
+        entry = {
             "train_id": tid,
             "description": spec.get("description", ""),
-            "path": f"plan/_trains/{tid}.yaml",
+            "path": rel_path,
             "wagons": spec.get("wagons", []),
-        })
+        }
+        if _TYPED_TRAIN_ID_RE.match(tid):
+            entry["category"] = spec.get("category", "nominal")
+        bucket.append(entry)
         bucket.sort(key=lambda e: e.get("train_id", ""))
     _write_yaml(registry_path, registry)
 
@@ -536,8 +573,8 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
         # is deliberately absent: train.schema sets additionalProperties=false and
         # defines no such property; it belongs to the _trains.yaml registry entry
         # above, and expresses itself here as the `participants` fallback (#1401).
-        for key in ("themes", "family", "primary_wagon", "dependencies", "sequence",
-                    "acceptances"):
+        for key in ("category", "themes", "family", "primary_wagon", "dependencies",
+                    "sequence", "acceptances"):
             if key in spec:
                 train_doc[key] = spec[key]
 

@@ -42,10 +42,11 @@ def _template():
     return by_id[TEMPLATE]
 
 
-def _convention_evidence(repo_root: Path):
+def _convention_evidence(repo_root: Path, graph=None):
     """Run the variant through the OFFICIAL path: real composed graph ->
     TemplateContract.evaluate(graph, config)."""
-    return _template().evaluate(load_composed_graph(repo_root), config=_CONFIG)
+    g = graph if graph is not None else load_composed_graph(repo_root)
+    return _template().evaluate(g, config=_CONFIG)
 
 
 @contextlib.contextmanager
@@ -68,9 +69,9 @@ def test_package_data_ships_convention_nodes_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_clean_baseline_no_violations() -> None:
+def test_clean_baseline_no_violations(clean_convention_graph) -> None:
     # The real repo ships every required convention-node/schema glob.
-    assert _convention_evidence(_REPO_ROOT) == []
+    assert _convention_evidence(_REPO_ROOT, graph=clean_convention_graph) == []
 
 
 def test_evidence_keys_subset_of_failure_evidence() -> None:

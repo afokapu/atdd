@@ -24,11 +24,34 @@ from typing import Dict, List, Any, Tuple, Optional
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
     should_enforce,
     emit_phase_warning
 )
+
+
+def _is_train_id(token: str) -> bool:
+    """Is ``token`` a train identity? Delegates to ``URNGrammar`` (#1421,
+    Decision 8) — no local four-digit literal.
+
+    A typed id arrives as a full ``train:<subject>:<slug>`` URN (validated
+    directly); a bare legacy ``NNNN-slug`` id is recognised via the engine's
+    still-live journey facet by round-tripping a probe journey URN. Tightens
+    automatically when Layer 6 retires the legacy facet from the convention.
+    """
+    if not isinstance(token, str) or not token:
+        return False
+    try:
+        if URNGrammar.validate_grammar(token):
+            return True
+    except ValueError:
+        pass
+    try:
+        return bool(URNGrammar.validate_grammar(f"test:train:{token}:E2E-001-probe"))
+    except ValueError:
+        return False
 
 
 # Path constants
@@ -81,14 +104,12 @@ def _find_backend_e2e_tests() -> List[Tuple[Path, str]]:
     if not E2E_DIR.exists():
         return tests
 
-    # Pattern: e2e/<theme>/test_<train_id>*.py
+    # Pattern: e2e/<theme>/test_<train_id>.py — the stem after `test_` is a train
+    # identity iff URNGrammar recognises it (#1421); the file glob is the wrapper.
     for test_file in E2E_DIR.rglob("test_*.py"):
-        # Extract train_id from filename
-        filename = test_file.stem  # e.g., test_0001-auth-session
-        match = re.match(r"test_(\d{4}-[a-z0-9-]+)", filename)
-        if match:
-            train_id = match.group(1)
-            tests.append((test_file, train_id))
+        candidate = test_file.stem[len("test_"):]  # e.g. 0001-auth-session
+        if _is_train_id(candidate):
+            tests.append((test_file, candidate))
 
     return tests
 

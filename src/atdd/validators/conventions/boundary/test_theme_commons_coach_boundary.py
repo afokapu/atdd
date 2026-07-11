@@ -120,9 +120,8 @@ def test_deferred_wagon_not_flagged() -> None:
 
 
 # --- clean baseline on the REAL composed graph -----------------------------
-def test_clean_baseline_real_graph_is_empty() -> None:
-    graph = load_composed_graph(_repo_root())
-    assert _evaluate(graph) == [], (
+def test_clean_baseline_real_graph_is_empty(clean_convention_graph) -> None:
+    assert _evaluate(clean_convention_graph) == [], (
         "clean repo must yield zero boundary crossings (deferred wagons excluded)"
     )
 

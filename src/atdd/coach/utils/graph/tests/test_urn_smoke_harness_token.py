@@ -7,7 +7,7 @@ on every SMOKE acceptance, yet the acceptance-URN family pattern enumerated
 ``UNIT|HTTP|EVENT|…|INTEGRATION|…|STORAGE`` but NOT ``SMOKE``. The result: every
 SMOKE acceptance was simultaneously required and flagged as a broken URN — the
 broken-URN scanner (``atdd repo broken``) resolves ``acc:`` URNs through
-``URNBuilder.PATTERNS['acc']`` (see resolver.py::_validate_format) and reported
+``URNGrammar.PATTERNS['acc']`` (see resolver.py::_validate_format) and reported
 ~500 ``acc:*-SMOKE-*`` URNs as broken.
 
 These tests pin that ``SMOKE`` is a first-class harness token in the
@@ -22,7 +22,7 @@ import re
 
 import pytest
 
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
 
 # Mirror of _SMOKE_URN_RE in
 # src/atdd/planner/validators/_smoke_urn.py — the two MUST
@@ -40,12 +40,12 @@ _SMOKE_URN_RE = re.compile(
 
 class TestSmokeHarnessCode:
     def test_harness_codes_maps_smoke(self):
-        """URNBuilder.HARNESS_CODES exposes the canonical SMOKE token."""
-        assert URNBuilder.HARNESS_CODES.get("smoke") == "SMOKE"
+        """URNGrammar.HARNESS_CODES exposes the canonical SMOKE token."""
+        assert URNGrammar.HARNESS_CODES.get("smoke") == "SMOKE"
 
     def test_acceptance_builder_emits_smoke_urn(self):
         """The builder accepts SMOKE and produces a well-formed acc URN."""
-        urn = URNBuilder.acceptance(
+        urn = URNGrammar.acceptance(
             "mediate-worker-decisions", "E007", "SMOKE", "001", "live-all-answered"
         )
         assert urn == (
@@ -70,12 +70,12 @@ class TestSmokeUrnValidates:
     )
     def test_smoke_acc_urn_passes_validate_urn(self, good_urn):
         # validate_urn(...,"acc") is exactly the path resolver.py::_validate_format
-        # uses (URNBuilder.PATTERNS['acc']) to decide is_broken for the scanner.
-        assert URNBuilder.validate_urn(good_urn, "acc") is True
+        # uses (URNGrammar.PATTERNS['acc']) to decide is_broken for the scanner.
+        assert URNGrammar.validate_urn(good_urn, "acc") is True
 
     def test_smoke_acc_urn_passes_validate_grammar(self):
         """The auto-detect public entry point accepts SMOKE acc URNs."""
-        assert URNBuilder.validate_grammar(
+        assert URNGrammar.validate_grammar(
             "acc:integration-hardening:E001-SMOKE-002-self-compliance"
         ) is True
 
@@ -89,10 +89,10 @@ class TestSmokeBrokenRegression:
     def test_representative_real_smoke_urn_not_broken(self):
         """A representative live URN from plan/ resolves as well-formed."""
         urn = "acc:mediate-worker-decisions:E007-SMOKE-001-live-multi-question-all-answered"
-        assert URNBuilder.validate_urn(urn, "acc") is True
+        assert URNGrammar.validate_urn(urn, "acc") is True
 
     def test_coherent_with_smoke_acceptance_validator_regex(self):
         """Anything _SMOKE_URN_RE accepts must validate as an acc URN."""
         sample = "acc:integration-hardening:E001-SMOKE-001-some-live-check"
         assert _SMOKE_URN_RE.match(sample), "fixture must match the validator regex"
-        assert URNBuilder.validate_urn(sample, "acc") is True
+        assert URNGrammar.validate_urn(sample, "acc") is True

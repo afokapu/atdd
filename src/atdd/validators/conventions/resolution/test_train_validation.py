@@ -12,6 +12,7 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
+from atdd.validators.conventions._support.graph_loader import find_train_file
 from atdd.validators.conventions.resolution.archetype import TEMPLATE_IDS
 from atdd.validators.conventions.resolution._parity import (
     evaluate_variant,
@@ -37,21 +38,22 @@ def test_train_validation_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-# Fault: a train participant pointing at a wagon that has no manifest.
-_TRAIN_FILE = "plan/_trains/0001-self-compliance-validate.yaml"
-_FAULT = ('"wagon:validate-conventions"', '"wagon:does-not-exist-xyz"')
+# Fault: a train participant pointing at a wagon that has no manifest. The train is
+# addressed by the participant it declares, not by path — typed trains (#1421) live at
+# plan/_trains/<subject>/<slug>.yaml and relocate when a subject is reassigned.
+_FAULT = ("- wagon:validate-conventions", "- wagon:does-not-exist-xyz")
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """The variant returns no violations on the real, unmodified repo."""
-    assert evaluate_variant(TEMPLATE, VARIANT) == []
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
 def test_fault_injection_and_legacy_parity() -> None:
     """Inject a dangling train->wagon reference; BOTH the convention path and the
     legacy validator must catch it (parity = both)."""
     root = repo_root()
-    with inject_patch(root, _TRAIN_FILE, *_FAULT):
+    with inject_patch(root, find_train_file(root, _FAULT[0]), *_FAULT):
         evidence = evaluate_variant(TEMPLATE, VARIANT, root=root)
 
     assert evidence, "convention path did not catch the dangling train->wagon ref"

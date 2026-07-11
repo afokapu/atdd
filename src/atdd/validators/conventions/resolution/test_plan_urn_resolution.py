@@ -49,9 +49,9 @@ _FAULT = ("contract:commons:compliance:gate", "contract:zzznope:compliance:gate"
 # LEGACY_PARITY_SOURCES kept as the provenance record.
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """The variant returns no violations on the real, unmodified repo."""
-    assert evaluate_variant(TEMPLATE, VARIANT) == []
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
 def test_fault_injection() -> None:
