@@ -952,12 +952,172 @@ class TelemetryResolver(BaseResolver):
         return declarations
 
 
+class SubjectResolver(BaseResolver):
+    """
+    Resolver for subject: URNs (issue #1421).
+
+    ``subject:<name>`` is a 1-token ROOT family — the durable noun object of a
+    train's change (e.g. ``subject:artifact-identity``). It exists so a typed
+    2-token ``train:<subject>:<slug>`` has a real parent and is not flagged
+    orphan by the graph model.
+
+    Resolution: ``subject:<name>`` -> its entry in the subject registry
+    ``plan/_subjects.yaml`` (the registry file is the resolved artifact). The
+    registry is authored by the migration; its ABSENCE is tolerated gracefully
+    (the family exists before the registry is authored mid-transition).
+
+    Registry shape (coordinated with the migration worker, C4):
+
+        subjects:
+          - subject: artifact-identity
+            title: Artifact identity
+            description: ...
+            status: active
+
+    A dict-keyed shape (``subjects: {artifact-identity: {...}}``) and a bare
+    top-level mapping are also tolerated so this resolver is robust to the final
+    authoring choice.
+    """
+
+    _REGISTRY_NAME = "_subjects.yaml"
+
+    @property
+    def family(self) -> str:
+        return "subject"
+
+    def _registry_path(self) -> Path:
+        return self.plan_dir / self._REGISTRY_NAME
+
+    def _load_registry(self) -> Dict[str, dict]:
+        """Return ``{name: entry}`` from the subject registry, or ``{}``.
+
+        Tolerant of absence and of shape — never raises.
+        """
+        path = self._registry_path()
+        if not path.exists():
+            return {}
+        try:
+            import yaml
+
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return self._normalize_registry(data)
+
+    @staticmethod
+    def _normalize_registry(data) -> Dict[str, dict]:
+        """Flatten a registry document into ``{name: entry}``.
+
+        Accepts the canonical list-of-entries shape, a dict-keyed shape, and a
+        bare top-level mapping. In every dict shape only dict-valued rows are
+        treated as subjects, so scalar metadata (``version:`` etc.) is ignored.
+        """
+        entries: Dict[str, dict] = {}
+        if not data:
+            return entries
+
+        block = data.get("subjects") if isinstance(data, dict) else None
+        if block is None and isinstance(data, dict):
+            block = data  # bare top-level mapping fallback
+
+        if isinstance(block, list):
+            for item in block:
+                if isinstance(item, dict):
+                    name = item.get("subject") or item.get("name")
+                    if isinstance(name, str) and name:
+                        entries[name] = item
+                elif isinstance(item, str) and item:
+                    entries[item] = {"subject": item}
+        elif isinstance(block, dict):
+            for name, item in block.items():
+                if isinstance(name, str) and isinstance(item, dict):
+                    entries[name] = item
+        return entries
+
+    def resolve(self, urn: str) -> URNResolution:
+        if not self.can_resolve(urn):
+            return URNResolution(urn=urn, family=self.family, error="Not a subject URN")
+
+        error = self._validate_urn_format(urn)
+        if error:
+            return URNResolution(urn=urn, family=self.family, error=error)
+
+        name = urn[len("subject:"):]
+        registry_path = self._registry_path()
+        if not registry_path.exists():
+            return URNResolution(
+                urn=urn,
+                family=self.family,
+                resolved_paths=[],
+                is_deterministic=False,
+                error=f"Subject registry not found: {registry_path}",
+            )
+
+        entries = self._load_registry()
+        entry = entries.get(name)
+        if entry is None:
+            return URNResolution(
+                urn=urn,
+                family=self.family,
+                resolved_paths=[],
+                is_deterministic=False,
+                error=f"Subject '{name}' not registered in {registry_path.name}",
+            )
+
+        metadata = {
+            k: entry.get(k)
+            for k in ("title", "description", "status")
+            if isinstance(entry, dict) and k in entry
+        }
+        return URNResolution(
+            urn=urn,
+            family=self.family,
+            resolved_paths=[registry_path],
+            is_deterministic=True,
+            error=None,
+            metadata=metadata,
+        )
+
+    def find_declarations(self) -> List[URNDeclaration]:
+        """Find all subject URN declarations in the subject registry."""
+        declarations: List[URNDeclaration] = []
+        registry_path = self._registry_path()
+        for name in self._load_registry():
+            declarations.append(
+                URNDeclaration(
+                    urn=f"subject:{name}",
+                    family=self.family,
+                    source_path=registry_path,
+                    context="subject registry",
+                )
+            )
+        return declarations
+
+
 class TrainResolver(BaseResolver):
     """
     Resolver for train: URNs.
 
-    Resolution: train:{NNNN}-{slug} -> plan/_trains/{id}.yaml
+    Typed grammar (issue #1421):
+        ``train:<subject>:<slug>``  ->  ``plan/_trains/<subject>/<slug>.yaml``
+    The reverse (path -> URN) reconstructs ``<subject>/<slug>`` from the nested
+    directory layout — not the flat ``NNNN`` stem.
+
+    Dual-resolution during migration: a legacy ``train:NNNN-slug`` URN STILL
+    resolves. It is mapped to its typed nested file via the alias map the
+    migration worker (C4) produces (``plan/_trains/_aliases.yaml``); if no alias
+    is registered yet it falls back to the flat ``plan/_trains/NNNN-slug.yaml``
+    file so nothing breaks mid-transition.
     """
+
+    # Legacy flat train id: NNNN-slug (digit-led single token). Kept local and
+    # scoped to the migration window — the typed grammar itself lives in the
+    # convention (urn_grammar.yaml), executed by URNGrammar.
+    _LEGACY_TRAIN_RE = re.compile(r"^\d{4}-[a-z0-9][a-z0-9-]*$")
+
+    # Alias-map file candidates (the migration worker's data). Tolerant of
+    # location so this resolver is robust to C4's final authoring choice.
+    _ALIAS_FILE_CANDIDATES = ("_aliases.yaml", "_alias_map.yaml")
 
     @property
     def family(self) -> str:
@@ -967,18 +1127,23 @@ class TrainResolver(BaseResolver):
         if not self.can_resolve(urn):
             return URNResolution(urn=urn, family=self.family, error="Not a train URN")
 
+        body = urn[len("train:"):]
+        trains_dir = self.plan_dir / "_trains"
+
+        # Legacy dual-resolution: single-token, digit-led NNNN-slug. This form
+        # is intentionally NOT in the typed engine grammar, so it must bypass
+        # the strict format gate below.
+        if ":" not in body and self._LEGACY_TRAIN_RE.match(body):
+            return self._resolve_legacy(urn, body, trains_dir)
+
+        # Typed grammar: train:<subject>:<slug>.
         error = self._validate_urn_format(urn)
         if error:
             return URNResolution(urn=urn, family=self.family, error=error)
 
-        train_id = urn.replace("train:", "")
-        trains_dir = self.plan_dir / "_trains"
-        train_path = trains_dir / f"{train_id}.yaml"
-
-        paths = []
-        if train_path.exists():
-            paths.append(train_path)
-
+        subject, slug = body.split(":", 1)
+        train_path = trains_dir / subject / f"{slug}.yaml"
+        paths = [train_path] if train_path.exists() else []
         return URNResolution(
             urn=urn,
             family=self.family,
@@ -987,33 +1152,152 @@ class TrainResolver(BaseResolver):
             error=None if paths else f"Train file not found: {train_path}",
         )
 
+    def _resolve_legacy(
+        self, urn: str, legacy_id: str, trains_dir: Path
+    ) -> URNResolution:
+        """Resolve a legacy ``train:NNNN-slug`` URN.
+
+        Prefers the migration alias map (legacy id -> typed nested file); falls
+        back to the flat ``plan/_trains/NNNN-slug.yaml`` file still in place
+        pre-migration.
+        """
+        typed = self._alias_lookup(legacy_id)
+        if typed:
+            subject, slug = typed
+            typed_path = trains_dir / subject / f"{slug}.yaml"
+            if typed_path.exists():
+                return URNResolution(
+                    urn=urn,
+                    family=self.family,
+                    resolved_paths=[typed_path],
+                    is_deterministic=True,
+                    error=None,
+                    metadata={"alias_of": f"train:{subject}:{slug}"},
+                )
+
+        flat_path = trains_dir / f"{legacy_id}.yaml"
+        paths = [flat_path] if flat_path.exists() else []
+        return URNResolution(
+            urn=urn,
+            family=self.family,
+            resolved_paths=paths,
+            is_deterministic=len(paths) == 1,
+            error=None if paths else f"Train file not found for legacy id: {flat_path}",
+        )
+
+    def _load_alias_map(self) -> Dict[str, Tuple[str, str]]:
+        """Return ``{legacy-id: (subject, slug)}`` from the migration alias map.
+
+        Tolerant of absence and of shape — never raises. Recognized content: a
+        top-level ``aliases:`` mapping or a bare mapping, whose keys are
+        ``NNNN-slug`` (optionally ``train:``-prefixed) and whose values are
+        ``subject/slug`` | ``subject:slug`` | ``train:subject:slug``.
+        """
+        trains_dir = self.plan_dir / "_trains"
+        raw = None
+        for candidate in self._ALIAS_FILE_CANDIDATES:
+            path = trains_dir / candidate
+            if path.exists():
+                try:
+                    import yaml
+
+                    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+                except Exception:
+                    raw = None
+                break
+
+        if not isinstance(raw, dict):
+            return {}
+        mapping = raw.get("aliases") if isinstance(raw.get("aliases"), dict) else raw
+        if not isinstance(mapping, dict):
+            return {}
+
+        result: Dict[str, Tuple[str, str]] = {}
+        for key, val in mapping.items():
+            if not isinstance(key, str):
+                continue
+            legacy = key[len("train:"):] if key.startswith("train:") else key
+            typed = self._split_typed(val)
+            if typed:
+                result[legacy] = typed
+        return result
+
+    def _alias_lookup(self, legacy_id: str) -> Optional[Tuple[str, str]]:
+        return self._load_alias_map().get(legacy_id)
+
+    @staticmethod
+    def _split_typed(val) -> Optional[Tuple[str, str]]:
+        """Parse an alias value into ``(subject, slug)``.
+
+        Tolerates a leading ``train:`` prefix and both ``subject/slug`` and
+        ``subject:slug`` separators.
+        """
+        if not isinstance(val, str):
+            return None
+        v = val.strip()
+        if v.startswith("train:"):
+            v = v[len("train:"):]
+        if "/" in v and ":" not in v:
+            parts = v.split("/", 1)
+        else:
+            parts = v.split(":", 1)
+        if len(parts) == 2 and parts[0] and parts[1]:
+            return parts[0], parts[1]
+        return None
+
     def find_declarations(self) -> List[URNDeclaration]:
-        """Find all train URN declarations."""
-        declarations = []
+        """Find all train URN declarations.
+
+        Typed trains live at ``plan/_trains/<subject>/<slug>.yaml`` and their URN
+        is reconstructed from the nested path (``subject/slug``, not the flat
+        stem). Legacy flat files (``plan/_trains/NNNN-slug.yaml``) are still
+        enumerated during migration, preferring an explicit ``id`` field, else
+        the file stem.
+        """
+        declarations: List[URNDeclaration] = []
         trains_dir = self.plan_dir / "_trains"
         if not trains_dir.exists():
             return declarations
 
         import yaml
 
-        for train_file in trains_dir.glob("*.yaml"):
+        # Typed: plan/_trains/<subject>/<slug>.yaml  (path -> subject/slug).
+        for subject_dir in sorted(trains_dir.iterdir()):
+            if not subject_dir.is_dir() or subject_dir.name.startswith("_"):
+                continue
+            subject = subject_dir.name
+            for train_file in sorted(subject_dir.glob("*.yaml")):
+                if train_file.name.startswith("_"):
+                    continue
+                declarations.append(
+                    URNDeclaration(
+                        urn=f"train:{subject}:{train_file.stem}",
+                        family=self.family,
+                        source_path=train_file,
+                        context="train definition (typed)",
+                    )
+                )
+
+        # Legacy flat files (migration window). Registry/alias files (``_*``)
+        # are skipped.
+        for train_file in sorted(trains_dir.glob("*.yaml")):
+            if train_file.name.startswith("_"):
+                continue
             try:
                 with open(train_file, "r", encoding="utf-8") as f:
                     data = yaml.safe_load(f)
-
-                if data and isinstance(data, dict):
-                    train_id = data.get("id") or train_file.stem
-                    urn = f"train:{train_id}"
-                    declarations.append(
-                        URNDeclaration(
-                            urn=urn,
-                            family=self.family,
-                            source_path=train_file,
-                            context="train definition",
-                        )
-                    )
             except Exception:
-                continue
+                data = None
+            train_id = (data.get("id") if isinstance(data, dict) else None) or train_file.stem
+            urn = train_id if str(train_id).startswith("train:") else f"train:{train_id}"
+            declarations.append(
+                URNDeclaration(
+                    urn=urn,
+                    family=self.family,
+                    source_path=train_file,
+                    context="train definition (legacy)",
+                )
+            )
 
         return declarations
 
@@ -1554,6 +1838,7 @@ class ResolverRegistry:
             SecurityResolver(self.repo_root),
             ContractResolver(self.repo_root),
             TelemetryResolver(self.repo_root),
+            SubjectResolver(self.repo_root),
             TrainResolver(self.repo_root),
             ComponentResolver(self.repo_root),
             TableResolver(self.repo_root),
