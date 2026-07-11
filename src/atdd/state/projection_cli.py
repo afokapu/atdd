@@ -29,12 +29,11 @@ from atdd.state.projection import (
     PROJECTION_RELATIVE,
     ProjectionError,
     check_canonicality,
-    hydrate,
     project,
     projection_digest,
 )
 from atdd.state.store import StateStore
-from atdd.state.work_item_writer import mint_work_item, rename_work_item
+from atdd.state.work_item_writer import rename_work_item
 
 _log = logging.getLogger(__name__)
 
@@ -112,11 +111,15 @@ def _cmd_object(args) -> int:
     conn, _store = _open_store(args.root)
     try:
         if args.object_op == "create":
-            obj = mint_work_item(
+            # An authoring command, so it goes through the overlay log: creating an
+            # object locally is exactly the private work reconcile must not lose.
+            from atdd.state.authoring import create_object
+
+            event = create_object(
                 conn, slug=args.slug, owner_actor=args.owner,
                 title=args.title, body=args.body, phase=args.phase,
             )
-            print(obj.uid)
+            print(event.object_uid)
             return 0
         obj = rename_work_item(conn, args.uid, slug=args.slug, title=args.title)
         print(f"{obj.uid}  slug={obj.data.get('slug')}  title={obj.data.get('title')}")
@@ -135,6 +138,12 @@ def _cmd_project(args) -> int:
     conn, store = _open_store(args.root)
     try:
         result = project(store, out_dir)
+        # Record WHICH projection now represents the pending overlay events (Y001).
+        # They stay replayable — a file on disk is not yet shared truth — but they
+        # now have a name, so reconcile can recognise its own work coming back.
+        from atdd.state.overlay import mark_projected
+
+        mark_projected(conn, result.digest)
     except ProjectionError as exc:
         _log.warning("projection refused", extra={"error": str(exc)})
         print(f"ERROR: {exc}")
@@ -149,19 +158,30 @@ def _cmd_project(args) -> int:
 
 
 def _cmd_hydrate(args) -> int:
+    """Hydrate, stamping ``store_base_commit`` and refusing to clobber a dirty store.
+
+    Hydrate is the *overwrite* path, so it is where I5 bites: a store carrying
+    uncommitted overlay is not overwritten, it is reconciled (C001). The stamp is
+    what anchors the store so a later reconcile can resolve its base without
+    guessing (P001).
+    """
+    from atdd.state.reconcile import DirtyStoreError, hydrate_store
+
     projection_dir = _projection_dir(args)
-    conn, store = _open_store(args.root)
     try:
-        result = hydrate(projection_dir, store)
+        hydrated, base = hydrate_store(
+            _control_root(args.root), projection_dir=projection_dir,
+        )
+    except DirtyStoreError as exc:
+        _log.warning("hydration refused: dirty store", extra={"error": str(exc)})
+        print(f"ERROR: {exc}")
+        return 1
     except ProjectionError as exc:
         _log.warning("hydration refused", extra={"error": str(exc)})
         print(f"ERROR: {exc}")
         return 1
-    finally:
-        conn.close()
-    print(f"hydrated {result.hydrated} object(s) from {projection_dir}")
-    for uid in result.uids:
-        print(f"  {uid}")
+    print(f"hydrated {hydrated} object(s) from {projection_dir}")
+    print(f"store_base_commit: {base}")
     return 0
 
 

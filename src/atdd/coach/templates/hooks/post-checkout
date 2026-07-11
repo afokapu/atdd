@@ -1,0 +1,35 @@
+#!/bin/sh
+# ATDD post-checkout hook — reconcile the local store after HEAD changes (#1400 CORE-014).
+# Installed by `atdd init`. Always exits 0.
+#
+# Switching branches moves HEAD, so the committed projection the local store is
+# anchored to changes. `atdd state reconcile` re-hydrates from the new HEAD and
+# replays any uncommitted local overlay on top, so private authoring survives a
+# branch switch.
+#
+# git passes: $1 = previous HEAD, $2 = new HEAD, $3 = 1 for a branch checkout,
+# 0 for a file checkout. A file checkout does not move HEAD, so there is nothing to
+# reconcile and we exit immediately.
+#
+# Convenience, never authority (spec §9): bypassing this hook leaves store_base_commit
+# behind HEAD, which `atdd state freshness` detects.
+
+set -u
+
+if [ "${CI:-}" = "true" ]; then
+    exit 0
+fi
+
+# $3 == 0 means a file checkout (`git checkout -- path`), not a HEAD move.
+if [ "${3:-1}" = "0" ]; then
+    exit 0
+fi
+
+command -v atdd >/dev/null 2>&1 || exit 0
+
+if ! atdd state reconcile >&2; then
+    echo "ATDD post-checkout: reconcile did not complete. Your store is unchanged and any" >&2
+    echo "  backup is retained. Run 'atdd state reconcile' to see the report." >&2
+fi
+
+exit 0

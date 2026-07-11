@@ -107,6 +107,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     add_projection_parsers(sub)
 
+    # Reconcile spine (#1400): reconcile, freshness, overlay, author. Its parsers
+    # live next to their implementation.
+    from atdd.state.reconcile_cli import add_parsers as add_reconcile_parsers
+
+    add_reconcile_parsers(sub)
+
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
     t_list = trace_sub.add_parser("list", help="List Hub sessions.")
@@ -650,6 +656,11 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.op in PROJECTION_OPS:
         return projection_dispatch(args)
+
+    from atdd.state.reconcile_cli import OPS as RECONCILE_OPS, dispatch as reconcile_dispatch
+
+    if args.op in RECONCILE_OPS:
+        return reconcile_dispatch(args)
 
     parser.print_help()
     return 2
