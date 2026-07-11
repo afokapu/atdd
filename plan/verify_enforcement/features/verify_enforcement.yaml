@@ -2,13 +2,15 @@ urn: feature:verify-enforcement:verify-enforcement
 wagon: wagon:verify-enforcement
 description: The verify-enforcement lane of train 0007-enforce-extension-conventions.
 sizing:
-  wmbts: 0
+  wmbts: 2
   footprint_score: 6
   footprint_size: S
-wmbts: []
+wmbts:
+- wmbt:verify-enforcement:M001
+- wmbt:verify-enforcement:E001
 components:
   backend:
     application:
     - type: use_cases
       count: 2
-      rationale: one use case per WMBT in verify-enforcement
+      rationale: one use case per WMBT in verify-enforcement (M001 coverage report, E001 succession-coverage proof)
