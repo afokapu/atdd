@@ -19,11 +19,30 @@ from typing import Dict, List, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
     should_enforce,
     emit_phase_warning
 )
+
+
+def _is_train_id(token: str) -> bool:
+    """Is ``token`` a train identity? Delegates to ``URNGrammar`` (#1421,
+    Decision 8) — no local four-digit literal. Typed ``train:<subject>:<slug>``
+    validates directly; a bare legacy ``NNNN-slug`` is recognised via the
+    engine's still-live journey facet (a probe journey URN)."""
+    if not isinstance(token, str) or not token:
+        return False
+    try:
+        if URNGrammar.validate_grammar(token):
+            return True
+    except ValueError:
+        pass
+    try:
+        return bool(URNGrammar.validate_grammar(f"test:train:{token}:E2E-001-probe"))
+    except ValueError:
+        return False
 
 
 # Path constants
@@ -117,13 +136,12 @@ def _find_frontend_python_test_files() -> List[Tuple[Path, str]]:
     if not STREAMLIT_TESTS_DIR.exists():
         return tests
 
-    # Pattern: test_<train_id>*.py
+    # Pattern: test_<train_id>.py — the stem after `test_` is a train identity
+    # iff URNGrammar recognises it (#1421); the file glob is the wrapper.
     for test_file in STREAMLIT_TESTS_DIR.glob("test_*.py"):
-        filename = test_file.stem
-        match = re.match(r"test_(\d{4}-[a-z0-9-]+)", filename)
-        if match:
-            train_id = match.group(1)
-            tests.append((test_file, train_id))
+        candidate = test_file.stem[len("test_"):]
+        if _is_train_id(candidate):
+            tests.append((test_file, candidate))
 
     return tests
 

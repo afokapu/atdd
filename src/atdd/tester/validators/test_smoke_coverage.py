@@ -147,6 +147,26 @@ class PlanTrainDiscovery:
         return train_ids
 
 
+def e2e_dir_for(e2e_root: Path, train_id: str) -> Path:
+    """Return the e2e home for *train_id* (issue #1421).
+
+    The e2e layout mirrors the train's identity, so it follows the identity
+    through the migration:
+
+      typed  ``train:<subject>:<slug>``  -> ``e2e/<subject>/<slug>/``
+      legacy ``NNNN-slug``               -> ``e2e/NNNN-slug/``
+
+    A typed id must NOT be pasted straight onto the path (``e2e/train:a:b/``
+    would be a colon-named directory) — the nested home mirrors
+    ``plan/_trains/<subject>/<slug>.yaml``.
+    """
+    if train_id.startswith("train:"):
+        parts = train_id[len("train:"):].split(":")
+        if len(parts) == 2 and all(parts):
+            return e2e_root / parts[0] / parts[1]
+    return e2e_root / train_id
+
+
 # Forbidden mock import patterns per smoke.convention.yaml
 _PYTHON_MOCK_PATTERNS = [
     re.compile(r"from\s+unittest\.mock\s+import"),

@@ -34,7 +34,9 @@ def test_train_validation_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-# Fault: a train participant pointing at a wagon that has no manifest.
+# Fault: a train participant pointing at a wagon that has no manifest. The train is
+# addressed by the participant it declares, never by id or path: typed trains (#1421)
+# live at plan/_trains/<subject>/<slug>.yaml and relocate when a subject is reassigned.
 _PARTICIPANT = "wagon:validate-conventions"
 _BROKEN = "wagon:does-not-exist-xyz"
 

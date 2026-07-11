@@ -30,6 +30,7 @@ import hashlib
 from pathlib import Path
 
 from atdd.validators.conventions.coherence import _parity as coherence_parity
+from atdd.validators.conventions._support.graph_loader import find_train_file
 from atdd.validators.conventions._support.graph_mutations import (
     add_node,
     break_ref,
@@ -40,7 +41,9 @@ from atdd.validators.conventions._support.graph_mutations import (
 )
 
 # A real train that declares family: behavior — the coherence on-disk oracle's anchor.
-_TRAIN_FILE = "plan/_trains/0002-coach-drives-lifecycle.yaml"
+# Addressed by CONTENT via find_train_file, never by path: #1421 retyped train
+# identities and relocated the files to plan/_trains/<subject>/<slug>.yaml, so a
+# hardcoded path silently rots.
 _TRAIN_ANCHOR = ("family: behavior", "family: delivery")
 
 
@@ -72,10 +75,11 @@ def test_on_disk_fault_rewrites_plan_yaml() -> None:
     characterization so the retained on-disk oracle can never silently stop writing.
     """
     root = _repo_root()
-    train = root / _TRAIN_FILE
+    train_rel = find_train_file(root, _TRAIN_ANCHOR[0])
+    train = root / train_rel
     before = train.read_bytes()
 
-    with coherence_parity.patch_file(root, _TRAIN_FILE, *_TRAIN_ANCHOR):
+    with coherence_parity.patch_file(root, train_rel, *_TRAIN_ANCHOR):
         during = train.read_bytes()
 
     after = train.read_bytes()

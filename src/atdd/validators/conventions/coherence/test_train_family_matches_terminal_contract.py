@@ -45,9 +45,13 @@ def test_train_family_matches_terminal_contract_variant_contract() -> None:
 
 
 # --- executable graph-question tests ---------------------------------------
-# Clean baseline is 0 (only train 0002 declares a family, `behavior`, with a
-# non-receipt terminal -> agrees). The fault (flip that train to family=delivery while
-# its terminal is NOT a commit-receipt) is caught by the convention evaluator.
+# Clean baseline is 0 (the one train that declares a family declares `behavior`,
+# with a non-receipt terminal -> agrees). The fault (flip it to family=delivery
+# while its terminal is NOT a commit-receipt) is caught by the convention evaluator.
+# The train is addressed by the family it declares, never by id or path: typed
+# trains (#1421) live at plan/_trains/<subject>/<slug>.yaml and relocate when a
+# subject is reassigned.
+_FAMILY_ANCHOR = "behavior"
 
 
 def test_clean_baseline_is_zero(clean_convention_graph) -> None:
@@ -66,7 +70,7 @@ def test_fault_injection(clean_convention_graph) -> None:
     to this variant. The convention fault-injection is the live coverage."""
     train_id = next(
         t.id for t in clean_convention_graph.by_kind("train")
-        if t.fields.get("family") == "behavior"
+        if t.fields.get("family") == _FAMILY_ANCHOR
     )
     faulted = clone_graph(clean_convention_graph)
     set_node_field(faulted, train_id, "family", "delivery")
