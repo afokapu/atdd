@@ -113,6 +113,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     add_reconcile_parsers(sub)
 
+    # Merge authority (#1400): trailers, merge-authority, policy-check, disposition-check.
+    # Its parsers live next to their implementation.
+    from atdd.state.merge_authority_cli import add_parsers as add_merge_authority_parsers
+
+    add_merge_authority_parsers(sub)
+
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
     t_list = trace_sub.add_parser("list", help="List Hub sessions.")
@@ -661,6 +667,14 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.op in RECONCILE_OPS:
         return reconcile_dispatch(args)
+
+    from atdd.state.merge_authority_cli import (
+        OPS as MERGE_AUTHORITY_OPS,
+        dispatch as merge_authority_dispatch,
+    )
+
+    if args.op in MERGE_AUTHORITY_OPS:
+        return merge_authority_dispatch(args)
 
     parser.print_help()
     return 2

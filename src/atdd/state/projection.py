@@ -336,6 +336,15 @@ def build_documents(store: StateStore) -> Dict[str, Dict[str, Any]]:
     return documents
 
 
+def object_digest(document: Mapping[str, Any]) -> str:
+    """The ``sha256:<hex>`` digest over *one* object's canonical bytes.
+
+    This is the stamp an ``ATDD-Projection-Digest`` trailer carries: trailers are
+    grouped per object (spec §5 rule 6), so the digest they pin must be per object too.
+    """
+    return DIGEST_PREFIX + hashlib.sha256(canonical_bytes(document)).hexdigest()
+
+
 def digest_documents(documents: Mapping[str, Mapping[str, Any]]) -> str:
     """The ``sha256:<hex>`` digest over the canonical bytes of a document set."""
     hasher = hashlib.sha256()
