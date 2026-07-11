@@ -79,6 +79,33 @@ class DirtyStoreError(RuntimeError):
         super().__init__(message)
 
 
+class ColdStartError(StoreBaseCommitError):
+    """The store carries overlay but has no base commit, so neither path can run (P002).
+
+    This is the one state that would otherwise deadlock the operator: ``hydrate`` refuses
+    because the store is dirty and sends them to ``reconcile``; ``reconcile`` refuses
+    because there is no base commit and sends them back to ``hydrate``. Bouncing someone
+    between two commands that each blame the other is not a refusal, it is a trap.
+
+    So this refusal carries a way *out*: the private work has no anchor precisely because
+    it was never shared, and the fix is to share it (project and commit) or to drop it —
+    and the operator, not the tool, chooses which.
+    """
+
+    def __init__(self, events: List[OverlayEvent]) -> None:
+        self.events = events
+        super().__init__(
+            f"the store carries {len(events)} uncommitted overlay event(s) but has no "
+            "store_base_commit, so there is no public state to replay them onto.\n"
+            "  This store cannot be hydrated (it would lose the work) or reconciled "
+            "(there is no base).\n"
+            "  To keep the work: `atdd state project` it, commit the projection, then "
+            "`atdd state hydrate`.\n"
+            "  To drop it: discard the overlay events, then `atdd state hydrate`.",
+            commit=None,
+        )
+
+
 class ReplayConflictError(RuntimeError):
     """The overlay cannot be replayed onto the incoming projection (R002).
 
@@ -272,6 +299,10 @@ def hydrate_store(
     conn = connect(db_path)
     try:
         events = overlay.replayable_events(conn)
+        if events and metadata.base_commit(conn) is None:
+            # Dirty AND unanchored: sending this operator to `reconcile` would just send
+            # them back here. Refuse with a remedy instead of a round trip (P002).
+            raise ColdStartError(events)
         if events:
             raise DirtyStoreError(
                 f"refusing to overwrite a dirty store: {len(events)} uncommitted overlay "
@@ -484,6 +515,9 @@ def reconcile(
     try:
         # Anchor first: a baseless or unresolvable store is refused BEFORE any sqlite
         # mutation and before any projection is read (P001-UNIT-002).
+        events = overlay.replayable_events(conn)
+        if events and metadata.base_commit(conn) is None:
+            raise ColdStartError(events)  # dirty AND unanchored — say how to get out
         base = metadata.require_base_commit(conn)
         if not gitstore.commit_exists(control_root, base):
             raise StoreBaseCommitError(
@@ -492,7 +526,6 @@ def reconcile(
                 "`atdd state hydrate` to re-anchor it; reconcile has no base to replay onto.",
                 commit=base,
             )
-        events = overlay.replayable_events(conn)
     finally:
         conn.close()
 
