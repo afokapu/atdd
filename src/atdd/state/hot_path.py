@@ -178,6 +178,25 @@ def _is_seam(target: str) -> bool:
     return target in SEAM_MODULES
 
 
+def _import_targets(tree: ast.AST) -> List[Tuple[str, int]]:
+    """Every dotted name a module imports — including the submodules of a ``from`` import.
+
+    :func:`atdd.state.import_boundary._imports_of` records ``from atdd.state import evidence`` as
+    an import of ``atdd.state``, which is true and is not enough: the module actually pulled in is
+    ``atdd.state.evidence``, and a transitive walk that never queues it walks straight past whatever
+    *it* imports. So each ``from X import a, b`` also yields ``X.a`` and ``X.b`` as candidates; the
+    ones that are not modules simply do not resolve to a file and are dropped by the walk.
+
+    This matters here and not in §8.1's guard because this walk is the one that has to *reach* the
+    provider through a chain of core helpers — which is exactly how a GitHub dependency hides.
+    """
+    found: List[Tuple[str, int]] = list(_imports_of(tree))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            found.extend((f"{node.module}.{alias.name}", node.lineno) for alias in node.names)
+    return found
+
+
 def _hot_path_identifiers(tree: "ast.AST") -> List[Tuple[str, int]]:
     """GitHub's client and its lifecycle opinion, used as *code*: a name, attribute, or keyword.
 
@@ -237,7 +256,7 @@ def check(
             continue
         tree = _parse(path)
 
-        for target, line in _imports_of(tree):
+        for target, line in _import_targets(tree):
             if _is_github(target):
                 violations.append(Violation(RULE_GITHUB_API, dotted, line, target))
             elif _is_seam(target):
