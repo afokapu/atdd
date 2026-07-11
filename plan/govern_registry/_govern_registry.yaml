@@ -25,4 +25,8 @@ consume:
 - name: commons:succession-coverage
   from: wagon:verify-enforcement
 wmbt:
-  total: 0
+  total: 4
+  D001: "minimize likelihood of registry-scope-ambiguity by keeping the atdd validate rule registry rooted at the core src/atdd tree alone, recording the core-only decision with its evidence, and proving that admitting the extension mirror nodes would add no new rule and only duplicate ids"
+  E001: "minimize likelihood of convention-mirror-drift by resolving every extension node's source.legacy_rule_id against the live core rule registry and failing loudly on any node whose named core rule no longer exists, so a renamed or deleted core rule cannot leave an extension mirror pointing at nothing"
+  E002: "maximize likelihood of duplicate-rule-detection by raising DuplicateRuleError on any rule_id declared in both the core registry and the extension mirror set, stating the CORE-precedes-extension precedence, so a cross-registry collision fails loudly instead of silently shadowing the core rule"
+  E003: "minimize likelihood of silent-enforcement-loss by refusing to delete any core convention node whose extension twin is not both bound and blockingly enforced in CI, so removing a core rule cannot silently strip the only enforcement of an obligation an extension still mirrors"
