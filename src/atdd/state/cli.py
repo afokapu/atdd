@@ -101,6 +101,12 @@ def _build_parser() -> argparse.ArgumentParser:
                       help="Skip the PyPI query and resolve from the git tag only.")
     v_rb.add_argument("--root", default=None)
 
+    # Projection spine (#1400): object create/rename, project, hydrate, digest,
+    # canonicality. Its parsers live next to their implementation.
+    from atdd.state.projection_cli import add_parsers as add_projection_parsers
+
+    add_projection_parsers(sub)
+
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
     t_list = trace_sub.add_parser("list", help="List Hub sessions.")
@@ -639,6 +645,11 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_version(args)
     if args.op == "trace":
         return _cmd_trace(args)
+
+    from atdd.state.projection_cli import OPS as PROJECTION_OPS, dispatch as projection_dispatch
+
+    if args.op in PROJECTION_OPS:
+        return projection_dispatch(args)
 
     parser.print_help()
     return 2
