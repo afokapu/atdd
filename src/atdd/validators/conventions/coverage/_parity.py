@@ -21,15 +21,18 @@ def repo_root() -> Path:
 
 @contextlib.contextmanager
 def inject_tempfile(root: Path, relpath: str, content: str):
+    # `relpath` is a synthetic fault probe (e.g. `_tmp_coverage_orphan_probe.convention.yaml`)
+    # that must NEVER legitimately exist in the tree. The previous `if not existed: unlink`
+    # guard meant a stale copy left by an interrupted run was treated as pre-existing and
+    # never cleaned — sticky residue that a disk-rescanning baseline (`no_orphan`) then
+    # flagged. Always remove the probe on exit so residue can never accumulate.
     p = root / relpath
-    existed = p.exists()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content, encoding='utf-8')
     try:
         yield
     finally:
-        if not existed:
-            p.unlink(missing_ok=True)
+        p.unlink(missing_ok=True)
 
 
 @contextlib.contextmanager
