@@ -1405,15 +1405,6 @@ edges:
   target_ref: planner.train.registry
   type: runs_alongside
 - confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the category digit is part of the numbering scheme
-  source_ref: planner.train.categories
-  strength: important
-  target_ref: planner.train.numbering
-  type: requires
-- confidence: 1.0
   constraint: discretionary
   control: external
   foundation: finish_to_start
@@ -1632,15 +1623,6 @@ edges:
   strength: critical
   target_ref: planner.train.sequence
   type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the train_id name follows the numbering prefix
-  source_ref: planner.train.naming
-  strength: important
-  target_ref: planner.train.numbering
-  type: requires
 - confidence: 0.9
   constraint: discretionary
   control: internal
@@ -1726,46 +1708,10 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: the orchestrator URN extends the train URN with a theme prefix
-  source_ref: planner.train.theme-orchestrator-urn
-  strength: minor
-  target_ref: planner.train.urn-naming
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
   reason: each theme range spans the four categories
   source_ref: planner.train.theme-ranges
   strength: minor
   target_ref: planner.train.categories
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the theme digit is part of the numbering scheme
-  source_ref: planner.train.theme-ranges
-  strength: important
-  target_ref: planner.train.numbering
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the train URN embeds the numbered train_id
-  source_ref: planner.train.urn-naming
-  strength: important
-  target_ref: planner.train.numbering
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: validation enforces the train_id numbering
-  source_ref: planner.train.validation-rules
-  strength: important
-  target_ref: planner.train.numbering
   type: requires
 - confidence: 1.0
   constraint: mandatory
