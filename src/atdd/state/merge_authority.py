@@ -355,7 +355,11 @@ def field_ownership_policy(repo: Path) -> ownership.FieldOwnershipPolicy:
     """
     try:
         return ownership.load_policy(repo)
-    except ownership.PolicyNotFound:
+    except ownership.PolicyNotFound as exc:
+        _log.info(
+            "no committed field-ownership policy; judging by the shipped table",
+            extra={"repo": str(repo), "expected": str(exc.path)},
+        )
         return ownership.default_policy()
 
 

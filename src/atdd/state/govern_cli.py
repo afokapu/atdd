@@ -109,6 +109,7 @@ def _policy(args) -> ownership.FieldOwnershipPolicy:
 
 
 def _fail(report: str) -> int:
+    """Refuse: the report goes to STDERR, so it survives git showing a driver's stdout to nobody."""
     print(report, file=sys.stderr)
     return 1
 
@@ -122,6 +123,12 @@ def _cmd_ownership_check(args) -> int:
         )
         report = ownership.check_coverage(document)
     except (OwnershipError, PolicyNotFound) as exc:
+        # Logged as well as printed: the operator reads stderr, and whoever reads the CI
+        # run's log next week reads this.
+        _log.warning(
+            "field-governance command could not run",
+            extra={"command": "ownership-check", "error": str(exc), "type": type(exc).__name__},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -140,6 +147,12 @@ def _cmd_field_writer(args) -> int:
         head = merge_authority.projection_at(repo, args.head)
         actor = args.actor if args.actor is not None else _git_author(repo, args.head)
     except (OwnershipError, PolicyNotFound, merge_authority.MergeAuthorityError) as exc:
+        # Logged as well as printed: the operator reads stderr, and whoever reads the CI
+        # run's log next week reads this.
+        _log.warning(
+            "field-governance command could not run",
+            extra={"command": "field-writer", "error": str(exc), "type": type(exc).__name__},
+        )
         return _fail(f"ERROR: {exc}")
     report = ownership.check_diff(policy, base, head, actor=actor)
     if not report.ok:
@@ -160,6 +173,12 @@ def _cmd_merge_projection(args) -> int:
     try:
         policy = _policy(args)
     except (OwnershipError, PolicyNotFound) as exc:
+        # Logged as well as printed: the operator reads stderr, and whoever reads the CI
+        # run's log next week reads this.
+        _log.warning(
+            "field-governance command could not run",
+            extra={"command": "merge-projection", "error": str(exc), "type": type(exc).__name__},
+        )
         return _fail(f"ERROR: {exc}")
 
     uid = _uid_of(args)
@@ -176,6 +195,12 @@ def _cmd_merge_projection(args) -> int:
             theirs_evidence=theirs_evidence,
         )
     except MergeDriverError as exc:
+        # Logged as well as printed: the operator reads stderr, and whoever reads the CI
+        # run's log next week reads this.
+        _log.warning(
+            "field-governance command could not run",
+            extra={"command": "merge-projection", "error": str(exc), "type": type(exc).__name__},
+        )
         return _fail(f"ERROR: {exc}")
     if not result.ok:
         return _fail(result.render())
@@ -253,14 +278,23 @@ def _evidence_at(repo: Path, uid: str, ref: str) -> List[str]:
     prefix = (EVIDENCE_RELATIVE / uid).as_posix()
     try:
         listing = _git(repo, "ls-tree", "-r", "--name-only", ref, "--", prefix, f"{prefix}.yaml")
-    except MergeAuthorityError:
-        return []  # no such ref (or no such tree): that side carries no evidence
+    except MergeAuthorityError as exc:
+        # Not a fault: a side with no committed evidence is the ordinary case, and it is the
+        # case the driver must treat as "no evidence" rather than guess its way around.
+        _log.info(
+            "no committed evidence for the object on this side of the merge",
+            extra={"uid": uid, "ref": ref, "error": str(exc)},
+        )
+        return []
     tokens: List[str] = []
     for path in sorted(line.strip() for line in listing.splitlines() if line.strip()):
         try:
             tokens.extend(_tokens(_git(repo, "show", f"{ref}:{path}")))
-        except MergeAuthorityError:
-            continue
+        except MergeAuthorityError as exc:
+            _log.warning(
+                "an evidence artifact could not be read; it counts as no evidence",
+                extra={"uid": uid, "ref": ref, "path": path, "error": str(exc)},
+            )
     return tokens
 
 
@@ -278,6 +312,12 @@ def _cmd_merge_matrix_check(args) -> int:
     try:
         policy = ownership.load_policy(_root(args))
     except (OwnershipError, PolicyNotFound) as exc:
+        # Logged as well as printed: the operator reads stderr, and whoever reads the CI
+        # run's log next week reads this.
+        _log.warning(
+            "field-governance command could not run",
+            extra={"command": "merge-matrix-check", "error": str(exc), "type": type(exc).__name__},
+        )
         return _fail(f"ERROR: {exc}")
     report = merge_matrix.check_coverage(policy=policy)
     if not report.ok:
