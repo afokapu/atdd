@@ -136,6 +136,37 @@ def write_convention_node(project_root: Path, ext_id: str, convention: str) -> P
     return node
 
 
+def write_mirror_node(
+    project_root: Path,
+    *,
+    rule_id: str,
+    legacy_rule_id: str,
+    ext_id: str = "atdd.extension.coder",
+    legacy_path: str = "src/atdd/coder/conventions/refactor.convention.yaml",
+) -> Path:
+    """Write a real extension convention node carrying a ``source.legacy_rule_id``.
+
+    Models the govern-registry mirror shape (#1427): an extension node under
+    ``.atdd/extensions`` whose ``source.legacy_rule_id`` names the core rule it
+    mirrors — the field the mirror-coherence and succession guards resolve against
+    the live core registry.
+    """
+    node_dir = project_root / ".atdd" / "extensions" / ext_id / "0.1.0" / "conventions"
+    node_dir.mkdir(parents=True, exist_ok=True)
+    node = node_dir / f"{rule_id}.convention.yaml"
+    node.write_text(
+        "schema_version: '1.1.0'\nkind: rule\n"
+        f"rule_id: {rule_id}\n"
+        "metadata:\n  severity: 3\n  disposition: strict\n"
+        "source:\n"
+        f"  legacy_path: {legacy_path}\n"
+        f"  legacy_rule_id: {legacy_rule_id}\n"
+        "  extraction_mode: high_fidelity\n",
+        encoding="utf-8",
+    )
+    return node
+
+
 _CONVENTION_NODE = """\
 schema_version: '1.0.0'
 kind: convention
