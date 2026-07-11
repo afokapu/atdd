@@ -53,6 +53,22 @@ class AmbiguousAliasError(LookupError):
     """Raised when a legacy alias collides with another rule's canonical id or alias."""
 
 
+class DuplicateRuleError(LookupError):
+    """Raised when a rule_id is declared in BOTH the core registry and a second
+    (extension) registry — a cross-registry collision (#1427 govern-registry E002).
+
+    Unlike :class:`AmbiguousRuleError` (two *core* convention files declaring the
+    same id, an authoring mistake within one registry), this names the boundary
+    between the core rule registry (``atdd validate`` / Path A, rooted at
+    ``src/atdd`` alone) and the extension mirror set under ``.atdd/extensions``.
+    Every extension node is a high-fidelity MIRROR of a live core rule, so the two
+    registries deliberately stay separate; merging them would collide on every
+    mirrored id. Precedence is stated in the message: **CORE precedes extension** —
+    the core declaration is authoritative and the extension mirror must not be
+    admitted into the core registry.
+    """
+
+
 # ---------------------------------------------------------------------------
 # bind_rule hooks (integration logging)
 # ---------------------------------------------------------------------------
