@@ -488,6 +488,33 @@ def _diff(filename: str, committed: bytes, canonical: bytes) -> str:
     )
 
 
+def _read_bytes(projection_dir: Path) -> Dict[str, bytes]:
+    """Every ``<uid>.yaml`` under ``projection_dir`` as raw bytes, keyed by filename."""
+    return {
+        path.name: path.read_bytes()
+        for path in sorted(Path(projection_dir).glob(f"*{PROJECTION_SUFFIX}"), key=lambda p: p.name)
+    }
+
+
+def _mismatches(expected: Mapping[str, bytes], actual: Mapping[str, bytes]) -> List[Mismatch]:
+    """Every filename whose bytes differ, each with a unified diff naming the file."""
+    return [
+        Mismatch(filename=name, diff=_diff(name, blob, actual.get(name, b"")))
+        for name, blob in sorted(expected.items())
+        if actual.get(name) != blob
+    ]
+
+
+def compare_projections(expected_dir: Path, actual_dir: Path) -> List[Mismatch]:
+    """Byte-compare two projection directories (the golden-file check, E003).
+
+    A golden fixture pins the canonical bytes; this reports every file that drifted
+    from it, with a diff naming the offending file — so an unintended byte change
+    fails loudly instead of drifting silently into a commit.
+    """
+    return _mismatches(_read_bytes(expected_dir), _read_bytes(actual_dir))
+
+
 def check_canonicality(projection_dir: Path) -> CanonicalityReport:
     """Prove ``project(hydrate(projection)) == projection``, byte-for-byte (C002).
 
@@ -498,20 +525,13 @@ def check_canonicality(projection_dir: Path) -> CanonicalityReport:
     remote with no GitHub API reachable.
     """
     projection_dir = Path(projection_dir)
-    committed = {
-        path.name: path.read_bytes()
-        for path in sorted(projection_dir.glob(f"*{PROJECTION_SUFFIX}"), key=lambda p: p.name)
-    }
+    committed = _read_bytes(projection_dir)
     with _memory_store() as store, tempfile.TemporaryDirectory() as tmp:
         hydrate(projection_dir, store)
         result = project(store, Path(tmp))
         canonical = {path.name: path.read_bytes() for path in result.files.values()}
 
-    mismatches = [
-        Mismatch(filename=name, diff=_diff(name, blob, canonical.get(name, b"")))
-        for name, blob in committed.items()
-        if canonical.get(name) != blob
-    ]
+    mismatches = _mismatches(committed, canonical)
     if mismatches:
         _log.warning(
             "projection canonicality check failed",
