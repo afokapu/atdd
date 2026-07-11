@@ -30,7 +30,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Dict, Optional
 
-from atdd.state import overlay
+from atdd.state import overlay, tombstone
 from atdd.state.identity import assert_uid, mint_uid
 from atdd.state.overlay import OverlayEvent
 from atdd.state.projection import STATE_ACTIVE
@@ -110,18 +110,24 @@ def add_wmbt(conn: sqlite3.Connection, uid: str, wmbt: str) -> OverlayEvent:
     return overlay.author(conn, overlay.WMBT_ADDED, assert_uid(uid), {"wmbt": wmbt})
 
 
-def request_tombstone(conn: sqlite3.Connection, uid: str, reason: str) -> OverlayEvent:
+def request_tombstone(
+    conn: sqlite3.Connection, uid: str, reason: str, *, actor: Optional[str] = None
+) -> OverlayEvent:
     """Retire an object, logging ``tombstone_requested``.
 
     A tombstone is a *record*, never a file deletion (spec §10 rule 3): the object
     stays in the projection carrying ``state: TOMBSTONED``, so peers learn it was
     retired instead of watching it silently vanish.
+
+    The record carries a **reason digest** as well as the prose reason — the digest is
+    what a merge can compare and what refuses two sides retiring one object for
+    different stated reasons (K001).
     """
     return overlay.author(
         conn,
         overlay.TOMBSTONE_REQUESTED,
         assert_uid(uid),
-        {"tombstone": {"reason": reason}},
+        {"tombstone": tombstone.tombstone_record(reason, actor=actor)},
     )
 
 
