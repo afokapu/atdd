@@ -1,0 +1,30 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.definition
+kind: family
+status: draft
+name: Wagon — advisory semantic anchor
+statement: A wagon is a separable, semantically-coherent unit of work within a journey
+  — a single subject/action/goal that consumes and produces declared artifacts and
+  composes with sibling wagons into trains without forming a produce/consume cycle.
+  This is a planner domain-decomposition artifact naming a unit of the domain; how the
+  unit executes at runtime is a coder/tester concern. This node is an advisory semantic
+  anchor — it enforces nothing directly; the enforceable parts of this meaning are
+  decomposed into the constraint/rule nodes that require it.
+terms:
+- term_id: semantic_anchor
+  label: Advisory semantic anchor
+  text: a definitional node that gives the artifact a stable meaning but is not itself
+    bound to a validator; it is transitively protected by the enforceable constraint/rule
+    nodes that require it.
+- term_id: wagon
+  label: Wagon
+  text: wagon -> {separable, semantically-coherent, artifact-producing, artifact-consuming,
+    acyclic, feature-bearing}.
+  values:
+    separable: cut from siblings along a correct boundary (see planner.wagon.separability,
+      planner.wagon.coupling-complexity).
+    semantically-coherent: subject/action/goal align, outcome is measurable (see planner.wagon.semantic-coherence).
+    artifacts: consumes and produces declared artifacts across contracts (see planner.wagon.produce-consume-artifacts,
+      planner.wagon.artifact-contracts).
+    acyclic: wagons must not form a produce/consume cycle (see planner.wagon.no-consume-cycle).
+    feature-bearing: groups the features that decompose its behavior (see planner.wagon.features).

@@ -1,0 +1,29 @@
+schema_version: 1.1.0
+rule_id: planner.wmbt.definition
+kind: family
+status: draft
+name: WMBT — advisory semantic anchor
+statement: A WMBT (What-Might-Break Test) is a falsifiable statement of a single way
+  an artifact might break — scoped to one object of control along one dimension, direction,
+  and lens — declared with an id and a statement, and paired with the acceptances that
+  prove it, including at least one smoke acceptance. This node is an advisory semantic
+  anchor — it enforces nothing directly; the enforceable parts of this meaning are
+  decomposed into the constraint/rule nodes that require it.
+terms:
+- term_id: semantic_anchor
+  label: Advisory semantic anchor
+  text: a definitional node that gives the artifact a stable meaning but is not itself
+    bound to a validator; it is transitively protected by the enforceable constraint/rule
+    nodes that require it.
+- term_id: wmbt
+  label: WMBT
+  text: wmbt -> {well-shaped, single-object-of-control, single-axis, statement-formed,
+    smoke-covered}.
+  values:
+    well-shaped: declares its id, its statement, and the artifacts that prove the statement
+      (see planner.wmbt.shape).
+    single-object-of-control: scoped to exactly one object of control (see planner.wmbt.object-of-control).
+    single-axis: one dimension, one direction, one lens (see planner.wmbt.dimension-selection,
+      planner.wmbt.direction-selection, planner.wmbt.lens-selection, planner.wmbt.splitting-rules).
+    statement-formed: follows the statement template (see planner.wmbt.statement-template).
+    smoke-covered: has at least one smoke acceptance (see planner.wmbt.must-have-smoke-acceptance).

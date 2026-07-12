@@ -1,0 +1,36 @@
+schema_version: 1.1.0
+rule_id: planner.interlocking.definition
+kind: family
+status: draft
+name: Interlocking — advisory semantic anchor
+statement: An interlocking is the domain-decomposition artifact for a diverging journey
+  — it declares WHICH train is selected next when a journey branches, keyed by a produced
+  artifact (the divergence signal), composing multiple strictly-linear trains into a
+  branching journey-of-journeys. It is a declared routing registry (artifact_urn ->
+  train_id), not an imperative map. This names the routing DECISION; the runtime that
+  resolves and executes it (the route-control runner and its dispatcher) is a coder/tester
+  concern. This node is an advisory semantic anchor — it enforces nothing directly;
+  the enforceable parts of this meaning are decomposed into the constraint/rule nodes
+  that require it.
+terms:
+- term_id: semantic_anchor
+  label: Advisory semantic anchor
+  text: a definitional node that gives the artifact a stable meaning but is not itself
+    bound to a validator; it is transitively protected by the enforceable constraint/rule
+    nodes that require it.
+- term_id: interlocking
+  label: Interlocking
+  text: interlocking -> {routing-decision, artifact-keyed, declared-registry, train-composing}.
+  values:
+    routing-decision: selects the next train when a journey diverges, rather than branching
+      inside a train (trains stay linear, see planner.train.linearity).
+    artifact-keyed: dispatch is keyed by a produced artifact URN; a composite (urn,
+      discriminant) key is exceptional (see planner.train.dispatch-map-is-registry,
+      planner.train.dispatch-composite-key-exceptional).
+    declared-registry: the dispatch map is a declared, schema-valid registry the domain
+      owns, not code.
+    train-composing: sequences multiple linear trains into a branching journey-of-journeys.
+  note: Enforcers for the runtime realization (route-control runner exists / delegates
+    execution / carries no cargo / bilateral binding) live in the coder+tester layer
+    (atdd.extension.train-interlocking-enforcement) and are related to this domain anchor
+    by cross-persona traceability, tracked as a separate follow-up, not authored here.
