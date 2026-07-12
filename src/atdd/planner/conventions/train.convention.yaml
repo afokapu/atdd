@@ -98,22 +98,18 @@ urn_naming:
       Each orchestrator can implement multiple trains within its theme.
       URN format: train:{theme}:{train_id} directly references the train specification.
 
+  # Category rides as a FIELD (#1421/#1440) — reclassifying a train edits metadata,
+  # never its identity.
   examples_continued:
-    - urn: "train:3301-fragment-pool-exhausted"
-      train_id: "3301-fragment-pool-exhausted"
+    - urn: "train:fragment-pool:exhaust"
+      train_id: "train:fragment-pool:exhaust"
       theme: "match"
-      theme_digit: "3"
       category: "exception"
-      category_digit: "3"
-      variation: 1
 
-    - urn: "train:0101-auth-service-offline"
-      train_id: "0101-auth-service-offline"
+    - urn: "train:auth-session:recover-offline-service"
+      train_id: "train:auth-session:recover-offline-service"
       theme: "commons"
-      theme_digit: "0"
       category: "error"
-      category_digit: "1"
-      variation: 1
 
 # Registry organization
 registry:
@@ -174,22 +170,21 @@ registry:
   path_structure: "plan/_trains/{train_id}.yaml"
 
   benefits:
-    - "Flat file structure - no subdirectories needed"
-    - "Train ID contains all metadata (theme, category, variation)"
-    - "Simple file organization - all trains in single directory"
-    - "Natural sorting by train ID (numeric order)"
+    - "Identity names the journey; theme, category and ordering ride as FIELDS (#1421)"
+    - "Reclassifying a train edits metadata instead of renaming it and every reference to it"
+    - "Simple file organization - trains bucketed by subject"
     - "4-category structure mirrors WMBT test categories"
 
 # Naming conventions
 naming:
   train_id:
-    pattern: "{number}-{descriptive-name}"
+    pattern: "train:{subject}:{slug}"
     format: "kebab-case"
-    preference: "Action-object or flow-descriptor pattern"
+    preference: "Subject is the durable noun the journey is about; slug is action-object"
     examples:
-      - "20-story-to-scenario (process flow)"
-      - "30-match-solo (mode-type)"
-      - "00-auth-session (action-object)"
+      - "train:story:convert-to-scenario (process flow)"
+      - "train:match:play-solo (mode-type)"
+      - "train:auth-session:handshake (action-object)"
 
   title:
     format: "Title Case"
@@ -213,7 +208,7 @@ naming:
 theme_alignment:
   description: "Train themes should align with primary wagon themes"
   rules:
-    - "Primary theme = first digit of train_id"
+    - "Primary theme = first entry of the declared themes array"
     - "Secondary themes allowed when train spans multiple themes"
     - "Most wagons in train should match primary theme"
 
@@ -423,10 +418,10 @@ schema_references:
   train: "schemas/planner/train.schema.json"
 
 validation_rules:
-  - "train_id must match pattern: {theme_digit}{variation_digit}-{name}"
-  - "First digit determines primary theme category"
-  - "File must exist at path: plan/_trains/{train_id}.yaml"
+  - "train_id must match the typed pattern: train:{subject}:{slug}"
+  - "Category is a declared field (nominal|error|alternate|exception), never a digit in the identity"
+  - "Spec file must exist at the train's declared path"
   - "All participants must be declared in participants list"
   - "Dependencies must reference valid train_ids"
   - "Artifacts in sequence must follow domain:resource pattern"
-  - "Themes array must include primary theme based on first digit"
+  - "Themes must be declared in the themes array"

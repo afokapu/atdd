@@ -19,7 +19,14 @@ from pathlib import Path
 
 import pytest
 
-from atdd.planner.interlocking.tests._fixtures import interlocking_doc, write_tree
+from atdd.planner.interlocking.tests._fixtures import (
+    ALTERNATE_TRAIN_ID,
+    ALTERNATE_TRAIN_PATH,
+    NOMINAL_TRAIN_ID,
+    NOMINAL_TRAIN_PATH,
+    interlocking_doc,
+    write_tree,
+)
 from atdd.runtime.interlocking import (
     DirectTrainTarget,
     InterlockingResolution,
@@ -113,9 +120,8 @@ def test_resolve_train_returns_structured_resolution(il_path: Path):
     assert isinstance(res, InterlockingResolution)
     assert res.interlocking_id == "interlocking:match-resolution"
     assert res.route_id == "nominal-all-voted"
-    assert res.train_id == "3007-match-resolution-standard"
+    assert res.train_id == NOMINAL_TRAIN_ID
     assert res.category == "nominal"
-    assert res.category_digit == "0"
     assert res.guard_id == "guard:all-voted"
     assert res.resolution_strategy == "fail_on_multiple_match"
     assert res.reason  # non-empty human reason
@@ -125,8 +131,8 @@ def test_resolve_train_selects_alternate_route(il_path: Path):
     runner = InterlockingRunner(il_path)
     res = runner.resolve_train("resolve_match", {"timer_expired": True})
     assert res.route_id == "alternate-timeout"
-    assert res.train_id == "3207-match-resolution-timeout"
-    assert res.category_digit == "2"
+    assert res.train_id == ALTERNATE_TRAIN_ID
+    assert res.category == "alternate"
 
 
 def test_resolve_train_fails_closed_on_no_match(il_path: Path):
@@ -151,13 +157,14 @@ def test_resolve_train_fails_closed_on_unknown_action(il_path: Path):
 
 
 # --------------------------------------------------------------------------- #
-# resolve_train — selected-route validation (category digit, train file)
+# resolve_train — selected-route validation (category field, train file)
 # --------------------------------------------------------------------------- #
-def test_resolve_train_rejects_category_digit_mismatch(tmp_path: Path):
+def test_resolve_train_rejects_category_mismatch(tmp_path: Path):
     doc = interlocking_doc()
-    # Selected nominal route now points at a train whose digit (2) != category_digit (0).
-    doc["routes"][0]["train_id"] = "3207-match-resolution-timeout"
-    doc["routes"][0]["train_path"] = "plan/_trains/3207-match-resolution-timeout.yaml"
+    # The selected `nominal` route now points at a train declaring `alternate`.
+    # Judged on the train's category FIELD (#1421), not a digit in the identity.
+    doc["routes"][0]["train_id"] = ALTERNATE_TRAIN_ID
+    doc["routes"][0]["train_path"] = ALTERNATE_TRAIN_PATH
     path = write_tree(tmp_path, doc)
     runner = InterlockingRunner(path)
     with pytest.raises(InterlockingResolutionError):
@@ -167,7 +174,7 @@ def test_resolve_train_rejects_category_digit_mismatch(tmp_path: Path):
 def test_resolve_train_rejects_missing_train_file(tmp_path: Path):
     path = write_tree(tmp_path)
     # Delete the target train file for the nominal route.
-    (tmp_path / "plan" / "_trains" / "3007-match-resolution-standard.yaml").unlink()
+    (tmp_path / NOMINAL_TRAIN_PATH).unlink()
     runner = InterlockingRunner(path)
     with pytest.raises(InterlockingResolutionError):
         runner.resolve_train("resolve_match", {"all_players_voted": True})
@@ -182,8 +189,8 @@ def test_execute_delegates_single_train_to_executor(il_path: Path):
     result = runner.execute("resolve_match", {"all_players_voted": True})
     assert len(executor.calls) == 1
     call = executor.calls[0]
-    assert call["train_id"] == "3007-match-resolution-standard"
-    assert result["train_result"] == "3007-match-resolution-standard"
+    assert call["train_id"] == NOMINAL_TRAIN_ID
+    assert result["train_result"] == NOMINAL_TRAIN_ID
 
 
 def test_execute_passes_interlocking_trace_to_executor(il_path: Path):
@@ -196,14 +203,13 @@ def test_execute_passes_interlocking_trace_to_executor(il_path: Path):
         "route_id",
         "selected_train_id",
         "route_category",
-        "route_category_digit",
         "guard_id",
         "resolution_strategy",
         "resolution_reason",
     ):
         assert key in trace, f"trace missing required field {key!r}"
-    assert trace["selected_train_id"] == "3007-match-resolution-standard"
-    assert trace["route_category_digit"] == "0"
+    assert trace["selected_train_id"] == NOMINAL_TRAIN_ID
+    assert trace["route_category"] == "nominal"
 
 
 def test_execute_forwards_timing_and_capture_trace(il_path: Path):

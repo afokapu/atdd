@@ -11,8 +11,9 @@ These lock the contract the migration (worker C4) writes data against:
 * ``category`` is a validated *field* on the train (nominal/error/alternate/
   exception), never an identity digit; an optional ordinal ``sort_key`` rides.
 * ``train-interlocking.schema.json`` ``route.train_id`` accepts the typed form;
-  ``category_digit`` is retired from *required* (kept enum-checked when present)
-  so migrated routes may drop it.
+  ``category_digit`` is fully retired (#1440) — a route carrying it is rejected,
+  because a route's category is judged against the target train's ``category``
+  FIELD, never a digit parsed out of an identity.
 * #1410: the interlocking ``payload.contract`` identity is a **2-segment**
   ``domain:resource`` — decided once here; a 3-segment contract is rejected.
 """
@@ -126,20 +127,24 @@ def test_route_train_id_accepts_typed_form() -> None:
 def test_route_train_id_still_accepts_legacy_form() -> None:
     route = _minimal_route()
     route["train_id"] = "3007-match-resolution-standard"
-    route["category_digit"] = "0"
     jsonschema.validate(route, _route_schema())
 
 
-def test_route_category_digit_is_optional() -> None:
-    """A migrated route may omit ``category_digit`` (retired from required)."""
+def test_route_omits_category_digit() -> None:
+    """A route declares its ``category`` and nothing else about classification."""
     route = _minimal_route()
     assert "category_digit" not in route
     jsonschema.validate(route, _route_schema())
 
 
-def test_route_category_digit_still_enum_checked_when_present() -> None:
+def test_route_carrying_category_digit_is_rejected() -> None:
+    """Fully retired (#1440), not merely optional: the key is no longer valid.
+
+    A route's category is judged against the target train's ``category`` FIELD, so
+    a digit on the route is dead weight that can silently disagree with the train.
+    """
     route = _minimal_route()
-    route["category_digit"] = "9"
+    route["category_digit"] = "0"
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(route, _route_schema())
 
