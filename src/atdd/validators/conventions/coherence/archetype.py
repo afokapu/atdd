@@ -199,24 +199,27 @@ def _iter_interlockings(graph):
 
 
 def _interlocking_route_category_matches_train_id(graph) -> List[dict]:
-    from atdd.planner.interlocking.models import CATEGORY_BY_DIGIT
+    """A route's ``category`` must agree with the ``category`` FIELD of the train
+    it selects (#1421). A field compare — the identity carries no classification
+    digit to parse. A train declaring no category is not judged (#1440)."""
+    from atdd.planner.interlocking import target_train_category
+
     out: List[dict] = []
     for il in _iter_interlockings(graph):
         for route in il.routes:
-            train_digit = route.train_id[1] if len(route.train_id) >= 2 else ""
-            expected_cat = CATEGORY_BY_DIGIT.get(route.category_digit)
-            if route.category_digit != train_digit or (
-                expected_cat is not None and route.category != expected_cat
-            ):
+            train_category = target_train_category(route.train_path, graph.root)
+            if train_category is None:
+                continue
+            if route.category != train_category:
                 out.append({
                     "source_node": f"{il.interlocking_id}:{route.route_id}",
-                    "fact_a": route.category_digit,
-                    "fact_b": train_digit,
-                    "predicate": "route.category_digit == train_id category digit and category matches",
+                    "fact_a": route.category,
+                    "fact_b": train_category,
+                    "predicate": "route.category == target train's category field",
                     "actual_values": {"category": route.category,
                                       "train_id": route.train_id,
-                                      "category_digit": route.category_digit,
-                                      "train_digit": train_digit},
+                                      "train_path": route.train_path,
+                                      "train_category": train_category},
                 })
     return out
 

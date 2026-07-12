@@ -1017,6 +1017,38 @@ class GraphBuilder:
             except Exception:
                 continue
 
+    def _iter_train_files(self, trains_dir: Path) -> "list[tuple[str, Path]]":
+        """Yield ``(train_urn, path)`` for every real train under ``trains_dir``.
+
+        Typed trains (#1421) live at ``plan/_trains/<subject>/<slug>.yaml`` and
+        their URN is reconstructed from the nested path, so a flat glob misses
+        them entirely. Legacy flat files are still enumerated during the
+        migration window.
+
+        Underscore-prefixed entries are registry/alias artifacts —
+        ``_aliases.yaml``, ``_interlockings/`` — NOT trains. They declare no
+        ``train_id``, so treating one as a train detail file would mint a bogus
+        URN from its stem. This mirrors the same skip in ``TrainResolver``.
+        """
+        found: "list[tuple[str, Path]]" = []
+
+        for subject_dir in sorted(trains_dir.iterdir()):
+            if not subject_dir.is_dir() or subject_dir.name.startswith("_"):
+                continue
+            for train_file in sorted(subject_dir.glob("*.yaml")):
+                if train_file.name.startswith("_"):
+                    continue
+                found.append(
+                    (f"train:{subject_dir.name}:{train_file.stem}", train_file)
+                )
+
+        for train_file in sorted(trains_dir.glob("*.yaml")):
+            if train_file.name.startswith("_"):
+                continue
+            found.append((f"train:{train_file.stem}", train_file))
+
+        return found
+
     def _build_train_edges(self, graph: TraceabilityGraph) -> None:
         """Build train -> wagon containment edges."""
         import yaml
@@ -1025,7 +1057,7 @@ class GraphBuilder:
         if not trains_dir.exists():
             return
 
-        for train_file in trains_dir.glob("*.yaml"):
+        for path_urn, train_file in self._iter_train_files(trains_dir):
             try:
                 with open(train_file, "r", encoding="utf-8") as f:
                     data = yaml.safe_load(f)
@@ -1033,8 +1065,14 @@ class GraphBuilder:
                 if not data or not isinstance(data, dict):
                     continue
 
-                train_id = data.get("id") or train_file.stem
-                train_urn = f"train:{train_id}"
+                # A declared identity wins; the path-derived URN is the fallback
+                # (and is already typed for a train under a subject directory).
+                declared = data.get("train_id") or data.get("id")
+                train_urn = (
+                    declared
+                    if isinstance(declared, str) and declared.startswith("train:")
+                    else path_urn
+                )
 
                 # Store train description in node metadata
                 description = data.get("description")
@@ -1105,18 +1143,12 @@ class GraphBuilder:
                 # Non-wagon participants (user:*, system:*) on either side
                 # are ignored — TRAIN_STEP is strictly wagon-to-wagon.
                 #
-                # Category is derived from train_id[1] per the naming
-                # convention `{theme}{category}{variation}-slug`:
-                #   0 = nominal, 1 = error, 2 = alternate, 3 = exception.
-                _TRAIN_CATEGORY_BY_DIGIT = {
-                    "0": "nominal",
-                    "1": "error",
-                    "2": "alternate",
-                    "3": "exception",
-                }
-                category = "nominal"
-                if isinstance(train_id, str) and len(train_id) > 1:
-                    category = _TRAIN_CATEGORY_BY_DIGIT.get(train_id[1], "nominal")
+                # Category is a validated FIELD on the train (#1421/#1440), never
+                # a digit in its identity — a typed train:<subject>:<slug> has no
+                # digit to index. A train that declares none is nominal.
+                category = data.get("category")
+                if not isinstance(category, str) or not category:
+                    category = "nominal"
 
                 sequence = data.get("sequence") or []
                 if isinstance(sequence, list):
