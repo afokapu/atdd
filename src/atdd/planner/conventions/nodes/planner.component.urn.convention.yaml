@@ -1,0 +1,86 @@
+schema_version: 1.1.0
+rule_id: planner.component.urn
+kind: rule
+status: active
+name: 'Component: Urn'
+statement: A component URN follows the pattern component:{wagon}:{feature}:{name}:{side}:{layer}
+  with colon hierarchy separators, casing rules, no file extensions, and is built
+  via utils.graph.URNBuilder.component.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+  legacy_section: urn
+content:
+  summary: A stable, colon-separated component URN ties every component back to its
+    owning wagon and feature and pins its deployment side and architectural layer,
+    so the graph can address components unambiguously and case-sensitively.
+  examples:
+  - component:resolve-dilemmas:choose-option:OptionValidator:backend:domain
+  - component:manage-users:authenticate-user:LoginForm:frontend:presentation
+  - component:maintain-ux:assets-catalog:AssetIndexer:backend:integration
+  - 'component:navigate-domains:browse-hierarchy:composition:backend:assembly  # feature
+    composition (above layers)'
+  - 'component:trains:runner:TrainRunner:backend:assembly  # train infrastructure
+    (always assembly)'
+  counter_examples:
+  - 'component:resolve-dilemmas:choose-option:OptionValidator.py:backend:domain  #
+    file extension'
+  - 'component:Resolve-Dilemmas:choose-option:OptionValidator:backend:domain  # wagon
+    not kebab-lower'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: urn_pattern
+  label: Component URN pattern
+  text: 'Stable component URN with all segments colon-separated: component:{wagon}:{feature}:{name}:{side}:{layer}.
+    Built via utils.graph.URNBuilder.component(wagon_id, feature_id, component_name,
+    side, layer).'
+  values:
+    pattern: component:{wagon}:{feature}:{name}:{side}:{layer}
+    utility: utils.graph.URNBuilder.component(wagon_id, feature_id, component_name,
+      side, layer)
+    hierarchy_separator: ':'
+    facet_separator: .
+- term_id: urn_parts
+  label: URN segment meanings
+  text: Each URN segment has a defined meaning and casing for wagon, feature, name,
+    side, and layer.
+  values:
+    wagon: Parent wagon identifier (kebab-case). Use 'trains' for train infrastructure.
+    feature: Parent feature identifier (kebab-case). Use 'wagon' for wagon entrypoints.
+    name: Logical component name (PascalCase, camelCase, or dot-separated)
+    side: Deployment side (frontend|backend|fe|be)
+    layer: Architectural layer (presentation|application|domain|integration|assembly)
+- term_id: urn_casing
+  label: Casing and case policy
+  text: Wagon and feature segments are kebab/lower; name facets may be kebab/lower
+    or CamelCase. IDs are case-sensitive and stored exactly as written.
+  values:
+    wagon_feature: ^[a-z][a-z0-9-]*$
+    facets:
+    - ^[a-z][a-z0-9-]*$
+    - ^[A-Z][a-zA-Z0-9]*$
+    case_policy: IDs are case-sensitive; store exactly as written.
+- term_id: no_file_extensions
+  label: No file extensions in URN
+  text: Do not include .py/.dart/etc. in a component URN. Use a 'lang-*' facet if
+    a language must be expressed.
+  values:
+    forbidden:
+    - .py
+    - .dart
+    - .ts
+    - .tsx
+    use_instead: lang-* facet
+- term_id: lint_regex
+  label: URN lint regex
+  text: The canonical lint regex a component URN must match.
+  values:
+    lint_regex: ^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$
