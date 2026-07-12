@@ -11,6 +11,7 @@ model. Semantic cross-checks live in :mod:`validate`; route evaluation in
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -33,7 +34,15 @@ from .models import (
     TrainInterlocking,
 )
 
-__all__ = ["InterlockingError", "load_interlocking", "schema_path", "load_schema"]
+__all__ = [
+    "InterlockingError",
+    "load_interlocking",
+    "schema_path",
+    "load_schema",
+    "target_train_category",
+]
+
+_log = logging.getLogger(__name__)
 
 _SCHEMA_PATH = (
     Path(__file__).resolve().parent.parent / "schemas" / "train-interlocking.schema.json"
@@ -50,6 +59,37 @@ def schema_path() -> Path:
 
 def load_schema() -> dict:
     return json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def target_train_category(train_path: str, root: "Path | str | None") -> "str | None":
+    """Read the ``category`` FIELD of the target train YAML (issue #1421).
+
+    The single reader behind every route-category check — the semantic validator,
+    the planner sanity rules, the coherence validator and the runtime runner all
+    compare a route's ``category`` against this, so none of them parses an
+    identity for a classification digit.
+
+    Returns ``None`` when the target cannot be resolved or declares no category —
+    existence of the train is owned by other rules (the author refuses a route
+    whose target train is missing; the schema owns shape), and ``category`` is
+    still optional on a train during the migration transition. This surfaces only
+    the *category field*, so callers judge AGREEMENT and nothing else.
+    """
+    if not train_path or root is None:
+        return None
+    path = Path(root) / train_path
+    if not path.is_file():
+        return None
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        _log.debug(
+            "route-category skipped (unparseable target train yaml)",
+            extra={"path": str(path), "error": str(exc).splitlines()[0][:120]},
+        )
+        return None
+    category = doc.get("category") if isinstance(doc, dict) else None
+    return category if isinstance(category, str) else None
 
 
 def _infer_repo_root(path: Path) -> Path | None:
@@ -99,7 +139,6 @@ def _build_route(raw: Mapping[str, Any]) -> Route:
     return Route(
         route_id=raw["route_id"],
         category=raw["category"],
-        category_digit=raw["category_digit"],
         priority=int(raw["priority"]),
         guard_ref=raw["guard_ref"],
         train_id=raw["train_id"],

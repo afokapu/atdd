@@ -77,7 +77,6 @@ def build_coverage(interlocking: TrainInterlocking) -> dict:
             {
                 "route_id": route.route_id,
                 "category": route.category,
-                "category_digit": route.category_digit,
                 "priority": route.priority,
                 "guard_ref": route.guard_ref,
                 "train_id": route.train_id,
