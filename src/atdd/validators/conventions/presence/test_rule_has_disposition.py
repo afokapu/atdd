@@ -12,13 +12,13 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-from pathlib import Path
 
 from atdd.validators.conventions.presence import archetype
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
-
-from .conftest import patched
+from atdd.validators.conventions._support.graph_mutations import (
+    clone_graph,
+    remove_node_field,
+)
 
 FAMILY = "presence"
 TEMPLATE = "required_field_presence"
@@ -34,15 +34,10 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_rule_disposition_requir
 
 _TC = {t.template_id: t for t in archetype.TEMPLATES}
 # An enforceable rule (direct validator) whose disposition we drop to inject the
-# fault. Its authoritative home is its single-node nodes/ file (#1225), so the
-# fault is injected by dropping metadata.disposition there.
+# fault. Its authoritative home is its single-node nodes/ file (#1225), which carries
+# ``metadata.disposition``; the fault removes that key so ``required_field_presence``
+# flags the rule for the missing disposition.
 _TARGET_RULE = "planner.wmbt.must-have-smoke-acceptance"
-WMBT_CONVENTION = (
-    "src/atdd/planner/conventions/nodes/"
-    "planner.wmbt.must-have-smoke-acceptance.convention.yaml"
-)
-_RULE_BLOCK = "  disposition: suppress-and-clean\n"
-_RULE_BLOCK_NO_DISP = ""
 
 
 def _evaluate(graph) -> list:
@@ -60,13 +55,24 @@ def test_rule_has_disposition_clean_baseline(clean_convention_graph) -> None:
     assert _evaluate(clean_convention_graph) == []
 
 
-def test_rule_has_disposition_catches_injected_fault(repo_root: Path) -> None:
-    """Dropping the disposition from an allowlisted rule is caught, template-shaped."""
-    with patched(repo_root, WMBT_CONVENTION, _RULE_BLOCK, _RULE_BLOCK_NO_DISP):
-        violations = _evaluate(load_composed_graph(repo_root))
+def test_rule_has_disposition_catches_injected_fault(clean_convention_graph) -> None:
+    """Dropping the disposition from an allowlisted rule is caught, template-shaped.
+
+    The fault is injected into a deep CLONE of the session graph (#1416): the target
+    rule's ``metadata.disposition`` key is removed in memory, never on disk. The shared
+    ``clean_convention_graph`` is left untouched, so no rebuild is triggered and the
+    working tree is never written.
+    """
+    faulted = clone_graph(clean_convention_graph)
+    remove_node_field(faulted, _TARGET_RULE, ("metadata", "disposition"))
+
+    violations = _evaluate(faulted)
     assert any(v["node_id"] == _TARGET_RULE for v in violations)
     for v in violations:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
+
+    # the shared clean graph is unmutated: the target still declares its disposition
+    assert _evaluate(clean_convention_graph) == []
     # Legacy parity (verdict `both`) was proven against
     # test_rule_disposition_required.py::test_rule_disposition_required before that
     # legacy validator was decommissioned (#1207); coach.rule-id.disposition-required
