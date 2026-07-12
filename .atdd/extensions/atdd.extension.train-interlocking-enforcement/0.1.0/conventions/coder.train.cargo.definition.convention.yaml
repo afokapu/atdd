@@ -1,0 +1,36 @@
+schema_version: 1.1.0
+rule_id: coder.train.cargo.definition
+kind: family
+status: active
+name: Cargo — artifact data plane carried by TrainRunner (advisory semantic anchor)
+statement: >-
+  Cargo is the artifact data plane carried by TrainRunner between wagons inside a selected train:
+  TrainRunner passes it from wagon to wagon, wagons read and return artifact dictionaries, and the
+  `InterlockingRunner` does not reference or carry it. It is the runtime form of a planner `artifact`.
+  This node is an advisory semantic anchor — it enforces nothing directly; the enforceable parts of this
+  meaning are decomposed into the constraint/rule nodes that require it.
+content:
+  summary: >-
+    An advisory definition of the runtime (coder-layer) Cargo concept — the in-flight realization of
+    artifacts that lives inside TrainRunner execution and that wagons exchange. It fixes the Cargo
+    boundary meaning the enforcing rule operationalizes: Cargo stays inside TrainRunner; the
+    InterlockingRunner does not touch it and wagons stay clean.
+  note: >-
+    Advisory anchor: it ships no validator. Within this extension it connects (relationships.yaml,
+    `type: relates-to`) to coder.train.interlocking-does-not-carry-cargo, which asserts "Cargo is the
+    artifact data plane carried by TrainRunner between wagons inside a selected train" and forbids the
+    InterlockingRunner from referencing or mutating it. The core wagon<->cargo communication enforcer
+    lives in the core repo (afokapu/atdd); per boundary spec §6.2 that core<->extension relationship is
+    declared narratively here, never as a relationship-graph edge.
+metadata:
+  aliases:
+    - CARGO-DEFINITION
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: cargo
+    text: >-
+      the artifact data plane carried by TrainRunner between wagons inside a selected train; wagons read
+      and return artifact dictionaries, and the InterlockingRunner does not reference or carry it.

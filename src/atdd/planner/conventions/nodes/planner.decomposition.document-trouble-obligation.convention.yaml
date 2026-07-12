@@ -1,0 +1,12 @@
+schema_version: 1.0.0
+rule_id: planner.decomposition.document-trouble-obligation
+kind: constraint
+status: active
+statement: "If the agent cannot adequately parse, analyze, or review a source document,\
+  \ it must inform the operator \u2014 stating what it could not extract or understand\
+  \ and asking how to proceed \u2014 rather than planning from a partial reading."
+terms:
+- term_id: document_trouble
+  text: any source the agent cannot fully parse/analyze/review.
+- term_id: inform_not_guess
+  text: surface the gap and ask the operator; never silently plan from a partial reading.

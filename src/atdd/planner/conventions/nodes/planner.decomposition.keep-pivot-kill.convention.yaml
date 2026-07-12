@@ -1,0 +1,15 @@
+schema_version: 1.0.0
+rule_id: planner.decomposition.keep-pivot-kill
+kind: pattern
+status: active
+statement: 'Decomposition advances by per-unit keep/pivot/kill: the operator keeps,
+  pivots (names a modification), or kills each candidate (heuristic, analog, main
+  job, wagon, feature, WMBT, acceptance); an artifact is written only after a final-granularity
+  keep.'
+terms:
+- term_id: keep
+  text: accept the candidate as-is and proceed.
+- term_id: pivot
+  text: accept with a named modification, then re-confirm.
+- term_id: kill
+  text: reject the candidate; on all-killed, re-propose.

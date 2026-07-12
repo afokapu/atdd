@@ -293,6 +293,63 @@ jobs:
       - name: Run incident-defense suite (§9)
         run: PYTHONPATH=src python3 -m pytest tests/incident_defenses/ -v --tb=short
 
+  # Extension-convention enforcement (#1359). Runs `atdd enforce` over the
+  # vendored, committed substrate (.atdd/{extensions,workspaces} + binding.lock).
+  # The convention VERDICT is ADVISORY (non-blocking) — a deliberate ratchet
+  # STAGE: the toolkit does not yet pass 13/25 of its own extension rules (active
+  # core debt, not legacy), so the verdict is surfaced but does not fail the
+  # build. The flip to a BLOCKING gate is a tracked follow-up (decommission #1207
+  # + extract the subagent-orchestration surface out of core). Substrate digest
+  # coherence and the gate wiring ARE blocking (real invariants). train-interlocking
+  # is deferred to #1361 (blocked on #1292/#1345).
+  enforce-extensions:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+
+      # Blocking: the committed vendored substrate must be digest-coherent.
+      # PYTHONDONTWRITEBYTECODE keeps the tree clean — compute_digest hashes .pyc,
+      # so a compiled provider would otherwise drift the digest.
+      - name: Verify extension substrate (blocking)
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: PYTHONPATH=src python3 -m atdd enforce --verify-substrate --repo-root .
+
+      # Advisory (non-blocking) ratchet stage — surfaces the real PASS/FAIL verdict
+      # without failing the build. Do NOT make this blocking until the toolkit's
+      # self-debt is paid (decommission #1207 + orchestration-out-of-core).
+      - name: Enforce extension conventions (ADVISORY — ratchet stage, #1359)
+        continue-on-error: true
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          echo "::notice::ADVISORY extension enforcement (#1359 ratchet stage) — verdict is non-blocking until the toolkit passes its own rules."
+          # Scope to the toolkit's product code (config `code.toolkit: src/atdd`);
+          # avoids scanning the vendored substrate's own intentional-dirty fixtures.
+          PYTHONPATH=src python3 -m atdd enforce --repo-root . --paths src/atdd || true
+
+      # Blocking: the gate wiring + substrate guards must hold (regression guard).
+      - name: Assert enforce gate wiring
+        run: PYTHONPATH=src python3 -m pytest tests/enforce/ -v --tb=short
+
   # Note: the pre-merge `version-bump` PR check was removed in #462 phase 2.
   # Version is now bumped automatically on main by the bump-on-merge step in
   # `.github/workflows/post-merge-lifecycle.yml` (branch-prefix → semver
@@ -301,7 +358,7 @@ jobs:
   # check that no longer reports.
 
   validate-gate:
-    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-smoke, import-discipline-test, parity-test, incident-defense-test]
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-smoke, import-discipline-test, parity-test, incident-defense-test, enforce-extensions]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -317,7 +374,8 @@ jobs:
                         "smoke:${{ needs.validate-smoke.result }}" \
                         "import-discipline:${{ needs.import-discipline-test.result }}" \
                         "parity:${{ needs.parity-test.result }}" \
-                        "incident-defense:${{ needs.incident-defense-test.result }}"; do
+                        "incident-defense:${{ needs.incident-defense-test.result }}" \
+                        "enforce-extensions:${{ needs.enforce-extensions.result }}"; do
             phase="${result%%:*}"
             status="${result##*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

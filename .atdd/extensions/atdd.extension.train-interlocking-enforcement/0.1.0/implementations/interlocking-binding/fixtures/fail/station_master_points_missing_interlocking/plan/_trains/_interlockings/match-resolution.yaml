@@ -1,0 +1,27 @@
+# Interlocking route space (core afokapu/atdd#1248). CLEAN bilateral-binding fixture:
+# the declared route resolves to an existing train, the exposed entrypoint.action is
+# wired into the Station Master, the runtime resolves only this declared route, and the
+# e2e trace binds it back here. Reachability is declared via the CORE `entrypoint` field
+# (exposed/actions/reason) — no parallel reachability field.
+schema_version: 1.0.0
+interlocking_id: interlocking:match-resolution
+title: Match resolution route interlocking
+theme: match
+status: checked
+
+entrypoint:
+  exposed: true
+  actions:
+    - resolve_match
+  reason: null
+
+route_resolution:
+  strategy: fail_on_multiple_match
+
+routes:
+  - route_id: nominal-all-voted
+    category: nominal
+    category_digit: "0"
+    guard_ref: guard:all-voted
+    train_id: 3007-match-resolution-standard
+    train_path: plan/_trains/3007-match-resolution-standard.yaml
