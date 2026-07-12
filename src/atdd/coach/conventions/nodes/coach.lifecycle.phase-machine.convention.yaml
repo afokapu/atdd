@@ -1,0 +1,32 @@
+schema_version: 1.1.0
+rule_id: coach.lifecycle.phase-machine
+kind: principle
+status: active
+name: ATDD lifecycle phase machine
+statement: 'Per-issue lifecycle is a fixed state machine: INIT(planner)→PLANNED(tester)→RED(coder)→GREEN(tester)→SMOKE(coder)→REFACTOR(coder)→COMPLETE,
+  with BLOCKED and OBSOLETE escapes; each phase declares its driving persona, legal transitions, and an
+  optional pre_commit_gate.'
+source:
+  legacy_path: src/atdd/coach/conventions/phase_machine.convention.yaml
+  legacy_section: phases
+  legacy_sha: 44149569b61bbb41
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.phase-machine
+metadata:
+  severity: 4
+  # documentation-only (#1225): the phase machine is a structural spec with no bound
+  # validator / bind_rule callsite — it documents the lifecycle, it is not an enforcement gate.
+  disposition: documentation-only
+  introduced_in: 3.84.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: phases
+  text: INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, COMPLETE (terminal), plus BLOCKED and OBSOLETE escapes.
+- term_id: pre_commit_gate
+  text: an optional CLI command a phase runs before committing its produced artifact, e.g. INIT runs `atdd
+    validate planner --local --skip-api`.

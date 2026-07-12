@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+rule_id: coder.commons.shared-code-named-commons
+kind: constraint
+status: active
+name: Shared cross-feature code is named commons
+statement: Shared cross-feature code MUST be placed under a module named 'commons'
+  (never 'shared', 'core', or 'lib'), consistently across all stacks, so the shared
+  layer is unambiguous and greppable.
+terms:
+- term_id: commons_naming
+  text: the single canonical name for the cross-feature shared layer is commons; alternatives
+    like shared/core/lib are forbidden to avoid divergent shared roots
+source:
+  legacy_path: src/atdd/coder/conventions/commons.convention.yaml
+  legacy_section: structure_patterns.common_principles
+  legacy_rule_id: Consistent naming
+  extraction_mode: high_fidelity
+content:
+  summary: Stack-neutral naming-consistency constraint for the shared layer; applies
+    to both backend and frontend stacks.
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.66.0

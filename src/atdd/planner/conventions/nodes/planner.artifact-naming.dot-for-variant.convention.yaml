@@ -1,0 +1,25 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.dot-for-variant
+kind: rule
+status: active
+name: Dot for lateral variation
+statement: 'Use a dot for lateral variation: same conceptual level, different flavor/state/type/facet.'
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: decision_rules.when_to_use_dot
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - sensory:gesture.raw vs sensory:gesture.tapped
+  - player:session.active vs player:session.closed
+  - match:config.duel vs match:config.team
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: lateral_variation
+  text: a different flavor/state of the same aspect, marked by a dot.

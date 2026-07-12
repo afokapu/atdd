@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E026
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: incomplete-harness-enum
+context_clarifier: the acceptance harness enum includes smoke so SMOKE acceptances
+  are not false-flagged
+lens: functional.effectiveness
+statement: minimize likelihood of incomplete-harness-enum by including smoke in the
+  acceptance harness enum so SMOKE acceptances are not false-flagged
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E026-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E026 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

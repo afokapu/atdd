@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+rule_id: tester.filename.test-placed-in-owning-feature
+kind: rule
+status: active
+name: Test placed in its owning feature
+statement: Each acceptance belongs to exactly one feature, and its test is colocated
+  with that feature so requirements map directly to their verification.
+terms:
+- term_id: feature
+  text: 'A unit of behavior declared in a wagon manifest (feature: URN) that owns
+    the acceptances and the tests verifying them.'
+source:
+  legacy_path: src/atdd/tester/conventions/filename.convention.yaml
+  legacy_section: feature_discovery / acceptance_to_feature_mapping
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: An acceptance URN resolves to a single owning feature; its test colocates
+    with that feature for locality and traceability. The concrete {lang}/{wagon}/{feature}/test/
+    path rendering is a workspace mechanic.
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 3.137.0

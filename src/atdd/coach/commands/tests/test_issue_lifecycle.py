@@ -44,7 +44,7 @@ def test_green_status_points_to_smoke(capsys):
     output = _print_context_for_status("GREEN", capsys)
 
     assert "Run tester SMOKE verification" in output
-    assert "atdd issue 174 --status SMOKE" in output
+    assert "atdd coach transition 174 SMOKE" in output
 
 
 def test_smoke_status_points_to_refactor(capsys):
@@ -54,7 +54,7 @@ def test_smoke_status_points_to_refactor(capsys):
     output = _print_context_for_status("SMOKE", capsys)
 
     assert "Refactor to clean architecture" in output
-    assert "atdd issue 174 --status REFACTOR" in output
+    assert "atdd coach transition 174 REFACTOR" in output
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ class TestEnterFromMain:
 
         # Hard handoff printed
         assert "cd" in output, "Handoff must include cd command"
-        assert "atdd issue 175" in output, "Handoff must include re-entry command"
+        assert "atdd coach enter 175" in output, "Handoff must include re-entry command"
 
         # Gate and full context NOT called
         mock_gate.assert_not_called()

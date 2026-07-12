@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+rule_id: planner.wagon.name-is-verb-object
+kind: rule
+status: active
+name: Wagon name is verb-object
+statement: A wagon slug must be verb-object — kebab-case, at least two tokens, the
+  leading token a verb from the convention verb lexicon, and no connective tokens.
+  Brand or proper-noun slugs must be listed explicitly in wagon.convention.yaml
+  verb_object_enforcement.brand_exceptions; an implicit exception is a violation.
+terms:
+- term_id: wagon_verb_object
+  text: the verb-object naming rule for a wagon slug
+  values:
+    lexicon_source: conventions:planner:feature#/artifact_seeds/verb_selection
+    examples_ok:
+    - resolve-dilemmas
+    - manage-users
+    - route-request
+    - preview-changes
+    - respond-event
+    examples_bad:
+    - mode-select
+    - blitz
+implementation:
+  type: validator
+  ref: test_wagon_name_is_verb_object::test_confirm_blocks_non_verb_object_wagon
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: format
+  template: naming_pattern
+  variant: planner_wagon_name_is_verb_object
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: wagon
+  failure_evidence:
+  - wagon_slug
+  - reason

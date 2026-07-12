@@ -1,0 +1,75 @@
+urn: "wmbt:coach-verb-split:E004"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "behavior-drift-between-atdd-issue-sync-labels-and-atdd-coach-sync-labels"
+context_clarifier: "when umbrella #1303 splits `atdd issue` across the author and coach archetypes: C4 (#1308) extracts the label re-derivation verb DELEGATION-ONLY (it must NOT re-implement the sync-labels logic), the existing `atdd issue sync-labels` callers must keep working, the label re-derivation / GitHub-delta / closed-phase-normalization (#1284) behavior must survive the move unchanged, and C1-C3/C5 must be able to add/remove their verbs in parallel without merge conflicts on shared wiring"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of behavior-drift-between-atdd-issue-sync-labels-and-atdd-coach-sync-labels by registering `atdd coach sync-labels` as a thin auto-discovered drop-in in the coach_verbs package that DELEGATES verbatim to the current logic — IssueManager.sync_labels / sync_labels_all (the body-metadata re-derivation, GitHub label delta, and #1284 closed-issue phase normalization) and cli._print_sync_labels_delta (the delta presentation) — re-implementing nothing, and rewiring the deprecated `atdd issue sync-labels` form to warn on stderr and delegate to the same verb, so the two entry points are the same code and each extracted verb touches nothing shared"
+acceptances:
+  - identity:
+      urn: "acc:coach-verb-split:E004-UNIT-001-sync-labels-verb-auto-discovery"
+      id: "AC-UNIT-001"
+      purpose: "coach_verbs.resolve_verb('sync-labels') returns the sync_labels.run entry point, and the drop-in is discovered with zero edits to any shared file (run_cli / cli dispatch table / registry list)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The coach_verbs auto-discovery package with the sync_labels.py drop-in present"
+    when:
+      abstract: "resolve_verb('sync-labels') and discover() are called"
+    then:
+      abstract:
+        - "resolve_verb('sync-labels') is the same callable as coach_verbs.sync_labels.run"
+        - "discover()['sync-labels'] is that same callable"
+        - "resolve_verb of an unknown token or a bare issue number returns None"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
+  - identity:
+      urn: "acc:coach-verb-split:E004-INTEGRATION-001-coach-sync-labels-delegates-identically"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd coach sync-labels delegates to IssueManager.sync_labels / sync_labels_all identically to the old atdd issue sync-labels path, and the deprecated shim warns + delegates"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueManager.sync_labels and sync_labels_all stubbed at the class level (no GitHub I/O)"
+        - "A throwaway issue number (never a live issue) under a temp control root"
+    when:
+      abstract: "coach.run_cli(['sync-labels', N]) / ['sync-labels','--all','--dry-run'] is called, and separately cli.main for `issue sync-labels ...`"
+    then:
+      abstract:
+        - "coach.run_cli(['sync-labels', N]) reaches IssueManager.sync_labels(N, dry_run=False); --dry-run forwards dry_run=True"
+        - "--all reaches sync_labels_all(dry_run=...) and never the single-issue path"
+        - "A missing number and no --all returns 1 without any GitHub-touching delegate call"
+        - "The deprecated `atdd issue sync-labels` prints a stderr deprecation notice naming `atdd coach sync-labels` and delegates with the reconstructed argv ([N] / ['--all','--dry-run'])"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
+  - identity:
+      urn: "acc:coach-verb-split:E004-SMOKE-001-real-sync-labels-in-temp-control-root"
+      id: "AC-SMOKE-001"
+      purpose: "against a temp ATDD_CONTROL_ROOT with a throwaway issue (never a live issue) and a stubbed GitHub client, atdd coach sync-labels drives the real IssueManager.sync_labels re-derivation and the deprecated shim routes to it"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp control root (ATDD_CONTROL_ROOT) with a throwaway issue number that is not any real issue"
+        - "The GitHub client fake returns a body whose Issue Metadata table drives a known expected label set; add_label/remove_label are recorded, not sent"
+    when:
+      abstract: "atdd coach sync-labels <throwaway-N> is executed end-to-end against the temp control root, then the deprecated `atdd issue sync-labels <throwaway-N>`"
+    then:
+      abstract:
+        - "The recorded label delta equals the body-derived expected set (add/remove) exactly as IssueManager.sync_labels computes it — proving the verb delegates to the real re-derivation"
+        - "Running the deprecated `atdd issue sync-labels <throwaway-N>` reaches the same code (same recorded delta) and prints the deprecation notice"
+        - "No live GitHub issue and no real control root outside the temp dir is ever touched"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"

@@ -1,0 +1,66 @@
+schema_version: 1.1.0
+rule_id: coder.logging.print
+kind: rule
+status: active
+name: No console-print diagnostics in production code
+statement: Production application code MUST NOT emit diagnostic output by writing directly to the
+  process stdout/stderr stream (the language's bare console-print primitive); it must route observability
+  through a structured logger instead. This is the language-agnostic obligation owned by the coder
+  extension. The stack-specific detector that enforces it (a pytest/AST scan for `print()` in non-test
+  Python production code) is the python-pytest workspace implementation referenced below — the obligation
+  is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.logging.print
+content:
+  summary: An agnostic "use the logger, not the console" obligation. The Python realization forbids
+    `print()` in non-test production code; other stacks realize the same obligation with their own
+    console primitive (console.log, debugPrint, fmt.Println) under their own workspace detector.
+  normative_text: |
+    Diagnostic / debug output in shippable application code must go through a structured logging facility,
+    never the language's bare console-print primitive. Bare console writes bypass log levels, structured
+    context (correlation ids, request scope), sinks, sampling, and redaction — so they are invisible to
+    production observability and can leak data. The obligation is "no console-print diagnostics in
+    production code"; WHICH primitive is forbidden and HOW it is detected is delegated to the per-stack
+    detector implementation. For Python that primitive is the builtin `print()` and the detector is an
+    AST scan (`ast.Call` whose `func.id == "print"`).
+  fix_hint: |
+    Replace the console-print call with a structured logger call:
+      print(f"user {uid} created")  ->  logger.info("user created", extra={"user_id": uid})
+    Acquire a module logger (`logger = logging.getLogger(__name__)`) and emit at an appropriate level
+    (debug/info/warning/error). If the output is genuinely user-facing CLI output (not a diagnostic),
+    the file belongs to a CLI surface that is exempt — see exceptions.
+  exceptions:
+    - CLI tools and user-facing command output (where the console IS the intended product surface) are
+      exempt; the Python detector exempts the ATDD toolkit's own `src/atdd/` for this reason.
+    - Test code is out of scope — test files (`test_*.py`, `*/tests/`) legitimately print for debugging.
+    - Re-export shims (`__init__.py`) are excluded from the scan.
+metadata:
+  aliases:
+    - LOGGING-PRINT-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/logging.convention.yaml
+  legacy_section: canonical_rules.rules
+  legacy_rule_id: coder.logging.print
+  legacy_sha: b5999f8489b06e20
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: console_print_primitive
+  text: a language's bare write-to-stdout/stderr call (Python `print()`, JS `console.log`, Dart
+    `debugPrint`/`print`, Go `fmt.Println`). The agnostic obligation forbids it for diagnostics; each
+    stack's detector binds the concrete primitive.
+- term_id: structured_logger
+  text: a logging facility carrying level + structured context (e.g. Python stdlib `logging` with
+    `extra={...}`) whose output is routed to managed sinks rather than the raw console.
+- term_id: production_code
+  text: shippable application code under the scanned source roots, excluding test files, `__init__.py`
+    shims, and exempt CLI/user-output surfaces.

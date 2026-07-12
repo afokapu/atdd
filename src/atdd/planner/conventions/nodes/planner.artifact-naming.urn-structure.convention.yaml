@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.urn-structure
+kind: rule
+status: active
+name: URN structure
+statement: 'A contract URN exactly matches the artifact name, preserving colons and dots: contract:{artifact_name}.'
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: urn_structure
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - commons:identifiers.uuid -> contract:commons:identifiers.uuid
+  - commons:ux:foundations:color.primary -> contract:commons:ux:foundations:color.primary
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: contract_urn
+  text: the URN form of an artifact name.
+  values:
+    pattern: contract:{artifact_name}

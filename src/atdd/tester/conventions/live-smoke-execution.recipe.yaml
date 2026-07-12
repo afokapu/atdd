@@ -1,0 +1,53 @@
+recipe: live-smoke-execution
+pattern: "Make a live_smoke acceptance's test run-or-fail against real infrastructure (never self-skip)"
+category: tester
+source: "Issue #1151 — Live Smoke Acceptance Must Execute Not Skip"
+
+applies_when:
+  - "tester.acceptance-violation.live-smoke-acceptance-must-execute fires"
+  - "An execution_kind: live_smoke acceptance's anchored test contains a self-skip mechanism (pytest.skip / pytest.importorskip / @pytest.mark.skip / @pytest.mark.skipif / a live_smoke_available()-style guard)"
+
+explain: |
+  The whole point of a live_smoke acceptance is execution against REAL
+  infrastructure. The substrate emits a Violation from a test's outcome, but a
+  pytest.skip() raises nothing — so a skipped live_smoke test produces no
+  passing outcome and the acceptance passes vacuously. A skip is then
+  indistinguishable from a pass (issue #1076: C010-SMOKE-001 "passed" by
+  skipping; run for real it FAILED).
+
+  A test that CANNOT self-skip must run-or-fail. The SMOKE phase runs inside the
+  workspace provider (the real runtime), so a non-skipping live_smoke test
+  either passes (it executed against real infra) or fails (loudly) — it can
+  never silently count as covered without running. Pairing was already required
+  by hermetic-live-smoke-required-must-have-paired-smoke-acceptance; this makes
+  the paired live_smoke actually execute.
+
+steps:
+  - step: 1
+    what: "Decide whether the claim is genuinely live-inducible"
+    explain: |
+      A live_smoke acceptance must assert behavior that CAN be exercised against
+      real infrastructure in the workspace. If the claim cannot be induced in a
+      test process at all (e.g. "survives OS power-loss / kernel panic"), it is
+      NOT a live_smoke acceptance — re-author it as execution_kind:
+      hermetic_integration (with declared fake_contract_fidelity / known_gaps)
+      or a unit/review assertion, and drop the live_smoke kind.
+
+  - step: 2
+    what: "Remove the self-skip so the test runs-or-fails"
+    where: "the test file anchored to the live_smoke acceptance via its '# Acceptance: <urn>' header"
+    explain: |
+      Delete every self-skip mechanism from the anchored test:
+        - pytest.skip(...) / pytest.importorskip(...)
+        - @pytest.mark.skip / @pytest.mark.skipif (including pytestmark entries)
+        - env-gated helpers like live_smoke_available() that return a skip reason
+      The test must reach its real-infrastructure assertions. If the infrastructure
+      is unavailable, the test FAILS (surfacing the gap) rather than skipping.
+
+  - step: 3
+    what: "Run it where the real infrastructure exists"
+    explain: |
+      Live smokes run inside the workspace provider (the real runtime) at SMOKE
+      phase — that is where the infrastructure is present. A bare local pytest run
+      without the workspace will fail (correctly): the acceptance is not satisfied
+      until it executes for real.

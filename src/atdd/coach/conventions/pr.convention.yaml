@@ -115,7 +115,7 @@ rules:
                  • If this PR genuinely fully closes #N: add `Closes #N` to
                    the PR body (`gh pr edit <N> --body "<new-body>"`) AND
                    advance the issue label first
-                   (`atdd issue <N> --status SMOKE` → `--status REFACTOR`),
+                   (`atdd coach transition <N> SMOKE` → `atdd coach transition <N> REFACTOR`),
                    per coach.pr.merge-blocks-on-pre-smoke-close.
                  • If this PR is a PARTIAL/umbrella step (the issue stays
                    open): amend the commit message to use `Refs #N` instead
@@ -143,7 +143,7 @@ rules:
 # Lifecycle phases relevant to this convention
 # =============================================================================
 # Phase labels live on GitHub issues as `atdd:<PHASE>` and are managed by
-# `atdd issue <N> --status <PHASE>`. This convention treats the following
+# `atdd coach transition <N> <PHASE>`. This convention treats the following
 # phases as MERGE-INELIGIBLE for any PR with an auto-close keyword:
 #
 #   atdd:INIT        — planner has not delivered a wagon yet

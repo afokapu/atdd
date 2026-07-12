@@ -456,6 +456,10 @@ interaction:
           - "HTTP clients calling localhost in production monolith"
           - "Duplicated wiring logic between app.py and composition.py"
 
+  # MIGRATED (#1218 careful pass): the core no-cross-wagon principle now lives at
+  # nodes/coder.boundaries.no-cross-wagon-imports.convention.yaml (canonical home;
+  # the design VC-DS-06 detector and this section collapse into it). The prose below
+  # is preserved verbatim as migration source / examples.
   forbidden_cross_wagon_imports:
     rule: "Code in wagon A MUST NOT import directly from wagon B"
     reference: "design.convention.yaml::VC-DS-06"

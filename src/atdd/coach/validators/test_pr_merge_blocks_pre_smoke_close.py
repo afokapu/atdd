@@ -20,6 +20,8 @@ Run: ``atdd validate coach``
 from __future__ import annotations
 
 import logging
+import os
+import re
 from pathlib import Path
 from typing import Any, List, Optional, Sequence
 
@@ -91,8 +93,8 @@ def evaluate_pr_merge_violations(
             f"transitioned through SMOKE+REFACTOR. Merging this PR would "
             f"fire GitHub's auto-close before the lifecycle reaches SMOKE. "
             f"Drive the issue forward: "
-            f"`atdd issue {issue_number} --status SMOKE` then "
-            f"`atdd issue {issue_number} --status REFACTOR`, or remove the "
+            f"`atdd coach transition {issue_number} SMOKE` then "
+            f"`atdd coach transition {issue_number} REFACTOR`, or remove the "
             f"Closes/Fixes/Resolves keyword from the PR body if this PR is "
             f"a partial step. See issue #681."
         )
@@ -145,6 +147,68 @@ def scan_open_prs_for_pre_smoke_close(
 
 
 # ---------------------------------------------------------------------------
+# PR-under-test scoping (WMBT E056)
+# ---------------------------------------------------------------------------
+
+
+_PULL_REF = re.compile(r"^refs/pull/(\d+)/")
+
+
+def _branch_pr_number(repo_root: Optional[Path] = None) -> Optional[int]:
+    """Resolve the current git branch's open PR via PRManager (no CI env needed)."""
+    try:
+        mgr = PRManager(target_dir=repo_root or REPO_ROOT)
+        branch = mgr._detect_branch()
+        if not branch:
+            return None
+        pr = mgr._existing_pr_for_branch(branch)
+        return int(pr) if pr else None
+    except Exception as exc:  # network/parse failure -> treat as unresolvable
+        logging.getLogger(__name__).warning(
+            "could not resolve current branch PR; gate stays repo-wide",
+            extra={"error": str(exc)},
+        )
+        return None
+
+
+def _current_pr_number(repo_root: Optional[Path] = None) -> Optional[int]:
+    """Resolve the PR currently under test from CI context.
+
+    Order: ``ATDD_PR_NUMBER`` / ``PR_NUMBER`` env → ``GITHUB_REF`` of the form
+    ``refs/pull/<N>/merge`` (GitHub Actions pull_request event) → the current
+    branch's open PR via ``PRManager``. Returns None when none resolves (e.g. a
+    local repo-health run), in which case the gate stays repo-wide for back-compat.
+    """
+    for var in ("ATDD_PR_NUMBER", "PR_NUMBER"):
+        val = os.environ.get(var, "").strip()
+        if val.isdigit():
+            return int(val)
+
+    m = _PULL_REF.match(os.environ.get("GITHUB_REF", "").strip())
+    if m:
+        return int(m.group(1))
+
+    return _branch_pr_number(repo_root)
+
+
+def select_blocking_violations(
+    violations: Sequence[Violation], current_pr: Optional[int]
+) -> List[Violation]:
+    """Select the violations that should FAIL the strict gate on this CI run.
+
+    With a resolved ``current_pr``, only that PR's violation blocks (so an innocent
+    PR is not failed by other PRs' offenses, while an offending PR is still blocked
+    on its own CI). With no current PR (local repo-health), all violations block
+    (repo-wide back-compat). Every offender is still produced + logged by the scan;
+    this only narrows what FAILS the disposition gate.
+    """
+    if current_pr is None:
+        return list(violations)
+    location = f"PR#{current_pr}:0"
+    return [v for v in violations if v.location == location]
+
+
+# ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
 
@@ -163,8 +227,14 @@ def test_no_open_pr_closes_an_issue_in_pre_smoke_phase():
             structured ``Violation`` records the disposition gate fails on.
             Strict disposition — bypass forbidden.
     """
-    violations = scan_open_prs_for_pre_smoke_close(REPO_ROOT)
+    # Scan + log every offender (repo-health visibility), then scope the strict
+    # FAILURE to the PR under test: an innocent PR is not failed by another PR's
+    # offense, while every offender is still blocked on its own CI (E056). With no
+    # resolvable PR (local repo-health run), all violations block (repo-wide).
+    all_violations = scan_open_prs_for_pre_smoke_close(REPO_ROOT)
+    current_pr = _current_pr_number(REPO_ROOT)
+    blocking = select_blocking_violations(all_violations, current_pr)
     assert_disposition_satisfied(
         validator_id=_VALIDATOR_ID,
-        violations=violations,
+        violations=blocking,
     )

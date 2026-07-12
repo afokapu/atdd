@@ -6,19 +6,22 @@ Focuses on URN headers and TSX usage for component tests under web/tests/.
 import pytest
 import re
 
+from atdd.coach.utils.graph.urn import URNGrammar
 
-URN_HEADER_PATTERN = re.compile(
-    r'^//\s*(?:URN|urn):\s*('
-    # V3 acceptance test URN
-    r'test:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}-[a-z0-9-]+'
-    r'|'
-    # V3 journey test URN
-    r'test:train:\d{4}-[a-z0-9][a-z0-9-]*:[A-Z0-9]+-[0-9]{3}-[a-z0-9-]+'
-    r'|'
-    # Legacy acc URN
-    r'acc:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}(?:-[a-z0-9-]+)?'
-    r')$'
-)
+# The URN *grammar* is single-sourced in urn_grammar.yaml and executed by
+# URNGrammar (#1421 Decision 8). This validator only locates the header line;
+# the URN string it carries is validated by the engine, not a local regex.
+_URN_HEADER_RE = re.compile(r'^//\s*(?:URN|urn):\s*(\S+)\s*$')
+
+
+def _is_valid_test_urn(urn: str) -> bool:
+    """Delegate test/acceptance URN validity to ``URNGrammar`` (#1421)."""
+    if not isinstance(urn, str):
+        return False
+    try:
+        return bool(URNGrammar.validate_grammar(urn))
+    except ValueError:
+        return False
 
 
 @pytest.mark.platform
@@ -32,7 +35,8 @@ def test_typescript_test_files_have_urn_header(web_typescript_test_files):
         lines = test_file.read_text().splitlines()
         first_non_empty = next((line.strip() for line in lines if line.strip()), "")
 
-        if not URN_HEADER_PATTERN.match(first_non_empty):
+        _m = _URN_HEADER_RE.match(first_non_empty)
+        if not (_m and _is_valid_test_urn(_m.group(1))):
             errors.append(
                 f"❌ {test_file}\n"
                 f"   Missing URN header in first non-empty line.\n"

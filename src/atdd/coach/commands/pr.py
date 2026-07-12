@@ -25,7 +25,7 @@ from typing import Dict, List, Optional
 
 import yaml
 
-from atdd.coach.commands.issue import TYPE_TO_PREFIX
+from atdd.coach.commands.issue_prefixes import TYPE_TO_PREFIX
 from atdd.coach.utils.default_branch import resolve_default_branch
 from atdd.coach.utils.ff_default_branch import fast_forward_default_branch
 from atdd.coach.utils.risk_score import (
@@ -37,6 +37,28 @@ from atdd.coach.validators._violation import Violation
 logger = logging.getLogger(__name__)
 
 
+def _store_session_entry(root, issue_number: int):
+    """Manifest-session-shaped dict for *issue_number* from the store, or None."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=root) as reader:
+            return reader.session_entry(issue_number)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
+def _store_issue_number_for_slug(root, slug: str):
+    """GitHub issue number linked to *slug* from the store, or None."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=root) as reader:
+            return reader.issue_number_for_slug(slug)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        return None
+
+
 class PRManager:
     """Create pull requests from ATDD issue metadata."""
 
@@ -46,20 +68,13 @@ class PRManager:
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
-    def _load_manifest(self) -> dict:
-        if not self.manifest_file.exists():
-            logger.warning("Manifest not found: %s", self.manifest_file, extra={"path": str(self.manifest_file)})
-            return {}
-        with open(self.manifest_file) as f:
-            return yaml.safe_load(f) or {}
-
     def _find_issue_in_manifest(self, issue_number: int) -> Optional[dict]:
-        """Find an issue in the manifest by number."""
-        manifest = self._load_manifest()
-        for entry in manifest.get("sessions", []):
-            if entry.get("issue_number") == issue_number:
-                return entry
-        return None
+        """Find an issue by number, from the State Store only (#1270 slice D).
+
+        The former ``.atdd/manifest.yaml`` fallback is retired; the store is the
+        sole read source (authoritative since #1203).
+        """
+        return _store_session_entry(self.target_dir, issue_number)
 
     def _get_repo(self) -> Optional[str]:
         """Read repo slug from .atdd/config.yaml."""
@@ -118,7 +133,7 @@ class PRManager:
                 branch = result.stdout.strip()
                 if branch and branch != "HEAD":
                     return branch
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
         return None
 
@@ -133,7 +148,7 @@ class PRManager:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
         return None
 
@@ -148,7 +163,7 @@ class PRManager:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
         return None
 
@@ -211,11 +226,11 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr view %d failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+                logger.debug("gh pr view %d failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
                 return None
             return json.loads(result.stdout)
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to fetch PR #%d: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+            logger.debug("Failed to fetch PR #%d: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
             return None
 
     def _resolve_via_api(self, pr_data: dict) -> Optional[int]:
@@ -234,17 +249,18 @@ class PRManager:
         return None
 
     def _resolve_via_manifest(self, pr_data: dict) -> Optional[int]:
-        """Strategy 3: Branch name → manifest slug → issue_number."""
+        """Strategy 3: Branch name → slug → issue_number.
+
+        #1270 slice D: resolves the slug through the State Store (the
+        authoritative work-item→issue link since #1203); the
+        ``.atdd/manifest.yaml`` fallback is retired.
+        """
         branch = pr_data.get("headRefName") or ""
         if not branch:
             return None
         # Branch format: prefix/slug → extract slug part
         slug = branch.split("/", 1)[-1] if "/" in branch else branch
-        manifest = self._load_manifest()
-        for entry in manifest.get("sessions", []):
-            if entry.get("slug") == slug:
-                return entry.get("issue_number")
-        return None
+        return _store_issue_number_for_slug(self.target_dir, slug)
 
     def _resolve_via_title(self, pr_data: dict) -> Optional[int]:
         """Strategy 4: PR title regex #N (weakest signal, fallback only)."""
@@ -284,7 +300,7 @@ class PRManager:
             if issue_number is not None:
                 issue_data = self._fetch_issue(issue_number)
                 if issue_data is None:
-                    logger.debug(  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+                    logger.debug(  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
                         "Strategy '%s' resolved PR #%d → issue #%d but issue fetch failed",
                         strategy_name, pr_number, issue_number,
                     )
@@ -322,11 +338,11 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr list failed: %s", result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+                logger.debug("gh pr list failed: %s", result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
                 return []
             return json.loads(result.stdout) or []
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to list open PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+            logger.debug("Failed to list open PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
             return []
 
     def fetch_recently_merged_prs(self, limit: int = 20) -> List[dict]:
@@ -340,11 +356,11 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr list --merged failed: %s", result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+                logger.debug("gh pr list --merged failed: %s", result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
                 return []
             return json.loads(result.stdout) or []
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to list merged PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+            logger.debug("Failed to list merged PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
             return []
 
     def fetch_pr_commits(self, pr_number: int) -> List[dict]:
@@ -362,7 +378,7 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr view %d commits failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+                logger.debug("gh pr view %d commits failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
                 return []
             data = json.loads(result.stdout) or {}
             commits: List[dict] = []
@@ -374,7 +390,7 @@ class PRManager:
                 commits.append({"sha": sha, "message": message})
             return commits
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to fetch PR #%d commits: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+            logger.debug("Failed to fetch PR #%d commits: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
             return []
 
     def fetch_pr_changed_files(self, pr_number: int) -> List[str]:
@@ -390,7 +406,7 @@ class PRManager:
                 return []
             return [f for f in result.stdout.strip().splitlines() if f]
         except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-            logger.debug("Failed to fetch PR #%d files: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-07-03
+            logger.debug("Failed to fetch PR #%d files: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
             return []
 
     def _build_pr_title(
@@ -508,7 +524,7 @@ class PRManager:
             )
             if result.returncode == 0:
                 return result.stdout.strip().lower() == "true"
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
         return False
 

@@ -1,0 +1,51 @@
+urn: "wmbt:admit-substrate:L001"
+step: "locate"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "registry-search-results"
+context_clarifier: "before admitting anything an operator must find it: `atdd search <query>` reads the configured registry index(es) and returns candidates matching the query against canonical id, aliases, tags, and (optionally) kind, returning the display name, canonical id, kind, latest version, trust level, and required workspace — search locates, it never installs"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of correct registry-search-results by matching a query against canonical id, aliases, tags, and kind across configured registry indexes and returning the located candidates without installing anything"
+acceptances:
+  - identity:
+      urn: "acc:admit-substrate:L001-UNIT-001-registry-search"
+      id: "AC-UNIT-001"
+      purpose: "search matches by alias, canonical id, tag, and --kind filter, and returns the candidate fields; a non-matching query returns empty"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture registry index with several entries carrying canonical ids, aliases, tags, kinds, and latest versions"
+    when:
+      abstract: "search is run with: an alias query, a canonical-id query, a tag query, a `--kind workspace` filter, and a non-matching query"
+    then:
+      abstract:
+        - "the alias, id, and tag queries return the matching entry/entries"
+        - "the `--kind workspace` filter restricts results to workspace entries"
+        - "each result carries canonical id, kind, latest version, and trust level"
+        - "the non-matching query returns an empty result and installs nothing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:admit-substrate:L001-SMOKE-001-search-cli"
+      id: "AC-SMOKE-001"
+      purpose: "`atdd search <query>` as a subprocess reads a configured registry and prints matching artifacts without installing"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project whose substrate.yaml configures a local registry index file with known entries"
+    when:
+      abstract: "`atdd search <alias>` is invoked as a subprocess"
+    then:
+      abstract:
+        - "the command exits zero and prints the matching artifact's id, kind, and latest version"
+        - "no .atdd/extensions or .atdd/workspaces install directory is created"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

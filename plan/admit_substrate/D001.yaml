@@ -1,0 +1,53 @@
+urn: "wmbt:admit-substrate:D001"
+step: "define"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "substrate-schemas"
+context_clarifier: "the admission layer reads and writes two project files — `.atdd/substrate.yaml` (user intent: configured registries + requested refs) and `.atdd/substrate.lock.yaml` (resolved state: id, kind, version, digest, installed_path, workspaces) — and reads registry index files; each of the three must have exactly one canonical JSON schema so an intent file, a lockfile, or a registry index is structurally well-formed by construction and a malformed one is rejected before any admission step runs"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of schema-valid substrate-schemas by defining one canonical JSON schema each for substrate.yaml (intent), substrate.lock.yaml (resolved+digested state), and the registry index, and validating each file against its schema before use"
+acceptances:
+  - identity:
+      urn: "acc:admit-substrate:D001-UNIT-001-substrate-schemas"
+      id: "AC-UNIT-001"
+      purpose: "a well-formed substrate.yaml, substrate.lock.yaml, and registry index validate against their schemas; malformed variants (missing required field, wrong type, bad version/digest shape) are refused"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Well-formed fixtures for substrate.yaml (registries + substrate refs), substrate.lock.yaml (artifacts with id/kind/version/digest/installed_path/workspaces), and a registry index (entries with canonical id/kind/aliases/versions), plus mutated variants: a lock entry missing its digest, an intent entry missing its ref, a registry entry with a non-SemVer latest_version, and a substrate file with an unknown top-level key"
+    when:
+      abstract: "each fixture is validated against its canonical schema (substrate / substrate-lock / registry-index)"
+    then:
+      abstract:
+        - "each well-formed fixture validates"
+        - "the digest-less lock entry is refused"
+        - "the ref-less intent entry is refused"
+        - "the non-SemVer registry version is refused"
+        - "the unknown top-level key is refused"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:admit-substrate:D001-SMOKE-001-schemas-shipped"
+      id: "AC-SMOKE-001"
+      purpose: "the three substrate schemas ship as package data and load from the installed toolkit (no repo checkout), so a pip-installed core can validate substrate files"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The installed atdd toolkit (schemas ship under the planner schemas package data) and a real .atdd/substrate.lock.yaml written by an admission run"
+    when:
+      abstract: "the lockfile is validated against the installed substrate-lock schema via the public substrate-loading path, resolved package-relatively"
+    then:
+      abstract:
+        - "the schema is resolved from the installed package with no repo-root required"
+        - "the real lockfile validates against it"
+        - "no runtime implementation is imported or executed during validation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

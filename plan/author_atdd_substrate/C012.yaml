@@ -1,0 +1,51 @@
+urn: "wmbt:author-atdd-substrate:C012"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "author-without-publish"
+context_clarifier: "when authoring an issue via `atdd author issue`, no code path may author an issue without publishing it to the store: the generate path (no --check) must reach the store-first publish, and when the State Store genuinely cannot be reached it must FAIL LOUD (non-zero exit, no schema-valid body emitted to stdout) rather than silently degrade to a body-only string — the exact degrade that produced the orphaned, store-unaware GitHub #1271. This is the recurrence guard: a store-unaware author path cannot recur."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of author-without-publish by requiring the generate path to reach the store-first publish and to fail loud (no body-only degrade) when the store is unreachable"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C012-UNIT-001-store-unreachable-fails-loud"
+      id: "AC-UNIT-001"
+      purpose: "When the State Store cannot be reached, the `atdd author issue` generate path exits non-zero and emits NO schema-valid body to stdout — it fails loud instead of silently degrading to a body-only string (the #1271 orphan gap)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "ATDD_CONTROL_ROOT pointed at a path where the State Store cannot be created (e.g. a regular file, so the .atdd/state directory cannot be made)"
+    when:
+      abstract: "the `atdd author issue` generate path (no --check) is run with --title"
+    then:
+      abstract:
+        - "The command exits non-zero"
+        - "No schema-valid issue body is emitted to stdout (no `### Graph Context` body dump) — authoring did not degrade to body-only"
+        - "The error names the store as the unreachable dependency"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"
+  - identity:
+      urn: "acc:author-atdd-substrate:C012-SMOKE-001-store-unreachable-fails-loud"
+      id: "AC-SMOKE-001"
+      purpose: "Verify that when the State Store cannot be reached, `atdd author issue` exits non-zero and emits no schema-valid body (no body-only degrade), run via the installed CLI in a real checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the installed atdd author CLI, with the State Store made unreachable (e.g. ATDD_CONTROL_ROOT pointed at an unwritable location)"
+    when:
+      abstract: "atdd author issue --title <t> --slug <slug> is run (the generate path, no --check)"
+    then:
+      abstract:
+        - "The CLI exits non-zero"
+        - "No schema-valid issue body is emitted to stdout — authoring did not silently degrade to body-only (the #1271 orphan cannot recur)"
+        - "The failure names the store as the unreachable dependency"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-30"

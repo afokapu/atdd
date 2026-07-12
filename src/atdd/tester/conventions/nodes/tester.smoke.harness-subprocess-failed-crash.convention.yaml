@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: tester.smoke.harness-subprocess-failed-crash
+kind: rule
+status: active
+name: Harness subprocess failed crash
+statement: Harness subprocess failed (crash, timeout, or schema-invalid stdout) when
+  mounting the train.
+terms:
+- term_id: harness_subprocess_failure
+  text: the train-render harness subprocess crashed, timed out, or emitted schema-invalid
+    stdout while mounting the train (peer of the behavioral_render harness_error classification
+    case).
+source:
+  legacy_path: src/atdd/tester/conventions/smoke.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.smoke.harness-subprocess-failed-crash
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Train mounted but the harness subprocess failed or returned an
+    unparseable result. Condition: result.error != null OR subprocess timed out OR
+    stdout schema-invalid (severity 3). Per #357: errors must surface; never bare
+    try/except. Classification peer of the behavioral_render harness_error case (rule_id
+    TESTER-RENDER-003).'
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.64.5
+  aliases:
+  - TESTER-RENDER-003

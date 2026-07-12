@@ -44,53 +44,6 @@ scan_scope:
         root, so the check is trivially satisfied. ``pytest.skip`` keeps
         local-dev runs noise-free; CI exercises the wheel-built path."
 
-rules:
-  - id: "coach.wheel-completeness.fixture-missing-from-wheel"
-    aliases: ["COACH-WHEEL-COMPLETENESS-001"]
-    name: "fixture-missing-from-wheel"
-    description: |
-      Every file under ``src/atdd/**/validators/fixtures/**`` (excluding
-      cache-cruft) must exist at the corresponding path under
-      ``Path(atdd.__file__).resolve().parent``.
-    severity: 3
-    disposition: advisory
-    introduced_in: "3.7.1"
-    validator: "test_wheel_completeness::test_validator_fixtures_present_in_wheel"
-    detection: |
-      Source-tree inverse scan. For each source-tree fixture file
-      ``<repo_root>/src/atdd/<rel>``, compute expected install path
-      ``Path(atdd.__file__).resolve().parent/<rel>`` and assert
-      ``.exists()``. Skip the entire check when the resolved
-      ``atdd.__file__`` IS ``<repo_root>/src/atdd/__init__.py``
-      (editable install — source == wheel root).
-    rationale: |
-      Pre-fix v3.7.0 packaging dropped 13 fixture files from the wheel
-      (5 tester + 8 coach + 0 planner). Diagnostics #449 surfaced 4 of
-      them via ``toolkit_packaging_issues`` (the failing-test
-      references); the inverse scan would have surfaced all 13 at
-      build-time, before publish.
-    canonical_recipe:
-      bad: |
-        # pyproject.toml — narrow glob misses non-coder phase fixtures
-        [tool.setuptools.package-data]
-        "atdd" = ["coder/validators/fixtures/**"]
-      good: |
-        # pyproject.toml — recursive glob covers every phase's fixtures
-        [tool.setuptools.package-data]
-        "atdd" = ["**/validators/fixtures/**"]
-    exemptions:
-      - "Editable install (``pip install -e``) — source is the wheel root."
-      - "Cache-cruft files (``__pycache__/``, ``*.pyc``, ``*.pyo``,
-        ``.pytest_cache``, ``.DS_Store``) — those must NOT ship; the
-        scan walks past them."
-    incident_refs:
-      - "#449"
-      - "#451"
-    promotion_plan:
-      target_disposition: "strict"
-      target_version: "3.8.0"
-      gate: "Empirically clean inverse-scan across the active consumer
-        fleet for one minor cycle (3.7.x). Track via the ratchet baseline."
 
 enforcement:
   validator: "src/atdd/coach/validators/test_wheel_completeness.py"

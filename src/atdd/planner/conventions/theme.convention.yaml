@@ -1,19 +1,23 @@
 version: "1.0"
 name: "Theme Convention"
 description: >-
-  Canonical wagon/train theme taxonomy (issue #970). Collapses the vestigial
-  10-theme game-domain template (commons/mechanic/scenario/match/sensory/player/
-  league/audience/monetization/partnership) down to five canonical themes that
-  describe the ATDD toolkit's own abstraction stack, and binds validators that
-  enforce the set, the commons-vs-coach boundary, URN-prefix alignment, and
-  archetype alignment.
+  Wagon/train theme taxonomy (issue #970; consumer-aware #1317). The ATDD
+  toolkit self-governs to a five-theme abstraction stack (commons/plan/test/
+  code/coach), declared in its own .atdd/config.yaml `themes:` block. The
+  canonical SET a repo enforces is NOT hardcoded: planner.theme.must-be-canonical
+  resolves it from get_theme_map(config) — the effective, consumer-repo-aware map
+  (built-in defaults + .atdd/config.yaml overrides) — so a game/consumer repo
+  governs against its own domain themes. This convention also binds the
+  commons-vs-coach boundary, URN-prefix alignment, and archetype alignment.
 
 # =============================================================================
 # CANONICAL TAXONOMY (5 themes, ordered as an abstraction stack)
 # =============================================================================
 # Digit alignment preserves the existing train-numbering scheme
-# (train.convention.yaml theme_digit): only digits 0-4 are canonical; 5-9 are
-# retired. The digit-0 NAME is the single flip point — see `theme_zero_token`
+# (train.convention.yaml theme_digit). This is the TOOLKIT's own map (digits
+# 0-4); a consumer repo declares its own via .atdd/config.yaml `themes:` and
+# must-be-canonical resolves the effective set from get_theme_map(config)
+# (#1317). The digit-0 NAME is the single flip point — see `theme_zero_token`
 # below and CANONICAL_THEME_0 in
 # src/atdd/planner/validators/_theme_taxonomy.py (one constant, mirrored here).
 taxonomy:
@@ -58,9 +62,14 @@ taxonomy:
 
   retired_digits: ["5", "6", "7", "8", "9"]
   retired_note: >-
-    The legacy game-domain names (sensory/player/league/audience/monetization/
-    partnership) at digits 5-9 are retired. DEFAULT_THEME_MAP retains them for
-    back-compat resolution only; planner.theme.must-be-canonical rejects them.
+    In the TOOLKIT's own repo, digits 5-9 (the legacy game-domain names
+    sensory/player/league/audience/monetization/partnership) are unused — the
+    toolkit config declares only 0-4. must-be-canonical no longer hardcodes a
+    reject list (#1317): a theme is non-canonical iff it is absent from the
+    effective get_theme_map(config), so the validator and get_theme_map can
+    never disagree. get_theme_map merges overrides onto the built-in defaults
+    and cannot remove digits, so 5-9 keep the game-domain defaults but are not
+    referenced by any toolkit wagon.
 
 # =============================================================================
 # COMMONS-vs-COACH BOUNDARY (the one sharp line — bindable)
@@ -87,69 +96,7 @@ boundary:
 # Structured rules (SPEC-COACH-RULEID-0007 — every rule is bound bidirectionally
 # to a validator below via `validator: <module>::<test_function>`)
 # =============================================================================
-rules:
-  - id: "planner.theme.must-be-canonical"
-    aliases: ["PLANNER-THEME-CANONICAL-001"]
-    severity: 3
-    disposition: suppress-and-clean
-    validator: "test_theme_must_be_canonical::test_every_wagon_theme_is_canonical"
-    introduced_in: "3.92.0"
-    description: >-
-      Every wagon `theme:` and every train theme-digit MUST resolve to one of
-      the five canonical themes (commons/plan/test/code/coach; digits 0-4).
-      Retired game-domain themes (digits 5-9) and any undeclared theme are
-      rejected. Subsumes the runtime theme-membership check described by
-      wmbt:govern-lifecycle:E001 (which is otherwise unbound).
 
-  - id: "planner.theme.commons-coach-boundary"
-    aliases: ["PLANNER-THEME-BOUNDARY-001"]
-    severity: 3
-    disposition: suppress-and-clean
-    validator: "test_theme_commons_coach_boundary::test_commons_wagons_do_not_import_coach"
-    introduced_in: "3.92.0"
-    description: >-
-      A wagon themed `commons` MUST NOT have any source module that imports
-      `atdd.coach`. Coach-only machinery (multiplexer/pane spawn, durable run
-      persistence, the Feed daemon, worker-decision mediation) MUST be themed
-      `coach`. Known deferred violation: mediate-worker-decisions (commons,
-      imports coach) — suppressed UNTIL the #951 co-land re-theme.
 
-  - id: "planner.theme.urn-namespace-matches"
-    aliases: ["PLANNER-THEME-URN-001"]
-    severity: 3
-    disposition: suppress-and-clean
-    validator: "test_theme_urn_namespace_matches::test_produced_urn_prefix_matches_theme"
-    introduced_in: "3.92.0"
-    description: >-
-      A wagon's produced contract/telemetry URN theme-prefix MUST equal the
-      wagon `theme:`. Catches `commons:decision:*` artifacts living under a
-      `coach`-themed wagon. Drives the commons:decision:* -> coach:decision:*
-      migration tracking (deferred to #951 co-land).
 
-  - id: "planner.theme.archetype-alignment"
-    aliases: ["PLANNER-THEME-ARCHETYPE-001"]
-    severity: 2
-    disposition: documentation-only
-    # documentation-only rules MUST NOT carry a `validator:` back-reference
-    # (reverse rule-coherence). The advisory scan still lives in
-    # test_theme_archetype_alignment.py; it just isn't a bound enforcement gate.
-    introduced_in: "3.92.0"
-    description: >-
-      The plan/test/code themes align to the planner/tester/coder archetypes
-      respectively: a wagon themed `code` whose implementation lives outside a
-      coder-archetype source root (or vice versa) is surfaced. Also exercises
-      theme discovery across plan/ described by wmbt:govern-lifecycle:L001.
 
-  - id: "planner.theme.theme-zero-mandatory"
-    aliases: ["PLANNER-THEME-ZERO-001"]
-    severity: 4
-    disposition: block
-    validator: "test_theme_zero_mandatory::test_commons_is_always_in_resolved_theme_set"
-    introduced_in: "3.92.0"
-    description: >-
-      Theme digit 0 (commons) is the mandatory, non-removable floor of every
-      resolved theme set. A consumer .atdd/config.yaml `themes:` block may add
-      or override themes 1-9, but it MUST NOT remove digit 0 nor rename it away
-      from the locked token `commons`: any resolved theme map — defaults alone or
-      defaults merged with consumer overrides — MUST contain `commons` at digit
-      0. The resolver pins digit 0 regardless of override input.

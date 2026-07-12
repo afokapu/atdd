@@ -2,93 +2,30 @@ schema_version: 1.1.0
 rule_id: planner.train.artifact-flow
 kind: rule
 status: active
-name: 'Train: Artifact Flow'
-statement: Artifacts flow between participants as the train executes, written {domain}:{resource}
-  matching ^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$; every artifact must be produced before
-  it is consumed in the sequence and should be defined in a participant wagon manifest.
-implementation:
-  type: none
+name: Train artifact flow
+statement: Artifacts flow between participants as {domain}:{resource}; they must be produced before consumed
+  and be defined in participant wagon manifests.
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
-  legacy_sha: sha256:825602729f11a3a4
+  legacy_section: artifact_flow
+  legacy_sha: 825602729f11a3a4
   extraction_mode: high_fidelity
-  legacy_section: artifact-flow
 content:
-  summary: A train is a chain of artifact transfers between participants, so naming
-    artifacts with a domain:resource shape keeps them addressable and lets the sequence
-    be checked. The produced-before-consumed invariant is what makes a linear sequence
-    executable — a step can only read an artifact an earlier step produced.
   examples:
-  - Step 1 produces material:raw-story before a later step consumes it
-  counter_examples:
-  - A step consuming scenario:material.steps before any step produces it
+  - material:raw-story
+  - scenario:material.steps
+  - match:dilemma.current
 parity:
   source_fragments_preserved: true
   examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: artifact_shape
-  label: Artifact identifier form
-  text: An artifact is named {domain}:{resource} matching ^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$,
-    where domain is the producing concern and resource names the produced thing.
+- term_id: artifact
+  text: a domain:resource artifact in the flow.
   values:
-    format: '{domain}:{resource}'
     pattern: ^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$
-  examples:
-    positive:
-    - material:raw-story (domain=material, resource=raw-story)
-    - scenario:material.steps (domain=scenario, resource=material.steps)
-    - match:dilemma.current (domain=match, resource=dilemma.current)
-- term_id: flow_invariants
-  label: Artifact flow validation
-  text: Artifacts must be produced before being consumed in the sequence, and should
-    be defined in the participant wagon manifests.
-  values:
-    produced_before_consumed: Artifacts must be produced before being consumed in
-      sequence
-    defined_in_wagons: Artifacts should be defined in participant wagon manifests
-- term_id: participants
-  label: Participant actors and forms
-  text: Participants are the actors in the train workflow — wagon:{wagon-id}, user:{role},
-    or system:{source} — matching ^(wagon|user|system):[a-z][a-z0-9-]*$. Each participant
-    should be listed once, and all participants used in the sequence must be declared.
-  values:
-    pattern: ^(wagon|user|system):[a-z][a-z0-9-]*$
-    uniqueness: Each participant should be listed once
-    wagon:
-      pattern: wagon:{wagon-id}
-      examples:
-      - wagon:prepare-materials
-      - wagon:resolve-dilemmas
-    user:
-      pattern: user:{role}
-      examples:
-      - user:player
-      - user:sponsor
-      - user:partner
-    system:
-      pattern: system:{source}
-      examples:
-      - system:external
-      - system:scenario-library
-      - system:filesystem
-- term_id: sequence_step
-  label: Sequence step shape
-  text: A sequence step is a single artifact transfer between participants requiring
-    step, intent, from, to, and artifact. (Per the linearity constraint, only step
-    elements are allowed — loop and route elements are forbidden.)
-  values:
-    required:
-    - step
-    - intent
-    - from
-    - to
-    - artifact
-    example:
-      step: 1
-      intent: transform raw materials into structured steps
-      from: system:external
-      to: wagon:prepare-materials
-      artifact: material:raw-story
+    rules:
+    - produced before consumed
+    - defined in participant wagons

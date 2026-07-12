@@ -2,53 +2,28 @@ schema_version: 1.1.0
 rule_id: planner.acceptance.max-per-wmbt
 kind: constraint
 status: active
-name: 'Acceptance: Max Per Wmbt'
-statement: Keep acceptances to at most 5 per WMBT (max_per_wmbt = 5); if more are
-  needed, split the WMBT into clearer outcomes. Each acceptance maps 1:1 to a test
-  and to exactly one metric_id.
-implementation:
-  type: none
+name: Acceptance cap per WMBT
+statement: Keep acceptances <=5 per WMBT; if more are needed, split the WMBT into clearer outcomes.
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
+  legacy_section: max_per_wmbt + guidelines + expected_ratios
+  legacy_sha: 027e2d86ff127550
   extraction_mode: high_fidelity
-  legacy_section: max-per-wmbt
 content:
-  summary: A hard cap of five acceptances per WMBT forces authors to split overloaded
-    WMBTs into clearer outcomes instead of accreting criteria, keeping the acceptance-to-test
-    ratio tractable and review cohesive.
-  examples:
-  - A WMBT with 4 acceptances, each bound to one metric_id
-  counter_examples:
-  - A WMBT with 7 acceptances (exceeds the cap of 5 — split the WMBT)
+  constraints:
+  - 'max_per_wmbt: 5'
+  - acceptance_to_test ratio 1:1 (one acceptance -> one test)
+  - test_to_component ratio N:1
+  operational_guidance: 'Each acceptance maps to exactly one metric_id (no mixed measures). Respect WMBT
+    rules: one dimension and one lens_ref per WMBT; acceptances inherit context from the parent WMBT.'
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
 - term_id: acceptance_cap
-  label: acceptance cap (<=5)
-  text: Keep acceptances <=5 per WMBT; if you need more, split the WMBT into clearer
-    outcomes.
+  text: the per-WMBT ceiling on acceptances.
   values:
-    max_per_wmbt: 5
-- term_id: expected_ratios
-  label: expected ratios
-  text: The expected fan-out ratios between acceptances, tests, and components.
-  values:
-    acceptance_to_test: '1:1'
-    test_to_component: N:1
-- term_id: metric_binding
-  label: one metric_id per acceptance
-  text: Each acceptance maps to exactly one metric_id from plan/_lego/acceptance-metrics.yaml
-    (no mixed measures).
-- term_id: lens_dimension_dependency
-  label: WMBT lens/dimension inheritance
-  text: Respect WMBT rules — one dimension and one lens_ref per WMBT; acceptances
-    inherit context from the parent WMBT.
-- term_id: collocation
-  label: collocation
-  text: Store WMBT, acceptances, tests, and generated artifacts together to keep history
-    and review cohesive.
+    max: 5

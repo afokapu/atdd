@@ -1,0 +1,36 @@
+schema_version: 1.1.0
+rule_id: coach.rule-id.no-hardcoded-rule-severity
+kind: rule
+status: active
+name: No hardcoded rule severity
+statement: Migrated validators must not redeclare rule severity/description as module constants; call
+  bind_rule(<id>) at import time instead.
+implementation:
+  type: validator
+  ref: _rule_binders::no_hardcoded_rule_severity_rule
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: rules
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.rule-id.no-hardcoded-rule-severity
+content:
+  fix_hint: Remove the module-level RULE_SEVERITY/RULE_DESCRIPTION constants and call bind_rule(<id>)
+    at import time instead.
+metadata:
+  aliases:
+  - COACH-RULEID-BIND-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.66.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: bind_rule
+  text: the import-time call that binds a validator to its rule_id, the single source of severity/description.

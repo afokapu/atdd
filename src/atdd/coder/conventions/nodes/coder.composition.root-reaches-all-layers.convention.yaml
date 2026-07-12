@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+rule_id: coder.composition.root-reaches-all-layers
+kind: principle
+status: active
+name: Composition root reaches every feature layer
+statement: A feature composition root MUST reach every existing feature layer via
+  imports or setter wiring, so no present layer is left unwired by the root.
+terms:
+- term_id: root_completeness
+  text: the feature composition root is the single place that wires the slice; it
+    must touch each layer that exists for the feature (domain/application/integration/presentation)
+    through imports or setter injection
+source:
+  legacy_path: src/atdd/coder/conventions/composition.convention.yaml
+  legacy_section: composition.stacks.python.composition_root_rule
+  legacy_rule_id: SPEC-CODER-COMP-0004
+  extraction_mode: high_fidelity
+content:
+  summary: Stack-neutral root-completeness principle. The python composition.py path
+    and the import/setter AST detection are workspace realization.
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - SPEC-CODER-COMP-0004
+  introduced_in: 1.66.0

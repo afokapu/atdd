@@ -1,42 +1,23 @@
 schema_version: 1.1.0
 rule_id: planner.acceptance.extraction-no-inference
-kind: rule
+kind: principle
 status: active
-name: 'Acceptance: Extraction No Inference'
-statement: When acceptance context is missing, ask the user directly for it using
-  a pure conversational approach — no inference and no suggestions (e.g. "Which wagon
-  should this acceptance belong to?").
-implementation:
-  type: none
+name: Extraction by asking, not inferring
+statement: Missing context is obtained by asking the user directly — no inference, no suggestions.
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
+  legacy_section: extraction
+  legacy_sha: 027e2d86ff127550
   extraction_mode: high_fidelity
-  legacy_section: extraction-no-inference
 content:
-  summary: Acceptance authoring must reflect stakeholder intent rather than model
-    guesses; inferring or suggesting missing context risks encoding the wrong wagon
-    or precondition, so the extraction prompt mandates asking the user directly.
-  examples:
-  - 'Prompt the user: "Which wagon should this acceptance belong to?"'
-  counter_examples:
-  - Silently assigning the acceptance to a guessed wagon based on file location
+  operational_guidance: 'Pure conversational approach. e.g. wagon_inference prompt: ''Which wagon should
+    this acceptance belong to?'''
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
 - term_id: no_inference
-  label: Ask directly, do not infer
-  text: Ask the user directly for missing context; do not infer and do not suggest
-    values.
-  values:
-    approach: Pure conversational
-- term_id: wagon_inference_prompt
-  label: wagon extraction prompt
-  text: When the owning wagon is unknown, ask the user which wagon the acceptance
-    should belong to.
-  values:
-    prompt: Which wagon should this acceptance belong to?
+  text: the policy of asking rather than guessing missing acceptance context.

@@ -1,0 +1,26 @@
+schema_version: 1.1.0
+rule_id: coach.lifecycle.session-type-required-phases
+kind: rule
+status: active
+name: Session type determines required phases
+statement: 'Each delivery-unit type declares its required phases: implementation/migration run the full
+  cycle; refactor runs tester+coder; planning runs planner only; analysis and tracking require no code
+  phases; cleanup runs coder.'
+source:
+  legacy_path: src/atdd/coach/conventions/issue.convention.yaml
+  legacy_section: workflow.session_type_workflows
+  legacy_sha: 3ea36724cfb944f6
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 2.1.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: required_phases
+  text: the subset of lifecycle phases a given issue type must traverse; analysis=[] (investigation only).

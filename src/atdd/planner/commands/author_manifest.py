@@ -29,6 +29,61 @@ _RANGE_RE = re.compile(
 )
 _RUNTIME_KEYS = ("language", "runner", "command")
 
+# ── Capability-based workspace contract (#1138) ─────────────────────────────
+# A workspace provides one or more typed CAPABILITIES. `domain` is a small closed
+# controlled vocabulary; `type` is package-specific; `contract` is a versioned ATDD
+# contract that defines the capability's required fields. Required fields are validated
+# from the CONTRACT, not from the domain.
+_CAPABILITY_DOMAINS = frozenset({
+    "execution",        # runs commands/tests/validators/fixers/generators
+    "environment",      # provides the execution context / isolation boundary
+    "source_control",   # VCS / commit / branch / trailer mechanics
+    "transport",        # moves messages/commands/events between systems/agents
+    "orchestration",    # manages sessions/processes/agent lifecycle/routing
+    "artifact",         # reads/writes reports, build outputs, logs, generated files
+    "security",         # credentials, policy, permission, command allow/deny
+    "observability",    # traces, logs, telemetry, runtime evidence
+})
+
+
+def _check_execution_command_runner(cap: dict) -> None:
+    rt = cap.get("runtime") or {}
+    for key in _RUNTIME_KEYS:
+        if not rt.get(key):
+            raise AuthorInputError("capabilities", f"execution capability runtime missing {key!r}")
+
+
+def _check_scm_commit_trailers(cap: dict) -> None:
+    if cap.get("vcs") != "git":
+        raise AuthorInputError("capabilities", "source_control commit-trailers capability requires vcs: git")
+
+
+# contract id -> required-field validator (the AUTHORITATIVE per-capability schema).
+_CAPABILITY_CONTRACTS = {
+    "atdd.workspace.capability.execution.command-runner.v1": _check_execution_command_runner,
+    "atdd.workspace.capability.environment.isolation.v1": lambda cap: None,
+    "atdd.workspace.capability.source-control.commit-trailers.v1": _check_scm_commit_trailers,
+    "atdd.workspace.capability.transport.command-feed.v1": lambda cap: None,
+    "atdd.workspace.capability.orchestration.agent-session.v1": lambda cap: None,
+}
+
+
+def _validate_capability(cap: dict) -> None:
+    if not isinstance(cap, dict):
+        raise AuthorInputError("capabilities", "each capability must be a mapping")
+    for field in ("capability_id", "domain", "type", "contract"):
+        if not cap.get(field):
+            raise AuthorInputError("capabilities", f"capability missing {field!r}")
+    domain = cap["domain"]
+    if domain == "experimental":
+        return  # escape hatch: core does not validate experimental capabilities
+    if domain not in _CAPABILITY_DOMAINS:
+        raise AuthorInputError("capabilities", f"unknown capability domain {domain!r}")
+    check = _CAPABILITY_CONTRACTS.get(cap["contract"])
+    if check is None:
+        raise AuthorInputError("capabilities", f"unknown capability contract {cap['contract']!r}")
+    check(cap)
+
 
 def _parse_version(value, *, field: str = "contract_version") -> tuple[int, int, int]:
     m = _SEMVER_RE.match(str(value or ""))
@@ -79,18 +134,40 @@ def contract_satisfies(version: str, spec: str) -> bool:
 
 
 def validate_workspace_manifest(data: dict) -> None:
-    """Validate an ``atdd.workspace.yaml`` provider manifest."""
-    if (data or {}).get("kind") != "workspace":
+    """Validate an ``atdd.workspace.yaml`` provider manifest.
+
+    Capability-based (#1138): a workspace declares one or more typed CAPABILITIES; an
+    execution runner is just one capability, not the definition of a workspace.
+    ``runtime.{language,runner,command}`` is required only for an execution capability —
+    an isolation/transport/orchestration provider needs no runner. The legacy
+    top-level-``runtime`` shape is still accepted (treated as one execution capability)
+    so providers migrate without breaking the composition gate.
+    """
+    data = data or {}
+    if data.get("kind") != "workspace":
         raise AuthorInputError("kind", "workspace manifest must have kind: workspace")
     validate_workspace_id(data.get("workspace_id", ""), allow_reserved=True)
-    _parse_version(data.get("contract_version"))
-    runtime = data.get("runtime") or {}
-    for key in _RUNTIME_KEYS:
-        if not runtime.get(key):
-            raise AuthorInputError("runtime", f"workspace runtime missing {key!r}")
-    discovers = data.get("discovers") or {}
-    if not discovers.get("implementations"):
-        raise AuthorInputError("discovers", "workspace must declare discovers.implementations")
+
+    capabilities = data.get("capabilities")
+    if not capabilities and data.get("runtime"):
+        # legacy back-compat: a top-level runtime is one implicit execution capability
+        capabilities = [{
+            "capability_id": "execution.legacy",
+            "domain": "execution",
+            "type": "command-runner",
+            "contract": "atdd.workspace.capability.execution.command-runner.v1",
+            "runtime": data["runtime"],
+        }]
+        _parse_version(data.get("contract_version"))  # legacy contract_version stays required
+
+    if not capabilities:
+        raise AuthorInputError("capabilities", "workspace must declare at least one capability")
+    if data.get("capabilities") and data.get("contract_version") is not None:
+        _parse_version(data["contract_version"])  # capability-mode: contract_version is optional
+    for cap in capabilities:
+        _validate_capability(cap)
+
+    discovers = data.get("discovers") or {}  # optional; validated only for shape
     if discovers.get("requires_contract") is not None:
         _parse_range(discovers["requires_contract"], field="requires_contract")
 
@@ -102,6 +179,14 @@ def validate_extension_manifest(data: dict) -> None:
     validate_extension_id(data.get("extension_id", ""), allow_reserved=True)
     if not isinstance(data.get("owns"), dict):
         raise AuthorInputError("owns", "extension manifest must have an owns mapping")
+    # realizes (#1133): optional cross-package linkage — each entry maps an
+    # extension node onto the core node it realizes. Shape-only here; resolution +
+    # ownership are checked at composition time (compose.validate_realizes).
+    for entry in (data.get("realizes") or []):
+        if not isinstance(entry, dict) or not entry.get("extension_node") or not entry.get("core_node"):
+            raise AuthorInputError(
+                "realizes", "each realizes entry must be a mapping {extension_node, core_node}"
+            )
     for entry in ((data.get("depends_on") or {}).get("workspaces") or []):
         if not isinstance(entry, dict):
             raise AuthorInputError(
@@ -112,13 +197,52 @@ def validate_extension_manifest(data: dict) -> None:
 
 
 def validate_implementation_manifest(data: dict) -> None:
-    """Validate an ``atdd.implementation.yaml`` manifest."""
-    if (data or {}).get("kind") != "implementation":
+    """Validate an ``atdd.implementation.yaml`` manifest — the VALIDATOR/FAMILY contract.
+
+    Beyond identity (kind/id/targets/contract), enforces the executable-validator
+    shape so a validator is compliant *by construction* rather than by copying an
+    example: a runnable ``entrypoint``, a v1.1 ``report`` emitter, and a non-empty
+    ``emits_rule_ids`` list (the rule_ids this one detector realizes — a FAMILY
+    detector emits >1, a singleton emits 1). ``realizes_convention`` (the primary
+    node) and ``subtype`` are validated for consistency when present. This is the
+    ``atdd.core.implementation-schema`` every extension declares in ``depends_on``.
+    """
+    data = data or {}
+    if data.get("kind") != "implementation":
         raise AuthorInputError("kind", "implementation manifest must have kind: implementation")
     if not data.get("implementation_id"):
         raise AuthorInputError("implementation_id", "implementation manifest missing implementation_id")
     validate_workspace_id(data.get("targets_workspace", ""), allow_reserved=True)
     _parse_version(data.get("contract_version"))
+
+    if not (isinstance(data.get("entrypoint"), str) and data["entrypoint"].strip()):
+        raise AuthorInputError("entrypoint", "implementation must declare an entrypoint (the detector module)")
+    report = data.get("report")
+    if report is not None and not (isinstance(report, str) and report.strip()):
+        raise AuthorInputError(
+            "report",
+            "report, when declared, must be a non-empty path (the runnable v1.1 report-emitter "
+            "the provider CLI collects; may equal entrypoint)")
+    # The impl must declare the rule_id(s) it realizes — via a non-empty
+    # ``emits_rule_ids`` list (v1.1; a FAMILY detector emits >1 from one run) OR a
+    # single ``realizes_convention`` (v1.0 exit-code mapping). At least one required.
+    emits = data.get("emits_rule_ids")
+    rc = data.get("realizes_convention")
+    has_emits = isinstance(emits, list) and bool(emits)
+    if has_emits and not all(isinstance(r, str) and r.strip() for r in emits):
+        raise AuthorInputError("emits_rule_ids", "emits_rule_ids entries must be non-empty rule_id strings")
+    has_rc = isinstance(rc, str) and bool(rc.strip())
+    if not has_emits and not has_rc:
+        raise AuthorInputError(
+            "emits_rule_ids",
+            "implementation must declare the rule_id(s) it realizes — a non-empty emits_rule_ids "
+            "list (v1.1; a FAMILY emits more than one) or realizes_convention (v1.0 single-rule)")
+    if has_emits and has_rc and rc not in emits:
+        raise AuthorInputError(
+            "realizes_convention", f"realizes_convention {rc!r} must be one of emits_rule_ids {emits!r}")
+    sub = data.get("subtype")
+    if sub is not None and sub != "validator":
+        raise AuthorInputError("subtype", f"implementation subtype must be 'validator' (got {sub!r})")
 
 
 def extension_targets_satisfied_by(ext_manifest: dict, provider_manifest: dict) -> bool:

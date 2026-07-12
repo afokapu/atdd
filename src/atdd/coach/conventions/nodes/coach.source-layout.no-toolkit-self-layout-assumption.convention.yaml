@@ -1,0 +1,58 @@
+schema_version: 1.1.0
+rule_id: coach.source-layout.no-toolkit-self-layout-assumption
+kind: rule
+status: active
+name: No toolkit-self layout assumption
+statement: Toolkit code must resolve ATDD package resources package-relatively (Path(atdd.__file__).parent/...),
+  never by concatenating 'src/atdd/' onto find_repo_root(); the latter raises FileNotFoundError in pip-installed
+  consumers.
+# documentation-only (#1225): the monolith block carried no `validator:`; the scan in
+# test_toolkit_source_layout_assumptions stays advisory and is not a bound enforcement gate.
+source:
+  legacy_path: src/atdd/coach/conventions/source-layout.convention.yaml
+  legacy_section: rules
+  legacy_sha: 9f9363a2305c91b2
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.source-layout.no-toolkit-self-layout-assumption
+content:
+  exceptions:
+  - Test files (test_*.py, *_test.py, */tests/, */test/)
+  - Fixture directories (*/fixtures/*) — intentional violations for validator testing
+  - 'Inline suppression: # atdd:suppress(COACH-PKG-LAYOUT-001) on the offending line'
+  operational_guidance: 'bad:
+
+    from atdd.coach.utils.repo import find_repo_root
+
+    REPO_ROOT = find_repo_root()
+
+    SCHEMA = REPO_ROOT / "src" / "atdd" / "coach" / "schemas" / "config.schema.json"
+
+
+    good:
+
+    from pathlib import Path
+
+    import atdd
+
+    ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
+
+    SCHEMA = ATDD_PKG_DIR / "coach" / "schemas" / "config.schema.json"'
+metadata:
+  aliases:
+  - COACH-PKG-LAYOUT-001
+  severity: 4
+  disposition: documentation-only
+  introduced_in: 3.85.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: three_layouts
+  text: ATDD must work as toolkit-self repo (PYTHONPATH=src), editable install (pip install -e), and wheel
+    install.
+notes: 'Incident refs: #341, #367'

@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: coach.role.reviewer-no-write
+kind: rule
+status: active
+name: Reviewer no-write contract
+statement: A reviewer-persona agent must not edit or commit; output that mentions edits or commits violates
+  the reviewer no-write contract.
+source:
+  legacy_path: src/atdd/coach/conventions/observer.convention.yaml
+  legacy_section: basic_protocol_observer_rules
+  legacy_sha: ae693664e6e540ec
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.observer.reviewer-edit-attempt
+content:
+  fix_hint: You are a Reviewer. You may not edit or commit.
+metadata:
+  severity: 4
+  disposition: documentation-only
+  introduced_in: 3.21.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: reviewer
+  text: a persona authorized only to read and report — never to mutate files or history.

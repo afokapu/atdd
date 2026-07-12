@@ -2,52 +2,28 @@ schema_version: 1.1.0
 rule_id: planner.feature.urn-naming
 kind: rule
 status: active
-name: 'Feature: Urn Naming'
-statement: A feature is addressed by a URN following the pattern feature:{wagon}:{feature},
-  with kebab-case for both the wagon and feature segments and the feature segment
-  following a verb-object pattern.
-implementation:
-  type: none
+name: Feature URN naming
+statement: A feature URN is feature:{wagon}:{feature}, both kebab-case, the feature in verb-object form;
+  built via URNBuilder.feature.
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
-  legacy_sha: sha256:4a95544261fb9541
+  legacy_section: urn_naming + naming
+  legacy_sha: 4a95544261fb9541
   extraction_mode: high_fidelity
-  legacy_section: urn-naming
 content:
-  summary: A single, regex-checkable URN grammar gives every feature a unique address
-    within its wagon hierarchy, so features can be referenced unambiguously across
-    the plan, contracts, and telemetry without duplicating ownership metadata.
+  examples:
+  - feature:resolve-dilemmas:choose-option
+  - feature:manage-inventory:track-stock
+  - feature:manage-users:authenticate-user
 parity:
   source_fragments_preserved: true
   examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: urn_pattern
-  label: The feature URN grammar
-  text: The URN is built as feature:{wagon}:{feature}. The wagon segment is the parent
-    wagon identifier (kebab-case); the feature segment is the feature identifier (kebab-case,
-    verb-object pattern). It is produced by utils.graph.URNBuilder.feature(wagon_id,
-    feature_id).
+- term_id: feature_urn
+  text: the feature identifier.
   values:
-    pattern: feature:{wagon}:{feature}
-    utility: utils.graph.URNBuilder.feature(wagon_id, feature_id)
-    parts:
-      wagon: Parent wagon identifier (kebab-case)
-      feature: Feature identifier (kebab-case, verb-object pattern)
-- term_id: urn_validation
-  label: URN format validation
-  text: A feature URN must match the regex ^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$,
-    enforcing kebab-case for both the wagon and feature segments.
-  values:
-    regex: ^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$
-    format: kebab-case for both wagon and feature
-  examples:
-    positive:
-    - feature:resolve-dilemmas:choose-option
-    - feature:manage-inventory:track-stock
-    - feature:manage-users:authenticate-user
-    negative:
-    - 'feature:resolve-dilemmas  # missing feature segment'
-    - 'feature:Manage-Users:authenticate  # not kebab-case'
+    pattern: ^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$
+    naming: '{verb}-{object}'

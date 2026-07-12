@@ -1,0 +1,34 @@
+schema_version: 1.1.0
+rule_id: coach.rule-id.disposition-required
+kind: rule
+status: active
+name: Disposition required
+statement: Every declared rule must carry a disposition (strict | suppress-and-clean | advisory | documentation-only).
+implementation:
+  type: validator
+  ref: conventions/presence/test_rule_has_disposition::test_rule_has_disposition_catches_injected_fault
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: rules
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.rule-id.disposition-required
+content:
+  fix_hint: 'Add `disposition: <strict|suppress-and-clean|advisory|documentation-only>` to the rule body.'
+metadata:
+  aliases:
+  - COACH-RULEID-DISPOSITION-001
+  severity: 2
+  disposition: strict
+  introduced_in: 2.0.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: disposition
+  text: 'the per-rule CI policy; replaced the count-based RatchetBaseline (issue #395).'

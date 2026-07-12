@@ -2,49 +2,25 @@ schema_version: 1.1.0
 rule_id: planner.criteria.sequence-routing
 kind: rule
 status: active
-name: 'Criteria: Sequence Routing'
-statement: Once a criterion is assigned a plane, the plane maps deterministically
-  to a default sequence step (command, use_case, validate, persist) that names the
-  canonical action the criterion's given/when/then drives.
-implementation:
-  type: none
+name: Layer sequence routing
+statement: 'Each layer maps to a default action in the route sequence: presentation.command, application.use_case,
+  domain.validate, integration.persist.'
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
-  legacy_sha: sha256:db262e7f5fb06226
+  legacy_section: planes.sequence
+  legacy_sha: db262e7f5fb06226
   extraction_mode: high_fidelity
-  legacy_section: sequence-routing
-content:
-  summary: A fixed plane-to-sequence map gives every criterion a predictable default
-    action verb, so generated scaffolding lands the when step at the right layer without
-    the author restating the sequence.
-  examples:
-  - presentation criterion defaults its when step to a command
-  counter_examples:
-  - application criterion routed to a validate sequence
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: sequence_map
-  label: Plane-to-sequence mapping
-  text: The planes.sequence map binds each plane to its default sequence step; the
-    presentation plane drives a command, application a use_case, domain a validate,
-    and integration a persist.
+- term_id: layer_action
+  text: layer -> default action.
   values:
     presentation: command
     application: use_case
     domain: validate
     integration: persist
-- term_id: sequence_step
-  label: A sequence step
-  text: A sequence step is the canonical action verb a criterion exercises on its
-    plane; it is the default when a criterion does not declare an explicit sequence.
-  examples:
-    positive:
-    - 'application plane -> sequence: use_case'
-    - 'integration plane -> sequence: persist'
-    negative:
-    - 'domain plane -> sequence: persist  # domain defaults to validate'

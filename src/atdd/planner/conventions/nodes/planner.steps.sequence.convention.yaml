@@ -1,91 +1,17 @@
-schema_version: 1.1.0
+schema_version: 1.0.0
 rule_id: planner.steps.sequence
 kind: rule
 status: active
-name: 'Steps: Sequence'
-statement: A wagon procedure is expressed as the ordered 9-step JTBD taxonomy (define,
-  locate, prepare, confirm, execute, monitor, modify, resolve, conclude); each step
-  declares its purpose, its guiding question, and its outputs.
-implementation:
-  type: advisory
-source:
-  legacy_path: src/atdd/planner/conventions/steps.convention.yaml
-  legacy_sha: sha256:47795a1feaa5508c
-  extraction_mode: high_fidelity
-  legacy_rule_id: planner.steps.sequence
-  legacy_section: rules
-content:
-  summary: A single ordered 9-step taxonomy with minimal routable architecture mapping
-    makes a wagon procedure reproducible and checkable. Each step's purpose, question,
-    and outputs pin down what the step is for and what it must yield, rather than
-    leaving the sequence implicit.
-  normative_text: Steps are ordered, numbered, and each declares pre-conditions and
-    outputs
+statement: Steps are ordered and numbered, and each declares its pre-conditions and
+  its outputs.
+rationale: Ordered, numbered steps with pre-conditions and outputs make a wagon procedure
+  reproducible and checkable.
+terms:
+- term_id: step
+  text: a numbered unit of a wagon procedure
+- term_id: preconditions_and_outputs
+  text: what a step requires before running and produces after
 metadata:
-  aliases:
-  - PLANNER-STEPS-SEQUENCE-001
   severity: 2
   disposition: documentation-only
   introduced_in: 1.67.0
-parity:
-  source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
-  reviewed_at: '2026-06-16'
-terms:
-- term_id: jtbd_step_taxonomy
-  label: The ordered 9-step JTBD taxonomy
-  text: Steps follow a fixed order. Each named step frames one part of the job, from
-    framing the work (define) through to closing the loop (conclude).
-  values:
-    ordered_steps:
-    - define
-    - locate
-    - prepare
-    - confirm
-    - execute
-    - monitor
-    - modify
-    - resolve
-    - conclude
-    purposes:
-      define: Frame the work and set boundaries
-      locate: Identify and access required inputs or resources
-      prepare: Make the environment/resources ready without starting execution
-      confirm: Ensure preconditions and synchronization before moving forward
-      execute: Carry out the core action that changes state
-      monitor: Observe progress, quality, or risks to enable correction
-      modify: Proactively adjust or optimize during normal operation
-      resolve: Reactive problem-solving and exception handling
-      conclude: Close the loop and capture results
-  examples:
-    positive:
-    - 'define: Define a duel as a synchronous PvP match between two teams'
-    - 'locate: Locate peers across devices within 100ms latency'
-    - 'prepare: Prepare the duel lobby and match players before countdown'
-    - 'confirm: Confirm readiness from both teams before duel starts'
-    - 'execute: Execute player move and apply it locally in ≤2ms'
-    - 'monitor: Monitor state divergence and resync if thresholds are exceeded'
-    - 'modify: Modify scoring rules mid-season if the meta shifts'
-    - 'resolve: Resolve a disconnection by substituting a bot'
-    - 'conclude: Conclude the duel by updating Elo and archiving the match summary'
-- term_id: step_record
-  label: What each step declares
-  text: Each step declares a purpose (what it is for), a guiding question (what must
-    be answered at that step), and outputs (what it must yield). It also carries key
-    terms, linguistic patterns, and a minimal architecture layer/sequence mapping.
-  values:
-    declared_fields:
-    - purpose
-    - question
-    - outputs
-    - key_terms
-    - linguistic_patterns
-    - architecture
-  examples:
-    positive:
-    - 'define → question: What must be defined upfront before anything else can proceed?
-      outputs: [Clear objectives, Success metrics, Constraint boundaries]'
-    - 'conclude → question: What must be done to finish the job and capture results?
-      outputs: [Completion confirmation, Results captured, Final documentation]'

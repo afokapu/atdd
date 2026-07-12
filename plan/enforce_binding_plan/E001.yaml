@@ -1,0 +1,32 @@
+urn: wmbt:enforce-binding-plan:E001
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unrunnable-bound-rule
+context_clarifier: the generalized provider CLI executes each bound detector returning
+  a clean [] or valid raw v1.1 records, and 0 of 26 emit 'report test missing'
+lens: functional.effectiveness
+statement: minimize likelihood of unrunnable-bound-rule by ensuring every disposition:bound
+  convention in binding.lock.yaml runs its detector end-to-end and 0 of 26 emit exit
+  2 'report test missing'
+acceptances:
+- given:
+    abstract:
+    - a real checkout with .atdd/binding.lock.yaml carrying 26 disposition:bound conventions
+    - the installed atdd CLI and the vendored atdd.workspace.python-pytest provider
+  harness:
+    category: integration
+    type: smoke
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify all 26 bound rules run end-to-end via the real provider CLI (V1)
+    urn: acc:enforce-binding-plan:E001-SMOKE-001-conformance
+  then:
+    abstract:
+    - every one of the 26 bound rules executes its detector and returns a clean []
+      or valid raw v1.1 records
+    - '0 of 26 emit exit 2 ''report test missing'' (today: 1/26)'
+  when:
+    abstract: the binding-plan conformance scan runs every bound detector via the
+      generalized provider CLI

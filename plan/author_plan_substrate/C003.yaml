@@ -1,0 +1,50 @@
+urn: "wmbt:author-plan-substrate:C003"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "structurally-invalid-feature"
+context_clarifier: "when authoring a feature, the writer must reject a manifest missing a required field, referencing an unknown wagon, or carrying a malformed feature urn, before it writes the file"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting a structurally-invalid-feature by validating the manifest against the feature schema before any write"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:C003-UNIT-001-rejects-missing-field-and-bad-wagon"
+      id: "AC-UNIT-001"
+      purpose: "validate_feature rejects a missing required field and an unknown wagon and writes nothing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A feature input missing a required field and referencing an unknown wagon"
+    when:
+      abstract: "create_feature(input) is called"
+    then:
+      abstract:
+        - "Validation fails citing the missing field and the unknown wagon"
+        - "No feature file is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:author-plan-substrate:C003-SMOKE-001-cli-refuses-invalid-feature"
+      id: "AC-SMOKE-001"
+      purpose: "Verify `atdd author feature` exits non-zero and writes nothing for an invalid feature against the real CLI"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repo checkout and the installed atdd author CLI"
+        - "An invocation that would produce a feature missing a required field"
+    when:
+      abstract: "atdd author feature is run with the invalid input"
+    then:
+      abstract:
+        - "The process exits non-zero with a validation error"
+        - "No feature file is created under plan/"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

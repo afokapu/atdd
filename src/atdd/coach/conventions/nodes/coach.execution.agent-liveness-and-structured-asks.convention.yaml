@@ -1,0 +1,32 @@
+schema_version: 1.1.0
+rule_id: coach.execution.agent-liveness-and-structured-asks
+kind: principle
+status: active
+name: Agent liveness and structured asks
+statement: An agent must remain live (emit tokens within the silence threshold, keep its heartbeat fresh)
+  and must use the structured ask/escalate channels rather than free-form questions.
+source:
+  legacy_path: src/atdd/coach/conventions/observer.convention.yaml
+  legacy_section: basic_protocol_observer_rules
+  legacy_sha: ae693664e6e540ec
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.observer.token-silence
+content:
+  fix_hint: If blocked, escalate via `atdd agent escalate`.
+metadata:
+  aliases:
+  - coach.observer.unstructured-question
+  - coach.observer.missed-heartbeat
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.21.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: liveness
+  text: no token silence beyond threshold and a fresh heartbeat.json; structured asks use `atdd agent
+    ask`.

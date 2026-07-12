@@ -2,76 +2,29 @@ schema_version: 1.1.0
 rule_id: planner.feature.feedback-loop-kind
 kind: rule
 status: active
-name: 'Feature: Feedback Loop Kind'
-statement: A feature may declare an optional kind field; the value feedback-loop marks
-  a producer→consumer correction loop and triggers planner.smoke.feedback-loop-close-the-loop,
-  which requires at least one SMOKE acceptance carrying a close_the_loop block (consumer_reacted
-  and drift_resolved).
-implementation:
-  type: none
+name: 'Feature kind: feedback-loop'
+statement: 'An optional feature `kind:` classifies the system archetype; kind: feedback-loop marks a producer->consumer
+  correction loop (detect+emit, receive+react, predicate no longer fires).'
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
-  legacy_sha: sha256:4a95544261fb9541
+  legacy_section: feature_kind
+  legacy_sha: 4a95544261fb9541
   extraction_mode: high_fidelity
-  legacy_section: feedback-loop-kind
 content:
-  summary: Explicitly tagging the feedback-loop archetype lets validators activate
-    only for features that claim it (existing features without kind are unaffected),
-    and binding it to a close_the_loop SMOKE acceptance forces proof that the loop
-    actually closes rather than merely emitting a correction.
-  exceptions:
-  - For a docs-only feedback-loop feature, suppress the rule inline on the kind line
-    using the suppression comment with a mandatory UNTIL date.
+  normative_text: 'Defaults to producer-only if absent; the kind field is optional and validators only
+    activate for explicitly-marked kinds, so existing features are unaffected (issue #825).'
+  examples:
+  - 'kind: feedback-loop'
 parity:
   source_fragments_preserved: true
   examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: kind_field
-  label: The optional kind field
-  text: kind is an optional field on feature YAMLs that classifies the feature's system
-    archetype for convention enforcement. It defaults to producer-only when absent,
-    so existing features without kind are unaffected; validators only activate for
-    explicitly-marked kinds.
+- term_id: feature_kind
+  text: the feature's system archetype.
   values:
-    field: kind
-    default_when_absent: producer-only
-  examples:
-    positive:
-    - 'kind: feedback-loop'
-- term_id: feedback_loop_definition
-  label: What feedback-loop means
-  text: The feature implements a producer→consumer feedback loop where success = (a)
-    the producer detected a condition and emitted a correction, (b) the consumer received
-    and reacted to the correction, AND (c) the producer's predicate no longer fires
-    next cycle (drift resolved).
-- term_id: close_the_loop_tie_in
-  label: Tie-in to planner.smoke.feedback-loop-close-the-loop
-  text: Any feature marked kind feedback-loop triggers rule planner.smoke.feedback-loop-close-the-loop
-    — the feature's WMBTs must declare at least one SMOKE acceptance with a close_the_loop
-    block containing consumer_reacted and drift_resolved.
-  values:
-    triggers_rule: planner.smoke.feedback-loop-close-the-loop
-    requires: SMOKE acceptance with close_the_loop (consumer_reacted, drift_resolved)
-- term_id: example_acceptance
-  label: Example close_the_loop acceptance YAML
-  text: A conforming SMOKE acceptance declares a close_the_loop block whose consumer_reacted
-    and drift_resolved fields assert the consumer reacted and that the producer's
-    predicate no longer fires on the next cycle.
-  values:
-    example_acceptance: "- identity:\n    urn: \"acc:<wagon>:<wmbt_id>-SMOKE-NNN-close-the-loop\"\
-      \n    phase: \"SMOKE\"\n  close_the_loop:\n    consumer_reacted: \"shim pty_stdin_bytes\
-      \ contains correction text\"\n    drift_resolved: \"second scan_once() produces\
-      \ 0 new corrections\"\n"
-- term_id: suppression_syntax
-  label: Inline suppression for docs-only features
-  text: For a docs-only feedback-loop feature, suppress the rule inline on the kind
-    line using the suppression comment with a mandatory UNTIL date.
-  values:
-    syntax: '# atdd:suppress(planner.smoke.feedback-loop-close-the-loop) UNTIL=YYYY-MM-DD'
-  examples:
-    positive:
-    - 'kind: feedback-loop  # atdd:suppress(planner.smoke.feedback-loop-close-the-loop)
-      UNTIL=YYYY-MM-DD'
+    valid_values:
+    - feedback-loop
+    default: producer-only

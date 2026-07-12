@@ -51,6 +51,28 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-06-16"
   - identity:
+      urn: "acc:author-atdd-substrate:C006-UNIT-003-capability-contracts"
+      id: "AC-UNIT-003"
+      purpose: "a workspace declares typed capabilities and required fields are validated from each capability's contract: a non-execution provider (isolation/scm) needs no runner; an execution capability requires runtime; unknown domain/contract, a runtimeless execution capability, and a workspace with no capability are refused"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Capability-based workspace manifests (a git-worktree provider declaring environment.isolation + source_control.commit-trailers with no runner, and a python-pytest provider declaring an execution.command-runner capability), plus variants: an execution capability without runtime, an unknown capability domain, an unknown capability contract, a source_control commit-trailers capability without vcs: git, and a workspace declaring no capability"
+    when:
+      abstract: "validate_workspace_manifest is called for each"
+    then:
+      abstract:
+        - "the isolation + source_control provider is accepted with no runtime/runner"
+        - "the execution capability is accepted when it declares runtime.language/runner/command and refused without them"
+        - "an unknown capability domain or unknown capability contract is refused"
+        - "a workspace declaring no capability is refused"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-17"
+  - identity:
       urn: "acc:author-atdd-substrate:C006-SMOKE-001-cli-manifest-roundtrip"
       id: "AC-SMOKE-001"
       purpose: "a manifest written by the real CLI passes the validator, and the contract is enforced against it"

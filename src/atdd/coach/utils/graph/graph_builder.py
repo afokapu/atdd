@@ -31,7 +31,7 @@ from atdd.coach.utils.graph.resolver import (
     URNDeclaration,
     URNResolution,
 )
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
 
 
 class EdgeType(Enum):
@@ -470,14 +470,14 @@ class TraceabilityGraph:
 
         # ── gaps ───────────────────────────────────────────────
         # Nodes with zero incoming edges (excluding root families).
-        # Root families derived from URNBuilder.SEGMENT_COUNTS (parent-it-belongs-to,
+        # Root families derived from URNGrammar.SEGMENT_COUNTS (parent-it-belongs-to,
         # spec v12 §3.2): a family is a root when its segment count after the
         # prefix is 1 (no parent coordinates). Adding a new top-level family in
         # PATTERNS + SEGMENT_COUNTS automatically extends this set.
         # Audit reference: docs/urn-prefix-audit-2026.md (finding #2).
         root_families = {
             family
-            for family, count in URNBuilder.SEGMENT_COUNTS.items()
+            for family, count in URNGrammar.SEGMENT_COUNTS.items()
             if count == 1
         }
         all_targets = set()
@@ -793,6 +793,7 @@ class GraphBuilder:
         self._build_containment_edges(graph)
         self._build_produce_consume_edges(graph)
         self._build_train_edges(graph)
+        self._build_subject_edges(graph)
         self._build_component_edges(graph)
         self._build_security_edges(graph)
         # Phase 3: pass content cache to edge builders that read files
@@ -901,7 +902,7 @@ class GraphBuilder:
                     # Skip urn:jel:* IDs
                     if schema_id and not schema_id.startswith("urn:jel:"):
                         return f"contract:{schema_id}"
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                     pass
             return None
 
@@ -1016,6 +1017,38 @@ class GraphBuilder:
             except Exception:
                 continue
 
+    def _iter_train_files(self, trains_dir: Path) -> "list[tuple[str, Path]]":
+        """Yield ``(train_urn, path)`` for every real train under ``trains_dir``.
+
+        Typed trains (#1421) live at ``plan/_trains/<subject>/<slug>.yaml`` and
+        their URN is reconstructed from the nested path, so a flat glob misses
+        them entirely. Legacy flat files are still enumerated during the
+        migration window.
+
+        Underscore-prefixed entries are registry/alias artifacts —
+        ``_aliases.yaml``, ``_interlockings/`` — NOT trains. They declare no
+        ``train_id``, so treating one as a train detail file would mint a bogus
+        URN from its stem. This mirrors the same skip in ``TrainResolver``.
+        """
+        found: "list[tuple[str, Path]]" = []
+
+        for subject_dir in sorted(trains_dir.iterdir()):
+            if not subject_dir.is_dir() or subject_dir.name.startswith("_"):
+                continue
+            for train_file in sorted(subject_dir.glob("*.yaml")):
+                if train_file.name.startswith("_"):
+                    continue
+                found.append(
+                    (f"train:{subject_dir.name}:{train_file.stem}", train_file)
+                )
+
+        for train_file in sorted(trains_dir.glob("*.yaml")):
+            if train_file.name.startswith("_"):
+                continue
+            found.append((f"train:{train_file.stem}", train_file))
+
+        return found
+
     def _build_train_edges(self, graph: TraceabilityGraph) -> None:
         """Build train -> wagon containment edges."""
         import yaml
@@ -1024,7 +1057,7 @@ class GraphBuilder:
         if not trains_dir.exists():
             return
 
-        for train_file in trains_dir.glob("*.yaml"):
+        for path_urn, train_file in self._iter_train_files(trains_dir):
             try:
                 with open(train_file, "r", encoding="utf-8") as f:
                     data = yaml.safe_load(f)
@@ -1032,8 +1065,14 @@ class GraphBuilder:
                 if not data or not isinstance(data, dict):
                     continue
 
-                train_id = data.get("id") or train_file.stem
-                train_urn = f"train:{train_id}"
+                # A declared identity wins; the path-derived URN is the fallback
+                # (and is already typed for a train under a subject directory).
+                declared = data.get("train_id") or data.get("id")
+                train_urn = (
+                    declared
+                    if isinstance(declared, str) and declared.startswith("train:")
+                    else path_urn
+                )
 
                 # Store train description in node metadata
                 description = data.get("description")
@@ -1104,18 +1143,12 @@ class GraphBuilder:
                 # Non-wagon participants (user:*, system:*) on either side
                 # are ignored — TRAIN_STEP is strictly wagon-to-wagon.
                 #
-                # Category is derived from train_id[1] per the naming
-                # convention `{theme}{category}{variation}-slug`:
-                #   0 = nominal, 1 = error, 2 = alternate, 3 = exception.
-                _TRAIN_CATEGORY_BY_DIGIT = {
-                    "0": "nominal",
-                    "1": "error",
-                    "2": "alternate",
-                    "3": "exception",
-                }
-                category = "nominal"
-                if isinstance(train_id, str) and len(train_id) > 1:
-                    category = _TRAIN_CATEGORY_BY_DIGIT.get(train_id[1], "nominal")
+                # Category is a validated FIELD on the train (#1421/#1440), never
+                # a digit in its identity — a typed train:<subject>:<slug> has no
+                # digit to index. A train that declares none is nominal.
+                category = data.get("category")
+                if not isinstance(category, str) or not category:
+                    category = "nominal"
 
                 sequence = data.get("sequence") or []
                 if isinstance(sequence, list):
@@ -1149,6 +1182,35 @@ class GraphBuilder:
 
             except Exception:
                 continue
+
+    def _build_subject_edges(self, graph: TraceabilityGraph) -> None:
+        """Build subject -> train (CONTAINS) edges for typed trains (#1421).
+
+        A typed ``train:<subject>:<slug>`` is a 2-token URN parented by its
+        ``subject:<subject>`` root (grammar: ``train.parent == subject``). This
+        edge makes the subject a real parent node so the typed train is not a
+        topological orphan. The subject node is auto-synthesized by ``add_edge``
+        if the registry has not declared it yet.
+
+        Legacy ``train:NNNN-slug`` (a single token) has no subject parent and is
+        skipped — dual-resolution keeps it resolving during the migration
+        window (see ``TrainResolver``).
+        """
+        for urn, node in graph.nodes.items():
+            if node.family != "train":
+                continue
+            tokens = urn[len("train:"):].split(":")
+            if len(tokens) != 2 or not all(tokens):
+                continue
+            subject_urn = f"subject:{tokens[0]}"
+            graph.add_edge(
+                URNEdge(
+                    source_urn=subject_urn,
+                    target_urn=urn,
+                    edge_type=EdgeType.CONTAINS,
+                    metadata={"source": "urn-structure"},
+                )
+            )
 
     def _build_security_edges(self, graph: TraceabilityGraph) -> None:
         """

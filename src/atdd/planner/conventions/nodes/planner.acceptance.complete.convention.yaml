@@ -2,31 +2,14 @@ schema_version: 1.1.0
 rule_id: planner.acceptance.complete
 kind: rule
 status: active
-name: 'Acceptance: Complete'
-statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome
-  that a tester can turn into a real, assertable test.
-implementation:
-  type: advisory
+name: Acceptance is complete
+statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome.
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
+  legacy_section: rules
+  legacy_sha: 027e2d86ff127550
   extraction_mode: high_fidelity
   legacy_rule_id: planner.acceptance.complete
-  legacy_section: rules
-content:
-  summary: Given/When/Then prose plus a verifiable outcome is what lets a tester turn
-    an acceptance into a real, assertable test. The given captures only the preconditions
-    needed, the when is a single trigger, and the then is a list of assertions proving
-    the outcome.
-  normative_text: Each acceptance criterion has Given/When/Then prose and a verifiable
-    outcome
-  examples:
-  - 'given.abstract: ["User is logged in", "Account has credits"]; when.abstract:
-    "User purchases a product"; then.abstract: ["Purchase succeeds", "Credits are
-    deducted"]'
-  counter_examples:
-  - acceptance with a when but no then assertions
-  - six acceptances on a single WMBT (exceeds the cap of 5)
 metadata:
   aliases:
   - PLANNER-ACCEPTANCE-COMPLETE-001
@@ -35,70 +18,12 @@ metadata:
   introduced_in: 1.67.0
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: given_structure
-  label: Given - setup and preconditions
-  text: Declare only the preconditions needed before the action runs. given.abstract
-    is a REQUIRED array of Gherkin precondition statements; structured fields are
-    optional.
-  values:
-    abstract: array of strings, minItems 1, REQUIRED
-    optional_fields:
-    - auth
-    - builders
-    - time
-    - stubbing
-    - knobs
-  examples:
-    positive:
-    - 'given.abstract: ["User is logged in", "Account has credits"]'
-- term_id: when_structure
-  label: When - the single trigger
-  text: Express the single trigger that moves the system under test, in present tense
-    with a clear actor and action. when.abstract is REQUIRED; structured shape varies
-    by harness (http requires method/path, unit requires target, event requires topic).
-  values:
-    abstract: string, minLength 5, REQUIRED
-    harness_required:
-      http:
-      - method
-      - path
-      unit:
-      - target
-      event:
-      - topic
-  examples:
-    positive:
-    - 'when.abstract: "User submits login form with credentials"'
-- term_id: then_structure
-  label: Then - verifiable outcomes
-  text: List assertions that prove the outcome. then.abstract is a REQUIRED array
-    of observable outcomes; then.assertions is an array of typed assertion kinds.
-  values:
-    abstract: array of strings, minItems 1, REQUIRED
-  examples:
-    positive:
-    - 'then.abstract: ["Purchase succeeds", "Credits are deducted", "Receipt is generated"]'
-- term_id: assertion_kinds
-  label: Allowed Then assertion kinds
-  text: The controlled vocabulary of assertion kinds an acceptance may assert in then.assertions.
-  values:
-    kinds:
-    - status
-    - body
-    - headers
-    - error
-    - event_published
-    - state_changed
-    - metric
-- term_id: acceptance_cap
-  label: Cap of five acceptances per WMBT
-  text: Keep acceptances <=5 per WMBT; if you need more, split the WMBT into clearer
-    outcomes. Beyond five indicates mixed concerns that belong in separate WMBTs.
-  values:
-    maximum: 5
-    enforcement: schemas:planner:wmbt acceptance array maxItems
+- term_id: given_when_then
+  text: structured prose stating preconditions, the trigger action, and the expected observable outcomes.
+- term_id: verifiable_outcome
+  text: an outcome a generated test can assert.

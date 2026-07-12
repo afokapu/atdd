@@ -1,0 +1,33 @@
+schema_version: 1.1.0
+rule_id: coach.execution.out-of-contract-detection
+kind: principle
+status: active
+name: Out-of-contract behavior is detected and corrected
+statement: Out-of-contract worker behavior — editing outside WMBT target paths, claiming completion without
+  an observed commit, or re-committing without addressing cited tier-1 violations — must be detected and
+  corrected.
+source:
+  legacy_path: src/atdd/coach/conventions/observer.convention.yaml
+  legacy_section: basic_protocol_observer_rules
+  legacy_sha: ae693664e6e540ec
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.observer.out-of-scope-edit
+content:
+  fix_hint: Revert the out-of-scope change or escalate to widen scope.
+metadata:
+  aliases:
+  - coach.observer.completion-claim-without-commit
+  - coach.observer.validator-failure-ignored
+  severity: 4
+  disposition: documentation-only
+  introduced_in: 3.21.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: out_of_contract
+  text: behavior outside the declared scope/contract for the unit; the concept, not the cmux detection
+    plumbing.

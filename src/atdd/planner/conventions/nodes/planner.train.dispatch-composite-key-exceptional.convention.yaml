@@ -1,0 +1,17 @@
+schema_version: 1.0.0
+rule_id: planner.train.dispatch-composite-key-exceptional
+kind: rule
+status: draft
+statement: 'A composite (artifact_urn, discriminant) -> train_id dispatch key is exceptional:
+  permitted only with a behavioral_difference justification, discriminant exactly
+  one field:value.'
+terms:
+- term_id: composite_key
+  text: ''
+implementation:
+  type: validator
+  ref: conventions/schema/test_dispatch_map_is_registry::test_fault_caught_by_convention
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.127.0

@@ -2,42 +2,28 @@ schema_version: 1.1.0
 rule_id: planner.coverage.every-wmbt-must-be
 kind: rule
 status: active
-name: 'Coverage: Every Wmbt Must Be'
-statement: Every WMBT file must appear in at least one feature's wmbts list.
-implementation:
-  type: advisory
+name: WMBT - Feature Coverage
+statement: Every WMBT must be referenced by at least one feature (wmbt->feature).
 source:
   legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
-  legacy_sha: sha256:27e800378c584902
+  legacy_section: rules
+  legacy_sha: 27e800378c584902
   extraction_mode: high_fidelity
   legacy_rule_id: planner.coverage.every-wmbt-must-be
-  legacy_section: rules
-content:
-  summary: Requiring every WMBT to be referenced by a feature keeps the decomposition
-    connected, with no floating truths that no feature proves. This is the Feature-to-WMBT
-    edge of the coverage graph.
-  normative_text: Every WMBT must be referenced by at least one feature
-  examples:
-  - every WMBT file is listed in some feature's wmbts[]
-  counter_examples:
-  - a WMBT file exists but no feature lists it in wmbts[]
+bidirectional:
+- direction: wmbt -> feature
+  requirement: Every WMBT file must appear in at least one feature's wmbts list
+  validator: test_all_wmbts_in_at_least_one_feature
 metadata:
   aliases:
   - COVERAGE-PLAN-2.3
   disposition: documentation-only
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
+  examples_preserved: false
   implementation_preserved: true
-  fix_hint_preserved: true
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: wmbt
-  text: a What-Must-Be-True entry in a wagon decomposition, backed by a WMBT file
-- term_id: feature
-  text: a capability slice that references the WMBTs it proves via its wmbts list
-- term_id: wmbt_to_feature
-  label: Direction wmbt -> feature
-  text: Every WMBT file must appear in at least one feature's wmbts list. Enforced
-    by test_all_wmbts_in_at_least_one_feature. This rule has no allow-list and no
-    status exemption.
+- term_id: wmbt_feature_coverage
+  text: every WMBT file appears in at least one feature's wmbts list.

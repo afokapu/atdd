@@ -1,0 +1,18 @@
+schema_version: "1.1.0"
+rule_id: demo.area.sample-rule
+kind: rule
+status: active
+name: Demo sample rule
+statement: A demo extension-owned rule used by the composition smoke fixture.
+source:
+  legacy_path: tests/fixtures/packages/acme.extension.demo
+  legacy_section: fixture
+  extraction_mode: high_fidelity
+metadata:
+  severity: 2
+  disposition: documentation-only
+parity:
+  source_fragments_preserved: true
+terms:
+  - term_id: demo
+    text: a fixture term so the node satisfies the v1.1.0 schema.

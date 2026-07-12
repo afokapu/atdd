@@ -31,7 +31,10 @@ import atdd.coach.validators.test_workflow_template_command_drift as drift
 
 pytestmark = [pytest.mark.coach]
 
-_RULE_ID = "coach.workflow-template.command-must-parse"
+# Canonical id after the rule was renamed (#1225 removed the legacy monolith block
+# that kept the old id `coach.workflow-template.command-must-parse`, now an alias on
+# this single-node rule); bind_rule resolves the alias to this canonical id.
+_RULE_ID = "coach.workspace.emitted-cli-must-parse"
 
 _BOGUS_TEMPLATE = """\
 jobs:

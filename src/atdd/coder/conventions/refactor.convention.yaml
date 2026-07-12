@@ -537,34 +537,10 @@ refactor_phase:
   # ---------------------------------------------------------------------------
   # Layer-aware ratchet rules (issue #358 — replaces idea-issue #319)
   # ---------------------------------------------------------------------------
-  # The ratchet rewards mechanical reduction (line counts, duplication scores)
-  # without semantic verification. Presentation files are uniquely sensitive
-  # because lines often correspond to user-visible features. Past incident:
-  # 8 match features removed during ratchet trimming; structural validators
-  # green; loss caught only by manual smoke testing hours later.
-  ratchet_smoke_gate:
-    rules:
-      - id: "coder.refactor.coach-ratchet-pres"
-        aliases: ["COACH-RATCHET-PRES-001"]
-        severity: 3  # Decision #5 in issue #358 — advisory + gate, not blocking.
-        disposition: advisory
-        description: "Presentation-layer reduction >20% requires recorded smoke evidence"
-        title: "Presentation-layer reduction >20% requires recorded smoke evidence"
-        applies_to: "*/presentation/*.{tsx,ts,py}"
-        threshold: 0.20  # Decision #1 — 20% reduction, configurable here.
-        validator: "test_presentation_ratchet_requires_smoke::test_detects_25pct_reduction_in_presentation_tsx"
-        evidence:
-          location: ".atdd/smoke-evidence/<issue>.yaml"
-          gitignored: true  # Decision #3 — local/CI evidence, not git history.
-        triggers:
-          - "Single-PR presentation file shrinks more than 20% relative to base"
-          - "Presentation file deleted entirely (treated as 100% reduction, Decision #4)"
-        gate: "Blocks SMOKE→REFACTOR transition until smoke evidence is recorded"
-        record_command: "atdd validate coder --smoke-required <issue>"
-        rationale: |
-          Ratchet improvements (a "good thing" by metric) become a vector for
-          regressions when they touch presentation. Without a layer-aware gate,
-          structural validators report green even when behavior was removed.
+  # Phase A (partial de-monolith): the core-agnostic ratchet smoke-gate rule
+  # coder.refactor.coach-ratchet-pres moved to
+  #   nodes/coder.refactor.coach-ratchet-pres.convention.yaml
+  # (the prior ratchet_smoke_gate: block held only that one rule).
 
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
@@ -684,17 +660,8 @@ rules:
     disposition: strict
     description: "No database client calls inside loop bodies or comprehensions (N+1 query pattern)"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.composition-consumer"
-    validator: "test_composition_completeness::test_composition_convention_exists_and_has_required_sections"
-    aliases: ["REFACTOR-COMPOSITION-CONSUMER-001"]
-    severity: 3
-    disposition: strict
-    description: "Each layer file (presentation/integration/domain) has at least one upstream consumer per composition rules"
-    introduced_in: "1.67.0"
-  - id: "coder.refactor.composition-root"
-    validator: "test_composition_completeness::test_composition_convention_exists_and_has_required_sections"
-    aliases: ["REFACTOR-COMPOSITION-ROOT-001"]
-    severity: 3
-    disposition: strict
-    description: "Python composition.py reaches every existing layer of its feature via imports or setter wiring"
-    introduced_in: "1.67.0"
+  # Phase A (partial de-monolith): the core-agnostic composition rules moved to nodes/:
+  #   coder.refactor.composition-consumer → nodes/coder.refactor.composition-consumer.convention.yaml
+  #   coder.refactor.composition-root      → nodes/coder.refactor.composition-root.convention.yaml
+  # The complexity-*/quality-*/nplus1 rules above are stack-specific (extension-bound)
+  # and stay in this monolith until Phase B.

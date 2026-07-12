@@ -1,0 +1,65 @@
+schema_version: 1.1.0
+rule_id: coder.presentation.i18n-config
+kind: rule
+status: active
+name: i18n runtime config derives locales from the shared manifest
+statement: The runtime localization configuration of a frontend application MUST derive its set of
+  supported locales from the centralized locale manifest (the single source of truth), rather than
+  inlining a hardcoded locale array. This is the language-agnostic obligation owned by the coder
+  extension. The stack-specific detector that enforces it (a pytest/regex scan of the web i18n config
+  file for a hardcoded locale array that does not reference the manifest) is the python-pytest workspace
+  implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.presentation.i18n-config
+content:
+  summary: An agnostic "single source of truth for supported locales" obligation. The web realization
+    flags an i18n config file (`src/i18nConfig.ts` and known siblings) that declares a literal
+    `locales`/`supportedLocales`/`languages = ['xx', ...]` array WITHOUT importing the manifest or the
+    shared `SUPPORTED_LOCALES`; other stacks realize the same obligation against their own config surface.
+  normative_text: |
+    Supported locales must be defined once, in the locale manifest, and consumed everywhere else. A
+    hardcoded locale array in the runtime i18n config silently drifts from the manifest — locales added
+    to the manifest never reach runtime, and removed locales linger — producing broken or untranslated
+    UI. The obligation is "runtime config reads locales from the shared manifest"; WHICH file is the
+    config and HOW the hardcoding is detected is delegated to the per-stack detector. For the web stack
+    the detector locates the i18n config among a fixed candidate list and flags a literal locale-array
+    assignment that is not accompanied by a manifest import or a `SUPPORTED_LOCALES`/`getSupportedLocales`
+    reference.
+  fix_hint: |
+    Import the supported-locale list from the manifest instead of inlining it:
+      export const locales = ['en', 'fr', 'de']                       ->  FORBIDDEN
+      import { SUPPORTED_LOCALES } from './localeManifest'             ->  use SUPPORTED_LOCALES
+      export const i18nConfig = { supportedLocales: SUPPORTED_LOCALES }
+    Add new locales to the manifest only. This rule is `strict`: a new hardcoded locale array in the
+    config is not suppressible and fails.
+  exceptions:
+    - A config file that DOES reference the manifest / shared `SUPPORTED_LOCALES` (even alongside a
+      literal array) is absolved — the manifest is the source of truth.
+    - If no recognized i18n config file exists, the rule is inert (nothing to check).
+metadata:
+  aliases:
+    - PRESENTATION-I18N-CONFIG-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/presentation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.presentation.i18n-config
+  legacy_sha: 64ab65fcb9c704df
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: locale_manifest
+  text: the centralized single-source-of-truth declaration of an application's supported locales, exposed
+    to runtime as a shared `SUPPORTED_LOCALES` list (or `getSupportedLocales()`); all runtime locale
+    decisions derive from it.
+- term_id: hardcoded_locale_array
+  text: a literal array assignment (`locales`/`supportedLocales`/`languages = ['en', ...]`) that
+    enumerates locales inline instead of importing them from the manifest — the drift this rule forbids.

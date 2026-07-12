@@ -1,0 +1,24 @@
+schema_version: 1.1.0
+rule_id: planner.train.production-implementation
+kind: principle
+status: active
+name: Trains are production orchestration
+statement: Trains are production orchestration (not test infrastructure), executed by TrainRunner under
+  python/trains/.
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: production_implementation
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  operational_guidance: location python/trains/; executor TrainRunner (python/trains/runner.py); implementation
+    patterns in atdd/coder/conventions/train.convention.yaml (SESSION-12).
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: train_runner
+  text: the production executor of a train.

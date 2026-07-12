@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+rule_id: coder.coverage.every-implementation-must-have
+kind: rule
+status: active
+name: Implementation - Tests Coverage
+statement: Every implementation must have at least one linked test
+terms:
+- term_id: implementation_test_coverage
+  text: An implementation is covered when at least one test file references its feature/component.
+implementation:
+  type: validator
+  ref: conventions/coverage/test_hierarchy_coverage::test_fault_injection_convention_catches
+source:
+  legacy_path: src/atdd/coder/conventions/coverage.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.coverage.every-implementation-must-have
+  extraction_mode: high_fidelity
+content:
+  normative_text: Each implementation must have at least one linked test
+metadata:
+  severity: 3
+  disposition: strict
+  aliases:
+  - COVERAGE-CODE-4.2

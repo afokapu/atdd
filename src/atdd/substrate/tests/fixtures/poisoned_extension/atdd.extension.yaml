@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+# A manifest-valid extension whose IMPLEMENTATION is poisoned: importing or
+# running it raises and records a sentinel. Admission (C001) must validate and
+# compose this package without ever touching the implementation module.
+extension_id: acme.extension.poison
+version: "0.1.0"
+kind: extension
+role: coder
+flow_wagon: validate-source-surface
+feature: poison-probe
+owns:
+  implementations:
+    - implementations/poison
+depends_on:
+  workspaces:
+    - id: atdd.workspace.python-pytest
+      contract: "^1.0.0"

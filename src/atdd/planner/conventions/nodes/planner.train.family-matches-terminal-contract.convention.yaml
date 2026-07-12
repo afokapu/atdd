@@ -1,0 +1,17 @@
+schema_version: 1.1.0
+rule_id: planner.train.family-matches-terminal-contract
+kind: rule
+status: draft
+name: Family matches terminal contract
+statement: The declared family MUST agree with the declared terminal contract - family:delivery iff the terminal requires an Acceptance Authority commit AND the terminal primary is platform:acceptance:commit-receipt; family:behavior otherwise; a missing family field is invalid. Pending binding - validator owned by D1 (#1085).
+terms:
+- term_id: family-consistency
+  label: Family consistency
+  text: declared family <-> declared terminal contract; controlled redundancy, not a second source of truth.
+implementation:
+  type: validator
+  ref: conventions/coherence/test_train_family_matches_terminal_contract::test_fault_injection
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.127.0

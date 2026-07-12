@@ -2,56 +2,9 @@ version: "1.0"
 name: "Planner Coverage Convention"
 description: "Section 2 of ATDD Hierarchy Coverage Spec v0.1 - Ensures every planner artifact participates in lifecycle graph"
 
-rules:
-  - id: "planner.coverage.bidirectional-coverage-between-trains"
-    aliases: ["COVERAGE-PLAN-2.1"]
-    disposition: documentation-only
-    name: "Train - Wagon Coverage"
-    description: "Bidirectional coverage between trains and wagons"
-    bidirectional:
-      - direction: "wagon -> train"
-        requirement: "Every wagon must appear in at least one train's participants"
-        exceptions: "wagons_not_in_train allow-list or status:draft"
-        validator: "test_all_wagons_in_at_least_one_train"
 
-      - direction: "train -> wagon"
-        requirement: "Every wagon: participant must have a wagon manifest"
-        validator: "test_all_train_wagon_refs_exist"
 
-  - id: "planner.coverage.bidirectional-coverage-between-wagons"
-    aliases: ["COVERAGE-PLAN-2.2"]
-    disposition: documentation-only
-    name: "Wagon - Feature Coverage"
-    description: "Bidirectional coverage between wagons and features"
-    bidirectional:
-      - direction: "feature -> wagon"
-        requirement: "Every feature file must be referenced by its wagon manifest"
-        exceptions: "features_orphaned allow-list"
-        validator: "test_all_features_in_wagon_manifest"
 
-      - direction: "wagon -> feature"
-        requirement: "Every features[] entry must have corresponding YAML file"
-        validator: "test_all_wagon_feature_refs_exist"
-
-  - id: "planner.coverage.every-wmbt-must-be"
-    aliases: ["COVERAGE-PLAN-2.3"]
-    disposition: documentation-only
-    name: "WMBT - Feature Coverage"
-    description: "Every WMBT must be referenced by at least one feature"
-    bidirectional:
-      - direction: "wmbt -> feature"
-        requirement: "Every WMBT file must appear in at least one feature's wmbts list"
-        validator: "test_all_wmbts_in_at_least_one_feature"
-
-  - id: "planner.coverage.every-wmbt-must-have"
-    aliases: ["COVERAGE-PLAN-2.4"]
-    severity: 3
-    disposition: strict
-    name: "WMBT - Acceptance Coverage"
-    description: "Every WMBT must have at least one acceptance criterion"
-    requirement: "Every WMBT must have at least one acceptance (except status:draft)"
-    exceptions: "wmbts_without_acceptance allow-list"
-    validator: "test_hierarchy_coverage::test_all_wmbts_have_acceptances"
 
 coverage_graph:
   description: "The planner coverage graph ensures traceability from trains down to acceptances"

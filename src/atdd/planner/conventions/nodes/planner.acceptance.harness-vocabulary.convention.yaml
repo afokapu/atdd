@@ -1,0 +1,99 @@
+schema_version: 1.1.0
+rule_id: planner.acceptance.harness-vocabulary
+kind: family
+status: active
+name: Harness vocabulary (codes + catalog)
+statement: 'The authoritative harness vocabulary: each harness name maps to an UPPERCASE code and a typical-layer
+  catalog entry.'
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: harness_codes + harness_types
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+content:
+  summary: Authoritative name->CODE mapping plus per-harness description and typical layers.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: harness_code
+  label: Harness code map
+  text: name -> UPPERCASE code (authoritative).
+  values:
+    unit: UNIT
+    http: HTTP
+    event: EVENT
+    ws: WS
+    e2e: E2E
+    a11y: A11Y
+    visual: VIS
+    metric: METRIC
+    job: JOB
+    db: DB
+    sec: SEC
+    load: LOAD
+    script: SCRIPT
+    widget: WIDGET
+    golden: GOLDEN
+    bloc: BLOC
+    integration: INTEGRATION
+    rls: RLS
+    edge_function: EDGE
+    realtime: REALTIME
+    storage: STORAGE
+    smoke: SMOKE
+- term_id: harness_type
+  label: Harness type catalog
+  text: per-harness description and typical layers.
+  values:
+    unit:
+    - domain
+    - application
+    http:
+    - integration
+    - application
+    event:
+    - application
+    - integration
+    ws:
+    - integration
+    e2e:
+    - presentation
+    a11y:
+    - presentation
+    visual:
+    - presentation
+    metric:
+    - application
+    - integration
+    job:
+    - application
+    db:
+    - integration
+    sec:
+    - application
+    - integration
+    load:
+    - integration
+    script:
+    - application
+    widget:
+    - presentation
+    golden:
+    - presentation
+    - application
+    bloc:
+    - application
+    integration:
+    - integration
+    rls:
+    - integration
+    edge_function:
+    - integration
+    realtime:
+    - integration
+    storage:
+    - integration

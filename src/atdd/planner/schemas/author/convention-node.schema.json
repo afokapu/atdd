@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "atdd:author:convention-node:1.1.0",
-  "title": "ATDD convention node (1.1.0)",
+  "title": "ATDD convention node (high-fidelity, spec §5 + parity migration)",
   "type": "object",
   "additionalProperties": true,
   "required": ["schema_version", "rule_id", "kind", "status", "statement", "terms"],
@@ -12,54 +12,72 @@
     "status": {"enum": ["draft", "active", "deprecated"]},
     "name": {"type": "string"},
     "statement": {"type": "string", "minLength": 1},
+    "rationale": {"type": "string"},
+    "notes": {"type": "string"},
     "implementation": {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["type"],
+      "description": "The executable that enforces/realizes this node. Today usually a validator; the layer is generic (cf. the extension Implementation layer).",
       "properties": {
-        "type": {"enum": ["validator", "manual", "advisory", "none"]},
-        "ref": {"type": "string"}
+        "type": {"enum": ["validator", "generator", "fixer", "reporter", "collector", "test"]},
+        "ref": {"type": "string", "description": "Verbatim from legacy `validator:` (module::test)."}
       }
     },
+
     "source": {
       "type": "object",
-      "additionalProperties": true,
+      "description": "Provenance back to the legacy convention this node was atomized from.",
       "properties": {
         "legacy_path": {"type": "string"},
         "legacy_section": {"type": "string"},
         "legacy_rule_id": {"type": "string"},
         "legacy_sha": {"type": "string"},
-        "extraction_mode": {"enum": ["high_fidelity", "summary", "stub"]}
+        "extraction_mode": {"enum": ["high_fidelity", "summary"]}
       }
     },
+
     "content": {
       "type": "object",
-      "additionalProperties": true,
+      "description": "The preserved legacy material (verbatim where possible).",
       "properties": {
         "summary": {"type": "string"},
         "normative_text": {"type": "string"},
         "operational_guidance": {"type": "string"},
-        "examples": {"type": "array", "items": {"type": "string"}},
-        "counter_examples": {"type": "array", "items": {"type": "string"}},
-        "constraints": {"type": "array", "items": {"type": "string"}},
-        "exceptions": {"type": "array", "items": {"type": "string"}},
+        "examples": {"type": "array"},
+        "counter_examples": {"type": "array"},
+        "constraints": {"type": "array"},
+        "exceptions": {"type": "array"},
         "fix_hint": {"type": "string"}
       }
     },
+
+    "bidirectional": {
+      "type": "array",
+      "description": "Coverage-style directional requirements, one entry per direction.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "direction": {"type": "string"},
+          "requirement": {"type": "string"},
+          "exceptions": {"type": "string"},
+          "validator": {"type": "string"}
+        }
+      }
+    },
+
     "metadata": {
       "type": "object",
-      "additionalProperties": true,
       "properties": {
         "aliases": {"type": "array", "items": {"type": "string"}},
-        "severity": {"type": "integer"},
-        "disposition": {"type": "string"},
+        "severity": {"type": "integer", "minimum": 1, "maximum": 4},
+        "disposition": {"enum": ["documentation-only", "advisory", "suppress-and-clean", "strict", "block"]},
         "introduced_in": {"type": "string"},
         "suppression_deadline": {"type": "string"}
       }
     },
+
     "parity": {
       "type": "object",
-      "additionalProperties": true,
+      "description": "Audit trail that the legacy section was preserved at high fidelity.",
       "properties": {
         "source_fragments_preserved": {"type": "boolean"},
         "examples_preserved": {"type": "boolean"},
@@ -68,6 +86,29 @@
         "reviewed_at": {"type": "string"}
       }
     },
+
+    "validation": {
+      "type": "object",
+      "description": "Optional validator-family intent metadata (#1247). Declares which validator family/template/variant enforces this node, plus its phase/enforcement/subject_kind and machine-readable selector/traversal/invariant intent, failure-evidence keys, and static config. OPTIONAL and backward-compatible (existing nodes without it stay valid). Carries declarative intent only — never concrete runtime state (no train_id, route-selection state, Cargo contents, rendered digest, or TrainResult values).",
+      "additionalProperties": true,
+      "properties": {
+        "family": {"type": "string", "description": "convention validator family (validated against validators/conventions/registry.yaml)"},
+        "template": {"type": "string", "description": "registered template id under the selected family"},
+        "variant": {"type": "string", "description": "variant id instantiating the template"},
+        "phase": {"enum": ["RED", "GREEN", "SMOKE", "REFACTOR", "CONFIRM"]},
+        "enforcement": {"enum": ["advisory", "strict", "confirm-blocking"]},
+        "subject_kind": {
+          "type": "string",
+          "description": "the kind of subject the rule controls. Canonical kinds: train | interlocking | rendered-diagram | plan-session | runtime-boundary. Extensible (string, not a closed enum) so new subject kinds can be declared without a schema change."
+        },
+        "selector": {"type": "string", "description": "machine-readable selector for the controlled subjects"},
+        "traversal": {"type": "string", "description": "machine-readable traversal the validator walks"},
+        "invariant": {"type": "string", "description": "machine-readable invariant the validator asserts"},
+        "failure_evidence": {"type": "array", "items": {"type": "string"}, "description": "evidence field names a failing check should surface"},
+        "config": {"type": "object", "description": "static, variant-specific configuration (no concrete runtime facts)"}
+      }
+    },
+
     "terms": {
       "type": "array",
       "minItems": 1,
@@ -79,18 +120,14 @@
           "label": {"type": "string"},
           "text": {"type": "string"},
           "values": {"type": "object"},
-          "examples": {"$ref": "#/$defs/examples"}
+          "examples": {
+            "type": "object",
+            "properties": {
+              "positive": {"type": "array"},
+              "negative": {"type": "array"}
+            }
+          }
         }
-      }
-    }
-  },
-  "$defs": {
-    "examples": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "positive": {"type": "array", "items": {"type": "string"}},
-        "negative": {"type": "array", "items": {"type": "string"}}
       }
     }
   }

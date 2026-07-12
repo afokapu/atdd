@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+rule_id: coach.execution.dispatch-verifies-channel-live
+kind: principle
+status: active
+name: Dispatch verifies the mediation channel is live
+statement: "Before the coach relies on a workspace's decision-mediation channel, dispatch\
+  \ must verify the channel is live via the workspace provider's readiness signal;\
+  \ a not-live channel must cause the work unit to refuse or escalate rather than\
+  \ spawn an unmediated worker \u2014 never a silent continue."
+rationale: 'A worker spawned against a dead mediation channel runs unmediated: its
+  gated decisions never surface, so the autonomous loop cannot close. Core owns this
+  obligation; the workspace provider supplies the readiness signal (atdd.workspace.cmux-claude
+  readiness()) and carries the enforcement on its concrete transport.'
+terms:
+- term_id: channel_readiness
+  text: 'the workspace provider readiness signal: live, or not-live with an actionable
+    reason; the cmux Feed transport is a workspace concern'
+implementation:
+  type: validator
+  ref: test_transport_realizes_mediation::test_transport_capability_without_realizes_is_refused
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 4.0.0

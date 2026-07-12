@@ -1,10 +1,11 @@
 trains:
-  0-commons:
-    00-commons-nominal:
-    - train_id: 0001-self-compliance-validate
+  self-compliance:
+    nominal:
+    - train_id: train:self-compliance:validate-lifecycle
+      category: nominal
       description: 'Validate lifecycle train: planner defines plans, tester verifies
         contracts, coder implements, coach governs'
-      path: plan/_trains/0001-self-compliance-validate.yaml
+      path: plan/_trains/self-compliance/validate-lifecycle.yaml
       wagons:
       - define-plans
       - verify-contracts
@@ -13,13 +14,18 @@ trains:
       - self-compliance-migration
       - security-patterns
       - enforce-structured-logging
-    - train_id: 0002-coach-drives-lifecycle
-      description: Replace polling-and-trust with an event-driven, observer-augmented
-        coach that drives the issue → merged-PR lifecycle (per atdd-coach-spec-v9.md).
-        Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces
-        durable state, two-tier verification, six judge call sites, and pre-coach
-        issue review.
-      path: plan/_trains/0002-coach-drives-lifecycle.yaml
+      - validate-conventions
+      - enforce-binding-plan
+  issue-lifecycle:
+    nominal:
+    - train_id: train:issue-lifecycle:drive-state-machine
+      category: nominal
+      description: "Replace polling-and-trust with an event-driven, observer-augmented\
+        \ coach that drives the issue \u2192 merged-PR lifecycle (per atdd-coach-spec-v9.md).\
+        \ Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces\
+        \ durable state, two-tier verification, six judge call sites, and pre-coach\
+        \ issue review."
+      path: plan/_trains/issue-lifecycle/drive-state-machine.yaml
       wagons:
       - freeze-runtime-contracts
       - drive-state-machine
@@ -36,11 +42,43 @@ trains:
       - consolidate-coach-workspace
       - dispatch-ux-defaults-and-primer
       - mediate-worker-decisions
-    - train_id: 0003-author-substrate
+      - coach-verb-split
+  substrate:
+    nominal:
+    - train_id: train:substrate:admit-packages
+      category: nominal
+      description: "Admission substrate train: the front door that admits external\
+        \ extension/workspace packages into a project \u2014 define the substrate/lock/registry\
+        \ schemas, read registries, resolve+validate+compose an artifact against core,\
+        \ then install it into a versioned home with a sha256 digest and a lockfile,\
+        \ all without executing any runtime implementation. Sibling to the author-substrate\
+        \ train; runtime binding is a later train."
+      path: plan/_trains/substrate/admit-packages.yaml
+      wagons:
+      - admit-substrate
+    - train_id: train:substrate:author-artifacts
+      category: nominal
       description: 'Authoring substrate train: define canonical schemas + flat homes,
         validate author input on a shared spine, then deterministically write the
         four governance artifact kinds (convention-node, relationship, scope, gate)
         so authored artifacts pass normal ATDD validation unmodified.'
-      path: plan/_trains/0003-author-substrate.yaml
+      path: plan/_trains/substrate/author-artifacts.yaml
       wagons:
       - author-atdd-substrate
+      - author-plan-substrate
+    - train_id: train:substrate:bind-runtime
+      category: nominal
+      description: "Binding substrate train: the runtime back end that turns a locked,\
+        \ inert .atdd/substrate.lock.yaml into running, gating capabilities. Define\
+        \ a binding-plan schema, load enabled packages from the lock by installed_path,\
+        \ re-verify each package's sha256 digest before loading, compose the capability\
+        \ graph and index implementations by realizes_convention, refuse contract-incompatible\
+        \ bindings, then provider-spawn the implementation as an isolated subprocess\
+        \ and route its Violations into the disposition gate \u2014 shadowing legacy\
+        \ on success and failing safe to legacy on any failure. The third and final\
+        \ substrate stage, downstream of the author-substrate and admit-substrate\
+        \ trains; this is the binding train the admit-substrate train explicitly defers\
+        \ to."
+      path: plan/_trains/substrate/bind-runtime.yaml
+      wagons:
+      - bind-substrate-runtime

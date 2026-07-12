@@ -1,0 +1,37 @@
+schema_version: 1.1.0
+rule_id: coach.template.no-duplicated-convention
+kind: rule
+status: active
+name: Template must not duplicate canonical conventions
+statement: 'The agent-facing CONDUCTOR.md template must point at canonical sources, not duplicate them:
+  it must not carry manifest/tests/audits/atdd_cycle/infrastructure/architecture/testing/agents/conventions
+  top-level sections, each of which has a canonical home elsewhere.'
+implementation:
+  type: validator
+  ref: test_conductor_md_no_duplicated_convention::test_conductor_md_does_not_duplicate_convention_content
+source:
+  legacy_path: src/atdd/coach/conventions/template.convention.yaml
+  legacy_section: rules
+  legacy_sha: e4e97242372930cc
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.template.no-duplicated-convention
+content:
+  fix_hint: "Delete the offending section from\n``src/atdd/coach/templates/CONDUCTOR.md``. The canonical\
+    \ home is\nnamed in the violation detail. If agents need a breadcrumb,\nreplace the deleted section\
+    \ with a single-line comment pointing\nat the canonical source (see the\n``phase_machine.convention.yaml``\
+    \ pointer block already present\nin CONDUCTOR.md for the pattern).\n\nTo DETECT before pushing:\n\
+    \  pytest src/atdd/coach/validators/test_conductor_md_no_duplicated_convention.py -v"
+metadata:
+  severity: 4
+  disposition: strict
+  introduced_in: 3.85.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: forbidden_sections
+  text: atdd_cycle (→phase_machine), audits (→`atdd validate --help`), architecture (→coder conventions),
+    etc.

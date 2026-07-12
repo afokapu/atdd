@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: coach.execution.one-agent-per-delivery-unit
+kind: principle
+status: active
+name: One delivery unit, one isolated context, one agent
+statement: Each delivery unit maps to exactly one isolated execution context driving exactly one agent
+  session; no shared contexts and no sub-agent delegation that shares an agent's context.
+source:
+  legacy_path: src/atdd/coach/conventions/coach.convention.yaml
+  legacy_section: core_principle + rules
+  legacy_sha: 8ae03af96bef3f96
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.activation.one-agent-per-session-unit
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 4.0.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: isolated_execution_context
+  text: the per-unit sandbox (today a git worktree + cmux session unit) that no other unit shares.
+- term_id: no_delegation
+  text: an agent must not spawn sub-agents that share its context — one unit, one durable session.

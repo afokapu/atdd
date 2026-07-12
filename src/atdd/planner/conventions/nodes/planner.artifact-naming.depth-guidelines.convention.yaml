@@ -1,0 +1,27 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.depth-guidelines
+kind: principle
+status: active
+name: Depth guidelines
+statement: Keep hierarchy 2-3 levels (4-5 max, sparingly) and variants shallow (0-1 dots, 2 max); each
+  separator should add clear semantic value.
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: decision_rules.depth_guidelines
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: depth
+  text: the recommended nesting depth per separator.
+  values:
+    hierarchy_typical: 2-3 levels
+    hierarchy_maximum: 4-5 levels (use sparingly)
+    variant_typical: 0-1 levels
+    variant_maximum: 2 levels
+    warning: multiple dots often indicate over-specification

@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-entrypoint-shape
+kind: rule
+status: active
+name: Interlocking entrypoint shape
+statement: Every interlocking declares whether it is runtime-exposed and which Station
+  Master actions are expected to reach it.
+terms:
+- term_id: entrypoint_shape
+  text: exposed:true requires actions>=1; exposed:false requires reason; actions are
+    Station Master action names not train IDs; planner validates shape only
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_interlocking_entrypoint_shape_valid
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: schema
+  template: required_field_presence
+  variant: planner_train_interlocking_entrypoint_shape
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - exposed
+  - actions
+  - reason
+  - field_path

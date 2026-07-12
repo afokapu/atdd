@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+rule_id: coder.error-response.code-format
+kind: rule
+status: active
+name: Error code UPPER_SNAKE_CASE format
+statement: error_code values must follow UPPER_SNAKE_CASE convention matching ^[A-Z][A-Z0-9_]+$
+terms:
+- term_id: error_code_format
+  text: An error_code is valid when it is UPPER_SNAKE_CASE matching the regex ^[A-Z][A-Z0-9_]+$.
+implementation:
+  type: validator
+  ref: test_error_response_compliance::test_error_response_contract_exists
+source:
+  legacy_path: src/atdd/coder/conventions/error-response.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.error-response.code-format
+  extraction_mode: high_fidelity
+metadata:
+  severity: 4
+  disposition: strict
+  aliases:
+  - ERROR-CODE-FORMAT-001
+  introduced_in: 1.67.0

@@ -1,0 +1,52 @@
+urn: "wmbt:author-atdd-substrate:C007"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "invalid-package-realization"
+context_clarifier: "an extension links to core only through `realizes` (an owned extension node realizes a shipped core node); depends_on.targets is derived from it and design_candidates may be referenced but not realized; before a package is composed, each realizes mapping must resolve and no cross-package linkage may be smuggled in as an authored relationship-graph edge, so a malformed or dangling realization is never accepted"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of accepting an invalid-package-realization by validating the realizes mappings (extension_node is owned, core_node is a shipped core node, no design_candidate is realized, depends_on.targets is derived) and refusing any authored cross-package graph edge, so cross-package linkage exists only as realizes and resolves against installed core"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C007-UNIT-001-realization-gate"
+      id: "AC-UNIT-001"
+      purpose: "validate_realizes accepts a well-formed realizes block and refuses an unresolved core_node, a realized design_candidate, an unowned extension_node, and an authored cross-package graph edge"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture extension whose owned node realizes shipped core nodes, plus mutated variants: a realizes.core_node that is not a shipped core node, a realizes.core_node that is a declared design_candidate, a realizes.extension_node the extension does not own, and an extension relationships.yaml edge pointing at a core node"
+    when:
+      abstract: "compose.validate_realizes is evaluated against the installed core node set for each"
+    then:
+      abstract:
+        - "the well-formed realizes block is accepted and returns the realized core node set"
+        - "an unresolved core_node is refused"
+        - "realizing a design_candidate is refused"
+        - "an authored cross-package edge that references a core node is refused"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-17"
+  - identity:
+      urn: "acc:author-atdd-substrate:C007-SMOKE-001-validate-package-cli"
+      id: "AC-SMOKE-001"
+      purpose: "atdd validate package <path> validates a real installed extension package against core loaded package-relatively from the installed toolkit, with no core checkout and no runtime execution"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The installed atdd toolkit (core nodes ship as package data) and a real extension package directory (the fixture, and the official atdd.extension.github package when checked out beside core)"
+    when:
+      abstract: "the `atdd validate package <path>` CLI is invoked as a subprocess"
+    then:
+      abstract:
+        - "the CLI exits zero and reports the package valid against core"
+        - "core node ids are resolved package-relatively from the installed atdd package, with no repo-root or core checkout required"
+        - "no runtime implementation is executed during composition"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-17"

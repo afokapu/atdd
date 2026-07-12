@@ -1,0 +1,42 @@
+urn: feature:define-plans:atdd-plan-session
+wagon: wagon:define-plans
+description: "The atdd plan gated decomposition session (#1139): Define\u2192Locate\u2192\
+  Prepare\u2192Confirm\u2192author lifecycle, the confirm-before-author boundary,\
+  \ and post-confirm dispatch to atdd author per locked unit."
+sizing:
+  wmbts: 13
+  footprint_score: 5
+  footprint_size: S
+wmbts:
+- wmbt:define-plans:D001
+- wmbt:define-plans:L001
+- wmbt:define-plans:P001
+- wmbt:define-plans:C001
+- wmbt:define-plans:C002
+- wmbt:define-plans:C003
+- wmbt:define-plans:C004
+- wmbt:define-plans:C005
+- wmbt:define-plans:C006
+- wmbt:define-plans:E001
+- wmbt:define-plans:E002
+- wmbt:define-plans:E003
+- wmbt:define-plans:Y001
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 1
+      rationale: atdd plan <op> session subcommands in cli.py dispatched to plan_session_cli.py
+    application:
+    - type: use_cases
+      count: 1
+      rationale: PlanSession D/L/P/C state machine + author() in plan_session.py
+    domain:
+    - type: value_objects
+      count: 2
+      rationale: Step lifecycle gate enum and the session unit/decision records in
+        plan_session.py
+    integration:
+    - type: schemas
+      count: 0
+      rationale: session state persisted on disk under .atdd; no cross-wagon contract

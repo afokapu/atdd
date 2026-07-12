@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.urn-naming
+kind: rule
+status: active
+name: Wagon URN naming
+statement: A wagon URN is wagon:{kebab-case-name}, preferring a verb-object slug; built via URNBuilder.wagon.
+source:
+  legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
+  legacy_section: urn_naming
+  legacy_sha: ee0a3e1d5af414c9
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - wagon:resolve-dilemmas
+  - wagon:burn-timebank
+  - wagon:manage-users
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: wagon_urn_pattern
+  text: the wagon URN grammar.
+  values:
+    pattern: ^wagon:[a-z][a-z0-9-]*$
+    preference: verb-object (resolve-dilemmas, commit-state)

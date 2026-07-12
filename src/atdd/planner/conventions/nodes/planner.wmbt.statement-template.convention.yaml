@@ -1,54 +1,23 @@
 schema_version: 1.1.0
 rule_id: planner.wmbt.statement-template
-kind: pattern
+kind: rule
 status: active
-name: 'Wmbt: Statement Template'
-statement: A WMBT statement is composed by the template "${direction} ${dimension}
-  of ${object_of_control}" optionally suffixed with a context clarifier, binding together
-  the selected direction, dimension, object-of-control, and clarifier into one canonical
-  sentence.
-implementation:
-  type: none
+name: WMBT statement template
+statement: 'A WMBT statement is composed as: {direction} {dimension} of {object_of_control} [context_clarifier].'
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
-  legacy_sha: sha256:040256ed5588a6c7
+  legacy_section: statement + generators
+  legacy_sha: 040256ed5588a6c7
   extraction_mode: high_fidelity
-  legacy_section: statement-template
-content:
-  summary: A single composition template makes every WMBT statement parse the same
-    way and forces each truth to name exactly one direction, one dimension, and one
-    object-of-control, which is what keeps WMBTs atomic and verifiable.
-  operational_guidance: The slot values are produced by the direction, dimension,
-    object-of-control, and context-clarifier selection nodes. The clarifier suffix
-    is conditional — only appended when a clarifier exists.
-  examples:
-  - wmbt:resolve-dilemmas:E001 -> "minimize Time of dilemma-resolution"
-  counter_examples:
-  - A statement that omits the dimension or the object-of-control slot
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
 - term_id: statement_pattern
-  label: The statement composition template
-  text: The direction verb, dimension metric, and object-of-control noun phrase are
-    joined as "direction dimension of object_of_control", with the context clarifier
-    appended (preceded by a space) only when present.
+  text: the WMBT statement composition.
   values:
-    pattern: '${direction} ${dimension} of ${object_of_control}${context_clarifier
-      ? '' '' + context_clarifier : ''''}'
-    slots:
-      direction: optimization verb from the direction palette
-      dimension: one of the six canonical dimensions
-      object_of_control: kebab-case noun phrase
-      context_clarifier: optional one-line situational suffix
-  examples:
-    positive:
-    - minimize Time of dilemma-resolution
-    - increase Likelihood of experiment-success during peak-load
-    negative:
-    - Time dilemma-resolution (missing direction and "of")
-    - minimize fast AND reliable of payment-flow (two dimensions in one statement)
+    pattern: '${direction} ${dimension} of ${object_of_control}${context_clarifier ? '' '' + context_clarifier
+      : ''''}'

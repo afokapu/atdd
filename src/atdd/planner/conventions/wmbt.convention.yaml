@@ -220,7 +220,7 @@ splitting_rules:
   acceptance_cap:
     maximum: 5
     rationale: "Beyond 5 acceptances indicates mixed concerns that should be separate WMBTs"
-    enforcement: "schemas:planner:wmbt enforces via acceptance array maxItems"
+    enforcement: "Advisory guidance, not schema-enforced. wmbt.schema.json is NOT applied as a file-level gate (see #760); WMBT/acceptance validation happens in the Python content validators (test_wmbt_vocabulary, test_hierarchy_coverage, test_wmbt_has_smoke_acceptance, test_wmbt_consistency) plus acceptance.schema.json per acceptance."
 
   when_to_split:
     mixed_dimensions:
@@ -261,52 +261,3 @@ filename:
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
-rules:
-  - id: "planner.wmbt.shape"
-    aliases: ["PLANNER-WMBT-SHAPE-001"]
-    severity: 2
-    disposition: documentation-only
-    description: "WMBT entries declare id, statement, and the artifacts that prove the statement"
-    introduced_in: "1.67.0"
-  - id: "planner.wmbt.must-have-smoke-acceptance"
-    severity: 3
-    disposition: suppress-and-clean
-    description: "Every WMBT must declare at least one acceptance URN with the SMOKE harness token (acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]) so the lifecycle has explicit real-infrastructure coverage before REFACTOR. Mirrors tester.smoke.pres (#293) — closes the asymmetry where tester checks coverage of SMOKE tests that exist but no rule requires SMOKE acceptances be declared in the first place. Docs-only WMBTs that have no real infra to verify can suppress inline with `# atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=YYYY-MM-DD` on the WMBT's urn: line."
-    introduced_in: "3.50.0"
-    aliases: []
-    validator: "test_wmbt_has_smoke_acceptance::test_every_wmbt_has_smoke_acceptance"
-    fix_hint: |
-      The named WMBT declares 0 acceptance URNs with a SMOKE harness token,
-      so the lifecycle has no explicit real-infrastructure verification
-      between GREEN and REFACTOR. Repair as follows
-      (run `atdd repo resolve <wmbt-urn>` to inspect the WMBT file path,
-       e.g. "atdd repo resolve wmbt:govern-lifecycle:E003"):
-
-        1. Open the WMBT YAML named in the violation location
-           (e.g. "plan/govern_lifecycle/E003.yaml:1").
-        2. Add at least one acceptance whose identity.urn matches
-           "acc:<wagon>:<wmbt_id>-SMOKE-NNN[-<slug>]" and whose
-           identity.phase is "SMOKE":
-             - identity:
-                 urn: "acc:<wagon>:<wmbt_id>-SMOKE-001-<slug>"
-                 id: "AC-SMOKE-001"
-                 purpose: "Verify <X> against real <infrastructure>"
-                 phase: "SMOKE"
-               harness:
-                 type: "integration"
-                 category: "backend"
-           Substitute:
-             - <wagon>    = the WMBT's wagon slug, e.g. "govern-lifecycle"
-             - <wmbt_id>  = the WMBT step+seq, e.g. "E003"
-             - <slug>     = kebab-case descriptor of what runs against real infra
-        3. If this WMBT is genuinely docs-only / metadata (no real infra
-           to verify), add a suppression marker on the urn: line of the
-           WMBT YAML — substitute YYYY-MM-DD with today + 90 days
-           (e.g. "2026-08-12"):
-             urn: "wmbt:<wagon>:<wmbt_id>"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=YYYY-MM-DD
-        4. Re-run the validator to confirm clean
-           (run pytest src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py -v).
-
-      See src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001
-      for the template pattern this rule mirrors, and issue #681 for the
-      substrate-asymmetry incident this rule closes.

@@ -1,146 +1,36 @@
 schema_version: 1.1.0
 rule_id: planner.artifact-naming.logical-physical-mapping
-kind: pattern
+kind: rule
 status: active
-name: 'Artifact Naming: Logical Physical Mapping'
-statement: A logical artifact name maps to a physical contract path by splitting on
-  colons and dots into directory levels and resolving a final target. The same plural
-  aspect can resolve to one of three physical forms - a directory reference (no schema
-  file), an array schema, or a singular schema - distinguished by whether the plural
-  names a heterogeneous grouping or a homogeneous collection.
-implementation:
-  type: none
+name: Logical-to-physical mapping
+statement: 'Artifact names (logical) map to contract file paths (physical): split on : and ., each segment
+  is a directory level, the final segment is the filename.'
 source:
   legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
+  legacy_section: logical_vs_physical_mapping + urn_structure
+  legacy_sha: eca68a67c92694c9
   extraction_mode: high_fidelity
-  legacy_section: logical-physical-mapping
 content:
-  summary: Making the logical-to-physical mapping algorithmic, while naming the three
-    legitimate physical forms, lets every contract file location be derived from the
-    name and resolves the ambiguity of what a plural artifact points at.
+  operational_guidance: 'segments = split(artifact, /[:.]/); path = ''contracts/'' + segments[0..-1].join(''/'');
+    file = variant ? variant+''.schema.json'' : (directory_reference ? none : aspect+''.schema.json'').'
   examples:
-  - scenario:fragment -> contracts/scenario/fragment/fragment.schema.json (singular
-    schema)
-  - scenario:fragments -> contracts/scenario/fragments/fragments.schema.json (array
-    schema)
-  - commons:ux:foundations -> contracts/commons/ux/foundations/ (directory reference)
+  - scenario:fragment -> contracts/scenario/fragment/fragment.schema.json (singular object)
+  - scenario:fragments -> contracts/scenario/fragments/fragments.schema.json (array schema)
+  - commons:ux:foundations -> contracts/commons/ux/foundations/ (directory reference, no file)
+  - sensory:gesture.raw -> contracts/sensory/gesture/raw.schema.json (variant becomes filename)
+  - commons:ux:foundations:color.primary -> contracts/commons/ux/foundations/color/primary.schema.json
 parity:
   source_fragments_preserved: true
   examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: mapping_algorithm
-  label: Logical-to-physical algorithm
-  text: Split the artifact name on colons and dots, make each segment a directory
-    level, then resolve the final target depending on whether the name has a variant,
-    is a directory reference, or is a plain schema.
+- term_id: physical_form
+  label: Three physical forms
+  text: how a plural/singular artifact materializes on disk.
   values:
-    steps:
-    - Split artifact name by colons (:) and dots (.)
-    - Each segment creates a directory level
-    - Determine final target based on artifact type
-    pseudocode: "segments = split(artifact, /[:.]/g)\npath = \"contracts/\" + segments[0..-1].join(\"\
-      /\") + \"/\"\n\nif has_variant:\n  file = segments[-1] + \".schema.json\"\n\
-      elif is_directory_reference:\n  file = null  // directory only\nelse:\n  file\
-      \ = segments[-1] + \".schema.json\"\n"
-- term_id: directory_reference
-  label: Physical form - directory reference
-  text: A plural aspect that is a logical grouping of distinct schema types resolves
-    to a directory with no concrete schema file of its own.
-  values:
-    when: Logical grouping without concrete schema file
-    artifact: commons:ux:foundations
-    physical_path: contracts/commons/ux/foundations/
-    contains:
-    - color.schema.json
-    - typography.schema.json
-    - spacing.schema.json
-    schema_file: none - directory only
-    usage: Organizational grouping, not a runtime artifact
-    note: Plural aspect referencing a collection of related schemas
-- term_id: array_schema
-  label: Physical form - array schema
-  text: A plural aspect that is a homogeneous runtime collection resolves to a concrete
-    array schema file whose items $ref the singular item schema.
-  values:
-    when: Runtime array containing multiple items of singular type
-    artifact: scenario:fragments
-    physical_path: contracts/scenario/fragments/fragments.schema.json
-    runtime_value: '[{fragment}, {fragment}, ...]'
-    usage: Contract for array/collection payload
-    note: Plural aspect with concrete array schema file
-    schema_body: "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n\
-      \  \"$id\": \"urn:contract:scenario:fragments\",\n  \"type\": \"array\",\n \
-      \ \"items\": {\n    \"$ref\": \"../fragment/fragment.schema.json\"\n  },\n \
-      \ \"minItems\": 1\n}\n"
-- term_id: singular_schema
-  label: Physical form - singular schema
-  text: A singular aspect resolves to a single object schema file, with the final
-    segment repeated as the filename.
-  values:
-    when: Single item definition
-    artifact: scenario:fragment
-    physical_path: contracts/scenario/fragment/fragment.schema.json
-    runtime_value: '{id: ''...'', label: ''...''}'
-    usage: Contract for single item payload
-    note: Singular aspect = single object schema
-    schema_body: "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n\
-      \  \"$id\": \"urn:contract:scenario:fragment\",\n  \"type\": \"object\",\n \
-      \ \"properties\": {\n    \"id\": {\"type\": \"string\", \"format\": \"uuid\"\
-      },\n    \"label\": {\"type\": \"string\"},\n    \"kg_subject\": {\"type\": \"\
-      string\", \"format\": \"uri\"}\n  },\n  \"required\": [\"id\", \"label\", \"\
-      kg_subject\"]\n}\n"
-- term_id: disambiguation
-  label: Directory vs array disambiguation
-  text: A plural aspect is a directory reference when it groups diverse sub-resources,
-    and an array schema when it is a homogeneous collection of one type; when in doubt,
-    prefer the array schema as the more explicit contract.
-  values:
-    organizational_grouping:
-      indicator: Contains multiple distinct types/schemas
-      example: commons:ux:foundations (color, typography, spacing - different types)
-      physical: Directory with multiple .schema.json files
-    runtime_collection:
-      indicator: Contains multiple instances of same type
-      example: scenario:fragments (many fragments - same type)
-      physical: Single fragments.schema.json with type array
-    clarification_rules:
-    - If plural aspect represents diverse sub-resources -> directory reference
-    - If plural aspect represents homogeneous collection -> array schema
-    - When in doubt, create array schema (more explicit contract)
-- term_id: detailed_mappings
-  label: Detailed mapping cases
-  text: The full matrix of variant x cardinality mappings from logical name to physical
-    path.
-  values:
-    no_variant_singular:
-      artifact: scenario:fragment
-      physical: contracts/scenario/fragment/fragment.schema.json
-    no_variant_plural_array:
-      artifact: scenario:fragments
-      physical: contracts/scenario/fragments/fragments.schema.json
-      schema_type: array
-    no_variant_plural_directory:
-      artifact: commons:ux:foundations
-      physical: contracts/commons/ux/foundations/
-      note: directory reference
-    with_variant_singular:
-      artifact: sensory:gesture.raw
-      physical: contracts/sensory/gesture/raw.schema.json
-    with_variant_plural:
-      artifact: scenario:fragments.active
-      physical: contracts/scenario/fragments/active.schema.json
-      schema_type: array (filtered subset)
-    deep_hierarchy_singular:
-      artifact: commons:ux:foundations:color
-      physical: contracts/commons/ux/foundations/color.schema.json
-    deep_hierarchy_plural:
-      artifact: commons:ux:foundations:colors
-      physical: contracts/commons/ux/foundations/colors.schema.json
-      schema_type: array
-    deep_with_variant:
-      artifact: commons:ux:foundations:color.primary
-      physical: contracts/commons/ux/foundations/color/primary.schema.json
+    directory_reference: logical grouping, no concrete schema file (plural aspect referencing a collection
+      of related schemas)
+    array_schema: 'plural aspect with a concrete array schema ({type: array, items: $ref ../singular})'
+    singular_schema: singular aspect = single object schema

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+rule_id: coder.commons.domain-layer-purity
+kind: principle
+status: active
+name: Domain layer is framework-pure
+statement: The domain layer MUST contain no framework or third-party library imports
+  in any stack; it depends only on language primitives and its own abstractions, while
+  framework bindings live in the outer (application / integration / presentation)
+  layers.
+terms:
+- term_id: domain_purity
+  text: "the domain layer imports no web/UI/persistence framework \u2014 only language\
+    \ stdlib and in-domain types \u2014 so business logic stays portable and testable\
+    \ without infrastructure"
+source:
+  legacy_path: src/atdd/coder/conventions/commons.convention.yaml
+  legacy_section: structure_patterns.common_principles
+  legacy_rule_id: Domain layer purity
+  extraction_mode: high_fidelity
+content:
+  summary: 'Stack-neutral domain-purity principle. The per-stack framework ban lists
+    (Python: flask/fastapi/django; frontend: preact/react/@tanstack/@maintain-ux/gsap)
+    are workspace realization.'
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.66.0

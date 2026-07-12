@@ -2,34 +2,23 @@ schema_version: 1.1.0
 rule_id: planner.theme.must-be-canonical
 kind: rule
 status: active
-name: 'Theme: Must Be Canonical'
-statement: Every wagon theme and every train theme-digit must resolve to one of the
-  five canonical themes (commons/plan/test/code/coach; digits 0-4); retired game-domain
-  themes (digits 5-9) and any undeclared theme are rejected.
+name: Theme must be canonical
+statement: 'Every wagon theme: and every train theme-digit MUST resolve to a theme in the effective map
+  get_theme_map(config) — built-in defaults + .atdd/config.yaml themes: overrides (#1317). The canonical set
+  is consumer-repo-aware, not a hardcoded five; a theme absent from the effective map is rejected. In the
+  toolkit''s own repo the config declares commons/plan/test/code/coach.'
 implementation:
   type: validator
   ref: test_theme_must_be_canonical::test_every_wagon_theme_is_canonical
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
-  legacy_sha: sha256:2ae106d04d77b06e
+  legacy_section: rules
+  legacy_sha: 2ae106d04d77b06e
   extraction_mode: high_fidelity
   legacy_rule_id: planner.theme.must-be-canonical
-  legacy_section: rules
 content:
-  summary: Constraining themes to the five canonical themes keeps ownership and routing
-    coherent across the repo. The five themes form an ordered abstraction stack from
-    cross-team primitives up to the orchestrator, mirroring the existing train-numbering
-    scheme.
-  normative_text: Every wagon `theme:` and every train theme-digit MUST resolve to
-    one of the five canonical themes (commons/plan/test/code/coach; digits 0-4). Retired
-    game-domain themes (digits 5-9) and any undeclared theme are rejected. Subsumes
-    the runtime theme-membership check described by wmbt:govern-lifecycle:E001 (which
-    is otherwise unbound).
-  examples:
-  - 'theme: commons  # resolves to canonical digit 0'
-  counter_examples:
-  - 'theme: arcade  # undeclared theme, rejected'
-  - 'theme: league  # retired digit-7 game-domain name'
+  normative_text: Subsumes the runtime theme-membership check described by wmbt:govern-lifecycle:E001
+    (which is otherwise unbound).
 metadata:
   aliases:
   - PLANNER-THEME-CANONICAL-001
@@ -38,55 +27,20 @@ metadata:
   introduced_in: 3.92.0
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
+  examples_preserved: false
   implementation_preserved: true
-  fix_hint_preserved: true
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: canonical_taxonomy
-  label: The five canonical themes (ordered abstraction stack, digits 0-4)
-  text: The theme set is an ordered abstraction stack from cross-team primitives (commons)
-    up to the orchestrator (coach). Digits 1-3 align to the planner/tester/coder archetypes.
-    CANONICAL_THEME_0 in _theme_taxonomy.py mirrors the digit-0 name.
+- term_id: canonical_resolution
+  text: a theme/digit resolving to the effective canonical set = values of get_theme_map(config).
   values:
-    themes:
-      '0': commons - cross-team primitives ANY archetype can consume without importing
-        coach (graph, URN, config, telemetry, worktree)
-      '1': plan (archetype planner) - wagons, features, WMBTs, trains
-      '2': test (archetype tester) - contracts, acceptances, smoke
-      '3': code (archetype coder) - backend implementation, boundaries
-      '4': coach - the agent-team orchestrator across all layers (multiplexer/pane
-        spawning, durable run persistence, the Feed daemon, worker-decision mediation)
-  examples:
-    positive:
-    - 'theme: commons'
-    - 'theme: plan'
-    - 'theme: coach'
-- term_id: retired_digits
-  label: Retired game-domain themes (back-compat resolution only)
-  text: The legacy game-domain names at digits 5-9 are retired. DEFAULT_THEME_MAP
-    retains them for back-compat resolution only; this rule rejects them as theme
-    assignments.
-  values:
-    retired_digits:
-    - '5'
-    - '6'
-    - '7'
-    - '8'
-    - '9'
-    retired_names:
-    - sensory
-    - player
-    - league
-    - audience
-    - monetization
-    - partnership
-  examples:
-    negative:
-    - 'theme: sensory  # retired digit-5 game-domain name'
-    - 'theme: monetization  # retired game-domain name'
-- term_id: subsumed_check
-  text: Subsumes the runtime theme-membership check described by wmbt:govern-lifecycle:E001
-    (which is otherwise unbound).
-  values:
-    subsumes: wmbt:govern-lifecycle:E001
+    source: get_theme_map(config)  # built-in defaults + .atdd/config.yaml themes: overrides
+    toolkit_repo:  # what the toolkit's own .atdd/config.yaml declares
+    - commons
+    - plan
+    - test
+    - code
+    - coach
+    consumer_repo: repo-declared game-domain (or other) themes; resolved per-repo, not hardcoded
+notes: Subsumes the runtime theme-membership check wmbt:govern-lifecycle:E001 (which is otherwise unbound).

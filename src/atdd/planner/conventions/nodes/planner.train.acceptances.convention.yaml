@@ -1,0 +1,34 @@
+schema_version: 1.1.0
+rule_id: planner.train.acceptances
+kind: rule
+status: active
+name: Train-level acceptances
+statement: A train may carry an optional acceptances block (WMBT acceptance shape); each contributes a
+  derived repo rule via the rule-binding walker.
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: acceptances
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'rule_id derivation (spec v12 §3.3): acc:<train-id>:<slug> -> repo.<train-id>.acc-<slug>.
+    Walker: atdd.coach.utils.rule_binding.find_repo_rules.'
+  constraints:
+  - identity.urn matches URNBuilder.PATTERNS['acc'] (train-acceptance shape)
+  - identity.purpose populated (becomes RuleMetadata.description)
+  - identity.phase populated (RED|GREEN|SMOKE|REFACTOR)
+  - EITHER harness.type OR (signal.metric AND signal.threshold) populated (measurability invariant §4.3)
+  exceptions:
+  - 'id: at acceptance-block top level (rule-id derives mechanically — see §3.3)'
+  - 'disposition: anywhere in repo YAML (walker sets to ''strict'' per §4.4)'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: train_acceptance
+  text: an optional train-level acceptance.
+  values:
+    rule_id_derivation: acc:<train-id>:<slug> -> repo.<train-id>.acc-<slug>

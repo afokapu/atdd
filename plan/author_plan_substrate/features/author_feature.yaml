@@ -1,0 +1,28 @@
+urn: "feature:author-plan-substrate:author-feature"
+wagon: "wagon:author-plan-substrate"
+description: "Authoring of a feature as a single file at plan/<slug>/features/<name>.yaml. The writer emits a schema-valid feature (urn, wagon, description, sizing, wmbts[], components) by construction and rejects an unknown wagon, a malformed feature urn, or a path outside the wagon's features/ home."
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-plan-substrate:E002"
+  - "wmbt:author-plan-substrate:C003"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author feature subcommand"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "create_feature() write path; validate_feature() guard"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "FeatureManifest (urn, wagon, sizing, wmbts); FeatureHome (plan/<slug>/features/<name>.yaml)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "plan/<slug>/features/ single-file writer adapter"

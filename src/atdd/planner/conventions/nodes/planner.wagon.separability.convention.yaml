@@ -1,0 +1,33 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.separability
+kind: constraint
+status: active
+name: Wagon separability (advisory)
+statement: A wagon should be separable — its internal cohesion (intra-wagon shared-token WMBT edges) at least its tightest coupling to any single neighbor wagon. A wagon more bound to a neighbor than to itself emits a [MERGE] signal. Advisory and non-blocking.
+implementation:
+  type: validator
+  ref: conventions/sizing/test_wagon_separability::test_live_corpus_legacy_parity
+source:
+  legacy_path: docs/recompose
+  legacy_section: complexity-sizing
+  extraction_mode: summary
+content:
+  normative_text: 'Build ONE undirected graph over WMBTs where an edge joins two WMBTs that share >= min_shared salient tokens (from object_of_control). cohesion(W) = intra-wagon edges; coupling(W,N) = cross-wagon edges. A wagon is separable iff cohesion(W) >= max over neighbors N of coupling(W,N). Non-separable wagons emit an ADVISORY [MERGE] finding (it is more coupled to a neighbor than cohesive internally). Wagons below a min-graph-size guard are skipped. Token vocabulary, min_shared, and min-graph-size are config-driven calibration knobs (planner.wagon.*); promotion to strict is deferred to calibration.'
+  constraints:
+  - advisory only — never blocks
+  - cohesion and coupling are measured on the same WMBT shared-token graph (commensurable)
+  - small wagons (< min-graph-size) are skipped, not flagged
+metadata:
+  severity: 2
+  disposition: advisory
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-18'
+terms:
+- term_id: separable
+  text: cohesion(W) >= max-neighbor coupling(W,N) on the WMBT shared-token graph.
+- term_id: merge_signal
+  text: a wagon whose tightest single-neighbor coupling exceeds its internal cohesion — advisory hint to merge.

@@ -1,0 +1,9 @@
+{
+  "$id": "domain:match",
+  "type": "object",
+  "required": ["id", "score"],
+  "properties": {
+    "id": { "type": "string" },
+    "score": { "type": "integer" }
+  }
+}

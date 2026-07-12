@@ -1,0 +1,25 @@
+schema_version: 1.0.0
+rule_id: coder.duplication.no-structurally-identical-code
+kind: rule
+status: active
+name: No structurally identical code
+statement: No structurally identical code fragments within the same architectural
+  layer
+terms:
+- term_id: structural_identity
+  text: Two code fragments are structurally identical when their AST subtrees match
+    exactly (similarity 1.0) and exceed the minimum fragment size, within files classified
+    to the same architectural layer.
+source:
+  legacy_path: src/atdd/coder/conventions/duplication.convention.yaml
+  legacy_section: duplication.rules
+  legacy_rule_id: coder.duplication.no-structurally-identical-code
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Extract the shared fragment into a single function or module within the
+    layer so the structurally identical copies collapse to one definition.
+metadata:
+  severity: 2
+  disposition: documentation-only
+  aliases:
+  - SPEC-CODER-DUP-0001

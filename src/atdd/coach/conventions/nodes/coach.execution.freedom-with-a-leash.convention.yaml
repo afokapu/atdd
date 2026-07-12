@@ -1,0 +1,28 @@
+schema_version: 1.1.0
+rule_id: coach.execution.freedom-with-a-leash
+kind: principle
+status: active
+name: Freedom with a leash
+statement: An agent works unattended for a curated safe freedom set (read/test tools auto-run); destructive
+  or outward-facing actions must surface and be corrected (or in extremis respawned) — they must never
+  auto-execute.
+source:
+  legacy_path: src/atdd/coach/conventions/session.convention.yaml
+  legacy_section: spawn_time.freedom_layer
+  legacy_sha: dc30019cdcf8872b
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.115.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: freedom_set
+  text: a tightly-scoped safe allowlist (Bash(<cmd>:*), read/test tools) that auto-runs without a modal.
+- term_id: leash
+  text: destructive/outward actions are flagged and corrected via the structured channel — never auto-executed.

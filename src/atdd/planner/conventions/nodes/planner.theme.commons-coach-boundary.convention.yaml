@@ -2,35 +2,26 @@ schema_version: 1.1.0
 rule_id: planner.theme.commons-coach-boundary
 kind: constraint
 status: active
-name: 'Theme: Commons Coach Boundary'
-statement: A wagon themed commons must not have any source module that imports atdd.coach;
-  coach-only machinery must be themed coach.
+name: Commons-vs-coach boundary
+statement: A wagon themed commons MUST NOT have any source module importing atdd.coach; coach-only machinery
+  MUST be themed coach.
 implementation:
   type: validator
-  ref: test_theme_commons_coach_boundary::test_commons_wagons_do_not_import_coach
+  ref: conventions/boundary/test_theme_commons_coach_boundary::test_fault_injection_convention_catches
 source:
   legacy_path: src/atdd/planner/conventions/theme.convention.yaml
-  legacy_sha: sha256:2ae106d04d77b06e
+  legacy_section: rules + boundary
+  legacy_sha: 2ae106d04d77b06e
   extraction_mode: high_fidelity
   legacy_rule_id: planner.theme.commons-coach-boundary
-  legacy_section: rules
 content:
-  summary: The commons-vs-coach line is the one sharp ownership boundary in the theme
-    taxonomy. Keeping coach internals out of commons lets any non-coach archetype
-    consume commons artifacts without pulling in the orchestrator.
-  normative_text: 'A wagon themed `commons` MUST NOT have any source module that imports
-    `atdd.coach`. Coach-only machinery (multiplexer/pane spawn, durable run persistence,
-    the Feed daemon, worker-decision mediation) MUST be themed `coach`. Known deferred
-    violation: mediate-worker-decisions (commons, imports coach) — suppressed UNTIL
-    the #951 co-land re-theme.'
+  normative_text: 'A wagon is commons IFF a non-coach archetype (planner/tester/coder) can consume its
+    produced artifacts WITHOUT importing atdd.coach. Bindable: no module under a commons wagon''s src
+    tree may `import atdd.coach`. Known deferred violation: mediate-worker-decisions (commons, imports
+    coach) — suppressed UNTIL the #951 co-land re-theme.'
   examples:
-  - 'theme: commons  # worktree, graph, URN, config, telemetry — no coach import'
-  counter_examples:
-  - 'theme: commons  # but src imports atdd.coach (multiplexer, Feed daemon, durable
-    runs)'
-  exceptions:
-  - mediate-worker-decisions is themed commons but imports coach; the violation is
-    suppressed UNTIL the
+  - 'commons: worktree, graph/URN/config/telemetry primitives'
+  - 'coach: multiplexer/pane spawn, durable run persistence, Feed daemon, worker-decision mediation'
 metadata:
   aliases:
   - PLANNER-THEME-BOUNDARY-001
@@ -41,34 +32,10 @@ parity:
   source_fragments_preserved: true
   examples_preserved: true
   implementation_preserved: true
-  fix_hint_preserved: true
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: commons_boundary_test
-  label: The IFF definition of a commons wagon
-  text: A wagon is commons if and only if a non-coach archetype (planner/tester/coder)
-    can consume its produced artifacts WITHOUT importing atdd.coach. If its implementation
-    requires coach internals, it is coach.
-  examples:
-    positive:
-    - worktree (the Plan landing flow uses it; no coach import)
-    - graph / URN / config / telemetry primitives
-    negative:
-    - multiplexer / pane spawning
-    - durable run persistence
-    - the Feed daemon
-    - worker-decision mediation
-- term_id: bindable_form
-  text: For a wagon themed commons, no module under its src tree may import atdd.coach
-    (or from atdd.coach ...). Coach-only machinery must declare theme coach.
-  values:
-    forbidden_imports:
-    - import atdd.coach
-    - from atdd.coach
-- term_id: deferred_violation
-  label: Known suppressed exception
-  text: mediate-worker-decisions is themed commons but imports coach; the violation
-    is suppressed UNTIL the
-  values:
-    wagon: mediate-worker-decisions
-    suppressed_until: '#951 co-land re-theme'
+- term_id: coach_import_boundary
+  text: the prohibition on a commons module importing atdd.coach.
+notes: 'Known deferred violation: mediate-worker-decisions (commons, imports coach) — suppressed UNTIL
+  the #951 co-land re-theme.'

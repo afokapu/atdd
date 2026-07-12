@@ -1,124 +1,44 @@
 schema_version: 1.1.0
 rule_id: planner.wmbt.lens-selection
-kind: pattern
+kind: family
 status: active
-name: 'Wmbt: Lens Selection'
-statement: Each WMBT is viewed through one quality lens drawn from the lens catalog,
-  which is organized into three families — social, functional, and emotional — each
-  enumerating named lenses with a definition and an example.
-implementation:
-  type: none
+name: WMBT lenses
+statement: Select one quality lens (social, functional, or emotional) most relevant to the work.
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
-  legacy_sha: sha256:040256ed5588a6c7
+  legacy_section: lenses
+  legacy_sha: 040256ed5588a6c7
   extraction_mode: high_fidelity
-  legacy_section: lens-selection
-content:
-  summary: A quality lens names the most relevant value attribute the work serves,
-    complementing the dimension (what is measured) with a perspective on why it matters
-    to the actor. A fixed three-family catalog keeps lens choice consistent across
-    WMBTs.
-  operational_guidance: Selection picks the single quality attribute most relevant
-    to the work from '${inputs.description}'. A WMBT carries one lens_ref alongside
-    its single dimension (see planner.wmbt.shape).
-  examples:
-  - A WMBT for staying in sync with teammates selects the social lens belong
-  - A WMBT for fewer-step workflows selects the functional lens efficiency
-  counter_examples:
-  - Selecting a lens id outside the three catalog families
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: lens_selection_procedure
-  label: How to pick the lens
-  text: From the requirement description, determine the single quality lens most relevant
-    to this work, choosing one id from across the social, functional, and emotional
-    families.
+- term_id: social_lens
+  text: identity/belonging drives.
   values:
-    generator_prompt: From '${inputs.description}', determine the quality lens most
-      relevant to this work
-    pattern: single quality attribute
-    source: conventions:planner:wmbt:lenses.catalog
-- term_id: social_lenses
-  label: Social lens family
-  text: Lenses describing the drive to relate to a group or identity. Each has an
-    id, definition, and example.
+    belong: accepted by a group, align with norms
+    stand_out: differentiate positively — uniqueness/status/taste/expertise
+    affirm: reinforce an existing identity
+    aspire: become a better future self
+- term_id: functional_lens
+  text: task-outcome qualities.
   values:
-    belong:
-      definition: The drive to be accepted by a group and align with its norms—finding
-        community and connection.
-      example: Using the same communication tool as teammates to stay included in
-        shared conversations.
-    stand_out:
-      definition: The drive to differentiate oneself positively—signaling uniqueness,
-        status, taste, or expertise.
-      example: Choosing a distinctive design or advanced configuration to showcase
-        personal style or mastery.
-    affirm:
-      definition: The drive to reinforce an existing identity—expressing and validating
-        a role one already holds.
-      example: Selecting professional-grade tools consistent with one's established
-        expertise.
-    aspire:
-      definition: The drive to become a better future self—signaling progress toward
-        a desired identity.
-      example: Enrolling in a skills program to move toward a new career path.
-- term_id: functional_lenses
-  label: Functional lens family
-  text: Lenses describing how well the work performs its task. Each has an id, definition,
-    and example.
+    efficiency: minimize time/effort/resources
+    effectiveness: improve quality/accuracy/impact
+    availability: accessible and operational when needed
+    adaptability: handle new/changing requirements
+    sustainability: maintain performance over time
+- term_id: emotional_lens
+  text: felt reactions.
   values:
-    efficiency:
-      definition: Minimizing time, effort, or resources required to complete a task.
-      example: Completing a routine workflow in fewer steps or less time.
-    effectiveness:
-      definition: Improving the quality, accuracy, or impact of outcomes.
-      example: Raising the percentage of correct results produced by a process.
-    availability:
-      definition: Ensuring a system or resource is accessible and operational when
-        needed.
-      example: Keeping a service reliably reachable during expected usage periods.
-    adaptability:
-      definition: Enabling a process or system to handle new or changing requirements.
-      example: Allowing users to add new data inputs without custom engineering work.
-    sustainability:
-      definition: Maintaining performance over time without degradation or undue negative
-        impact.
-      example: Automating repetitive tasks to reduce manual effort and error over
-        the long term.
-- term_id: emotional_lenses
-  label: Emotional lens family
-  text: Lenses describing the affective reaction the work evokes. Each has an id,
-    definition, and example.
-  values:
-    joy:
-      definition: Pleasure or happiness when a product exceeds expectations or removes
-        friction.
-      example: Feeling satisfied when a task completes smoothly without extra effort.
-    trust:
-      definition: Confidence that a product is reliable and safe, performing as promised.
-      example: Feeling secure because progress is auto-saved and data is protected.
-    fear:
-      definition: Anxiety about a potential negative outcome.
-      example: Hesitating before confirming an irreversible action.
-    surprise:
-      definition: A reaction to the unexpected—positive (delight) or negative (confusion).
-      example: Encountering a helpful hint unexpectedly—or an unexplained interface
-        change.
-    sadness:
-      definition: Unhappiness triggered by loss or a blocked goal.
-      example: Feeling disappointed when informed a task cannot be completed right
-        now.
-    disgust:
-      definition: Aversion caused by unethical design, clutter, or offensive elements.
-      example: Reacting negatively to an interface overloaded with intrusive prompts.
-    anger:
-      definition: Frustration or hostility when things fail to work as expected.
-      example: Feeling upset when a critical function fails at a key moment.
-    anticipation:
-      definition: Hopeful expectation while awaiting a desired outcome.
-      example: Watching a progress indicator while a process nears completion.
+    joy: pleasure when friction is removed
+    trust: confidence it is reliable and safe
+    fear: anxiety about a negative outcome
+    surprise: reaction to the unexpected
+    sadness: unhappiness from loss/blocked goal
+    disgust: aversion to unethical/cluttered design
+    anger: frustration when things fail
+    anticipation: hopeful expectation

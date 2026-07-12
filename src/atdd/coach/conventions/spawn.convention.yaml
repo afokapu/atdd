@@ -26,7 +26,7 @@ rules:
       runtime event whose payload carries this rule_id so observers can
       correlate spawn-time decisions with downstream events.
     introduced_in: "3.21.0"
-    validator: "test_e001_unit_001_spawn_cli_launches_session::test_spawn_emits_agent_spawned_event_conforming_to_schema"
+    validator: "_rule_binders::spawn_cli_rule"
     fix_hint: |
       Replace ad-hoc launch shell-out (the two-phase-commit Phase B launch
       loop or operator-typed `claude` invocations) with a single call to

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from atdd.coach.validators._violation import Violation
-from atdd.planner.validators.test_wmbt_has_smoke_acceptance import (
+from atdd.planner.validators._smoke_urn import (
     _RULE,
     _SMOKE_URN_RE,
     evaluate_wmbt_smoke_coverage,

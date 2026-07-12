@@ -1,0 +1,32 @@
+schema_version: 1.1.0
+rule_id: planner.coverage.exception-handling
+kind: principle
+status: active
+name: Coverage exception handling
+statement: Coverage exceptions are declared via config allow-lists and status exemptions (draft artifacts
+  are exempt from 2.1 and 2.4).
+source:
+  legacy_path: src/atdd/planner/conventions/coverage.convention.yaml
+  legacy_section: exception_handling
+  legacy_sha: 27e800378c584902
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: allow_list
+  label: Allow-lists
+  text: allow-list -> config path + use case.
+  values:
+    wagons_not_in_train: coverage.exceptions.wagons_not_in_train — utility/shared/under-development wagons
+    features_orphaned: coverage.exceptions.features_orphaned — deprecated/experimental features
+    wmbts_without_acceptance: coverage.exceptions.wmbts_without_acceptance — draft/placeholder WMBTs
+- term_id: status_exemption
+  text: draft artifacts are exempt from full coverage.
+  values:
+    draft_exempt_from:
+    - COVERAGE-PLAN-2.1
+    - COVERAGE-PLAN-2.4

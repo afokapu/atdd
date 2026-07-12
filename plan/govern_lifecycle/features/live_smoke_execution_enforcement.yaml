@@ -1,0 +1,28 @@
+urn: "feature:govern-lifecycle:live-smoke-execution-enforcement"
+wagon: "wagon:govern-lifecycle"
+description: "Completes the hermetic/live_smoke execution-kind substrate (#690) by requiring a paired live_smoke acceptance to actually EXECUTE with honest evidence. Declares two strict rules in the existing acceptance-violation.* family — tester.acceptance-violation.live-smoke-acceptance-must-execute (E055), whose validator scans each execution_kind: live_smoke acceptance's anchored test for self-skip mechanisms (pytest.skip / pytest.importorskip / @pytest.mark.skip(if) / a live_smoke_available()-style guard); and tester.acceptance-violation.live-smoke-evidence-must-not-be-constant (E060, #1298), whose validator resolves each such acceptance's anchored test to the harness it invokes and emits a Violation when that harness returns only an all-constant dict with no assert/raise (the Y002 theater afokapu/atdd#1192). Together a live_smoke acceptance can neither skip (#1076 false green) nor pass on fixed evidence. The validator reuses _acceptance_walker.iter_repo_acceptances / scan_test_acceptance_headers and assert_substrate_strict; core states the rules, the workspace provider realizes runtime detection."
+sizing:
+  wmbts: 2
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E055"
+  - "wmbt:govern-lifecycle:E060"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — uses the existing atdd validate tester / atdd rules show entry points"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "evaluate_live_smoke_execution — the pure evaluator scanning a live_smoke acceptance's anchored tests for self-skip mechanisms"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Reuses the Violation domain dataclass; nothing new at runtime"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses _acceptance_walker.py to walk plan/ acceptances and the test-header scan to resolve anchored tests; assert_substrate_strict for strict-disposition plumbing; no new infrastructure"

@@ -495,27 +495,25 @@ def test_no_toolkit_source_layout_assumptions():
 
 @pytest.mark.coach
 def test_source_layout_convention_declares_rules():
-    """SPEC-COACH-PKG-LAYOUT-0004: convention declares both rules with stable IDs.
+    """SPEC-COACH-PKG-LAYOUT-0004: both rules are registered with stable IDs + severity 4.
 
-    Given: ``src/atdd/coach/conventions/source-layout.convention.yaml``
-    When:  loading and indexing rules by id
-    Then:  ``COACH-PKG-LAYOUT-001`` and ``COACH-PKG-LAYOUT-002`` are
-           declared with severity 4.
+    Post-#1225 the rules' authoritative home is their single-node ``nodes/`` files
+    (``conventions/nodes/<rule_id>.convention.yaml``); severity lives under
+    ``metadata.severity`` there. Read the single-node files directly (NOT via
+    ``bind_rule`` — importing it here would make this file a "migrated validator"
+    under ``coach.rule-id.no-hardcoded-rule-severity`` and flag the ``RULE_SEVERITY``
+    test-expectation constant).
     """
-    if not SOURCE_LAYOUT_CONVENTION.exists():
-        pytest.fail(f"Missing convention: {SOURCE_LAYOUT_CONVENTION}")
-
-    with open(SOURCE_LAYOUT_CONVENTION, "r", encoding="utf-8") as fh:
-        convention = yaml.safe_load(fh)
-
-    rules = {r["id"]: r for r in convention.get("rules", [])}
+    nodes_dir = SOURCE_LAYOUT_CONVENTION.parent / "nodes"
     for rule_id in (RULE_A_ID, RULE_B_ID):
-        if rule_id not in rules:
+        node_path = nodes_dir / f"{rule_id}.convention.yaml"
+        if not node_path.exists():
             pytest.fail(
-                f"Rule {rule_id} not found in {SOURCE_LAYOUT_CONVENTION}; "
-                f"available: {sorted(rules.keys())}"
+                f"Rule {rule_id} single-node home missing: {node_path}. "
+                "The rule must be declared in its conventions/nodes/ file."
             )
-        assert rules[rule_id]["severity"] == RULE_SEVERITY, (
-            f"{rule_id}: expected severity {RULE_SEVERITY}, "
-            f"got {rules[rule_id]['severity']}"
+        node = yaml.safe_load(node_path.read_text(encoding="utf-8"))
+        severity = (node.get("metadata") or {}).get("severity")
+        assert severity == RULE_SEVERITY, (
+            f"{rule_id}: expected severity {RULE_SEVERITY}, got {severity}"
         )

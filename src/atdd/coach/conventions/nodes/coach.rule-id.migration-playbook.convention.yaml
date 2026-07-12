@@ -1,0 +1,33 @@
+schema_version: 1.1.0
+rule_id: coach.rule-id.migration-playbook
+kind: pattern
+status: active
+name: Convention rule-migration playbook
+statement: 'Retrofitting a convention to structured rules follows the staged playbook (pick DOMAIN, inventory
+  rules, assign IDs/severities, place the rules: array, migrate the validator to emit Violations, opt
+  into strict via migration.completed); per-rule disposition replaces ratchet baselines and superseded_by
+  gives a one-release deprecation window.'
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: migration
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.rule-id
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 2.0.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: staged_opt_in
+  text: 'a convention becomes strict only when listed under migration.completed: — one PR migrates one
+    convention.'
+- term_id: deprecation_window
+  text: keep a superseded rule with superseded_by for one toolkit release, then remove it.

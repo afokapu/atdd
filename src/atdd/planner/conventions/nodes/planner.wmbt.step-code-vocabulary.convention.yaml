@@ -1,39 +1,24 @@
 schema_version: 1.1.0
 rule_id: planner.wmbt.step-code-vocabulary
-kind: pattern
+kind: family
 status: active
-name: 'Wmbt: Step Code Vocabulary'
-statement: The single-letter step code embedded in a WMBT URN must be exactly one
-  of the nine canonical codes D, L, P, C, E, M, Y, R, K, each naming a distinct phase
-  of work from define through conclude.
-implementation:
-  type: none
+name: WMBT step codes
+statement: The single-letter step codes (D L P C E M Y R K) that prefix a WMBT sequence.
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
-  legacy_sha: sha256:040256ed5588a6c7
+  legacy_section: urn_naming.step_codes
+  legacy_sha: 040256ed5588a6c7
   extraction_mode: high_fidelity
-  legacy_section: step-code-vocabulary
-content:
-  summary: A fixed, closed vocabulary of nine step codes gives every WMBT an unambiguous
-    phase classification that other tooling (sequencing, the URN regex, filename pattern)
-    can rely on, instead of free-form or per-wagon step naming.
-  operational_guidance: This catalogue is the source of truth for the [DLPCEMYRK]
-    character class used in planner.wmbt.urn-naming and planner.wmbt.filename-pattern.
-  examples:
-  - D001 declares a "define" truth; K023 declares a "conclude" truth
-  counter_examples:
-  - A WMBT URN using a two-letter or lowercase step code
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: step_codes
-  label: The nine canonical step codes
-  text: Each step code maps to a verb name and a one-line definition describing the
-    phase of work the WMBT belongs to. Exactly one code appears per WMBT URN.
+- term_id: step_code
+  label: Step codes
+  text: letter -> step name + intent.
   values:
     D: define - Define requirements, criteria, or constraints
     L: locate - Locate, discover, or find resources
@@ -44,11 +29,3 @@ terms:
     Y: modify - Modify, update, or adjust state
     R: resolve - Resolve, fix, or handle issues
     K: conclude - Conclude, complete, or finalize
-  examples:
-    positive:
-    - E -> execute -> wmbt:resolve-dilemmas:E001
-    - M -> monitor -> wmbt:burn-timebank:M045
-    - C -> confirm -> wmbt:user-mgmt:C023
-    negative:
-    - X (not in the nine-code vocabulary)
-    - S (not in the nine-code vocabulary)

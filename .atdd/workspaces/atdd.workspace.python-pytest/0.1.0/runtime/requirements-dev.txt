@@ -1,0 +1,4 @@
+# Dev/runtime dependencies shared by every implementation that targets this
+# provider. Pinned by the workspace lockfile at resolve time.
+pytest>=8.0
+pyyaml>=6.0

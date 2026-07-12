@@ -1,0 +1,20 @@
+urn: "feature:author-plan-substrate:author-plan-spine"
+wagon: "wagon:author-plan-substrate"
+description: "The plan-artifact input guard: before any per-kind plan writer runs, validate the wagon slug (kebab-case), the artifact URN/step-code grammar, and that the resolved path stays under plan/. Parallels the convention-substrate spine (validate_author_input) but keys on URN/slug/step-code under plan/, not role.rule_id under src/atdd/. Reuses the shared author spine; rejects before any write path."
+sizing:
+  wmbts: 2
+  footprint_score: 4
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-plan-substrate:C001"
+  - "wmbt:author-plan-substrate:C008"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "validate_plan_author_input() guard invoked by every plan-kind writer"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "WagonSlug (kebab-case); PlanArtifactRef (URN + step-code grammar under plan/)"

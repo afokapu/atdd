@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ATDD Registry Index Schema",
+  "description": "A catalog of admittable artifacts: canonical ids + aliases + tags + versions. Aliases are UX; canonical ids are authoritative for lockfiles.",
+  "type": "object",
+  "required": ["schema_version", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "latest_version"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["extension", "workspace"] },
+          "aliases": { "type": "array", "items": { "type": "string" } },
+          "display_name": { "type": "string" },
+          "summary": { "type": "string" },
+          "publisher": { "type": "string" },
+          "trust": { "type": "string", "enum": ["official", "community", "local"] },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "latest_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+          "versions": { "type": "array", "items": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" } },
+          "source": { "type": "string" },
+          "workspaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "string" },
+                "contract": { "type": "string" }
+              }
+            }
+          },
+          "core_compatibility": { "type": "string" }
+        }
+      }
+    }
+  }
+}

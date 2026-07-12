@@ -1,0 +1,33 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.complexity-model
+kind: principle
+status: active
+name: Wagon complexity is super-linear in cross-wagon coupling
+statement: Wagon sizing has two orthogonal axes — intrinsic footprint (how much work is inside) and coupling complexity (whether the cut is correct). Complexity is modeled as super-linear in cross-wagon coupling, not additive in component count.
+source:
+  legacy_path: docs/recompose
+  legacy_section: complexity-sizing
+  extraction_mode: summary
+content:
+  normative_text: 'Two orthogonal axes size a wagon. (1) SIZE — intrinsic footprint, already covered by planner.feature.footprint-scoring (additive: sum(count x weight)). (2) SEPARABILITY/COMPLEXITY — whether the wagon is a well-separated unit in the produce/consume graph. Complexity is modeled as SUPER-LINEAR in cross-wagon coupling; a wagon can be small in footprint yet mis-cut (densely coupled to a neighbor -> MERGE; two internal clusters -> SPLIT). The first enforcement (planner.wagon.no-consume-cycle) is the exact invariant; separability and granularity signals are advisory and calibrated before any promotion to strict.'
+  rationale: 'Henry-Kafura (fan_in x fan_out)^2 and treewidth provide the conceptual backing for super-linearity, but they are RATIONALE, not day-one enforcement: the implementation uses conservative graph proxies (cross-wagon fan-in/fan-out, shared-artifact adjacency, SCCs, community-cut signals) so validators do not become noisy before corpus calibration.'
+metadata:
+  severity: 2
+  disposition: documentation-only
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-18'
+terms:
+- term_id: size_axis
+  text: intrinsic footprint — additive volume of components (planner.feature.footprint-scoring).
+- term_id: separability_axis
+  text: coupling complexity — whether the wagon is a well-separated unit in the produce/consume graph.
+- term_id: cohesion
+  text: intra-wagon shared-artifact / object-of-control density of a wagon's own WMBTs.
+- term_id: coupling
+  text: shared produce/consume artifact-name weight between a wagon and a neighbor wagon.
+- term_id: separable
+  text: a wagon is separable when its internal cohesion is at least its tightest coupling to any single neighbor.

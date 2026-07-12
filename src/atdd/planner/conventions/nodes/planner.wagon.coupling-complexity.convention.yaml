@@ -1,0 +1,32 @@
+schema_version: 1.1.0
+rule_id: planner.wagon.coupling-complexity
+kind: rule
+status: active
+name: Wagon coupling complexity (advisory reporter)
+statement: Report each wagon's cross-wagon coupling complexity (fan_in x fan_out over the produce->consume name graph); flag wagons above a soft, config-driven threshold. Advisory and non-blocking.
+implementation:
+  type: validator
+  ref: conventions/sizing/test_wagon_coupling_complexity::test_fault_injection_legacy_parity
+source:
+  legacy_path: docs/recompose
+  legacy_section: complexity-sizing
+  extraction_mode: summary
+content:
+  normative_text: 'Build the directed wagon graph from produce->consume artifact NAMES. For each wagon compute fan_in (wagons it consumes from) and fan_out (wagons that consume its outputs); the coupling-complexity proxy is fan_in x fan_out (Henry-Kafura). Emit an ADVISORY finding for any wagon whose proxy exceeds a soft threshold (config key planner.wagon.coupling_complexity_threshold, default 6). Non-blocking: makes complexity runnable and visible via `atdd validate planner` without halting planning. Promotion to a hard threshold/strict is deferred to corpus calibration.'
+  constraints:
+  - advisory only — never blocks
+  - keyed on produce/consume artifact name, not the nullable contract field
+metadata:
+  severity: 2
+  disposition: advisory
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-18'
+terms:
+- term_id: coupling_complexity
+  text: fan_in x fan_out over the cross-wagon produce/consume graph (Henry-Kafura proxy).
+- term_id: soft_threshold
+  text: config-driven advisory cutoff (planner.wagon.coupling_complexity_threshold, default 6); over it emits an advisory finding.

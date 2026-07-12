@@ -76,21 +76,28 @@ def wagon_deps_transitive(
     return seen
 
 
-def issue_wagon_map(repo_root: Optional[Path] = None) -> dict[int, str]:
-    """Map issue number → wagon slug, read from ``.atdd/manifest.yaml``."""
-    path = _repo_root(repo_root) / ".atdd" / "manifest.yaml"
-    if not path.is_file():
+def _store_issue_wagon_map(root: Path) -> dict[int, str]:
+    """Issue number → wagon map from the State Store, or {} on any miss."""
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=root) as reader:
+            return reader.issue_wagon_map()
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
         return {}
-    data = yaml.safe_load(path.read_text()) or {}
-    out: dict[int, str] = {}
-    for session in data.get("sessions") or []:
-        if not isinstance(session, dict):
-            continue
-        number = session.get("issue_number")
-        wagon = session.get("wagon")
-        if isinstance(number, int) and wagon:
-            out[number] = _wagon_slug(str(wagon))
-    return out
+
+
+def issue_wagon_map(repo_root: Optional[Path] = None) -> dict[int, str]:
+    """Map issue number → wagon slug, from the State Store only.
+
+    #1270 slice D: the store is the sole read source (authoritative since #1203).
+    The former ``.atdd/manifest.yaml`` fallback is retired — a cold store
+    self-seeds from the manifest on first read (``WorkItemReader`` auto-import),
+    so the fallback was redundant, not load-bearing.
+    """
+    root = _repo_root(repo_root)
+    store_map = _store_issue_wagon_map(root)
+    return {number: _wagon_slug(str(wagon)) for number, wagon in store_map.items()}
 
 
 def graph_issue_deps(

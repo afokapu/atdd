@@ -1,70 +1,51 @@
 schema_version: 1.1.0
 rule_id: planner.criteria.harness-templates
-kind: pattern
+kind: family
 status: active
-name: 'Criteria: Harness Templates'
-statement: The harness field selects one of the documented acceptance-scaffolding
-  templates; each template fixes which architectural layers it covers and supplies
-  a default given/when/then skeleton the criterion specializes.
-implementation:
-  type: none
+name: Harness scaffolding templates
+statement: Reusable given/when/then scaffolding template per harness, with the layers it typically exercises.
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
-  legacy_sha: sha256:db262e7f5fb06226
+  legacy_section: harnesses
+  legacy_sha: db262e7f5fb06226
   extraction_mode: high_fidelity
-  legacy_section: harness-templates
 content:
-  summary: A fixed catalog of harness templates routes every criterion to consistent
-    test scaffolding, so authors fill in specifics rather than reinventing the given/when/then
-    shape per criterion, and tooling knows which layers each harness exercises.
-  operational_guidance: Catalog of 13 harness templates extracted verbatim from the
-    legacy harnesses block, grouped here by transport family; the per-harness layers/when/then
-    skeletons live in each term's values.
-  examples:
-  - 'harness: http  # uses the POST /api/example skeleton, asserts status 200 + body'
-  - 'harness: a11y  # presentation-only, asserts accessibility passes'
-  counter_examples:
-  - 'harness: rest  # not in the template catalog'
+  summary: '13 harness templates: http, unit, event, ws, e2e, a11y, visual, metric, job, db, sec, load,
+    script.'
 parity:
   source_fragments_preserved: true
   examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: http
-  label: HTTP request/response harness
-  text: Drives an HTTP endpoint across all four layers with a default POST and asserts
-    status and body.
+- term_id: harness_template
+  label: Harness templates
+  text: harness -> {layers, given/when/then scaffold} (verbatim).
   values:
-    layers:
-    - presentation
-    - application
-    - domain
-    - integration
-    given:
-      auth:
-        scopes:
-        - purchase:create
-    when:
-      method: POST
-      path: /api/example
-      headers:
-        Content-Type: application/json
-      body:
-        sample: true
-    then:
-    - kind: status
-      expect: 200
-    - kind: body
-      expect:
-        ok: true
-- term_id: unit_and_script
-  label: In-process unit and script harnesses
-  text: The unit harness calls a service method on the application/domain layers and
-    asserts a result; the script harness runs an application-layer script and asserts
-    a zero exit status.
-  values:
+    http:
+      layers:
+      - presentation
+      - application
+      - domain
+      - integration
+      given:
+        auth:
+          scopes:
+          - purchase:create
+      when:
+        method: POST
+        path: /api/example
+        headers:
+          Content-Type: application/json
+        body:
+          sample: true
+      then:
+      - kind: status
+        expect: 200
+      - kind: body
+        expect:
+          ok: true
     unit:
       layers:
       - application
@@ -78,19 +59,6 @@ terms:
       - kind: result
         expect:
           ok: true
-    script:
-      layers:
-      - application
-      when: {}
-      then:
-      - kind: status
-        expect: 0
-- term_id: event_and_ws
-  label: Event and websocket harnesses
-  text: The event harness publishes to a topic on application/integration layers and
-    asserts the event; the ws harness subscribes over a websocket on the integration
-    layer and asserts a connected frame.
-  values:
     event:
       layers:
       - application
@@ -114,12 +82,6 @@ terms:
       - kind: message
         expect:
           frame: connected
-- term_id: e2e_a11y_visual
-  label: UI-facing harnesses
-  text: The e2e harness drives the UI across all layers and asserts a visual outcome;
-    a11y and visual are presentation-only harnesses asserting accessibility passes
-    and an unchanged snapshot.
-  values:
     e2e:
       layers:
       - presentation
@@ -148,12 +110,6 @@ terms:
       then:
       - kind: snapshot
         expect: unchanged
-- term_id: metric_and_load
-  label: Measurement harnesses
-  text: The metric harness asserts a named metric on application/integration layers;
-    the load harness asserts metrics stay within limits on integration/application
-    layers.
-  values:
     metric:
       layers:
       - application
@@ -162,20 +118,6 @@ terms:
       then:
       - kind: metric
         expect: metric:placeholder
-    load:
-      layers:
-      - integration
-      - application
-      when: {}
-      then:
-      - kind: metrics
-        expect: within_limits
-- term_id: job_db_sec
-  label: Backend-state harnesses
-  text: The job harness asserts a completed status on application/integration layers;
-    db asserts updated rows on integration/domain layers; sec asserts access granted
-    on application/integration layers.
-  values:
     job:
       layers:
       - application
@@ -200,3 +142,18 @@ terms:
       then:
       - kind: security
         expect: granted
+    load:
+      layers:
+      - integration
+      - application
+      when: {}
+      then:
+      - kind: metrics
+        expect: within_limits
+    script:
+      layers:
+      - application
+      when: {}
+      then:
+      - kind: status
+        expect: 0

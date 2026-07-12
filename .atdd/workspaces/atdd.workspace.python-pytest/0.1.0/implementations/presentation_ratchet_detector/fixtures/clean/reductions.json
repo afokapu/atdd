@@ -1,0 +1,7 @@
+{
+  "_comment": "GREEN: no presentation file dropped past the 20% threshold. The 10% presentation trim is below threshold; the large domain trim is not a presentation file. Detector emits ZERO raw violations.",
+  "reductions": [
+    { "path": "web/src/match/presentation/Small.tsx", "before_lines": 100, "after_lines": 90, "issue": 358 },
+    { "path": "python/auth/domain/user.py", "before_lines": 200, "after_lines": 50, "issue": 358 }
+  ]
+}

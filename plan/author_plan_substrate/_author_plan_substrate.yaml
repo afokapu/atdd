@@ -1,0 +1,69 @@
+wagon: author-plan-substrate
+urn: "wagon:author-plan-substrate"
+name: "Author Plan Substrate"
+description: "Deterministic `atdd author` writers for the five plan-layer artifact kinds (wagon, feature, wmbt, train, acceptance) that live under plan/<slug>/ and are keyed by URN/slug/step-code, not role.rule_id. Sibling of author-atdd-substrate (the governance layer): it reuses the shared author validation spine but adds a plan-artifact input guard (slug/URN/step-code/path-under-plan/) and one canonical schema + canonical home per plan kind. Per-file kinds (wagon, feature, wmbt) are written conflict-free by construction; train is registry-class (plan/_trains.yaml dedup-insert + plan/_trains/<id>.yaml); acceptance is an in-place append into an existing wmbt file's acceptances[]. Authored plan artifacts pass normal `atdd validate planner` unmodified. This is the on-Confirm writer #1139 (atdd plan) invokes per locked unit."
+theme: commons
+
+subject: "agent:planner"
+context: "authoring-new-plan-artifacts, atdd-plan-confirm-boundary invokes the writer per locked unit"
+action: "validates slug/URN/step-code/path on the shared author spine extended with a plan-artifact guard, then writes each plan kind to its canonical home under plan/ via schema-valid construction (per-file kinds conflict-free; train registry-class dedup-insert + stable-sort + atomic write; acceptance in-place append)"
+goal: "make it impossible to author a malformed or mis-placed plan-layer artifact, so the atdd plan Confirm boundary can lock a decomposition and have it written deterministically without a bespoke writer"
+outcome: "schema-valid wagons, features, WMBTs, train entries, and acceptances authored deterministically through `atdd author`, all passing unmodified through `atdd validate planner`"
+
+features:
+  - urn: "feature:author-plan-substrate:author-plan-spine"
+  - urn: "feature:author-plan-substrate:author-wagon"
+  - urn: "feature:author-plan-substrate:author-feature"
+  - urn: "feature:author-plan-substrate:author-wmbt"
+  - urn: "feature:author-plan-substrate:author-train"
+  - urn: "feature:author-plan-substrate:author-interlocking"
+  - urn: "feature:author-plan-substrate:author-acceptance"
+  - urn: "feature:author-plan-substrate:author-contract"
+
+produce:
+  - name: commons:author:plan-spine
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:wagon-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:feature-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:wmbt-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:train-command
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:author:acceptance-command
+    contract: null
+    telemetry: null
+    to: external
+
+consume:
+  - name: commons:author:author-spine
+    from: "wagon:author-atdd-substrate"
+
+wmbt:
+  total: 15
+  C001: "minimize likelihood of the plan-artifact author guard accepting a malformed slug, URN, step-code, or a path escaping plan/"
+  C008: "minimize likelihood of non-object-author-spec by having the plan-author spine reject any spec that is not a JSON object before a unit is admitted or a per-kind writer runs"
+  E001: "maximize likelihood of schema-valid wagon-manifest creation under the canonical plan/<slug>/_<slug>.yaml home"
+  C002: "minimize likelihood of accepting a structurally invalid wagon manifest"
+  E002: "maximize likelihood of schema-valid feature creation under plan/<slug>/features/<name>.yaml"
+  C003: "minimize likelihood of accepting a structurally invalid feature"
+  E003: "maximize likelihood of schema-valid wmbt creation (ODI grammar + seed SMOKE acceptance) under plan/<slug>/<CODE>.yaml"
+  C004: "minimize likelihood of accepting a structurally invalid wmbt"
+  E004: "maximize likelihood of schema-valid train-entry creation into the _trains.yaml registry and plan/_trains/<id>.yaml"
+  C005: "minimize likelihood of accepting a structurally invalid train"
+  E005: "maximize likelihood of schema-valid acceptance append into an existing wmbt file's acceptances[]"
+  C006: "minimize likelihood of accepting a malformed acceptance"
+  E006: "minimize likelihood of an unbound-train-validator by adding a train.convention.yaml rules: block and binding the train validators (executable-train family + dispatch rules), behaviour-preserving"
+  E007: "maximize likelihood of a schema-valid interlocking-artifact-write under plan/_trains/_interlockings/<id>.yaml: derive ONLY the digests via the single-source-of-truth stamp (per-route expected_sequence_digest + whole-doc content_digest), dedup-insert the registry entry, idempotent re-stamp, clean refusal (no partial write) on a missing route train, satisfying the real #1249 Confirm gate"
+  E008: "maximize likelihood of a schema-valid contract-schema-write authored by construction (identity-derived path, $id contract:{identity}, deduped _contracts.yaml registry entry, dispatched through the plan build_author_fn seam), rejecting an invalid identity before any write"

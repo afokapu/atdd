@@ -1,0 +1,24 @@
+schema_version: 1.0.0
+rule_id: tester.contract.planner-defines-what-tester-implements-how
+kind: principle
+status: active
+name: Planner defines what, tester implements how
+statement: "The planner defines WHAT interfaces a wagon produces and consumes; the\
+  \ tester implements HOW via contract schemas \u2014 the two stay separated by role."
+terms:
+- term_id: interface
+  text: A produce[]/consume[] artifact declaration in a wagon/feature manifest that
+    names what data crosses a boundary, without prescribing its schema.
+source:
+  legacy_path: src/atdd/tester/conventions/contract.convention.yaml
+  legacy_section: agent_responsibilities
+  legacy_rule_id: null
+  extraction_mode: high_fidelity
+content:
+  summary: 'Division of labor: planner manifests declare the interfaces (produce/consume);
+    tester authors the contract schemas that realize them. plan/ and contracts/ path
+    globs are workspace.'
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 3.137.0

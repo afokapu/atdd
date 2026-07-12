@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+rule_id: coder.refactor.composition-root
+kind: rule
+status: active
+name: Composition root reaches every layer
+statement: Python composition.py reaches every existing layer of its feature via imports
+  or setter wiring
+terms:
+- term_id: composition_root
+  text: A feature composition.py is complete when it reaches every existing layer
+    (presentation/application/domain/integration) of that feature via imports or setter
+    wiring.
+implementation:
+  type: validator
+  ref: test_composition_completeness::test_composition_convention_exists_and_has_required_sections
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.composition-root
+  extraction_mode: high_fidelity
+content:
+  fix_hint: In the feature composition.py, import or setter-wire every existing layer
+    of the feature (presentation/application/domain/integration) so the composition
+    root reaches all of them.
+metadata:
+  severity: 3
+  disposition: strict
+  aliases:
+  - REFACTOR-COMPOSITION-ROOT-001
+  introduced_in: 1.67.0

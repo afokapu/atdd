@@ -1,0 +1,32 @@
+schema_version: 1.1.0
+rule_id: planner.relationship.no-orphan-nodes
+kind: rule
+status: active
+name: Every convention node is referenced in the relationship graph
+statement: Every convention node (any *.convention.yaml carrying a rule_id, test fixtures excluded) must appear as a source_ref or target_ref of at least one edge in the relationship graph (src/atdd/coach/graph/relationships.yaml). A node referenced by no edge is an orphan and is refused — the graph must cover every node, not just have no dangling edges.
+source:
+  legacy_path: src/atdd/planner/conventions/relationship.convention.yaml
+  legacy_section: rules
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.relationship.no-orphan-nodes
+content:
+  fix_hint: Author at least one relationship edge with the orphan node as source_ref or target_ref in src/atdd/coach/graph/relationships.yaml (use `atdd author relationship`), choosing a real relationship type/foundation to a semantically related node.
+  exceptions:
+    - Nodes under test fixtures (paths containing tests/fixtures) and the demo.* namespace are excluded.
+operational_guidance: Pairs with the existing forward check (edges may not reference a missing node) to make relationship-graph integrity bidirectional — no dangling edges AND no orphan nodes.
+metadata:
+  aliases:
+    - PLANNER-RELATIONSHIP-NO-ORPHAN-NODES-001
+  severity: 3
+  disposition: strict
+  introduced_in: 3.119.0
+parity:
+  source_fragments_preserved: true
+terms:
+  - term_id: orphan_node
+    text: a convention node whose rule_id is referenced by no source_ref or target_ref in any relationship-graph edge.
+  - term_id: relationship_graph
+    text: the directed convention-node graph at src/atdd/coach/graph/relationships.yaml whose edges connect node rule_ids.
+implementation:
+  type: validator
+  ref: conventions/coverage/test_no_orphan_nodes::test_fault_injection_legacy_parity_both_catch

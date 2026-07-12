@@ -8,18 +8,22 @@ The coach orchestrates all ATDD lifecycle operations:
 - status: Show platform status
 - registry: Update registries from source files
 - init: Initialize ATDD structure in consumer repos
-- issue: Unified issue lifecycle (create, enter, transition, close-wmbt)
+- author: Author artifacts store-first (`atdd author issue` creates issues)
+- coach: Issue lifecycle verbs (enter, transition, issues, close-wmbt, ...)
 - list/branch/pr: Issue shortcuts
 - sync: Sync ATDD rules to agent config files
 - gate: Verify agents loaded ATDD rules
 
+The `atdd issue` monolith was REMOVED (umbrella #1303); its verbs live
+under `atdd coach <verb>` and creation under `atdd author issue`.
+
 Usage:
     atdd init                                # Initialize ATDD in consumer repo
-    atdd issue my-feature                    # Create new issue + WMBT sub-issues
-    atdd issue 11                            # Enter issue #11 (state-driven)
-    atdd issue 11 --status RED               # Transition issue status
-    atdd issue 11 --close-wmbt D005          # Close WMBT sub-issue
-    atdd issue open                          # List open issues
+    atdd author issue --title T --slug S     # Create new issue + WMBT sub-issues
+    atdd coach enter 11                      # Enter issue #11 (state-driven)
+    atdd coach transition 11 RED             # Transition issue status
+    atdd coach close-wmbt 11 D005            # Close WMBT sub-issue
+    atdd coach issues open                   # List open issues
     atdd list                                # List all issues
     atdd sync                                # Sync ATDD rules to agent configs
     atdd sync --verify                       # Check if files are in sync
@@ -78,9 +82,126 @@ def _print_sync_labels_delta(
         print(f"  {verb} remove: {', '.join(to_remove)}")
 
 
-def _deprecation_warning(old: str, new: str) -> None:
-    """Emit a deprecation warning for legacy flags."""
-    print(f"\033[33m⚠️  Deprecated: '{old}' will be removed. Use '{new}' instead.\033[0m")
+def _deprecation_warning(old: str, new: str, *, stream=None) -> None:
+    """Emit a deprecation warning for legacy flags.
+
+    Defaults to stdout to preserve every existing caller's behavior; the
+    substrate-grouping aliases (#1239) pass ``stream=sys.stderr`` so the notice
+    never pollutes a command's stdout payload (issue #1239, V2).
+    """
+    print(
+        f"\033[33m⚠️  Deprecated: '{old}' will be removed. Use '{new}' instead.\033[0m",
+        file=stream or sys.stdout,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Commands removed by a breaking change. Data, not a hard-coded branch, so the
+# guard and the tests read the same source.
+# ---------------------------------------------------------------------------
+REMOVED_COMMANDS = {
+    "issue": (
+        "`atdd issue` has been REMOVED (umbrella #1303).\n"
+        "Its verbs live under `atdd coach`, and creation under `atdd author issue`:\n"
+        "\n"
+        "  atdd issue <slug>                 -> atdd author issue --title <t> --slug <s>\n"
+        "  atdd issue <slug> --dry-run       -> atdd author issue --slug <s> --dry-run\n"
+        "  atdd issue <N>                    -> atdd coach enter <N>   (show: atdd coach issues <N>)\n"
+        "  atdd issue open                   -> atdd coach issues open\n"
+        "  atdd issue <N> --status <TO>      -> atdd coach transition <N> <TO>\n"
+        "  atdd issue <N> --check            -> atdd coach check <N>\n"
+        "  atdd issue <N> --close-wmbt <ID>  -> atdd coach close-wmbt <N> <ID>\n"
+        "  atdd issue <N> --sync-wmbts       -> atdd coach sync-wmbts <N>\n"
+        "  atdd issue reconcile              -> atdd coach reconcile\n"
+        "  atdd issue sync-labels [...]      -> atdd coach sync-labels [<N>|--all]\n"
+        "  atdd issue is-registered <branch> -> atdd coach is-registered <branch>\n"
+        "  atdd issue review <N>             -> atdd coach issue-review <N>\n"
+    ),
+}
+
+# Global flags that consume the following token, so `atdd --repo X issue` still
+# resolves `issue` as the command rather than reading `X` as one.
+_VALUE_TAKING_GLOBAL_FLAGS = {"--repo"}
+
+
+def _removed_command_guard(argv, *, stream=None) -> int | None:
+    """Fail loud on a removed command, BEFORE argparse sees it.
+
+    Registering `issue` as a subparser just to reject it would keep it in
+    --help and in the C2 subcommand registry; letting argparse reject it emits
+    a bare `invalid choice: 'issue'` that names no replacement. Intercepting
+    pre-parse gives both: absent from the surface, helpful when invoked.
+    """
+    stream = stream or sys.stderr
+    it = iter(argv)
+    for tok in it:
+        if tok in _VALUE_TAKING_GLOBAL_FLAGS:
+            next(it, None)
+            continue
+        if tok.startswith("-"):
+            continue
+        message = REMOVED_COMMANDS.get(tok)
+        if message is None:
+            return None
+        print(f"\033[31mError: {message}\033[0m", file=stream)
+        return 2
+    return None
+
+
+def _substrate_root(args) -> str:
+    """Resolve the operational Control Root for substrate installs/reads (#1346).
+
+    Extension/workspace installs are git-ignored operational ``.atdd/`` data and
+    must land in the single Control Root ``.atdd/`` — never a per-worktree copy.
+    Route ``--repo``/cwd through the #1177 control-root resolver so any worktree
+    resolves to the shared ``.atdd/``; a consumer repo with no resolvable Control
+    Root falls back to the given root unchanged.
+    """
+    from pathlib import Path
+    from atdd.state.paths import resolve_operational_root
+    start = Path(args.repo or ".").resolve()
+    return str(resolve_operational_root(start))
+
+
+def _substrate_add(args) -> int:
+    """Run substrate admission (`atdd substrate add` / deprecated `atdd add`)."""
+    from atdd.substrate import commands as substrate_cmd
+    if not args.ref and not args.path:
+        print("error: `atdd substrate add` needs a ref/alias or --path")
+        return 2
+    return substrate_cmd.run_add(
+        ref=args.ref, path=args.path,
+        project_root=_substrate_root(args), dry_run=args.dry_run,
+    )
+
+
+def _substrate_remove(args) -> int:
+    """Run substrate withdrawal (`atdd substrate remove` / deprecated `atdd remove`)."""
+    from atdd.substrate import commands as substrate_cmd
+    return substrate_cmd.run_remove(
+        args.ref, project_root=_substrate_root(args),
+        force=args.force, prune=args.prune,
+    )
+
+
+def _substrate_bind(args) -> int:
+    """Run binding-plan compose (`atdd substrate bind` / deprecated `atdd bind`)."""
+    from atdd.substrate.binding import commands as binding_cmd
+    return binding_cmd.run_bind_check(
+        project_root=_substrate_root(args), write=not args.no_write,
+    )
+
+
+def _substrate_capabilities(args) -> int:
+    """Run capability report (`atdd substrate capabilities` / deprecated `atdd capabilities`)."""
+    from atdd.substrate.binding import commands as binding_cmd
+    return binding_cmd.run_capabilities(project_root=_substrate_root(args))
+
+
+def _substrate_list(args) -> int:
+    """Render the installed substrate (`atdd substrate list` / deprecated `atdd list --substrate`)."""
+    from atdd.substrate import commands as substrate_cmd
+    return substrate_cmd.run_list(project_root=_substrate_root(args))
 
 
 def _get_pr_changed_files(repo_root) -> list:
@@ -319,12 +440,12 @@ Examples:
   %(prog)s registry update contracts      Update contract registry only
   %(prog)s registry update telemetry      Update telemetry registry only
 
-  # Issue lifecycle (unified command)
-  %(prog)s issue my-feature               Create issue + WMBT sub-issues
-  %(prog)s issue 11                       Enter issue #11 (state-driven)
-  %(prog)s issue 11 --status RED          Transition issue status
-  %(prog)s issue 11 --close-wmbt D005     Close WMBT sub-issue
-  %(prog)s issue open                     List open issues
+  # Issue lifecycle (`atdd issue` was removed — see #1303)
+  %(prog)s author issue --title T --slug S  Create issue + WMBT sub-issues
+  %(prog)s coach enter 11                 Enter issue #11 (state-driven)
+  %(prog)s coach transition 11 RED        Transition issue status
+  %(prog)s coach close-wmbt 11 D005       Close WMBT sub-issue
+  %(prog)s coach issues open              List open issues
   %(prog)s list                           List all issues
   %(prog)s branch 69                      Create worktree from issue #69
   %(prog)s branch 69 --prefix fix         Override branch prefix
@@ -378,8 +499,14 @@ Phase descriptions:
         nargs="?",
         type=str,
         default="all",
-        choices=["all", "planner", "tester", "coder", "coach"],
-        help="Phase to validate (default: all)"
+        choices=["all", "planner", "tester", "coder", "coach", "package"],
+        help="Phase to validate, or 'package' to compose-validate an installed package (default: all)"
+    )
+    validate_parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Package directory (for 'atdd validate package <path>')"
     )
     validate_parser.add_argument(
         "--verbose", "-v",
@@ -619,8 +746,8 @@ Phase descriptions:
     # ----- atdd new <slug> -----
     new_parser = subparsers.add_parser(
         "new",
-        help="[DEPRECATED] Use 'atdd issue <slug>' instead",
-        description="DEPRECATED: Use 'atdd issue <slug>' instead.\n\nCreate a new GitHub Issue with Project v2 fields and WMBT sub-issues"
+        help="[DEPRECATED] Use 'atdd author issue --title <t> --slug <s>' instead",
+        description="DEPRECATED: Use 'atdd author issue --title <t> --slug <s>' instead.\n\nCreate a new GitHub Issue with Project v2 fields and WMBT sub-issues"
     )
     new_parser.add_argument(
         "slug",
@@ -648,22 +775,27 @@ Phase descriptions:
     # NOTE: 'session' subcommand removed in E009; replaced by top-level issue commands.
 
     # ----- atdd list -----
-    subparsers.add_parser(
+    list_parser = subparsers.add_parser(
         "list",
-        help="List all ATDD issues"
+        help="List all ATDD issues (or the installed substrate with --substrate)"
+    )
+    list_parser.add_argument(
+        "--substrate",
+        action="store_true",
+        help="List the installed substrate (.atdd/substrate.lock.yaml) instead of issues",
     )
 
     # ----- atdd archive <issue_number> -----
     archive_top_parser = subparsers.add_parser(
         "archive",
-        help="[DEPRECATED] Use 'atdd issue <N> --status COMPLETE' instead"
+        help="[DEPRECATED] Use 'atdd coach transition <N> COMPLETE' instead"
     )
     archive_top_parser.add_argument("session_id", type=str, help="Issue number to archive")
 
     # ----- atdd update <issue_number> -----
     update_top_parser = subparsers.add_parser(
         "update",
-        help="[DEPRECATED] Use 'atdd issue <N> --status <S>' instead"
+        help="[DEPRECATED] Use 'atdd coach transition <N> <S>' instead"
     )
     update_top_parser.add_argument("session_id", type=str, help="Issue number")
     update_top_parser.add_argument("--status", "-s", type=str, help="ATDD Status (INIT/PLANNED/RED/GREEN/SMOKE/REFACTOR/COMPLETE/BLOCKED)")
@@ -675,11 +807,11 @@ Phase descriptions:
     update_top_parser.add_argument("--complexity", type=str, help="ATDD Complexity (e.g., 4-High)")
     update_top_parser.add_argument("--force", "-f", action="store_true", help="Bypass gate/body checks on COMPLETE (train still enforced)")
 
-    # ----- atdd branch <issue_number> -----
+    # ----- atdd branch <issue_number> — DEPRECATED alias for `atdd worktree create` -----
     branch_parser = subparsers.add_parser(
         "branch",
-        help="Create worktree branch from issue metadata",
-        description="Create a git worktree with the correct prefix/slug naming derived from issue metadata"
+        help="[DEPRECATED] Use 'atdd worktree create <N>' instead",
+        description="[DEPRECATED alias, #1347] Create a git worktree from issue metadata. Use `atdd worktree create <N>`."
     )
     branch_parser.add_argument("issue_number", type=int, help="Issue number")
     branch_parser.add_argument(
@@ -688,13 +820,34 @@ Phase descriptions:
         help="Override branch prefix (feat, fix, refactor, chore, docs, devops)"
     )
 
-    # ----- atdd worktree <subcommand> -----
+    # ----- atdd worktree {create,gc,list,remove} (#1347) -----
+    # One object-verb command for the agent's working environment (worktree +
+    # branch + store binding). `create` is the former `atdd branch`.
     worktree_parser = subparsers.add_parser(
         "worktree",
-        help="Worktree utilities",
-        description="Commands for managing git worktrees created by atdd",
+        help="Manage git worktrees (create/gc/list/remove)",
+        description="Create and manage the git worktrees that are agent working environments",
     )
     worktree_subparsers = worktree_parser.add_subparsers(dest="worktree_command")
+
+    worktree_create_parser = worktree_subparsers.add_parser(
+        "create",
+        help="Create a worktree branch from issue metadata",
+        description=(
+            "Create a git worktree with the correct prefix/slug naming derived\n"
+            "from issue metadata, based on origin/<default>, and register the\n"
+            "branch↔issue↔worktree binding in the State Store (never a commit on\n"
+            "local main).\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_create_parser.add_argument("issue_number", type=int, help="Issue number")
+    worktree_create_parser.add_argument(
+        "--prefix",
+        type=str,
+        help="Override branch prefix (feat, fix, refactor, chore, docs, devops)",
+    )
+
     worktree_gc_parser = worktree_subparsers.add_parser(
         "gc",
         help="Detect and clean up orphan worktree directories",
@@ -710,6 +863,25 @@ Phase descriptions:
         "--apply",
         action="store_true",
         help="Remove orphan directories (default: list only)",
+    )
+
+    worktree_subparsers.add_parser(
+        "list",
+        help="List atdd worktrees and their store bindings",
+        description="List every registered git worktree with its branch and bound work item.",
+    )
+
+    worktree_remove_parser = worktree_subparsers.add_parser(
+        "remove",
+        help="Remove a worktree by issue number or path",
+        description=(
+            "Remove a registered git worktree (issue number → derived path, or an\n"
+            "explicit path). Refuses the main checkout; never uses --force.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_remove_parser.add_argument(
+        "target", type=str, help="Issue number or worktree path to remove"
     )
 
     # ----- atdd cleanup -----
@@ -783,150 +955,11 @@ Phase descriptions:
     # ----- atdd close-wmbt <issue_number> <wmbt_id> -----
     close_wmbt_top_parser = subparsers.add_parser(
         "close-wmbt",
-        help="[DEPRECATED] Use 'atdd issue <N> --close-wmbt <ID>' instead"
+        help="[DEPRECATED] Use 'atdd coach close-wmbt <N> <ID>' instead"
     )
     close_wmbt_top_parser.add_argument("session_id", type=str, help="Parent issue number")
     close_wmbt_top_parser.add_argument("wmbt_id", type=str, help="WMBT ID (e.g., D001, E003)")
     close_wmbt_top_parser.add_argument("--force", "-f", action="store_true", help="Close even if ATDD cycle checkboxes are unchecked")
-
-    # ----- atdd issue <target> -----
-    issue_parser = subparsers.add_parser(
-        "issue",
-        help="Unified issue lifecycle command",
-        description=(
-            "Enter an existing issue (by number) or create a new one (by slug).\n\n"
-            "  atdd issue 126                     Enter issue #126 (state-driven)\n"
-            "  atdd issue my-feature              Create new issue and enter at INIT\n"
-            "  atdd issue 126 --status RED        Transition status\n"
-            "  atdd issue open                    List open issues\n"
-            "  atdd issue reconcile               Backfill missing issues from GitHub into manifest\n"
-            "  atdd issue sync-labels 126         Re-derive labels from body metadata\n"
-            "  atdd issue sync-labels --all       Re-derive labels across every atdd-issue\n"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    issue_parser.add_argument(
-        "target",
-        type=str,
-        nargs="?",
-        help="Issue number (int), slug (str), 'open' (list), or 'sync-labels'"
-    )
-    issue_parser.add_argument(
-        "number",
-        type=str,
-        nargs="?",
-        help="Issue number when target is 'sync-labels'"
-    )
-    issue_parser.add_argument(
-        "--status", "-s",
-        type=str,
-        help="Transition issue to this status"
-    )
-    issue_parser.add_argument(
-        "--close-wmbt",
-        type=str,
-        dest="close_wmbt",
-        help="Close a WMBT sub-issue by ID"
-    )
-    issue_parser.add_argument(
-        "--check",
-        action="store_true",
-        dest="check",
-        help="Run template compliance check and print structured feedback"
-    )
-    issue_parser.add_argument(
-        "--sync-wmbts",
-        action="store_true",
-        dest="sync_wmbts",
-        help="Backfill missing GitHub WMBT sub-issues from plan YAMLs (idempotent)"
-    )
-    issue_parser.add_argument(
-        "--force", "-f",
-        action="store_true",
-        help="Bypass gate/body checks (train still enforced)"
-    )
-    issue_parser.add_argument(
-        "--label", "-l",
-        type=str,
-        help="Filter by label (for 'open' target)"
-    )
-    issue_parser.add_argument(
-        "--limit", "-n",
-        type=int,
-        default=30,
-        help="Maximum issues to list (for 'open' target, default: 30)"
-    )
-    issue_parser.add_argument(
-        "--assignee",
-        type=str,
-        help="Filter by assignee (for 'open' target)"
-    )
-    issue_parser.add_argument(
-        "--type", "-t",
-        type=str,
-        default="implementation",
-        choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
-        help="Issue type for creation (default: implementation)"
-    )
-    issue_parser.add_argument(
-        "--train",
-        type=str,
-        help="Train ID to assign on creation"
-    )
-    issue_parser.add_argument(
-        "--all",
-        action="store_true",
-        dest="all_issues",
-        help="Apply sync-labels to every atdd-issue (and atdd-wmbt) in the repo"
-    )
-    issue_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        dest="dry_run",
-        help="Report sync-labels delta without mutating GitHub"
-    )
-    issue_parser.add_argument(
-        "--archetypes", "-a",
-        type=str,
-        help="Comma-separated archetypes on creation (e.g., be,contracts,wmbt)"
-    )
-    issue_parser.add_argument(
-        "--no-branch",
-        action="store_true",
-        dest="no_branch",
-        help="Skip automatic worktree creation on issue creation (bare issue-only mode)"
-    )
-    issue_parser.add_argument(
-        "--no-dup-check",
-        action="store_true",
-        dest="no_dup_check",
-        help="Skip duplicate-issue search before filing (use when you have already verified uniqueness)"
-    )
-    # ----- atdd issue review <N> [--passes ...] [--llms ...] (#508) -----
-    issue_parser.add_argument(
-        "--passes",
-        type=int,
-        default=None,
-        help="(review) Number of independent LLM passes (default from coach config; min 2)"
-    )
-    issue_parser.add_argument(
-        "--llms",
-        type=str,
-        default=None,
-        help="(review) Comma-separated LLM client ids (default from coach config)"
-    )
-    issue_parser.add_argument(
-        "--dimensions",
-        type=str,
-        default=None,
-        help="(review) Comma-separated dimensions to evaluate (default: all five)"
-    )
-    issue_parser.add_argument(
-        "--show",
-        action="store_true",
-        dest="show",
-        help="(review) Post the aggregate as a GitHub comment on the issue"
-    )
 
     # ----- atdd color [value] -----
     color_parser = subparsers.add_parser(
@@ -992,53 +1025,18 @@ Phase descriptions:
         ),
     )
 
-    # ----- atdd plan <source> ... -----
-    # PLAN-1 (#758): CLI shell for the planning brief entry point.
-    # Single-phase: parse args, classify sources, dispatch to brief renderer.
+    # ----- atdd plan <op> ... -----
+    # #1208/#1139: `atdd plan` IS the gated decomposition session. The session
+    # owns its own argparse (plan_session_cli); all `atdd plan ...` argv is
+    # intercepted before parse_args (see below) and forwarded to it. This stub
+    # exists only so `atdd --help` lists `plan`. The legacy PLAN-1 brief renderer
+    # (#758) is decommissioned.
     plan_parser = subparsers.add_parser(
         "plan",
-        help="Render a deterministic planning brief from source material (PLAN-1).",
-        description=(
-            "Render a deterministic planning brief from source material and exit.\n\n"
-            "Source detection:\n"
-            "  --text STR      Raw text inlined directly.\n"
-            "  file.md/.txt/.yaml/.yml/.json  File adapter (PLAN-6 reads content).\n"
-            "  file.pdf/other  Rich document: path referenced, no extraction.\n"
-            "  dir / .         Codebase evidence bundle (PLAN-6 traverses).\n\n"
-            "Exits 2 if no sources are supplied."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        help="Run the atdd plan gated decomposition session (Define→Locate→Prepare→Confirm→author).",
+        add_help=False,
     )
-    plan_parser.add_argument(
-        "sources",
-        nargs="*",
-        metavar="source",
-        help="Source paths to include in the brief.",
-    )
-    plan_parser.add_argument(
-        "--text",
-        metavar="TEXT",
-        dest="plan_text",
-        help="Raw text to inline as a source.",
-    )
-    plan_parser.add_argument(
-        "--brief-out",
-        metavar="PATH",
-        dest="plan_brief_out",
-        help="Write the rendered brief to PATH (default: stdout).",
-    )
-    plan_parser.add_argument(
-        "--json",
-        action="store_true",
-        dest="plan_json",
-        help="Emit a machine-readable JSON summary to stderr.",
-    )
-    plan_parser.add_argument(
-        "--quiet",
-        action="store_true",
-        dest="plan_quiet",
-        help="Suppress informational output.",
-    )
+    plan_parser.add_argument("plan_args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
 
     # ----- atdd session-template <issue-number> -----
     session_template_parser = subparsers.add_parser(
@@ -1203,6 +1201,37 @@ Phase descriptions:
         help="Forwarded to atdd.planner.commands.author",
     )
 
+    # ----- atdd state <subcommand> ... (#1168 State Store, Phase 1 — #1177) -----
+    # The State Store command surface (doctor / layout --check). argparse for the
+    # sub-subcommands lives in `atdd.state.cli.run`; we register `state` here with
+    # REMAINDER and forward argv so the surface stays in one place.
+    state_parser = subparsers.add_parser(
+        "state",
+        help="ATDD State Store — local operational data layout (#1168).",
+        add_help=False,
+    )
+    state_parser.add_argument(
+        "state_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.state.cli",
+    )
+
+    # ----- atdd enforce [--paths ...] [--conformance] [--verify-substrate] -----
+    # Lock-driven extension enforcement runner (#1238). Operator/CI hot path, so
+    # it sits top-level next to `validate`. argparse for its flags lives in
+    # `atdd.enforce.cli.run`; we register `enforce` here with REMAINDER and
+    # forward argv so the surface stays in one place (the `author`/`state` idiom).
+    enforce_parser = subparsers.add_parser(
+        "enforce",
+        help="Enforce the binding plan over consumer code (#1238).",
+        add_help=False,
+    )
+    enforce_parser.add_argument(
+        "enforce_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.enforce.cli",
+    )
+
     # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
     # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
     # Renders a prompt template, calls a structured-output LLM via the
@@ -1338,7 +1367,7 @@ Phase descriptions:
         help="Auto-transition the parent atdd-issue's phase when its PR merges",
         description=(
             "Resolve a PR's parent atdd-issue, read its current phase label, "
-            "and run `atdd issue <N> --status <NEXT>` to advance one step "
+            "and run `atdd coach transition <N> <NEXT>` to advance one step "
             "(RED→GREEN, GREEN→SMOKE, SMOKE→REFACTOR, REFACTOR→COMPLETE). "
             "Driven by .github/workflows/atdd-auto-phase.yml on PR merge."
         ),
@@ -1884,8 +1913,105 @@ Phase descriptions:
         help=(
             "Backfill missing open atdd-issues from GitHub into .atdd/manifest.yaml. "
             "Idempotent — re-running on a complete manifest is a no-op. "
-            "Equivalent to: atdd issue reconcile"
+            "Equivalent to: atdd coach reconcile"
         ),
+    )
+
+    # ----- Substrate admission (wagon: admit-substrate) -----
+    search_parser = subparsers.add_parser(
+        "search", help="Search configured registries for admittable artifacts"
+    )
+    search_parser.add_argument("query", help="alias, canonical id, or tag substring")
+    search_parser.add_argument(
+        "--kind", choices=["extension", "workspace"], default=None,
+        help="restrict results to a kind",
+    )
+
+    # ----- atdd substrate {add,remove,bind,capabilities,list} (#1239) -----
+    # Canonical noun-grouped home for the substrate-management verbs. The flat
+    # top-level verbs below are kept as DEPRECATED-but-working aliases (their
+    # removal is the breaking MAJOR step owned by #1207/4.0.0).
+    substrate_parser = subparsers.add_parser(
+        "substrate",
+        help="Manage the local substrate (admit/bind/inspect extensions & workspaces)",
+        description=(
+            "Manage the local substrate — the install ledger covering both "
+            "atdd.extension.* and atdd.workspace.* packages. Canonical home for "
+            "add / remove / bind / capabilities / list."
+        ),
+    )
+    substrate_subparsers = substrate_parser.add_subparsers(
+        dest="substrate_command", metavar="{add,remove,bind,capabilities,list}",
+    )
+
+    def _add_substrate_add_args(p):
+        p.add_argument("ref", nargs="?", help="registry ref or alias")
+        p.add_argument("--path", help="admit a local package directory directly")
+        p.add_argument(
+            "--dry-run", action="store_true", help="validate + compose only; do not install"
+        )
+
+    def _add_substrate_remove_args(p):
+        p.add_argument("ref", help="artifact id to remove")
+        p.add_argument(
+            "--force", action="store_true", help="remove even if other artifacts depend on it"
+        )
+        p.add_argument(
+            "--prune", action="store_true", help="also remove now-unused workspaces"
+        )
+
+    def _add_substrate_bind_args(p):
+        p.add_argument(
+            "--check", action="store_true",
+            help="compose + validate the binding plan (never executes an implementation)",
+        )
+        p.add_argument(
+            "--no-write", action="store_true", help="do not write .atdd/binding.lock.yaml"
+        )
+
+    _add_substrate_add_args(substrate_subparsers.add_parser(
+        "add", help="Admit an extension/workspace artifact into the local substrate"))
+    _add_substrate_remove_args(substrate_subparsers.add_parser(
+        "remove", help="Withdraw an artifact from the local substrate"))
+    _add_substrate_bind_args(substrate_subparsers.add_parser(
+        "bind", help="Compose the runtime binding plan from the locked substrate"))
+    substrate_subparsers.add_parser(
+        "capabilities",
+        help="Show conventions gated by bound implementations vs legacy-fallback")
+    substrate_subparsers.add_parser(
+        "list", help="List the installed substrate (.atdd/substrate.lock.yaml)")
+
+    # ----- Substrate admission (wagon: admit-substrate) — DEPRECATED flat aliases -----
+    add_cmd_parser = subparsers.add_parser(
+        "add",
+        help="[DEPRECATED] Use 'atdd substrate add' instead",
+        description="DEPRECATED: Use 'atdd substrate add' instead.\n\n"
+                    "Admit an extension/workspace artifact into the local substrate.",
+    )
+    _add_substrate_add_args(add_cmd_parser)
+
+    remove_cmd_parser = subparsers.add_parser(
+        "remove",
+        help="[DEPRECATED] Use 'atdd substrate remove' instead",
+        description="DEPRECATED: Use 'atdd substrate remove' instead.\n\n"
+                    "Withdraw an artifact from the local substrate.",
+    )
+    _add_substrate_remove_args(remove_cmd_parser)
+
+    # ----- Substrate binding (wagon: bind-substrate-runtime) — DEPRECATED flat aliases -----
+    bind_cmd_parser = subparsers.add_parser(
+        "bind",
+        help="[DEPRECATED] Use 'atdd substrate bind' instead",
+        description="DEPRECATED: Use 'atdd substrate bind' instead.\n\n"
+                    "Compose the runtime binding plan from the locked substrate.",
+    )
+    _add_substrate_bind_args(bind_cmd_parser)
+
+    subparsers.add_parser(
+        "capabilities",
+        help="[DEPRECATED] Use 'atdd substrate capabilities' instead",
+        description="DEPRECATED: Use 'atdd substrate capabilities' instead.\n\n"
+                    "Show conventions gated by bound implementations vs legacy-fallback.",
     )
 
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
@@ -1954,6 +2080,29 @@ Phase descriptions:
         help=argparse.SUPPRESS  # Hide, use subcommand option instead
     )
 
+    # `atdd plan <op> ...` — the gated decomposition session (#1139) IS `atdd plan`
+    # (#1208). It owns its own argparse (sub-flags like --id/--root/--step), so
+    # intercept ALL plan argv before parse_args and forward to it. The legacy
+    # PLAN-1 brief renderer is decommissioned; there is no brief surface to fall to.
+    import sys as _sys
+    if _sys.argv[1:2] == ["plan"]:
+        from atdd.planner.commands.plan_session_cli import run as _run_session
+        return _run_session(_sys.argv[2:])
+
+    # `atdd enforce ...` owns its own argparse (--paths/--conformance/
+    # --verify-substrate, all leading-dash flags that argparse REMAINDER cannot
+    # capture). Intercept its argv before parse_args and forward, the same way
+    # `plan` does. The `enforce` subparser above keeps it in --help/usage.
+    if _sys.argv[1:2] == ["enforce"]:
+        from atdd.enforce.cli import run as _run_enforce
+        return _run_enforce(_sys.argv[2:])
+
+    # #1309: `atdd issue` was removed. Intercept before parse_args so the
+    # operator gets the replacement map instead of argparse's `invalid choice`.
+    _removed_rc = _removed_command_guard(_sys.argv[1:])
+    if _removed_rc is not None:
+        return _removed_rc
+
     args = parser.parse_args()
 
     # ----- Handle modern subcommands -----
@@ -1966,6 +2115,13 @@ Phase descriptions:
     # atdd validate [phase]
     elif args.command == "validate":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+
+        # atdd validate package <path> (#1133): compose-validate an installed
+        # extension/workspace package against core (package-relative core load;
+        # no runtime execution). Distinct from the pytest validator phases below.
+        if getattr(args, "phase", None) == "package":
+            from atdd.planner.commands.compose import validate_package_cli
+            return validate_package_cli(getattr(args, "path", None))
 
         # --diagnostics-only: read+print the most recent artifact without
         # invoking pytest. Must complete in <100 ms (issue #449).
@@ -2137,9 +2293,11 @@ Phase descriptions:
             toolkit=getattr(args, "toolkit", False),
         )
 
-    # atdd new <slug> — DEPRECATED, delegates to atdd issue <slug>
+    # atdd new <slug> — DEPRECATED, delegates to the shared create path.
+    # #1349: point operators at the store-first canonical `atdd author issue`
+    # (#1272) rather than the also-deprecated `atdd issue <slug>` alias.
     elif args.command == "new":
-        _deprecation_warning("atdd new <slug>", "atdd issue <slug>")
+        _deprecation_warning("atdd new <slug>", "atdd author issue", stream=sys.stderr)
         from atdd.coach.commands.issue_lifecycle import IssueLifecycle
         lifecycle = IssueLifecycle()
         return lifecycle.create(
@@ -2151,22 +2309,74 @@ Phase descriptions:
 
     # atdd list (top-level shorthand)
     elif args.command == "list":
+        if getattr(args, "substrate", False):
+            # DEPRECATED alias for `atdd substrate list` (#1239) — still works.
+            _deprecation_warning("atdd list --substrate", "atdd substrate list", stream=sys.stderr)
+            return _substrate_list(args)
         manager = IssueManager()
         return manager.list()
 
-    # atdd archive <issue_id> — DEPRECATED, delegates to atdd issue <N> --status COMPLETE
+    # ----- atdd substrate {add,remove,bind,capabilities,list} (#1239) -----
+    # Canonical noun-grouped surface; routes to the same handlers as the flat
+    # verbs below (which remain as deprecated aliases until #1207/4.0.0).
+    elif args.command == "substrate":
+        sub = getattr(args, "substrate_command", None)
+        if sub == "add":
+            return _substrate_add(args)
+        elif sub == "remove":
+            return _substrate_remove(args)
+        elif sub == "bind":
+            return _substrate_bind(args)
+        elif sub == "capabilities":
+            return _substrate_capabilities(args)
+        elif sub == "list":
+            return _substrate_list(args)
+        substrate_parser.print_help()
+        return 2
+
+    # ----- Substrate admission (wagon: admit-substrate) -----
+    elif args.command == "search":
+        from atdd.substrate import commands as substrate_cmd
+        return substrate_cmd.run_search(
+            args.query, kind=args.kind, project_root=_substrate_root(args)
+        )
+
+    # DEPRECATED flat aliases — delegate to `atdd substrate <verb>` (#1239)
+    elif args.command == "add":
+        _deprecation_warning("atdd add", "atdd substrate add", stream=sys.stderr)
+        return _substrate_add(args)
+
+    elif args.command == "remove":
+        _deprecation_warning("atdd remove", "atdd substrate remove", stream=sys.stderr)
+        return _substrate_remove(args)
+
+    elif args.command == "bind":
+        _deprecation_warning("atdd bind", "atdd substrate bind", stream=sys.stderr)
+        return _substrate_bind(args)
+
+    elif args.command == "capabilities":
+        _deprecation_warning("atdd capabilities", "atdd substrate capabilities", stream=sys.stderr)
+        return _substrate_capabilities(args)
+
+    # atdd archive <issue_id> — DEPRECATED, delegates to atdd coach transition <N> COMPLETE
     elif args.command == "archive":
-        _deprecation_warning("atdd archive <N>", "atdd issue <N> --status COMPLETE")
+        _deprecation_warning("atdd archive <N>", "atdd coach transition <N> COMPLETE")
         from atdd.coach.commands.issue_lifecycle import IssueLifecycle
         lifecycle = IssueLifecycle()
         issue_number = int(args.session_id)
         return lifecycle.transition(issue_number, "COMPLETE", force=False)
 
-    # atdd update <issue_id> — DEPRECATED, delegates to atdd issue <N> --status <S>
+    # atdd update <issue_id> --status <S> — DEPRECATED, delegates to atdd coach transition
     elif args.command == "update":
         status = getattr(args, 'status', None)
         if status:
-            _deprecation_warning("atdd update <N> --status <S>", "atdd issue <N> --status <S>")
+            # Written FLAG-FIRST on purpose: build_deprecation_registry keys on the
+            # first two tokens unless token[2] is a flag, so "atdd update <N>
+            # --status <S>" would register a WHOLESALE `atdd update` deprecation and
+            # false-flag the still-valid `atdd update <N> --train <T>` (the only
+            # surface for train/feature/archetypes). Flag-first keys it as
+            # `atdd update --status`, deprecating only the status form.
+            _deprecation_warning("atdd update --status <S>", "atdd coach transition <N> <S>")
             from atdd.coach.commands.issue_lifecycle import IssueLifecycle
             lifecycle = IssueLifecycle()
             issue_number = int(args.session_id)
@@ -2174,8 +2384,12 @@ Phase descriptions:
                 issue_number, status,
                 force=getattr(args, 'force', False),
             )
-        # Non-status field updates have no atdd issue equivalent yet — pass through
-        _deprecation_warning("atdd update", "atdd issue")
+        # Non-status field updates (train / feature / archetypes / complexity /
+        # branch) have NO coach or author equivalent — `IssueManager.update` is
+        # the only surface for them. It was previously deprecated toward
+        # `atdd issue`, which #1309 removed; rather than repoint that hint at
+        # another command that cannot do the job, the bare form is simply not
+        # deprecated. Emitting a warning here would send operators nowhere.
         manager = IssueManager()
         return manager.update(
             issue_id=args.session_id,
@@ -2189,6 +2403,8 @@ Phase descriptions:
 
     # atdd branch <issue_number>
     elif args.command == "branch":
+        # DEPRECATED (#1347) — delegates to `atdd worktree create`.
+        _deprecation_warning("atdd branch <N>", "atdd worktree create <N>", stream=sys.stderr)
         from atdd.coach.commands.branch import BranchManager
         manager = BranchManager()
         return manager.branch(
@@ -2209,9 +2425,9 @@ Phase descriptions:
             force=getattr(args, 'force', False),
         )
 
-    # atdd close-wmbt <issue_id> <wmbt_id> — DEPRECATED, delegates to atdd issue <N> --close-wmbt <ID>
+    # atdd close-wmbt <issue_id> <wmbt_id> — DEPRECATED, delegates to atdd coach close-wmbt
     elif args.command == "close-wmbt":
-        _deprecation_warning("atdd close-wmbt <N> <ID>", "atdd issue <N> --close-wmbt <ID>")
+        _deprecation_warning("atdd close-wmbt <N> <ID>", "atdd coach close-wmbt <N> <ID>")
         from atdd.coach.commands.issue_lifecycle import IssueLifecycle
         lifecycle = IssueLifecycle()
         issue_number = int(args.session_id)
@@ -2221,174 +2437,15 @@ Phase descriptions:
             force=args.force,
         )
 
-    # atdd issue <target>
-    elif args.command == "issue":
-        target = getattr(args, 'target', None)
-        if not target:
-            issue_parser.print_help()
-            return 0
-
-        # atdd issue open — list open issues
-        if target == "open":
-            manager = IssueManager()
-            return manager.open_issues(
-                label=getattr(args, 'label', None),
-                limit=getattr(args, 'limit', 30),
-                assignee=getattr(args, 'assignee', None),
-            )
-
-        # atdd issue review <N> [--passes ...] [--llms ...] [--dimensions ...] [--show] [--force]
-        if target == "review":
-            import atdd.coach.commands.llm_clients  # noqa: F401 — side-effect: registers production clients
-            from atdd.coach.commands.issue_review import run as run_issue_review
-            number_str = getattr(args, 'number', None)
-            if not number_str:
-                print("Error: atdd issue review requires an issue number")
-                return 1
-            try:
-                review_issue = int(number_str)
-            except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-                print(f"Error: invalid issue number '{number_str}'")
-                return 1
-            llms_raw = getattr(args, 'llms', None)
-            dims_raw = getattr(args, 'dimensions', None)
-            return run_issue_review(
-                issue_number=review_issue,
-                passes=getattr(args, 'passes', None),
-                llms=[s.strip() for s in llms_raw.split(',') if s.strip()] if llms_raw else None,
-                dimensions=[s.strip() for s in dims_raw.split(',') if s.strip()] if dims_raw else None,
-                show=getattr(args, 'show', False),
-                force=getattr(args, 'force', False),
-            )
-
-        # atdd issue reconcile — backfill every open GitHub atdd-issue missing from manifest
-        if target == "reconcile":
-            manager = IssueManager()
-            return manager.reconcile()
-
-        # atdd issue sync-labels [<N>|--all] [--dry-run]
-        if target == "sync-labels":
-            manager = IssueManager()
-            dry_run = getattr(args, 'dry_run', False)
-            apply_all = getattr(args, 'all_issues', False)
-            number_str = getattr(args, 'number', None)
-            if apply_all:
-                results = manager.sync_labels_all(dry_run=dry_run)
-                drifted = [
-                    (num, delta) for num, delta in results
-                    if delta["to_add"] or delta["to_remove"]
-                ]
-                for num, delta in drifted:
-                    _print_sync_labels_delta(num, delta, dry_run=dry_run)
-                if not drifted:
-                    print(
-                        f"sync-labels: every open atdd-issue already matches "
-                        f"body metadata ({len(results)} checked)"
-                    )
-                else:
-                    suffix = " (dry-run)" if dry_run else ""
-                    print(
-                        f"sync-labels: {len(drifted)}/{len(results)} "
-                        f"issue(s) drifted{suffix}"
-                    )
-                return 0
-            if not number_str:
-                print("Error: atdd issue sync-labels requires an issue number or --all")
-                return 1
-            try:
-                issue_number = int(number_str)
-            except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
-                print(f"Error: invalid issue number '{number_str}'")
-                return 1
-            delta = manager.sync_labels(issue_number, dry_run=dry_run)
-            _print_sync_labels_delta(issue_number, delta, dry_run=dry_run)
-            return 0
-
-        # Detect mode: integer → enter, string → create (future)
-        try:
-            issue_number = int(target)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
-            # Slug mode — create new issue and enter at INIT
-            dry_run = getattr(args, 'dry_run', False)
-            if dry_run:
-                # E019: dry-run path — validate locally, print rendered body, exit 0
-                from atdd.coach.commands.issue import IssueBodyChecker, IssueBodyComplianceError
-                slug = target
-                manager = IssueManager()
-                issue_type = getattr(args, 'type', 'implementation')
-                train = getattr(args, 'train', None)
-                archetypes = getattr(args, 'archetypes', None)
-                from datetime import date as _date
-                today = _date.today().isoformat()
-                train_display = train or "TBD"
-                archetypes_display = archetypes or "TBD"
-                body = manager._render_parent_body(slug, issue_type, today, train_display, archetypes_display)
-                body = manager._inject_graph_context(body, slug, train)
-                checker = IssueBodyChecker()
-                result = checker.check(body)
-                if not result.passed:
-                    print("[DRY RUN] Body compliance check FAILED:")
-                    for err in result.errors:
-                        print(f"  - {err}")
-                    return 1
-                from atdd.coach.commands.issue import TYPE_TO_PREFIX
-                prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
-                title = f"{prefix}(atdd): {slug.replace('-', ' ').title()}"
-                print(f"[DRY RUN] Would create issue: {title}")
-                print(body)
-                return 0
-            from atdd.coach.commands.issue_lifecycle import IssueLifecycle
-            lifecycle = IssueLifecycle()
-            return lifecycle.create(
-                slug=target,
-                issue_type=getattr(args, 'type', 'implementation'),
-                train=getattr(args, 'train', None),
-                archetypes=getattr(args, 'archetypes', None),
-                no_branch=getattr(args, 'no_branch', False),
-                force=getattr(args, 'force', False),
-                no_dup_check=getattr(args, 'no_dup_check', False),
-            )
-
-        # Mutations or enter
-        from atdd.coach.commands.issue_lifecycle import IssueLifecycle
-        lifecycle = IssueLifecycle()
-
-        if getattr(args, 'check', False):
-            return lifecycle.check(issue_number)
-
-        if getattr(args, 'sync_wmbts', False):
-            manager = IssueManager()
-            rc = manager.sync_wmbts(issue_number)
-            return 0 if rc >= 0 else 1
-
-        if getattr(args, 'status', None):
-            # #1017 — register the operator-approval gate check INTO the #1020
-            # GATE_REGISTRY. Called EXPLICITLY here at the --status dispatch (not
-            # an import-time side effect, not in the gate package) so importing
-            # the module stays pure and #1020's empty-registry migration-safety
-            # tests stay green. Which transitions enforce is decided by
-            # .atdd/config.yaml gate.transitions (default PLANNED->RED).
-            from atdd.coach.gate.registrations import register_approval_checks
-            register_approval_checks()
-            return lifecycle.transition(
-                issue_number,
-                args.status,
-                force=getattr(args, 'force', False),
-            )
-
-        if getattr(args, 'close_wmbt', None):
-            return lifecycle.close_wmbt(
-                issue_number,
-                args.close_wmbt,
-                force=getattr(args, 'force', False),
-            )
-  # atdd:suppress(coder.logging.coach-silent-swallow)
-        # Default: enter existing issue
-        return lifecycle.enter(issue_number)
-
     # atdd worktree <subcommand>
     elif args.command == "worktree":
         worktree_cmd = getattr(args, 'worktree_command', None)
+        if worktree_cmd == "create":
+            from atdd.coach.commands.branch import BranchManager
+            return BranchManager().branch(
+                issue_number=args.issue_number,
+                prefix=getattr(args, 'prefix', None),
+            )
         if worktree_cmd == "gc":
             from atdd.coach.commands.worktree_gc import gc as worktree_gc
             orphans = worktree_gc(apply=getattr(args, 'apply', False))
@@ -2401,6 +2458,12 @@ Phase descriptions:
             if not getattr(args, 'apply', False):
                 print(f"\n{len(orphans)} orphan(s) found. Run with --apply to remove.")
             return 0
+        if worktree_cmd == "list":
+            from atdd.coach.commands.branch import BranchManager
+            return BranchManager().list_worktrees()
+        if worktree_cmd == "remove":
+            from atdd.coach.commands.branch import BranchManager
+            return BranchManager().remove_worktree(args.target)
         worktree_parser.print_help()
         return 1
 
@@ -2471,19 +2534,25 @@ Phase descriptions:
         from atdd.planner.commands.author import run as run_author
         return run_author(list(getattr(args, "author_argv", []) or []))
 
-    # atdd plan <source> ... (PLAN-1 — #758)
-    elif args.command == "plan":
-        import argparse as _argparse
-        from atdd.planner.commands.plan import run as _run_plan
+    # atdd state <doctor|layout|init|import-manifest|sync> ...  (#1168)
+    elif args.command == "state":
+        state_argv = list(getattr(args, "state_argv", []) or [])
+        # `state sync` is provider-agnostic (#1364): it drives registered providers
+        # via the atdd.state seam and imports NO provider (no GitHub). Provider-
+        # specific syncing lives in an extension that plugs into the registry.
+        if state_argv and state_argv[0] == "sync":
+            from atdd.state.sync_cli import run_sync_cli
+            return run_sync_cli(state_argv[1:])
+        from atdd.state.cli import run as run_state
+        return run_state(state_argv)
 
-        plan_ns = _argparse.Namespace(
-            sources=list(getattr(args, "sources", []) or []),
-            text=getattr(args, "plan_text", None),
-            brief_out=getattr(args, "plan_brief_out", None),
-            json=getattr(args, "plan_json", False),
-            quiet=getattr(args, "plan_quiet", False),
-        )
-        return _run_plan(plan_ns)
+    # NOTE: `atdd plan ...` is intercepted before parse_args (see above) and
+    # routed to the gated decomposition session — there is no `command == "plan"`
+    # branch here. The legacy PLAN-1 brief renderer was decommissioned in #1208.
+
+    # NOTE: `atdd enforce ...` is intercepted before parse_args (see above) and
+    # routed to atdd.enforce.cli — there is no `command == "enforce"` branch here
+    # (its leading-dash flags cannot ride argparse REMAINDER).
 
     # atdd judge ...  (O1 — #501)
     elif args.command == "judge":

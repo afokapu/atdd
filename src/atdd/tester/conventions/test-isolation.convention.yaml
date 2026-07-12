@@ -13,33 +13,7 @@ description: |
   of whether any human remembers the #619/#622 incident — so the pattern class
   cannot re-emerge undetected.
 
-rules:
-  - id: tester.test-isolation.no-polluting-patterns
-    severity: 4
-    disposition: strict
-    validator: "test_no_polluting_patterns::test_repo_has_no_pollution_patterns"
-    description: "Test files must not contain AST-detectable bare-mode-init or unscoped-core-bare-config patterns (Wave 12 contamination class)"
-    fix_hint: |
-      Replace the offending pattern with a properly scoped equivalent:
-
-        WRONG (bare-init with bad cwd):
-          subprocess.run(['git', 'init', '--bare', path], cwd=os.getcwd())
-
-        RIGHT (bare-init with tmp_path-derived path, no cwd= or cwd=tmp_path):
-          subprocess.run(['git', 'init', '--bare', str(tmp_path / 'repo.git')])
-          subprocess.run(['git', 'init', '--bare', str(tmp_path)], cwd=tmp_path)
-
-        WRONG (core.bare config with no isolation):
-          subprocess.run(['git', 'config', 'core.bare', 'true'])
-
-        RIGHT (core.bare config scoped via -C flag to tmp_path):
-          subprocess.run(['git', '-C', str(tmp_path), 'config', 'core.bare', 'true'])
-
-        RIGHT (core.bare config scoped via cwd= to tmp_path):
-          subprocess.run(['git', 'config', 'core.bare', 'true'], cwd=str(tmp_path))
-
-        RIGHT (worktree-scoped, always safe):
-          subprocess.run(['git', 'config', '--worktree', 'core.bare', 'true'])
-
-      Reference: CLAUDE.md worktree_config convention (#634 — use --worktree
-      for per-worktree git config to avoid shared .git/config contamination).
+# Legacy rules-list registry consumed by bind_rule. The decomposed node form
+# lives at conventions/nodes/tester.test-isolation.no-polluting-patterns.convention.yaml.
+# The sole test-isolation rule was atomized into a single-node file under nodes/
+# per the Phase A core-atomization slice; the registry now reads it there.

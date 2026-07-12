@@ -25,6 +25,20 @@ rationale: |
   from acceptance criteria, and conversely, acceptance URNs can be extracted from
   test filenames, supporting bidirectional navigation in the ATDD workflow.
 
+# =============================================================================
+# Atomized to conventions/nodes/ (core tester convention decomposition, #1215)
+# =============================================================================
+# The protocol-level rules in this file were atomized into single-node core
+# conventions under conventions/nodes/ (the single source of truth):
+#   - tester.filename.test-carries-urn-identity     (was § test_file_header)
+#   - tester.filename.test-placed-in-owning-feature (was § directory_structure.feature_discovery
+#                                                     + acceptance_to_feature_mapping)
+# Those normative sections have been removed here to avoid a competing copy.
+# The remaining content is workspace per-language filename mechanics (casing,
+# separators, src/test layout, pytest `test_` prefix via `tester.filename.urn`)
+# and legacy_redirect URN grammar (owned by the planner URN authority), retained
+# pending relocation to workspace packages.
+
 urn_format:
   pattern: "acc:{wagon}:{WMBT}-{HARNESS}-{NNN}[-{slug}]"
   description: "Acceptance URN format with optional slug"
@@ -358,58 +372,6 @@ validation:
     - "Separators must match language conventions"
     - "File extension must match language requirements"
 
-test_file_header:
-  description: |
-    All test files MUST include a test: URN as file-level identity (V3).
-    Acceptance tests also include Acceptance:, WMBT:, Phase:, Layer: lines.
-    Journey tests include Train:, Phase:, Layer: lines instead.
-
-    Optional Assertion: line declares the assertion mode (structural | behavioral).
-    See red.convention.yaml § assertion_classification for semantics. Absent
-    Assertion: is tolerated during the migration window (treated as legacy).
-
-  fields:
-    Assertion:
-      values: ["structural", "behavioral"]
-      placement: "after Layer:, before Purpose:"
-      required: false
-      enforcement: "src/atdd/tester/validators/test_presentation_has_behavioral_test.py"
-      rationale: |
-        Distinguishes tests that inspect source from tests that execute the
-        component. Issue #356: structural-only coverage of presentation layers
-        let 8 features get gutted during ratchet trim while 63/63 tests passed.
-
-  formats:
-    acceptance_python: |
-      # URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
-      # Acceptance: acc:{wagon}:{WMBT_ID}-{HARNESS}-{NNN}[-{slug}]
-      # WMBT: wmbt:{wagon}:{WMBT_ID}
-      # Phase: RED
-      # Layer: {layer}
-      # Assertion: {structural|behavioral}     # optional during migration
-
-    acceptance_typescript: |
-      // URN: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
-      // Acceptance: acc:{wagon}:{WMBT_ID}-{HARNESS}-{NNN}[-{slug}]
-      // WMBT: wmbt:{wagon}:{WMBT_ID}
-      // Phase: RED
-      // Layer: {layer}
-      // Assertion: {structural|behavioral}    // optional during migration
-
-    journey_python: |
-      # URN: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
-      # Train: train:{train_id}
-      # Phase: RED
-      # Layer: assembly
-      # Assertion: {structural|behavioral}     # optional during migration
-
-    journey_typescript: |
-      // URN: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
-      // Train: train:{train_id}
-      // Phase: RED
-      // Layer: assembly
-      // Assertion: {structural|behavioral}    // optional during migration
-
 directory_structure:
   description: |
     Tests are organized by feature within wagon directories. Each feature contains
@@ -508,47 +470,6 @@ directory_structure:
       example_input: "generate-uuid"
       example_python: "generate_uuid"
       example_dart: "generate_uuid"
-
-  feature_discovery:
-    description: "Features are defined in wagon manifest YAML"
-    manifest_location: "plan/{wagon}/_{wagon}.yaml"
-    manifest_field: "features[]"
-
-    example_manifest: |
-      wagon: generate-identifiers
-      features:
-        - urn: feature:generate-identifiers:generate-uuid
-        - urn: feature:generate-identifiers:generate-username
-
-    feature_extraction:
-      pattern: "feature:{wagon}:{feature_name}"
-      regex: "^feature:([a-z][a-z0-9-]*):([a-z][a-z0-9-]*)$"
-      wagon_group: 1
-      feature_group: 2
-
-  acceptance_to_feature_mapping:
-    description: |
-      Each acceptance criteria belongs to a feature. The feature name determines
-      which test directory the test file should be placed in.
-
-    lookup_process:
-      1: "Parse acceptance URN to extract wagon and WMBT code"
-      2: "Load wagon manifest from plan/{wagon}/_{wagon}.yaml"
-      3: "Load WMBT file from plan/{wagon}/{WMBT}.yaml"
-      4: "Extract feature URNs from wagon manifest features[]"
-      5: "Match acceptance to feature via acceptance.identity.purpose or metadata.feature"
-      6: "Extract feature name from feature URN"
-      7: "Generate test path: {lang}/{wagon_snake}/{feature_snake}/test/"
-
-    example:
-      acceptance_urn: "acc:generate-identifiers:L001-UNIT-001"
-      wagon: "generate-identifiers"
-      wmbt_file: "plan/generate_identifiers/L001.yaml"
-      feature_urn: "feature:generate-identifiers:generate-uuid"
-      feature_name: "generate-uuid"
-      test_path: "python/generate_identifiers/generate_uuid/test/"
-      test_filename: "test_l001_unit_001.py"
-      full_path: "python/generate_identifiers/generate_uuid/test/test_l001_unit_001.py"
 
 references:
   spec_ids:

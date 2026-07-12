@@ -2,23 +2,14 @@ schema_version: 1.1.0
 rule_id: planner.criteria.shape
 kind: rule
 status: active
-name: 'Criteria: Shape'
-statement: 'Criteria entries follow the documented shape: id, description, harness,
-  and expected_outcome.'
-implementation:
-  type: advisory
+name: Criteria shape
+statement: 'Criteria entries follow the documented shape: id, description, harness, and expected_outcome.'
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
-  legacy_sha: sha256:db262e7f5fb06226
+  legacy_section: rules
+  legacy_sha: db262e7f5fb06226
   extraction_mode: high_fidelity
   legacy_rule_id: planner.criteria.shape
-  legacy_section: rules
-content:
-  summary: A fixed criterion record shape lets tooling read criteria uniformly across
-    features and WMBTs, and a fixed harness catalog routes each criterion to the right
-    test scaffolding.
-  normative_text: Criteria entries follow the documented shape (id, description, harness,
-    expected_outcome)
 metadata:
   aliases:
   - PLANNER-CRITERIA-SHAPE-001
@@ -27,51 +18,10 @@ metadata:
   introduced_in: 1.67.0
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: criteria_entry
-  label: An acceptance-criterion record
-  text: An acceptance-criterion record on a feature or WMBT declares id, description,
-    harness, and expected_outcome.
-  values:
-    required_fields:
-    - id
-    - description
-    - harness
-    - expected_outcome
-- term_id: harness_catalog
-  label: Allowed harness types
-  text: The harness field selects one of the documented acceptance-scaffolding harnesses;
-    each harness fixes which architectural layers it covers and the default given/when/then
-    skeleton.
-  values:
-    allowed_harnesses:
-    - http
-    - unit
-    - event
-    - ws
-    - e2e
-    - a11y
-    - visual
-    - metric
-    - job
-    - db
-    - sec
-    - load
-    - script
-  examples:
-    positive:
-    - 'harness: http'
-    - 'harness: e2e'
-    negative:
-    - 'harness: rest  # not in the catalog'
-- term_id: stubbing_policy
-  label: Strict stubbing default
-  text: The default given block sets stubbing policy strict, so dependencies must
-    be explicitly stubbed rather than implicitly faked; overrides are listed explicitly.
-  values:
-    policy: strict
-    overrides: []
+- term_id: documented_shape
+  text: the required fields id, description, harness, expected_outcome.

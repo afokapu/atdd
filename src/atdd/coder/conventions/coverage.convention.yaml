@@ -2,25 +2,13 @@ version: "1.0"
 name: "Coder Coverage Convention"
 description: "Section 4 of ATDD Hierarchy Coverage Spec v0.1 - Ensures code implementation covers all features"
 
-rules:
-  - id: "coder.coverage.every-feature-must-have"
-    aliases: ["COVERAGE-CODE-4.1"]
-    severity: 3
-    disposition: strict
-    name: "Feature - Implementation Coverage"
-    description: "Every feature must have corresponding code implementation"
-    requirement: "Each feature's components must map to code paths"
-    exceptions: "features_without_implementation allow-list"
-    validator: "test_hierarchy_coverage::test_all_features_have_implementations"
-
-  - id: "coder.coverage.every-implementation-must-have"
-    aliases: ["COVERAGE-CODE-4.2"]
-    severity: 3
-    disposition: strict
-    name: "Implementation - Tests Coverage"
-    description: "Every implementation must have at least one linked test"
-    requirement: "Each implementation must have at least one linked test"
-    validator: "test_hierarchy_coverage::test_all_implementations_have_tests"
+# Legacy rules-list registry consumed by bind_rule. The decomposed node forms
+# live at conventions/nodes/coder.coverage.*.convention.yaml (mirrors the
+# tester.coverage.* dual declaration). Both coder.coverage rules were atomized
+# into single-node files under nodes/ per #1225; the registry now reads them
+# there. The descriptive sections below (coverage_graph, exception_handling,
+# implementation_patterns, test_patterns, rollout) are retained documentation
+# and are NOT a rules:[] block.
 
 coverage_graph:
   description: "The coder coverage graph ensures features are implemented and tested"

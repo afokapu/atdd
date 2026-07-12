@@ -1,0 +1,66 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.quality-duplication
+kind: rule
+status: active
+name: Python source has no significant code duplication
+statement: Python source MUST NOT contain a structurally identical code fragment of meaningful size
+  (>= 5 consecutive AST statements, normalized) duplicated across two DIFFERENT files, so that copy-pasted
+  logic is extracted into shared helpers during the REFACTOR phase. This is the language-agnostic
+  obligation owned by the coder extension. The stack-specific detector that enforces it (a pytest
+  AST-subtree sliding-window matcher that normalizes names and literals and reports cross-file hash
+  collisions) is the python-pytest workspace implementation referenced below; the obligation is agnostic,
+  the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.quality-mi
+content:
+  summary: An agnostic "no copy-paste of meaningful logic" obligation. The python realization hashes a
+    sliding window of 5 consecutive AST statements per file (variable names -> `VAR`, constants -> `0`/`""`)
+    and flags any window whose normalized hash appears in two different files. It is realized by the
+    multi-rule quality-metrics detector alongside quality-mi, quality-comments, quality-naming, and
+    quality-file-length, and shares the AST fragment matcher used by the no-intra-layer duplication rule.
+  normative_text: |
+    Duplicate code should be extracted into functions or shared helpers. The obligation: no window of
+    `MIN_DUPLICATE_STATEMENTS` (5) consecutive AST statements whose normalized form (Name nodes -> `VAR`,
+    constants -> `0`/`""`) hashes equal across two DIFFERENT files. The rule is rename-insensitive —
+    structurally identical functions with different identifier names ARE flagged — and is NOT restricted
+    to a single architectural layer (that narrower scoping is the sibling `coder.duplication.no-intra-layer`
+    rule); any two files in scope are compared. Re-export blocks and other lexically-similar-but-
+    structurally-different windows do not collide because each import is one AST statement, so a 5-statement
+    window rarely matches across unrelated files. Standard leading module-header boilerplate (docstring +
+    contiguous imports/constants) is stripped before windowing (#960).
+  fix_hint: |
+    Extract the duplicated fragment into a shared function, method, or helper module and call it from both
+    sites instead of copy-pasting. Because detection is rename-insensitive, renaming variables will NOT
+    clear the violation — the structure must actually be deduplicated. This rule is `strict`: a new
+    cross-file duplicate is not suppressible and fails.
+  exceptions:
+    - Fragments shorter than 5 AST statements are below the window size and are not compared.
+    - Same-file repetition is not flagged; only collisions across two DIFFERENT files count.
+    - Leading module-header boilerplate (docstring, contiguous imports, module-constant bindings) is
+      stripped before windowing, so shared headers do not register as duplication.
+metadata:
+  aliases:
+    - REFACTOR-QUALITY-DUPLICATION-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.quality-duplication
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: normalized_fragment
+  text: a window of consecutive AST statements with Name nodes rewritten to `VAR` and string/numeric
+    constants rewritten to `""`/`0`, hashed so that renamed-but-structurally-identical copies collide.
+- term_id: cross_file_collision
+  text: the same normalized-fragment hash appearing in two DIFFERENT files — the unit of a duplication
+    violation; same-file repetition does not count.

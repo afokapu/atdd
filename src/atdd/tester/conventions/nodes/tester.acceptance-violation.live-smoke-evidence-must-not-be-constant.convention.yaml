@@ -1,0 +1,33 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.live-smoke-evidence-must-not-be-constant
+kind: rule
+status: active
+name: Live smoke evidence must not be constant
+statement: "An execution_kind: live_smoke acceptance's harness must derive its\
+  \ evidence from real infrastructure — it MUST NOT return only a constant dict\
+  \ literal (every value a literal) while containing no assert/raise, because such\
+  \ a harness reports success-shaped evidence regardless of what happened and can\
+  \ never fail (the Y002 theater: built a string, returned {\"surfaced\": True})."
+terms:
+- term_id: constant_evidence
+  text: A harness whose every return is a dict literal with all-constant values and
+    whose body has no assert and no raise — it cannot fail and its evidence is fixed,
+    so it proves nothing ran against real infrastructure.
+implementation:
+  type: validator
+  ref: test_live_smoke_execution::test_no_live_smoke_harness_returns_constant_evidence
+source:
+  legacy_path: null
+  legacy_section: null
+  legacy_rule_id: null
+  extraction_mode: authored
+content:
+  fix_hint: Return evidence COMPUTED from the real outcome (e.g. proc.returncode ==
+    0, not_lock.exists(), a line count) so the dict changes when the run changes, or
+    assert/raise on the real outcome so the harness can fail. A harness that returns
+    only fixed literals and cannot fail is theater; make it run-or-fail against real
+    infrastructure.
+  operational_guidance: 'recipe: live-smoke-evidence'
+metadata:
+  severity: 4
+  disposition: strict

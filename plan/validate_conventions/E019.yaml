@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E019
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unnormalized-graph-node
+context_clarifier: the composed graph exposes id/kind/refs/theme/package/location
+  for real repo nodes
+lens: functional.effectiveness
+statement: minimize likelihood of unnormalized-graph-node by exposing id/kind/refs/theme/package/location
+  on every composed-graph node
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E019-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E019 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

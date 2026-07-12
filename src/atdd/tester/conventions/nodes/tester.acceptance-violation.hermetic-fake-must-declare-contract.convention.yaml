@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.hermetic-fake-must-declare-contract
+kind: rule
+status: active
+name: Hermetic fake must declare contract
+statement: A hermetic_integration acceptance with a non-empty permitted_fakes list
+  must declare its hermetic fidelity contract (exercised_boundaries, fake_contract_fidelity
+  with known_gaps, live_smoke_required) using only controlled boundary_kinds vocabulary
+terms:
+- term_id: hermetic_fidelity_contract
+  text: A hermetic_integration acceptance with permitted_fakes must declare exercised_boundaries,
+    fake_contract_fidelity (with non-empty known_gaps), and live_smoke_required using
+    only controlled boundary_kinds vocabulary.
+implementation:
+  type: validator
+  ref: test_hermetic_integration_contract::test_no_undeclared_hermetic_fakes
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.hermetic-fake-must-declare-contract
+  extraction_mode: high_fidelity
+content:
+  fix_hint: 'Under the acceptances hermetic: block declare exercised_boundaries (controlled
+    vocabulary), fake_contract_fidelity with non-empty known_gaps, and live_smoke_required;
+    every exercised_boundaries value must be a boundary_kinds declared in acceptance.convention.yaml.'
+  operational_guidance: 'recipe: hermetic-integration-contract'
+metadata:
+  severity: 4
+  disposition: strict

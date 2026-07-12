@@ -1,0 +1,47 @@
+schema_version: 1.1.0
+rule_id: coach.rule-id.fix-hint-completeness
+kind: rule
+status: active
+name: Fix-hint completeness contract
+statement: 'Every fix_hint (convention-declared or CLI-printed) must satisfy the C1-C4 completeness contract:
+  placeholder resolution, no deprecation contradiction, prerequisite disclosure, and runnable-as-printed.'
+implementation:
+  type: validator
+  ref: conventions/presence/test_rule_has_fix_hint::test_rule_has_fix_hint_convention_fault
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: rules
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.rule-id.fix-hint-completeness
+content:
+  fix_hint: "The named fix_hint fails one or more contract clauses (C1-C4). Repair as follows:\n  1. Re-run\
+    \ the validator to read which clause failed\n     (run: pytest src/atdd/validators/conventions/presence/test_rule_has_fix_hint.py\
+    \ -v).\n     The Violation message names the clause + the offending token,\n     command, or structural\
+    \ shape.\n  2. Resolve per the failed clause:\n       - C1 placeholder resolution: for each bare ``<token>``,\
+    \ append\n         a resolver line in the same hint block. Patterns\n         (e.g. \"(see plan/_trains.yaml::trains.id)\"\
+    \ / \"(run atdd list trains)\" /\n          'e.g. \"0001-self-compliance-validate\"').\n       - C2\
+    \ deprecation contradiction: substitute the deprecated CLI\n         form with the canonical one\n\
+    \         (see src/atdd/cli.py::_deprecation_warning) — same toolkit\n         that emits the warning\
+    \ prints the canonical replacement.\n       - C3 prerequisite disclosure: convert the hint to a numbered\n\
+    \         sequence; step 1 = the prerequisite\n         (e.g. \"1. cd into the feature worktree (run:\
+    \ atdd branch <N>)\").\n       - C4 runnable-as-printed: copy-paste the hint into a fresh\n      \
+    \   shell with the C3 prereq met; if it fails, simplify until it\n         succeeds. Sandbox-smoke\
+    \ is optional in 3.8.x.\n  3. Re-run step 1 to confirm clean.\nSource contract: see src/atdd/coach/conventions/rule-id.convention.yaml\n\
+    §rule_schema.fields.fix_hint.description (clauses C1-C4) and the\nadjacent \"# === Fix-hint completeness\
+    \ contract ===\" exemplars block."
+metadata:
+  severity: 2
+  disposition: strict
+  introduced_in: 3.8.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: c1_c4
+  text: C1 placeholder-resolution, C2 no-deprecation-contradiction, C3 prerequisite-disclosure, C4 runnable-as-printed.

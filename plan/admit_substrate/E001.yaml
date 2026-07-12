@@ -1,0 +1,53 @@
+urn: "wmbt:admit-substrate:E001"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "installed-substrate"
+context_clarifier: "once a package validates, admission must install it reproducibly: copy it into a versioned home (`.atdd/extensions/<id>/<version>/` or `.atdd/workspaces/<id>/<version>/`, never into src/atdd), compute a sha256 digest over its content, and write a lock entry (id, kind, version, digest, installed_path, workspace deps) plus the intent entry — atomically — so the installed substrate is content-addressed and `atdd list` can render it from the lockfile alone without scanning the filesystem"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of a reproducible installed-substrate by installing into a versioned `.atdd/{extensions,workspaces}/<id>/<version>/` home, recording a sha256 digest, and writing the intent + lock entries atomically, so `atdd list` renders the substrate from the lockfile"
+acceptances:
+  - identity:
+      urn: "acc:admit-substrate:E001-UNIT-001-install-and-lock"
+      id: "AC-UNIT-001"
+      purpose: "installing a validated package writes it to the versioned home, records a stable sha256 digest, writes an intent + lock entry, and `list` renders the lock; re-install is idempotent and digest-stable"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A validated fixture extension package and a temp project root"
+    when:
+      abstract: "the installer admits the package, then list reads the resulting lockfile, then the package is admitted a second time"
+    then:
+      abstract:
+        - "the package is copied under `.atdd/extensions/<id>/<version>/` (and never under src/atdd)"
+        - "the lock entry records id, kind, version, a sha256 digest, installed_path, and workspace deps"
+        - "the digest is stable across runs over identical content"
+        - "list returns exactly the locked artifacts read from substrate.lock.yaml (no filesystem scan)"
+        - "a second admit of the same version is idempotent (no duplicate lock entry)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"
+  - identity:
+      urn: "acc:admit-substrate:E001-SMOKE-001-add-list-roundtrip"
+      id: "AC-SMOKE-001"
+      purpose: "`atdd add --path <pkg>` then `atdd list` as subprocesses install to the versioned home and render the locked entry with its digest"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project and a real on-disk valid extension package"
+    when:
+      abstract: "`atdd add --path <pkg>` then `atdd list` are invoked as subprocesses"
+    then:
+      abstract:
+        - "add exits zero and creates `.atdd/extensions/<id>/<version>/` with a populated `.atdd/substrate.lock.yaml` carrying a sha256 digest"
+        - "list exits zero and prints the locked artifact id, version, and digest"
+        - "no extension files appear under src/atdd"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-18"

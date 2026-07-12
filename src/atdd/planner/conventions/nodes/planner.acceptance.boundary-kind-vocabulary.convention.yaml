@@ -1,58 +1,38 @@
 schema_version: 1.1.0
 rule_id: planner.acceptance.boundary-kind-vocabulary
-kind: constraint
+kind: family
 status: active
-name: 'Acceptance: Boundary Kind Vocabulary'
-statement: An acceptance's exercised integration surfaces must be drawn from the controlled
-  10-entry boundary_kinds vocabulary; unknown values are rejected. golden is a harness_code,
-  NOT a boundary_kind (Decision
+name: Boundary kinds
+statement: Controlled vocabulary of named integration surfaces an acceptance exercises; unknown values
+  are rejected.
 implementation:
-  type: none
+  type: validator
+  ref: tester.acceptance-violation.hermetic-fake-must-declare-contract
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
+  legacy_section: boundary_kinds
+  legacy_sha: 027e2d86ff127550
   extraction_mode: high_fidelity
-  legacy_section: boundary-kind-vocabulary
 content:
-  summary: boundary_kind is a closed controlled vocabulary of the named integration
-    surfaces an acceptance exercises, so that hermetic acceptances can declare exactly
-    which boundaries they cross and reviewers can reason about fidelity per surface.
-  operational_guidance: 'Unknown boundary_kind values are rejected by
-
-    tester.acceptance-violation.hermetic-fake-must-declare-contract. golden is a
-
-    harness_code, NOT a boundary_kind (Decision #7).
-
-    '
-  examples:
-  - 'exercised_boundaries: [http_wire, db_wire]'
-  counter_examples:
-  - 'exercised_boundaries: [golden]   # golden is a harness_code, not a boundary_kind'
-  - 'exercised_boundaries: [grpc_wire]   # not in the controlled vocabulary'
+  normative_text: 'Unknown boundary_kind values are rejected by tester.acceptance-violation.hermetic-fake-must-declare-contract.
+    Note: `golden` is a harness_code, NOT a boundary_kind (Decision #7).'
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
+  examples_preserved: false
   implementation_preserved: true
-  fix_hint_preserved: true
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: boundary_kinds
-  label: Controlled boundary_kinds vocabulary (10 surfaces)
-  text: The complete controlled vocabulary of named integration surfaces an acceptance
-    may exercise. Values outside this set are rejected.
+- term_id: boundary_kind
+  text: a named integration surface exercised by an acceptance.
   values:
     argv: Command-line argument vector passed to a process.
     subprocess: A child process spawned and observed.
     filesystem: Files and directories read or written.
     git: A local git repository's objects, refs, and config.
-    http_wire: HTTP request/response envelopes (recorded via cassette when hermetic).
-    llm_wire: LLM prompt/response envelopes (recorded or deterministic when hermetic).
+    http_wire: HTTP request/response envelopes (cassette when hermetic).
+    llm_wire: LLM prompt/response envelopes (recorded/deterministic when hermetic).
     cmux_rpc: cmux RPC request/response messages.
     env_config: Environment variables and configuration inputs.
     db_wire: Database query/response envelopes.
     event_wire: Event-bus publish/consume envelopes.
-- term_id: golden_is_not_boundary
-  label: golden exclusion (Decision
-  text: golden is a harness_code, not a boundary_kind; it must not appear in exercised_boundaries.
-  values:
-    decision: '#7'

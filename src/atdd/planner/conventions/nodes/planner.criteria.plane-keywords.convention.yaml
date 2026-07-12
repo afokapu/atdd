@@ -1,40 +1,26 @@
 schema_version: 1.1.0
 rule_id: planner.criteria.plane-keywords
-kind: rule
+kind: family
 status: active
-name: 'Criteria: Plane Keywords'
-statement: Criterion text is routed to one of four planes (presentation, application,
-  domain, integration) by matching documented keyword lists, and each plane carries
-  a default sequence step.
-implementation:
-  type: none
+name: Plane keyword routing
+statement: Keyword cues route an acceptance to a layer plane (presentation, application, domain, integration).
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
-  legacy_sha: sha256:db262e7f5fb06226
+  legacy_section: planes.keywords
+  legacy_sha: db262e7f5fb06226
   extraction_mode: high_fidelity
-  legacy_section: plane-keywords
-content:
-  summary: Keyword routing lets the planner infer which architectural plane a criterion
-    exercises from its prose, so the right harness and sequence step are selected
-    without the author hand-classifying every criterion.
-  examples:
-  - '"render the success modal" -> presentation plane (keyword: render/modal)'
-  - '"persist the order to the repository" -> integration plane (keyword: persist/repository)'
-  counter_examples:
-  - routing a "validate the invoice total" criterion to presentation
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: presentation_keywords
-  label: Presentation-plane keywords
-  text: Prose mentioning UI rendering, screens, or interactive widgets routes the
-    criterion to the presentation plane.
+- term_id: plane_keywords
+  label: Plane keywords
+  text: layer -> routing keywords.
   values:
-    keywords:
+    presentation:
     - display
     - visible
     - screen
@@ -43,36 +29,21 @@ terms:
     - button
     - form
     - modal
-- term_id: application_keywords
-  label: Application-plane keywords
-  text: Prose mentioning orchestration, use cases, policies, or state machines routes
-    the criterion to the application plane.
-  values:
-    keywords:
+    application:
     - workflow
     - orchestrate
     - use case
     - policy
     - state
     - saga
-- term_id: domain_keywords
-  label: Domain-plane keywords
-  text: Prose mentioning business rules, validation, aggregates, entities, or invariants
-    routes the criterion to the domain plane.
-  values:
-    keywords:
+    domain:
     - rule
     - validate
     - aggregate
     - entity
     - invariant
     - business
-- term_id: integration_keywords
-  label: Integration-plane keywords
-  text: Prose mentioning persistence, external systems, queues, APIs, or repositories
-    routes the criterion to the integration plane.
-  values:
-    keywords:
+    integration:
     - database
     - persist
     - external
@@ -80,12 +51,3 @@ terms:
     - api
     - webhook
     - repository
-- term_id: plane_default_sequence
-  label: Default sequence step per plane
-  text: Each plane carries a default sequence step that names the canonical action
-    the criterion drives when no explicit sequence is given.
-  values:
-    presentation: command
-    application: use_case
-    domain: validate
-    integration: persist

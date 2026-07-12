@@ -1,0 +1,70 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.composition-root
+kind: rule
+status: active
+name: The composition root reaches every existing feature layer
+statement: A feature's composition root MUST reach every EXISTING layer of that feature — via direct
+  imports or via setter wiring that is actually invoked — so that the dependency-injection root composes
+  the whole vertical slice and no implemented layer is left unwired. This is the language-agnostic
+  obligation owned by the coder extension. The stack-specific detector that enforces it (a pytest/AST
+  reachability scan from `composition.py`, honoring called-setter wiring) is the python-pytest workspace
+  implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.composition-consumer
+content:
+  summary: An agnostic "the DI root composes the whole slice" obligation. The python realization computes
+    the set of feature files reachable from `composition.py` (following imports, and following a
+    presentation setter import ONLY when that setter is actually CALLED) and flags any existing feature
+    layer that is never reached. It is realized by the same multi-rule detector as
+    `coder.refactor.composition-consumer` (declared via that implementation's `emits_rule_ids`).
+  normative_text: |
+    The feature composition root (`composition.py`) is the single place that assembles a feature's
+    layers; if it cannot reach a layer that the feature actually implements, that layer is not wired into
+    the running system. The obligation: reachability from the composition root must cover every existing
+    layer. A subtlety the detector preserves verbatim from core (the #955 setter-wiring fix): importing a
+    presentation setter (`set_*`) into `composition.py` counts toward reaching the presentation layer
+    ONLY if that setter is actually invoked — an imported-but-uncalled setter does not wire the layer.
+    WHICH import/wiring forms count and HOW reachability is computed is delegated to the per-stack
+    detector; for python it is an `ast` import graph plus called-name analysis on the composition root.
+  fix_hint: |
+    Make the composition root reach the missing layer:
+      from presentation.controllers.x import set_repo, set_uc   # imported...
+      def compose():
+          ...
+          set_repo(repo); set_uc(uc)                            # ...and CALLED -> presentation reached
+    Either import the missing layer's module directly, or wire it through a setter that the composition
+    function actually calls. This rule is `strict`: a composition root that leaves an existing layer
+    unreached is not suppressible and fails.
+  exceptions:
+    - Existing-layers-only — a layer that the feature does not implement is not required to be reached
+      (partial features are allowed).
+    - If the feature has no `composition.py`, the root rule is inert (nothing to check).
+metadata:
+  aliases:
+    - REFACTOR-COMPOSITION-ROOT-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.composition-root
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: composition_root
+  text: the feature's dependency-injection entry point (python `composition.py` / `wagon.py`) that
+    assembles the feature's layers; reachability is measured from here.
+- term_id: setter_wiring
+  text: wiring a layer into the composition root by importing a `set_*` setter and CALLING it; an
+    imported-but-uncalled setter does not count as reaching the layer (the #955 behavior).
+- term_id: reaches_all_existing_layers
+  text: the obligation that the transitive import/called-setter closure from the composition root
+    includes every layer the feature actually implements.

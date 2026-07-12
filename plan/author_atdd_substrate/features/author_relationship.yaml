@@ -2,12 +2,13 @@ urn: "feature:author-atdd-substrate:author-relationship"
 wagon: "wagon:author-atdd-substrate"
 description: "Authoring of relationship edges into the single src/atdd/coach/graph/relationships.yaml registry via load → dedup-insert → stable-sort by source_ref → atomic write. Idempotent re-insert is a no-op. A re-sort/dedup git merge driver handles concurrent inserts. Malformed edges (invalid type, malformed rule_id#term_id ref, non-role-prefixed id) are rejected."
 sizing:
-  wmbts: 2
-  footprint_score: 5
+  wmbts: 3
+  footprint_score: 6
   footprint_size: "S"
 wmbts:
   - "wmbt:author-atdd-substrate:E002"
   - "wmbt:author-atdd-substrate:C003"
+  - "wmbt:author-atdd-substrate:C008"
 components:
   backend:
     presentation:

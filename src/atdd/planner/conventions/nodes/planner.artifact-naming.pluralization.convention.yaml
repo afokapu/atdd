@@ -1,75 +1,27 @@
 schema_version: 1.1.0
 rule_id: planner.artifact-naming.pluralization
-kind: rule
+kind: family
 status: active
-name: 'Artifact Naming: Pluralization'
-statement: 'When choosing a plural aspect for a collection, pluralize per the pluralization
-  guide: regular plurals add ''s'', irregular nouns follow English irregular forms,
-  uncountable nouns use an explicit suffix instead of awkward forced plurals, and
-  compound nouns pluralize the primary noun.'
-implementation:
-  type: none
+name: Pluralization guide
+statement: Use singular aspect for item schemas and plural aspect for collections, following English pluralization
+  rules.
 source:
   legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
-  legacy_sha: sha256:eca68a67c92694c9
+  legacy_section: cardinality_semantics.pluralization_guide
+  legacy_sha: eca68a67c92694c9
   extraction_mode: high_fidelity
-  legacy_section: pluralization
-content:
-  summary: A consistent pluralization guide keeps collection names predictable and
-    avoids awkward or incorrect plurals (configs, datas) that would obscure the singular-vs-collection
-    signal carried by the aspect.
-  examples:
-  - 'scenario:fragments  # regular: fragment -> fragments'
-  - 'commons:ux:components:button-groups  # compound: pluralize primary noun'
-  counter_examples:
-  - 'match:configs  # awkward forced plural; prefer config.collection'
-  - 'commons:datas  # incorrect plural of uncountable; prefer data.items'
 parity:
   source_fragments_preserved: true
   examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: regular_plurals
-  label: Regular plurals
-  text: Add 's' to the singular form.
+- term_id: pluralization
+  text: how to form the plural aspect.
   values:
-    rule: Add 's' to singular form
-    examples:
-    - fragment -> fragments
-    - color -> colors
-    - button -> buttons
-    - gesture -> gestures
-- term_id: irregular_plurals
-  label: Irregular plurals
-  text: Follow standard English irregular plural forms.
-  values:
-    rule: Follow English irregular plural forms
-    examples:
-    - analysis -> analyses
-    - policy -> policies
-    - datum -> data
-    - index -> indices
-    - child -> children
-- term_id: uncountable_nouns
-  label: Uncountable nouns
-  text: When a noun does not pluralize naturally, use an explicit suffix rather than
-    a forced or incorrect plural.
-  values:
-    rule: Use explicit suffix when noun doesn't pluralize naturally
-    examples:
-    - bad: config -> configs (awkward)
-      better: config vs config.collection
-    - bad: data -> datas (incorrect)
-      better: data.item vs data.items
-    - ok: metrics -> metrics (already plural form acceptable)
-- term_id: compound_nouns
-  label: Compound nouns
-  text: Pluralize the primary noun of a compound.
-  values:
-    rule: Pluralize the primary noun
-    examples:
-    - button-group -> button-groups
-    - session-state -> session-states
-    - color-palette -> color-palettes
+    regular: add 's' (fragment->fragments, color->colors)
+    irregular: English irregular forms (analysis->analyses, policy->policies, datum->data, index->indices,
+      child->children)
+    uncountable: use explicit suffix (config vs config.collection; data.item vs data.items)
+    compound: pluralize the primary noun (button-group->button-groups, session-state->session-states)

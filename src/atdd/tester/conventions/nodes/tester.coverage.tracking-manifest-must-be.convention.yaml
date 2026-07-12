@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+rule_id: tester.coverage.tracking-manifest-must-be
+kind: rule
+status: active
+name: Telemetry Tracking Manifest
+statement: Tracking manifest must be complete if present
+terms:
+- term_id: tracking_manifest
+  text: telemetry/_tracking_manifest.yaml; when present it must list every telemetry
+    signal as a file.
+implementation:
+  type: validator
+  ref: conventions/coverage/test_hierarchy_coverage::test_fault_injection_convention_catches
+source:
+  legacy_path: src/atdd/tester/conventions/coverage.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.coverage.tracking-manifest-must-be
+  extraction_mode: high_fidelity
+content:
+  normative_text: If telemetry/_tracking_manifest.yaml exists, all signals must be
+    present
+metadata:
+  aliases:
+  - COVERAGE-TEST-3.4
+  severity: 3
+  disposition: strict

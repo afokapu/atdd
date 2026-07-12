@@ -1,0 +1,34 @@
+schema_version: 1.1.0
+rule_id: coach.rule-id.validator-binding-violation
+kind: rule
+status: active
+name: Enforced rules name a real validator
+statement: Every enforced rule (strict | suppress-and-clean | advisory) must name a validator that calls
+  bind_rule(<id>); documentation-only rules must not.
+implementation:
+  type: validator
+  ref: test_rule_validator_binding::test_every_enforced_rule_has_real_validator
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: rules
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.rule-id.validator-binding-violation
+content:
+  fix_hint: 'Either set validator: ''<module>::<func>'' on the rule and have that function call bind_rule(<id>),
+    or change disposition to documentation-only.'
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.0.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: bidirectional_binding
+  text: 'SPEC-COACH-RULEID-0007: a rule names its validator and the validator binds the rule.'

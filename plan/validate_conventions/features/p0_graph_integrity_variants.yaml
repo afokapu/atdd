@@ -1,0 +1,30 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: metadata-driven node selection per family archetype
+      type: use_cases
+    domain:
+    - count: 0
+      rationale: reuses TemplateContract
+      type: value_objects
+    integration:
+    - count: 0
+      rationale: reads composed convention graph; no new contract
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected P0 variants
+      type: controllers
+description: Concrete P0 graph-integrity validator variants (composition, resolution,
+  schema, grammar, uniqueness, binding, coverage-reachability) under conventions/<family>/test_<variant>.py,
+  metadata-driven and importing no legacy persona validator as source of truth.
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 2
+urn: feature:validate-conventions:p0-graph-integrity-variants
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E010
+- wmbt:validate-conventions:E013

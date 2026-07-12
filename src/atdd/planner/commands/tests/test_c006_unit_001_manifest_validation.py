@@ -35,8 +35,12 @@ _IMPL = {
     "schema_version": "1.0.0",
     "implementation_id": "component-header",
     "kind": "implementation",
+    "subtype": "validator",
     "targets_workspace": "atdd.workspace.python-pytest",
     "contract_version": "1.0.0",
+    "entrypoint": "src/check_component_header.py",
+    "report": "src/check_component_header.py",
+    "emits_rule_ids": ["coder.source.component-header-required"],
 }
 
 

@@ -1,47 +1,24 @@
 schema_version: 1.1.0
 rule_id: planner.wmbt.direction-selection
-kind: rule
+kind: family
 status: active
-name: 'Wmbt: Direction Selection'
-statement: The direction term of a WMBT statement is a single optimization verb selected
-  from the direction palette, whose four canonical keys (minimize, maximize, increase,
-  decrease) each carry a set of equivalent synonym verbs.
-implementation:
-  type: none
+name: WMBT directions
+statement: Select the optimization direction verb that matches the goal, from the controlled palette.
 source:
   legacy_path: src/atdd/planner/conventions/wmbt.convention.yaml
-  legacy_sha: sha256:040256ed5588a6c7
+  legacy_section: directions
+  legacy_sha: 040256ed5588a6c7
   extraction_mode: high_fidelity
-  legacy_section: direction-selection
-content:
-  summary: Constraining the direction to a small palette of canonical verbs keeps
-    WMBT statements uniform and machine-readable, while the synonym sets let the planner
-    map natural-language optimization intent onto one canonical key.
-  operational_guidance: The chosen direction fills the ${direction} slot of the statement
-    template (see planner.wmbt.statement-template).
-  examples:
-  - minimize Time of dilemma-resolution (direction = minimize)
-  - increase Likelihood of experiment-success (direction = increase)
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: direction_selection_procedure
-  label: How to pick the direction
-  text: From the requirement description, pick the most suitable direction verb for
-    the optimization goal, matching against schema enum keys via their synonyms.
-  values:
-    generator_prompt: From '${inputs.description}', pick the most suitable direction
-      verb for the optimization goal
-    pattern: single action verb matching schema enum
-    source: conventions:planner:wmbt:directions.palette
-- term_id: direction_palette
-  label: The direction palette
-  text: Four canonical direction keys, each with a list of equivalent synonym verbs
-    that map onto it.
+- term_id: direction
+  label: Direction palette
+  text: canonical direction -> synonyms.
   values:
     minimize:
     - reduce
@@ -62,9 +39,3 @@ terms:
     - dampen
     - slow
     - limit
-  examples:
-    positive:
-    - '''reduce'' maps to canonical direction minimize'
-    - '''boost'' maps to canonical direction maximize'
-    negative:
-    - '''optimize'' (ambiguous — not in any palette synonym set)'

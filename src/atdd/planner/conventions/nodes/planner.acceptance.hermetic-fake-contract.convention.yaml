@@ -2,70 +2,34 @@ schema_version: 1.1.0
 rule_id: planner.acceptance.hermetic-fake-contract
 kind: constraint
 status: active
-name: 'Acceptance: Hermetic Fake Contract'
-statement: When execution_kind is hermetic_integration AND permitted_fakes is non-empty,
-  the acceptance must carry the hermetic metadata block; that declaration IS the fidelity
-  contract that tester.acceptance-violation.hermetic-fake-must-declare-contract verifies.
+name: Hermetic fake-contract declaration
+statement: When execution_kind is hermetic_integration AND permitted_fakes is non-empty, the acceptance
+  MUST declare the hermetic fake-contract block — the declaration IS the contract.
 implementation:
-  type: none
+  type: validator
+  ref: tester.acceptance-violation.hermetic-fake-must-declare-contract
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
+  legacy_section: hermetic
+  legacy_sha: 027e2d86ff127550
   extraction_mode: high_fidelity
-  legacy_section: hermetic-fake-contract
 content:
-  summary: A hermetic acceptance that substitutes fakes for live infrastructure must
-    make its fidelity explicit, naming the boundaries it exercises, the fakes it substitutes,
-    the fidelity and known gaps of each fake, and whether a paired live_smoke sibling
-    is required — the declaration itself is the contract.
-  operational_guidance: 'The downstream tester rule tester.acceptance-violation.hermetic-fake-must-declare-contract
-
-    consumes this declaration and rejects unknown boundary_kind values. This node
-    only
-
-    states the authoring requirement; it carries no validator field.
-
-    '
-  examples:
-  - "execution_kind: hermetic_integration\nhermetic:\n  exercised_boundaries: [http_wire]\n\
-    \  permitted_fakes: [\"users-api-cassette\"]\n  fake_contract_fidelity:\n    -\
-    \ name: \"users-api-cassette\"\n      fidelity: \"replays recorded 200/404 envelopes\"\
-    \n      known_gaps: [\"no rate-limit headers\"]\n  live_smoke_required: true\n\
-    \  live_smoke_reason: \"auth flow must be confirmed against live infra\"\n"
-  counter_examples:
-  - 'execution_kind: hermetic_integration with permitted_fakes set but no fake_contract_fidelity'
+  normative_text: Required when execution_kind == hermetic_integration AND permitted_fakes is non-empty.
+  constraints:
+  - 'exercised_boundaries: list[boundary_kind] — controlled-vocab surfaces exercised (required).'
+  - 'permitted_fakes: list[str] — named fakes/cassettes substituted for live infra (may be empty; when
+    empty the fidelity rule does not apply).'
+  - 'fake_contract_fidelity: list of {name, fidelity, known_gaps:list[str] required} — one per permitted
+    fake (required when permitted_fakes non-empty).'
+  - 'live_smoke_required: bool — true when a paired execution_kind: live_smoke sibling must exist under
+    the same WMBT (required).'
+  - 'live_smoke_reason: str — optional rationale when live_smoke_required is true.'
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
+  examples_preserved: false
   implementation_preserved: true
-  fix_hint_preserved: true
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: required_when
-  label: When the hermetic block is required
-  text: The hermetic metadata block is required when execution_kind == hermetic_integration
-    AND permitted_fakes is non-empty. When permitted_fakes is empty the fidelity rule
-    does not apply.
-  values:
-    required_when: execution_kind == hermetic_integration AND permitted_fakes is non-empty
-- term_id: hermetic_fields
-  label: hermetic metadata fields
-  text: The fields that constitute the hermetic declaration / fidelity contract.
-  values:
-    exercised_boundaries: list[boundary_kind] — controlled-vocabulary surfaces this
-      acceptance exercises (required).
-    permitted_fakes: list[str] — named fakes/cassettes substituted for live infrastructure
-      (may be empty; when empty the fidelity rule does not apply).
-    fake_contract_fidelity: list of { name, fidelity (free-text), known_gaps (list[str],
-      required) } — one entry per permitted fake (required when permitted_fakes is
-      non-empty).
-    live_smoke_required: bool — true when a paired execution_kind:live_smoke sibling
-      acceptance must exist under the same WMBT (required).
-    live_smoke_reason: str — optional rationale when live_smoke_required is true.
-- term_id: declaration_is_contract
-  label: The declaration IS the contract
-  text: There is no separate contract artifact; populating the hermetic block correctly
-    is itself the fidelity contract enforced downstream by the tester acceptance-violation
-    rule.
-  values:
-    enforced_by_text: tester.acceptance-violation.hermetic-fake-must-declare-contract
+- term_id: fake_contract
+  text: 'the declared fidelity contract for each permitted fake: name, fidelity, and required known_gaps.'

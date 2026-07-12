@@ -37,7 +37,7 @@ graph system:
 | artifact-naming | 864 | 1 | 🟡 partial | grammar + separators + anti-patterns + cardinality + sample examples recovered; full ~40-example set, pluralization guide, migration guide, logical/physical JSON-Schema bodies not |
 | **component** | 675 | **0** | ❌ **none** | **zero nodes — total parity failure** |
 | **interface** | 382 | **0** | ❌ **none** | **zero nodes — total parity failure** |
-| **train** | 605 | **0** | ❌ **none** | **zero nodes — total parity failure** |
+| train | 605 | 38 | ✅ covered | atomised independently on `main` (post-#1421, typed `train:<subject>:<slug>` grammar); this audit's `numbering` / `registry` / `dependencies` findings are superseded by main's nodes |
 
 ## Flagged discrepancies
 

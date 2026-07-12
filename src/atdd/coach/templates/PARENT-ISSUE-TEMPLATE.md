@@ -173,12 +173,17 @@
 
 ## Release Gate
 
-Before merge: rebase on main, bump version based on branch prefix, commit, push.
-After merge: CI tags and publishes to PyPI automatically.
+#1172 (SHIPPED): the release version lives in the State Store (singleton
+`release` object, migration v2) and is projected at build time by the in-tree
+backend — `pyproject.toml` is `dynamic = ["version"]` (no `version =` line to
+hand-edit or conflict on). The GH006 direct-push auto-bump is RETIRED. CI
+publication (release-worker draining core's neutral version_decided outbox) is the
+remaining #1172 follow-up; until it lands the release is operator-coordinated. Do NOT
+re-adopt the GH006 auto-bump or a hand-edited pyproject version.
 
 - [ ] Rebase on main: `git pull origin main --rebase`
-- [ ] Bump version (feat/ → MINOR, fix/ → PATCH): edit version file, commit "Bump version to X.Y.Z"
-- [ ] Merge PR → CI creates tag + publishes
+- [ ] Bump the State Store version (feat/ → MINOR, fix|chore|docs/ → PATCH): `atdd state version bump --class X`
+- [ ] Merge PR → publication handled by the release extension (interim: operator-coordinated)
 
 ---
 

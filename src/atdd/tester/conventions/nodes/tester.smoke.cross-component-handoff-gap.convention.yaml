@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+rule_id: tester.smoke.cross-component-handoff-gap
+kind: rule
+status: active
+name: Cross-component handoff gap
+statement: "The cross-component-handoff mandate: when a feature has a producer\u2192\
+  consumer handoff, the SMOKE MUST exercise both the producer and the consumer in\
+  \ a single test. A producer-only SMOKE test cannot detect bugs at the seam between\
+  \ the producer and the consumer components. The lived incident: #824 cli-return\
+  \ consumer was never wired; the producer wrote cli-return.jsonl entries and the\
+  \ SMOKE passed green. No consumer drained the file \u2014 the handoff gap was invisible.\
+  \ Features with a producer that writes to a queue, file, or channel that is consumed\
+  \ by a separate component must have a single SMOKE that verifies both ends of the\
+  \ handoff."
+terms:
+- term_id: cross_component_handoff
+  text: a producer component writes to a shared artifact (cli-return.jsonl, output.log,
+    queue) that a separate consumer component reads and acts on; a single SMOKE must
+    assert on both producer write AND consumer reaction.
+source:
+  legacy_path: src/atdd/tester/conventions/smoke.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.smoke.cross-component-handoff-gap
+  extraction_mode: high_fidelity
+content:
+  handoff_detection:
+    producer: component that writes to a shared artifact (cli-return.jsonl, output.log,
+      queue)
+    consumer: component that reads and acts on that shared artifact
+    required: single SMOKE test that asserts on both producer write AND consumer reaction
+  fix_hint: "Extend the SMOKE to include a consumer-side assertion:\n  - If the feature\
+    \ writes to cli-return.jsonl, assert that the shim's pty stdin\n    received the\
+    \ correction bytes (not just that the file was written).\n  - If the feature writes\
+    \ to a queue, assert that the queue consumer processed it.\nSee smoke.convention.yaml::feedback_loop\
+    \ for the canonical close-the-loop shape.\n"
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 3.83.0

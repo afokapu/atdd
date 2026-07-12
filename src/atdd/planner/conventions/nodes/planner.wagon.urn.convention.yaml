@@ -2,27 +2,14 @@ schema_version: 1.1.0
 rule_id: planner.wagon.urn
 kind: rule
 status: active
-name: 'Wagon: Urn'
-statement: Wagons declare a stable URN of the form wagon:{kebab-case-name} and live
-  under plan/<wagon-slug>/ with the documented file layout.
-implementation:
-  type: advisory
+name: Wagon URN + layout
+statement: Wagons declare a stable URN and live under plan/<wagon-slug>/ with the documented file layout.
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
-  legacy_sha: sha256:ee0a3e1d5af414c9
+  legacy_section: rules
+  legacy_sha: ee0a3e1d5af414c9
   extraction_mode: high_fidelity
   legacy_rule_id: planner.wagon.urn
-  legacy_section: rules
-content:
-  summary: A stable wagon URN and fixed layout make wagons addressable and discoverable
-    by the graph and tooling. Keeping logical identifiers in kebab-case and the filesystem
-    in snake_case reduces conversion complexity and keeps the two planes cleanly separated.
-  normative_text: Wagons declare a stable URN and live under plan/<wagon-slug>/ with
-    the documented file layout
-  examples:
-  - 'urn: wagon:resolve-dilemmas  # → plan/resolve_dilemmas/_resolve_dilemmas.yaml'
-  counter_examples:
-  - 'urn: wagon:Resolve-Dilemmas  # uppercase not allowed'
 metadata:
   aliases:
   - PLANNER-WAGON-URN-001
@@ -31,61 +18,12 @@ metadata:
   introduced_in: 1.67.0
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
 - term_id: wagon_urn
-  label: The wagon URN grammar
-  text: A wagon's stable identifier follows the pattern wagon:{kebab-case-name}, where
-    the name is lowercase alphanumeric with hyphens and starts with a letter, ideally
-    a verb-object phrase (e.g. resolve-dilemmas, commit-state).
-  values:
-    pattern: wagon:{kebab-case-name}
-    regex: ^wagon:[a-z][a-z0-9-]*$
-    must_start_with: lowercase letter
-    allowed_chars: lowercase letters, digits, hyphens
-    preference: verb-object
-  examples:
-    positive:
-    - wagon:resolve-dilemmas
-    - wagon:burn-timebank
-    - wagon:manage-users
-    negative:
-    - wagon:Resolve_Dilemmas
-    - wagon:1-manage-users
-- term_id: logical_vs_physical_naming
-  label: Kebab-case logical identifiers vs snake_case filesystem
-  text: Logical identifiers (URNs, slug fields, YAML references) use kebab-case with
-    hyphens; the filesystem (directories, manifest files, feature files) uses snake_case
-    with underscores, derived by slug.replace('-', '_'). The two planes must not be
-    confused.
-  values:
-    logical_identifiers: kebab-case with hyphens (-)
-    filesystem: snake_case with underscores (_)
-    slug_to_dirname: slug.replace('-', '_')
-    dirname_to_slug: dirname.replace('_', '-')
-  examples:
-    positive:
-    - feature:authenticate-identity → plan/authenticate_identity/ → _authenticate_identity.yaml
-    - plan/authenticate_identity/features/verify_session.yaml
-    negative:
-    - 'plan/authenticate-identity/  # directories must be snake_case'
+  text: a wagon's stable URN.
 - term_id: wagon_layout
-  label: The plan/<wagon-slug>/ directory layout
-  text: A wagon lives under plan/{wagon_dirname}/ (snake_case) and carries a manifest
-    named _{dirname}.yaml whose filename matches the directory name, NOT the slug.
-    Feature modules live under plan/{wagon_dirname}/features/{feature_name}.yaml.
-  values:
-    directory_pattern: plan/{wagon_dirname}/
-    manifest_pattern: plan/{dirname}/_{dirname}.yaml
-    feature_file_pattern: plan/{wagon_dirname}/features/{feature_name}.yaml
-    manifest_note: File name matches directory name, NOT slug
-  examples:
-    positive:
-    - plan/authenticate_identity/_authenticate_identity.yaml
-    - plan/resolve_dilemmas/_resolve_dilemmas.yaml
-    negative:
-    - 'plan/authenticate_identity/_authenticate-identity.yaml  # manifest must match
-      dirname'
+  text: the plan/<wagon-slug>/ directory layout.

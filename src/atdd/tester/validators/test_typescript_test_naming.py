@@ -19,6 +19,23 @@ import pytest
 import re
 from pathlib import Path
 
+from atdd.coach.utils.graph.urn import URNGrammar
+
+# URN *grammar* is single-sourced in urn_grammar.yaml, executed by URNGrammar
+# (#1421 Decision 8). Filename patterns below are file-scan wrappers and stay;
+# the URN comment's identity is validated by the engine, not a local regex.
+_URN_COMMENT_RE = re.compile(r'^//\s*(?:URN|urn):\s*(\S+)\s*$')
+
+
+def _is_valid_test_urn(urn: str) -> bool:
+    """Delegate test/acceptance URN validity to ``URNGrammar`` (#1421)."""
+    if not isinstance(urn, str):
+        return False
+    try:
+        return bool(URNGrammar.validate_grammar(urn))
+    except ValueError:
+        return False
+
 
 @pytest.mark.platform
 def test_typescript_test_files_use_kebab_case(typescript_test_files):
@@ -127,18 +144,10 @@ def test_typescript_test_files_have_urn_comment(typescript_test_files):
         with open(test_file, 'r') as f:
             first_line = f.readline().strip()
 
-        # V3 test: URN format
-        v3_test_urn = re.compile(
-            r'^//\s*(?:URN|urn):\s*test:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z][0-9]{3}-[A-Z0-9]+-[0-9]{3}-[a-z0-9-]+$'
-        )
-        # V3 journey test: URN format
-        v3_journey_urn = re.compile(
-            r'^//\s*(?:URN|urn):\s*test:train:\d{4}-[a-z0-9][a-z0-9-]*:[A-Z0-9]+-[0-9]{3}-[a-z0-9-]+$'
-        )
-        # Legacy dot-format URN
-        legacy_urn = re.compile(r'^// urn: acc:[a-z][a-z0-9-]+\.[A-Z]\d{3}\.AC-[A-Z]+-\d{3}$')
-
-        if not (v3_test_urn.match(first_line) or v3_journey_urn.match(first_line) or legacy_urn.match(first_line)):
+        # The URN grammar is executed by URNGrammar (#1421): extract the header's
+        # URN and delegate its validity to the engine, never a local regex.
+        _m = _URN_COMMENT_RE.match(first_line)
+        if not (_m and _is_valid_test_urn(_m.group(1))):
             errors.append(
                 f"❌ {test_file.relative_to(Path.cwd())}\n"
                 f"   Missing or invalid URN comment in first line.\n"

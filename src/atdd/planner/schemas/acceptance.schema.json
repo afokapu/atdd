@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Acceptance Schema (V2)",
   "description": "Validates acceptance criteria in WMBT files. Used by both planner (generates) and tester (consumes).",
+  "$comment": "Two representations exist. (1) The STANDALONE shape (this root object) is strict — required [identity,harness,given,when,then,signal,metadata], additionalProperties:false. (2) The WMBT-EMBEDDED shape (definitions/embedded_acceptance) is lighter and is what real plan/ WMBT files carry inline: no top-level `signal`, `when` has only `abstract` (no `action`), `then` has only `abstract` (no `assertions`), `metadata` uses `author`/`created` (not `wagon`). The strict root object is NOT applied as a file gate to embedded acceptances (read literally it would reject every real WMBT file); embedded acceptances are validated by the Python content validators. Documented for honesty — no pass/fail change. See #760.",
   "type": "object",
   "required": ["identity", "harness", "given", "when", "then", "signal", "metadata"],
   "additionalProperties": false,
@@ -38,7 +39,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["unit", "http", "event", "ws", "e2e", "a11y", "visual", "metric", "job", "db", "sec", "load", "script", "widget", "golden", "bloc", "integration", "rls", "edge_function", "realtime", "storage"]
+          "enum": ["unit", "http", "event", "ws", "e2e", "a11y", "visual", "metric", "job", "db", "sec", "load", "script", "widget", "golden", "bloc", "integration", "rls", "edge_function", "realtime", "storage", "smoke"]
         },
         "category": {
           "type": "string",
@@ -330,6 +331,40 @@
       "description": "Supplementary files for this acceptance criterion",
       "items": {
         "$ref": "appendix.schema.json#/definitions/appendix_reference"
+      }
+    }
+  },
+  "definitions": {
+    "embedded_acceptance": {
+      "type": "object",
+      "description": "The lighter acceptance shape embedded inside WMBT files (plan/<wagon>/<CODE>.yaml acceptances[]). Reuses the standalone identity/harness/given shapes; when/then carry only `abstract`; metadata uses author/created. NOT applied as a file gate — documented for honesty (#760).",
+      "required": ["identity", "harness", "given", "when", "then"],
+      "additionalProperties": true,
+      "properties": {
+        "identity": {"$ref": "#/properties/identity"},
+        "harness": {"$ref": "#/properties/harness"},
+        "given": {"$ref": "#/properties/given"},
+        "when": {
+          "type": "object",
+          "required": ["abstract"],
+          "properties": {
+            "abstract": {"type": "string", "minLength": 5}
+          }
+        },
+        "then": {
+          "type": "object",
+          "required": ["abstract"],
+          "properties": {
+            "abstract": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "author": {"type": "string"},
+            "created": {"type": "string"}
+          }
+        }
       }
     }
   }

@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.planner.validators.test_smoke_synthetic_fixture_bypass import (
+from atdd.planner.validators._meta_walker import (
     walk_all_smoke_acceptances_for_anti_patterns,
 )
 

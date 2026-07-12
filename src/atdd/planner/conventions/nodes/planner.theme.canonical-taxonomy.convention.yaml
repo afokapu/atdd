@@ -1,0 +1,64 @@
+schema_version: 1.1.0
+rule_id: planner.theme.canonical-taxonomy
+kind: family
+status: active
+name: Canonical theme taxonomy
+statement: The five canonical themes (digits 0-4) form an abstraction stack from cross-team primitives
+  up to the orchestrator; commons is the locked digit-0 floor; digits 5-9 are retired.
+source:
+  legacy_path: src/atdd/planner/conventions/theme.convention.yaml
+  legacy_section: taxonomy + boundary
+  legacy_sha: 2ae106d04d77b06e
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Collapses the vestigial 10-theme game-domain template down to five themes describing
+    the ATDD toolkit''s own abstraction stack (issue #970). Digit alignment preserves the train-numbering
+    scheme. theme_zero_token is LOCKED to ''commons'' (operator decision #970), mirrored by CANONICAL_THEME_0
+    in src/atdd/planner/validators/_theme_taxonomy.py.'
+  examples:
+  - commons:* (cross-team primitives)
+  - plan:* (planner)
+  - code:* (coder)
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: canonical_theme
+  label: Canonical themes
+  text: digit -> {name, archetype, scope}.
+  values:
+    '0': commons — cross-team primitives ANY archetype can consume without importing coach (graph, URN,
+      config, telemetry, worktree)
+    '1': plan (planner) — wagons, features, WMBTs, trains
+    '2': test (tester) — contracts, acceptances, smoke
+    '3': code (coder) — backend implementation, boundaries
+    '4': coach — the agent-team orchestrator incl. coach-only execution mechanics (multiplexer/pane spawn,
+      durable run persistence, Feed daemon, worker-decision mediation)
+- term_id: theme_zero
+  text: the locked, mandatory digit-0 token.
+  values:
+    token: commons
+    mandatory: true
+- term_id: retired_digits
+  text: the retired game-domain digits.
+  values:
+    digits:
+    - '5'
+    - '6'
+    - '7'
+    - '8'
+    - '9'
+    names:
+    - sensory
+    - player
+    - league
+    - audience
+    - monetization
+    - partnership
+    note: 'In the toolkit''s own repo these digits are unused (config declares only 0-4). must-be-canonical
+      no longer hardcodes a reject list (#1317) — a theme is non-canonical iff absent from get_theme_map(config),
+      so it can never both be blessed by the map and rejected. get_theme_map merges and cannot remove digits,
+      so 5-9 keep the game-domain defaults but are unreferenced.'

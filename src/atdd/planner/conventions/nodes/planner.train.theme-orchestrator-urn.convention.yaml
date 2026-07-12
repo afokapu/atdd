@@ -1,0 +1,27 @@
+schema_version: 1.1.0
+rule_id: planner.train.theme-orchestrator-urn
+kind: rule
+status: active
+name: Theme orchestrator URN
+statement: Theme orchestrator files (python/trains/orchestrators/{theme}.py) carry train:{theme}:{train_id}
+  URN lines, one per implemented train.
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: urn_naming.theme_orchestrator_urn
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  examples:
+  - train:mechanic:1001-decision-standard -> python/trains/orchestrators/mechanic.py
+  - 'multiple # urn: lines for files implementing multiple trains'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: orchestrator_urn
+  text: the theme-prefixed train URN on an orchestrator file.
+  values:
+    pattern: train:{theme}:{train_id}

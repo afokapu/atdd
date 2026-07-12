@@ -1,56 +1,30 @@
 schema_version: 1.1.0
 rule_id: planner.acceptance.execution-kind
-kind: rule
+kind: family
 status: active
-name: 'Acceptance: Execution Kind'
-statement: 'execution_kind is an orthogonal runtime-environment axis (issue #690)
-  that classifies an acceptance as either hermetic_integration or live_smoke; authors
-  keep selecting harness_codes/harness_types/category as before and ADD execution_kind.'
-implementation:
-  type: none
+name: Execution kind (runtime-environment axis)
+statement: execution_kind is an orthogonal runtime-environment classifier (live infrastructure vs hermetic),
+  separate from harness/category.
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
+  legacy_section: execution_kinds
+  legacy_sha: 027e2d86ff127550
   extraction_mode: high_fidelity
-  legacy_section: execution-kind
 content:
-  summary: 'execution_kind is a NEW orthogonal axis introduced by issue #690. The
-    existing
-
-    harness_codes, harness_types, and category enums are unchanged — authors continue
-
-    selecting those and add execution_kind purely as the live-infrastructure vs
-
-    hermetic runtime classifier.
-
-    '
-  operational_guidance: SMOKE remains the live-infrastructure confidence tier.
-  examples:
-  - 'execution_kind: hermetic_integration  # real subject, recorded http_wire cassette'
-  - 'execution_kind: live_smoke  # hits real deployed endpoint'
+  normative_text: 'A NEW orthogonal axis added per issue #690; harness_codes/harness_types/category enums
+    are unchanged. Authors select those as today and ADD execution_kind.'
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: hermetic_integration
-  label: 'execution_kind: hermetic_integration'
-  text: Real subject, real boundary shape, real integration sequence — NO live external
-    infrastructure. Fakes (cassettes, recorded LLM responses) are permitted only with
-    a declared fidelity contract.
-- term_id: live_smoke
-  label: 'execution_kind: live_smoke'
-  text: Verification against real live infrastructure (HTTP, DB, auth, deployment).
-    SMOKE remains the live-infrastructure confidence tier.
-- term_id: orthogonality
-  label: Orthogonal to existing enums
-  text: execution_kind does not replace harness_codes, harness_types, or category;
-    it is an additional orthogonal classifier added alongside them.
+- term_id: execution_kind
+  text: the runtime-environment classifier for an acceptance.
   values:
-    issue: '#690'
-    unchanged_enums:
-    - harness_codes
-    - harness_types
-    - category
+    hermetic_integration: Real subject, real boundary shape, real integration sequence — NO live external
+      infrastructure. Fakes (cassettes, recorded LLM responses) permitted only with a declared fidelity
+      contract.
+    live_smoke: Verification against real live infrastructure (HTTP, DB, auth, deployment). SMOKE remains
+      the live-infrastructure confidence tier.

@@ -1,0 +1,43 @@
+schema_version: 1.1.0
+rule_id: planner.artifact-naming.theme-taxonomy
+kind: family
+status: active
+name: Theme taxonomy
+statement: Standard themes for artifact organization, each with a defined scope.
+source:
+  legacy_path: src/atdd/planner/conventions/artifact-naming.convention.yaml
+  legacy_section: theme_taxonomy + naming_pattern.components.theme
+  legacy_sha: eca68a67c92694c9
+  extraction_mode: high_fidelity
+content:
+  normative_text: 'Built-in defaults may be overridden via the themes: block in .atdd/config.yaml; runtime
+    resolves the effective digit-to-name map via get_theme_map(config). JSON Schema enforces kebab-case
+    shape only (issue #291 / Decision #2).'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: theme
+  label: Standard themes
+  text: theme -> {definition, scope}.
+  values:
+    commons: Shared infrastructure and cross-cutting concerns (identity, auth, identifiers, telemetry,
+      UX system)
+    match: Match orchestration and game state (sessions, dilemmas, events, scoring, config)
+    mechanic: Core game mechanics and rules (decisions, timebank, cascades, impacts, predictions)
+    sensory: User interaction and presentation (gestures, feedback, character interactions, UI state)
+    player: Player lifecycle and progression (sessions, profiles, agreements, achievements)
+    partnership: Sponsor and partner relationships (agreements, reporting, persona mapping)
+    scenario: Content and scenario management (fragments, graphs, materials, catalogs)
+    league: Competitive structures (leaderboards, brackets, rewards)
+    audience: Viewer and streaming features (donations, streams)
+    monetization: Economic system (wallets, tokens, transactions)
+  examples:
+    positive:
+    - commons:identifiers.uuid
+    - match:config.duel
+    - sensory:gesture.raw
+    - scenario:fragments

@@ -1,0 +1,13 @@
+schema_version: 1.0.0
+rule_id: planner.decomposition.train-journey
+kind: pattern
+status: active
+statement: 'After wagons and WMBTs are kept, decode the journey: the nominal train
+  (the main-job journey) plus operator keep/pivot/kill on error, alternate, and exception
+  sibling trains. Absorbs the retired PLAN-3B (#940).'
+terms:
+- term_id: nominal_train
+  text: the happy-path journey realizing the main job.
+- term_id: sibling_trains
+  text: error/alternate/exception journeys decided by keep/pivot/kill alongside the
+    nominal train.

@@ -1,90 +1,21 @@
-schema_version: 1.1.0
+schema_version: 1.0.0
 rule_id: planner.issue-body.graph-context-required
 kind: rule
 status: active
-name: 'Issue Body: Graph Context Required'
-statement: Every parent issue body must carry a populated Graph Context section (###
-  Graph Context or
+statement: Every parent issue body must carry a populated Graph Context section, neither
+  missing nor left as the injection placeholder.
+rationale: A populated Graph Context section forces each issue to state where it sits
+  in the dependency graph before work starts.
+terms:
+- term_id: parent_issue_body
+  text: the body of an atdd parent issue
+- term_id: graph_context_section
+  text: the populated Graph Context subsection of the issue body
 implementation:
   type: validator
   ref: test_issue_body_has_graph_context::test_issue_body_has_graph_context
-source:
-  legacy_path: src/atdd/planner/conventions/issue-body.convention.yaml
-  legacy_sha: sha256:2de589954025b05e
-  extraction_mode: high_fidelity
-  legacy_rule_id: planner.issue-body.graph-context-required
-  legacy_section: rules
-content:
-  summary: A populated Graph Context section forces each issue to state where it sits
-    in the dependency graph before work starts, instead of shipping an empty scaffold.
-  normative_text: 'Every parent issue body must have a populated `### Graph Context`
-
-    subsection (or `## Graph Context` H2). The section may not be missing
-
-    and may not contain the literal placeholder
-
-    `(graph context will be injected at creation by atdd issue <slug>)`.'
-  examples:
-  - '### Graph Context\nWagon: govern-lifecycle; blocks #951; depends on #888'
-  counter_examples:
-  - (graph context will be injected at creation by atdd issue <slug>)
-  exceptions:
-  - An issue genuinely exempt from graph context (infrastructure-only, docs, hotfix)
-    may absorb the requirement by placing an inline suppression marker inside the
-    issue body. The marker carries an escape-hatch deadline; stale markers are flagged
-    elsewhere.
-  fix_hint: "The named issue body is missing real Graph Context content. Repair as\n\
-    follows (run `gh issue view <N> --json body --jq .body` to inspect the\noffending\
-    \ body; <N> is the issue number named in the violation\nmessage, e.g. \"#682\"\
-    ):\n\n  1. Refresh the section from the plan/ graph for the issue:\n       atdd\
-    \ issue <N> --refresh-graph\n     (substituting <N> for the issue number from\
-    \ the violation).\n     If `--refresh-graph` is unavailable in your toolkit version\n\
-    \     (introduced after 3.50.0), re-run with the latest atdd via\n     `pipx upgrade\
-    \ atdd` (or the appropriate upgrade command for your install method) and try again.\n\
-    \  2. If the issue genuinely has no wagon mapping yet, assign one in\n     `plan/<wagon-slug>/_<wagon-slug>.yaml`\
-    \ (substituting\n     <wagon-slug> for the slug you want, e.g. \"govern-lifecycle\"\
-    )\n     and re-run step 1.\n  3. If the issue is exempt (infrastructure-only,\
-    \ docs, hotfix —\n     graph context genuinely doesn't apply), add an inline\n\
-    \     suppression marker inside the issue body:\n       # atdd:suppress(planner.issue-body.graph-context-required)\
-    \ UNTIL=2026-12-31\n     (substituting the UNTIL= date for a real escape-hatch\
-    \ deadline,\n     e.g. \"2026-12-31\"). The marker absorbs the violation under\
-    \ the\n     suppress-and-clean disposition; stale markers are flagged\n     separately\
-    \ by `coach.rule-id.stale-suppression`.\n  4. Re-run the validator to confirm\
-    \ clean:\n       pytest src/atdd/planner/validators/test_issue_body_has_graph_context.py\
-    \ -v"
 metadata:
-  aliases: []
   severity: 3
   disposition: suppress-and-clean
   introduced_in: 3.50.0
-  suppression_deadline: '2026-12-31'
-parity:
-  source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
-  reviewed_at: '2026-06-16'
-terms:
-- term_id: graph_context_section
-  label: The required Graph Context section
-  text: A parent issue body must contain a Graph Context heading at H2 or H3 with
-    real content beneath it. The section is invalid if absent or if it still holds
-    the literal placeholder string injected at scaffold time.
-  values:
-    accepted_headings:
-    - '### Graph Context'
-    - '## Graph Context'
-    literal_placeholder: (graph context will be injected at creation by atdd issue
-      <slug>)
-- term_id: suppression_carve_out
-  label: Inline suppression carve-out
-  text: An issue genuinely exempt from graph context (infrastructure-only, docs, hotfix)
-    may absorb the requirement by placing an inline suppression marker inside the
-    issue body. The marker carries an escape-hatch deadline; stale markers are flagged
-    elsewhere.
-  values:
-    marker: '# atdd:suppress(planner.issue-body.graph-context-required) UNTIL=2026-12-31'
-    deadline: '2026-12-31'
-  examples:
-    positive:
-    - '# atdd:suppress(planner.issue-body.graph-context-required) UNTIL=2026-12-31'
+  suppression_deadline: "2026-12-31"

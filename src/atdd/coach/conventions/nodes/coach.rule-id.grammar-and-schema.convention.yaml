@@ -1,0 +1,32 @@
+schema_version: 1.1.0
+rule_id: coach.rule-id.grammar-and-schema
+kind: principle
+status: active
+name: Rule-ID grammar and per-rule schema
+statement: Rule IDs follow the namespaced grammar <archetype>.<convention_short_name>.<rule_name>; each
+  rule declares id, severity (1..5), description, and disposition, with a closed DOMAIN registry and a
+  1..5 severity scale (SPEC-COACH-RULEID-0001..0007).
+source:
+  legacy_path: src/atdd/coach/conventions/rule-id.convention.yaml
+  legacy_section: grammar + rule_schema + domains + severity_scale
+  legacy_sha: 1babe0ea37eae533
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.rule-id
+metadata:
+  severity: 3
+  disposition: documentation-only
+  introduced_in: 1.66.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: grammar
+  text: ^<archetype>.<convention_short_name>.<rule_name>$ where archetype ∈ {coder, coach, tester, planner,
+    repo}.
+- term_id: disposition
+  text: one of strict | suppress-and-clean | advisory | documentation-only — decides CI behavior on violations.

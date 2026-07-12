@@ -1,0 +1,7 @@
+version: "1.0"
+name: "Plan Session Convention"
+description: "Rules for the atdd plan gated decomposition session (#1139, #1171). The decomposed node forms live at conventions/nodes/planner.plan.*; the session-lifecycle node is documentation-only, so only the strict confirm-before-author and confirm-binds-an-issue rules carry bindable registry entries here."
+
+# Legacy rules-list registry consumed by bind_rule. The decomposed node forms live
+# at conventions/nodes/planner.plan.*.convention.yaml (mirrors the
+# planner.relationship.no-orphan-nodes dual declaration).

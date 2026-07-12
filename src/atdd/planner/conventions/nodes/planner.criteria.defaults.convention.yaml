@@ -2,38 +2,23 @@ schema_version: 1.1.0
 rule_id: planner.criteria.defaults
 kind: rule
 status: active
-name: 'Criteria: Defaults'
-statement: Every acceptance criterion inherits a default given block that fixes auth
-  scopes, builders, time, a strict stubbing policy, and knobs, so each criterion only
-  declares the deviations from that baseline.
-implementation:
-  type: none
+name: Criteria given defaults
+statement: Acceptance given sections default to empty auth scopes, no builders, no time, strict stubbing
+  policy, and no knobs.
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
-  legacy_sha: sha256:db262e7f5fb06226
-  extraction_mode: high_fidelity
   legacy_section: defaults
-content:
-  summary: A shared default given scaffold keeps criteria terse and uniform; authors
-    override only what differs, and the strict stubbing default forces dependencies
-    to be explicitly stubbed rather than implicitly faked.
-  examples:
-  - given inherits defaults.given (auth.scopes [], stubbing strict) and overrides
-    only auth.scopes
-  counter_examples:
-  - criterion redefines the full given block instead of overriding the default
+  legacy_sha: db262e7f5fb06226
+  extraction_mode: high_fidelity
 parity:
   source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: default_given
-  label: The baseline given scaffold
-  text: The defaults.given block seeds every criterion with empty auth scopes, no
-    builders, an empty time map, a strict stubbing policy with no overrides, and an
-    empty knobs map; a criterion's own given merges over this baseline.
+- term_id: given_defaults
+  text: the default given block.
   values:
     auth:
       scopes: []
@@ -43,22 +28,3 @@ terms:
       policy: strict
       overrides: []
     knobs: {}
-- term_id: stubbing_policy
-  label: Strict stubbing default
-  text: The default stubbing policy is strict, so dependencies must be explicitly
-    stubbed rather than implicitly faked; the overrides list is empty by default and
-    each relaxation is named explicitly.
-  values:
-    policy: strict
-    overrides: []
-  examples:
-    positive:
-    - 'stubbing: {policy: strict, overrides: []}'
-    negative:
-    - 'stubbing: {policy: loose}  # not the documented default'
-- term_id: knobs
-  label: Per-criterion tunables
-  text: The knobs map carries arbitrary scenario tunables (feature flags, thresholds,
-    seeds) and defaults to empty; criteria set only the knobs they exercise.
-  values:
-    default: {}

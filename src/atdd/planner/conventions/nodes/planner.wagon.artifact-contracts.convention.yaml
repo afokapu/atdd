@@ -2,63 +2,28 @@ schema_version: 1.1.0
 rule_id: planner.wagon.artifact-contracts
 kind: rule
 status: active
-name: 'Wagon: Artifact Contracts'
-statement: A wagon's produced and consumed artifacts reference contract and telemetry
-  URNs of the form contract:{theme}(:{category})*:{aspect}(.{variant})? and telemetry:{theme}(:{category})*:{aspect}(.{variant})?.
-implementation:
-  type: none
+name: Wagon artifact URN formats
+statement: A wagon's produced artifacts carry a contract URN (contract:{...}) and a telemetry URN (telemetry:{...})
+  following the artifact-naming grammar.
 source:
   legacy_path: src/atdd/planner/conventions/wagon.convention.yaml
-  legacy_sha: sha256:ee0a3e1d5af414c9
+  legacy_section: artifact_contracts.urn_format
+  legacy_sha: ee0a3e1d5af414c9
   extraction_mode: high_fidelity
-  legacy_section: artifact-contracts
 content:
-  summary: Contract and telemetry URNs give every artifact a stable, theme-rooted
-    address so that producers and consumers agree on shape and observability without
-    duplicating the contract bodies, which live in the planner artifact convention.
   examples:
-  - contract:commons:ux:foundations + telemetry:commons:ux:foundations on a produced
-    artifact
-  counter_examples:
-  - referencing an inline contract body instead of a contract URN
+  - contract:commons:ux:foundations:color
+  - contract:mechanic:decision.choice
+  - telemetry:commons:ux:foundations
 parity:
   source_fragments_preserved: true
   examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
-- term_id: contract_urn_format
-  label: contract URN grammar
-  text: A contract URN follows contract:{theme}(:{category})*:{aspect}(.{variant})?,
-    rooting the contract under its theme with optional category segments and an optional
-    variant suffix.
+- term_id: artifact_urn
+  text: the contract/telemetry URN forms.
   values:
     contract_urn: contract:{theme}(:{category})*:{aspect}(.{variant})?
-  examples:
-    positive:
-    - contract:commons:ux:foundations:color
-    - contract:mechanic:decision.choice
-    - contract:sensory:gesture.raw
-    negative:
-    - 'contract:Commons:UX  # segments must be lowercase kebab/snake under theme'
-- term_id: telemetry_urn_format
-  label: telemetry URN grammar
-  text: A telemetry URN follows telemetry:{theme}(:{category})*:{aspect}(.{variant})?,
-    mirroring the contract URN grammar for observability and analytics signals.
-  values:
     telemetry_urn: telemetry:{theme}(:{category})*:{aspect}(.{variant})?
-  examples:
-    positive:
-    - telemetry:commons:ux:foundations
-    - telemetry:mechanic:decision.choice
-    negative:
-    - 'telemetry:  # theme segment is required'
-- term_id: artifact_contracts_ref
-  label: Full contracts delegated
-  text: The full artifact contract conventions, including artifact_contracts and artifact_transformation,
-    are defined in the planner artifact convention; this node only fixes the URN formats
-    and the produce/consume field specs.
-  values:
-    artifact_contracts: $ref conventions:planner:artifact#/artifact_contracts
-    artifact_transformation: $ref conventions:planner:artifact#/artifact_transformation

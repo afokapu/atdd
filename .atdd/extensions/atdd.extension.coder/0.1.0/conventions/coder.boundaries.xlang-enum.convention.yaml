@@ -1,0 +1,66 @@
+schema_version: 1.1.0
+rule_id: coder.boundaries.xlang-enum
+kind: rule
+status: active
+name: Enum values match across languages
+statement: An enum defined in more than one language stack MUST carry the same set of values (compared
+  case-insensitively) in every stack, so a Python enum and its Dart counterpart can never drift apart and
+  silently disagree on the allowed states of a shared concept. This is the language-agnostic obligation
+  owned by the coder extension. The stack-specific detector that enforces it (a pytest scan comparing
+  extracted Python `Enum` members against Dart `enum` members for same-named enums) is the python-pytest
+  workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.boundaries.xlang-entity
+content:
+  summary: An agnostic "enums agree across stacks" obligation. The realization extracts Python `class
+    X(Enum)` member names and Dart `enum X { … }` member names, and for every enum name present in BOTH
+    stacks flags a value-set mismatch (lower-cased symmetric difference). It emits a synthetic
+    `enums/<name>` location naming exactly which members each side is missing.
+  normative_text: |
+    A shared enum whose members differ across languages is a latent interop bug — one stack will accept or
+    emit a value the other rejects. The obligation: for any enum implemented in two stacks, the member sets
+    are equal (case-insensitively). WHICH symbols count as members and HOW they are extracted is delegated
+    to the per-stack detector; for the python-pytest realization it is regex extraction of `Enum`
+    subclasses (Python) and `enum { … }` bodies (Dart). The violation names the per-side missing members.
+    This rule is `strict`: a same-named enum that disagrees across stacks fails (the obligation is exact
+    equality, not a ratchet).
+  fix_hint: |
+    Reconcile the two member sets so they match:
+      Python  StatusEnum = {ACTIVE, INACTIVE}
+      Dart    StatusEnum = {active, inactive, pending}   # ❌ extra `pending`
+      → add PENDING to the Python enum or remove `pending` from the Dart enum so both sides agree.
+    This rule is `strict`: a cross-language enum mismatch is not suppressible and fails.
+  exceptions:
+    - An enum present in only one stack is not compared (the rule only fires on names present in BOTH
+      Python and Dart).
+    - Comparison is case-insensitive, so `ACTIVE` (Python) and `active` (Dart) are considered the same
+      member.
+metadata:
+  aliases:
+    - BOUNDARIES-XLANG-ENUM-001
+    - SPEC-CODER-CONSISTENCY-0002
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/boundaries.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.boundaries.xlang-enum
+  legacy_sha: d6ae50723bb39a07
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: shared_enum
+  text: an enum name that appears in both the Python and Dart extractions; only shared enums are compared.
+- term_id: value_set_mismatch
+  text: a non-empty symmetric difference between the two stacks' lower-cased member sets; the violation
+    reports which members each side lacks.
+- term_id: case_insensitive_compare
+  text: enum members are compared after lower-casing, so capitalization conventions differing across
+    languages do not create false mismatches.

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+rule_id: tester.coverage.bidirectional-coverage-between-telemetry
+kind: rule
+status: active
+name: Telemetry - Wagon Coverage
+statement: Bidirectional coverage between telemetry signals and wagon produce
+terms:
+- term_id: bidirectional_coverage
+  text: A two-way reference invariant where every telemetry signal is referenced by
+    a wagon produce and every produce telemetry ref resolves to a signal file.
+source:
+  legacy_path: src/atdd/tester/conventions/coverage.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.coverage.bidirectional-coverage-between-telemetry
+  extraction_mode: high_fidelity
+bidirectional:
+- direction: telemetry -> wagon
+  requirement: Every telemetry signal must be referenced by wagon produce
+  exceptions: 'telemetry_unreferenced allow-list or status: draft|external|deprecated'
+  validator: test_all_telemetry_referenced
+- direction: wagon -> telemetry
+  requirement: Every produce telemetry ref must have signal files
+  validator: test_all_telemetry_refs_exist
+metadata:
+  aliases:
+  - COVERAGE-TEST-3.3
+  disposition: documentation-only

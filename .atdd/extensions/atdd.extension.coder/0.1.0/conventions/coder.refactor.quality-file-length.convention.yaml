@@ -1,0 +1,61 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.quality-file-length
+kind: rule
+status: active
+name: Python source file length is tracked against a report threshold
+statement: Python source files that exceed the line-count report threshold (500 lines) MUST be surfaced as
+  factual observations so their growth can be governed during the REFACTOR phase. There is no hard maximum
+  — the report is the raw input to a downstream ratchet that prevents oversized files from growing further.
+  This is the language-agnostic obligation owned by the coder extension. The stack-specific detector that
+  enforces it (a pytest per-file line counter emitting a record for every file over 500 lines) is the
+  python-pytest workspace implementation referenced below; the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.quality-mi
+content:
+  summary: An agnostic "track file size" obligation. The python realization counts the lines of each source
+    file and emits a RAW observation for every file over the 500-line report threshold. It is realized by
+    the multi-rule quality-metrics detector alongside quality-mi, quality-comments, quality-duplication,
+    and quality-naming.
+  normative_text: |
+    There is deliberately NO hard line limit — comments, imports, type annotations, and constants inflate
+    line count without adding complexity, so a hard cap creates false positives and encourages artificial
+    splitting. Instead the rule emits a RAW factual record for every file whose line count exceeds the
+    report threshold of 500. DISPOSITION BOUNDARY (PROVIDER-CONTRACT-v1.1 §1): the provider/detector emits
+    only the fact "file X has N lines (> 500)"; the "growth-only" decision — baseline a 600-line file but
+    fail it if it grows to 700 — is a downstream ratchet disposition applied by the consumer, NOT by the
+    detector. Files at or under 500 lines are not tracked.
+  fix_hint: |
+    A file over the report threshold is not automatically wrong, but it is now ratchet-tracked: do not let
+    it grow further without an explicit baseline update. To genuinely reduce size, extract cohesive
+    modules (split by responsibility, not arbitrarily). This rule is recorded as `strict` in the rule
+    registry; the report-threshold emission is the raw fact, and the growth ratchet is applied downstream.
+  exceptions:
+    - Files at or below 500 lines are not tracked.
+    - There is no hard maximum line count — exceeding 500 is a tracked observation, not an automatic
+      structural failure; the growth ratchet is a downstream disposition concern.
+metadata:
+  aliases:
+    - REFACTOR-QUALITY-FILE-LENGTH-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.quality-file-length
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: report_threshold
+  text: the 500-line mark above which a file is surfaced as a raw observation; not a hard limit but the
+    input to a downstream growth ratchet.
+- term_id: growth_ratchet
+  text: the downstream disposition that baselines an over-threshold file's current size and fails only on
+    further growth — applied by the consumer, never by the provider/detector.

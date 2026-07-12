@@ -1,0 +1,29 @@
+urn: wmbt:author-plan-substrate:E006
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unbound-train-validator
+context_clarifier: 'when a train substrate validator enforces under atdd validate,
+  its rule_id must be declared in train.convention.yaml rules: and the validator must
+  bind_rule(...) + route the disposition gate'
+lens: functional.effectiveness
+statement: 'minimize likelihood of an unbound-train-validator by adding a train.convention.yaml
+  rules: block and binding every train validator incl. the executable-train family
+  + dispatch rules, behaviour-preserving'
+acceptances:
+- identity:
+    urn: acc:author-plan-substrate:E006-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E006 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

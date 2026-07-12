@@ -1,0 +1,57 @@
+schema_version: 1.1.0
+rule_id: coach.wheel-completeness.fixture-missing-from-wheel
+kind: rule
+status: active
+name: Validator fixtures ship in the wheel
+statement: Every file under src/atdd/**/validators/fixtures/** must exist at the corresponding path under
+  Path(atdd.__file__).parent in the installed package; a source-tree inverse scan asserts each ships (editable
+  installs short-circuit).
+implementation:
+  type: validator
+  ref: test_wheel_completeness::test_validator_fixtures_present_in_wheel
+source:
+  legacy_path: src/atdd/coach/conventions/wheel-completeness.convention.yaml
+  legacy_section: rules
+  legacy_sha: 04c17739a5355f88
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.wheel-completeness.fixture-missing-from-wheel
+content:
+  exceptions:
+  - Editable install (``pip install -e``) — source is the wheel root.
+  - Cache-cruft files (``__pycache__/``, ``*.pyc``, ``*.pyo``, ``.pytest_cache``, ``.DS_Store``) — those
+    must NOT ship; the scan walks past them.
+  operational_guidance: 'bad:
+
+    # pyproject.toml — narrow glob misses non-coder phase fixtures
+
+    [tool.setuptools.package-data]
+
+    "atdd" = ["coder/validators/fixtures/**"]
+
+
+    good:
+
+    # pyproject.toml — recursive glob covers every phase''s fixtures
+
+    [tool.setuptools.package-data]
+
+    "atdd" = ["**/validators/fixtures/**"]'
+metadata:
+  aliases:
+  - COACH-WHEEL-COMPLETENESS-001
+  severity: 3
+  disposition: advisory
+  introduced_in: 3.7.1
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-17'
+terms:
+- term_id: inverse_scan
+  text: walk source-tree fixtures, compute expected install path, assert .exists() — false-negative-resistant,
+    no code parsing.
+notes: 'Incident refs: #449, #451'

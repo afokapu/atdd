@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "atdd:author:issue:1.0.0",
+  "title": "ATDD issue body (#1223 — the issue artifact joins the author substrate)",
+  "description": "Canonical schema for an ATDD GitHub issue body. Peer of convention-node/gate/relationship/scope. The `required` list is the set of section HEADINGS (verbatim `## …` H2 / `### …` H3 markdown strings) an issue body must contain — exactly the H2 sections of PARENT-ISSUE-TEMPLATE.md (minus the optional `## Rule Wiring`) plus the two mandatory H3 subsections `### Graph Context` / `### Mirror Across Agents` that #682 lifted from advisory to mandatory. Modeling `required` as the heading strings (rather than abstract keys) keeps the schema, the `atdd author issue` generator, and the coach E019 gate mechanically drift-checked against one another (C011). The `status`/`type` properties carry the Metadata enums; `status` derives its vocabulary from src/atdd/coach/conventions/phase_machine.convention.yaml (single shared vocabulary — the #1203 State-Store work-item record reuses it, no fork).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "## Issue Metadata",
+    "## Scope",
+    "## Context",
+    "## Architecture",
+    "### Graph Context",
+    "### Mirror Across Agents",
+    "## Phases",
+    "## Validation",
+    "## Decisions",
+    "## Activity Log",
+    "## Artifacts",
+    "## Release Gate",
+    "## Notes"
+  ],
+  "properties": {
+    "## Issue Metadata": {"type": "string", "description": "Metadata table: Date, Status (enum), Type (enum), Branch, Archetypes, Train, Feature."},
+    "## Scope": {"type": "string", "description": "In Scope / Out of Scope / Dependencies / Done-when."},
+    "## Context": {"type": "string", "description": "Problem Statement, User Impact, Root Cause."},
+    "## Architecture": {"type": "string", "description": "Design, including the two mandatory H3 subsections below."},
+    "### Graph Context": {"type": "string", "description": "How this issue sits in the dependency/issue graph (mandatory, #682)."},
+    "### Mirror Across Agents": {"type": "string", "description": "Per-archetype current/target/action table (mandatory, #682)."},
+    "## Phases": {"type": "string", "description": "Sequenced phases with deliverables and files."},
+    "## Validation": {"type": "string", "description": "Gate Tests + Success Criteria."},
+    "## Decisions": {"type": "string", "description": "Resolved questions and their rationale."},
+    "## Activity Log": {"type": "string", "description": "Dated progress entries."},
+    "## Artifacts": {"type": "string", "description": "Created / Modified / Deleted artifacts."},
+    "## Release Gate": {"type": "string", "description": "Version bump + publish checklist."},
+    "## Notes": {"type": "string", "description": "Additional context that does not fit elsewhere."},
+    "status": {
+      "type": "string",
+      "description": "Work-item phase. Vocabulary is the single shared phase-machine vocabulary (src/atdd/coach/conventions/phase_machine.convention.yaml); the #1203 State-Store work-item record reuses these exact values (no fork).",
+      "enum": ["INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE", "BLOCKED", "OBSOLETE"]
+    },
+    "type": {
+      "type": "string",
+      "description": "Issue type classification.",
+      "enum": ["implementation", "bug", "feature", "refactor", "docs", "chore", "devops"]
+    }
+  }
+}

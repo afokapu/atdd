@@ -21,11 +21,30 @@ from typing import Dict, List, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
     should_enforce,
     emit_phase_warning
 )
+
+
+def _is_train_id(token: str) -> bool:
+    """Is ``token`` a train identity? Delegates to ``URNGrammar`` (#1421,
+    Decision 8) — no local four-digit literal. Typed ``train:<subject>:<slug>``
+    validates directly; a bare legacy ``NNNN-slug`` is recognised via the
+    engine's still-live journey facet (a probe journey URN)."""
+    if not isinstance(token, str) or not token:
+        return False
+    try:
+        if URNGrammar.validate_grammar(token):
+            return True
+    except ValueError:
+        pass
+    try:
+        return bool(URNGrammar.validate_grammar(f"test:train:{token}:E2E-001-probe"))
+    except ValueError:
+        return False
 
 
 # Path constants
@@ -83,8 +102,8 @@ def _find_frontend_e2e_tests() -> List[Tuple[Path, str]]:
         parent_dir = spec_file.parent
         if parent_dir != WEB_E2E_DIR:
             train_id = parent_dir.name
-            # Validate train_id pattern
-            if re.match(r"^\d{4}-[a-z0-9-]+$", train_id):
+            # Delegate train-id recognition to URNGrammar (#1421); dir glob wraps.
+            if _is_train_id(train_id):
                 tests.append((spec_file, train_id))
 
     return tests

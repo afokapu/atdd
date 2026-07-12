@@ -1,90 +1,53 @@
 schema_version: 1.1.0
 rule_id: planner.acceptance.given-when-then-structure
-kind: constraint
+kind: rule
 status: active
-name: 'Acceptance: Given When Then Structure'
-statement: An acceptance's structured given/when/then must follow the canonical shape
-  — given declares only needed preconditions, when carries the harness-specific trigger
-  (REQUIRED, with harness-specific required fields), and then is a REQUIRED array
-  of assertions drawn from the assertion_kinds catalog.
-implementation:
-  type: none
+name: Given/When/Then structure
+statement: given declares only required preconditions; when declares the single harness-specific trigger
+  (REQUIRED); then is an array of assertions (REQUIRED).
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
-  legacy_sha: sha256:027e2d86ff127550
+  legacy_section: gherkin_structure
+  legacy_sha: 027e2d86ff127550
   extraction_mode: high_fidelity
-  legacy_section: given-when-then-structure
 content:
-  summary: The structured given/when/then is what drives deterministic test generation;
-    fixing the precondition fields, the per-harness required WHEN fields, and the
-    closed set of assertion kinds keeps generated tests well-formed and reviewable.
+  operational_guidance: 'given fields: auth, builders, time, stubbing, knobs. when is harness-specific
+    (http: method/path; unit: target; event: topic; ws/e2e: interactions). then.assertion_kinds: status,
+    body, headers, error, event_published, state_changed, metric.'
   examples:
-  - "when:\n  abstract: \"User creates an account\"\n  method: \"POST\"\n  path: \"\
-    /api/users\"\nthen:\n  abstract: [\"Account is created\"]\n  assertions: [{kind:\
-    \ status, expect: 200}]\n"
-  counter_examples:
-  - when (http) missing required method/path
-  - then with no assertions array
+  - when.http:
+      method: POST
+      path: /api/users
+      body:
+        name: John
+  - when.unit:
+      target: UserService.createUser
+      args:
+        userData:
+          name: John
+  - then:
+    - kind: status
+      expect: 200
+    - kind: error
+      expect:
+        code: USER_EXISTS
 parity:
   source_fragments_preserved: true
   examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
   reviewed_at: '2026-06-16'
 terms:
 - term_id: given_fields
-  label: GIVEN — setup and preconditions
-  text: Capture only the state required for the acceptance to run deterministically.
+  text: 'preconditions: auth, builders, time, stubbing, knobs.'
+- term_id: assertion_kind
+  text: a then assertion kind.
   values:
-    auth: Authentication context — credentials/scopes required prior to executing
-      the WHEN.
-    builders: Test data builders to set up state (ref/as/params).
-    time: Time-related setup — freeze time or advance clocks when timing impacts assertions.
-    stubbing: External dependency stubs — mock policies or capability overrides for
-      deterministic runs.
-    knobs: Feature flags and configuration — toggle only flags relevant to this acceptance.
-- term_id: when_required
-  label: WHEN — trigger (REQUIRED)
-  text: Express the single trigger that moves the system under test. The when.abstract
-    field is REQUIRED. The structured shape varies by harness type.
-  values:
-    required: true
-- term_id: when_harness_specific
-  label: Harness-specific WHEN required fields
-  text: Per-harness required fields for the structured WHEN trigger.
-  values:
-    http:
-      required:
-      - method
-      - path
-    unit:
-      required:
-      - target
-    event:
-      required:
-      - topic
-    ws:
-      required: []
-      note: open/subscribe to websocket channels (url
-      subscribe_msg): null
-    e2e:
-      required: []
-      note: user interactions/navigation steps (url
-      actions): null
-- term_id: then_assertion_kinds
-  label: THEN — assertion kinds (REQUIRED array)
-  text: then is a REQUIRED array of assertions proving the outcome; the then.abstract
-    field is also REQUIRED. Each assertion uses one of the catalog kinds.
-  values:
-    required: true
-    assertion_kinds:
-    - 'status — response status codes or job exit codes, e.g. {kind: status, expect:
-      200}'
-    - 'body — structured payloads (JSON/object fields), e.g. {kind: body, expect:
-      {id: ''123''}}'
-    - headers — response headers or metadata
-    - error — errors, codes, or validation messages
-    - 'event_published — e.g. {kind: event_published, expect: {topic: user.created}}'
-    - 'state_changed — e.g. {kind: state_changed, expect: {entity: User, field: status}}'
-    - 'metric — e.g. {kind: metric, expect: {name: response_time, operator: ''<'',
-      value: 1000}}'
+    allowed:
+    - status
+    - body
+    - headers
+    - error
+    - event_published
+    - state_changed
+    - metric

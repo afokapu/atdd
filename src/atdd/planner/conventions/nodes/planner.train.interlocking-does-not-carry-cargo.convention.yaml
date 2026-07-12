@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-does-not-carry-cargo
+kind: constraint
+status: active
+name: Interlocking does not carry cargo
+statement: Interlockings select routes and declare payload contract identities; they
+  must not contain Cargo runtime values or artifact data.
+terms:
+- term_id: no_cargo
+  text: interlockings select routes and declare payload contract identities; they
+    must not contain Cargo runtime values or artifact data
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_interlocking_schema_rejects_cargo_runtime_values
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: policy
+  template: forbidden_construct_absence
+  variant: planner_train_interlocking_does_not_carry_cargo
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - field_path
+  - forbidden_value_kind

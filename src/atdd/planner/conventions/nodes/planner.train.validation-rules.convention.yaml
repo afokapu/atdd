@@ -1,0 +1,31 @@
+schema_version: 1.1.0
+rule_id: planner.train.validation-rules
+kind: constraint
+status: active
+name: Train validation rules
+statement: A train must satisfy the documented validation rules (typed id, declared themes, spec file
+  exists, participants declared, valid dependencies, domain:resource artifacts, category declared as a
+  field).
+source:
+  legacy_path: src/atdd/planner/conventions/train.convention.yaml
+  legacy_section: validation_rules
+  legacy_sha: 825602729f11a3a4
+  extraction_mode: high_fidelity
+content:
+  constraints:
+  - 'train_id must match the typed pattern: train:{subject}:{slug}'
+  - Category is a declared field (nominal|error|alternate|exception), never a digit in the identity
+  - Spec file must exist at the train's declared path
+  - All participants must be declared in participants list
+  - Dependencies must reference valid train_ids
+  - Artifacts in sequence must follow domain:resource pattern
+  - Themes must be declared in the themes array
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: validation_rule
+  text: a train structural validation rule.

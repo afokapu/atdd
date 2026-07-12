@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+rule_id: coder.design.tokens-are-pure-values
+kind: rule
+status: active
+name: Design tokens are pure values
+statement: "Tokens are pure values \u2014 no widgets, no logic (mirrors principles.DS-01)"
+terms:
+- term_id: tokens
+  text: 'design tokens: pure values (spacing/radii/motion) carrying no widgets or
+    logic'
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.tokens-are-pure-values
+  extraction_mode: high_fidelity
+content:
+  summary: design-system hierarchy principle (stack-neutral)
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - DESIGN-HIERARCHY-001
+  introduced_in: 1.66.0

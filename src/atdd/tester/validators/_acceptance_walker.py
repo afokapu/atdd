@@ -27,7 +27,7 @@ import re
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Optional, Sequence, Tuple
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 import yaml
 
@@ -304,6 +304,191 @@ def _is_truthy_env(value: Optional[str]) -> bool:
     return value.strip().lower() not in {"", "0", "false", "no", "off"}
 
 
+_ACCEPTANCE_HEADER_RE = re.compile(r"(?:#|//)\s*[Aa]cceptance:\s*(acc:[^\s]+)")
+_TEST_FILENAME_RE = re.compile(
+    r"^(?:test_.*\.py|.*_test\.py|.*\.test\.tsx?|.*\.spec\.ts|.*_test\.dart)$"
+)
+_TEST_EXTS = {".py", ".ts", ".tsx", ".dart"}
+_PRUNE_DIRS = {
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "dist",
+    "build",
+    ".tox",
+    ".pytest_cache",
+    ".mypy_cache",
+    "site-packages",
+}
+
+
+def scan_test_acceptance_headers(repo_root: Path) -> Dict[str, List[Path]]:
+    """Return ``{acceptance_urn: [test_file, ...]}`` for every anchored test.
+
+    Walks the repo for test files (pruning vendored/build dirs) and reads the
+    leading comment block of each for ``# Acceptance: acc:...`` headers. Shared
+    by the substrate enforcement validators that bind acceptances to their
+    anchored tests (e.g. validator-binding, live-smoke-execution) so the scan
+    lives in one place.
+    """
+    index: Dict[str, List[Path]] = {}
+    for dirpath, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = [d for d in dirnames if d not in _PRUNE_DIRS]
+        for fname in filenames:
+            ext = "." + fname.rsplit(".", 1)[-1] if "." in fname else ""
+            if ext.lower() not in _TEST_EXTS or not _TEST_FILENAME_RE.match(fname):
+                continue
+            test_file = Path(dirpath) / fname
+            try:
+                text = test_file.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            # Only the leading comment block — avoids false positives from
+            # prose mentioning "# Acceptance: acc:..." inside a test body/string.
+            head = "\n".join(text.split("\n", 30)[:30])
+            for match in _ACCEPTANCE_HEADER_RE.finditer(head):
+                index.setdefault(match.group(1).strip(), []).append(test_file)
+    return index
+
+
+# ---------------------------------------------------------------------------
+# Owning-issue phase resolution (issue #1242)
+#
+# The repo-wide binding validator's forward pass must not demand an anchored
+# test before the OWNING ISSUE has reached the phase at which the test is due
+# (RED). The issue's current phase is read from ``.atdd/manifest.yaml``
+# ``sessions[]`` — the authoritative source the #1168 State Store imports —
+# keyed by wagon. The linear phase order is sourced from
+# ``phase_machine.convention.yaml`` so no second phase ordering is forked.
+# ---------------------------------------------------------------------------
+
+_PHASE_MACHINE_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "coach" / "conventions" / "phase_machine.convention.yaml"
+)
+
+# The phase at which an acceptance's anchored test becomes due. Strictly before
+# it (INIT, PLANNED) the test is legitimately not yet authored.
+_TEST_DUE_PHASE = "RED"
+
+_LINEAR_PHASE_FALLBACK = ["INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE"]
+
+
+def _linear_phase_order() -> List[str]:
+    """Canonical linear lifecycle phases, in order, from the phase machine.
+
+    Walks ``phase_machine.convention.yaml`` from INIT following each phase's
+    first ``transitions_to`` entry (the forward/happy-path target; the rest are
+    the BLOCKED/OBSOLETE escapes), yielding
+    ``[INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, COMPLETE]``. Returns a safe
+    hardcoded fallback if the convention is unreadable.
+    """
+    try:
+        data = yaml.safe_load(_PHASE_MACHINE_PATH.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Phase order is a toolkit constant; an unreadable convention falls back
+        # to the documented linear order rather than masking the comparison.
+        return list(_LINEAR_PHASE_FALLBACK)
+    phases = data.get("phases") if isinstance(data, dict) else None
+    if not isinstance(phases, dict) or "INIT" not in phases:
+        return list(_LINEAR_PHASE_FALLBACK)
+    order: List[str] = []
+    seen: set = set()
+    cur: Optional[str] = "INIT"
+    while cur and cur not in seen:
+        order.append(cur)
+        seen.add(cur)
+        spec = phases.get(cur) or {}
+        nxt = spec.get("transitions_to") if isinstance(spec, dict) else None
+        cur = nxt[0] if isinstance(nxt, list) and nxt else None
+    return order or list(_LINEAR_PHASE_FALLBACK)
+
+
+def is_pre_test_phase(phase: Optional[str]) -> bool:
+    """True iff *phase* is strictly before RED in the lifecycle (test not due).
+
+    INIT and PLANNED return True. RED, GREEN, SMOKE, REFACTOR, COMPLETE and any
+    unknown/escape token (BLOCKED, OBSOLETE, None, '') return False — fail-closed,
+    so an unrecognized phase always *requires* the anchored test.
+    """
+    if not isinstance(phase, str) or not phase:
+        return False
+    order = _linear_phase_order()
+    if phase not in order or _TEST_DUE_PHASE not in order:
+        return False
+    return order.index(phase) < order.index(_TEST_DUE_PHASE)
+
+
+def _acceptance_wagon(acc: RawAcceptance) -> Optional[str]:
+    """Best-effort wagon slug owning *acc*.
+
+    Prefers the acceptance URN's wagon segment (``acc:<wagon>:…``); falls back
+    to the ``plan/<wagon_dir>/`` parent (underscores → hyphens). Train-level
+    acceptances (under ``plan/_trains/``) resolve via their URN segment, which
+    is matched against ``sessions[].train`` by the caller.
+    """
+    urn = acceptance_urn(acc.body)
+    if urn and urn.startswith("acc:"):
+        parts = urn.split(":")
+        if len(parts) >= 2 and parts[1]:
+            return parts[1]
+    parent = acc.file.parent.name
+    if parent and not parent.startswith("_"):
+        return parent.replace("_", "-")
+    return None
+
+
+def _store_work_items(repo_root: Path) -> List[dict]:
+    """All work items as session-shaped dicts from the State Store (#1270 slice E).
+
+    Replaces the ``.atdd/manifest.yaml`` ``sessions[]`` read: the store is
+    authoritative (#1203) and additionally carries issues created store-first
+    (which the manifest never tracked, so the old read could not see them).
+    Returns an empty list on any store error — callers treat 'no session' as
+    fail-closed (require the anchored test), unchanged.
+    """
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        with WorkItemReader(control_root=repo_root) as reader:
+            return reader.all_work_items()
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # An unreadable/uninitialisable store must not crash the validator; the
+        # fail-closed caller then requires the test (status-quo behavior).
+        return []
+
+
+def owning_issue_phase(repo_root: Path, acc: RawAcceptance) -> Optional[str]:
+    """Current lifecycle phase of the issue(s) owning *acc*, or ``None``.
+
+    Maps *acc* to its wagon and reads every matching State Store work item's
+    ``status`` (#1270 slice E — store-only, authoritative since #1203). Returns
+    the MOST-ADVANCED phase among them (so a wagon counts as 'still pre-test'
+    only when *every* owning work item is pre-test); returns ``None`` when no
+    work item maps the wagon — the caller fails closed and requires the anchored
+    test. Read-only.
+    """
+    wagon = _acceptance_wagon(acc)
+    if not wagon:
+        return None
+    sessions = [
+        s for s in _store_work_items(repo_root)
+        if s.get("wagon") == wagon or s.get("train") == wagon
+    ]
+    if not sessions:
+        return None
+    order = _linear_phase_order()
+
+    def _rank(status) -> int:
+        return order.index(status) if status in order else len(order)
+
+    best = max(sessions, key=lambda s: _rank(s.get("status")))
+    status = best.get("status")
+    return status if isinstance(status, str) and status else None
+
+
 __all__ = [
     "RawAcceptance",
     "SUBSTRATE_BACKLOG_ENV",
@@ -313,8 +498,11 @@ __all__ = [
     "find_disposition_path",
     "has_harness_type",
     "has_signal_metric_and_threshold",
+    "is_pre_test_phase",
     "iter_feature_files",
     "iter_repo_acceptances",
     "iter_repo_wmbts",
+    "owning_issue_phase",
+    "scan_test_acceptance_headers",
     "yaml_path_str",
 ]

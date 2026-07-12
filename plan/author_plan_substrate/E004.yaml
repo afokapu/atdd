@@ -1,0 +1,150 @@
+urn: wmbt:author-plan-substrate:E004
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: train-entry-creation
+context_clarifier: when authoring a train, the writer must dedup-insert into plan/_trains.yaml
+  and write plan/_trains/<id>.yaml with stable-sort + atomic write so concurrent inserts
+  stay deterministic
+lens: functional.effectiveness
+statement: maximize likelihood of schema-valid train-entry-creation when authoring
+  a train into the _trains.yaml registry and plan/_trains/<id>.yaml
+acceptances:
+- identity:
+    urn: acc:author-plan-substrate:E004-UNIT-001-registry-insert-and-per-train-file
+    id: AC-UNIT-001
+    purpose: create_train dedup-inserts into _trains.yaml in sorted position and writes
+      the per-train file
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A valid train input (train_id, wagons) and a temp plan/ home with an existing
+      _trains.yaml
+  when:
+    abstract: create_train(input) is called
+  then:
+    abstract:
+    - _trains.yaml gains the entry in train_id-sorted position
+    - plan/_trains/<id>.yaml is written and validates against the train schema
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-06-18'
+- identity:
+    urn: acc:author-plan-substrate:E004-SMOKE-001-cli-creates-valid-train
+    id: AC-SMOKE-001
+    purpose: Verify `atdd author train` registers a schema-valid train deterministically
+      in a real checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout and the installed atdd author CLI
+  when:
+    abstract: atdd author train --id <id> --wagon <slug> ... is run
+  then:
+    abstract:
+    - _trains.yaml gains the entry and plan/_trains/<id>.yaml appears
+    - atdd validate planner accepts the created train without manual fixups
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-06-18'
+- identity:
+    urn: acc:author-plan-substrate:E004-UNIT-002-carries-schema-required-keys
+    id: AC-UNIT-002
+    purpose: create_train carries every schema-recognized key the spec supplies into
+      plan/_trains/<id>.yaml, so the authored document validates against train.schema.json
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A full train spec carrying themes, sequence, family, primary_wagon, dependencies
+      and acceptances, and a temp plan/ home
+  when:
+    abstract: create_train(spec) is called
+    action: invoke
+  then:
+    abstract:
+    - The written plan/_trains/<id>.yaml carries themes and sequence verbatim from
+      the spec
+    - family, primary_wagon, dependencies and acceptances round-trip when supplied
+      and are absent when omitted
+    - The written document validates against src/atdd/planner/schemas/train.schema.json
+      with zero errors
+    - 'wagons is NOT written into the document (train.schema.json sets additionalProperties:
+      false)'
+    assertions:
+    - type: equals
+    - type: schema
+  signal: {}
+  metadata:
+    wagon: author-plan-substrate
+    feature: author-train
+    author: atdd:self-compliance
+    created: '2026-07-09'
+- identity:
+    urn: acc:author-plan-substrate:E004-UNIT-003-alternate-path-train-carries-sequence
+    id: AC-UNIT-003
+    purpose: 'The per-train document writer is category-agnostic: an alternate-path
+      (02xx) train carries themes and sequence exactly as a nominal (00xx) train does'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'Two specs identical but for their train_id category digit: a nominal 0009-*
+      train and an alternate-path 0209-* train'
+  when:
+    abstract: create_train is called for each
+    action: invoke
+  then:
+    abstract:
+    - Both written documents carry themes and sequence verbatim
+    - "The two documents differ only in train_id \u2014 the writer branches on no\
+      \ digit of train_id"
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-plan-substrate
+    feature: author-train
+    author: atdd:self-compliance
+    created: '2026-07-09'
+- identity:
+    urn: acc:author-plan-substrate:E004-UNIT-004-preserves-caller-participants
+    id: AC-UNIT-004
+    purpose: create_train preserves caller-supplied participants verbatim and derives
+      wagon:<w> participants only when the caller omitted participants
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A spec whose participants carry a non-wagon principal (system:atdd-cli) alongside
+      wagon:<w> entries
+    - A second spec that supplies wagons but omits participants entirely
+  when:
+    abstract: create_train is called for each
+    action: invoke
+  then:
+    abstract:
+    - "The first document's participants equal the caller's list verbatim \u2014 system:atdd-cli\
+      \ is not discarded"
+    - The second document's participants are derived as wagon:<w> from wagons, preserving
+      today's fallback
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-plan-substrate
+    feature: author-train
+    author: atdd:self-compliance
+    created: '2026-07-09'
