@@ -1,0 +1,27 @@
+urn: "feature:author-plan-substrate:author-interlocking"
+wagon: "wagon:author-plan-substrate"
+description: "Authoring of a train interlocking: the human-authored control body is carried through verbatim while the command derives ONLY the digests via a single-source-of-truth stamp primitive (composing the #1248 per-route expected_sequence_digest + whole-doc content_digest math), writes the schema-valid artifact under plan/_trains/_interlockings/<id>.yaml in a pinned field order, and dedup-inserts the thin registry entry. Refuses with a clean error (no partial write) when a route's target train is missing on disk, and is byte-idempotent on re-stamp. The authored artifact satisfies the real #1249 Confirm gate end-to-end."
+sizing:
+  wmbts: 1
+  footprint_score: 6
+  footprint_size: "S"
+wmbts:
+  - "wmbt:author-plan-substrate:E007"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd author interlocking subcommand + build_author_fn dispatch"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "create_interlocking() write + registry dedup-insert; stamp_interlocking_digests() digest derivation"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "InterlockingHome (plan/_trains/_interlockings/<id>.yaml + _interlockings.yaml registry shape)"
+    integration:
+      - type: "adapters"
+        count: 1
+        rationale: "_interlockings.yaml dedup-insert + stable-sort + atomic write adapter"

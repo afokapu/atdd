@@ -1,0 +1,10 @@
+# Shared runtime for the atdd.workspace.python-pytest provider.
+# Materialized into each workspace instance; extensions never copy this.
+[project]
+name = "atdd-workspace-python-pytest"
+version = "0.1.0"
+description = "Shared Python/pytest runtime for ATDD validator implementations."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+addopts = "-q"

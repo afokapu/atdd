@@ -17,9 +17,12 @@ import ast
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Tuple
+from typing import Dict, FrozenSet, List, Mapping, Optional, Tuple
 
 import yaml
+
+from atdd.coach.utils.config import load_atdd_config
+from atdd.coach.utils.theme_map import get_theme_map
 
 _log = logging.getLogger(__name__)
 
@@ -32,7 +35,11 @@ _log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 CANONICAL_THEME_0: str = "commons"
 
-#: The five canonical themes, ordered as the abstraction stack (digits 0-4).
+#: The toolkit's OWN abstraction-stack themes (digits 0-4), documentary only.
+#: As of #1317 this tuple is NOT the enforcement source — the canonical set is
+#: resolved per-repo from ``get_theme_map(config)`` (see ``canonical_theme_set``)
+#: so a consumer/game repo governs against its own effective map. It remains as
+#: the value the toolkit's own ``.atdd/config.yaml`` ``themes:`` block declares.
 CANONICAL_THEMES: Tuple[str, ...] = (
     CANONICAL_THEME_0,
     "plan",
@@ -41,8 +48,9 @@ CANONICAL_THEMES: Tuple[str, ...] = (
     "coach",
 )
 
-#: digit -> canonical theme name (the post-#970 replacement for the 10-entry
-#: game-domain DEFAULT_THEME_MAP). Digits 5-9 are retired.
+#: digit -> canonical theme name for the toolkit's own abstraction stack (0-4).
+#: Used by ``resolve_theme_set`` / theme-zero-mandatory as the pinned floor;
+#: the must-be-canonical membership check instead defers to ``get_theme_map``.
 CANONICAL_DIGIT_MAP: Dict[str, str] = {
     "0": CANONICAL_THEME_0,
     "1": "plan",
@@ -58,17 +66,12 @@ ARCHETYPE_THEME_ROOTS: Dict[str, str] = {
     "code": "src/atdd/coder",
 }
 
-RETIRED_THEMES: Tuple[str, ...] = (
-    "mechanic",
-    "scenario",
-    "match",
-    "sensory",
-    "player",
-    "league",
-    "audience",
-    "monetization",
-    "partnership",
-)
+# NOTE (#1317): the former static ``RETIRED_THEMES`` reject list was removed.
+# A theme is "retired"/non-canonical iff it is ABSENT from the effective
+# ``get_theme_map(config)`` — so the validator and get_theme_map can never
+# disagree on the same theme (a name can no longer be both blessed by the map
+# and rejected as retired). Retirement is now purely the complement of the
+# effective map, resolved per-repo.
 
 #: Wagons whose theme correction + URN re-namespacing is deferred to the #951
 #: recompose co-land. The repo-wide boundary/URN checks exclude these so the
@@ -97,9 +100,24 @@ class ThemeViolation:
     path: str
 
 
-def is_canonical_theme(theme: str) -> bool:
-    """Return True iff *theme* is one of the five canonical theme names."""
-    return theme in CANONICAL_THEMES
+def canonical_theme_set(config: Optional[Mapping]) -> FrozenSet[str]:
+    """Return the effective canonical theme set for *config* (#1317).
+
+    Single source of truth = ``get_theme_map(config)``: the built-in defaults
+    merged with the ``.atdd/config.yaml`` ``themes:`` overrides. The canonical
+    set is exactly the set of names that map resolves to, so a consumer/game
+    repo governs against its own effective taxonomy and the validator can never
+    disagree with ``get_theme_map`` on any theme.
+    """
+    return frozenset(get_theme_map(config).values())
+
+
+def is_canonical_theme(theme: str, config: Optional[Mapping] = None) -> bool:
+    """Return True iff *theme* is in the effective canonical set for *config*.
+
+    With no config the built-in defaults are used (``get_theme_map(None)``).
+    """
+    return theme in canonical_theme_set(config)
 
 
 def drop_deferred(violations: List["ThemeViolation"]) -> List["ThemeViolation"]:
@@ -175,17 +193,29 @@ def scan_wagon_themes(repo_root: Path) -> Dict[str, Tuple[str, str]]:
 
 
 def check_must_be_canonical(repo_root: Path) -> List[ThemeViolation]:
-    """Flag every wagon whose ``theme:`` is not in CANONICAL_THEMES."""
+    """Flag every wagon whose ``theme:`` is absent from the effective map.
+
+    #1317: the canonical set is resolved from ``get_theme_map`` applied to the
+    repo's own ``.atdd/config.yaml`` (``canonical_theme_set``), so a game/
+    consumer repo governs against its declared game-domain themes while the
+    toolkit's own repo (whose config declares ``plan/test/code/coach``)
+    continues to reject those game names.
+    """
+    config = load_atdd_config(repo_root)
+    allowed = canonical_theme_set(config)
     viols: List[ThemeViolation] = []
     for data, mf in _iter_wagon_manifests(repo_root):
         theme = data["theme"]
-        if theme not in CANONICAL_THEMES:
+        if theme not in allowed:
             viols.append(
                 ThemeViolation(
                     rule_id="planner.theme.must-be-canonical",
                     wagon=data["wagon"],
                     theme=theme,
-                    detail=f"theme {theme!r} is not one of {CANONICAL_THEMES}",
+                    detail=(
+                        f"theme {theme!r} is not in the effective theme map "
+                        f"{sorted(allowed)} (get_theme_map + .atdd/config.yaml themes)"
+                    ),
                     path=str(mf),
                 )
             )

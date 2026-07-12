@@ -8,7 +8,7 @@ ATDD gives AI agents a track. Instead of asking an agent to “build the feature
 
 ```mermaid
 flowchart LR
-    A[Intent / Job to be Done] --> P[atdd plan<br/>planning brief]
+    A[Intent / Job to be Done] --> P[atdd plan<br/>decomposition session]
     P --> T[Train<br/>wagon + WMBTs + acceptance]
     T --> I[atdd issue<br/>register approved work]
     I --> C[atdd coach<br/>supervise execution]
@@ -60,7 +60,7 @@ In short:
 | You want to… | ATDD gives you… |
 |---|---|
 | stop agents skipping instructions | `atdd gate` — coercive mandatory tool-output bootstrap |
-| turn vague intent into executable structure | `atdd plan` — a read-only planning/decomposition brief surface *(planned track)* |
+| turn vague intent into executable structure | `atdd plan` — a gated decomposition session (Define→Locate→Prepare→Confirm→author) |
 | keep planning, testing, and code in lock-step | a deterministic lifecycle: `INIT → PLANNED → RED → GREEN → SMOKE → REFACTOR → COMPLETE → MERGED` |
 | run multiple agents without merge chaos | `atdd coach` + worktrees + per-issue runtime isolation |
 | recover from interrupted work | JSONL event logs and resumable train runs *(decomposition target)* |
@@ -84,16 +84,18 @@ atdd coach <N>                            # Drive issue through the lifecycle
 atdd validate                             # Run validators
 ```
 
-Planning-first flow, as the `atdd plan` track lands:
+Planning-first flow via the gated `atdd plan` session:
 
 ```bash
-atdd plan ./docs/spec.md ./src --brief-out planning-brief.md
-# operator reviews / revises the proposal
-atdd issue my-new-feature --type planning
-atdd branch <N>
-# agent lands approved plan artifacts in the issue worktree
-atdd validate planner
-atdd pr <N>
+atdd plan start --id my-plan --main-job "What job is to be done?"
+atdd plan advance --id my-plan --step locate
+atdd plan source  --id my-plan "docs/spec.md + repo context"
+atdd plan advance --id my-plan --step prepare
+atdd plan unit    --id my-plan --kind wagon --ref my-wagon --spec '{...}'
+atdd plan advance --id my-plan --step confirm
+atdd plan decide  --id my-plan --ref my-wagon --verdict keep
+atdd plan confirm --id my-plan        # confirm-before-author boundary
+atdd plan author  --id my-plan        # system authors each kept unit via `atdd author`
 ```
 
 > **Mandatory:** issue and PR creation go through `atdd`. Direct `gh issue create` / `gh pr create` bypass manifest registration, WMBT sub-issues, Project v2 fields, and branch/merge guards.
@@ -104,20 +106,24 @@ atdd pr <N>
 
 ### Plan
 
-`atdd plan` is the planning/decomposition surface.
+`atdd plan` is the gated decomposition session: a durable, on-disk state machine
+that runs **Define → Locate → Prepare → Confirm → author** (the LLM/agent runs the
+dialogue within each step; `atdd plan` holds the gated session state and enforces
+the transitions).
 
-It should answer:
+It answers:
 
-> Given this source material and current repo context, what train should we propose?
+> Given this main job, these sources, and current repo context, what decomposition should we author?
 
-It is intentionally read-only:
+The gates:
 
-- it may read text, files, rich-doc paths, and codebase context;
-- it may render a deterministic planning brief;
-- it may propose wagons, WMBTs, risks, questions, and a train shape;
-- it must not create issues, branches, PRs, worktrees, or plan artifacts.
-
-The approved plan is landed later through the normal issue/branch/PR lifecycle.
+- **Define** — establish the JTBD main job (no advance without it);
+- **Locate** — capture sources and current `plan/` state;
+- **Prepare** — draft candidate units, each carrying a valid `atdd author` spec;
+- **Confirm** — operator keep/pivot/kill locks the decomposition. This is the
+  **confirm-before-author** boundary: nothing is written before confirm;
+- **author** — on confirm, the system invokes `atdd author <kind>` per locked unit,
+  landing schema-valid plan artifacts deterministically.
 
 ### Train
 
@@ -197,7 +203,7 @@ Typical consumer flow:
 
 ```bash
 atdd gate
-atdd plan ./docs/spec.md ./src --brief-out planning-brief.md   # read-only proposal
+atdd plan start --id my-feature --main-job "..."               # gated decomposition session
 atdd issue my-feature --type planning                          # register approved planning work
 atdd branch <N>
 atdd coach <N>
@@ -268,10 +274,10 @@ atdd init --export-schemas         # Export convention schemas to consumer repo
 ### Planning
 
 ```bash
-atdd plan <source> [<source> ...] --brief-out planning-brief.md
-atdd plan --text "raw idea" --json
-atdd plan docs/spec.md src/
-atdd plan .
+atdd plan start --id <id> --main-job "<job to be done>"
+atdd plan advance --id <id> --step locate|prepare|confirm
+atdd plan source/unit/decide --id <id> ...
+atdd plan confirm --id <id> && atdd plan author --id <id>
 ```
 
 `atdd plan` is a read-only planning surface. It should render a deterministic brief and propose a train. It should not mutate GitHub, git, the manifest, or `plan/` artifacts.
@@ -418,7 +424,7 @@ Layer responsibilities:
 
 | Layer | Owns | Does not own |
 |---|---|---|
-| `atdd.plan` | source ingestion, planning brief, train proposal | issue creation, branches, PRs, artifact landing |
+| `atdd.plan` | the gated decomposition session (D/L/P/C) + on-confirm authoring via `atdd author` | issue creation, branches, PRs, merge policy |
 | `atdd.train` | train model, run state, persistence, events, TrainRunner | phase policy, low-level runtime control |
 | `atdd.coach.core` | pure policy: advance/block/escalate/merge readiness | I/O, subprocess, GitHub, cmux, worktrees |
 | `atdd.runtime` | worktrees, agent control, multiplexer views | ATDD phase decisions |
@@ -478,9 +484,31 @@ Boundary recap:
 
 ```text
 atdd author    creates compliant substrate artifacts  (extension by default; --core protected)
+atdd substrate admits / binds / inspects the local substrate (add/remove/bind/capabilities/list)
 atdd validate  verifies substrate artifacts
 atdd gate      decides whether a validation failure blocks
 ```
+
+### Managing the substrate — `atdd substrate`
+
+The substrate-management verbs are grouped under one noun. `atdd substrate`
+operates on the local install ledger (`.atdd/substrate.lock.yaml` +
+`.atdd/binding.lock.yaml`), which covers both `atdd.extension.*` and
+`atdd.workspace.*` packages:
+
+```text
+atdd substrate add <ref|--path>    admit an extension/workspace into the local substrate
+atdd substrate remove <id>         withdraw an admitted artifact (refuses dependents unless --force)
+atdd substrate bind [--check]      compose the runtime binding plan from the locked substrate
+atdd substrate capabilities        show conventions gated by bound implementations vs legacy-fallback
+atdd substrate list                list the installed substrate from the lockfile
+```
+
+The flat `atdd add` / `remove` / `bind` / `capabilities` verbs and
+`atdd list --substrate` remain as **deprecated-but-working** aliases (they print
+a deprecation notice pointing at the grouped form); their removal is the breaking
+`4.0.0` step tracked in #1207. `atdd enforce` and `atdd validate` stay top-level
+— they are the CI/operator hot path, not substrate administration.
 
 ---
 
@@ -589,9 +617,7 @@ Target structure as the train decomposition lands:
 src/atdd/
 ├── cli.py
 ├── plan/ or planner/
-│   ├── commands/              # atdd plan
-│   ├── sources/               # text/file/richdoc/codebase source adapters
-│   ├── brief/                 # deterministic planning brief renderer
+│   ├── commands/              # atdd plan — gated decomposition session (plan_session*.py)
 │   ├── prompts/               # reusable planner fragments
 │   ├── conventions/
 │   ├── schemas/

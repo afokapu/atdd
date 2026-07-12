@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E001
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: registry-family-template-mismatch
+context_clarifier: 'registry.yaml lists exactly the 13 canonical families and 22 templates
+  from #1204, no extras and no omissions'
+lens: functional.effectiveness
+statement: minimize likelihood of registry-family-template-mismatch by ensuring registry.yaml
+  declares exactly the 13 canonical families and 22 templates
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E001-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E001 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

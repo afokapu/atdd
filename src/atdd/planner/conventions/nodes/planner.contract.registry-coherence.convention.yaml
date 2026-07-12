@@ -1,0 +1,36 @@
+schema_version: 1.1.0
+rule_id: planner.contract.registry-coherence
+kind: constraint
+status: active
+name: Contract registry producer/consumer coherence
+statement: Every contract URN on a wagon produce/consume must resolve to a contract registered in contracts/_contracts.yaml; no cross-wagon produce/consume edge may carry contract null; every produced contract must have a consumer or be explicitly marked external.
+implementation:
+  type: validator
+  ref: test_contract_registry_coherence::test_contract_registry_coherence
+source:
+  legacy_path: docs/recompose
+  legacy_section: contract-coherence
+  extraction_mode: summary
+content:
+  normative_text: 'The authored registry contracts/_contracts.yaml is the single source of truth for a contract''s identity, path, theme, producers, and consumers. Three coherence invariants hold across the plan/<wagon>/_<wagon>.yaml produce/consume graph and that registry. (1) UNREGISTERED: every non-null contract: URN declared on a produce or consume entry must strip to an identity that exists in the registry. (2) NULL-CROSS-WAGON: whenever an artifact NAME produced by one wagon is consumed by a different wagon (a cross-wagon edge), the producing entry must declare a non-null contract — a contract: null cross-wagon edge is a dangling producer. (3) UNCONSUMED: every produce entry that declares a non-null contract must be consumed by at least one other wagon or be explicitly marked to: external. Closes the dangling-producer / contract: null class from the #250 audit.'
+  constraints:
+  - every non-null contract URN on produce/consume resolves to a registered contract identity
+  - no cross-wagon produce/consume edge carries contract null
+  - every produced contract is consumed by another wagon or explicitly marked external
+  - registry keys are contract identities; the contract: URN prefix is stripped before lookup
+metadata:
+  severity: 3
+  disposition: advisory
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-07-02'
+terms:
+- term_id: contract_registry
+  text: contracts/_contracts.yaml — the authored source of truth mapping each contract identity to its path, theme, producers, and consumers. Authored by create_contract (#1330); validated for coherence here (#1332).
+- term_id: cross_wagon_edge
+  text: a produce->consume relationship in which an artifact NAME produced by one wagon is consumed by a different wagon, keyed on the artifact name.
+- term_id: dangling_producer
+  text: a producing entry on a cross-wagon edge whose contract field is null, so no contract binds the edge.

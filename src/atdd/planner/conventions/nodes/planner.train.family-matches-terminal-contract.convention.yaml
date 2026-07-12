@@ -8,3 +8,10 @@ terms:
 - term_id: family-consistency
   label: Family consistency
   text: declared family <-> declared terminal contract; controlled redundancy, not a second source of truth.
+implementation:
+  type: validator
+  ref: conventions/coherence/test_train_family_matches_terminal_contract::test_fault_injection
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.127.0

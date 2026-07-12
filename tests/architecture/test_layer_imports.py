@@ -53,6 +53,12 @@ FORBIDDEN_BY_LAYER = {
     "atdd.integrations.github": {
         "atdd.coach", "atdd.train", "atdd.runtime",
     },
+    # ATDD State Store (#1168): the foundational-layer import discipline previously
+    # asserted here ("atdd.state" must not import coach/train/integrations/runtime/
+    # observer) migrated to the node-bound validator
+    # `coder.state-store.core-imports-no-providers`
+    # (src/atdd/coder/validators/test_state_store_invariants.py), so the rule is
+    # surfaced in `atdd validate` rather than living only as a structural gate (#1220).
 }
 
 

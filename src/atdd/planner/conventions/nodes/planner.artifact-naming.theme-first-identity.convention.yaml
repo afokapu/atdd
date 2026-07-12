@@ -1,0 +1,41 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.theme-first-identity
+kind: rule
+status: active
+name: Artifact identity is theme-first
+statement: A produced artifact/contract identity must be theme-first — it must
+  parse as the grammar {theme}(:{category})*:{aspect}(.{variant})?, every colon/dot
+  token must be kebab-case, and the leading theme must be in the effective theme
+  map get_theme_map(config) (.atdd/config.yaml themes overrides + built-in
+  defaults). A non-taxonomy theme such as `round` in `round:result` is a violation.
+terms:
+- term_id: artifact_theme_first_identity
+  text: the theme-first identity rule for a produced artifact/contract name
+  values:
+    theme_source: coach:utils:theme_map#get_theme_map
+    grammar: "{theme}(:{category})*:{aspect}(.{variant})?"
+    examples_ok:
+    - commons:identifiers.uuid
+    - commons:ux:foundations:color
+    - sensory:gesture.raw
+    - match:config
+    examples_bad:
+    - round:result
+    - Bad:Theme
+    - gesture.raw
+implementation:
+  type: validator
+  ref: test_artifact_theme_first_identity::test_confirm_blocks_non_theme_first_artifact
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: format
+  template: naming_pattern
+  variant: planner_artifact_theme_first_identity
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: artifact
+  failure_evidence:
+  - artifact_name
+  - reason

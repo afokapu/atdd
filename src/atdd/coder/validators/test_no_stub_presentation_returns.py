@@ -721,6 +721,26 @@ def test_no_stub_presentation_rules_declared_in_convention():
     block = frontend_block.get("no_stub_presentation") or {}
     rules_by_id = {r.get("id"): r for r in block.get("rules", []) or []}
 
+    # Phase A (#1225): some PRESENTATION-NOSTUB rules are atomized into
+    # canonical single-node files under conventions/nodes/. A migrated rule
+    # is authoritative there (rule_id at top, severity under metadata.severity),
+    # so merge those in — a rule satisfies this contract from EITHER location.
+    nodes_dir = FRONTEND_CONVENTION.parent / "nodes"
+    if nodes_dir.is_dir():
+        for node_path in nodes_dir.glob("*.convention.yaml"):
+            try:
+                with open(node_path, "r", encoding="utf-8") as nfh:
+                    node = yaml.safe_load(nfh) or {}
+            except (OSError, yaml.YAMLError):
+                continue
+            rid = node.get("rule_id")
+            if not rid or rid in rules_by_id:
+                continue
+            rules_by_id[rid] = {
+                "id": rid,
+                "severity": (node.get("metadata") or {}).get("severity"),
+            }
+
     expected_severity = {
         RULE_ARROW_LITERAL: STUB_RULE_SEVERITY,
         RULE_FN_RETURN_LITERAL: STUB_RULE_SEVERITY,

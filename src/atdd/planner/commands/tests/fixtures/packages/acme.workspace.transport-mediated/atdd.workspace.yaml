@@ -1,0 +1,21 @@
+schema_version: "1.0.0"
+# POSITIVE fixture (#1268 part B). Same agent-session orchestration capability as the
+# unmediated sibling, but this provider DECLARES the required realizes edge onto the
+# dispatch-verifies-channel-live obligation — proving it carries the live-channel
+# enforcement. Admission ADMITS it.
+workspace_id: acme.workspace.transport-mediated
+kind: workspace
+version: "0.1.0"
+contract_version: "1.0.0"
+
+capabilities:
+  - capability_id: orchestration.agent-session
+    domain: orchestration
+    type: agent-session-transport
+    contract: atdd.workspace.capability.orchestration.agent-session.v1
+
+# The forcing edge (#1268): the provider realizes the core obligation so dispatch can
+# verify the mediation channel is live via this provider's readiness signal.
+realizes:
+  - extension_node: acme.workspace.transport-mediated.readiness
+    core_node: coach.execution.dispatch-verifies-channel-live

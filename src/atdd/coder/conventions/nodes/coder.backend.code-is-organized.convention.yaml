@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+rule_id: coder.backend.code-is-organized
+kind: rule
+status: active
+name: Backend code is organized into 4 layers
+statement: 'Backend code is organized into 4 layers: presentation, application, integration,
+  domain'
+terms:
+- term_id: layers
+  text: the four backend layers presentation, application, integration, domain
+source:
+  legacy_path: src/atdd/coder/conventions/backend.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.backend.code-is-organized
+  extraction_mode: high_fidelity
+content:
+  summary: 4-layer backend architecture (stack-neutral)
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - BOUNDARIES-LAYER-001
+  introduced_in: 1.66.0

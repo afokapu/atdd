@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: coder.refactor.composition-consumer
+kind: rule
+status: active
+name: Layer file has an upstream consumer
+statement: Each layer file (presentation/integration/domain) has at least one upstream
+  consumer per composition rules
+terms:
+- term_id: composition_consumer
+  text: Each layer file (presentation, integration, or domain) is consumed when at
+    least one upstream module imports or wires it per the feature composition rules.
+implementation:
+  type: validator
+  ref: test_composition_completeness::test_composition_convention_exists_and_has_required_sections
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.composition-consumer
+  extraction_mode: high_fidelity
+content:
+  fix_hint: Ensure every presentation/integration/domain file is imported or setter-wired
+    by at least one upstream module (a use case, composition.py, or wagon.py); delete
+    or wire any orphaned layer file.
+metadata:
+  severity: 3
+  disposition: strict
+  aliases:
+  - REFACTOR-COMPOSITION-CONSUMER-001
+  introduced_in: 1.67.0

@@ -149,6 +149,13 @@ def _build_violations() -> List[Violation]:
             )
             continue
 
+        # A convention-variant enforcer (conventions/<family>/<stem>::<func>) binds
+        # via parity/execution on the composed graph, not a bind_rule literal
+        # (#1207). Accept it as a valid binding without the callsite requirement —
+        # the variant's clean-baseline + fault-injection are its live coverage.
+        if resolved.is_convention:
+            continue
+
         # Function exists. Does it bind THIS rule?
         if rule_id not in resolved.bound_rule_ids and not (
             set(meta.aliases) & resolved.bound_rule_ids

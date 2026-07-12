@@ -27,6 +27,7 @@ provider), that is the live-execution guarantee. Completes the chain after
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
@@ -140,9 +141,202 @@ def test_every_live_smoke_acceptance_executed() -> None:
     assert_substrate_strict(_VALIDATOR_ID, collect_violations())
 
 
+# --------------------------------------------------------------------------- #
+# Constant-evidence detector (issue #1298 — extends #1151)                     #
+#                                                                              #
+# A live_smoke test that cannot self-skip still passes vacuously if the        #
+# harness it invokes returns FIXED success-shaped evidence regardless of what  #
+# happened (afokapu/atdd#1192: the Y002 smoke built the launch-argv string and #
+# returned hardcoded {"surfaced": True}, 0.12s, no worker, yet was labelled    #
+# "Live end-to-end"). This static guard flags a harness whose every return is  #
+# an all-constant dict literal AND whose body has no assert/raise — it can     #
+# never fail and proves nothing ran against real infrastructure.               #
+# --------------------------------------------------------------------------- #
+_CONST_RULE = bind_rule(
+    "tester.acceptance-violation.live-smoke-evidence-must-not-be-constant"
+)
+_CONST_VALIDATOR_ID = (
+    "test_live_smoke_execution::test_no_live_smoke_harness_returns_constant_evidence"
+)
+
+# The anchored test imports its harness from a module whose name carries this
+# hint (e.g. ``…feed_daemon.live_smoke``); the harness function is then called.
+_LIVE_SMOKE_MODULE_HINT = "live_smoke"
+
+
+def _find_funcdef(tree: ast.AST, name: str) -> Optional[ast.FunctionDef]:
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return node
+    return None
+
+
+def _is_all_constant_dict(node: Optional[ast.AST]) -> bool:
+    """True for a non-empty dict literal whose every value is a constant."""
+    if not isinstance(node, ast.Dict):
+        return False
+    if not node.values:
+        return False
+    return all(isinstance(value, ast.Constant) for value in node.values)
+
+
+def _func_can_fail(func: ast.FunctionDef) -> bool:
+    """True if the function contains any assert or raise (so it can fail loudly)."""
+    for node in ast.walk(func):
+        if isinstance(node, (ast.Assert, ast.Raise)):
+            return True
+    return False
+
+
+def detect_constant_evidence(harness_source: str, func_name: str) -> Optional[str]:
+    """Return a theater label if ``func_name`` returns only constant evidence.
+
+    A harness is flagged when EVERY non-None return is an all-constant dict
+    literal AND the function body contains no assert/raise — it reports fixed
+    success regardless of the real outcome and can never fail. Returns None for
+    a harness that computes any evidence value or that can assert/raise, and for
+    an unparseable source or a missing function.
+    """
+    try:
+        tree = ast.parse(harness_source)
+    except SyntaxError:
+        return None
+    func = _find_funcdef(tree, func_name)
+    if func is None:
+        return None
+    returns = [
+        node
+        for node in ast.walk(func)
+        if isinstance(node, ast.Return) and node.value is not None
+    ]
+    if not returns:
+        return None
+    if not all(_is_all_constant_dict(node.value) for node in returns):
+        return None
+    if _func_can_fail(func):
+        return None
+    return (
+        f"harness {func_name!r} returns only constant dict evidence and contains "
+        f"no assert/raise, so it cannot fail"
+    )
+
+
+def _harness_calls_in_test(test_source: str) -> List[Tuple[str, str]]:
+    """Return ``[(module, func_name)]`` for harnesses imported from a *live_smoke*
+    module and actually invoked in the test source."""
+    try:
+        tree = ast.parse(test_source)
+    except SyntaxError:
+        return []
+    imported: dict = {}  # local_name -> (module, original_name)
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and _LIVE_SMOKE_MODULE_HINT in node.module
+        ):
+            for alias in node.names:
+                imported[alias.asname or alias.name] = (node.module, alias.name)
+    called: List[Tuple[str, str]] = []
+    seen = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in imported
+            and node.func.id not in seen
+        ):
+            seen.add(node.func.id)
+            called.append(imported[node.func.id])
+    return called
+
+
+def _module_to_source_path(repo_root: Path, module: str) -> Path:
+    return repo_root / "src" / Path(*module.split(".")).with_suffix(".py")
+
+
+def evaluate_constant_evidence(
+    entries: Sequence[Tuple[str, str, Sequence[Tuple[str, str, str]]]],
+) -> List[Violation]:
+    """Return constant-evidence violations for live_smoke harnesses (pure).
+
+    ``entries`` is a sequence of
+    ``(location, acceptance_urn, [(harness_path, func_name, harness_source), ...])``.
+    A ``Violation`` is emitted for each harness that returns only constant evidence.
+    """
+    violations: List[Violation] = []
+    for _location, urn, harnesses in entries:
+        for harness_path, func_name, source in harnesses:
+            label = detect_constant_evidence(source, func_name)
+            if label is None:
+                continue
+            violations.append(
+                Violation(
+                    rule_id=_CONST_RULE.rule_id,
+                    severity=_CONST_RULE.severity,
+                    location=str(harness_path),
+                    detail=(
+                        f"live_smoke acceptance {urn!r} is anchored to a test that "
+                        f"invokes {harness_path}::{func_name} — {label}. A harness "
+                        f"that returns fixed success-shaped evidence and cannot fail "
+                        f"is theater: it never proves anything ran against real "
+                        f"infrastructure. Return values COMPUTED from the real "
+                        f"outcome, or assert/raise on it."
+                    ),
+                    fix_hint_ref=_CONST_RULE.fix_hint_ref,
+                )
+            )
+    return violations
+
+
+def collect_constant_evidence_violations(
+    repo_root: Optional[Path] = None,
+) -> List[Violation]:
+    """Walk live_smoke acceptances → anchored tests → invoked harnesses and flag
+    any harness returning only constant evidence."""
+    root = Path(repo_root).resolve() if repo_root is not None else find_repo_root()
+    test_index = scan_test_acceptance_headers(root)
+
+    entries: List[Tuple[str, str, List[Tuple[str, str, str]]]] = []
+    for raw in iter_repo_acceptances(root):
+        if raw.body.get("execution_kind") != _LIVE_SMOKE_KIND:
+            continue
+        urn = acceptance_urn(raw.body)
+        if not urn:
+            continue
+        harnesses: List[Tuple[str, str, str]] = []
+        for test_file in test_index.get(urn, []):
+            try:
+                test_src = test_file.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            for module, func_name in _harness_calls_in_test(test_src):
+                path = _module_to_source_path(root, module)
+                try:
+                    src = path.read_text(encoding="utf-8", errors="ignore")
+                except OSError:
+                    continue
+                harnesses.append((str(path), func_name, src))
+        if harnesses:
+            entries.append((raw.location, urn, harnesses))
+
+    return evaluate_constant_evidence(entries)
+
+
+def test_no_live_smoke_harness_returns_constant_evidence() -> None:
+    """No live_smoke harness returns fixed constant evidence that cannot fail."""
+    assert_substrate_strict(
+        _CONST_VALIDATOR_ID, collect_constant_evidence_violations()
+    )
+
+
 __all__ = [
     "detect_self_skip",
     "evaluate_live_smoke_execution",
     "collect_violations",
     "test_every_live_smoke_acceptance_executed",
+    "detect_constant_evidence",
+    "evaluate_constant_evidence",
+    "collect_constant_evidence_violations",
+    "test_no_live_smoke_harness_returns_constant_evidence",
 ]

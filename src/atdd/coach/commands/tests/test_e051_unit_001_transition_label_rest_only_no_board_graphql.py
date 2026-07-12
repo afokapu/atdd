@@ -11,7 +11,8 @@ Post-removal contract: IssueManager.update() drives a phase transition off the
 ``atdd:<phase>`` label (REST) alone and emits ZERO Projects-v2 GraphQL — none of
 ``get_project_fields`` / ``get_project_item_id`` / ``set_project_field_select`` /
 ``set_project_field_text`` / ``get_project_item_field_values`` /
-``add_issue_to_project``. The local manifest stays the state mirror.
+``add_issue_to_project``. The State Store is the local state mirror (#1270
+Slice G deleted the ``.atdd/manifest.yaml`` mirror).
 
 RED now: the current update() still reads (get_project_fields / get_project_item_id)
 and writes (set_project_field_select) the board, so the assert_not_called fails.
@@ -44,14 +45,22 @@ def _setup(tmp_path: Path, status: str = "RED") -> Path:
     (cfg / "config.yaml").write_text(
         yaml.safe_dump({"github": {"repo": "owner/repo", "project_id": "PVT_test"}})
     )
-    (cfg / "manifest.yaml").write_text(
-        yaml.safe_dump(
-            {
-                "sessions": [{"issue_number": 384, "status": status}],
-                "issues": {"384": {"slug": "demo", "train": "0001-self-compliance-validate"}},
-            }
-        )
-    )
+    # Seed the State Store directly (the sole local registry, #1270 Slice G).
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    db = init_state_store(db_path=cfg / "state" / "state.sqlite")
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        store.objects.upsert("demo", WORK_ITEM_KIND, state=status,
+                             data={"issue_number": 384,
+                                   "train": "0001-self-compliance-validate"})
+        store.external_refs.link("demo", GITHUB_PROVIDER, "issue", "384",
+                                 data={"source": "test-seed"})
+    finally:
+        conn.close()
     return tmp_path
 
 
@@ -80,8 +89,7 @@ def test_transition_emits_label_rest_only_no_board_graphql(tmp_path):
     client.get_project_item_id.return_value = "item_abc"
     client.get_project_item_field_values.return_value = {"ATDD Train": "0001-self-compliance-validate"}
 
-    with patch.object(mgr, "_get_github_client", return_value=client), \
-         patch.object(IssueManager, "_commit_manifest_change"):
+    with patch.object(mgr, "_get_github_client", return_value=client):
         rc = mgr.update("384", status="GREEN")
 
     assert rc == 0, "label-only transition should succeed"
@@ -90,6 +98,7 @@ def test_transition_emits_label_rest_only_no_board_graphql(tmp_path):
     for method in BOARD_METHODS:
         getattr(client, method).assert_not_called()
 
-    manifest = yaml.safe_load((target / ".atdd" / "manifest.yaml").read_text())
-    statuses = {e["issue_number"]: e.get("status") for e in manifest["sessions"]}
-    assert statuses[384] == "GREEN", "manifest remains the local state mirror"
+    # #1270 Slice G: the local state mirror is the State Store, not the manifest.
+    from atdd.state.work_item_reader import WorkItemReader
+    with WorkItemReader(control_root=target) as reader:
+        assert reader.status(384) == "GREEN", "the store is the local state mirror"

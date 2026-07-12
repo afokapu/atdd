@@ -16,9 +16,13 @@ E011: Branch naming validator (SPEC-SESSION-VAL-0070):
 - Issues past PLANNED must have a Branch field matching an allowed prefix
 - Branch = worktree (every branch is created as a git worktree)
 
-E012: Manifest consistency validator (SPEC-SESSION-VAL-0080):
-- Every open GitHub issue with atdd-issue label must have a corresponding
-  entry in .atdd/manifest.yaml
+E012: State Store consistency validator (SPEC-SESSION-VAL-0080):
+- Every open GitHub issue with atdd-issue label must resolve to a work item
+  in the State Store via its github external_ref (provider github / issue)
+- #1203 Phase 2: the State Store is authoritative for the work-item lifecycle;
+  the manifest is a projection. The reader auto-imports the manifest into the
+  store on first read, so this subsumes the prior manifest-shape check while
+  asserting the authoritative source.
 - Detects issues created directly via `gh issue create` or the GitHub UI
   instead of through `atdd issue <slug>`
 
@@ -125,8 +129,8 @@ def test_issues_have_train_field(github_issues, github_project_fields, github_pr
 
     assert not violations, (
         f"\nIssues past PLANNED must have a valid Train field (not TBD, not blank).\n"
-        f"Fix: Run `atdd issue <issue_number> --train <train_id>` "
-        f'(e.g. "atdd issue 467 --train 0001-self-compliance-validate"; '
+        f"Fix: Run `atdd update <issue_number> --train <train_id>` "
+        f'(e.g. "atdd update 467 --train 0001-self-compliance-validate"; '
         f"see plan/_trains.yaml::trains[].id for valid train ids).\n\n"
         f"Violations ({len(violations)}):\n  " + "\n  ".join(violations)
     )
@@ -323,54 +327,66 @@ def test_issue_branch_follows_worktree_convention(github_issues):
 
 
 # ============================================================================
-# E012: Manifest Consistency Validation (GitHub Issues vs .atdd/manifest.yaml)
+# E012: State Store Consistency Validation (GitHub Issues vs the State Store)
 # ============================================================================
 
 
-def _load_manifest_issue_numbers():
-    """Load issue numbers registered in .atdd/manifest.yaml."""
-    manifest_file = REPO_ROOT / ".atdd" / "manifest.yaml"
-    if not manifest_file.exists():
-        return set()
-    with open(manifest_file) as f:
-        data = yaml.safe_load(f) or {}
-    return {
-        entry["issue_number"]
-        for entry in data.get("sessions", [])
-        if "issue_number" in entry
-    }
+def _store_resolved_issue_numbers(candidate_numbers):
+    """Return which of *candidate_numbers* resolve to a work item in the store.
 
-
-def test_github_issues_registered_in_manifest(github_issues):
+    #1203 Phase 2: the State Store is authoritative for the work-item lifecycle.
+    Each GitHub issue number is resolved through the ``github`` external_ref
+    projection (the same bridge the lifecycle command writes). The reader
+    auto-imports the manifest into the store on first read, so a freshly-cloned
+    repo still resolves issues created through ``atdd issue <slug>``. Returns the
+    empty set if the store layer is unavailable so the caller degrades to "all
+    unresolved" rather than crashing the validator.
     """
-    SPEC-SESSION-VAL-0080: GitHub issues must have manifest entries
+    try:
+        from atdd.state.work_item_reader import WorkItemReader
+
+        resolved = set()
+        with WorkItemReader(control_root=REPO_ROOT) as reader:
+            for num in candidate_numbers:
+                if reader.get(num) is not None:
+                    resolved.add(num)
+        return resolved
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+        return set()
+
+
+def test_github_issues_registered_in_state_store(github_issues):
+    """
+    SPEC-SESSION-VAL-0080: GitHub issues must resolve in the State Store
 
     Given: Open issues on GitHub with the atdd-issue label
-    When: Cross-referencing against .atdd/manifest.yaml sessions
-    Then: Every issue number must appear in the manifest
+    When: Resolving each issue number through the State Store github external_ref
+    Then: Every issue number must resolve to a stored work item
 
-    E012 acceptance criteria: `atdd validate coach` warns when an issue
-    exists on GitHub but was not created through `atdd issue <slug>`.
-    This catches direct `gh issue create` or GitHub UI usage that bypasses
-    manifest registration, WMBT sub-issue generation, and Project v2 setup.
+    E012 acceptance criteria: `atdd validate coach` warns when an issue exists on
+    GitHub but has no work item in the State Store (the authoritative source as of
+    #1203 Phase 2; the manifest is a projection). This catches direct
+    `gh issue create` or GitHub UI usage that bypasses `atdd issue <slug>`,
+    WMBT sub-issue generation, and external-ref linkage.
     """
-    manifest_numbers = _load_manifest_issue_numbers()
+    numbers = [issue["number"] for issue in github_issues]
+    resolved = _store_resolved_issue_numbers(numbers)
 
     unregistered = []
     for issue in github_issues:
         num = issue["number"]
-        if num not in manifest_numbers:
+        if num not in resolved:
             title = issue.get("title", "(no title)")
             unregistered.append(f"#{num}: {title}")
 
     if unregistered:
         w.warn(
-            f"Issues on GitHub missing from .atdd/manifest.yaml "
+            f"Issues on GitHub not resolvable in the State Store "
             f"({len(unregistered)}):\n  "
             + "\n  ".join(unregistered)
             + "\n\nThese issues were likely created outside `atdd issue <slug>`."
-            + "\nFix: Re-create via `atdd issue <slug>` or register manually"
-            + " in .atdd/manifest.yaml.",
+            + "\nFix: Re-create via `atdd issue <slug>` or run"
+            + " `atdd state import-manifest` to backfill the store.",
             category=UserWarning,
             stacklevel=1,
         )

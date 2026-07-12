@@ -50,7 +50,7 @@ def test_working_context_includes_session_protocol_nodes_and_edges():
     ctx = load_working_context(_REPO)
     g = ctx["guidelines"]
     for rid in ("planner.plan.session-lifecycle", "planner.plan.confirm-before-author",
-                "planner.plan.in-session-no-issue"):
+                "planner.plan.confirm-binds-an-issue"):
         assert rid in g, f"{rid} missing from working context"
         assert g[rid]["statement"]
     # the protocol-flow edge between the plan nodes is surfaced
@@ -58,9 +58,37 @@ def test_working_context_includes_session_protocol_nodes_and_edges():
                for e in ctx["edges"])
 
 
+def test_working_context_falls_back_to_package_in_consumer_repo(tmp_path):
+    """#1275: a consumer repo (pip-installs atdd, has no src/atdd/ tree) must
+    still receive the bundled convention nodes — load_working_context falls back
+    to the installed package when the repo-vendored path is absent. Today it
+    returns {} and is a silent no-op everywhere except the toolkit's own repo."""
+    assert not (tmp_path / "src" / "atdd").exists()  # a bare consumer repo
+    ctx = load_working_context(tmp_path)
+    g = ctx["guidelines"]
+    for rid in ("planner.plan.session-lifecycle", "planner.plan.confirm-before-author"):
+        assert rid in g, f"{rid} missing — package fallback not wired (consumer repo got empty guidelines)"
+        assert g[rid]["statement"]
+    # the package-relative graph resolves too, so protocol-flow edges are surfaced
+    assert any(e["source"].startswith("planner.plan.") and e["target"].startswith("planner.plan.")
+               for e in ctx["edges"]), "consumer repo got no protocol-flow edges"
+
+
+def test_repo_vendored_nodes_override_package(tmp_path):
+    """#1275: when a repo vendors its own nodes they take precedence over the
+    package (repo-vendored overrides; otherwise package)."""
+    nodes = tmp_path / "src" / "atdd" / "planner" / "conventions" / "nodes"
+    nodes.mkdir(parents=True)
+    (nodes / "planner.plan.session-lifecycle.convention.yaml").write_text(
+        "rule_id: planner.plan.session-lifecycle\nkind: protocol\n"
+        "statement: VENDORED OVERRIDE\nterms: []\n", encoding="utf-8")
+    ctx = load_working_context(tmp_path)
+    assert ctx["guidelines"]["planner.plan.session-lifecycle"]["statement"] == "VENDORED OVERRIDE"
+
+
 def test_guidelines_cli_emits_context():
     env = {"PYTHONPATH": str(_SRC), "PATH": os.environ.get("PATH", ""), "HOME": str(_REPO)}
-    r = subprocess.run([sys.executable, "-m", "atdd", "plan", "session", "--root", str(_REPO), "guidelines"],
+    r = subprocess.run([sys.executable, "-m", "atdd", "plan", "--root", str(_REPO), "guidelines"],
                        cwd=str(_REPO), env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
     doc = json.loads([ln for ln in (r.stdout + r.stderr).splitlines() if ln.strip().startswith("{")][-1])
@@ -69,7 +97,7 @@ def test_guidelines_cli_emits_context():
 
 def test_worked_example_authors_wagon_feature_and_wmbt(tmp_path):
     (tmp_path / "plan").mkdir()
-    s = PlanSession("worked", main_job="Listen to music while commuting")
+    s = PlanSession("worked", main_job="Listen to music while commuting", issue_ref="my-plan")
     s.advance(Step.LOCATE); s.sources.append({"type": "text", "value": "music app spec"})
     s.advance(Step.PREPARE)
     s.add_unit(Unit(kind="wagon", ref="stream-audio", spec={
@@ -106,7 +134,7 @@ def test_full_decomposition_all_five_kinds_with_keep_pivot_kill(tmp_path):
     (wagon/feature/wmbt/train/acceptance) and exercises keep + pivot + kill."""
     (tmp_path / "plan" / "_trains").mkdir(parents=True)
     (tmp_path / "plan" / "_trains.yaml").write_text("trains: {}\n", encoding="utf-8")
-    s = PlanSession("full", main_job="Listen to music while commuting")
+    s = PlanSession("full", main_job="Listen to music while commuting", issue_ref="my-plan")
     s.advance(Step.LOCATE); s.sources.append({"type": "text", "value": "spec"})
     s.advance(Step.PREPARE)
     s.add_unit(Unit(kind="wagon", ref="full-demo", spec={

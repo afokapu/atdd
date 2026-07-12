@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+rule_id: planner.train.interlocking-guard-coverage
+kind: constraint
+status: active
+name: Interlocking guard coverage
+statement: Every executable guard path in an interlocking maps to exactly one train
+  route, unless explicitly classified as structural residual.
+terms:
+- term_id: guard_coverage
+  text: each executable guard path maps to exactly one route, or is explicitly classified
+    as a structural residual
+implementation:
+  type: validator
+  ref: test_sequence_diagram_sanity::test_every_executable_guard_projects_to_train
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: coverage
+  template: projection_covers_source
+  variant: planner_train_interlocking_guard_coverage
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - guard_id
+  - route_id
+  - coverage_status

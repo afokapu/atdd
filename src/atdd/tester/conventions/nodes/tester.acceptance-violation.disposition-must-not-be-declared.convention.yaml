@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+rule_id: tester.acceptance-violation.disposition-must-not-be-declared
+kind: rule
+status: active
+name: Disposition must not be declared
+statement: "Repo acceptance and security YAML must NOT declare a disposition: field\
+  \ \u2014 the substrate sets it to strict for all repo rules"
+terms:
+- term_id: disposition
+  text: A disposition field declares per-rule CI suppression policy; repo contract
+    rules are unsuppressible by construction so it must be absent.
+implementation:
+  type: validator
+  ref: test_acceptance_disposition::test_no_disposition_in_repo_yaml
+source:
+  legacy_path: src/atdd/tester/conventions/acceptance-violation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.acceptance-violation.disposition-must-not-be-declared
+  extraction_mode: high_fidelity
+content:
+  fix_hint: "Remove the disposition: field from the failing acceptance or abuse_case\
+    \ rule block; repo contract rules are unsuppressible by construction (\xA72),\
+    \ so declaring disposition is misleading."
+  operational_guidance: 'recipe: acceptance-rule-block'
+metadata:
+  severity: 3
+  disposition: strict

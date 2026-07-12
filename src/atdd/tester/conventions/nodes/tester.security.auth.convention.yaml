@@ -1,0 +1,21 @@
+schema_version: 1.0.0
+rule_id: tester.security.auth
+kind: rule
+status: active
+name: Security auth coverage
+statement: Security-sensitive endpoints are covered by tests asserting auth and authorization
+terms:
+- term_id: auth
+  text: the combination of authentication (identity) and authorization (permission)
+    checks a security-sensitive endpoint must enforce.
+source:
+  legacy_path: src/atdd/tester/conventions/security.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.security.auth
+  extraction_mode: high_fidelity
+metadata:
+  aliases:
+  - TESTER-SECURITY-AUTH-001
+  severity: 4
+  disposition: documentation-only
+  introduced_in: 1.67.0

@@ -1,0 +1,49 @@
+urn: "wmbt:author-atdd-substrate:K002"
+step: "conclude"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "existing-body-validation-regression"
+context_clarifier: "after the schema lands, the migration/back-compat guarantee is that the schema accepts today's compliant markdown bodies, not only newly-authored ones — a sample of existing compliant GitHub issue bodies must validate against issue.schema.json (or be mechanically migrated), so the cutover from the string-grep gate to the schema gate regresses no compliant issue"
+lens: "functional.sustainability"
+statement: "minimize likelihood of existing-body-validation-regression by asserting a sample of today's compliant issue bodies validate against issue.schema.json (back-compat, not only new bodies)"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:K002-UNIT-001-existing-bodies-validate"
+      id: "AC-UNIT-001"
+      purpose: "a fixture sample of existing compliant issue bodies validates against issue.schema.json (back-compat)"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixture sample of existing compliant GitHub issue bodies that pass today's E019 string-grep gate"
+    when:
+      abstract: "each body is validated against issue.schema.json"
+    then:
+      abstract:
+        - "Every sampled compliant body validates against the schema (or is accepted by the mechanical migrator)"
+        - "The schema-driven gate yields the same accept/reject verdict as the legacy E019 gate on the sample (no compliant body newly rejected)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-29"
+  - identity:
+      urn: "acc:author-atdd-substrate:K002-SMOKE-001-real-issue-bodies-validate"
+      id: "AC-SMOKE-001"
+      purpose: "Verify a sample of real existing GitHub issue bodies validates against issue.schema.json in a real checkout, proving back-compat against live data"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and a sample of real existing compliant issue bodies (checked-in fixtures captured from live GitHub issues)"
+    when:
+      abstract: "each real body is validated against issue.schema.json via the installed CLI / validator"
+    then:
+      abstract:
+        - "Every sampled real compliant body validates against the schema"
+        - "No compliant body that passed the legacy E019 gate is newly rejected by the schema-driven gate"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-29"

@@ -32,6 +32,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import yaml
 
 from atdd.coach.validators.test_rule_id_uniqueness import find_convention_files
+from atdd.coach.utils.rule_binding import single_node_rule_dict
 
 
 _logger = logging.getLogger(__name__)
@@ -164,6 +165,13 @@ def _build_metadata(rule_id: str, raw: Dict, path: Path) -> RuleMetadata:
         signal_metric=signal_metric,
         signal_threshold=signal_threshold,
     )
+
+
+def _iter_file_rules(data, file_path):
+    yield from _walk_node(data, file_path)
+    single_node = single_node_rule_dict(data)
+    if single_node is not None:
+        yield (single_node["id"], single_node)
 
 
 def _walk_node(
@@ -310,7 +318,7 @@ def build_registry(
         data = _load_yaml(path)
         if data is None:
             continue
-        for rule_id, raw in _walk_node(data, path):
+        for rule_id, raw in _iter_file_rules(data, path):
             if rule_id in registry:
                 continue
             meta = _build_metadata(rule_id, raw, path)

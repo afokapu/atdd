@@ -3,28 +3,13 @@ convention_id: "coder.train"
 name: "Train Composition Root Convention"
 description: "Production orchestration layer for executing user journeys across wagons"
 
-# Structured rules (issue #389 Phase 3a) — top-level placement so the registry
-# walker discovers them; existing `composition_hierarchy:`, `train_structure:`,
-# `cargo_pattern:`, `boundary_enforcement:` blocks are preserved verbatim.
-rules:
-  - id: "coder.train.is-a-production"
-    aliases: ["COACH-TRAIN-COMPOSITION-001"]
-    severity: 3
-    disposition: documentation-only
-    description: "Train is a production composition root in python/trains/, not test infrastructure"
-    introduced_in: "1.66.0"
-  - id: "coder.train.wagons-communicate-via-cargo"
-    aliases: ["COACH-TRAIN-COMPOSITION-002"]
-    severity: 3
-    disposition: documentation-only
-    description: "Wagons communicate via cargo (contract artifacts) — never via direct cross-wagon imports"
-    introduced_in: "1.66.0"
-  - id: "coder.train.yaml-is-the"
-    aliases: ["COACH-TRAIN-COMPOSITION-003"]
-    severity: 3
-    disposition: documentation-only
-    description: "Train YAML is the single source of truth for orchestration; production and tests both consume it via TrainRunner"
-    introduced_in: "1.66.0"
+# Structured rules (issue #389 Phase 3a) — MIGRATED to single-node conventions
+# under nodes/ (#1218 careful pass). The three COACH-TRAIN-COMPOSITION-001/002/003
+# rules now live, collapsed, at
+#   nodes/coder.train.production-composition-cargo-zero-drift.convention.yaml
+# The prose blocks below (`composition_hierarchy:`, `train_structure:`,
+# `cargo_pattern:`, `boundary_enforcement:`, ...) are preserved verbatim as the
+# migration source; TrainRunner/Cargo/app.py shapes are workspace realization.
 
 rationale: |
   Trains are PRODUCTION orchestration, not test infrastructure. They execute user journeys

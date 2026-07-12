@@ -1,0 +1,61 @@
+schema_version: "1.0.0"
+
+# First-class workspace PROVIDER: a reusable, domain-agnostic runtime that many
+# extensions target. Namespaced id (scope segment is `workspace`):
+#   <publisher>.workspace.<name>
+workspace_id: atdd.workspace.python-pytest
+kind: workspace
+version: "0.1.0"
+
+# Discovery + run CONTRACT this provider implements. Implementations declare the
+# contract they satisfy (`contract_version`), and the resolver checks SemVer
+# compatibility against this value, refusing on mismatch. Bump the MAJOR only
+# when the discovery/run contract changes incompatibly.
+#
+# v1.1.0 (Phase 0.5) is a MINOR, back-compatible bump over v1.0.0: it adds the
+# explicit scan-mount inputs (ATDD_SCAN_ROOTS / ATDD_SCAN_EXCLUDES) and the
+# structured JSON violation-report channel (ATDD_VIOLATIONS_REPORT) carrying
+# multi-rule, line-level RAW violations. v1.0.0 implementations run unchanged via
+# the exit-code fallback. See docs/.../PROVIDER-CONTRACT-v1.1.md.
+contract_version: "1.1.0"
+
+# Typed CAPABILITIES this workspace provides (#1138). A workspace is no longer
+# defined by a single runner; it declares one or more capabilities, each with a
+# `domain` (closed vocab), package-specific `type`, and a versioned `contract`
+# that defines the capability's required fields. python-pytest provides exactly
+# one capability: an execution command-runner. No backend/frontend/domain
+# semantics live here.
+capabilities:
+  - capability_id: execution.python-pytest
+    domain: execution
+    type: test-runner
+    contract: atdd.workspace.capability.execution.command-runner.v1
+    runtime:
+      language: python
+      runner: pytest
+      package_manager: pip
+      command: pytest
+
+# Shared runtime files materialized into each workspace INSTANCE at resolve time.
+shared_runtime:
+  files:
+    - runtime/pyproject.toml
+    - runtime/pytest.ini
+    - runtime/requirements-dev.txt
+
+# How this provider finds the executable units an extension ships, and the
+# provider-contract range those implementations must satisfy.
+discovers:
+  implementations:
+    - "**/atdd.implementation.yaml"
+  requires_contract: "^1.0.0"
+
+# A new runtime (node-vitest, go-test) proves it satisfies the SAME contract by
+# passing this suite. Provider-conformance tests stay with the provider.
+conformance:
+  suite: conformance/
+
+governed_by_conventions:
+  - coder.python.validator-code-convention
+  - tester.pytest-test-convention
+  - coach.violation-output-contract

@@ -1,0 +1,21 @@
+schema_version: 1.0.0
+rule_id: coder.presentation.response-models-live-in
+kind: rule
+status: active
+name: Response models live in contract_dto
+statement: Response models live in contract_dto and match contract JSON schemas
+terms:
+- term_id: response_model
+  text: A response model is a contract_dto type whose fields match the contract JSON
+    schema field-for-field.
+source:
+  legacy_path: src/atdd/coder/conventions/presentation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.presentation.response-models-live-in
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - PRESENTATION-THIN-003
+  introduced_in: 1.66.0

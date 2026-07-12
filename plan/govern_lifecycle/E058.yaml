@@ -1,0 +1,120 @@
+urn: "wmbt:govern-lifecycle:E058"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "core-ci-publish-resolving-the-local-fallback-and-skipping-instead-of-reconciling-the-real-release-version-and-draining-the-version-decided-signal-to-tag-and-publish"
+context_clarifier: >
+  The State Store is git-ignored, so a version bump on a PR branch never reaches CI through git, and
+  migration v2's seed (3.149.0) is stale versus the real released version (3.151.0). Core's publish
+  workflow therefore resolves the 0.0.0+local no-store fallback and SKIPS tag/build/publish — PyPI is
+  frozen and #1172/#1275/#1276 stay unreleased. The fix keeps core provider-neutral and CI-resolvable
+  (option b): version.set_version(conn, v) reconciles the release object's authoritative current from
+  the latest git tag WITHOUT emitting a version_decided signal (setting is not a publish decision);
+  version.change_class_for_commit(subject) derives PATCH/MINOR/MAJOR from a conventional-commit subject
+  (design §3.1); an atdd state version set CLI action exposes the reconcile. The post-merge publish
+  workflow then, in one job, reads current = git describe --tags, sets it, bumps by the derived class
+  (producing a real version + a pending neutral version_decided message), and drains that message via
+  the ext#36 release worker (tag + PyPI + external_ref) — replacing the skip, behind the existing
+  dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate, idempotent via a git describe --exact-match HEAD
+  skip. Core still names no tag/PyPI; the drain lives entirely in the extension.
+lens: "functional.effectiveness"
+statement: >
+  minimize likelihood of core-ci-publish-resolving-the-local-fallback-and-skipping-instead-of-reconciling-the-real-release-version-and-draining-the-version-decided-signal-to-tag-and-publish
+  by adding stdlib-only version.set_version(conn, v) (reconcile authoritative current via ObjectStore
+  upsert + a version_bumped audit event, emitting NO version_decided outbox) and
+  version.change_class_for_commit(subject) (conventional-commit type -> PATCH/MINOR/MAJOR) plus an
+  atdd state version set CLI action, and rewiring publish.yml so a post-merge job reconciles current
+  from git describe --tags, bumps by the derived class to produce a real version + a pending
+  version_decided message, and drains it through the release extension (tag + PyPI + external_ref)
+  behind the dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate with a git describe --exact-match HEAD
+  idempotency skip, while core still names no provider publish mechanics
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E058-UNIT-001-change-class-derives-from-conventional-commit-subject"
+      id: "AC-UNIT-001"
+      purpose: "change_class_for_commit(subject) maps a conventional-commit subject to the release change class per design §3.1: a feat type is MINOR; fix/chore/docs/refactor/devops (and any other/unknown type) are PATCH; a `type!:` breaking marker or a `BREAKING CHANGE` body/subject is MAJOR"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.state.version exposes change_class_for_commit(subject: str) -> str returning one of PATCH/MINOR/MAJOR"
+    when:
+      abstract: "the helper is evaluated for representative conventional-commit subjects"
+    then:
+      abstract:
+        - "'feat(atdd): add X' returns MINOR"
+        - "'fix(atdd): Y', 'chore: Z', 'docs: d', 'refactor: r', 'devops: v' and an unrecognized subject all return PATCH"
+        - "'feat(atdd)!: breaking' and a subject/body containing 'BREAKING CHANGE' return MAJOR"
+    metadata:
+      author: "atdd:wire-release-worker"
+      created: "2026-07-01"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E058-UNIT-002-set-version-reconciles-current-without-emitting-decision"
+      id: "AC-UNIT-002"
+      purpose: "set_version(conn, v) reconciles the release object's authoritative current to v (upsert) and records a version_bumped audit event for the reconcile, but emits NO version_decided outbox message — reconciling the stored current from an already-published tag is not a decision to publish"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A State Store connection whose release object carries the stale seed (3.149.0)"
+    when:
+      abstract: "set_version(conn, '3.151.0') is invoked"
+    then:
+      abstract:
+        - "current(conn) returns '3.151.0' (the release object was upserted)"
+        - "a version_bumped audit event records the reconcile (from 3.149.0 to 3.151.0)"
+        - "the outbox has NO pending version_decided message (setting emits no decision signal)"
+    metadata:
+      author: "atdd:wire-release-worker"
+      created: "2026-07-01"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E058-INTEGRATION-001-reconcile-then-bump-yields-real-version-and-pending-drain"
+      id: "AC-INTEGRATION-001"
+      purpose: "the reconcile->bump pipeline the publish job runs yields a real (non-fallback) version AND a pending provider-neutral version_decided message for the configured provider — proving CI would DRAIN, not skip on 0.0.0+local"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A fresh State Store seeded with the stale current, standing in for CI's ephemeral store"
+        - "The latest git tag resolves to '3.151.0' and the merge commit subject is a feat (MINOR)"
+    when:
+      abstract: "set_version(conn, '3.151.0') then bump(conn, change_class_for_commit(subject)) is invoked"
+    then:
+      abstract:
+        - "emit(conn) returns '3.152.0' — a real version, NOT the 0.0.0+local fallback"
+        - "exactly one pending version_decided outbox message exists, payload {version: 3.152.0, change_class: MINOR}, routed to the configured provider"
+        - "the message operation is version_decided and its payload names no tag/provider publish mechanics"
+    metadata:
+      author: "atdd:wire-release-worker"
+      created: "2026-07-01"
+
+  - identity:
+      urn: "acc:govern-lifecycle:E058-SMOKE-001-publish-workflow-resolves-real-version-and-invokes-drain-double-gated"
+      id: "AC-SMOKE-001"
+      purpose: "the rewired publish workflow no longer skips on a resolvable release: it reconciles current from git describe, bumps by the derived class, and invokes the release-extension drain behind the dry_run / ATDD_RELEASE_ALLOW_PUBLISH double-gate with a git describe --exact-match HEAD idempotency skip — proven end-to-end via the real CLI over a tmp repo (dry-run, no PyPI) plus a lint of the workflow wiring"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A tmp git repo with an annotated tag v3.151.0 and a control root holding a State Store"
+        - ".github/workflows/publish.yml carries the rewired reconcile->bump->drain steps"
+    when:
+      abstract: "the real atdd state version set/bump/emit CLI sequence is run over the tmp store, and publish.yml is parsed"
+    then:
+      abstract:
+        - "the CLI sequence resolves a real version (not 0.0.0+local) and leaves a pending version_decided message a drain would consume"
+        - "publish.yml reconciles current from git describe --tags, invokes the extension drain (version_decided), and no longer emits the 0.0.0+local publish-skipped path as the terminal outcome"
+        - "the drain is guarded by both the dry_run flag and the ATDD_RELEASE_ALLOW_PUBLISH env gate, and a git describe --exact-match HEAD step skips an already-released HEAD (idempotent)"
+    metadata:
+      author: "atdd:wire-release-worker"
+      created: "2026-07-01"

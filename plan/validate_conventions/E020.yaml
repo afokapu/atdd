@@ -1,0 +1,27 @@
+urn: wmbt:validate-conventions:E020
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: vacuous-variant-selection
+context_clarifier: every variant selects more than zero real nodes unless it declares
+  an allowed-empty selection with a reason
+lens: functional.effectiveness
+statement: minimize likelihood of vacuous-variant-selection by requiring every variant
+  to select more than zero real nodes or declare an allowed-empty selection
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E020-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify the E020 behaviour against the real CLI in a checkout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: the behaviour is exercised end-to-end
+  then:
+    abstract:
+    - the observable outcome holds

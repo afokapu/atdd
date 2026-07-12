@@ -1,0 +1,6 @@
+{
+  "$id": "domain:trophy",
+  "type": "object",
+  "required": ["tier"],
+  "properties": { "tier": { "type": "string" } }
+}

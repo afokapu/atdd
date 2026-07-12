@@ -1,0 +1,30 @@
+schema_version: 1.0.0
+rule_id: coder.boundaries.no-cross-wagon-imports
+kind: principle
+status: active
+name: Wagons must not import other wagons directly
+statement: A wagon MUST NOT import another wagon's modules directly; cross-wagon collaboration
+  happens only through contract artifacts (cargo) or shared design-system / common
+  packages. This is the canonical no-cross-wagon boundary that the per-stack detectors
+  (VC-DS-06, import scans) enforce.
+terms:
+- term_id: cross_wagon_isolation
+  text: wagon A cannot reference wagon B internals; the only legal channels between
+    wagons are contract artifacts (cargo) and shared design-system or common packages
+source:
+  legacy_path: src/atdd/coder/conventions/boundaries.convention.yaml
+  legacy_section: interaction.forbidden_cross_wagon_imports
+  legacy_rule_id: VC-DS-06
+  extraction_mode: high_fidelity
+content:
+  summary: "Canonical no-cross-wagon-imports boundary principle (stack-neutral). Per-stack\
+    \ detectors are workspace realization \u2014 the Flutter VC-DS-06 check_imports\
+    \ in design.convention.yaml and the Python import scan; the design cross_wagon\
+    \ and boundaries forbidden_cross_wagon_imports mirrors collapse into this single\
+    \ node."
+metadata:
+  severity: 4
+  disposition: documentation-only
+  aliases:
+  - VC-DS-06
+  introduced_in: 1.66.0

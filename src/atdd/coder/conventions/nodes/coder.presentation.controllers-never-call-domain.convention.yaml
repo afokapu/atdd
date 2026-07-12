@@ -1,0 +1,22 @@
+schema_version: 1.0.0
+rule_id: coder.presentation.controllers-never-call-domain
+kind: rule
+status: active
+name: Controllers never call domain directly
+statement: "Controllers never call domain directly; flow is Controller \u2192 Use\
+  \ Case \u2192 Domain"
+terms:
+- term_id: controller_flow
+  text: "The presentation flow is Controller \u2192 Use Case \u2192 Domain; controllers\
+    \ never invoke the domain layer directly."
+source:
+  legacy_path: src/atdd/coder/conventions/presentation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.presentation.controllers-never-call-domain
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - PRESENTATION-THIN-002
+  introduced_in: 1.66.0

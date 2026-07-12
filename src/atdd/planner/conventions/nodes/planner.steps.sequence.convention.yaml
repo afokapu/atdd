@@ -11,3 +11,7 @@ terms:
   text: a numbered unit of a wagon procedure
 - term_id: preconditions_and_outputs
   text: what a step requires before running and produces after
+metadata:
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0

@@ -3,6 +3,7 @@
   "title": "WMBT (What Must Be True) Schema",
   "description": "Schema for What Must Be True statements that define measurable outcomes",
   "type": "object",
+  "$comment": "This schema is NOT applied as a file-level gate to WMBT files (unlike wagon.schema.json and train.schema.json — there is no jsonschema.validate(wmbt_data, this_schema) anywhere). WMBT correctness is enforced by Python content validators (test_wmbt_vocabulary, test_hierarchy_coverage, test_wmbt_has_smoke_acceptance, test_wmbt_consistency) plus per-acceptance validation against acceptance.schema.json. The `acceptances` property is declared so this schema honestly describes the real WMBT file shape (every plan/ WMBT carries acceptances); `additionalProperties: false` is retained as-is but is never enforced against files. See #760.",
   "required": ["urn", "step", "direction", "dimension", "object_of_control", "lens"],
   "additionalProperties": false,
   "properties": {
@@ -46,6 +47,14 @@
       "type": "string",
       "minLength": 10,
       "description": "Human-readable statement: direction + dimension + object_of_control + context_clarifier"
+    },
+
+    "acceptances": {
+      "type": "array",
+      "description": "Embedded acceptances for this WMBT. WMBT files are NOT file-validated against this schema (see top-level $comment); embedded acceptances use a lighter shape than the standalone acceptance.schema.json — identity/harness/given/when/then with `abstract` fields plus metadata.author/created, and no top-level `signal`. Described here for honesty; see acceptance.schema.json definitions.embedded_acceptance.",
+      "items": {
+        "$ref": "acceptance.schema.json#/definitions/embedded_acceptance"
+      }
     },
 
     "appendices": {

@@ -1,0 +1,61 @@
+schema_version: 1.1.0
+rule_id: tester.migration.naming
+kind: rule
+status: active
+name: Migration tests are named after the migration they cover and colocated with it
+statement: A migration test MUST be named after the migration ID it covers and live alongside the migration
+  artifact, so the persistence change and the test that proves it stay traceable to each other. This is the
+  stack-bound tester obligation owned by the tester extension; the agnostic invariant
+  (a persistent contract must have a backing store) stays in CORE as
+  tester.migration.persistent-contract-requires-backing-store. This node is a DOC-ONLY obligation — its
+  enforcing detector is a PostgreSQL/Supabase concern (it must read `supabase/migrations/<timestamp>_<name>.sql`
+  filenames + their colocated tests) and therefore belongs to the `atdd.workspace.supabase` provider, NOT to
+  `atdd.workspace.python-pytest`. No python-pytest detector is authored here (see notes / TESTER-ACCOUNTING.md).
+content:
+  summary: A "migration tests are named after, and colocated with, their migration" obligation. The legacy
+    rule is `documentation-only`; the enforcing realization (scan the Supabase migrations directory, match
+    each `<timestamp>_<slug>.sql` to a colocated test named after the migration ID) is stack-bound to
+    PostgreSQL/Supabase and is deferred to the `atdd.workspace.supabase` workspace package, which does not
+    yet exist in this repository.
+  normative_text: |
+    Migrations are the store-level realization of a persistent contract. The store-tech-agnostic obligation
+    — every persistent contract must have a migration or an existing backing table — is owned by the CORE
+    node tester.migration.persistent-contract-requires-backing-store. What remains here is the per-stack
+    NAMING discipline: a migration's test is named after the migration ID and colocated with the migration
+    artifact so the two never drift apart.
+
+    The concrete mechanics — Supabase `supabase db diff/push`, the JSON-Schema -> PostgreSQL type map, SQL
+    templates, JSONB strategy, RLS/trigger review TODOs — are entirely PostgreSQL/Supabase tooling and route
+    to the `atdd.workspace.supabase` provider. They are deliberately NOT promoted to core and NOT realized by
+    the python-pytest workspace.
+  fix_hint: |
+    Name the migration test after the migration it covers (e.g. migration
+    `20260629120000_add_dilemma_match` -> test `test_20260629120000_add_dilemma_match`) and place it
+    alongside the migration artifact. This rule is `documentation-only`: it is advisory guidance, not a hard
+    gate. The enforcing detector lives in the (not-yet-built) `atdd.workspace.supabase` provider.
+  exceptions:
+    - Non-persistent contracts (no backing store) have no migration and are out of scope.
+    - The store-agnostic "persistent contract requires a backing store" obligation is owned by CORE, not by
+      this node.
+metadata:
+  aliases:
+    - TESTER-MIGRATION-NAMING-001
+  severity: 2
+  disposition: documentation-only
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/tester/conventions/migration.convention.yaml
+  legacy_section: "table_naming / workflow / rules[tester.migration.naming]"
+  legacy_rule_id: tester.migration.naming
+  legacy_sha: 1913d846a0d5108a
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-29'
+terms:
+- term_id: migration_id
+  text: the identifier of a migration artifact (for Supabase, the `<timestamp>_<slug>` stem of the
+    `.sql` file); a migration test is named after it and colocated with it.

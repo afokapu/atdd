@@ -37,7 +37,9 @@ from atdd.tester.validators._acceptance_walker import (
     acceptance_urn,
     assert_substrate_strict,
     has_harness_type,
+    is_pre_test_phase,
     iter_repo_acceptances,
+    owning_issue_phase,
 )
 
 
@@ -70,6 +72,12 @@ _PRUNE_DIRS = {
     ".pytest_cache",
     ".mypy_cache",
     "site-packages",
+    # Installed substrate (#1238): vendored extension/workspace packages under
+    # `.atdd/` ship their OWN detector test fixtures (clean/dirty sample tests
+    # that anchor to sample acceptances). They are vendored provider code, not
+    # the consumer's plan-bound tests, so they are out of scope for the repo's
+    # bidirectional-binding rule — pruned like any other vendored tree.
+    ".atdd",
 }
 
 
@@ -132,6 +140,18 @@ def collect_violations(repo_root: Optional[Path] = None) -> List[Violation]:
             continue
 
         if urn not in test_index:
+            # Phase-aware (#1242): an acceptance's anchored test is not authored
+            # until the owning issue reaches RED. Exempt the forward-pass
+            # requirement while the owning issue is still at INIT/PLANNED; from
+            # RED onward — or when ownership/phase is indeterminate (no manifest
+            # session, malformed manifest) — the requirement holds exactly as
+            # before (fail-closed). The reverse pass below is unaffected: the URN
+            # was already recorded in ``declared_acc_urns``, so an exempt
+            # acceptance never reads as an orphan.
+            owner_phase = owning_issue_phase(root, raw)
+            if owner_phase is not None and is_pre_test_phase(owner_phase):
+                continue
+
             violations.append(
                 Violation(
                     rule_id=_RULE.rule_id,

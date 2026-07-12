@@ -89,7 +89,7 @@ def _run_hook(
 
 
 # ---------------------------------------------------------------------------
-# AC-INTEGRATION-001: gh issue create → exit 2, stderr names atdd issue
+# AC-INTEGRATION-001: gh issue create → exit 2, stderr names atdd author issue
 # ---------------------------------------------------------------------------
 
 
@@ -99,7 +99,7 @@ def test_hook_blocks_gh_issue_create(tmp_path: Path) -> None:
     assert result.returncode == 2, f"expected exit 2, got {result.returncode}\nstderr: {result.stderr.decode()}"
     stderr = result.stderr.decode()
     assert "ATDD-FORBID-GH-ISSUE-CREATE" in stderr, f"rule_id missing from stderr: {stderr!r}"
-    assert "atdd issue" in stderr, f"alternative missing from stderr: {stderr!r}"
+    assert "atdd author issue" in stderr, f"alternative missing from stderr: {stderr!r}"
 
 
 def test_hook_blocks_gh_pr_create(tmp_path: Path) -> None:

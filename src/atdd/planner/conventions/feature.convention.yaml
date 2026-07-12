@@ -91,6 +91,215 @@ artifact_seeds:
             feature: "define-league"
             rationale: "Config defines league parameters"
 
+    # Canonical verb allowlist for the foundational verb-object naming rules
+    # (planner.wagon.name-is-verb-object / planner.feature.name-is-verb-object, #1276).
+    # The validators draw their lexicon from this convention: the union of the
+    # by_artifact_type suggestion verbs above and additional_verbs below. The
+    # by_artifact_type table alone is only a per-artifact *suggestion* set and
+    # rejects even this convention's own canonical examples (resolve-dilemmas,
+    # commit-state); additional_verbs makes the allowlist complete and explicit.
+    # Append a verb here (kept sorted) when a legitimately new action verb is needed
+    # — do NOT add nouns; a noun-led name is the violation the rule exists to catch.
+    lexicon:
+      additional_verbs:
+        - admit
+        - aggregate
+        - allocate
+        - annotate
+        - apply
+        - archive
+        - assign
+        - attach
+        - authenticate
+        - author
+        - bind
+        - bootstrap
+        - bridge
+        - broadcast
+        - build
+        - calculate
+        - cancel
+        - capture
+        - check
+        - classify
+        - collect
+        - commit
+        - compare
+        - compose
+        - compute
+        - connect
+        - consolidate
+        - convert
+        - copy
+        - correct
+        - count
+        - credit
+        - decode
+        - decommission
+        - delegate
+        - deliver
+        - deploy
+        - derive
+        - describe
+        - detach
+        - detect
+        - disable
+        - discover
+        - dispatch
+        - download
+        - drive
+        - elicit
+        - enable
+        - encode
+        - enforce
+        - enrich
+        - ensure
+        - escalate
+        - estimate
+        - evaluate
+        - expire
+        - export
+        - expose
+        - extract
+        - fetch
+        - filter
+        - finalize
+        - fix
+        - flush
+        - forward
+        - freeze
+        - gather
+        - govern
+        - guard
+        - hydrate
+        - implement
+        - import
+        - index
+        - inject
+        - inspect
+        - integrate
+        - invoke
+        - isolate
+        - judge
+        - launch
+        - link
+        - lint
+        - list
+        - load
+        - lock
+        - log
+        - map
+        - mark
+        - match
+        - measure
+        - mediate
+        - merge
+        - migrate
+        - mint
+        - normalize
+        - observe
+        - open
+        - orchestrate
+        - parse
+        - partition
+        - pause
+        - persist
+        - ping
+        - plan
+        - poll
+        - populate
+        - post
+        - prepare
+        - preview
+        - prioritize
+        - produce
+        - project
+        - promote
+        - prompt
+        - propagate
+        - provision
+        - prune
+        - pull
+        - purge
+        - push
+        - queue
+        - rank
+        - read
+        - rebuild
+        - reconcile
+        - record
+        - redirect
+        - refine
+        - refresh
+        - register
+        - reject
+        - release
+        - reload
+        - remove
+        - rename
+        - render
+        - replay
+        - replicate
+        - report
+        - request
+        - resolve
+        - respond
+        - restore
+        - resume
+        - retrieve
+        - retry
+        - revoke
+        - rollback
+        - route
+        - run
+        - sample
+        - save
+        - scaffold
+        - scan
+        - schedule
+        - score
+        - search
+        - seed
+        - select
+        - send
+        - serve
+        - show
+        - sign
+        - simulate
+        - snapshot
+        - spawn
+        - split
+        - stop
+        - store
+        - stream
+        - submit
+        - subscribe
+        - summarize
+        - surface
+        - suspend
+        - swap
+        - sync
+        - tag
+        - teardown
+        - throttle
+        - toggle
+        - trace
+        - transform
+        - translate
+        - trim
+        - tune
+        - unlock
+        - unsubscribe
+        - upgrade
+        - upload
+        - validate
+        - verify
+        - visualize
+        - warn
+        - watch
+        - wire
+        - wrap
+
   transformation_guidance:
     step_1: "Identify artifact from wagon produce/consume"
     step_2: "Determine artifact type: event, state, data, or config"
@@ -371,22 +580,20 @@ validation_rules:
   - "Features exceeding hard limits (tables/jobs/integrations) MUST be split"
 
 
+# Foundational verb-object naming enforcement (#1276)
+# feature slugs (the 3rd segment of feature:<wagon>:<name>) must be verb-object;
+# the rule planner.feature.name-is-verb-object enforces it at the atdd plan
+# Confirm gate and under atdd validate planner, drawing its verb lexicon from
+# artifact_seeds.verb_selection above. Brand / proper-noun feature slugs allowed
+# to bypass verb-object MUST be listed explicitly here (never implicit).
+verb_object_enforcement:
+  rule: planner.feature.name-is-verb-object
+  verb_lexicon_source: "conventions:planner:feature#/artifact_seeds/verb_selection"
+  brand_exceptions: []
+
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
-rules:
-  - id: "planner.feature.shape"
-    aliases: ["PLANNER-FEATURE-SHAPE-001"]
-    severity: 2
-    disposition: documentation-only
-    description: "Feature YAMLs declare urn, status, and a non-empty acceptance section"
-    introduced_in: "1.67.0"
-  - id: "planner.feature.wagon-link"
-    aliases: ["PLANNER-FEATURE-WAGON-LINK-001"]
-    severity: 2
-    disposition: documentation-only
-    description: "Each feature is registered under exactly one wagon's _features.yaml manifest"
-    introduced_in: "1.67.0"
 
 # =============================================================================
 # Feature kind field (issue #825)

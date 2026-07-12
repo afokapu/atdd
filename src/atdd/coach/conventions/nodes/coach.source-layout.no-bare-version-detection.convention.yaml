@@ -5,9 +5,8 @@ status: active
 name: No bare version detection
 statement: version("atdd") / pkg_version("atdd") must only be called inside the canonical try/except PackageNotFoundError
   wrapper in src/atdd/__init__.py; the bare call raises from source without a wheel (CI's setup).
-implementation:
-  type: validator
-  ref: test_toolkit_source_layout_assumptions::test_no_bare_version_detection
+# documentation-only (#1225): the monolith block carried no `validator:`; the scan in
+# test_toolkit_source_layout_assumptions stays advisory and is not a bound enforcement gate.
 source:
   legacy_path: src/atdd/coach/conventions/source-layout.convention.yaml
   legacy_section: rules

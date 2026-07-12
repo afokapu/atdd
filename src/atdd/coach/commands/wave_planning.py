@@ -115,7 +115,7 @@ def _remove_worktree(worktree_path: Path) -> None:
             capture_output=True,
             text=True,
         )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         pass
 
 

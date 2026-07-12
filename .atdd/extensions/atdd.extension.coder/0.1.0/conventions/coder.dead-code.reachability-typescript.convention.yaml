@@ -1,0 +1,76 @@
+schema_version: 1.1.0
+rule_id: coder.dead-code.reachability-typescript
+kind: rule
+status: active
+name: TypeScript source files must be reachable from a graph root
+statement: Every production TypeScript source file (`*.ts`/`*.tsx`) MUST be reachable from at least one
+  graph root (an app entry point, test file, index barrel, or registered entry) by following the static
+  import graph. This is the language-agnostic obligation owned by the coder extension. The stack-specific
+  detector that enforces it (a regex-over-import-specifiers scan that builds the file-level import graph
+  and BFS-walks it from the convention roots) is the python-pytest workspace implementation referenced
+  below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.dead-code.reachability-typescript
+content:
+  summary: An agnostic "all production source is reachable from an entry point" obligation, the TypeScript
+    sibling of coder.dead-code.reachability. The realization is a PYTHON detector that inspects TS source
+    (regex over import/export/require/dynamic-import specifiers — no TS runtime), flagging any `*.ts`/
+    `*.tsx` file (other than a structural `index.ts`/`index.tsx` barrel) that no graph root reaches.
+  normative_text: |
+    Dead (unreachable) TypeScript inflates the bundle and the maintenance surface. A file is "alive" when
+    some graph root transitively imports it (forward) or it is imported by a reachable file (reverse).
+    Graph roots are test files (`*.test.ts(x)`, `*.spec.ts(x)`, files under `__tests__/`/`tests/`/
+    `test/`), `index.ts`/`index.tsx` barrels (the TS equivalent of `__init__.py`), `composition.ts`,
+    `wagon.ts`, and app entry points (`main.ts(x)`, `app.ts(x)`). The obligation is "every file is
+    reachable from a root"; HOW roots are enumerated and edges resolved is delegated to the per-stack
+    detector. For TS the detector resolves relative (`./`, `../`) and `@/` path-alias specifiers against
+    the scan root; external (npm) specifiers are outside the graph. Note: this realization needs no
+    TypeScript runtime — it runs under the python-pytest provider, distinct from a future node/vitest TS
+    workspace for validators that require real TS semantics.
+  fix_hint: |
+    Make the file reachable, or remove it:
+      * import/re-export it from an `index.ts` barrel or an app entry point, or
+      * cover it with a test that imports it, or
+      * if it is a genuine entry the tracer cannot see (route module, lazy chunk registered elsewhere),
+        register it as a root via consumer scan-policy, or
+      * delete the dead file.
+    This rule's disposition is `strict`: there is no inline-suppression marker. Pre-existing dead code in
+    a consumer repo is held flat by a downstream ratchet baseline (a consumer/coach concern), not by the
+    workspace detector — the detector always emits the RAW unreachable-file list.
+  exceptions:
+    - Test code is itself a graph ROOT (not excluded) — test files anchor reachability.
+    - Barrel files (`index.ts`/`index.tsx`) are never reported as dead code — they are structural.
+    - Vendored/build dirs (`node_modules`, `dist`, `build`, `.next`, `.nuxt`, `coverage`, etc.) are
+      skipped during traversal.
+    - App/route entry points the static tracer cannot see are roots; enumerating them is consumer
+      SCAN-POLICY, supplied to the detector, not baked into it.
+metadata:
+  aliases:
+    - DEAD-CODE-REACHABILITY-TS-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/dead-code.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.dead-code.reachability-typescript
+  legacy_sha: 819ab6f232fb9a84
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: graph_root
+  text: a file that anchors reachability analysis — an app entry point (`main.ts(x)`/`app.ts(x)`), a test
+    file, an `index.ts`/`index.tsx` barrel, `composition.ts`/`wagon.ts`, or a registered entry. All files
+    reachable from a root are "alive".
+- term_id: reachable_file
+  text: a TS file that some graph root transitively imports (forward edge) or that is imported by a
+    reachable file (reverse edge); the union of forward and reverse BFS from the roots.
+- term_id: barrel_export
+  text: an `index.ts`/`index.tsx` file that re-exports symbols (`export { X } from './m'`), the TS
+    equivalent of an `__init__.py` shim — a graph edge and a root, never reported as dead.

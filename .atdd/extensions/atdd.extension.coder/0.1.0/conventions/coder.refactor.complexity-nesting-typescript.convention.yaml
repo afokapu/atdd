@@ -1,0 +1,69 @@
+schema_version: 1.1.0
+rule_id: coder.refactor.complexity-nesting-typescript
+kind: rule
+status: active
+name: TypeScript function nesting depth stays under threshold
+statement: Every TypeScript/TSX function MUST keep its maximum control-block nesting depth below the
+  threshold (default <= 4, parity with the Python rule) so that deeply nested control flow does not make a
+  function hard to read and test. This is the TypeScript-stack realization of the language-neutral
+  coder.refactor.complexity-nesting obligation owned by the coder extension. The stack-specific detector
+  that enforces it (a regex brace-tracking scan — no AST/tree-sitter) is the python-pytest workspace
+  implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.refactor.complexity-cyclomatic-typescript
+content:
+  summary: The TypeScript sibling of coder.refactor.complexity-nesting. The realization is a PYTHON detector
+    that inspects TS source by regex + brace tracking (no TypeScript runtime), measuring the deepest brace
+    level that follows a control-flow keyword (if / else / for / while / do / switch / try / catch /
+    finally) within each function body, flagging any function deeper than 4. It is realized by the same
+    multi-rule TS complexity detector as the two sibling coder.refactor.complexity-*-typescript rules (via
+    that implementation's emits_rule_ids).
+  normative_text: |
+    Deep nesting in TypeScript (nested if / for / switch blocks) makes code hard to read and test; the
+    obligation mirrors the Python one (default threshold <= 4 levels). HOW depth is measured is delegated to
+    the per-stack detector; for the TS stack it tracks brace depth line by line and counts a level only when
+    a control-flow keyword (if / else / for / while / do / switch / try / catch / finally) precedes the
+    opening brace, so object literals and arrow bodies do not inflate the count. This realization needs no
+    TypeScript runtime; it runs under the python-pytest provider, distinct from a future node/vitest TS
+    workspace for validators that require real TS semantics.
+  fix_hint: |
+    Flatten the flagged function:
+      * use guard clauses / early returns to remove an outer level,
+      * extract a deeply nested block into its own function,
+      * invert conditions to reduce the deepest branch.
+    This rule is `strict`: a function over the nesting threshold is not suppressible and fails. Pre-existing
+    depth in a consumer repo is held flat by a downstream ratchet baseline (a consumer/coach concern), not
+    the workspace detector — the detector always emits the RAW over-threshold function list.
+  exceptions:
+    - Non-control braces (object literals, arrow bodies) do not count toward the nesting depth.
+    - Test files (*.test.ts(x) / *.spec.ts(x)) and vendored/build dirs are outside the scan.
+    - The threshold (default 4) is configurable; the obligation is "at or below the configured threshold".
+metadata:
+  aliases:
+    - COMPLEXITY-NESTING-TS-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/refactor.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.refactor.complexity-nesting-typescript
+  legacy_sha: 3c4ee089cff5ec9e
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: nesting_depth_ts
+  text: the maximum control-block brace depth in a TypeScript function, counting only braces that follow a
+    control-flow keyword.
+- term_id: control_keyword
+  text: a keyword that opens a counted nested block — if / else / for / while / do / switch / try / catch /
+    finally; braces not preceded by one (object literals, arrow bodies) are ignored.
+- term_id: nesting_threshold
+  text: the configured maximum nesting depth a TS function may have (default 4, parity with the Python
+    rule); the obligation is to stay at or below it.

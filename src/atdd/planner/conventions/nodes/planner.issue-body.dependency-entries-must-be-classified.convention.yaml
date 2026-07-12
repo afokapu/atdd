@@ -11,3 +11,11 @@ terms:
   text: a '#N' reference in the Dependencies section of an issue body
 - term_id: classification_tag
   text: a trailing prereq/merged/sibling/parallel marker on the entry
+implementation:
+  type: validator
+  ref: test_issue_deps_have_classification_tags::test_issue_deps_have_classification_tags
+metadata:
+  severity: 2
+  disposition: advisory
+  introduced_in: 3.81.0
+  suppression_deadline: "2026-12-31"

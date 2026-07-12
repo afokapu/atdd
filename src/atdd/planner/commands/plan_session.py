@@ -54,7 +54,7 @@ class SessionGateError(RuntimeError):
 @dataclass
 class Unit:
     """A decomposition candidate the operator decides on (keep/pivot/kill)."""
-    kind: str                      # main-job | heuristic | analog | wagon | feature | wmbt | train | acceptance
+    kind: str                      # main-job | heuristic | analog | wagon | feature | wmbt | train | interlocking | contract | acceptance
     ref: str                       # slug / urn / label
     verdict: str = Verdict.PENDING.value
     modification: str | None = None  # named modification when pivoted
@@ -69,6 +69,9 @@ class PlanSession:
     sources: list = field(default_factory=list)   # captured source descriptors
     units: list = field(default_factory=list)     # list[Unit] (as dicts when persisted)
     locked: bool = False
+    issue_ref: str | None = None  # local issue identity (manifest slug) this plan binds to;
+    # the SoT is the local manifest/State Store record (#945/#1168), NOT a GitHub number — the
+    # GitHub issue number is a downstream projection the github extension syncs after install.
 
     # ---- persistence -------------------------------------------------------
     @staticmethod
@@ -152,12 +155,17 @@ class PlanSession:
             raise SessionGateError(why)
         self.step = target.value
 
-    def confirm(self) -> None:
+    def confirm(self, root: Path | str = ".") -> None:
         """The Confirm gate: every unit must reach a TERMINAL verdict (keep or
         kill) before locking. PENDING and PIVOT are non-terminal — a pivot names
         a modification that must be re-drafted and re-decided (decide() again to
         keep/kill) before confirm. This is the conversational->deterministic
-        boundary."""
+        boundary.
+
+        Before locking, kept train units' interlocking sanity is validated via
+        the #1248 Python API (``planner.plan.confirm-requires-interlocking-sanity``,
+        #1249). The gate fails closed and is atomic: every failure path raises
+        ``SessionGateError`` and leaves ``self.locked is False``."""
         if Step(self.step) is not Step.CONFIRM:
             raise SessionGateError("confirm() is only valid in the Confirm step")
         unresolved = [u["ref"] for u in self.units
@@ -165,6 +173,36 @@ class PlanSession:
         if unresolved:
             raise SessionGateError(
                 f"unresolved units — keep or kill required (pivots must be re-resolved): {unresolved}")
+        if self.issue_ref is None:
+            raise SessionGateError(
+                "confirm-binds-an-issue: the decomposition must be bound to a local ATDD issue "
+                "record (a target issue, or one minted from the main job) before lock — every "
+                "authored plan modification is tracked by an issue + branch + worktree (the "
+                "universal rule). The binding is the local manifest/State Store slug, NOT a GitHub "
+                "number (GitHub is a downstream extension). "
+                "Set it via `atdd plan session bind-issue --id <sess> --issue <slug>`.")
+        # Interlocking sanity for kept train units (#1249). Runs BEFORE the lock,
+        # so a failure raises and leaves the session unlocked (atomicity). A kept
+        # train with no interlocking reference is a direct train and is allowed.
+        from atdd.planner.commands.confirm_interlocking import (
+            assert_kept_train_interlocking_sanity,
+        )
+        assert_kept_train_interlocking_sanity(self, root)
+        # Foundational verb-object naming for kept wagon/feature units (#1276).
+        # Runs BEFORE the lock so a non-verb-object name raises and leaves the
+        # session unlocked (atomicity, same contract as interlocking sanity).
+        from atdd.planner.commands.confirm_naming import (
+            assert_kept_wagon_feature_naming,
+        )
+        assert_kept_wagon_feature_naming(self, root)
+        # Foundational artifact/contract naming for kept wagon produce[] (#1329).
+        # Same atomic, before-lock contract: a non-theme-first artifact identity
+        # or a contract path that does not mirror it raises and leaves the
+        # session unlocked.
+        from atdd.planner.commands.confirm_artifact_naming import (
+            assert_kept_artifact_naming,
+        )
+        assert_kept_artifact_naming(self, root)
         self.locked = True
 
     def author(self, author_fn) -> list:
@@ -182,7 +220,8 @@ def build_author_fn(root: Path | str = "."):
     """The on-Confirm deterministic dispatch: map a locked unit's kind to its
     #1144 `atdd author` writer. atdd plan invokes this — the system, not the agent."""
     from atdd.planner.commands.author import (
-        create_acceptance, create_feature, create_train, create_wagon, create_wmbt,
+        create_acceptance, create_contract, create_feature, create_interlocking,
+        create_train, create_wagon, create_wmbt,
     )
 
     def _author(kind: str, spec: dict):
@@ -194,6 +233,10 @@ def build_author_fn(root: Path | str = "."):
             return create_wmbt(spec, root=root)
         if kind == "train":
             return create_train(spec, root=root)
+        if kind == "interlocking":
+            return create_interlocking(spec, root=root)
+        if kind == "contract":
+            return create_contract(spec, root=root)
         if kind == "acceptance":
             return create_acceptance(spec["wmbt_urn"], spec["block"], root=root)
         raise SessionGateError(f"no atdd author writer for plan kind {kind!r}")

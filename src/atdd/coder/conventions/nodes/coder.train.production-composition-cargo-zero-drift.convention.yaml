@@ -1,0 +1,33 @@
+schema_version: 1.0.0
+rule_id: coder.train.production-composition-cargo-zero-drift
+kind: rule
+status: active
+name: Train is a production composition root with cargo communication and zero-drift
+  YAML
+statement: A train is a PRODUCTION composition root in the orchestration layer (not
+  test infrastructure); wagons communicate only via cargo (contract artifacts), never
+  via direct cross-wagon imports; and the train YAML is the single source of truth
+  for orchestration, consumed identically by production and tests so the two never
+  drift.
+terms:
+- term_id: production_composition_root
+  text: the orchestration layer that executes user journeys by coordinating wagons
+    through contract-based cargo, declared in train YAML that production and tests
+    both consume via the same runner
+source:
+  legacy_path: src/atdd/coder/conventions/train.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: COACH-TRAIN-COMPOSITION-001/002/003
+  extraction_mode: high_fidelity
+content:
+  summary: Train composition-root + cargo-communication + zero-drift YAML principle
+    (stack-neutral; the python/trains location, TrainRunner/Cargo class shapes, and
+    app.py Station Master are workspace realization)
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - COACH-TRAIN-COMPOSITION-001
+  - COACH-TRAIN-COMPOSITION-002
+  - COACH-TRAIN-COMPOSITION-003
+  introduced_in: 1.66.0

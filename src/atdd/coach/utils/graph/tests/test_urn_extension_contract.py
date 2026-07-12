@@ -5,22 +5,25 @@ Substrate URN-extension contract (issue #421).
 Demonstrates that introducing a new URN family requires only:
 
   (a) a new resolver class in resolver.py
-  (b) a new entry in URNBuilder.PATTERNS (and SEGMENT_COUNTS for the
-      parent-it-belongs-to grammar)
-  (c) one new branch in URNBuilder.parse_urn
-  (d) optionally a builder method on URNBuilder
+  (b) a new ROW in the URN grammar convention (``urn_grammar.yaml``) — its
+      ``pattern`` + ``segment_count`` are projected into ``URNGrammar.PATTERNS``
+      / ``SEGMENT_COUNTS`` at import (issue #1421); the engine is unchanged
+  (c) nothing in ``URNGrammar.parse_urn`` for a colon-only family — parsing is
+      driven by the convention's ``segments`` names
+  (d) optionally a builder method on URNGrammar
 
 — and NO edits to validators, CLI subcommand registries, test discovery,
 graph builders, or any other call site.
 
 The test installs a throwaway ``theatre:`` URN family behind a pytest
-fixture (the "test-only flag") via ``monkeypatch``, mirroring the
-production extension steps without permanently altering shipped code.
-The assertions then prove that:
+fixture (the "test-only flag") by adding one convention row to a copy of the
+loaded grammar and reprojecting the class tables exactly as ``URNGrammar`` does
+at import — mirroring the production extension steps without permanently
+altering shipped data. The assertions then prove that:
 
 - The registry recognises the new family (``ResolverRegistry.families``).
-- ``URNBuilder.PATTERNS`` validates the new URN.
-- ``URNBuilder.validate_grammar`` auto-detects the new family using the
+- ``URNGrammar.PATTERNS`` validates the new URN.
+- ``URNGrammar.validate_grammar`` auto-detects the new family using the
   registered SEGMENT_COUNTS entry.
 - ``EdgeValidator`` runs cleanly on a graph containing the new family
   (no crash, no false-positive orphan or missing-edge issue).
@@ -41,22 +44,44 @@ from atdd.coach.utils.graph.resolver import (
     ResolverRegistry,
     URNResolution,
 )
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
 
 
 # ---------------------------------------------------------------------------
-# (b) Test-only flag: install theatre: in PATTERNS + SEGMENT_COUNTS.
+# (b) Test-only flag: add ONE theatre: convention row and reproject the tables.
 # ---------------------------------------------------------------------------
 @pytest.fixture
 def theatre_pattern_installed(monkeypatch):
-    """Install a ``theatre:<slug>`` family for the duration of one test."""
-    new_patterns = dict(URNBuilder.PATTERNS)
-    new_patterns["theatre"] = r"^theatre:[a-z][a-z0-9-]*$"
-    monkeypatch.setattr(URNBuilder, "PATTERNS", new_patterns)
+    """Install a ``theatre:<slug>`` family for the duration of one test.
 
-    new_counts = dict(URNBuilder.SEGMENT_COUNTS)
-    new_counts["theatre"] = 1  # parent-it-belongs-to: top-level (no parent)
-    monkeypatch.setattr(URNBuilder, "SEGMENT_COUNTS", new_counts)
+    Convention-native (issue #1421): a family is one row of grammar data. This
+    adds that row to a copy of the loaded ``_FAMILY_SPECS`` and reprojects
+    ``PATTERNS`` / ``SEGMENT_COUNTS`` the same way ``URNGrammar`` does at import
+    — proving a new family is a one-row convention edit, with no engine change.
+    """
+    theatre_row = {
+        "pattern": r"^theatre:[a-z][a-z0-9-]*$",
+        "segment_count": 1,  # parent-it-belongs-to: top-level root (no parent)
+        "parent": None,
+        "segments": ["slug"],
+    }
+    new_specs = dict(URNGrammar._FAMILY_SPECS)
+    new_specs["theatre"] = theatre_row
+    monkeypatch.setattr(URNGrammar, "_FAMILY_SPECS", new_specs)
+    monkeypatch.setattr(
+        URNGrammar,
+        "PATTERNS",
+        {family: spec["pattern"] for family, spec in new_specs.items()},
+    )
+    monkeypatch.setattr(
+        URNGrammar,
+        "SEGMENT_COUNTS",
+        {
+            family: spec["segment_count"]
+            for family, spec in new_specs.items()
+            if spec.get("segment_count") is not None
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -102,8 +127,8 @@ def test_a_resolver_registration_exposes_family(theatre_pattern_installed, tmp_p
 def test_b_patterns_entry_validates_new_urn(theatre_pattern_installed):
     """(b): adding a single PATTERNS entry is enough for validate_urn /
     validate_grammar to accept the new URN."""
-    assert URNBuilder.validate_urn("theatre:hamlet", "theatre")
-    assert URNBuilder.validate_grammar("theatre:hamlet")
+    assert URNGrammar.validate_urn("theatre:hamlet", "theatre")
+    assert URNGrammar.validate_grammar("theatre:hamlet")
 
 
 def test_b_grammar_rejects_malformed_theatre_urn(theatre_pattern_installed):
@@ -111,7 +136,7 @@ def test_b_grammar_rejects_malformed_theatre_urn(theatre_pattern_installed):
     SEGMENT_COUNTS — no per-family error code required."""
     # Two tokens after prefix, but theatre: has segment_count == 1.
     with pytest.raises(ValueError, match="wrong segment count"):
-        URNBuilder.validate_grammar("theatre:hamlet:act-1")
+        URNGrammar.validate_grammar("theatre:hamlet:act-1")
 
 
 def test_no_validator_edits_required(theatre_pattern_installed, tmp_path):

@@ -1,0 +1,29 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: metadata-driven selection for P1 families
+      type: use_cases
+    domain:
+    - count: 0
+      rationale: reuses TemplateContract
+      type: value_objects
+    integration:
+    - count: 0
+      rationale: reads composed graph; no new contract
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected P1 variants
+      type: controllers
+description: Concrete P1 parity validator variants (coverage-source, sizing, coherence,
+  acyclicity, boundary, policy) under conventions/<family>/test_<variant>.py, or explicitly
+  deferred with reason, runnable in parallel with legacy.
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:validate-conventions:p1-parity-variants
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E014

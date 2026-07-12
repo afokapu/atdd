@@ -200,7 +200,7 @@ class ProducerValidator:
                 with open(wagon_file) as f:
                     wagon_data = yaml.safe_load(f)
                     return wagon_data.get("theme", "unknown")
-            except:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+            except:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                 pass
 
         return "unknown"

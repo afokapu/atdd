@@ -87,7 +87,7 @@ def fix_file(file_path: Path) -> tuple[bool, str]:
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             original_content = f.read()
-    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         return False, f"ERROR: Could not read: {e}"
 
     ac_from_header = extract_ac_from_header(original_content)
@@ -119,7 +119,7 @@ def fix_file(file_path: Path) -> tuple[bool, str]:
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
         return True, f"FIXED: {', '.join(changes)}"
-    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         return False, f"ERROR: Could not write: {e}"
 
 

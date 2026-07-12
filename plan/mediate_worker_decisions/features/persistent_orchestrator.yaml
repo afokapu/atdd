@@ -1,0 +1,23 @@
+urn: "feature:mediate-worker-decisions:persistent-orchestrator"
+wagon: "wagon:mediate-worker-decisions"
+description: "The coach-level supervisor loop the coach lacks today: given a single work item it runs unattended until the item reaches a terminal phase (COMPLETE/BLOCKED). Each tick it polls the injected phase poller for the work item's current phase and done-signal; when the current phase's done-signal is present it drives the injected phase driver to advance to (or re-dispatch for) the next phase, then sleeps via the injected clock and repeats. A phase that never produces its done-signal within the stall threshold is loud-logged and the loop exits rather than hanging mid-transition. CORE only: the real cmux send-key / live-launch runtime is the provider's; the loop depends solely on the injected poller, driver, and clock so tests are hermetic and deterministic."
+sizing:
+  wmbts: 2
+  footprint_score: 5
+  footprint_size: "S"
+wmbts:
+  - "wmbt:mediate-worker-decisions:C010"
+  - "wmbt:mediate-worker-decisions:M006"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "persistent_orchestrator: poll -> advance-on-done-signal -> sleep -> repeat until terminal; loud-log + exit on a stall"
+      - type: "ports"
+        count: 1
+        rationale: "PhasePoller / PhaseDriver / Sleeper protocols — the injected dispatcher/poller/clock seam (the real cmux runtime is the provider's)"
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "orchestrator_config (frozen): terminal phases + stall threshold + poll interval; pure is_terminal helper"

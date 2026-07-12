@@ -36,7 +36,7 @@ def test_real_git_commit_is_rejected(tmp_path: Path) -> None:
     )
     assert result.returncode != 0, "real git commit was NOT rejected by the pre-commit hook"
     combined = result.stdout + result.stderr
-    assert "atdd issue" in combined, f"educational alternative missing: {combined!r}"
+    assert "atdd author issue" in combined, f"educational alternative missing: {combined!r}"
 
     # No commit object should exist on the branch.
     log = subprocess.run(

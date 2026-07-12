@@ -1,0 +1,74 @@
+urn: "wmbt:coach-verb-split:E002"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "behavior-drift-between-atdd-issue-reconcile-and-atdd-coach-reconcile"
+context_clarifier: "when umbrella #1303 splits `atdd issue` across the author and coach archetypes: the existing `atdd issue reconcile` callers (and the pre-commit-hook / branch-self-heal fix-hints that name it) must keep working unchanged, the backfill-from-GitHub behavior and the merged E054 module-resolution fixes must survive the move without being reimplemented, and C3-C4 (#1307/#1308) must be able to add their extracted verbs in parallel without merge conflicts"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of behavior-drift-between-atdd-issue-reconcile-and-atdd-coach-reconcile by registering `atdd coach reconcile` as a drop-in module in the coach_verbs auto-discovery package whose run(argv) DELEGATES to the existing IssueManager.reconcile() (never reimplementing the backfill-from-GitHub logic or its E054 fixes), and by rewiring the deprecated `atdd issue reconcile` dispatch into a thin shim that prints a one-line stderr deprecation notice and delegates to the same verb, so parity is guaranteed by shared code and parallel children (C3/C4) edit nothing shared in the code layer"
+acceptances:
+  - identity:
+      urn: "acc:coach-verb-split:E002-UNIT-001-reconcile-verb-auto-discovery"
+      id: "AC-UNIT-001"
+      purpose: "coach_verbs.resolve_verb('reconcile') returns the reconcile drop-in's run entry point, and the drop-in is discovered with zero edits to any shared code file"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The coach_verbs auto-discovery package with the reconcile.py drop-in present"
+    when:
+      abstract: "resolve_verb('reconcile') and discover() are called"
+    then:
+      abstract:
+        - "resolve_verb('reconcile') is the same callable as coach_verbs.reconcile.run"
+        - "discover()['reconcile'] is that same callable"
+        - "resolve_verb of an unknown token or a bare issue number returns None"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
+  - identity:
+      urn: "acc:coach-verb-split:E002-INTEGRATION-001-coach-reconcile-delegates-identically"
+      id: "AC-INTEGRATION-001"
+      purpose: "atdd coach reconcile delegates to the existing IssueManager.reconcile() identically to the old atdd issue reconcile path, and the deprecated shim warns + delegates"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "IssueManager.reconcile stubbed via a class-level patch with a recording spy (no live GitHub / gh call)"
+        - "A temp control root so any leaked store/manifest write is contained"
+    when:
+      abstract: "coach.run_cli(['reconcile']) is called, and separately cli.main for `issue reconcile`"
+    then:
+      abstract:
+        - "coach.run_cli(['reconcile']) reaches IssueManager.reconcile() exactly once and returns the exit code it produced"
+        - "The deprecated `atdd issue reconcile` prints a one-line stderr deprecation notice naming `atdd coach reconcile` and delegates to the new verb (reaching IssueManager.reconcile() exactly once), returning its exit code"
+        - "No reconcile logic is reimplemented in the verb or the shim — both reach the same IssueManager.reconcile()"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
+  - identity:
+      urn: "acc:coach-verb-split:E002-SMOKE-001-real-reconcile-in-temp-control-root"
+      id: "AC-SMOKE-001"
+      purpose: "against a temp ATDD_CONTROL_ROOT with no seeded manifest (never a live issue), atdd coach reconcile drives the real IssueManager.reconcile() to its manifest guard, and the deprecated shim routes to the same engine"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp control root (ATDD_CONTROL_ROOT) / temp cwd with no .atdd/manifest.yaml — so real reconcile() bails at its manifest-not-found guard BEFORE any gh/git side effect (mirrors the hermetic E054-SMOKE approach)"
+        - "No live GitHub issue and no real control root outside the temp dir is ever touched"
+    when:
+      abstract: "atdd coach reconcile is executed end-to-end against the temp control root, and separately the deprecated atdd issue reconcile"
+    then:
+      abstract:
+        - "The real IssueManager.reconcile() is reached (proven by its `.atdd/manifest.yaml not found` guard message) with no UnboundLocalError and no live GitHub call"
+        - "Running the deprecated `atdd issue reconcile` reaches the same engine (same guard message / exit code) and prints the deprecation notice on stderr"
+        - "No live GitHub issue and no real control root outside the temp dir is ever mutated"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"

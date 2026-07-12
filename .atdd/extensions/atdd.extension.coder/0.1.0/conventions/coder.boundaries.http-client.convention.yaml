@@ -1,0 +1,77 @@
+schema_version: 1.1.0
+rule_id: coder.boundaries.http-client
+kind: rule
+status: active
+name: Frontend HTTP must go through the contract-driven client (no raw fetch)
+statement: When frontend production code performs an HTTP request, it MUST go through the project's
+  contract-driven HTTP client rather than calling the platform `fetch()` primitive directly, so that
+  contracts, interceptors, and telemetry are applied uniformly. This is the language-agnostic "no
+  un-governed HTTP egress" boundary obligation owned by the coder extension. The stack-specific
+  detector that enforces it (a scan for raw `fetch(` calls in non-test TypeScript/TSX under the
+  frontend source root, honoring a whitelist) is the python-pytest workspace implementation
+  referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.boundaries.http-client
+content:
+  summary: An agnostic "all HTTP access flows through the governed client" boundary obligation. The
+    TypeScript realization forbids raw `fetch(` calls in `web/src/` production code (outside a
+    configured whitelist) and requires the project HttpClient instead; other stacks realize the same
+    boundary against their own client under their own workspace detector.
+  normative_text: |
+    Raw `fetch()` bypasses the contract layer, request/response interceptors, auth, and telemetry the
+    governed HttpClient applies, creating un-observable, un-contracted egress. The obligation is
+    "frontend code does not call the HTTP primitive directly; it uses the contract-driven client".
+    WHICH primitive and HOW it is detected is delegated to the per-stack detector. For the TypeScript
+    stack the detector is a regex matching a `fetch(` call that is not a property access or a longer
+    identifier (so `this.fetch(` and `prefetch(` are not matched), scanning non-test `*.ts`/`*.tsx`
+    files under the frontend root; each matching site outside the whitelist is a violation. Lines
+    that are single-line or block comments are skipped.
+  fix_hint: |
+    Route the call through the project's contract-driven HTTP client instead of the raw primitive:
+      const res = await fetch(`/api/users/${id}`)
+      ->
+      const res = await httpClient.get(usersContract.byId, { id })
+    The HttpClient applies the request/response contract, interceptors, auth, and telemetry. If a
+    specific file genuinely must use the primitive (e.g. the HttpClient implementation itself), add
+    it to the consumer's `contract_driven_http.whitelist` (transported as a scan exclude). This
+    rule's disposition is `strict`: new raw fetch() calls fail the gate and are not suppressible by
+    default.
+  exceptions:
+    - Test code is out of scope — `*.test.ts(x)`, `*.spec.ts(x)`, and files under `__tests__/` are
+      excluded.
+    - Vendored/build directories (`node_modules`, `dist`, `build`, `.next`, `.nuxt`, `coverage`,
+      virtualenvs, caches) are skipped during the walk.
+    - Whitelisted paths (the consumer's `contract_driven_http.whitelist`, transported as scan
+      excludes) are excluded — e.g. the HttpClient implementation that legitimately wraps `fetch`.
+    - Property-access and longer-identifier forms (`obj.fetch(`, `prefetch(`) are not matched; only
+      the bare `fetch(` primitive is.
+metadata:
+  aliases:
+    - BOUNDARIES-HTTP-CLIENT-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/boundaries.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.boundaries.http-client
+  legacy_sha: d6ae50723bb39a07
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: contract_driven_http_client
+  text: the project's governed HTTP client (HttpClient) through which all frontend HTTP access must
+    flow, applying request/response contracts, interceptors, auth, and telemetry uniformly.
+- term_id: raw_fetch
+  text: a direct call to the platform `fetch()` primitive (matched as a bare `fetch(` that is not a
+    property access or part of a longer identifier) — the un-governed egress this boundary forbids.
+- term_id: whitelist
+  text: the set of frontend paths permitted to use the primitive directly (the consumer's
+    `contract_driven_http.whitelist`), transported into the hermetic run as scan exclusion globs
+    rather than read from disk.

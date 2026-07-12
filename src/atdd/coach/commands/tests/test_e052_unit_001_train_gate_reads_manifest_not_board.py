@@ -5,14 +5,16 @@
 # Harness: unit
 # Assertion: behavioral
 # Layer: backend
-"""E052-UNIT-001 — the Train gate resolves the train from the manifest.
+"""E052-UNIT-001 — the Train gate resolves the train from the local State Store.
 
 Post-removal contract: the only decision-bearing board read (the Train gate's
 ``get_project_item_field_values`` lookup of "ATDD Train") is replaced by the
-local manifest mirror, validated against plan/_trains.yaml — zero board GraphQL.
+local source, validated against plan/_trains.yaml — zero board GraphQL.
 
-RED now: update() reads ``get_project_item_field_values`` for the train gate, so
-assert_not_called fails.
+#1270 slice D: that local source is now the State Store (authoritative since
+#1203); the manifest-mirror read-fallback is retired, so the gate reads the
+train from the store. The load-bearing contract — the gate consults the LOCAL
+source, never the GitHub board — is unchanged.
 """
 from __future__ import annotations
 
@@ -23,6 +25,24 @@ import pytest
 import yaml
 
 from atdd.coach.commands.issue import IssueManager
+from atdd.state.db import connect, init_state_store
+from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+from atdd.state.store import StateStore
+
+
+def _seed_store(root: Path, *, slug: str, issue_number: int, train: str) -> None:
+    db = init_state_store(start=root)
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        store.objects.upsert(
+            slug, WORK_ITEM_KIND, state="PLANNED",
+            data={"issue_number": issue_number, "train": train},
+        )
+        store.external_refs.link(slug, GITHUB_PROVIDER, "issue", str(issue_number), data={})
+    finally:
+        conn.close()
+
 
 pytestmark = [pytest.mark.platform]
 
@@ -33,14 +53,8 @@ def _setup(tmp_path: Path, train: str) -> Path:
     (cfg / "config.yaml").write_text(
         yaml.safe_dump({"github": {"repo": "owner/repo", "project_id": "PVT_test"}})
     )
-    (cfg / "manifest.yaml").write_text(
-        yaml.safe_dump(
-            {
-                "sessions": [{"issue_number": 384, "status": "PLANNED"}],
-                "issues": {"384": {"slug": "demo", "train": train}},
-            }
-        )
-    )
+    # #1270 slice D: the train gate reads the local State Store, not the manifest.
+    _seed_store(tmp_path, slug="demo", issue_number=384, train=train)
     # Real plan/_trains.yaml so membership can be validated locally.
     plan = tmp_path / "plan"
     plan.mkdir()
@@ -81,5 +95,5 @@ def test_train_gate_reads_manifest_not_board(tmp_path):
          patch.object(IssueManager, "_commit_manifest_change"):
         rc = mgr.update("384", status="GREEN")
 
-    assert rc == 0, "in-train issue should pass the gate from the manifest"
+    assert rc == 0, "in-train issue should pass the gate from the local store"
     client.get_project_item_field_values.assert_not_called()

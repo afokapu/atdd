@@ -12,8 +12,8 @@ source:
   extraction_mode: high_fidelity
 content:
   normative_text: acceptance_cap maximum 5 — beyond 5 indicates mixed concerns that should be separate
-    WMBTs (enforced by schemas:planner:wmbt acceptance array maxItems). Aligns with conventions:planner:acceptance
-    acceptance_cap.
+    WMBTs. Advisory guidance, not schema-enforced (wmbt.schema.json is not applied as a file-level
+    gate; see #760). Aligns with conventions:planner:acceptance acceptance_cap.
   operational_guidance: 'when_to_split: mixed_dimensions (statement mentions multiple dimensions) / multiple_actors
     (different actors+actions) / divergent_gates (ALL vs ANY). when_to_keep_together: single_truth_multiple_layers
     (same outcome at UI/API/DB, gate ALL) / coherent_sequence (sequential steps of one process).'

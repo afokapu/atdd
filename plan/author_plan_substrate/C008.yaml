@@ -1,0 +1,90 @@
+urn: wmbt:author-plan-substrate:C008
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: non-object-author-spec
+context_clarifier: every per-kind plan writer (create_wagon, create_feature, create_wmbt,
+  create_train, create_contract) reads its input with spec.get(...), so a spec that
+  is not a JSON object detonates inside the writer; the plan-author spine must reject
+  a non-object spec at the input guard, before a unit is admitted and long before
+  a writer runs, and the `atdd plan unit --spec` boundary must surface that refusal
+  as a non-zero exit naming --spec rather than a traceback or a silent exit 0
+lens: functional.effectiveness
+statement: minimize likelihood of non-object-author-spec by having the plan-author
+  spine reject any spec that is not a JSON object before a unit is admitted or a per-kind
+  writer runs
+acceptances:
+- identity:
+    urn: acc:author-plan-substrate:C008-SMOKE-001-seed
+    id: AC-SMOKE-001
+    purpose: Verify against the real `atdd plan unit` CLI in a checkout that a
+      non-object spec is refused with a non-zero exit and persists nothing, and
+      that the @<path> form loads an object spec from a file
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+    - a plan session driven to the Prepare step under a temporary root
+  when:
+    abstract: atdd plan unit --spec is run as a subprocess with a non-object JSON
+      value, a bare filesystem path, and an @<path>
+  then:
+    abstract:
+    - the non-object spec exits non-zero and no unit is written to session.json
+    - the bare path exits non-zero with a message naming --spec and the @ form,
+      and no traceback reaches stderr
+    - the @<path> form exits zero and the object spec is persisted to the session
+- identity:
+    urn: acc:author-plan-substrate:C008-UNIT-001-spine-rejects-non-object-spec
+    id: AC-UNIT-001
+    purpose: the plan-author spine rejects a spec that parses as valid JSON but is
+      not an object, carrying the offending field, before any unit is admitted or
+      any per-kind writer runs
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'A spec that is valid JSON but not an object: a string, a list, a number, a
+      boolean, or null'
+  when:
+    abstract: validate_author_spec(spec) is called on the plan-author spine
+  then:
+    abstract:
+    - An AuthorInputError is raised carrying field 'spec'
+    - The message names the actual JSON type received
+    - A dict spec (including the empty dict) is accepted and raises nothing
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+- identity:
+    urn: acc:author-plan-substrate:C008-UNIT-002-plan-unit-spec-boundary-refuses-and-reads-at-file
+    id: AC-UNIT-002
+    purpose: the `atdd plan unit --spec` boundary parses an inline JSON object, reads
+      an object from the explicit @<path> form, and refuses every other input with
+      exit 2 naming --spec instead of a traceback or a silent exit 0
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A plan session advanced to the Prepare step under a temporary root
+    - A file on disk holding a JSON object spec
+  when:
+    abstract: atdd plan unit --spec is invoked with an inline object, an @<path>,
+      unparseable text, a non-object JSON value, and a bare filesystem path
+  then:
+    abstract:
+    - An inline JSON object spec is admitted and exits 0
+    - A --spec @<path> reads the object from the file and is admitted, exiting 0
+    - Unparseable text exits 2 with a message naming --spec and no traceback
+    - A non-object JSON value exits 2 and no unit is persisted to the session
+    - A bare filesystem path exits 2 with a hint naming the @<path> form
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'

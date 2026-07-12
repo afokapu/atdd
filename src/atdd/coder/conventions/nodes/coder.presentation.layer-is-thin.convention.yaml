@@ -1,0 +1,22 @@
+schema_version: 1.0.0
+rule_id: coder.presentation.layer-is-thin
+kind: rule
+status: active
+name: Presentation layer is thin
+statement: "Presentation layer is thin \u2014 no business logic; controllers delegate\
+  \ to application use cases"
+terms:
+- term_id: thin_presentation
+  text: A thin presentation layer contains no business logic; controllers translate
+    the external protocol and delegate to application use cases.
+source:
+  legacy_path: src/atdd/coder/conventions/presentation.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.presentation.layer-is-thin
+  extraction_mode: high_fidelity
+metadata:
+  severity: 3
+  disposition: documentation-only
+  aliases:
+  - PRESENTATION-THIN-001
+  introduced_in: 1.66.0

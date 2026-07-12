@@ -10,6 +10,15 @@ scope:
     - "Cross-wagon SharedDependencies dependency injection validation"
     - "Runtime prop-flow analysis"
 
+# MIGRATED (#1218 careful pass — synthesize-id): the stack-neutral composition
+# principles are now single-node conventions under nodes/:
+#   composition.principle            -> coder.composition.every-file-has-a-consumer
+#   composition_root_rule (COMP-0004) -> coder.composition.root-reaches-all-layers
+#   consumer-layer direction (the layer_rules COMP-0001/0002/0003) is NOT re-authored;
+#     it is the canonical coder.backend.imports-respect-dependency-allowed expressed as
+#     consumer layers (commons/composition refine it via graph edges).
+# The per-stack blocks below (repo roots, composition_roots, AST detectors) are
+# preserved verbatim as workspace realization / migration source.
 composition:
   principle: |
     Every implementation file in a source layer should be consumed by at least one

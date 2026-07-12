@@ -5,8 +5,9 @@ Creates the following structure:
     consumer-repo/
     ├── CLAUDE.md                (with managed ATDD block)
     └── .atdd/
-        ├── manifest.yaml        (machine-readable issue tracking)
         └── config.yaml          (agent sync + GitHub integration config)
+    (Operational issue state lives in the State Store under .atdd/state/, not a
+    .atdd/manifest.yaml mirror — the mirror was deleted in #1270 Slice G.)
 
 GitHub infrastructure (requires `gh` CLI):
     - Labels: atdd-issue, atdd-wmbt, atdd:*, archetype:*, wagon:*
@@ -25,7 +26,6 @@ import logging
 import os
 import shutil
 import subprocess
-from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -141,7 +141,7 @@ def write_workspace(target_dir: Path) -> None:
             saved = config.get("workspace", {}).get("color")
             if saved:
                 bg = saved
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
 
     # If still default, check existing workspace file for user-set color
@@ -163,9 +163,9 @@ def write_workspace(target_dir: Path) -> None:
                         cfg.setdefault("workspace", {})["color"] = bg
                         with open(config_path, "w") as f:
                             yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
-                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                         pass
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
 
     # Compute foreground via WCAG relative luminance
@@ -275,7 +275,7 @@ class ProjectInitializer:
             )
             if result.returncode != 0:
                 return []
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return []
 
         # Porcelain format: blocks separated by blank lines, first block is main checkout
@@ -357,7 +357,7 @@ class ProjectInitializer:
         try:
             with open(config_path) as f:
                 config = yaml.safe_load(f) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return
 
         saved = config.get("workspace", {}).get("color")
@@ -406,11 +406,11 @@ class ProjectInitializer:
             for dest, original in reversed(moved_items):
                 try:
                     shutil.move(str(dest), str(original))
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                     pass
             try:
                 main_dir.rmdir()
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                 pass
             raise RuntimeError(f"Migration failed (rolled back): {e}") from e
 
@@ -472,7 +472,7 @@ class ProjectInitializer:
                         print("Error: Not at repository root.")
                         print(f"Run from: {repo_root}")
                         return 1
-                except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+                except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                     pass
 
                 # Safety: no linked worktrees (their .git files would break)
@@ -504,7 +504,7 @@ class ProjectInitializer:
                     print(f"Migrated to worktree layout: {new_root}")
                     self._write_workspace()
                     print(f"\n  ** After init completes, run: cd main **\n")
-                except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+                except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                     print(f"Error: {e}")
                     return 1
         else:
@@ -530,8 +530,10 @@ class ProjectInitializer:
             # not git history.
             self._ensure_gitignore_entry(".atdd/diagnostics/")
 
-            # Create manifest.yaml
-            self._create_manifest(force)
+            # #1270 Slice G: the ``.atdd/manifest.yaml`` mirror was deleted — the
+            # State Store is the sole operational registry. Genesis no longer
+            # writes a manifest; a cold store self-seeds from registered sync
+            # providers on first read (WorkItemReader).
 
             # Create config.yaml
             self._create_config(force)
@@ -572,7 +574,6 @@ class ProjectInitializer:
             print("=" * 60)
             print("\nStructure created:")
             print(f"  {self.atdd_config_dir}/")
-            print(f"  {self.manifest_file}")
             print(f"  {self.config_file}")
             print(f"  CLAUDE.md (with ATDD managed block)")
             if github_summary:
@@ -580,10 +581,10 @@ class ProjectInitializer:
 
             return 0
 
-        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: Permission denied - {e}")
             return 1
-        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
             return 1
 
@@ -694,44 +695,6 @@ class ProjectInitializer:
             print(f"  installed: {__version__}")
             print("Run: atdd init --export-schemas   (or atdd sync)")
             return 1
-
-    def _create_manifest(self, force: bool = False) -> None:
-        """
-        Create or update .atdd/manifest.yaml.
-
-        When force=True and a manifest already exists, the sessions list is
-        preserved — only schema-level fields (version, created) are refreshed.
-        This mirrors the deep-merge behaviour of _create_config so that a
-        routine `atdd sync && atdd init --force` version-upgrade step never
-        destroys session history (issue #580).
-
-        Args:
-            force: If True, refresh schema fields while preserving sessions.
-        """
-        if self.manifest_file.exists() and not force:
-            print(f"Manifest already exists: {self.manifest_file}")
-            return
-
-        # Preserve existing sessions when force-reinitialising.
-        existing_sessions: list = []
-        if self.manifest_file.exists():
-            try:
-                with open(self.manifest_file) as f:
-                    existing = yaml.safe_load(f) or {}
-                existing_sessions = existing.get("sessions") or []
-            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-                pass
-
-        manifest = {
-            "version": "2.0",
-            "created": date.today().isoformat(),
-            "sessions": existing_sessions,
-        }
-
-        with open(self.manifest_file, "w") as f:
-            yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
-
-        print(f"Created: {self.manifest_file}")
 
     def _create_config(self, force: bool = False) -> None:
         """
@@ -1112,8 +1075,12 @@ class ProjectInitializer:
             print("All harness templates already installed.")
 
     def is_initialized(self) -> bool:
-        """Check if ATDD is already initialized in target directory."""
-        return self.atdd_config_dir.exists() and self.manifest_file.exists()
+        """Check if ATDD is already initialized in target directory.
+
+        #1270 Slice G: keyed on ``.atdd/config.yaml`` — the manifest mirror it
+        used to check was deleted and is no longer written at genesis.
+        """
+        return self.atdd_config_dir.exists() and self.config_file.exists()
 
     # -------------------------------------------------------------------------
     # E007: GitHub infrastructure bootstrap
@@ -1127,7 +1094,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return False
 
     def _detect_repo(self) -> Optional[str]:
@@ -1140,7 +1107,7 @@ class ProjectInitializer:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
         return None
 
@@ -1184,7 +1151,7 @@ class ProjectInitializer:
             try:
                 cfg = yaml.safe_load(self.config_file.read_text()) or {}
                 skip_workflows = cfg.get("init", {}).get("skip_workflows", False)
-            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                 pass
 
         if skip_workflows:
@@ -1321,7 +1288,7 @@ class ProjectInitializer:
             )
             if result.returncode == 0:
                 return result.stdout.strip() or None
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
         return None
 
@@ -1359,7 +1326,7 @@ class ProjectInitializer:
                     for node in data["data"]["node"]["fields"]["nodes"]
                     if node.get("name") and node.get("id")
                 }
-        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
         return {}
 
@@ -1377,7 +1344,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return False
 
     def _delete_project_field_raw(self, project_id: str, field_id: str) -> bool:
@@ -1394,7 +1361,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return False
 
     def _create_project_fields(self, project_id: str) -> int:
@@ -1482,7 +1449,7 @@ class ProjectInitializer:
                     )
                     if result.returncode == 0:
                         created += 1
-                except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+                except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                     pass
 
         return migrated + created
@@ -1523,7 +1490,7 @@ class ProjectInitializer:
                 cfg = yaml.safe_load(config_path.read_text()) or {}
                 if "path_filters" in cfg:
                     filters.update(cfg["path_filters"])
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
                 pass
 
         # Build dorny/paths-filter filter config (plain YAML, no f-string interpolation)
@@ -1909,7 +1876,7 @@ jobs:
             else:
                 print("  Auto-merge: SKIPPED (may require admin access)")
                 return False
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-07-03
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return False
 
     def _set_branch_protection(self, repo: str) -> bool:

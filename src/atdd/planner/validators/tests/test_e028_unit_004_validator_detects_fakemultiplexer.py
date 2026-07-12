@@ -25,7 +25,7 @@ pytestmark = [pytest.mark.planner]
 
 def test_validator_detects_fakemultiplexer(tmp_path):
     """Validator emits one violation when the SMOKE test file imports FakeMultiplexer."""
-    from atdd.planner.validators.test_smoke_synthetic_fixture_bypass import (
+    from atdd.planner.validators._meta_walker import (
         scan_for_synthetic_fixture_bypass,
     )
 

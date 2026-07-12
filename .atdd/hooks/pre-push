@@ -112,7 +112,7 @@ ATDD: All direct pushes to $BRANCH are blocked.
 
 Every change must go through a worktree branch and PR.
 Create one first:
-  atdd branch <issue-number>
+  atdd worktree create <issue-number>
 
 CI bypass (requires CI=true):
   CI=true ATDD_ALLOW_MAIN_PUSH=1 git push ...
@@ -178,7 +178,20 @@ __BLAST__
 
         FAIL=0
         if [ "$RUN_REPO" = "1" ]; then
-            atdd repo validate >&2 2>&1 || FAIL=1
+            # The full `atdd repo validate` URN-graph traversal builds the entire
+            # repo graph (~thousands of URNs, ~2-4 min) — far too slow for a
+            # local fast-fail gate. It is DEFERRED TO CI by default: the
+            # `validate-conventions` job runs the authoritative traceability
+            # check (resolution/urn_traceability over the real repo graph), so a
+            # graph regression still cannot reach main. The RUN_PLANNER /
+            # RUN_TESTER legs below still run --local --skip-api on plan/ and
+            # contracts/ changes, preserving fast local feedback.
+            # Opt in to the full local traversal with ATDD_PREPUSH_FULL=1.
+            if [ "${ATDD_PREPUSH_FULL:-0}" = "1" ]; then
+                atdd repo validate >&2 2>&1 || FAIL=1
+            else
+                echo "ATDD pre-push: deferring full 'atdd repo validate' URN-graph traversal to CI (set ATDD_PREPUSH_FULL=1 to run it locally)." >&2
+            fi
         fi
         if [ "$RUN_PLANNER" = "1" ]; then
             atdd validate planner --local --skip-api >&2 2>&1 || FAIL=1

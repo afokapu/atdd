@@ -1,0 +1,69 @@
+schema_version: 1.1.0
+rule_id: coder.design.token-hardcoded
+kind: rule
+status: active
+name: Wagon UI files do not hardcode spacing, radii, or durations
+statement: A wagon UI file MUST source spacing, border-radius, and animation-duration values from the
+  design-system foundations rather than hardcoding them inline, extending the color-token rule to the
+  remaining visual tokens. This is the language-agnostic obligation owned by the coder extension. The
+  stack-specific detector that enforces it (a pytest/regex scan of UI files for hardcoded pixel / radius /
+  duration values) is the python-pytest workspace implementation referenced below — the obligation is
+  agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.design.primitives
+content:
+  summary: An agnostic "all visual tokens come from foundations" obligation, the non-color companion of
+    `coder.design.token-color`. The web realization flags hardcoded spacing (`padding`/`margin`/`gap`/
+    inset/size) pixel literals, `borderRadius` literals, and transition/animation durations in UI `.tsx`
+    files, ignoring values ≤ 4 (borders) and lines that already reference a `spacing.` / `radii.` /
+    `motion.` / `tokens.` token. It is realized by the same multi-rule detector as the rest of the
+    design-system family (declared via that implementation's `emits_rule_ids`).
+  normative_text: |
+    Color is not the only design token: spacing, border-radius, and motion durations are equally part of
+    the system, and hardcoding them in a wagon forks the same drift the token system exists to prevent.
+    The obligation: wagon UI files source spacing/radii/duration from foundations, not inline literals.
+    WHICH literal forms are matched, WHICH small values are tolerated, and WHICH token accessors exempt a
+    line is delegated to the per-stack detector; for the web stack it matches pixel literals on
+    spacing/size properties (string and template-literal forms), `borderRadius` string and numeric forms,
+    and transition/animation `ms` durations, ignores values ≤ 4, and skips lines referencing a `spacing.`
+    / `radii.` / `motion.` / `tokens.` token. A per-file cap of three sites is applied at detection time
+    (reporting ergonomics, copied from core) — it is not a disposition decision.
+  fix_hint: |
+    Replace the hardcoded visual value with a foundations token:
+      const style = { padding: '16px', borderRadius: 8 }                 ->  FORBIDDEN
+      import { spacing, radii } from '@/maintain-ux/foundations'
+      const style = { padding: spacing.md, borderRadius: radii.sm }       ->  allowed
+    Pull spacing/radius/duration from foundations so every visual token has one source. This rule is
+    `strict`: a hardcoded spacing/radius/duration value in a wagon UI file is not suppressible and fails.
+  exceptions:
+    - Values ≤ 4 (hairline borders such as 1px/2px, and zeros) are not flagged.
+    - Lines that already reference a `spacing.` / `radii.` / `motion.` / `tokens.` token, import lines, and
+      comments are not flagged.
+    - Colors are out of scope here (governed by `coder.design.token-color`); design-system-internal and
+      test files are excluded.
+metadata:
+  aliases:
+    - DESIGN-TOKEN-HARDCODED-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.token-hardcoded
+  legacy_sha: 21bedcb7d74cfb18
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: visual_token
+  text: a non-color design value — spacing, border-radius, or motion duration — that belongs in the
+    design-system foundations rather than inline in a wagon.
+- term_id: wagon_ui_file
+  text: a feature UI file outside the design system (`maintain-ux/`) and outside test trees; the surface
+    this rule scans for hardcoded visual tokens.

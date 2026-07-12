@@ -6,9 +6,8 @@ name: No toolkit-self layout assumption
 statement: Toolkit code must resolve ATDD package resources package-relatively (Path(atdd.__file__).parent/...),
   never by concatenating 'src/atdd/' onto find_repo_root(); the latter raises FileNotFoundError in pip-installed
   consumers.
-implementation:
-  type: validator
-  ref: test_toolkit_source_layout_assumptions::test_no_toolkit_self_layout_assumption
+# documentation-only (#1225): the monolith block carried no `validator:`; the scan in
+# test_toolkit_source_layout_assumptions stays advisory and is not a bound enforcement gate.
 source:
   legacy_path: src/atdd/coach/conventions/source-layout.convention.yaml
   legacy_section: rules

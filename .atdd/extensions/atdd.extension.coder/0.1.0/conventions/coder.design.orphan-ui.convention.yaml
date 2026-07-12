@@ -1,0 +1,64 @@
+schema_version: 1.1.0
+rule_id: coder.design.orphan-ui
+kind: rule
+status: active
+name: Every rendering UI component is connected to the design system
+statement: ANY UI component that renders markup — in any layer, not just presentation — MUST import at
+  least one design-system element, so no UI surface is left fully disconnected from the shared system.
+  This is the language-agnostic obligation owned by the coder extension. The stack-specific detector that
+  enforces it (a pytest/regex scan of all UI `.tsx` files for a `maintain-ux` import) is the python-pytest
+  workspace implementation referenced below — the obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.design.primitives
+content:
+  summary: An agnostic "no UI surface bypasses the design system" obligation — the codebase-wide superset
+    of `coder.design.primitives`, which checks the presentation layer only. The web realization flags ANY
+    `.tsx` file (pages, containers, layouts, any layer) that renders JSX (`return <...`) yet imports
+    nothing matching `maintain-ux` / `@maintain-ux`. It is realized by the same multi-rule detector as the
+    rest of the design-system family (declared via that implementation's `emits_rule_ids`).
+  normative_text: |
+    `coder.design.primitives` checks only the presentation layer; a UI surface in another layer (a page,
+    container, or layout) that renders markup with zero design-system imports is just as disconnected —
+    completely unthemed UI. The obligation broadens the same intent to every rendering UI file: any `.tsx`
+    that renders markup imports at least one design-system element. WHICH import paths count and HOW
+    rendering is detected is delegated to the per-stack detector; for the web stack rendering is a
+    `return <` JSX scan over every UI `.tsx` file (not just presentation) and a design-system import is any
+    `maintain-ux` / `@maintain-ux` path. This rule and `coder.design.primitives` overlap by design — a
+    bare presentation component triggers both; orphan-ui additionally catches non-presentation surfaces.
+  fix_hint: |
+    Connect the UI surface to the design system:
+      web/src/<wagon>/<feature>/pages/Home.tsx  (renders raw markup, no DS import)  ->  FORBIDDEN
+      import { Box } from '@/maintain-ux/primitives'   // ...then render <Box>       ->  allowed
+    Every rendering UI file — page, container, layout, or presentation component — composes at least one
+    design-system element. This rule is `strict`: a rendering UI file with zero design-system imports is
+    not suppressible and fails.
+  exceptions:
+    - Non-rendering files (no JSX `return <`) are not flagged — only files that actually render markup.
+    - Design-system-internal (`maintain-ux/`) files and test files are out of scope (excluded by the scan
+      policy passed in).
+metadata:
+  aliases:
+    - DESIGN-ORPHAN-UI-001
+  severity: 2
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/design.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.design.orphan-ui
+  legacy_sha: 21bedcb7d74cfb18
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: ui_surface
+  text: any file that renders markup (a page, container, layout, or presentation component), regardless of
+    layer; the full set this rule checks, broader than presentation-only.
+- term_id: design_system_connection
+  text: at least one import from the shared design system (`maintain-ux` / `@maintain-ux`) in a rendering
+    UI file; its absence is what this rule flags.

@@ -1,0 +1,73 @@
+schema_version: 1.1.0
+rule_id: coder.security.missing-auth
+kind: rule
+status: active
+name: FastAPI routes must have an auth dependency
+statement: Every FastAPI route handler (a function decorated with `@router.get` / `@app.post` / etc. on a
+  recognized router object) MUST declare an authentication dependency — a parameter defaulting to
+  `Depends(<auth_fn>)` drawn from the approved auth-function set — so that no route is silently exposed
+  without authentication. This is the language-agnostic obligation owned by the coder extension. The
+  stack-specific detector that enforces it (a pytest/AST scan that checks each route function's parameter
+  defaults for `Depends(auth_fn)`) is the python-pytest workspace implementation referenced below — the
+  obligation is agnostic, the detector is not.
+implementation:
+  type: validator
+  ref: coder.security.sql-injection
+content:
+  summary: An agnostic "no unauthenticated routes" obligation. The python realization walks each module's
+    AST, identifies route functions by a `@<router_object>.<verb>(...)` decorator (router objects `app` /
+    `router`; verbs get/post/put/delete/patch/options/head), and flags any whose parameter defaults
+    contain no `Depends(<auth_fn>)` where `<auth_fn>` is one of the approved auth dependencies
+    (`get_current_user`, `require_auth`, `verify_token`, `get_authenticated_user`).
+  normative_text: |
+    A route handler without an injected auth dependency is reachable without authentication; security must
+    be wired at the route boundary, not assumed. The obligation: every recognized route function carries a
+    `Depends(<auth_fn>)` parameter default. WHICH decorators mark a route and HOW the dependency is
+    recognized is delegated to the per-stack detector; for python it is an `ast` scan that matches the
+    configured router objects + HTTP-verb decorators and inspects positional/keyword parameter defaults
+    for a `Depends(...)` call whose first argument names an approved auth function.
+  fix_hint: |
+    Inject an auth dependency into the route signature:
+      @router.get("/admin")
+      def admin_panel():                                  # ❌ no auth dependency
+          ...
+      @router.get("/admin")
+      def admin_panel(user = Depends(get_current_user)):  # ✅ authenticated
+          ...
+    Public-by-design endpoints (health, docs, openapi) are excluded by the consumer's scan policy
+    (excludes), not by the detector. This rule is `strict`: a newly added unauthenticated route is not
+    suppressible and fails.
+  exceptions:
+    - Intentionally public endpoints (health checks, docs, openapi) are removed by the consumer's exclusion
+      globs, not by the detector.
+    - A function that is not decorated as a route (no recognized `@router.<verb>` decorator) is not a route
+      and is not checked.
+metadata:
+  aliases:
+    - SECURITY-MISSING-AUTH-001
+    - SPEC-CODER-SEC-0002
+  severity: 4
+  disposition: strict
+  introduced_in: 1.67.0
+source:
+  legacy_path: src/atdd/coder/conventions/security.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: coder.security.missing-auth
+  legacy_sha: a63b6862a146e7df
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-28'
+terms:
+- term_id: route_handler
+  text: a function whose decorator is `@<router_object>.<verb>(...)` for a recognized router object (`app`
+    / `router`) and HTTP verb (get/post/put/delete/patch/options/head).
+- term_id: auth_dependency
+  text: a parameter default of the form `Depends(<auth_fn>)` where `<auth_fn>` is one of the approved auth
+    functions (`get_current_user`, `require_auth`, `verify_token`, `get_authenticated_user`).
+- term_id: depends_injection
+  text: FastAPI's dependency-injection call `Depends(...)`; the rule reads its first positional argument to
+    decide whether an approved auth function is wired into the route.

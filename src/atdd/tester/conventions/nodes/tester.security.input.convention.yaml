@@ -1,0 +1,21 @@
+schema_version: 1.0.0
+rule_id: tester.security.input
+kind: rule
+status: active
+name: Security input validation
+statement: Input-validation tests assert rejection of malformed and adversarial payloads
+terms:
+- term_id: input_validation
+  text: test coverage asserting that malformed or adversarial request payloads are
+    rejected before processing.
+source:
+  legacy_path: src/atdd/tester/conventions/security.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: tester.security.input
+  extraction_mode: high_fidelity
+metadata:
+  aliases:
+  - TESTER-SECURITY-INPUT-001
+  severity: 4
+  disposition: documentation-only
+  introduced_in: 1.67.0

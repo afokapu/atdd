@@ -1,0 +1,30 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: registry<->archetype agreement check
+      type: use_cases
+    domain:
+    - count: 0
+      rationale: reuses TemplateContract from the catalogue feature
+      type: value_objects
+    integration:
+    - count: 0
+      rationale: asserts against existing registry.yaml; no new contract
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected conformance smoke
+      type: controllers
+description: The conformance smoke proving registry.yaml and the python archetype
+  exports agree, plus the regression guard that legacy persona validators are unmoved
+  and atdd validate behaviour is unchanged.
+sizing:
+  footprint_score: 3
+  footprint_size: S
+  wmbts: 2
+urn: feature:validate-conventions:registry-archetype-conformance
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E002
+- wmbt:validate-conventions:E005
