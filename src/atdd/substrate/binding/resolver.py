@@ -20,18 +20,23 @@ GREEN targets:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Union
 
 from atdd.substrate.binding import ContractMismatchError, ProviderNotFoundError
 
 
 @dataclass
 class WorkspaceBinding:
-    """A resolved, contract-compatible implementation->provider binding."""
+    """A resolved, contract-compatible implementation->provider binding.
+
+    ``realizes_convention`` mirrors the manifest: one convention, or the list a
+    family detector realizes from a single run.
+    """
 
     implementation_id: str
     workspace_id: str
     contract_version: str
-    realizes_convention: str
+    realizes_convention: Union[str, list[str]]
 
 
 def _parse_semver(version: str) -> tuple[int, int, int]:

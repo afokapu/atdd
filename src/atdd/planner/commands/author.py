@@ -26,6 +26,8 @@ import yaml
 # (planner.theme.commons-coach-boundary, #970).
 from atdd.planner.commands.author_issue import (  # noqa: F401
     create_issue_body,
+    extract_issue_type,
+    issue_type_enum,
     validate_issue_body,
 )
 
@@ -1016,11 +1018,11 @@ def build_parser() -> argparse.ArgumentParser:
     # `issue` — author / validate a GitHub issue BODY from issue.schema.json
     # (#1223). Peer of the other authored kinds; schema-driven generation +
     # the schema-driven compliance gate (--check). Planner-side + coach-free.
-    iss = sub.add_parser("issue", help="author a schema-valid issue body and publish it store-first (or --check a body)")
+    iss = sub.add_parser("issue", help="author a schema-valid issue body, publish it store-first, or revise an existing issue")
     iss.add_argument("--title", default=None, help="issue title (the H1 + Problem Statement subject)")
     iss.add_argument("--slug", default=None,
                      help="work_item slug (the store uid); derived from --title when omitted (#1272)")
-    iss.add_argument("--type", default="implementation", dest="issue_type",
+    iss.add_argument("--type", default=None, dest="issue_type",
                      help="issue Type (e.g. implementation, bug, refactor)")
     iss.add_argument("--status", default="INIT",
                      help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...)")
@@ -1029,6 +1031,10 @@ def build_parser() -> argparse.ArgumentParser:
     iss.add_argument("--feature", default=None, help="feature urn the issue lands")
     iss.add_argument("--check", default=None, metavar="PATH",
                      help="validate an existing body file against issue.schema.json (no generation)")
+    iss.add_argument("--revise", type=int, metavar="ISSUE",
+                     help="revise an existing store-registered GitHub issue number")
+    iss.add_argument("--body-file", default=None, metavar="PATH",
+                     help="replacement issue body markdown for --revise")
     # #1309: the one capability the removed `atdd issue <slug> --dry-run` had and
     # nothing else covered — render + validate + print, writing NOTHING. `--check`
     # only validates an existing FILE, and a bare `atdd author issue` publishes
@@ -1204,10 +1210,98 @@ def run(argv: list[str]) -> int:
                 return 1
             print(f"atdd author issue: {args.check} is schema-valid")
             return 0
+
+        if args.revise is not None:
+            if args.body_file is None and args.issue_type is None:
+                print(
+                    "atdd author issue: --revise requires --body-file and/or explicit --type",
+                    file=sys.stderr,
+                )
+                return 2
+
+            body = None
+            if args.body_file is not None:
+                try:
+                    body = Path(args.body_file).read_text(encoding="utf-8")
+                except OSError as exc:
+                    logger.warning(
+                        "atdd author issue cannot read --body-file",
+                        extra={"path": args.body_file, "error": str(exc)},
+                    )
+                    print(
+                        f"atdd author issue: cannot read {args.body_file}: {exc}",
+                        file=sys.stderr,
+                    )
+                    return 2
+
+            violations: list[str] = []
+            if body is not None:
+                violations.extend(validate_issue_body(body))
+                body_type = extract_issue_type(body)
+                if args.issue_type is not None and body_type is not None and body_type != args.issue_type:
+                    violations.append(
+                        f"body Type {body_type!r} does not match explicit --type "
+                        f"{args.issue_type!r}"
+                    )
+            if args.issue_type is not None and args.issue_type not in issue_type_enum():
+                violations.append(
+                    f"invalid --type {args.issue_type!r}: not in the issue type "
+                    f"vocabulary ({', '.join(issue_type_enum())})"
+                )
+            if violations:
+                print("atdd author issue: revised issue body/type is not schema-valid:", file=sys.stderr)
+                for v in violations:
+                    print(f"  - {v}", file=sys.stderr)
+                return 1
+
+            if getattr(args, "dry_run", False):
+                if body is not None:
+                    sys.stdout.write(body)
+                else:
+                    print(
+                        f"atdd author issue: revision for github #{args.revise} "
+                        "is schema-valid"
+                    )
+                return 0
+
+            from atdd.planner.commands.author_publish import PublishError, revise_issue
+
+            try:
+                result = revise_issue(
+                    args.revise,
+                    body=body,
+                    issue_type=args.issue_type,
+                )
+            except PublishError as exc:
+                logger.warning(
+                    "atdd author issue revision failed",
+                    extra={"issue_number": args.revise, "error": str(exc)},
+                )
+                print(f"atdd author issue: {exc}", file=sys.stderr)
+                return 2
+
+            if body is not None:
+                sys.stdout.write(body)
+            if result.projection_deferred:
+                print(
+                    f"atdd author issue: revised work_item {result.slug!r} "
+                    f"(state={result.state}) for github #{result.issue_number}; "
+                    "github projection deferred to the outbox",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"atdd author issue: revised work_item {result.slug!r} "
+                    f"(state={result.state}) for github #{result.issue_number}",
+                    file=sys.stderr,
+                )
+            return 0
+
+        issue_type = args.issue_type or "implementation"
         spec = {
             "title": args.title,
             "status": args.status,
-            "type": args.issue_type,
+            "type": issue_type,
             "branch": args.branch,
             "train": args.train,
             "feature": args.feature,
@@ -1240,7 +1334,7 @@ def run(argv: list[str]) -> int:
             result = publish_issue(
                 slug, body,
                 title=args.title or "Untitled ATDD issue",
-                status=args.status, issue_type=args.issue_type,
+                status=args.status, issue_type=issue_type,
                 branch=args.branch, train=args.train, feature=args.feature,
             )
         except PublishError as exc:

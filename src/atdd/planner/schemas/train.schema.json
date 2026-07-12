@@ -4,7 +4,7 @@
   "description": "Schema for train definitions orchestrating multi-wagon workflows with theme-based numbering",
   "type": "object",
   "additionalProperties": false,
-  "$comment": "Trains use hierarchical numbering [Theme][Category][Variation] (0001-0099: commons nominal, 0101-0199: commons error, etc.) where first digit = theme (0-9), second digit = category (0=nominal, 1=error, 2=alternate, 3=exception), third-fourth digits = variation (01-99)",
+  "$comment": "Trains carry a typed identity `train:<subject>:<slug>` (issue #1421). The classification the legacy [Theme][Category][Variation] numbering encoded now rides as FIELDS — `themes`, `category` (nominal|error|alternate|exception) and `sort_key` — so reclassifying a train edits metadata instead of renaming it. The category digit is retired (issues #1421, #1440); nothing may derive a category by parsing an identity.",
   "required": [
     "train_id",
     "title",

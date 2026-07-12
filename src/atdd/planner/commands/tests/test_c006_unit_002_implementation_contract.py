@@ -38,6 +38,29 @@ def test_accepts_v10_realizes_only_manifest():
     validate_implementation_manifest(_m(realizes_convention="coder.x.a"))
 
 
+def test_accepts_family_owning_every_rule_it_emits():
+    # One detector OWNS all the conventions it emits (train-interlocking's shape).
+    validate_implementation_manifest(_m(emits_rule_ids=["coder.x.a", "coder.x.b"],
+                                        realizes_convention=["coder.x.a", "coder.x.b"]))
+
+
+def test_accepts_family_owning_a_subset_of_what_it_emits():
+    # Co-emission: the detector emits coder.x.b but another detector owns it.
+    validate_implementation_manifest(_m(emits_rule_ids=["coder.x.a", "coder.x.b"],
+                                        realizes_convention=["coder.x.a"]))
+
+
+def test_rejects_owning_a_rule_it_never_emits():
+    with pytest.raises(AuthorInputError, match="realizes_convention"):
+        validate_implementation_manifest(_m(emits_rule_ids=["coder.x.a"],
+                                            realizes_convention=["coder.x.a", "coder.x.ghost"]))
+
+
+def test_rejects_empty_realizes_list():
+    with pytest.raises(AuthorInputError, match="realizes_convention"):
+        validate_implementation_manifest(_m(emits_rule_ids=["coder.x.a"], realizes_convention=[]))
+
+
 def _drop_rule_binding(m):
     m.pop("emits_rule_ids", None)
     m.pop("realizes_convention", None)

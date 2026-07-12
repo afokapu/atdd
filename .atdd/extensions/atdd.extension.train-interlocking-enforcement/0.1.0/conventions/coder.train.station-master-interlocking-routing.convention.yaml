@@ -1,0 +1,66 @@
+schema_version: 1.1.0
+rule_id: coder.train.station-master-interlocking-routing
+kind: rule
+status: active
+name: Station Master routes both direct and interlocking journeys, delegating to TrainRunner
+statement: >-
+  The Station Master entrypoint (`python/app.py` or the configured entrypoint) MUST support both
+  direct train routing and interlocking-enabled routing: its `JOURNEY_MAP` MUST admit a direct
+  `train_id` string AND an `interlocking_id`/`path` route object, and when an interlocking route is
+  present the Station Master MUST reference (import/resolve) `InterlockingRunner` and ultimately call
+  `TrainRunner` for the selected train. This is the agnostic obligation; the python-pytest AST detector
+  that enforces it is the implementation referenced below.
+implementation:
+  type: validator
+  ref: coder.train.station-master-interlocking-routing
+content:
+  summary: >-
+    An agnostic "Station Master is wired for interlocking" obligation. The python realization parses
+    the `station_master` selector (`python/app.py`) with `ast`: when JOURNEY_MAP declares an
+    interlocking route object, the module MUST reference `InterlockingRunner` (else unlinked) and
+    `TrainRunner` (else no delegation). Maps to validator check
+    `test_station_master_supports_interlocking_routes`.
+  normative_text: |
+    Core runtime spec afokapu/atdd#1251 — the additive call model:
+
+        Station Master -> InterlockingRunner.resolve_train(action, inputs, state)
+                       -> TrainRunner.execute(selected_train_id, ...)
+
+    The existing direct mapping (`JOURNEY_MAP[action] = "<train_id>"`) remains valid; the interlocking
+    mapping (`{"interlocking_id": ..., "path": ...}`) is additive. In BOTH cases the final train
+    execution is performed by TrainRunner. A Station Master that declares an interlocking route but
+    never routes through InterlockingRunner, or never reaches TrainRunner, breaks the contract. WHICH
+    entrypoint is inspected and HOW the routing is recognized is delegated to the per-stack detector.
+  fix_hint: |
+    Route through the runner and delegate:
+
+      from trains.interlocking import InterlockingRunner
+      from trains.runner import TrainRunner
+      JOURNEY_MAP = {
+          "start_match": "3001-solo-match-complete",                         # direct
+          "resolve_match": {"interlocking_id": "...", "path": "...yaml"},    # interlocking
+      }
+      # interlocking branch: InterlockingRunner(path).execute(...) -> TrainRunner.execute(...)
+
+    This rule is `strict`: an unlinked or non-delegating Station Master is not suppressible and fails CI.
+  exceptions:
+    - Applies only when JOURNEY_MAP declares at least one interlocking route object; a pure direct-train
+      Station Master carries no interlocking obligation.
+metadata:
+  aliases:
+    - STATION-MASTER-INTERLOCKING-ROUTING-001
+  severity: 4
+  disposition: strict
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: station_master
+    text: >-
+      the entrypoint (`python/app.py`) whose JOURNEY_MAP routes both direct train_id strings and
+      interlocking route objects, referencing InterlockingRunner and ultimately calling TrainRunner.
+  - term_id: journey_map
+    text: >-
+      the action->route mapping; values are either a direct train_id string or an
+      `{interlocking_id, path}` route object.

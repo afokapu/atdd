@@ -73,8 +73,10 @@ def test_route_resolution_strategy_is_enumerated():
         jsonschema.validate(doc, _schema())
 
 
-def test_route_category_digit_is_enumerated():
+def test_route_category_digit_is_rejected():
+    # Retired by #1421/#1440: category is a FIELD on the target train, so a route
+    # carrying the identity digit is no longer a valid document at all.
     doc = interlocking_doc()
-    doc["routes"][0]["category_digit"] = "9"
+    doc["routes"][0]["category_digit"] = "0"
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(doc, _schema())

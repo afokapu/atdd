@@ -1,0 +1,163 @@
+schema_version: 1.1.0
+rule_id: coder.train.interlocking-bilateral-binding
+kind: rule
+status: active
+name: Interlocking declarations and runtime route resolution are bilaterally bound
+statement: >-
+  An interlocking system is systemic, not descriptive: it requires CLOSURE across declaration (the
+  interlocking YAML route space, core afokapu/atdd#1248), runtime resolution (InterlockingRunner,
+  core afokapu/atdd#1251), Station Master reachability (the entrypoint JOURNEY_MAP), TrainRunner
+  delegation, and the execution trace. This convention binds those surfaces in FIVE directions so a
+  declared route, a runtime resolution, a Station Master action, and a recorded trace can never drift
+  apart silently. Each direction below is realized by exactly one validator in the
+  `interlocking-binding` implementation; all emit the single rule_id
+  `coder.train.interlocking-bilateral-binding` with the failing `direction` named in the evidence.
+
+# Machine-readable bilateral relationship (the five binding directions). Each direction names the
+# pytest validator that proves it passes on the clean fixture and fails on its dedicated fail fixture.
+bidirectional:
+  - direction: declaration_to_runtime
+    requirement: >-
+      Every declared route resolves through InterlockingRunner to the declared train_id — the route's
+      train artifact (train_path / plan/_trains/<train_id>.yaml) must exist so the runtime can load and
+      delegate it.
+    validator: test_declared_interlocking_routes_are_runtime_resolvable
+    fail_fixture: fixtures/fail/declared_route_not_runtime_resolvable
+  - direction: runtime_to_declaration
+    requirement: >-
+      InterlockingRunner never resolves a route_id/train_id absent from the loaded YAML; a runtime that
+      returns a route_id/selected_train_id literal not declared in any interlocking is a hidden route.
+    validator: test_runtime_interlocking_resolution_is_declared
+    fail_fixture: fixtures/fail/runtime_resolves_hidden_route
+  - direction: station_to_declaration
+    requirement: >-
+      Every Station Master interlocking mapping ({interlocking_id, path}) points to an existing
+      interlocking YAML — a mapping whose path resolves to no file (or names an undeclared
+      interlocking_id) is a dangling route.
+    validator: test_station_master_interlocking_entries_resolve_artifacts
+    fail_fixture: fixtures/fail/station_master_points_missing_interlocking
+  - direction: declaration_to_station
+    requirement: >-
+      Every interlocking with core entrypoint.exposed=true is Station-Master-reachable through one of
+      its core entrypoint.actions wired into the JOURNEY_MAP to that interlocking. Interlockings with
+      entrypoint.exposed=false (internal-transition-only / library-only / planned-not-exposed) carry no
+      reachability obligation. CONSUMES core afokapu/atdd#1248 entrypoint.exposed + entrypoint.actions;
+      this extension defines NO parallel reachability field — a parallel field (entrypoints,
+      runtime_exposure, station_actions, exposed_actions, reachability) is rejected as schema drift.
+    validator: test_runtime_exposed_interlockings_are_station_master_reachable_or_non_entrypoint
+    fail_fixture: fixtures/fail/exposed_interlocking_unreachable
+  - direction: trace_to_declaration
+    requirement: >-
+      Every executed interlocking route emits trace metadata that resolves back to the source YAML — a
+      trace test asserting trace["route_id"]/trace["interlocking_id"] values absent from the declared
+      route space does not bind the run to its declaration (core afokapu/atdd#1251 trace contract).
+    validator: test_interlocking_trace_binds_declared_route
+    fail_fixture: fixtures/fail/trace_does_not_resolve_to_yaml
+
+implementation:
+  type: validator
+  ref: coder.train.interlocking-bilateral-binding
+
+content:
+  summary: >-
+    A bilateral-binding obligation that makes train interlocking SYSTEMIC. One python-pytest detector
+    (implementations/interlocking-binding) walks a consumer tree's interlocking YAML route space,
+    Station Master JOURNEY_MAP, InterlockingRunner runtime, and e2e trace tests, and emits RAW v1.1
+    violations under this rule_id for any of the five binding directions that is broken — plus a
+    schema-drift signal when a parallel reachability field is used instead of core
+    afokapu/atdd#1248's `entrypoint`.
+  normative_text: |
+    Core runtime spec afokapu/atdd#1251 — the additive call model whose closure this rule enforces:
+
+        plan/_trains/_interlockings/<id>.yaml          (declaration, core #1248)
+          -> entrypoint.actions[]                       (core #1248 entrypoint field — CONSUMED here)
+          -> Station Master JOURNEY_MAP action          (reachability)
+          -> InterlockingRunner.resolve_train(...)      (runtime, core #1251)
+          -> InterlockingResolution(route_id, train_id, category_digit, ...)
+          -> TrainRunner.execute(selected_train_id)     (delegation)
+          -> TrainResult.trace(interlocking_id, route_id, selected_train_id, ...)
+          -> validator resolves the trace back to the YAML route
+
+    The five binding directions each close one edge of that loop:
+
+      declaration_to_runtime  — every declared route's train artifact exists (runtime can resolve it).
+      runtime_to_declaration  — the runtime never resolves a route/train absent from the loaded YAML.
+      station_to_declaration  — every Station Master interlocking mapping points to an existing YAML.
+      declaration_to_station  — every exposed interlocking is reachable via a declared entrypoint.action.
+      trace_to_declaration    — every asserted trace route binds back to a declared route in the YAML.
+
+    OWNERSHIP SPLIT (collision prevention): core afokapu/atdd#1248/#1249 own the interlocking YAML
+    schema and the SHAPE/allowed values of the `entrypoint` field. This extension only READS those
+    core fields to validate REACHABILITY against Station Master and runtime traces in a consumer repo.
+    The extension MUST NOT introduce `entrypoints`, `runtime_exposure`, `station_actions`,
+    `exposed_actions`, `reachability`, or any other parallel reachability field. If core #1248 changes
+    the field name or shape, this rule follows core and updates its validators/fixtures.
+  fix_hint: |
+    Close the broken binding direction named in the violation's evidence:
+
+      declaration_to_runtime  — add the missing train artifact (train_path / plan/_trains/<train_id>.yaml)
+                                the declared route resolves to.
+      runtime_to_declaration  — remove the hidden route_id/train_id literal from InterlockingRunner, or
+                                declare it as a route in the interlocking YAML.
+      station_to_declaration  — fix the JOURNEY_MAP interlocking path to point at the real YAML.
+      declaration_to_station  — wire the exposed interlocking's entrypoint.action into JOURNEY_MAP (or
+                                set entrypoint.exposed:false with a reason if it is genuinely internal).
+      trace_to_declaration    — assert the trace's interlocking_id/route_id values that are actually
+                                declared in the interlocking YAML.
+      schema drift            — replace any parallel reachability field with core #1248's `entrypoint`
+                                (exposed/actions/reason).
+
+    This rule is `strict`: a broken binding direction lets declaration, runtime, Station Master, and
+    trace drift apart silently and therefore blocks CI.
+  exceptions:
+    - Interlockings with entrypoint.exposed:false (internal-transition-only / library-only /
+      planned-not-exposed) carry no Station-Master-reachability obligation (declaration_to_station).
+    - A consumer tree with no interlocking route space and no InterlockingRunner is not an interlocking
+      system; the rule does not bite.
+    - Per-stack renderings other than python-pytest are owned by their own workspace packages.
+
+metadata:
+  aliases:
+    - CODER-TRAIN-INTERLOCKING-BILATERAL-BINDING-001
+  severity: 1
+  disposition: strict
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1248
+    - afokapu/atdd#1249
+    - afokapu/atdd#1251
+
+notes: >-
+  DISPOSITION JUSTIFICATION (strict, severity 1). Bilateral binding is what makes interlocking a
+  route-control SYSTEM rather than a description. A broken binding direction — an unresolvable declared
+  route, a hidden runtime route, a dangling Station Master mapping, an unreachable exposed interlocking,
+  or a trace that does not resolve to its declaration — is the exact silent-drift failure class the
+  train-interlocking design (afokapu/atdd#1246) exists to close. The detector emits RAW facts only; the
+  strict verdict is applied by gates/interlocking-binding.gate.yaml. Per boundary spec §6.2 the core
+  contracts are referenced NARRATIVELY, not as graph edges, and the core `entrypoint` field is CONSUMED,
+  never forked.
+
+terms:
+  - term_id: bilateral_binding
+    text: >-
+      the property that interlocking declaration, runtime resolution, Station Master reachability, and
+      execution trace are bound in both directions so none can drift from the others undetected.
+  - term_id: declared_route
+    text: >-
+      a route_id + train_id pair in the `routes:` of an interlocking YAML (core afokapu/atdd#1248); the
+      authoritative unit of admissible route resolution.
+  - term_id: hidden_route
+    text: >-
+      a route_id/selected_train_id the InterlockingRunner runtime resolves that is declared in no
+      interlocking YAML — a runtime-to-declaration binding break.
+  - term_id: exposed_entrypoint
+    text: >-
+      an interlocking whose core entrypoint.exposed is true and whose entrypoint.actions name the
+      Station Master actions through which it must be reachable (core afokapu/atdd#1248); this extension
+      CONSUMES the field and defines no parallel reachability metadata.
+  - term_id: parallel_reachability_field
+    text: >-
+      any non-core reachability field (entrypoints, runtime_exposure, station_actions, exposed_actions,
+      reachability) that forks core afokapu/atdd#1248's `entrypoint`; using one is schema drift and is
+      rejected.
