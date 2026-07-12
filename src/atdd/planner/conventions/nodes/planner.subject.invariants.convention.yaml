@@ -1,0 +1,34 @@
+schema_version: 1.0.0
+rule_id: planner.subject.invariants
+kind: constraint
+status: active
+name: Subject invariants
+statement: A subject is a durable noun object registered in plan/_subjects.yaml before
+  any train is typed under it; subjects are unique-by-subject and typed trains are
+  unique-by-subject+slug.
+terms:
+- term_id: durable_noun
+  text: a subject is kebab-case and noun-led (not a verb, an actor, a theme, a route,
+    a category, an owner, or a program name) — the durable object of a train's change
+- term_id: registered_before_first_train
+  text: the subject exists in the plan/_subjects.yaml registry before any train:<subject>:<slug>
+    is typed under it
+- term_id: unique_identity
+  text: registry entries are unique-by-subject and typed trains are unique-by-subject+slug
+implementation:
+  type: validator
+  ref: test_subject_invariants::test_repo_subject_registry_satisfies_invariants
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: coherence
+  template: registry_entries_coherent
+  variant: planner_subject_invariants
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: subject
+  failure_evidence:
+  - subject
+  - slug
+  - registry_status

@@ -69,12 +69,12 @@ from atdd.coach.utils.theme_map import get_theme_map
 
 _logger = logging.getLogger(__name__)
 
-# Import URNBuilder for URN generation (following conventions)
+# Import URNGrammar for URN generation (following conventions)
 try:
-    from atdd.coach.utils.graph.urn import URNBuilder
+    from atdd.coach.utils.graph.urn import URNGrammar
 except ImportError:
-    # Fallback if URNBuilder not available
-    class URNBuilder:
+    # Fallback if URNGrammar not available
+    class URNGrammar:
         @staticmethod
         def test(wagon: str, file: str, func: str) -> str:
             return f"test:{wagon}:{file}::{func}"

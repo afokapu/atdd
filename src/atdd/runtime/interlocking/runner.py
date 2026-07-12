@@ -38,11 +38,11 @@ from pathlib import Path
 from typing import Any, Mapping, Optional, Protocol, runtime_checkable
 
 from atdd.planner.interlocking import (
-    CATEGORY_BY_DIGIT,
     InterlockingError,
     RouteResolutionError,
     evaluate_interlocking_route,
     load_interlocking,
+    target_train_category,
     validate_interlocking,
 )
 from atdd.planner.interlocking.models import Route, TrainInterlocking
@@ -86,7 +86,6 @@ class InterlockingResolution:
     train_id: str
     train_path: str
     category: str
-    category_digit: str
     guard_id: str
     resolution_strategy: str
     reason: str
@@ -102,7 +101,6 @@ class InterlockingResolution:
             "route_id": self.route_id,
             "selected_train_id": self.train_id,
             "route_category": self.category,
-            "route_category_digit": self.category_digit,
             "guard_id": self.guard_id,
             "resolution_strategy": self.resolution_strategy,
             "resolution_reason": self.reason,
@@ -159,7 +157,7 @@ class InterlockingRunner:
         Steps (all via the #1248 safe API): load + shape-validate the YAML,
         semantically validate the interlocking, evaluate guarded routes against
         ``inputs``/``state`` under the declared strategy, then re-assert the
-        *selected* route's category digit and train-file existence.
+        *selected* route's category and train-file existence.
         """
         interlocking = self._load_and_validate()
 
@@ -188,7 +186,6 @@ class InterlockingRunner:
             train_id=route.train_id,
             train_path=route.train_path,
             category=route.category,
-            category_digit=route.category_digit,
             guard_id=route.guard_ref,
             resolution_strategy=interlocking.route_resolution.strategy,
             reason=(
@@ -258,30 +255,27 @@ class InterlockingRunner:
     def _validate_selected_route(
         self, interlocking: TrainInterlocking, route: Route
     ) -> None:
-        """Re-assert the selected route's category digit + train file (fail-closed).
+        """Re-assert the selected route's category + train file (fail-closed).
 
         ``validate_interlocking`` already checks the whole document; this is a
         defense-in-depth re-check scoped to the *selected* route so a single
         admissible train can never be executed against a mismatched category or a
         missing file even if document-level validation were ever bypassed.
-        """
-        train_digit = route.train_id[1] if len(route.train_id) >= 2 else ""
-        if route.category_digit != train_digit:
-            raise InterlockingResolutionError(
-                f"selected route {route.route_id!r} category_digit "
-                f"{route.category_digit!r} does not match train {route.train_id!r} "
-                f"category digit {train_digit!r}"
-            )
 
-        expected_category = CATEGORY_BY_DIGIT.get(route.category_digit)
-        if expected_category is not None and route.category != expected_category:
+        Category is a FIELD on the target train (#1421), so this compares the
+        route's category against the train's declared one — it never parses the
+        identity for a classification digit.
+        """
+        root = interlocking.repo_root or self._path.parent
+
+        train_category = target_train_category(route.train_path, root)
+        if train_category is not None and route.category != train_category:
             raise InterlockingResolutionError(
                 f"selected route {route.route_id!r} category {route.category!r} does "
-                f"not match category_digit {route.category_digit!r} "
-                f"(expected {expected_category!r})"
+                f"not match the category {train_category!r} declared by its target "
+                f"train {route.train_id!r}"
             )
 
-        root = interlocking.repo_root or self._path.parent
         train_file = Path(root) / route.train_path
         if not train_file.exists():
             raise InterlockingResolutionError(

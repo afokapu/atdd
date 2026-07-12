@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
 
 
 # Path constants
@@ -140,8 +140,8 @@ def generate_urn_from_path(file_path: Path, language: str) -> str:
 
     urn = f"component:{wagon}:{feature}:{name}:{side}:{layer}"
 
-    # Validate with URNBuilder before returning
-    if not URNBuilder.validate_urn(urn, "component"):
+    # Validate with URNGrammar before returning
+    if not URNGrammar.validate_urn(urn, "component"):
         return ""
 
     return urn
@@ -590,7 +590,7 @@ def test_urn_generation_logic():
 
     Given: Sample file paths
     When: Generating URNs
-    Then: URNs match expected component format and pass URNBuilder validation
+    Then: URNs match expected component format and pass URNGrammar validation
     """
     test_cases = [
         # (file_path, language, expected_urn)
@@ -635,7 +635,7 @@ def test_urn_generation_logic():
             )
 
         # Validate generated URN passes component pattern
-        if actual and not URNBuilder.validate_urn(actual, "component"):
+        if actual and not URNGrammar.validate_urn(actual, "component"):
             failures.append(
                 f"Path: {path_str}\n"
                 f"  URN failed validation: {actual}"

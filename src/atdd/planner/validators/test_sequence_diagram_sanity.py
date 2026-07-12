@@ -115,10 +115,10 @@ def _valid_model(**overrides) -> TrainInterlocking:
         residuals=(Residual(id="r1", kind="structural", reason="ownership",
                             acceptance_ref="acc:demo", validator_ref="t::t"),),
         routes=(
-            Route(route_id="nominal", category="nominal", category_digit="0", priority=1,
+            Route(route_id="nominal", category="nominal", priority=1,
                   guard_ref="g0", train_id="0001-demo", train_path="plan/_trains/0001-demo.yaml",
                   projection=Projection(expected_sequence_digest="D")),
-            Route(route_id="alternate", category="alternate", category_digit="2", priority=2,
+            Route(route_id="alternate", category="alternate", priority=2,
                   guard_ref="g2", train_id="2001-demo", train_path="plan/_trains/2001-demo.yaml",
                   projection=Projection(expected_sequence_digest="D")),
         ),
@@ -161,21 +161,46 @@ def test_entrypoint_shape_fault_is_evidence_shaped() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 3. route category matches train id
+# 3. route category matches train id  (issue #1421: category is a FIELD compare
+#    against the target train's `category`, not the legacy identity digit)
 # ---------------------------------------------------------------------------
 def test_interlocking_route_category_matches_train_id() -> None:
     rule = bind_rule("planner.train.interlocking-route-category-matches-train-id")
     _assert_baseline_clean(rule.rule_id)
 
 
-def test_route_category_fault_is_evidence_shaped() -> None:
-    bad_route = Route(route_id="nominal", category="nominal", category_digit="0", priority=1,
-                      guard_ref="g0", train_id="1100-demo",  # train category digit 1 != nominal 0
-                      train_path="plan/_trains/1100-demo.yaml",
-                      projection=Projection(expected_sequence_digest="D"))
+def _write_train(tmp_path: Path, rel: str, category: str) -> None:
+    p = tmp_path / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(f"train_id: train:{p.parent.name}:{p.stem}\ncategory: {category}\n",
+                 encoding="utf-8")
+
+
+def test_route_category_agreement_passes(tmp_path) -> None:
+    """A route whose declared category matches the target train's `category`
+    FIELD is clean — the legacy digit-in-identity is never parsed (#1421)."""
+    rel = "plan/_trains/match-resolution/decide.yaml"
+    _write_train(tmp_path, rel, category="nominal")
+    ok_route = Route(route_id="nominal", category="nominal", priority=1,
+                     guard_ref="g0", train_id="train:match-resolution:decide",
+                     train_path=rel, projection=Projection(expected_sequence_digest="D"))
+    model = _valid_model(routes=(ok_route,))
+    assert sanity.route_category_violations(model, tmp_path) == []
+
+
+def test_route_category_fault_is_evidence_shaped(tmp_path) -> None:
+    """Route claims nominal but the target train's `category` field is error."""
+    rel = "plan/_trains/match-resolution/timeout.yaml"
+    _write_train(tmp_path, rel, category="error")
+    bad_route = Route(route_id="nominal", category="nominal", priority=1,
+                      guard_ref="g0", train_id="train:match-resolution:timeout",
+                      train_path=rel, projection=Projection(expected_sequence_digest="D"))
     bad = _valid_model(routes=(bad_route,))
+    evidence = sanity.route_category_violations(bad, tmp_path)
     _assert_evidence_shaped("planner.train.interlocking-route-category-matches-train-id",
-                            sanity.route_category_violations(bad))
+                            evidence)
+    assert evidence[0]["train_category"] == "error"
+    assert evidence[0]["category"] == "nominal"
 
 
 # ---------------------------------------------------------------------------
@@ -207,10 +232,10 @@ def test_interlocking_route_resolution_strategy_declared() -> None:
 def test_no_ambiguous_interlocking_routes() -> None:
     """first_priority with duplicate priorities is non-deterministic -> caught."""
     dup = (
-        Route(route_id="a", category="nominal", category_digit="0", priority=5,
+        Route(route_id="a", category="nominal", priority=5,
               guard_ref="g0", train_id="0001-demo", train_path="plan/_trains/0001-demo.yaml",
               projection=Projection(expected_sequence_digest="D")),
-        Route(route_id="b", category="alternate", category_digit="2", priority=5,
+        Route(route_id="b", category="alternate", priority=5,
               guard_ref="g2", train_id="2001-demo", train_path="plan/_trains/2001-demo.yaml",
               projection=Projection(expected_sequence_digest="D")),
     )

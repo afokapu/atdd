@@ -1,0 +1,30 @@
+schema_version: 1.1.0
+rule_id: planner.artifact.definition
+kind: family
+status: draft
+name: Artifact — advisory semantic anchor
+statement: An artifact is a produced-or-consumed unit of the domain — a theme-namespaced,
+  URN-identified thing (material, contract, schema) that wagons exchange and that WMBTs
+  and acceptances prove. Its identity follows the canonical naming pattern (theme:hierarchy:aspect.variant)
+  and mirrors its declared location. This is a planner domain-decomposition artifact
+  naming WHAT is exchanged; its runtime realization as cargo in flight is a coder/tester
+  concern. This node is an advisory semantic anchor — it enforces nothing directly;
+  the enforceable parts of this meaning are decomposed into the constraint/rule nodes
+  that require it.
+terms:
+- term_id: semantic_anchor
+  label: Advisory semantic anchor
+  text: a definitional node that gives the artifact a stable meaning but is not itself
+    bound to a validator; it is transitively protected by the enforceable constraint/rule
+    nodes that require it.
+- term_id: artifact
+  label: Artifact
+  text: artifact -> {urn-identified, theme-namespaced, naming-patterned, location-mirroring}.
+  values:
+    urn-identified: has a structured URN (see planner.artifact-naming.urn-structure,
+      planner.artifact-naming.schema-identifier).
+    theme-namespaced: its top segment is a canonical theme (see planner.artifact-naming.theme-taxonomy).
+    naming-patterned: follows theme:hierarchy:aspect.variant with colon/dot separator
+      semantics (see planner.artifact-naming.naming-pattern, planner.artifact-naming.separator-semantics).
+    location-mirroring: logical identity mirrors physical/contract location (see planner.artifact-naming.contract-file-mapping,
+      planner.artifact-naming.logical-physical-mapping).

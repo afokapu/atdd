@@ -1,0 +1,12 @@
+schema_version: 1.0.0
+rule_id: planner.decomposition.wagon-rationale
+kind: principle
+status: active
+statement: Each wagon's description must make its capability boundary understandable
+  later without the original conversation. It uses the existing wagon schema description
+  field; no new field is introduced.
+terms:
+- term_id: capability_boundary
+  text: what the wagon does and does not own, legible from its description alone.
+- term_id: no_new_field
+  text: rationale rides the existing description field, not a new schema field.

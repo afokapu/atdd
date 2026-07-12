@@ -5,17 +5,19 @@
 
 The JSON schema validates *shape*; this module validates *meaning*: that message
 endpoints resolve to declared lifelines, boundary/self message direction rules
-hold, route guard references exist, route category/digit/train agree, and target
-trains exist on disk. Returns a list of structured :class:`Violation` records
-(empty when the interlocking is sound). Station Master reachability is NOT checked
-here — that is delegated to extension validators (atdd-extensions#27).
+hold, route guard references exist, each route's category agrees with its target
+train, and target trains exist on disk. Returns a list of structured
+:class:`Violation` records (empty when the interlocking is sound). Station Master
+reachability is NOT checked here — that is delegated to extension validators
+(atdd-extensions#27).
 """
 from __future__ import annotations
 
 from pathlib import Path
 from typing import List
 
-from .models import CATEGORY_BY_DIGIT, TrainInterlocking
+from .loader import target_train_category
+from .models import TrainInterlocking
 from .violations import Violation
 
 __all__ = ["validate_interlocking"]
@@ -79,7 +81,7 @@ def validate_interlocking(
                 )
             )
 
-    # --- routes: guard ref, category/digit/train agreement, train existence ---
+    # --- routes: guard ref, category/train agreement, train existence ---------
     for route in interlocking.routes:
         if route.guard_ref not in guards:
             violations.append(
@@ -94,32 +96,21 @@ def validate_interlocking(
                 )
             )
 
-        train_digit = route.train_id[1] if len(route.train_id) >= 2 else ""
-        if route.category_digit != train_digit:
+        # Category is a validated FIELD on the target train (#1421), so agreement
+        # is a field compare against that train — never a digit read out of the
+        # identity, which carries no classification. A train that declares no
+        # category (unmigrated during the transition) is not judged here.
+        train_category = target_train_category(route.train_path, root)
+        if train_category is not None and route.category != train_category:
             violations.append(
                 Violation(
                     rule_id=f"{_RULE}-005",
                     severity=4,
                     location=_loc(interlocking, route.route_id),
                     detail=(
-                        f"route {route.route_id} category_digit "
-                        f"{route.category_digit!r} does not match train "
-                        f"{route.train_id!r} category digit {train_digit!r}"
-                    ),
-                )
-            )
-
-        expected_category = CATEGORY_BY_DIGIT.get(route.category_digit)
-        if expected_category is not None and route.category != expected_category:
-            violations.append(
-                Violation(
-                    rule_id=f"{_RULE}-006",
-                    severity=3,
-                    location=_loc(interlocking, route.route_id),
-                    detail=(
                         f"route {route.route_id} category {route.category!r} does not "
-                        f"match category_digit {route.category_digit!r} "
-                        f"(expected {expected_category!r})"
+                        f"match the category {train_category!r} declared by its target "
+                        f"train {route.train_id!r}"
                     ),
                 )
             )

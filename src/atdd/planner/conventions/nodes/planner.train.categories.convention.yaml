@@ -3,7 +3,9 @@ rule_id: planner.train.categories
 kind: family
 status: active
 name: Train test categories
-statement: The category digit (0-3) classifies a train as nominal, error, alternate, or exception.
+statement: "The category FIELD classifies a train as nominal, error, alternate, or exception. It is
+  metadata on the train, never a digit in its identity (issues #1421, #1440), so reclassifying a train
+  changes a field and not its name."
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_section: numbering.categories
@@ -18,9 +20,9 @@ parity:
 terms:
 - term_id: category
   label: Test categories
-  text: digit -> {name, description}.
+  text: name -> description. The four values of the train's `category` field.
   values:
-    '0': nominal - Happy path - perfect conditions, standard flows
-    '1': error - Unexpected system failures - crashes, unavailability, infrastructure issues
-    '2': alternate - Valid alternative flows - different inputs, modes, configurations
-    '3': exception - Expected failures handled gracefully - validation errors, business rule violations
+    nominal: Happy path - perfect conditions, standard flows
+    error: Unexpected system failures - crashes, unavailability, infrastructure issues
+    alternate: Valid alternative flows - different inputs, modes, configurations
+    exception: Expected failures handled gracefully - validation errors, business rule violations
