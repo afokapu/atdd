@@ -1,0 +1,101 @@
+schema_version: "1.0.0"
+
+# Official ATDD train-interlocking-enforcement extension.
+#
+# SCAFFOLD (afokapu/atdd-extensions#24). This issue ships the PACKAGE + DISCOVERY
+# substrate only: the manifest, the convention home, relationships, scopes, gates,
+# and two implementation manifests with src/tests/fixtures skeletons. The actual
+# validator decision logic + convention node bodies are authored by sibling
+# workers:
+#   #25 -> coder runtime-infrastructure convention + interlocking-infrastructure validator
+#   #26 -> tester route-coverage convention      + interlocking-coverage validator
+#   #27 -> bilateral declaration<->runtime binding convention + checks
+#
+# Boundary model (CONTRIBUTING.md "The Four Layers" + boundary spec §6.2):
+#   - This EXTENSION owns the rules (conventions) + implementations (validators).
+#   - The WORKSPACE PROVIDER (atdd.workspace.python-pytest) owns the reusable
+#     runtime; it is referenced by id + contract range, never bundled here.
+#   - Each implementation declares the provider it targets + a contract_version.
+#   - core<->extension references (the train-interlocking core design) are declared
+#     NARRATIVELY here + in README, never as relationship-graph edges (§6.2).
+#
+# Core design this extension enforces (already merged to atdd core main):
+#   afokapu/atdd#1246 — parent: train interlocking route-control model
+#   afokapu/atdd#1248 — planner artifact: interlocking YAML + projections (CLOSED)
+#   afokapu/atdd#1249 — planner validators + Confirm gate (CLOSED)
+#   afokapu/atdd#1251 — runtime: InterlockingRunner called by Station Master,
+#                       delegates to TrainRunner
+#   afokapu/atdd-extensions#23 — extension enforcement parent
+extension_id: atdd.extension.train-interlocking-enforcement
+version: "0.1.0"
+kind: extension
+
+# This extension's headline deliverable is proving the consumer-repo RUNTIME
+# infrastructure (InterlockingRunner) exists and is wired into the Station Master
+# -> TrainRunner path — a source-surface (coder) concern. It ALSO co-hosts the
+# tester route-coverage surface (#26). A package carries a single role; the
+# tester surface is co-hosted and documented in README. Revisit if #25/#26
+# decide the coverage half warrants a sibling package.
+role: coder
+flow_wagon: validate-source-surface
+feature: train-interlocking-enforcement
+
+# What this package owns. In this SCAFFOLD slice the convention bodies are NOT
+# yet authored (#25/#26 add them); `owns.conventions` is therefore empty and the
+# conventions/ directory ships a README placeholder describing what lands there.
+# The two implementation manifests ARE real, discoverable units (each a directory
+# with atdd.implementation.yaml + src/tests/fixtures skeletons) so #25/#26 have a
+# concrete home; their decision modules are NotImplementedError stubs.
+owns:
+  conventions:
+    # union of #25 (coder) + #26 (tester) interlocking conventions
+    - conventions/coder.train.interlocking-runner-exists.convention.yaml
+    - conventions/coder.train.interlocking-resolution-model-exists.convention.yaml
+    - conventions/coder.train.station-master-interlocking-routing.convention.yaml
+    - conventions/coder.train.interlocking-delegates-to-trainrunner.convention.yaml
+    - conventions/coder.train.interlocking-does-not-carry-cargo.convention.yaml
+    - conventions/tester.interlocking.route-coverage.convention.yaml
+    - conventions/tester.interlocking.production-runner-used.convention.yaml
+    - conventions/tester.interlocking.smoke-coverage-for-station-master.convention.yaml
+    - conventions/tester.interlocking.trace-binds-declared-route.convention.yaml
+    # #27 bilateral declaration<->runtime<->station<->trace binding (the systemic-closure convention)
+    - conventions/coder.train.interlocking-bilateral-binding.convention.yaml
+    # runtime-machinery definition anchors (kind: family, advisory) — coder-layer
+    # semantic anchors for the runtime concepts the enforcing rules above operationalize.
+    - conventions/coder.train.train-runner.definition.convention.yaml
+    - conventions/coder.train.interlocking-runner.definition.convention.yaml
+    - conventions/coder.train.cargo.definition.convention.yaml
+    - conventions/coder.train.station-master.definition.convention.yaml
+    - conventions/coder.train.executional-machinery.definition.convention.yaml
+  relationships:
+    - relationships.yaml
+  implementations:
+    - implementations/interlocking-infrastructure
+    - implementations/interlocking-coverage
+    - implementations/interlocking-binding
+  schemas: []
+  gates:
+    - gates/interlocking-infrastructure.gate.yaml
+    - gates/interlocking-coverage.gate.yaml
+    - gates/interlocking-binding.gate.yaml
+  scopes:
+    - scopes/interlocking-targets.scope.yaml
+
+depends_on:
+  core:
+    - atdd.core.convention-node-schema
+    - atdd.core.relationship-schema
+    - atdd.core.workspace-schema
+    - atdd.core.implementation-schema
+    - atdd.core.violation-output-schema
+  # The reusable runtime all three implementations target. The infrastructure
+  # validator (scans python/ runtime code), the coverage validator (scans e2e/
+  # production tests), and the bilateral-binding validator (#27; scans the
+  # declaration<->runtime<->station<->trace closure) all run inside the
+  # python-pytest provider. Referenced by id + contract range; never copied in.
+  workspaces:
+    - id: atdd.workspace.python-pytest
+      contract: "^1.0.0"
+
+removal_policy:
+  allowed_if_no_external_dependents: true

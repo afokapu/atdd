@@ -63,3 +63,59 @@ def create_work_item(
         )
         obj = store.objects.get(slug) or obj
     return obj
+
+
+def revise_work_item_issue(
+    conn: sqlite3.Connection,
+    issue_number: int,
+    *,
+    body: Optional[str] = None,
+    issue_type: Optional[str] = None,
+) -> Object:
+    """Revise an existing issue-backed work item through the State Store.
+
+    Resolves the GitHub issue number through ``external_refs`` to the canonical
+    work-item uid, merges the requested issue fields into the object's JSON data,
+    and preserves the existing lifecycle state. This is the authoritative update;
+    provider projection is a caller concern.
+    """
+    store = StateStore(conn)
+    ref = store.external_refs.resolve(
+        GITHUB_PROVIDER, ISSUE_REF_KIND, str(issue_number)
+    )
+    if ref is None:
+        raise KeyError(f"github issue #{issue_number} is not registered in the State Store")
+
+    existing = store.objects.get(ref.object_uid)
+    if existing is None:
+        raise KeyError(
+            f"work_item {ref.object_uid!r} for github issue #{issue_number} is missing"
+        )
+    if existing.kind != WORK_ITEM_KIND:
+        raise ValueError(
+            f"object {existing.uid!r} is kind {existing.kind!r}, not {WORK_ITEM_KIND!r}"
+        )
+
+    updates: Dict[str, Any] = {}
+    if body is not None:
+        updates["body"] = body
+    if issue_type is not None:
+        updates["type"] = issue_type
+    if not updates:
+        raise ValueError("revision requires body and/or issue_type")
+
+    obj = store.objects.upsert(
+        existing.uid,
+        WORK_ITEM_KIND,
+        state=existing.state,
+        data={**existing.data, **updates},
+    )
+    store.events.append(
+        "issue_revised",
+        object_uid=existing.uid,
+        payload={
+            "issue_number": issue_number,
+            "fields": sorted(updates),
+        },
+    )
+    return obj

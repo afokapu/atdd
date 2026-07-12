@@ -1,0 +1,42 @@
+schema_version: "1.0.0"
+
+# Consumer-repo target selectors for the train-interlocking-enforcement extension.
+#
+# A scope binds a convention's enforcement to the consumer files it inspects. The
+# infrastructure validator (#25) reads the train runtime code + Station Master;
+# the coverage validator (#26) reads the interlocking route space + the e2e tests
+# that must cover it. Selector globs match the canonical homes locked by core
+# afokapu/atdd#1248 (interlocking artifact) and afokapu/atdd#1251 (runtime).
+scope_id: atdd.extension.train-interlocking-enforcement.targets
+
+selectors:
+  # --- interlocking route space (authoritative for guarded routes; #1248) ---
+  - id: interlocking_yaml
+    description: Interlocking artifacts + their per-interlocking directories (incl. generated coverage/sequence projections).
+    include:
+      - "plan/_trains/_interlockings/**/*.yaml"
+      - "plan/_trains/_interlockings.yaml"
+
+  # --- linear train definitions (authoritative for executable steps; #1248) ---
+  - id: train_yaml
+    description: Train registry + concrete linear train definitions each route projects onto.
+    include:
+      - "plan/_trains/**/*.yaml"
+
+  # --- consumer runtime code: TrainRunner + InterlockingRunner (#1251) ---
+  - id: python_runtime
+    description: Train runtime modules the InterlockingRunner route-control layer lives in / is wired through.
+    include:
+      - "python/trains/**/*.py"
+
+  # --- Station Master entrypoint: the primary InterlockingRunner caller (#1251) ---
+  - id: station_master
+    description: Station Master entrypoint that calls InterlockingRunner.resolve_train(...) before delegating to TrainRunner.execute(...).
+    include:
+      - "python/app.py"
+
+  # --- production / e2e route coverage (#26) ---
+  - id: e2e_tests
+    description: End-to-end tests that must exercise each admissible interlocking route.
+    include:
+      - "e2e/**/*.py"

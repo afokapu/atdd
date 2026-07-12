@@ -1,0 +1,56 @@
+schema_version: 1.1.0
+rule_id: coder.train.interlocking-runner-exists
+kind: rule
+status: active
+name: InterlockingRunner route-control layer exists with a resolve_train entry point
+statement: >-
+  When a consumer interlocking declares guarded routes, the consumer runtime MUST ship an
+  `InterlockingRunner` route-control layer — a `class InterlockingRunner` defined under
+  `python/trains/interlocking.py` (or `python/trains/interlocking/runner.py`) that exposes a
+  `resolve_train(...)` entry point. This is the agnostic obligation; the python-pytest AST detector
+  that enforces it is the implementation referenced below.
+implementation:
+  type: validator
+  ref: coder.train.interlocking-runner-exists
+content:
+  summary: >-
+    An agnostic "the InterlockingRunner runtime exists" obligation. The python realization parses the
+    consumer's `python/trains/**/*.py` runtime with `ast` and flags a consumer that declares an
+    interlocking route (JOURNEY_MAP object) but ships no `InterlockingRunner` class, or ships one that
+    lacks a `resolve_train` method. Maps to validator checks `test_interlocking_runner_exists` and
+    `test_interlocking_runner_has_resolve_train`.
+  normative_text: |
+    Core runtime spec afokapu/atdd#1251 (Part of #1246): an interlocking is executable only as a
+    route-control component. Its entry point is `InterlockingRunner.resolve_train(action, inputs,
+    state)`, which evaluates guarded routes and resolves exactly one admissible train before delegation.
+    A consumer that declares interlocking routes without this class — or with a class that has no
+    resolve_train — has no route-control layer at all. WHICH runtime files are inspected and HOW the
+    class/method are recognized is delegated to the per-stack detector (python: an `ast` walk over the
+    `python_runtime` selector).
+  fix_hint: |
+    Add the route-control layer:
+
+      # python/trains/interlocking.py   (or python/trains/interlocking/runner.py)
+      class InterlockingRunner:
+          def __init__(self, interlocking_yaml_path): ...
+          def resolve_train(self, action, inputs, state=None) -> InterlockingResolution: ...
+
+    This rule is `strict`: a newly introduced interlocking route without an InterlockingRunner +
+    resolve_train is not suppressible and fails CI.
+  exceptions:
+    - A pure direct-train consumer (no interlocking route object in JOURNEY_MAP and no InterlockingRunner
+      class) carries no obligation and is not flagged.
+metadata:
+  aliases:
+    - INTERLOCKING-RUNNER-EXISTS-001
+  severity: 4
+  disposition: strict
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: interlocking_runner
+    text: >-
+      `class InterlockingRunner` under python/trains/ exposing `resolve_train(...)`; the route-control
+      component that selects one admissible train and delegates execution to TrainRunner.

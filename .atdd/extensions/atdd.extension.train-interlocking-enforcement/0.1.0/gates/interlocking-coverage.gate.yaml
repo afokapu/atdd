@@ -1,0 +1,32 @@
+schema_version: "1.0.0"
+
+# Gate: WHEN the interlocking TESTER checks run (afokapu/atdd-extensions#26).
+#
+# The interlocking-coverage validator runs once and emits FOUR strict tester
+# rule_ids: route-coverage, production-runner-used, smoke-coverage-for-station-master,
+# and trace-binds-declared-route. Final severity is a property of each convention
+# node's metadata.disposition (all four land strict); this gate records the runtime
+# stage. Default is CI/strict.
+gate_id: atdd.extension.train-interlocking-enforcement.coverage
+# Primary realized convention (the headline binding); the same gate run covers all
+# four conventions the implementation emits — enumerated below + edged in
+# relationships.yaml (convention -> gate, type: gated-by).
+realizes_convention: tester.interlocking.route-coverage   # authored by #26
+realizes_conventions:
+  - tester.interlocking.route-coverage
+  - tester.interlocking.production-runner-used
+  - tester.interlocking.smoke-coverage-for-station-master
+  - tester.interlocking.trace-binds-declared-route
+implementation: implementations/interlocking-coverage
+scope: scopes/interlocking-targets.scope.yaml
+
+stages:
+  - id: ci
+    mode: strict
+    description: >-
+      Block on CI when an interlocking tester check fails: an admissible route has
+      no e2e test, an interlocking test mocks the production runner, an exposed
+      Station Master action lacks smoke coverage, or a trace assertion omits a
+      required route-binding field. The smoke check's exposed-vs-internal policy is
+      explicit in the smoke-coverage-for-station-master node (exposed=strict;
+      internal exposed:false out of scope).
