@@ -1,0 +1,52 @@
+schema_version: 1.1.0
+rule_id: coder.train.interlocking-does-not-carry-cargo
+kind: rule
+status: active
+name: Cargo stays inside TrainRunner execution; interlocking does not carry it and wagons stay clean
+statement: >-
+  Cargo is the artifact data plane carried by TrainRunner between wagons inside a selected train. An
+  `InterlockingRunner` MUST NOT reference or mutate Cargo, MUST NOT store `artifact_urn -> artifact_data`
+  runtime values, and MUST NOT route on mid-train Cargo state; Cargo MUST NOT select train variants;
+  and wagons MUST NOT import interlocking code. This is the agnostic obligation; the python-pytest AST
+  detector that enforces it is the implementation referenced below.
+implementation:
+  type: validator
+  ref: coder.train.interlocking-does-not-carry-cargo
+content:
+  summary: >-
+    An agnostic "Cargo boundary" obligation. The python realization parses each InterlockingRunner-
+    defining module with `ast` and flags a `Cargo` reference, a `cargo[...] = ...` mutation, or an
+    `artifact_urn` literal; and parses each `python/<wagon>/wagon.py` and flags an import of
+    interlocking code. Maps to validator checks `test_interlocking_does_not_mutate_cargo` and
+    `test_wagons_do_not_import_interlocking_code`.
+  normative_text: |
+    Core runtime spec afokapu/atdd#1251 — Cargo boundary. Allowed: the interlocking reads the initial
+    action/inputs/state before execution and a completed TrainResult only at a declared route boundary;
+    TrainRunner passes Cargo between wagons; wagons read and return artifact dictionaries. Forbidden:
+    the interlocking reads or mutates Cargo during train execution, stores artifact_urn -> artifact_data
+    values, or routes on mid-train Cargo state; Cargo selecting train variants; wagons importing
+    interlocking code. WHICH modules are scanned and HOW the Cargo touches are recognized is delegated
+    to the per-stack detector.
+  fix_hint: |
+    Keep Cargo inside TrainRunner. The InterlockingRunner reads only initial action/inputs/state and a
+    declared-boundary TrainResult; it never references Cargo, mutates a cargo mapping, or stores
+    artifact_urn values. Wagons import their own dependencies, never InterlockingRunner. This rule is
+    `strict`: a newly introduced Cargo touch (or a wagon importing interlocking) is not suppressible and
+    fails CI.
+  exceptions:
+    - The production `TrainRunner` legitimately constructs and carries Cargo; only InterlockingRunner-
+      defining modules are scanned for Cargo bleed.
+metadata:
+  aliases:
+    - INTERLOCKING-NO-CARGO-001
+  severity: 4
+  disposition: strict
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: cargo_boundary
+    text: >-
+      the rule that Cargo (artifact data plane) stays inside TrainRunner execution; the InterlockingRunner
+      must not reference/mutate Cargo or store artifact_urn values, and wagons must not import it.

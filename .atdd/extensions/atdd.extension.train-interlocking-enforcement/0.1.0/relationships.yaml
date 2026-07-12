@@ -1,0 +1,388 @@
+schema_version: "1.0.0"
+
+# Extension-LOCAL relationship graph for atdd.extension.train-interlocking-enforcement.
+#
+# SCAFFOLD (afokapu/atdd-extensions#24): convention bodies are not yet authored, so
+# this graph ships with empty nodes/edges and a header that PINS the edges the
+# build slices (#25/#26/#27) must author when they add their convention nodes.
+#
+# IMPORTANT (boundary spec §6.2): core<->extension edges are NOT authored here.
+# The core train-interlocking design nodes these conventions realize
+# (afokapu/atdd#1246/#1248/#1249/#1251) are declared NARRATIVELY — in
+# atdd.extension.yaml's header + depends_on, in this package's README mapping
+# table, and in each convention node's body — never as relationship-graph edges.
+# Likewise implementation -> workspace-provider-contract is declared in each
+# implementations/<name>/atdd.implementation.yaml (targets_workspace + contract_version),
+# not as a graph edge. Only extension-INTERNAL edges live here.
+graph_id: atdd.extension.train-interlocking-enforcement.relationships
+
+# Required coverage matrix (afokapu/atdd-extensions#24) — every convention a build
+# slice adds MUST be linked, machine-readably, to all of:
+#   convention -> implementation        (graph edge here, type: realized-by; or impl manifest realizes_convention)
+#   implementation -> workspace contract (impl manifest: targets_workspace + contract_version)
+#   convention -> scope                  (graph edge here, type: scoped-by -> scopes/*.scope.yaml selector)
+#   convention -> gate                   (graph edge here, type: gated-by   -> gates/*.gate.yaml)
+#   convention -> tests/fixtures         (the validator's tests/ + fixtures/clean|dirty)
+#   convention -> core design reference  (NARRATIVE: node body + manifest, per §6.2)
+#
+# Planned convention ids (agreed package contract for the build slices):
+#   #25 coder.interlocking.runner-infrastructure
+#       -> realized-by implementations/interlocking-infrastructure
+#       -> scoped-by   scopes/interlocking-targets.scope.yaml (python_runtime selector)
+#       -> gated-by    gates/interlocking-infrastructure.gate.yaml
+#       -> realizes (narrative) afokapu/atdd#1251 (InterlockingRunner runtime contract)
+#   #26 tester.interlocking.route-coverage
+#       -> realized-by implementations/interlocking-coverage
+#       -> scoped-by   scopes/interlocking-targets.scope.yaml (interlocking_yaml + e2e selectors)
+#       -> gated-by    gates/interlocking-coverage.gate.yaml
+#       -> realizes (narrative) afokapu/atdd#1248/#1249 (route space + projection)
+#   #27 bilateral declaration<->runtime binding — convention id TBD; blocked until
+#       afokapu/atdd#1248 exposes entrypoint/action fields or an equivalent metadata
+#       source is explicitly chosen (handoff contract).
+
+# Build-slice nodes + edges (union: #25 coder + #26 tester).
+nodes:
+  # --- #25 five granular coder runtime-infrastructure conventions ---
+  - coder.train.interlocking-runner-exists
+  - coder.train.interlocking-resolution-model-exists
+  - coder.train.station-master-interlocking-routing
+  - coder.train.interlocking-delegates-to-trainrunner
+  - coder.train.interlocking-does-not-carry-cargo
+  - tester.interlocking.route-coverage
+  - tester.interlocking.production-runner-used
+  - tester.interlocking.smoke-coverage-for-station-master
+  - tester.interlocking.trace-binds-declared-route
+  # --- #27 bilateral declaration<->runtime<->station<->trace binding (systemic closure) ---
+  - coder.train.interlocking-bilateral-binding
+  # --- runtime-machinery definition anchors (kind: family, advisory) ---
+  # Coder-layer semantic anchors for the runtime concepts the enforcing rules above
+  # operationalize. Each connects via `type: relates-to` to the existing enforcer(s)
+  # that make its meaning enforceable (the extension graph has no directional
+  # `requires` semantics — that vocabulary is the core planner graph's, not this one).
+  - coder.train.train-runner.definition
+  - coder.train.interlocking-runner.definition
+  - coder.train.cargo.definition
+  - coder.train.station-master.definition
+  - coder.train.executional-machinery.definition
+
+edges:
+  # --- #25 coverage matrix: each convention -> implementation / scope / gate.
+  # All five are realized by the single interlocking-infrastructure detector (one impl, five rule_ids),
+  # bound to the same scope, and gated by the same CI/strict gate.
+  - from: coder.train.interlocking-runner-exists
+    to: implementations/interlocking-infrastructure
+    type: realized-by
+    rationale: The detector flags a missing InterlockingRunner class / resolve_train under this rule_id.
+  - from: coder.train.interlocking-runner-exists
+    to: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    rationale: Bound to the python_runtime selector (python/trains/**/*.py) the detector inspects.
+  - from: coder.train.interlocking-runner-exists
+    to: gates/interlocking-infrastructure.gate.yaml
+    type: gated-by
+    rationale: A missing route-control layer is a hard CI/strict defect.
+
+  - from: coder.train.interlocking-resolution-model-exists
+    to: implementations/interlocking-infrastructure
+    type: realized-by
+    rationale: The detector flags a bare-train_id resolution (no InterlockingResolution model) under this rule_id.
+  - from: coder.train.interlocking-resolution-model-exists
+    to: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    rationale: Bound to the python_runtime selector where InterlockingResolution is defined.
+  - from: coder.train.interlocking-resolution-model-exists
+    to: gates/interlocking-infrastructure.gate.yaml
+    type: gated-by
+    rationale: Unstructured route resolution is a hard CI/strict defect.
+
+  - from: coder.train.station-master-interlocking-routing
+    to: implementations/interlocking-infrastructure
+    type: realized-by
+    rationale: The detector flags an unlinked / non-delegating Station Master under this rule_id.
+  - from: coder.train.station-master-interlocking-routing
+    to: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    rationale: Bound to the station_master selector (python/app.py) the detector inspects.
+  - from: coder.train.station-master-interlocking-routing
+    to: gates/interlocking-infrastructure.gate.yaml
+    type: gated-by
+    rationale: A Station Master not routing through InterlockingRunner -> TrainRunner is a hard CI/strict defect.
+
+  - from: coder.train.interlocking-delegates-to-trainrunner
+    to: implementations/interlocking-infrastructure
+    type: realized-by
+    rationale: The detector flags direct wagon execution from the interlocking layer under this rule_id.
+  - from: coder.train.interlocking-delegates-to-trainrunner
+    to: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    rationale: Bound to the python_runtime selector where the InterlockingRunner module lives.
+  - from: coder.train.interlocking-delegates-to-trainrunner
+    to: gates/interlocking-infrastructure.gate.yaml
+    type: gated-by
+    rationale: An interlocking that executes wagons / duplicates TrainRunner is a hard CI/strict defect.
+
+  - from: coder.train.interlocking-does-not-carry-cargo
+    to: implementations/interlocking-infrastructure
+    type: realized-by
+    rationale: The detector flags Cargo bleed and wagons importing interlocking code under this rule_id.
+  - from: coder.train.interlocking-does-not-carry-cargo
+    to: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    rationale: Bound to the python_runtime selector (InterlockingRunner module + wagon modules).
+  - from: coder.train.interlocking-does-not-carry-cargo
+    to: gates/interlocking-infrastructure.gate.yaml
+    type: gated-by
+    rationale: Cargo escaping TrainRunner execution is a hard CI/strict defect.
+
+# NOTE (boundary spec §6.2): the implementation -> workspace-provider-contract edge
+# (atdd.workspace.python-pytest ^1.0.0) is declared in
+# implementations/interlocking-infrastructure/atdd.implementation.yaml
+# (targets_workspace + contract_version), and the core design reference
+# (afokapu/atdd#1251, Part of #1246) is declared NARRATIVELY in the convention node body +
+# atdd.extension.yaml — neither is a relationship-graph edge.
+  # === route-coverage =========================================================
+  - source_ref: tester.interlocking.route-coverage
+    target_ref: implementations/interlocking-coverage
+    type: realized-by
+    reason: >-
+      The python-pytest detector (implementation_id tester.interlocking.route-coverage.impl)
+      scans the interlocking route space against e2e tests and emits RAW v1.1
+      violations for uncovered admissible routes. The impl manifest carries the
+      reciprocal realizes_convention + targets_workspace/contract_version.
+  - source_ref: tester.interlocking.route-coverage
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: >-
+      Bound to the interlocking_yaml selector (the guarded route space, core
+      afokapu/atdd#1248) and the e2e_tests selector (the e2e/**/*.py tests that
+      must exercise each admissible route).
+  - source_ref: tester.interlocking.route-coverage
+    target_ref: gates/interlocking-coverage.gate.yaml
+    type: gated-by
+    reason: >-
+      Runs at mode: strict on CI; an admissible route with no e2e test is a
+      blocking silent-green route-control gap.
+  # === production-runner-used =================================================
+  - source_ref: tester.interlocking.production-runner-used
+    target_ref: implementations/interlocking-coverage
+    type: realized-by
+    reason: >-
+      Same detector; emits the production-runner-used rule_id when an interlocking
+      e2e test mocks/patches/monkeypatches a runner, builds a hand resolver, or
+      omits the InterlockingRunner/TrainRunner production symbols.
+  - source_ref: tester.interlocking.production-runner-used
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: >-
+      Bound to the e2e_tests selector — the interlocking-related e2e/**/*.py tests
+      whose runner usage is inspected.
+  - source_ref: tester.interlocking.production-runner-used
+    target_ref: gates/interlocking-coverage.gate.yaml
+    type: gated-by
+    reason: >-
+      Runs at mode: strict on CI; a mocked route-control path is a descriptive
+      green that proves nothing about production (core #1251).
+  # === smoke-coverage-for-station-master ======================================
+  - source_ref: tester.interlocking.smoke-coverage-for-station-master
+    target_ref: implementations/interlocking-coverage
+    type: realized-by
+    reason: >-
+      Same detector; emits the smoke rule_id when an exposed Station Master action
+      (entrypoint.exposed:true) has no smoke test reaching the Station Master and
+      driving both runners.
+  - source_ref: tester.interlocking.smoke-coverage-for-station-master
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: >-
+      Bound to the interlocking_yaml selector (entrypoint.actions, core #1248) and
+      the e2e_tests selector (the smoke tests under e2e/**/*.py).
+  - source_ref: tester.interlocking.smoke-coverage-for-station-master
+    target_ref: gates/interlocking-coverage.gate.yaml
+    type: gated-by
+    reason: >-
+      Runs at mode: strict for exposed (critical user-facing) actions; internal
+      exposed:false interlockings are out of scope per the node's explicit policy.
+  # === trace-binds-declared-route =============================================
+  - source_ref: tester.interlocking.trace-binds-declared-route
+    target_ref: implementations/interlocking-coverage
+    type: realized-by
+    reason: >-
+      Same detector; emits the trace rule_id when an interlocking trace assertion
+      omits a required binding field (core #1251 trace contract).
+  - source_ref: tester.interlocking.trace-binds-declared-route
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: >-
+      Bound to the e2e_tests selector — the interlocking trace tests under
+      e2e/**/*.py whose trace assertions are inspected.
+  - source_ref: tester.interlocking.trace-binds-declared-route
+    target_ref: gates/interlocking-coverage.gate.yaml
+    type: gated-by
+    reason: >-
+      Runs at mode: strict on CI; a trace that does not bind the declared route
+      lets declaration/runtime drift go undetected.
+  # === extension-internal sibling links (one detector, co-emitted) ============
+  - source_ref: tester.interlocking.production-runner-used
+    target_ref: tester.interlocking.route-coverage
+    type: relates-to
+    reason: >-
+      Co-equal facets of interlocking test integrity emitted by one detector run:
+      route-coverage proves every route is exercised; production-runner-used proves
+      the exercise drives the real runners, not a mock. Neither narrows the other.
+  - source_ref: tester.interlocking.smoke-coverage-for-station-master
+    target_ref: tester.interlocking.route-coverage
+    type: relates-to
+    reason: >-
+      Smoke coverage proves the exposed Station Master action reaches the route
+      space end to end; route-coverage proves each admissible route within it is
+      exercised. Same detector, complementary surfaces.
+  - source_ref: tester.interlocking.trace-binds-declared-route
+    target_ref: tester.interlocking.smoke-coverage-for-station-master
+    type: relates-to
+    reason: >-
+      The smoke test captures the trace; trace-binds-declared-route governs that the
+      captured trace asserts every field binding it back to the declared route.
+      Co-emitted; the smoke chain's final step is exactly the trace this rule checks.
+  # === #27 bilateral binding (declaration<->runtime<->station<->trace closure) =
+  - source_ref: coder.train.interlocking-bilateral-binding
+    target_ref: implementations/interlocking-binding
+    type: realized-by
+    reason: >-
+      The python-pytest detector (implementation_id
+      coder.train.interlocking-bilateral-binding.impl) walks the consumer tree's
+      interlocking YAML route space, Station Master JOURNEY_MAP, InterlockingRunner
+      runtime, and e2e trace tests and emits RAW v1.1 violations under this rule_id
+      for any broken binding direction. The impl manifest carries the reciprocal
+      realizes_convention + targets_workspace/contract_version.
+  - source_ref: coder.train.interlocking-bilateral-binding
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: >-
+      Bound to ALL interlocking selectors — interlocking_yaml + train_yaml
+      (declaration, core afokapu/atdd#1248), station_master + python_runtime
+      (Station Master JOURNEY_MAP + InterlockingRunner, core afokapu/atdd#1251),
+      and e2e_tests (the trace tests) — because bilateral binding is a closure
+      across every interlocking surface.
+  - source_ref: coder.train.interlocking-bilateral-binding
+    target_ref: gates/interlocking-binding.gate.yaml
+    type: gated-by
+    reason: >-
+      Runs at mode: strict on CI; a broken binding direction (unresolvable declared
+      route, hidden runtime route, dangling Station Master mapping, unreachable
+      exposed interlocking, or a trace that does not resolve to its declaration) is
+      a blocking silent-drift defect.
+  # --- extension-internal links to the surfaces this binding closes over -------
+  - source_ref: coder.train.interlocking-bilateral-binding
+    target_ref: coder.train.station-master-interlocking-routing
+    type: relates-to
+    reason: >-
+      station-master-interlocking-routing proves the Station Master is WIRED for
+      interlocking; bilateral-binding additionally proves the wiring CLOSES — the
+      exposed interlocking is reachable via a declared entrypoint.action and the
+      mapping resolves to a real YAML. Complementary, not narrowing.
+  - source_ref: coder.train.interlocking-bilateral-binding
+    target_ref: tester.interlocking.trace-binds-declared-route
+    type: relates-to
+    reason: >-
+      trace-binds-declared-route (tester) proves a trace test asserts every required
+      field; bilateral-binding's trace_to_declaration direction additionally proves
+      the asserted interlocking_id/route_id VALUES resolve back to a declared route
+      in the YAML. Co-equal facets of trace<->declaration integrity.
+  # === runtime-machinery definition anchors (kind: family, advisory) ==========
+  # Each definition anchor is an advisory semantic anchor: it enforces nothing
+  # directly and is connected to the EXISTING enforcing convention(s) that
+  # operationalize its meaning. Connection type is `relates-to` — the vocabulary
+  # this extension's graph already uses (realized-by / scoped-by / gated-by /
+  # relates-to). `requires` is NOT introduced: it is the core planner graph's
+  # directional dependency vocabulary, not this extension's. Every anchor is a
+  # source_ref of >=1 relates-to edge (no orphan) and every target resolves.
+  # --- train-runner.definition -> its TrainRunner-role enforcers (extension-local) ---
+  - source_ref: coder.train.train-runner.definition
+    target_ref: coder.train.interlocking-delegates-to-trainrunner
+    type: relates-to
+    reason: >-
+      interlocking-delegates-to-trainrunner is the enforcer that asserts TrainRunner's defining role in
+      this extension — "TrainRunner remains the only wagon-step executor" and delegation via
+      `TrainRunner.execute(selected_train_id, ...)`. The advisory train-runner anchor is made enforceable
+      through it. (Dedicated TrainRunner existence/step-order enforcers are core-only, declared
+      narratively per boundary spec §6.2, not as a graph edge.)
+  - source_ref: coder.train.train-runner.definition
+    target_ref: coder.train.interlocking-does-not-carry-cargo
+    type: relates-to
+    reason: >-
+      does-not-carry-cargo asserts "Cargo is the artifact data plane carried by TrainRunner between
+      wagons inside a selected train" — the TrainRunner-carries-Cargo half of the anchor's meaning.
+  # --- interlocking-runner.definition -> the five coder.train.interlocking-* enforcers ---
+  - source_ref: coder.train.interlocking-runner.definition
+    target_ref: coder.train.interlocking-runner-exists
+    type: relates-to
+    reason: >-
+      runner-exists is the enforcer that the InterlockingRunner route-control layer exists with a
+      `resolve_train(...)` entry point — the anchor's core existence clause.
+  - source_ref: coder.train.interlocking-runner.definition
+    target_ref: coder.train.interlocking-resolution-model-exists
+    type: relates-to
+    reason: >-
+      resolution-model-exists enforces the structured resolution model through which the runner resolves
+      exactly one admissible train — the anchor's "structured resolution" clause.
+  - source_ref: coder.train.interlocking-runner.definition
+    target_ref: coder.train.interlocking-delegates-to-trainrunner
+    type: relates-to
+    reason: >-
+      delegates-to-trainrunner enforces that the runner delegates execution to TrainRunner and never
+      executes wagons itself — the anchor's "delegates, executes no wagons" clause.
+  - source_ref: coder.train.interlocking-runner.definition
+    target_ref: coder.train.interlocking-does-not-carry-cargo
+    type: relates-to
+    reason: >-
+      does-not-carry-cargo enforces that "An InterlockingRunner MUST NOT reference or mutate Cargo" —
+      the anchor's "carries no Cargo" clause.
+  - source_ref: coder.train.interlocking-runner.definition
+    target_ref: coder.train.interlocking-bilateral-binding
+    type: relates-to
+    reason: >-
+      bilateral-binding enforces the declaration<->runtime<->station<->trace closure the InterlockingRunner
+      participates in — the anchor's route-control integrity in the wider surface.
+  # --- cargo.definition -> its Cargo-boundary enforcer (extension-local) ---
+  - source_ref: coder.train.cargo.definition
+    target_ref: coder.train.interlocking-does-not-carry-cargo
+    type: relates-to
+    reason: >-
+      does-not-carry-cargo is the extension's Cargo-boundary enforcer: it defines "Cargo is the artifact
+      data plane carried by TrainRunner between wagons inside a selected train" and forbids the
+      InterlockingRunner from touching it. (The core wagons-communicate-via-cargo enforcer is core-only,
+      declared narratively per boundary spec §6.2, not as a graph edge.)
+  # --- station-master.definition -> its routing enforcer ---
+  - source_ref: coder.train.station-master.definition
+    target_ref: coder.train.station-master-interlocking-routing
+    type: relates-to
+    reason: >-
+      station-master-interlocking-routing is the enforcer that the Station Master routes both direct and
+      interlocking journeys and delegates to TrainRunner (call model Station Master ->
+      InterlockingRunner.resolve_train(...) -> TrainRunner.execute(...)) — the whole of what this anchor
+      asserts. (Child-train fan-out / suspend-resume are core-only and intentionally not asserted here.)
+  # --- executional-machinery.definition (umbrella) -> the four component anchors ---
+  - source_ref: coder.train.executional-machinery.definition
+    target_ref: coder.train.train-runner.definition
+    type: relates-to
+    reason: >-
+      The umbrella composes the TrainRunner component anchor; enforcement is decomposed into the leaf
+      rules that anchor relates to.
+  - source_ref: coder.train.executional-machinery.definition
+    target_ref: coder.train.interlocking-runner.definition
+    type: relates-to
+    reason: >-
+      The umbrella composes the InterlockingRunner component anchor; enforcement is decomposed into the
+      leaf rules that anchor relates to.
+  - source_ref: coder.train.executional-machinery.definition
+    target_ref: coder.train.cargo.definition
+    type: relates-to
+    reason: >-
+      The umbrella composes the Cargo component anchor; enforcement is decomposed into the leaf rule that
+      anchor relates to.
+  - source_ref: coder.train.executional-machinery.definition
+    target_ref: coder.train.station-master.definition
+    type: relates-to
+    reason: >-
+      The umbrella composes the Station Master component anchor; enforcement is decomposed into the leaf
+      rule that anchor relates to.

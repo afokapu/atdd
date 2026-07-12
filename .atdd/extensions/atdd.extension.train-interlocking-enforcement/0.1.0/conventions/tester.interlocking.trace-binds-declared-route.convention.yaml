@@ -1,0 +1,84 @@
+schema_version: 1.1.0
+rule_id: tester.interlocking.trace-binds-declared-route
+kind: rule
+status: active
+name: Interlocking execution trace binds back to the declared route
+statement: >-
+  A test that asserts on the runtime trace emitted by interlocking execution MUST bind that trace back to
+  the source interlocking declaration — it must assert every required trace field so the executed route is
+  traceable to the interlocking YAML it came from (core afokapu/atdd#1248 route space, #1251 runtime trace).
+  This is the stack-bound tester obligation owned by the train-interlocking-enforcement extension; its
+  python-pytest realization (the `tester.interlocking.route-coverage.impl` detector) scans the consumer's
+  `e2e/**/*.py` interlocking trace tests and flags any that reference the runtime `trace` but omit one or
+  more required binding fields — the `test_interlocking_trace_binds_declared_route` check. A trace assertion
+  that does not bind the declared route lets execution drift from declaration silently: the run could
+  resolve the wrong route, category, or guard and the trace test would still pass.
+implementation:
+  type: validator
+  ref: tester.interlocking.trace-binds-declared-route
+content:
+  summary: >-
+    A "interlocking trace assertions bind the declared route" obligation. The python realization scans each
+    interlocking-related `e2e/**/*.py` test that references the runtime `trace` and requires it to assert
+    every required trace field; any missing field is a RAW violation listing the gap.
+  normative_text: |
+    The TrainResult trace (core afokapu/atdd#1251) is what proves which declared route (core
+    afokapu/atdd#1248) actually executed. A trace test that inspects the trace but only checks, say, the
+    selected_train_id does not bind the route back to its declaration — the run could have taken a different
+    route/category/guard and still match.
+
+    REQUIRED trace fields a trace-binding test must assert:
+      - interlocking_id
+      - route_id
+      - selected_train_id
+      - route_category
+      - route_category_digit
+      - guard_id
+      - resolution_strategy
+      - resolution_reason
+
+    A file is a trace-binding test when it references a bare `trace` identifier (the captured trace object)
+    in an interlocking context; for such a file every required field above must appear. WHICH per-stack
+    discovery applies (here: python `e2e/**/*.py` scanned for the trace object and the required field
+    tokens) is delegated to this python-pytest realization.
+  fix_hint: |
+    Extend the flagged trace assertion to bind the full declared route. Assert the captured trace records
+    all of: interlocking_id, route_id, selected_train_id, route_category, route_category_digit, guard_id,
+    resolution_strategy, resolution_reason — the fields that tie the executed route back to its interlocking
+    YAML declaration (afokapu/atdd#1248) and resolution outcome (afokapu/atdd#1251). This rule is `strict`:
+    a trace test that does not bind the declared route lets execution drift from declaration undetected and
+    therefore blocks.
+  exceptions:
+    - e2e tests that do not reference the runtime `trace` object (e.g. resolution-only assertions, or tests
+      that pass `capture_trace=True` without inspecting the trace) are not trace-binding tests and are out
+      of scope.
+    - Non-interlocking e2e tests (no reference to any interlocking_id/route_id/train_id or runner symbol)
+      are out of scope.
+    - Per-stack renderings other than python are owned by their own workspace packages.
+metadata:
+  aliases:
+    - TESTER-INTERLOCKING-TRACE-BINDS-ROUTE-001
+  severity: 1
+  disposition: strict
+  introduced_in: 0.1.0
+notes: >-
+  DISPOSITION JUSTIFICATION (strict, severity 1). The runtime trace is the only artifact that binds an
+  executed run to its declared route (core afokapu/atdd#1248/#1251). A trace test that omits binding fields
+  lets the run resolve the wrong route, category, or guard while staying green — a silent declaration/runtime
+  drift, the failure class train-interlocking enforcement (afokapu/atdd#1246) exists to close. The detector
+  emits RAW facts only; the strict disposition is applied by the gate. Per boundary spec §6.2 the core
+  contracts are referenced NARRATIVELY, not as graph edges.
+terms:
+- term_id: runtime_trace
+  text: >-
+    the trace recorded on the TrainResult of an interlocking execution (core afokapu/atdd#1251); it is the
+    evidence that ties an executed run to the declared route it came from.
+- term_id: required_trace_field
+  text: >-
+    one of interlocking_id, route_id, selected_train_id, route_category, route_category_digit, guard_id,
+    resolution_strategy, resolution_reason — the fields a trace-binding test must assert so the executed
+    route is bound back to its interlocking YAML declaration and resolution outcome.
+- term_id: declaration_runtime_drift
+  text: >-
+    the silent failure where a run resolves a different route/category/guard than declared yet a trace test
+    that omits binding fields still passes; binding all required trace fields closes it.
