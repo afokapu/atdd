@@ -1236,6 +1236,51 @@ edges:
   target_ref: planner.criteria.harness-templates
   type: runs_alongside
 - confidence: 1.0
+  reason: the canonical steps are decoded into the journey
+  source_ref: planner.decomposition.canonical-steps
+  target_ref: planner.decomposition.train-journey
+  type: enables
+- confidence: 1.0
+  reason: unresolved document-trouble must block deciding from a partial reading
+  source_ref: planner.decomposition.document-trouble-obligation
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: blocks
+- confidence: 1.0
+  reason: reframe sources to user-facing jobs before writing the job statement
+  source_ref: planner.decomposition.domain-vs-technology
+  target_ref: planner.decomposition.jtbd-vs-odi-grammar
+  type: enables
+- confidence: 1.0
+  reason: with both grammars in hand, candidates can be decided
+  source_ref: planner.decomposition.jtbd-vs-odi-grammar
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: enables
+- confidence: 1.0
+  reason: keep/pivot/kill is applied across the canonical job steps
+  source_ref: planner.decomposition.keep-pivot-kill
+  target_ref: planner.decomposition.canonical-steps
+  type: requires
+- confidence: 1.0
+  reason: scope the slice per invocation before framing the main job
+  source_ref: planner.decomposition.local-scope
+  target_ref: planner.decomposition.jtbd-vs-odi-grammar
+  type: enables
+- confidence: 1.0
+  reason: operator prose is normalized into a keep/pivot/kill decision
+  source_ref: planner.decomposition.natural-language-normalization
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: enables
+- confidence: 1.0
+  reason: sibling/nominal trains are decoded after wagons and WMBTs are kept
+  source_ref: planner.decomposition.train-journey
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: follows
+- confidence: 1.0
+  reason: a wagon's rationale is recorded once the wagon is kept
+  source_ref: planner.decomposition.wagon-rationale
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: follows
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_finish

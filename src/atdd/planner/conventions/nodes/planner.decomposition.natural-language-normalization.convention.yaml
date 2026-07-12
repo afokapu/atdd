@@ -1,0 +1,12 @@
+schema_version: 1.0.0
+rule_id: planner.decomposition.natural-language-normalization
+kind: pattern
+status: active
+statement: The operator may answer in prose; the agent normalizes the reply to keep/pivot/kill
+  (plus a named modification for pivot). If the interpretation is ambiguous, the agent
+  restates its interpretation and confirms before proceeding.
+terms:
+- term_id: normalization
+  text: mapping free-text operator replies onto keep/pivot/kill.
+- term_id: ambiguity_confirm
+  text: on unclear intent, restate the interpretation and confirm before acting.
