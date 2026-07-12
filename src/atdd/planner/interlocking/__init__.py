@@ -34,9 +34,9 @@ from .loader import (
     load_schema,
     parse_interlocking,
     schema_path,
+    target_train_category,
 )
 from .models import (
-    CATEGORY_BY_DIGIT,
     Entrypoint,
     Fragment,
     Guard,
@@ -90,9 +90,9 @@ __all__ = [
     "schema_path",
     "load_schema",
     "parse_interlocking",
+    "target_train_category",
     # records + model
     "Violation",
-    "CATEGORY_BY_DIGIT",
     "TrainInterlocking",
     "TrainStep",
     "Entrypoint",
