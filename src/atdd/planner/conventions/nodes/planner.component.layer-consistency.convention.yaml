@@ -1,0 +1,91 @@
+schema_version: 1.1.0
+rule_id: planner.component.layer-consistency
+kind: rule
+status: active
+name: 'Component: Layer Consistency'
+statement: A component belongs to exactly one architectural layer, and its URN must
+  contain a valid layer value.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+  legacy_section: layer-consistency
+content:
+  summary: Pinning each component to exactly one layer keeps the layered architecture
+    honest and lets the URN's layer segment be trusted as the single source of truth
+    for where a component lives.
+  examples:
+  - 'component:resolve-dilemmas:choose-option:OptionValidator:backend:domain  # one
+    valid layer'
+  counter_examples:
+  - A component URN with no layer segment or an invalid layer like "service"
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: one_layer
+  label: Exactly one layer
+  text: Component belongs to exactly one layer. Check that the URN contains a valid
+    layer.
+  values:
+    rule: Component belongs to exactly one layer
+    check: 'URN contains valid layer: presentation|application|domain|integration|assembly'
+- term_id: valid_layers
+  label: Valid layer values
+  text: The allowed architectural layer values, with typical methods, consumes, and
+    produces per layer.
+  values:
+    allowed:
+    - presentation
+    - application
+    - domain
+    - integration
+    - assembly
+    patterns:
+      presentation:
+        typical_methods:
+        - render
+        - handleInput
+        - updateDisplay
+        consumes:
+        - user interactions
+        - display updates
+        produces:
+        - ui events
+        - user actions
+      application:
+        typical_methods:
+        - execute
+        - coordinate
+        - validate
+        consumes:
+        - commands
+        - queries
+        produces:
+        - events
+        - responses
+      domain:
+        typical_methods:
+        - process
+        - calculate
+        - applyRules
+        consumes:
+        - domain events
+        produces:
+        - domain events
+        - state changes
+      integration:
+        typical_methods:
+        - fetch
+        - save
+        - publish
+        consumes:
+        - external events
+        produces:
+        - external calls
+        - persistence operations

@@ -1,0 +1,123 @@
+schema_version: 1.1.0
+rule_id: planner.appendix.types
+kind: pattern
+status: active
+name: 'Appendix: Types'
+statement: An appendix is one of six recognized types — mockup, spreadsheet, document,
+  diagram, audio, or video — each with its own file extensions and intended use during
+  wagon/wmbt/feature/component/acceptance creation.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/appendix.convention.yaml
+  legacy_section: types
+  extraction_mode: high_fidelity
+content:
+  summary: A fixed appendix taxonomy lets the planner agent recognize supplementary
+    content, choose the right multimodal reading strategy, and map each artifact to
+    the planner output it enriches.
+  examples:
+  - checkout-flow_mockup_payment-form.png
+  - pricing_spreadsheet_tax-calculations.xlsx
+  - auth_diagram_sequence.svg
+  counter_examples:
+  - 'notes.png  # missing artifact-name and type segments'
+  - 'auth_screenshot_login.png  # ''screenshot'' is not a recognized appendix type'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: mockup
+  text: Visual designs, UI mockups, wireframes, prototypes that inform component structure
+    and harness selection.
+  values:
+    extensions:
+    - PNG
+    - JPG
+    - JPEG
+    - SVG
+    - GIF
+    use_cases:
+    - UI screen designs to inform component structure during feature decomposition
+    - User flow diagrams to inform WMBT decomposition and when/must/then statements
+    - Visual states (loading, error, success) to inform harness selection (visual,
+      e2e)
+    - Responsive variants (mobile, tablet, desktop) to inform acceptance criteria
+    example: checkout-flow_mockup_payment-form.png
+- term_id: spreadsheet
+  text: Data models, calculations, business rules, requirements matrices that inform
+    domain model and acceptance criteria.
+  values:
+    extensions:
+    - XLSX
+    - CSV
+    - TSV
+    use_cases:
+    - Complex pricing/tax calculation logic to inform domain model and business rules
+    - Data validation rules to inform acceptance criteria
+    - Requirement traceability matrices for feature clustering
+    - Test data sets for acceptance given/when sections
+    example: pricing_spreadsheet_tax-calculations.xlsx
+- term_id: document
+  text: Specifications, research findings, technical guides, PRDs that inform wagon
+    description and component contracts.
+  values:
+    extensions:
+    - PDF
+    - DOCX
+    - MD
+    - TXT
+    use_cases:
+    - Product requirements documents to inform wagon description and scope
+    - Technical specifications to inform component contracts and responsibilities
+    - User research findings to inform WMBT scenarios and pain points
+    - API documentation to inform integration acceptance criteria
+    example: auth_document_security-spec.pdf
+- term_id: diagram
+  text: Architecture diagrams, ERDs, sequence diagrams, flowcharts, state machines
+    that inform 4-layer structure and integration points.
+  values:
+    extensions:
+    - PNG
+    - SVG
+    - MERMAID
+    - DRAWIO
+    use_cases:
+    - System architecture diagrams to inform 4-layer structure and component boundaries
+    - Entity-relationship diagrams for domain model and data structures
+    - Sequence diagrams to inform WMBT when/then steps and integration points
+    - State machine diagrams for component behavior and state transitions
+    example: auth_diagram_sequence.svg
+- term_id: audio
+  text: User interviews, voice notes, recorded requirements sessions that inform WMBT
+    scenarios and pain points.
+  values:
+    extensions:
+    - MP3
+    - WAV
+    - M4A
+    - OGG
+    use_cases:
+    - User interview recordings for extracting pain points and requirements
+    - Stakeholder requirement sessions for wagon scope and priorities
+    - Voice memos with context and clarifications
+    - Accessibility testing feedback for a11y harness criteria
+    example: user-research_audio_interview-checkout.mp3
+- term_id: video
+  text: Screen recordings, demos, walkthroughs, user testing sessions that inform
+    feature parity and reproduce steps.
+  values:
+    extensions:
+    - MP4
+    - MOV
+    - WEBM
+    - AVI
+    use_cases:
+    - Demo of existing system behavior to inform feature parity requirements
+    - User testing sessions showing pain points and interaction patterns
+    - Tutorial videos for understanding complex workflows
+    - Screen recordings of bugs to inform WMBT reproduce steps
+    example: checkout_video_user-session.mp4
