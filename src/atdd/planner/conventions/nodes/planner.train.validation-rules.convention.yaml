@@ -3,9 +3,9 @@ rule_id: planner.train.validation-rules
 kind: constraint
 status: active
 name: Train validation rules
-statement: A train must satisfy the documented validation rules (id pattern, theme by first digit, spec
-  file exists, participants declared, valid dependencies, domain:resource artifacts, primary theme in
-  themes array).
+statement: A train must satisfy the documented validation rules (typed id, declared themes, spec file
+  exists, participants declared, valid dependencies, domain:resource artifacts, category declared as a
+  field).
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_section: validation_rules
@@ -13,13 +13,13 @@ source:
   extraction_mode: high_fidelity
 content:
   constraints:
-  - 'train_id must match pattern: {theme_digit}{variation_digit}-{name}'
-  - First digit determines primary theme category
-  - 'File must exist at path: plan/_trains/{train_id}.yaml'
+  - 'train_id must match the typed pattern: train:{subject}:{slug}'
+  - Category is a declared field (nominal|error|alternate|exception), never a digit in the identity
+  - Spec file must exist at the train's declared path
   - All participants must be declared in participants list
   - Dependencies must reference valid train_ids
   - Artifacts in sequence must follow domain:resource pattern
-  - Themes array must include primary theme based on first digit
+  - Themes must be declared in the themes array
 parity:
   source_fragments_preserved: true
   examples_preserved: false

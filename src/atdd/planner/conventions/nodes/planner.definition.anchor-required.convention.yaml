@@ -1,0 +1,34 @@
+schema_version: 1.1.0
+rule_id: planner.definition.anchor-required
+kind: rule
+status: active
+name: Every core domain artifact has a definition anchor
+statement: Every core planner domain artifact (theme, train, interlocking, wagon, feature, wmbt, artifact) MUST have a `planner.<artifact>.definition` advisory semantic anchor node (kind family) that is graph-connected — appearing as a source_ref or target_ref of at least one edge in the relationship graph. A missing or non-family or orphan anchor is refused.
+source:
+  legacy_path: src/atdd/planner/conventions/definition.convention.yaml
+  legacy_section: rules
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.definition.anchor-required
+content:
+  fix_hint: >-
+    Author the missing anchor as
+    src/atdd/planner/conventions/nodes/planner.<artifact>.definition.convention.yaml
+    with kind family (an advisory semantic anchor), then wire at least one
+    relationship edge from it via `atdd author relationship` so it is not an orphan.
+  exceptions:
+    - Only the seven core domain artifacts are required to carry an anchor; other conventions are unaffected.
+operational_guidance: Pairs with planner.relationship.no-orphan-nodes — the anchor must both EXIST (this rule) and be graph-connected (no-orphan). The anchor itself binds no validator; it is transitively protected by the constraint/rule nodes it requires.
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 3.157.0
+parity:
+  source_fragments_preserved: true
+terms:
+  - term_id: definition_anchor
+    text: a `planner.<artifact>.definition` node of kind family that gives a core domain artifact a stable meaning without binding a validator (an advisory semantic anchor).
+  - term_id: core_domain_artifact
+    text: one of the seven planner domain-decomposition artifacts — theme, train, interlocking, wagon, feature, wmbt, artifact.
+implementation:
+  type: validator
+  ref: test_definition_anchors::test_every_core_artifact_has_definition_anchor

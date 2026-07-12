@@ -30,12 +30,13 @@ Reuses the #1248 safe API only — `load_interlocking`, `validate_interlocking`,
 - an unknown/unexposed entrypoint action,
 - no matching route,
 - multiple matching routes with no deterministic tie-breaker,
-- a selected route whose `category_digit` disagrees with its `train_id` digit,
+- a selected route whose `category` disagrees with the `category` field declared by
+  its target train (issues #1421/#1440 — a field compare; no identity is parsed),
 - a selected route whose target train file does not exist.
 
 Returns a structured `InterlockingResolution` (not a bare string):
-`interlocking_id, route_id, train_id, train_path, category, category_digit,
-guard_id, resolution_strategy, reason`.
+`interlocking_id, route_id, train_id, train_path, category, guard_id,
+resolution_strategy, reason`.
 
 ## Forbidden boundaries (enforced by contract tests + atdd-extensions #25/#26/#27)
 
@@ -48,8 +49,8 @@ grammar, which has no path to `eval`/`exec`.
 
 When an interlocking route is used, the runtime trace carries (via
 `InterlockingResolution.as_trace()`, handed to the executor as `interlocking_trace`):
-`interlocking_id, route_id, selected_train_id, route_category,
-route_category_digit, guard_id, resolution_strategy, resolution_reason`.
+`interlocking_id, route_id, selected_train_id, route_category, guard_id,
+resolution_strategy, resolution_reason`.
 TrainRunner remains responsible for step-level execution trace.
 
 ## Route-boundary transitions — DEFERRED
