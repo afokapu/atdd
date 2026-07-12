@@ -1,0 +1,28 @@
+schema_version: "1.0.0"
+
+# Gate: WHEN the interlocking bilateral-binding check runs (afokapu/atdd-extensions#27).
+#
+# The binding validator proves an interlocking system is CLOSED across declaration, runtime resolution,
+# Station Master reachability, TrainRunner delegation, and trace (core afokapu/atdd#1248/#1251). A
+# broken binding direction is a silent declaration/runtime/station/trace drift — a hard defect — so this
+# gate is CI/strict.
+gate_id: atdd.extension.train-interlocking-enforcement.binding
+realizes_convention: coder.train.interlocking-bilateral-binding
+implementation: implementations/interlocking-binding
+scope: scopes/interlocking-targets.scope.yaml
+
+stages:
+  - id: ci
+    mode: strict
+    description: >-
+      Block on CI when any binding direction breaks: a declared route is not runtime-resolvable
+      (declaration_to_runtime), the runtime resolves a hidden route absent from the YAML
+      (runtime_to_declaration), a Station Master mapping points to a missing interlocking YAML
+      (station_to_declaration), an entrypoint.exposed:true interlocking is not reachable via a declared
+      entrypoint.action (declaration_to_station), or a trace assertion does not resolve back to a
+      declared route (trace_to_declaration). A parallel reachability field that forks core
+      afokapu/atdd#1248's `entrypoint` is also blocked as schema drift.
+
+# Pre-confirm (planner-time) interlocking SCHEMA validation lives in core planner validators
+# (afokapu/atdd#1249). This extension inspects consumer-repo declaration<->runtime<->trace CLOSURE,
+# which exists at CI time.

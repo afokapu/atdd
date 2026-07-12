@@ -202,10 +202,12 @@ def validate_implementation_manifest(data: dict) -> None:
     Beyond identity (kind/id/targets/contract), enforces the executable-validator
     shape so a validator is compliant *by construction* rather than by copying an
     example: a runnable ``entrypoint``, a v1.1 ``report`` emitter, and a non-empty
-    ``emits_rule_ids`` list (the rule_ids this one detector realizes — a FAMILY
-    detector emits >1, a singleton emits 1). ``realizes_convention`` (the primary
-    node) and ``subtype`` are validated for consistency when present. This is the
-    ``atdd.core.implementation-schema`` every extension declares in ``depends_on``.
+    ``emits_rule_ids`` list (the rule_ids this one detector EMITS — a FAMILY
+    detector emits >1, a singleton emits 1). ``realizes_convention`` names the
+    convention(s) the detector OWNS — one, or the list a family owns — and every
+    owned convention must be one it emits. ``subtype`` is validated when present.
+    This is the ``atdd.core.implementation-schema`` every extension declares in
+    ``depends_on``.
     """
     data = data or {}
     if data.get("kind") != "implementation":
@@ -224,22 +226,39 @@ def validate_implementation_manifest(data: dict) -> None:
             "report, when declared, must be a non-empty path (the runnable v1.1 report-emitter "
             "the provider CLI collects; may equal entrypoint)")
     # The impl must declare the rule_id(s) it realizes — via a non-empty
-    # ``emits_rule_ids`` list (v1.1; a FAMILY detector emits >1 from one run) OR a
-    # single ``realizes_convention`` (v1.0 exit-code mapping). At least one required.
+    # ``emits_rule_ids`` list (v1.1; a FAMILY detector emits >1 from one run) OR
+    # ``realizes_convention`` (v1.0 exit-code mapping). At least one required.
+    # ``realizes_convention`` may be a single convention or the LIST a family owns.
     emits = data.get("emits_rule_ids")
     rc = data.get("realizes_convention")
     has_emits = isinstance(emits, list) and bool(emits)
     if has_emits and not all(isinstance(r, str) and r.strip() for r in emits):
         raise AuthorInputError("emits_rule_ids", "emits_rule_ids entries must be non-empty rule_id strings")
-    has_rc = isinstance(rc, str) and bool(rc.strip())
-    if not has_emits and not has_rc:
+    if isinstance(rc, list):
+        if not rc or not all(isinstance(c, str) and c.strip() for c in rc):
+            raise AuthorInputError(
+                "realizes_convention",
+                "realizes_convention, when a list, must be non-empty convention_id strings")
+        owned = list(rc)
+    elif isinstance(rc, str) and rc.strip():
+        owned = [rc]
+    elif rc is None:
+        owned = []
+    else:
+        raise AuthorInputError(
+            "realizes_convention", "realizes_convention must be a convention_id or a list of them")
+    if not has_emits and not owned:
         raise AuthorInputError(
             "emits_rule_ids",
             "implementation must declare the rule_id(s) it realizes — a non-empty emits_rule_ids "
             "list (v1.1; a FAMILY emits more than one) or realizes_convention (v1.0 single-rule)")
-    if has_emits and has_rc and rc not in emits:
-        raise AuthorInputError(
-            "realizes_convention", f"realizes_convention {rc!r} must be one of emits_rule_ids {emits!r}")
+    # A detector cannot OWN a convention it never EMITS.
+    if has_emits and owned:
+        unemitted = [c for c in owned if c not in emits]
+        if unemitted:
+            raise AuthorInputError(
+                "realizes_convention",
+                f"realizes_convention {unemitted!r} must be among emits_rule_ids {emits!r}")
     sub = data.get("subtype")
     if sub is not None and sub != "validator":
         raise AuthorInputError("subtype", f"implementation subtype must be 'validator' (got {sub!r})")
