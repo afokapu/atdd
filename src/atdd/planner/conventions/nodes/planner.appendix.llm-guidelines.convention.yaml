@@ -1,0 +1,81 @@
+schema_version: 1.1.0
+rule_id: planner.appendix.llm-guidelines
+kind: rule
+status: active
+name: 'Appendix: Llm Guidelines'
+statement: When creating outputs the planner agent detects, reads, analyzes-by-type,
+  and references appendices to enrich outputs; during disambiguation it reads appendices
+  to ask grounded clarification questions instead of abstract ones.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/appendix.convention.yaml
+  legacy_section: llm-guidelines
+  extraction_mode: high_fidelity
+content:
+  summary: Appendices only reduce ambiguity if the planner agent actually consumes
+    them — both to enrich generated artifacts and to ground routing questions in concrete
+    content.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: during_creation
+  text: 'How the planner agent processes appendices when creating outputs: detect,
+    read multimodally, analyze by type, enrich the output, and reference the appendix
+    in the manifest.'
+  values:
+    workflow:
+    - step: Detect appendix in user input
+      pattern: User includes file path, mentions 'appendix:', or provides file URL
+    - step: Use Read tool to consume appendix content
+      capability: Claude can read PNG, JPG, SVG, PDF, audio, video as multimodal input
+    - step: Analyze appendix based on type
+      analysis:
+        mockup: Identify UI components, layouts, flows, states, interactions, responsive
+          variants
+        spreadsheet: Extract business rules, calculations, data models, validation
+          constraints
+        document: Extract requirements, constraints, specifications, acceptance criteria
+        diagram: Understand architecture, entities, sequences, state transitions,
+          relationships
+        audio: Transcribe and extract user pain points, requirements, context, clarifications
+        video: Analyze workflows, interactions, pain points, existing behavior patterns
+    - step: Enrich output with extracted context
+      enrichment:
+        wagon: More accurate description, domain model informed by diagrams/docs
+        wmbt: Better when/must/then statements informed by flows/interactions
+        acceptance: Accurate harness selection (mockup->visual, diagram->integration)
+        feature: Better component clustering based on mockup sections
+        component: Accurate props/state/behavior from mockups and diagrams
+    - step: Reference appendix in manifest
+      note: Manifest structure defined in schema, not convention
+- term_id: during_disambiguation
+  text: 'How appendices help the planner agent ask better clarifying questions during
+    routing: read the appendix, then ask a grounded question referencing the concrete
+    artifact.'
+  values:
+    scenario: User provides appendix without clear intent keyword (no 'wagon', 'wmbt',
+      etc.)
+    workflow:
+    - step: LLM uses Read tool to view appendix
+      analysis: Understand what the appendix shows (multi-screen flow, single component,
+        architecture, etc.)
+    - step: Ask grounded clarification question
+      examples:
+      - input: mockup showing 3-screen checkout flow
+        question: I see your mockup shows a multi-screen checkout flow. What would
+          you like to create?
+      - input: ERD diagram with 5 entities
+        question: Your ERD shows 5 entities. Are you creating a new wagon, adding
+          a feature, or defining component data structures?
+    benefit: Questions grounded in concrete artifact reduce confusion and back-and-forth
+  examples:
+    positive:
+    - I see your mockup shows a login form - are you creating a wagon or adding a
+      feature?
+    negative:
+    - 'What do you want to build?  # abstract question that ignores the provided appendix'
