@@ -341,12 +341,8 @@
         },
         "category": {
           "type": "string",
-          "enum": ["nominal", "error", "alternate", "exception"]
-        },
-        "category_digit": {
-          "type": "string",
-          "enum": ["0", "1", "2", "3"],
-          "description": "RETIRED (issue #1421): category is now a validated FIELD on the target train, not an identity digit. No longer required; still enum-checked when a legacy route carries it during the migration transition. The route-category agreement check (planner.train.interlocking-route-category-matches-train-id) now compares route.category against the target train's `category` field, not this digit."
+          "enum": ["nominal", "error", "alternate", "exception"],
+          "description": "The route's variant classification. Judged by comparing it against the `category` FIELD of the target train (planner.train.interlocking-route-category-matches-train-id) — never against a digit parsed out of the identity. The `category_digit` key it replaced is RETIRED (issues #1421, #1440) and is now rejected outright."
         },
         "priority": {
           "type": "integer",

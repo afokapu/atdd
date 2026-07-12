@@ -34,7 +34,7 @@ def _spec():
              "guards": [{"id": "guard:go", "expression": "ready == true"}]},
         ],
         "routes": [
-            {"route_id": "nominal-go", "category": "nominal", "category_digit": "0",
+            {"route_id": "nominal-go", "category": "nominal",
              "priority": 10, "guard_ref": "guard:go",
              "train_id": "0001-absent-train",
              "train_path": "plan/_trains/0001-absent-train.yaml",

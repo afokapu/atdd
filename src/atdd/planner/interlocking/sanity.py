@@ -37,7 +37,7 @@ _log = logging.getLogger(__name__)
 from .digest import route_projection_digest
 from .discovery import INTERLOCKINGS_HOME, registry_entries
 from .guards import GuardSyntaxError, parse_guard
-from .loader import InterlockingError
+from .loader import InterlockingError, target_train_category
 from .models import TrainInterlocking
 from .projections import project_route_to_train_sequence
 
@@ -108,43 +108,20 @@ def entrypoint_shape_violations(il: TrainInterlocking, root=None) -> List[dict]:
 
 
 # --- 3. route category matches train id -------------------------------------
-def _target_train_category(train_path: str, root) -> "str | None":
-    """Read the ``category`` FIELD of the target train YAML (issue #1421).
-
-    Returns ``None`` when the target cannot be resolved or declares no category —
-    existence/resolvability of the train is owned by other rules (the author
-    refuses a route whose target train is missing; the schema owns shape). This
-    helper only surfaces the *category field* so the rule can judge AGREEMENT.
-    Stdlib + yaml only; no cross-layer import.
-    """
-    if not train_path or root is None:
-        return None
-    p = Path(root) / train_path
-    if not p.is_file():
-        return None
-    try:
-        doc = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        _log.debug("route-category skipped (unparseable target train yaml)",
-                   extra={"path": str(p), "error": str(exc).splitlines()[0][:120]})
-        return None
-    cat = doc.get("category") if isinstance(doc, dict) else None
-    return cat if isinstance(cat, str) else None
-
-
 def route_category_violations(il: TrainInterlocking, root=None) -> List[dict]:
     """``planner.train.interlocking-route-category-matches-train-id``: a route's
     declared ``category`` must agree with the ``category`` FIELD of the target
     train it selects (issue #1421).
 
-    Category is now a validated field on the train, never a digit embedded in the
-    identity, so this is a field COMPARE — it does not parse ``train_id`` and
-    does not consult the retired ``category_digit``. A route whose target train
-    declares no category (unmigrated during transition) is not judged here.
+    Category is a validated field on the train, never a digit embedded in the
+    identity, so this is a field COMPARE — it does not parse ``train_id``. A route
+    whose target train declares no category (unmigrated during transition) is not
+    judged here. The reader is shared with the semantic validator, so both paths
+    resolve the target train's category identically (#1440).
     """
     out: List[dict] = []
     for route in il.routes:
-        train_category = _target_train_category(route.train_path, root)
+        train_category = target_train_category(route.train_path, root)
         if train_category is None:
             continue
         if route.category != train_category:

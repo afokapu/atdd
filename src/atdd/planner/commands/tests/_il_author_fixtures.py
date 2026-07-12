@@ -35,7 +35,7 @@ def anchor_spec() -> dict:
              "guards": [{"id": "guard:go", "expression": "ready == true"}]},
         ],
         "routes": [
-            {"route_id": ROUTE_ID, "category": "nominal", "category_digit": "0",
+            {"route_id": ROUTE_ID, "category": "nominal",
              "priority": 10, "guard_ref": "guard:go",
              "train_id": ROUTE_TRAIN_ID, "train_path": ROUTE_TRAIN_PATH,
              "projection": {"expected_sequence_digest": "PENDING",
