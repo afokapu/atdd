@@ -198,13 +198,23 @@ def test_conductor_md_points_at_the_registry_instead_of_copying_it() -> None:
 
 
 def test_registry_is_the_one_place_the_prohibitions_live() -> None:
-    """The prohibitions the issue names are actually IN the canonical registry."""
+    """The prohibitions the issue names are actually IN the canonical registry.
+
+    Asserted against the *trigger phrase* rather than a specific match form, so
+    the registry stays free to express a rule as an argv run (#1454) or as a
+    substring without this test having to be rewritten.
+    """
     registry = yaml.safe_load(_REGISTRY.read_text())
-    triggers = {
-        p.get("match", {}).get("contains")
-        for p in registry["patterns"]
-        if p.get("match_type") == "hard_block"
-    }
+    triggers = set()
+    for pattern in registry["patterns"]:
+        if pattern.get("match_type") != "hard_block":
+            continue
+        match = pattern.get("match", {})
+        if "argv" in match:
+            triggers.add(" ".join(match["argv"]))
+        elif "contains" in match:
+            triggers.add(match["contains"])
+
     assert {"gh issue create", "gh pr create"} <= triggers, (
         f"the prohibitions CLAUDE.md declares are missing from {_REGISTRY.name}: "
         f"{triggers!r}"

@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import shlex
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,6 +52,11 @@ _LOOP_STATE_RELPATH = ".atdd/runtime/tool_use_counts.json"
 
 # Command tokens that indicate the command itself is a loop construct.
 _LOOP_TOKENS = ("while ", "until ", "for ")
+
+# Shell control punctuation that clings to an argv token when a command is
+# chained without spaces (``gh issue create;``, ``foo;gh``).  Stripped before
+# comparison so ``create;`` still matches the ``create`` token.
+_SHELL_PUNCTUATION = ";&|()"
 
 
 @dataclass(frozen=True)
@@ -74,8 +80,51 @@ def _load_registry(convention_path: Path) -> List[dict]:
         return []
 
 
+def _tokenize(command: str) -> Optional[List[str]]:
+    """Split *command* into argv tokens; None when it cannot be parsed.
+
+    ``shlex.split`` raises on an unbalanced quote.  Callers treat None as "no
+    match" so the classifier fails OPEN (Decision 6, issue #668) rather than
+    letting a tokenizer error brick every subsequent tool call.
+    """
+    try:
+        tokens = shlex.split(command)
+    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Fail open per Decision 6 in issue #668
+        _logger.warning("forbidden_command_classifier: untokenizable command, failing open: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-01
+        return None
+    return [t.strip(_SHELL_PUNCTUATION) for t in tokens]
+
+
+def _has_consecutive_run(tokens: List[str], run: List[str]) -> bool:
+    """Return True when *run* appears as a consecutive subsequence of *tokens*."""
+    if not run or len(run) > len(tokens):
+        return False
+    for start in range(len(tokens) - len(run) + 1):
+        if tokens[start:start + len(run)] == run:
+            return True
+    return False
+
+
 def _matches(command: str, match_spec: dict) -> bool:
-    """Return True when *command* satisfies the match specification."""
+    """Return True when *command* satisfies the match specification.
+
+    ``argv`` matches an *invocation*: the named tokens must appear as a
+    consecutive run in the tokenized command.  This is what distinguishes
+    running ``gh issue create`` from merely mentioning it — a quoted mention
+    (``grep -rn "gh issue create"``) collapses into ONE token and cannot match a
+    three-token run.  Scanning the whole token list rather than only the head
+    keeps ``&&``/``;`` chains and leading env assignments blocked.
+
+    The substring forms below are retained for rules whose targets are not
+    clean argv runs (see the registry's cmux/git-config/loop rules), but any
+    NEW prohibition on a plain command should use ``argv``.
+    """
+    if "argv" in match_spec:
+        tokens = _tokenize(command)
+        if tokens is None:
+            return False  # Untokenizable → fail open
+        return _has_consecutive_run(tokens, [str(t) for t in match_spec["argv"]])
+
     if "contains" in match_spec:
         return match_spec["contains"] in command
 

@@ -12,10 +12,23 @@ description: |
                   loop_detection.threshold times within loop_detection.ttl_seconds
 
   match spec fields (within each pattern's "match:" key):
+    argv           — list of argv tokens that must appear as a CONSECUTIVE run
+                     in the shlex-tokenized command. Matches an *invocation*,
+                     not a mention: `grep -rn "gh issue create"` collapses the
+                     quoted string into ONE token, so it cannot match the
+                     three-token run [gh, issue, create] and is correctly
+                     allowed. Prefer this for any prohibition on a plain
+                     command — the substring forms below FALSE-POSITIVE on
+                     greps, commit messages, and docs that merely quote the
+                     command.
     contains       — substring that must appear in the command
     contains_all   — list of substrings that must ALL appear
     contains_any   — list of substrings where ANY one is sufficient
     regex          — Python re.search pattern applied to the command
+
+  The substring forms are retained for the rules below whose targets are not
+  clean argv runs (a cmux payload, a git flag combination, a polling verb set).
+  They still match mentions as well as invocations — see issue #1454.
 
   Classifier decision 6 (issue #668): on registry load failure the classifier
   fails OPEN — every tool call is allowed and a warning is printed to stderr.
@@ -28,7 +41,7 @@ patterns:
     match_type: hard_block
     description: "gh issue create bypasses atdd manifest registration and WMBT sub-issue generation"
     match:
-      contains: "gh issue create"
+      argv: ["gh", "issue", "create"]
     reason: >
       gh issue create bypasses atdd manifest registration, WMBT sub-issue
       generation, and Project v2 field setup. Any issue created this way will
@@ -40,7 +53,7 @@ patterns:
     match_type: hard_block
     description: "gh pr create bypasses --base validation against the repo default branch"
     match:
-      contains: "gh pr create"
+      argv: ["gh", "pr", "create"]
     reason: >
       gh pr create bypasses --base validation against the repo default branch.
       Incident: PR #475 was opened with a sibling branch as base; when the
