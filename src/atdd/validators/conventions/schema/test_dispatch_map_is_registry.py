@@ -22,6 +22,8 @@ from __future__ import annotations
 import contextlib
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.schema.archetype import TEMPLATES, TEMPLATE_IDS
 
@@ -81,6 +83,7 @@ def test_dispatch_map_is_registry_variant_contract() -> None:
 
 
 # --- official-path execution + evidence shape -------------------------------
+@pytest.mark.convention_filesystem_mutation
 def test_evidence_keys_subset_of_contract() -> None:
     """Whatever the variant emits, its evidence keys are a subset of the template
     contract's declared failure_evidence (proven via a faulted registry)."""
@@ -100,6 +103,7 @@ def test_clean_baseline_is_silent(clean_convention_graph) -> None:
 
 
 # --- fault injection (convention path is the live coverage; oracle retired #1365) ---
+@pytest.mark.convention_filesystem_mutation
 def test_fault_caught_by_convention() -> None:
     """Inject one schema fault (entry missing `train_id`); the convention path catches it."""
     root = _repo_root()

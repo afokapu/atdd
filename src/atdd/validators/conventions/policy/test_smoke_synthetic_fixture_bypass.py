@@ -71,6 +71,7 @@ def _find_resolvable_smoke_test_file(graph) -> Path:
     pytest.skip("no resolvable SMOKE acceptance->test-file pair in the real repo")
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_legacy_parity() -> None:
     """Inject FakeMultiplexer into a real SMOKE test file; assert BOTH the convention
     evaluator and the legacy planner validator catch it."""

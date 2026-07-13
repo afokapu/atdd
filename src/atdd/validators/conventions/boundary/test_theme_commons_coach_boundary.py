@@ -22,6 +22,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.boundary import fixtures
 from atdd.validators.conventions.boundary import _parity
@@ -129,6 +131,7 @@ def test_clean_baseline_real_graph_is_empty(clean_convention_graph) -> None:
 # --- fault injection + legacy parity (BOTH must catch) ---------------------
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_convention_catches() -> None:
     """Inject a coach import under a real non-deferred commons wagon's source
     tree; assert the convention evaluator catches it; then revert and confirm

@@ -27,6 +27,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 CONVENTION_GLOB = "src/atdd/**/*.convention.yaml"
 FAULT_SELECTOR = "convention_fault"
 MIN_FAULT_TESTS = 4
@@ -53,6 +55,7 @@ def _dirty_conventions(root: Path) -> str:
     return result.stdout
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_binding_family_writes_no_convention_yaml() -> None:
     root = _repo_root()
 
@@ -73,6 +76,7 @@ def test_binding_family_writes_no_convention_yaml() -> None:
     )
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_binding_fault_is_still_caught() -> None:
     """Coverage preserved: the fault-injection tests are still collected AND green."""
     root = _repo_root()

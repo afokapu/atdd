@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions.presence import archetype
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
@@ -53,6 +55,7 @@ def test_phase_machine_init_gate_clean_baseline(clean_convention_graph) -> None:
     assert _evaluate(clean_convention_graph) == []
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_phase_machine_init_gate_catches_injected_fault(repo_root: Path) -> None:
     """A gate that no longer invokes the planner validator is caught, template-shaped."""
     with patched(repo_root, PHASE_MACHINE_CONVENTION, _GATE_OK, _GATE_BROKEN):
@@ -62,6 +65,7 @@ def test_phase_machine_init_gate_catches_injected_fault(repo_root: Path) -> None
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_phase_machine_init_gate_fault_injection(repo_root: Path) -> None:
     """One injected fault (INIT.pre_commit_gate no longer runs ``atdd validate planner``)
     is caught by the convention evaluator."""

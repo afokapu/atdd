@@ -28,6 +28,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 # Convention YAML AND plan YAML — the two working-tree surfaces the migrated families
 # used to rewrite. Both must be residue-free after the suite.
 DIRTY_GLOBS = ["src/atdd/**/*.convention.yaml", "plan/**/*.yaml"]
@@ -59,6 +61,7 @@ def _dirty_yaml(root: Path) -> str:
     return result.stdout
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_migrated_families_leave_no_yaml_residue() -> None:
     root = _repo_root()
 
@@ -80,6 +83,7 @@ def test_migrated_families_leave_no_yaml_residue() -> None:
     )
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_migrated_faults_are_still_caught() -> None:
     """Coverage preserved: the migrated fault-injection tests are still collected AND green."""
     root = _repo_root()

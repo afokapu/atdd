@@ -47,6 +47,7 @@ def test_clean_baseline_zero_on_real_graph(clean_convention_graph) -> None:
     )
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection() -> None:
     """Create a real file under src/atdd carrying a past-deadline suppression marker;
     assert the convention evaluator catches it, then confirm clean after revert.

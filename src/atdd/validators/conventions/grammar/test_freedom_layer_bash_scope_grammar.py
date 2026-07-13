@@ -27,6 +27,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.grammar import archetype
 from atdd.validators.conventions.grammar.archetype import TEMPLATE_IDS, TEMPLATES
@@ -99,6 +101,7 @@ def test_clean_baseline_zero_on_real_repo(clean_convention_graph) -> None:
 
 
 # --- fault injection + legacy parity ---------------------------------------
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_convention_catches(tmp_path) -> None:
     """Inject an unscoped Bash allow-list entry into the real convention source;
     the convention path (real composed graph) catches it. Revert afterwards.

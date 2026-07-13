@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import yaml
 
+import pytest
+
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.policy.archetype import (
     TEMPLATES,
@@ -55,6 +57,7 @@ def test_clean_baseline_zero_on_real_graph(clean_convention_graph) -> None:
     )
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_legacy_parity() -> None:
     """Pre-authorize a forbidden command in the real freedom_layer allow-list; assert
     BOTH the convention evaluator and the legacy E032 validator catch it."""

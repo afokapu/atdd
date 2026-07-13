@@ -18,6 +18,8 @@ convention evaluator and the legacy validator both flag the same injected fault.
 """
 from __future__ import annotations
 
+import pytest
+
 from atdd.validators.conventions.coverage.archetype import (
     TEMPLATE_IDS,
     _source_has_required_target,
@@ -78,6 +80,7 @@ def test_fault_injection_legacy_parity_both_catch(clean_convention_graph) -> Non
     assert _source_has_required_target(clean_convention_graph, {"variant": VARIANT}) == []
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_inline_suppression_is_respected() -> None:
     """A no-SMOKE WMBT carrying the inline suppression marker is NOT flagged —
     mirrors the legacy disposition gate so the clean baseline holds at 0.

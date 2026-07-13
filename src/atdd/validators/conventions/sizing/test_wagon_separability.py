@@ -16,6 +16,8 @@ import contextlib
 
 import yaml
 
+import pytest
+
 from atdd.coach.utils.repo import find_repo_root
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.sizing import fixtures as F
@@ -111,6 +113,7 @@ def _inject_tokens(root, mapping):
             (root / rel).write_text(text, encoding="utf-8")
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_legacy_parity() -> None:
     """Flip a currently-separable wagon to non-separable by rewriting its WMBTs'
     tokens; assert the convention evaluator flags it, then revert and assert it stops.

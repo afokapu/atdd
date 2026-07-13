@@ -19,6 +19,8 @@ leg was dropped when the legacy validator was retired (#1207 sweep, #1385).
 """
 from __future__ import annotations
 
+import pytest
+
 from atdd.validators.conventions.coverage.archetype import (
     TEMPLATE_IDS,
     _reachability_no_orphan,
@@ -50,6 +52,7 @@ def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     assert viols == [], f"clean baseline must be 0, got {viols[:3]}"
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_legacy_parity_both_catch() -> None:
     """Inject a convention node whose rule_id appears on no relationship edge; the
     convention evaluator must catch it on the faulted tree and stay clean once

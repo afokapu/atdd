@@ -15,6 +15,8 @@ from __future__ import annotations
 import contextlib
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.composition.archetype import TEMPLATE_IDS, TEMPLATES
 
@@ -74,6 +76,7 @@ def test_clean_baseline_no_violations(clean_convention_graph) -> None:
     assert _convention_evidence(_REPO_ROOT, graph=clean_convention_graph) == []
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_evidence_keys_subset_of_failure_evidence() -> None:
     # On an injected fault the evidence keys must be a SUBSET of the contract.
     allowed = set(FAILURE_EVIDENCE)
@@ -84,6 +87,7 @@ def test_evidence_keys_subset_of_failure_evidence() -> None:
         assert set(record).issubset(allowed), f"evidence keys escape contract: {set(record) - allowed}"
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection() -> None:
     # Legacy parity (verdict 'both') was proven against the legacy validator
     # before it was decommissioned (#1207); the convention fault-injection is

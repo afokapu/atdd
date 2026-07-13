@@ -16,6 +16,8 @@ import contextlib
 
 import yaml
 
+import pytest
+
 from atdd.coach.utils.repo import find_repo_root
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.sizing import fixtures as F
@@ -97,6 +99,7 @@ def _inject_consumes(root, rel, consumes):
         p.write_text(orig, encoding="utf-8")
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_legacy_parity() -> None:
     """Inject an over-coupling fault into a real wagon manifest; assert the convention
     evaluator flags that wagon, then revert and assert it no longer does.

@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions.presence import archetype
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
@@ -54,6 +56,7 @@ def test_theme_zero_clean_baseline(clean_convention_graph) -> None:
     assert _evaluate(clean_convention_graph) == []
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_theme_zero_catches_injected_fault(repo_root: Path) -> None:
     """Renaming the digit-0 token away from `commons` in the real convention is caught,
     with template-shaped evidence."""
@@ -65,6 +68,7 @@ def test_theme_zero_catches_injected_fault(repo_root: Path) -> None:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_theme_zero_is_convention_only_legacy_is_tautological(repo_root: Path) -> None:
     """PARITY CLASSIFICATION: CONVENTION-ONLY (legacy is tautological, un-faultable).
 

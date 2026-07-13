@@ -12,6 +12,8 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
+import pytest
+
 from atdd.validators.conventions.resolution.archetype import TEMPLATE_IDS
 from atdd.validators.conventions.resolution._parity import (
     evaluate_variant,
@@ -48,6 +50,7 @@ def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection() -> None:
     """Inject a phantom registry consume->wagon reference; the convention path
     (variant evaluator: registry consume.from -> registry slug set) must catch it."""

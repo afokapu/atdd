@@ -15,9 +15,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions._support import sentinels as S
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
-
 
 # E019 — graph normalizes real nodes
 def test_graph_normalizes_real_nodes(repo_root: Path) -> None:
@@ -37,6 +38,7 @@ def test_no_sentinel_selects_vacuously(repo_root: Path) -> None:
 
 
 # E021 — failure evidence is template-shaped
+@pytest.mark.convention_filesystem_mutation
 def test_evidence_is_template_shaped(repo_root: Path) -> None:
     wagon = repo_root / "plan" / "validate_conventions" / "_validate_conventions.yaml"
     orig = wagon.read_text(encoding="utf-8")

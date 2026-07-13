@@ -14,6 +14,8 @@ Parity-bound to the legacy coach E026 bypass-inventory guard.
 """
 from __future__ import annotations
 
+import pytest
+
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 from atdd.validators.conventions.policy.archetype import (
     TEMPLATES,
@@ -51,6 +53,7 @@ def test_clean_baseline_zero_on_real_graph(clean_convention_graph) -> None:
     )
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_legacy_parity() -> None:
     """Reintroduce an ATDD_SKIP_* bypass flag into the real pre-push hook; assert BOTH
     the convention evaluator and the legacy E026 guard catch it."""

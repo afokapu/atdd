@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions.coherence import _parity
 from atdd.validators.conventions.coherence.archetype import (
     TEMPLATE_IDS,
@@ -50,6 +52,7 @@ def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_fault_injection_convention_catches() -> None:
     """Inject a misaligned `code` wagon into the real tree; the convention evaluator
     catches it; revert. Oracle retired (#1365)."""
