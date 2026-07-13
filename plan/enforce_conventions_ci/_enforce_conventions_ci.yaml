@@ -24,4 +24,7 @@ consume:
 - name: commons:disposition-policy
   from: wagon:reconcile-dispositions
 wmbt:
-  total: 0
+  total: 3
+  E001: "minimize likelihood of advisory-enforcement-bypass by promoting the enforce-extensions CI job from an advisory stage to a required blocking check — dropping continue-on-error and the || true guard so a strict FAIL exits the job non-zero — and keeping it in the validate-gate fan-in, so a convention regression blocks the merge instead of only printing a notice"
+  E002: "maximize likelihood of strict-failure-propagation by pinning that a strict convention node reporting at least one violation drives EnforceResult.exit_code to 1 and makes the atdd enforce CLI exit non-zero, so a regression that lets a strict FAIL report success is caught before it can green a blocking gate"
+  E003: "minimize likelihood of enforcement-debt-regression by recording the current per-rule failing-violation counts as a ratchet baseline that holds pre-existing violations flat, so turning the enforce job blocking does not red the first build, while any rule whose violation count climbs above its baseline — or any rule that was clean and starts failing — still fails the gate"
