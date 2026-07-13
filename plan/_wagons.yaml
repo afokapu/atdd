@@ -321,7 +321,14 @@ wagons:
   - name: commons:provider-capability
     from: wagon:govern-providers
   wmbt:
-    total: 0
+    total: 3
+    L001: minimize likelihood of an unbound gating obligation or a phantom binding
+      going unnamed by the binding-gap inventory
+    E001: maximize quantity of gating obligations bound by fanning each multi-rule
+      implementation out to every convention it realizes, without shipping a single
+      new detector
+    E002: minimize likelihood of a gating extension node shipping with no bound mechanism,
+      or a mechanism binding an obligation nobody declared, slipping past the gate
   total: 0
   manifest: plan/bind_extension_conventions/_bind_extension_conventions.yaml
   path: plan/bind_extension_conventions/
@@ -2713,7 +2720,14 @@ wagons:
   - name: commons:enforce-verdict
     from: wagon:enforce-conventions-ci
   wmbt:
-    total: 0
+    total: 2
+    M001: minimize likelihood of enforcement-coverage-blindness by producing a report
+      that classifies every extension rule as ENFORCED-in-CI or REPORTED-only, so
+      the bound set is never mistaken for the enforced set
+    E001: minimize likelihood of unsafe-core-retirement by proving that every core
+      convention node with an extension twin has that twin bound and blockingly running
+      in CI before the core node may be retired, so retiring a core node can never
+      silently drop the rule its twin mirrors
   total: 0
   manifest: plan/verify_enforcement/_verify_enforcement.yaml
   path: plan/verify_enforcement/

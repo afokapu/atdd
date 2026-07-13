@@ -24,4 +24,6 @@ consume:
 - name: commons:enforce-verdict
   from: wagon:enforce-conventions-ci
 wmbt:
-  total: 0
+  total: 2
+  M001: "minimize likelihood of enforcement-coverage-blindness by producing a report that classifies every extension rule as ENFORCED-in-CI or REPORTED-only, so the bound set is never mistaken for the enforced set"
+  E001: "minimize likelihood of unsafe-core-retirement by proving that every core convention node with an extension twin has that twin bound and blockingly running in CI before the core node may be retired, so retiring a core node can never silently drop the rule its twin mirrors"
