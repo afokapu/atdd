@@ -29,6 +29,19 @@ from atdd.validators.conventions._support.graph_loader import (
     ConventionGraph,
     load_composed_graph,
 )
+from atdd.validators.conventions._support.mutation_guard import (  # noqa: F401
+    assign_default_class,
+    mutation_class_guard,
+)
+
+_CONVENTIONS_DIR = Path(__file__).resolve().parent
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """#1418 — every convention test lands in exactly one mutation class, so the CI split
+    `-m "not convention_filesystem_mutation"` / `-m "convention_filesystem_mutation"` is a
+    true partition and no test can fall through both filters."""
+    assign_default_class(items, _CONVENTIONS_DIR)
 
 
 def _find_repo_root() -> Path:
