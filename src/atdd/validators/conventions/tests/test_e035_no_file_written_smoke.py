@@ -32,6 +32,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 COUNTER_PLUGIN = "atdd.validators.conventions.tests.graph_build_counter"
 
 MIGRATED_FAMILIES = [
@@ -70,27 +72,52 @@ def _tracked_status(root: Path) -> str:
     return result.stdout
 
 
-def test_migrated_families_leave_the_checkout_untouched() -> None:
+@pytest.fixture(scope="module")
+def migrated_family_run(tmp_path_factory) -> dict:
+    """Run the seven migrated families ONCE, under the build counter, and capture
+    everything the three acceptances below assert on.
+
+    Deliberately a single subprocess. The obvious shape — one pytest run per assertion —
+    re-executes all seven families three times, which cost 64.8s and handed back most of
+    the time the migration had just saved. The suite's own gate must not be the thing
+    that makes the suite slow. One run yields the exit status, the tracked-tree delta
+    and the build count together, and each acceptance reads its own field off it.
+    """
     root = _repo_root()
+    count_file = tmp_path_factory.mktemp("e035") / "graph_builds.json"
+    env = dict(os.environ)
+    env["ATDD_GRAPH_BUILD_COUNT_FILE"] = str(count_file)
 
     before = _tracked_status(root)
-
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", *_family_dirs(root), "-q", "-p", "no:cacheprovider"],
-        cwd=root, env=dict(os.environ), capture_output=True, text=True, timeout=900,
+        [sys.executable, "-m", "pytest", *_family_dirs(root),
+         "-q", "-p", "no:cacheprovider", "-p", COUNTER_PLUGIN],
+        cwd=root, env=env, capture_output=True, text=True, timeout=900,
     )
-
     after = _tracked_status(root)
 
-    assert result.returncode == 0, f"a migrated family is red:\n{result.stdout[-3000:]}"
-    assert after == before, (
+    stats = json.loads(count_file.read_text(encoding="utf-8")) if count_file.exists() else None
+    return {
+        "returncode": result.returncode, "stdout": result.stdout,
+        "before": before, "after": after, "stats": stats,
+    }
+
+
+def test_migrated_families_are_green(migrated_family_run) -> None:
+    run = migrated_family_run
+    assert run["returncode"] == 0, f"a migrated family is red:\n{run['stdout'][-3000:]}"
+
+
+def test_migrated_families_leave_the_checkout_untouched(migrated_family_run) -> None:
+    run = migrated_family_run
+    assert run["after"] == run["before"], (
         "the migrated fault families modified a tracked file — every fault is supposed to "
         "be staged under tmp_path or injected into a cloned graph, so the checkout must "
-        f"never be written. git status delta:\n{after}"
+        f"never be written. git status delta:\n{run['after']}"
     )
 
 
-def test_migrated_families_compose_the_clean_graph_once(tmp_path: Path) -> None:
+def test_migrated_families_compose_the_clean_graph_once(migrated_family_run) -> None:
     """E035-GREEN-002: one real-root graph build across all seven families.
 
     The counter counts only builds rooted at the REAL repo root, so boundary's synthetic
@@ -98,20 +125,10 @@ def test_migrated_families_compose_the_clean_graph_once(tmp_path: Path) -> None:
     correctly not counted. What must be 1 is the CLEAN graph — the expensive one, which
     walks plan/ and every convention YAML.
     """
-    root = _repo_root()
-    count_file = tmp_path / "graph_builds.json"
-    env = dict(os.environ)
-    env["ATDD_GRAPH_BUILD_COUNT_FILE"] = str(count_file)
-
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", *_family_dirs(root),
-         "-q", "-p", "no:cacheprovider", "-p", COUNTER_PLUGIN],
-        cwd=root, env=env, capture_output=True, text=True, timeout=900,
+    stats = migrated_family_run["stats"]
+    assert stats is not None, (
+        f"counter plugin wrote no count:\n{migrated_family_run['stdout'][-2000:]}"
     )
-    assert result.returncode == 0, f"a migrated family is red:\n{result.stdout[-3000:]}"
-    assert count_file.exists(), f"counter plugin wrote no count:\n{result.stdout[-2000:]}"
-
-    stats = json.loads(count_file.read_text(encoding="utf-8"))
     assert stats["builds"] == 1, (
         f"the clean convention graph was composed {stats['builds']}x across the seven "
         "migrated families; only the session fixture may compose it. A fault test is "
@@ -119,21 +136,27 @@ def test_migrated_families_compose_the_clean_graph_once(tmp_path: Path) -> None:
     )
 
 
-def test_migrated_faults_are_still_caught() -> None:
-    """Coverage preserved: the migrated fault tests are still collected AND green — the
-    build count above must not have been bought by deleting them."""
+def test_migrated_faults_are_still_caught(migrated_family_run) -> None:
+    """Coverage preserved: the build count must not have been bought by deleting the
+    fault tests.
+
+    Collection is enough to prove it, and costs ~2s instead of a fourth full family run:
+    `migrated_family_run` already exited 0 over all seven families, so every collected
+    test in them PASSED. What remains to prove is that the fault tests are still THERE —
+    that the count above is not 1 because someone deleted the tests that used to rebuild.
+    """
     root = _repo_root()
     result = subprocess.run(
         [sys.executable, "-m", "pytest", *_family_dirs(root),
-         "-k", FAULT_SELECTOR, "-q", "-p", "no:cacheprovider"],
-        cwd=root, env=dict(os.environ), capture_output=True, text=True, timeout=900,
+         "-k", FAULT_SELECTOR, "-q", "-p", "no:cacheprovider", "--collect-only"],
+        cwd=root, env=dict(os.environ), capture_output=True, text=True, timeout=300,
     )
-    assert result.returncode == 0, f"migrated fault tests are red:\n{result.stdout[-3000:]}"
+    assert result.returncode == 0, f"fault-test collection failed:\n{result.stdout[-3000:]}"
 
-    match = re.search(r"(\d+)\s+passed", result.stdout)
-    assert match, f"could not read the passed count from:\n{result.stdout[-2000:]}"
-    passed = int(match.group(1))
-    assert passed >= MIN_FAULT_TESTS, (
-        f"only {passed} fault-injection tests ran, expected >= {MIN_FAULT_TESTS}; "
-        "coverage was dropped, not sped up"
+    match = re.search(r"(\d+)\s*/\s*\d+\s+tests\s+collected|(\d+)\s+tests?\s+collected", result.stdout)
+    assert match, f"could not read the collected count from:\n{result.stdout[-2000:]}"
+    collected = int(match.group(1) or match.group(2))
+    assert collected >= MIN_FAULT_TESTS, (
+        f"only {collected} fault-injection tests are collected, expected >= "
+        f"{MIN_FAULT_TESTS}; coverage was dropped, not sped up"
     )
