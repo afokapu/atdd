@@ -1,0 +1,111 @@
+urn: wmbt:validate-conventions:E036
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: parallel-checkout-corruption
+context_clarifier: every convention test that mutates the shared checkout carries the
+  convention_filesystem_mutation marker and runs in a serial CI subset, while everything
+  else runs under pytest-xdist -n auto, and the two subsets together collect exactly the
+  un-split suite
+lens: functional.sustainability
+statement: minimize likelihood of parallel-checkout-corruption by ensuring every convention
+  test that mutates the shared checkout carries the convention_filesystem_mutation marker
+  and runs in a serial CI subset, while everything else runs under pytest-xdist -n auto,
+  and the two subsets together collect exactly the un-split suite
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E036-RED-001-unmarked-writer-runs-in-the-parallel-subset
+    id: AC-RED-001
+    purpose: Before the guard, a convention test that mutates the checkout but carries
+      no mutation-class marker is selected into the xdist subset and passes green while
+      writing the tree its sibling workers are reading.
+    phase: RED
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A pytest rootdir whose ini declares the three mutation-class markers
+    - A test that writes a file inside that rootdir and carries no marker
+    - No mutation guard installed
+  when:
+    abstract: The suite is selected with -m "not convention_filesystem_mutation"
+  then:
+    abstract:
+    - The unmarked writer is selected, not deselected
+    - It passes green and the file it wrote exists on disk
+    - Deselection works for a marked test, so the only gap is the marker's completeness
+  metadata:
+    author: atdd:planner
+    created: '2026-07-13'
+- identity:
+    urn: acc:validate-conventions:E036-GREEN-001-guard-fails-the-unmarked-writer
+    id: AC-GREEN-001
+    purpose: The runtime guard fails any test that touches the checkout without the serial
+      marker, and any serial test handed the session graph, while leaving the non-hazards
+      green.
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - The _support/mutation_guard.py audit hook wired as an autouse fixture
+    - A probe suite carrying an unmarked writer, an unmarked subprocess spawner, a marked
+      writer, an unmarked write outside the checkout, and a serial test requesting
+      clean_convention_graph
+  when:
+    abstract: The probe suite is run with the guard armed
+  then:
+    abstract:
+    - The unmarked writer fails, and the message names both the marker and the path written
+    - The unmarked subprocess spawner fails
+    - The serial test requesting clean_convention_graph fails
+    - The marked writer, the write outside the checkout, and the read-only test all pass —
+      the guard has no false positive to suppress
+  metadata:
+    author: atdd:planner
+    created: '2026-07-13'
+- identity:
+    urn: acc:validate-conventions:E036-SMOKE-001-split-collects-the-whole-suite
+    id: AC-SMOKE-001
+    purpose: In a real checkout, the parallel and serial subsets together collect exactly
+      the un-split suite — no test falls through both -m filters and silently stops running.
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout with the convention suite classified by mutation class
+  when:
+    abstract: python -m pytest --collect-only is run un-split, then with each -m selector
+  then:
+    abstract:
+    - parallel + serial equals the un-split collected count
+    - Neither subset is empty
+  metadata:
+    author: atdd:planner
+    created: '2026-07-13'
+- identity:
+    urn: acc:validate-conventions:E036-SMOKE-002-ci-runs-both-subsets-and-the-gate-fans-in-both
+    id: AC-SMOKE-002
+    purpose: CI actually runs both halves — the parallel half under xdist with pytest-xdist
+      installed, the serial half without it — and validate-gate fails when either is red.
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - The real .github/workflows/atdd-validate.yml
+  when:
+    abstract: The workflow is parsed and the two convention jobs traced through to the gate
+  then:
+    abstract:
+    - validate-conventions selects the non-mutating half, installs pytest-xdist and runs -n auto
+    - validate-conventions-serial selects the mutating half and runs without -n
+    - validate-gate needs both jobs and reads both results
+  metadata:
+    author: atdd:planner
+    created: '2026-07-13'
