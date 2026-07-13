@@ -65,7 +65,6 @@ class PRManager:
     def __init__(self, target_dir: Optional[Path] = None):
         self.target_dir = target_dir or Path.cwd()
         self.atdd_config_dir = self.target_dir / ".atdd"
-        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
     def _find_issue_in_manifest(self, issue_number: int) -> Optional[dict]:

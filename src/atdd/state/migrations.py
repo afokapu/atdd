@@ -116,11 +116,46 @@ ON CONFLICT(uid) DO NOTHING;
 """
 
 
+#: #1400 reconcile-local-store — the two tables the reconcile spine needs (spec §3).
+#:
+#: ``overlay_events`` makes local overlay EXPLICIT. The store is the private
+#: authoring workspace; every authoring command that has not yet been committed
+#: into the projection appends one typed, replayable event here. Overlay is never
+#: *inferred* by diffing SQLite against a hydrated baseline — SQLite holds derived
+#: data, indexes and transient fields, so a diff cannot recover user intent.
+#:
+#: ``store_metadata`` records ``store_base_commit``: the commit the store was last
+#: hydrated from. It is what makes ``store = hydrate(projection @ base) +
+#: replay(overlay)`` (I3) resolvable without guessing.
+_OVERLAY_TABLES_SQL = """
+CREATE TABLE overlay_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id    TEXT NOT NULL UNIQUE,         -- stable across reconciles; never reminted
+    seq         INTEGER NOT NULL,             -- append order == replay order
+    object_uid  TEXT NOT NULL,                -- no FK: an event outlives its object (audit)
+    kind        TEXT NOT NULL,                -- one of the seven authoring kinds
+    payload     TEXT NOT NULL DEFAULT '{}',   -- JSON; everything replay needs
+    status      TEXT NOT NULL DEFAULT 'pending',
+                -- pending | projected | committed | discarded | conflicted
+    projection_digest TEXT,                   -- back-ref: the projection representing it
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_overlay_events_status ON overlay_events(status);
+CREATE INDEX idx_overlay_events_object ON overlay_events(object_uid);
+
+CREATE TABLE store_metadata (
+    key         TEXT PRIMARY KEY,
+    value       TEXT
+);
+"""
+
+
 #: Ordered, append-only core migrations. NEVER edit an applied migration in place
 #: — add a new one with the next version number.
 CORE_MIGRATIONS: List[Migration] = [
     Migration(version=1, name="core_tables", sql=_CORE_TABLES_SQL),
     Migration(version=2, name="release_kind", sql=_RELEASE_KIND_SQL),
+    Migration(version=3, name="overlay_and_metadata", sql=_OVERLAY_TABLES_SQL),
 ]
 
 

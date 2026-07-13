@@ -1,0 +1,85 @@
+urn: wmbt:project-shared-state:E001
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: deterministic-projection-write
+context_clarifier: when project(store) serializes each work item to .atdd/state/projection/<uid>.yaml,
+  the same logical store must yield byte-identical files across hosts, runs, and checkout
+  paths
+lens: "functional.availability"
+statement: maximize likelihood of a deterministic-projection-write that is byte-identical
+  for the same logical store, carrying no timestamps, host paths, or unstable ordering
+  (invariant I1)
+acceptances:
+- given:
+    abstract:
+    - A local store holding two work items with differing slugs, phases, and wmbts
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: project(store) run twice over the same logical store yields byte-identical
+      projection files
+    urn: acc:project-shared-state:E001-UNIT-001-same-store-yields-identical-bytes
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Every .atdd/state/projection/<uid>.yaml file is byte-identical between the two
+      runs
+    - The set of emitted filenames is identical and each is named for the object's
+      uid, never its slug
+  when:
+    abstract: project(store, out_dir=<tmp>) is invoked twice into two separate output
+      directories
+- given:
+    abstract:
+    - A local store holding work items inserted in a non-sorted order
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: project(store) emits one canonical per-uid YAML per object with sorted
+      keys and a stable object order
+    urn: acc:project-shared-state:E001-UNIT-002-emits-canonical-per-uid-yaml
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Each object is written to .atdd/state/projection/<uid>.yaml carrying uid, slug,
+      phase, body, train, and wmbts
+    - Mapping keys are emitted in a fixed canonical order and sequences in a fixed
+      sorted order
+    - Insertion order of the store rows does not change any emitted byte
+  when:
+    abstract: project(store, out_dir=<tmp>) is invoked
+- given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local .atdd/state/state.sqlite
+      store
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify project(store) writes canonical projection files in a real checkout
+      against a real store, no manual patching
+    urn: acc:project-shared-state:E001-SMOKE-001-cli-projects-real-store
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Projection files appear under .atdd/state/projection/ named by uid
+    - The two runs produce byte-identical files, proving determinism outside the test
+      fixtures
+  when:
+    abstract: the projection command is run twice against the same store in the real
+      checkout

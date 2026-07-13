@@ -1,0 +1,72 @@
+urn: wmbt:govern-projection-fields:D002
+step: define
+direction: maximize
+dimension: likelihood
+object_of_control: single-owner-body-rule-computability
+context_clarifier: when the field ownership policy says `body` conflicts unless the single-owner rule
+  proves safe, but no actor field exists on the projection object, so neither CI nor the merge driver
+  can compute the owner
+lens: functional.effectiveness
+statement: maximize likelihood of single-owner-body-rule-computability by carrying owner_actor and last_lifecycle_actor
+  on the projection object, so the field-writer validator can accept or reject a body edit and the merge
+  driver can explain a conflict
+acceptances:
+- given:
+    abstract:
+    - A local store and a committed projection exercising single-owner-body-rule-computability
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: single-owner-body-rule-computability is not yet controlled
+    urn: acc:govern-projection-fields:D002-UNIT-001-not-implemented
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
+  then:
+    abstract:
+    - single-owner-body-rule-computability is not yet controlled
+  when:
+    abstract: the define-actor-ownership behavior is invoked
+- given:
+    abstract:
+    - A local store and a committed projection exercising single-owner-body-rule-computability
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: single-owner-body-rule-computability is controlled as specified
+    urn: acc:govern-projection-fields:D002-UNIT-002-holds
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
+  then:
+    abstract:
+    - single-owner-body-rule-computability is controlled as specified
+  when:
+    abstract: the define-actor-ownership behavior is invoked
+- identity:
+    urn: acc:govern-projection-fields:D002-SMOKE-001-single-owner-body-rule-computability
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: single-owner-body-rule-computability holds against a real repo checkout, the
+      installed atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising single-owner-body-rule-computability
+  when:
+    abstract: the D002 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - single-owner-body-rule-computability is observed to hold end-to-end against real infrastructure,
+      with no mocks or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

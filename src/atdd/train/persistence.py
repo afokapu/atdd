@@ -192,15 +192,19 @@ def load_conventions(repo_root: Path) -> Conventions:
 
 
 # --------------------------------------------------------------------------- #
-# GitHub evidence source (injectable; defaults to the Child 4 adapter)         #
+# Evidence source (injectable seam; the default consults NO provider)          #
 # --------------------------------------------------------------------------- #
 
 
-class GitHubEvidenceSource(Protocol):
-    """The slice of the GitHub adapter ``materialize_evidence`` consumes.
+class EvidenceSource(Protocol):
+    """The provider-supplied slice of evidence ``materialize_evidence`` consumes.
 
     Returns plain integration data (§4.10); ``materialize_evidence`` maps it onto
     the Coach-core types. Any method may raise; the store degrades gracefully.
+
+    This is a **seam**, not a dependency: an extension may inject a source that
+    knows about PRs and CI runs. Core ships :class:`_ProviderAbsentSource`, and the
+    phase never comes from here at all — see below.
     """
 
     def read_phase(self, issue: int) -> str | None: ...
@@ -210,19 +214,25 @@ class GitHubEvidenceSource(Protocol):
     def read_ci_state(self, issue: int) -> str: ...  # CiState value
 
 
-class _DefaultGitHubSource:
-    """Best-effort default backed by the real ``atdd.integrations.github`` adapter.
+class _ProviderAbsentSource:
+    """Core's default: it reads nothing, because there is nothing here for it to read.
 
-    PR/CI discovery for an issue needs run context the persistence layer does not
-    hold on its own (the train runner wires that in Child 8), so this default is
-    deliberately conservative: it reads the live phase label and otherwise reports
-    "no data", which ``materialize_evidence`` treats as the §7.1 degraded path.
+    This class used to call ``atdd.integrations.github.issue_state.read_phase`` and hand
+    ``materialize_evidence`` the live GitHub **label**, which then overruled the phase the store
+    held. That is the hot-path read #1400 CORE-033 removes (Y001, invariant I7): the mirror is
+    not authoritative, so a gate that lets a label outvote the committed projection is a gate
+    that GitHub can be wrong about, that an outage can block, and that a rate limit can make
+    non-deterministic.
+
+    ``read_phase`` therefore returns ``None`` — meaning "the provider has no opinion", which is
+    the only opinion a mirror is entitled to. The phase is the store's, and the store's alone.
+    PR and CI state were already "no data" here (the train runner injects a source that knows
+    them), so this class now reports the honest empty answer for all three, and does it without
+    a provider, a network call, or a provider-absent error (Y001-UNIT-002).
     """
 
     def read_phase(self, issue: int) -> str | None:
-        from atdd.integrations.github import issue_state
-
-        return issue_state.read_phase(issue)
+        return None
 
     def read_pr_state(self, issue: int):
         return None
@@ -328,7 +338,6 @@ def _decision_from_dict(d: dict) -> TransitionDecision:
 # JsonlPersistenceStore (§4.6 default implementation)                          #
 # --------------------------------------------------------------------------- #
 
-_MANIFEST_REL = Path(".atdd/manifest.yaml")
 _RUNS_REL = Path(".atdd/runtime/runs")
 
 
@@ -346,10 +355,10 @@ class JsonlPersistenceStore:
         self,
         repo_root: Path,
         *,
-        github: GitHubEvidenceSource | None = None,
+        evidence_source: EvidenceSource | None = None,
     ) -> None:
         self.repo_root = Path(repo_root)
-        self._github: GitHubEvidenceSource = github or _DefaultGitHubSource()
+        self._evidence: EvidenceSource = evidence_source or _ProviderAbsentSource()
         self._conventions: Conventions | None = None
 
     # --- paths ----------------------------------------------------------- #
@@ -532,47 +541,67 @@ class JsonlPersistenceStore:
         return self._record_from_session(entry)
 
     def upsert_issue(self, rec: IssueRecord) -> None:
-        manifest = self._load_manifest()
-        sessions = manifest.setdefault("sessions", [])
-        row = {
-            "id": rec.id,
-            "slug": rec.slug,
-            "file": None,
-            "issue_number": rec.issue_number,
-            "type": rec.type.value,
-            "status": rec.status.value,
-            "train": rec.train,
-            "created": rec.created,
-            "archived": rec.archived,
-        }
-        for i, session in enumerate(sessions):
-            if session.get("issue_number") == rec.issue_number:
-                # Preserve any extra keys (wagon, feature, ...) the manifest carries.
-                merged = {**session, **row}
-                sessions[i] = merged
-                break
-        else:
-            sessions.append(row)
-        manifest_path = self.repo_root / _MANIFEST_REL
-        manifest_path.write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
+        """Write the issue record to the **State Store** (#1400 CORE-034, Y002).
+
+        This wrote ``.atdd/manifest.yaml`` — read-modify-write over the very file
+        :meth:`get_issue` stopped reading in #1203. A writer whose write nobody reads is not a
+        fallback, it is drift with a schedule: the manifest and the store diverge quietly until
+        someone reads the wrong one. So the write goes where the read goes.
+
+        The store keys a work item by its slug and carries the GitHub issue number as an
+        ``external_ref`` — the same shape :mod:`atdd.state.manifest_import` established, and the
+        one :meth:`get_issue` resolves through. Extra keys an existing object carries (``wagon``,
+        ``feature``, …) are preserved, exactly as the manifest merge preserved them.
+        """
+        from atdd.state.db import connect, init_state_store
+        from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+        from atdd.state.store import StateStore
+
+        conn = connect(init_state_store(start=self.repo_root))
+        try:
+            store = StateStore(conn)
+            ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", str(rec.issue_number))
+            uid = ref.object_uid if ref is not None else rec.slug
+            existing = store.objects.get(uid)
+            data = dict(existing.data) if existing is not None else {}
+            data.update({
+                "id": rec.id,
+                "type": rec.type.value,
+                "train": rec.train,
+                "created": rec.created,
+                "archived": rec.archived,
+            })
+            store.objects.upsert(uid, WORK_ITEM_KIND, state=rec.status.value, data=data)
+            if ref is None:
+                store.external_refs.link(
+                    uid, GITHUB_PROVIDER, "issue", str(rec.issue_number),
+                    data={"source": "train-persistence"},
+                )
+        finally:
+            conn.close()
+        _log.info(
+            "issue record upserted into the State Store",
+            extra={"issue": rec.issue_number, "slug": rec.slug, "phase": rec.status.value},
+        )
 
     # --- evidence materialization (THE bridge to Coach-core) ------------- #
     def materialize_evidence(self, issue_number: int) -> Evidence:
         rec = self.get_issue(issue_number)
         conventions = self._active_conventions()
 
+        # The phase is the STORE's, and the store's alone (#1400 CORE-033, I7). It used to be
+        # overruled here by the live GitHub label, which made a lifecycle decision depend on a
+        # mirror that the spec says is non-authoritative. The provider is asked for PR and CI
+        # state — data it genuinely owns — and for nothing that decides a phase.
         current_phase = rec.status
         ci_state = CiState.NONE
         pr_state: PrState | None = None
         try:
-            live_phase = self._github.read_phase(issue_number)
-            if live_phase:
-                current_phase = Phase(live_phase)
-            ci_state = CiState(self._github.read_ci_state(issue_number))
-            pr_state = _to_pr_state(self._github.read_pr_state(issue_number))
-        except Exception as exc:  # §7.1: GitHub down → degrade, never propagate.
+            ci_state = CiState(self._evidence.read_ci_state(issue_number))
+            pr_state = _to_pr_state(self._evidence.read_pr_state(issue_number))
+        except Exception as exc:  # §7.1: a provider that is down degrades; it never propagates.
             _log.warning(
-                "materialize_evidence: GitHub adapter unavailable; degrading",
+                "materialize_evidence: the evidence source is unavailable; degrading",
                 extra={"issue": issue_number, "error": str(exc)},
             )
             ci_state = CiState.NONE
@@ -719,13 +748,7 @@ class JsonlPersistenceStore:
             )
         return tuple(out)
 
-    # --- manifest helpers ------------------------------------------------ #
-    def _load_manifest(self) -> dict:
-        manifest_path = self.repo_root / _MANIFEST_REL
-        if not manifest_path.is_file():
-            return {"sessions": []}
-        return yaml.safe_load(manifest_path.read_text()) or {"sessions": []}
-
+    # --- issue-record helpers -------------------------------------------- #
     @staticmethod
     def _record_from_session(session: dict) -> IssueRecord:
         return IssueRecord(

@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: hydrate(projection_dir, store) loads each document and materializes
+        the public object state
+      type: use_cases
+    integration:
+    - count: 1
+      rationale: projection document to store object mapper, carrying external_refs
+        verbatim and never reading them
+      type: mappers
+description: 'hydrate(projection): rebuild the public store objects from the committed
+  per-uid projection at HEAD, with zero providers registered and no committed SQLite
+  store (CORE-006).'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:project-shared-state:hydrate-projection
+wagon: wagon:project-shared-state
+wmbts:
+- wmbt:project-shared-state:E002

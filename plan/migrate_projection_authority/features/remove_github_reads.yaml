@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: lifecycle decisions resolve from projection plus git trailers, never
+        from a provider read
+      type: policies
+    integration:
+    - count: 1
+      rationale: the last GitHub client call sites are relocated behind the SyncProvider
+        seam or deleted
+      type: clients
+description: 'CORE-033: remove GitHub hot-path reads. No core lifecycle decision,
+  validator, or gate calls the GitHub API; provider access sits behind the SyncProvider
+  seam and the external-ref quarantine.'
+sizing:
+  footprint_score: 9
+  footprint_size: M
+  wmbts: 1
+urn: feature:migrate-projection-authority:remove-github-reads
+wagon: wagon:migrate-projection-authority
+wmbts:
+- wmbt:migrate-projection-authority:Y001

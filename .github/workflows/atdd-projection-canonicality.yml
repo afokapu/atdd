@@ -1,0 +1,38 @@
+# Merge authority for the committed projection (#1400 / #1433).
+#
+# CI cannot compare a branch against a gitignored developer SQLite store, so the
+# only honest guarantee it can make is the round-trip identity over the committed
+# projection alone:
+#
+#     project(hydrate(committed projection)) == committed projection
+#
+# This job is that gate. It reads no GitHub API and no developer store — it
+# hydrates the committed YAML into an in-memory store, re-projects it, and
+# compares the bytes. That is exactly why it also runs green against a bare git
+# remote with no GitHub reachable at all.
+name: ATDD Projection Canonicality
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+jobs:
+  canonicality:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install atdd toolkit
+        run: pip3 install -e .
+
+      # The gate. Non-zero — and a diff naming the offending <uid>.yaml — whenever
+      # the committed projection is not the canonical output of the round-trip.
+      - name: Verify projection canonicality
+        run: atdd state canonicality

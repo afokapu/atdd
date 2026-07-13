@@ -1,0 +1,21 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'Overlay event lifecycle and compaction: stable event_id, explicit
+        stat'
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: overlay-event-replayed-twice
+      type: value_objects
+description: 'Overlay event lifecycle and compaction: stable event_id, explicit status,
+  projection back-reference, and a compaction that preserves audit data.'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:reconcile-local-store:archive-overlay-events
+wagon: wagon:reconcile-local-store
+wmbts:
+- wmbt:reconcile-local-store:Y001

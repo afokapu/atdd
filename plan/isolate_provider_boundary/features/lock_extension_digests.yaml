@@ -1,0 +1,28 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: write the lock deterministically; verify recorded digests against
+        live core policy and provider digests
+      type: use_cases
+    integration:
+    - count: 1
+      rationale: atomic .atdd/extensions.lock file writer with byte-deterministic,
+        name-sorted output
+      type: stores
+    presentation:
+    - count: 1
+      rationale: the CLI verb that writes and verifies .atdd/extensions.lock in a
+        checkout
+      type: controllers
+description: Deterministic .atdd/extensions.lock pinning core atdd_version, the projection-schema,
+  lifecycle-policy and merge-policy digests, and every registered provider digest
+  (CORE-030).
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 1
+urn: feature:isolate-provider-boundary:lock-extension-digests
+wagon: wagon:isolate-provider-boundary
+wmbts:
+- wmbt:isolate-provider-boundary:E002

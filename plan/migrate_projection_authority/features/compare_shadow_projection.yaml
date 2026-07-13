@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'compare_projection: recompute project(store) and diff it against
+        the committed tree'
+      type: use_cases
+    integration:
+    - count: 1
+      rationale: non-blocking CI reporter that emits the drift report and always exits
+        zero
+      type: monitors
+description: 'CORE-032: shadow-mode projection CI. Recomputes the projection on every
+  push and reports drift against the committed and manifest-derived projections without
+  failing the build.'
+sizing:
+  footprint_score: 6
+  footprint_size: S
+  wmbts: 1
+urn: feature:migrate-projection-authority:compare-shadow-projection
+wagon: wagon:migrate-projection-authority
+wmbts:
+- wmbt:migrate-projection-authority:M001

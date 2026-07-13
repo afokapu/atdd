@@ -1,0 +1,82 @@
+urn: wmbt:isolate-provider-boundary:E002
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: extensions-lock
+context_clarifier: "when core writes .atdd/extensions.lock locking core atdd_version\
+  \ plus the projection-schema, lifecycle-policy and merge-policy digests, and each\
+  \ registered provider's version and digest, deterministically and with no secrets\
+  \ (\xA710)"
+lens: functional.effectiveness
+statement: maximize likelihood of a deterministic extensions-lock that pins the core
+  schema, lifecycle policy and merge policy digests alongside every registered provider
+  digest, so a drifting extension is detected before it mirrors
+acceptances:
+- given:
+    abstract:
+    - A lock spec missing projection_schema_digest (or lifecycle/merge policy digest)
+    - A registered provider whose digest() disagrees with the recorded lock entry
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: a lock missing a required core digest, or naming a provider whose digest()
+      disagrees, is rejected before any write
+    urn: acc:isolate-provider-boundary:E002-UNIT-001-rejects-lock-missing-digest
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The missing core digest is rejected with the offending field named
+    - The provider digest mismatch is reported as extension drift
+    - No partial .atdd/extensions.lock file is written
+  when:
+    abstract: the extensions.lock writer and its verification pass are invoked
+- given:
+    abstract:
+    - A core checkout and two registered providers named 'zeta' and 'alpha'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: the writer emits schema_version 1 with core digests and name-sorted provider
+      entries, byte-identically across runs
+    urn: acc:isolate-provider-boundary:E002-UNIT-002-writes-deterministic-lock
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The file carries schema_version, core.atdd_version, and the projection/lifecycle/merge
+      policy digests
+    - Provider entries are name-sorted, each with version and sha256 digest
+    - Both runs produce byte-identical output and the file carries no secret material
+  when:
+    abstract: the extensions.lock writer is invoked twice over the same logical inputs
+- given:
+    abstract:
+    - A real repo checkout and the installed atdd CLI, with zero providers registered
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify the real CLI writes a schema-valid .atdd/extensions.lock in a
+      real checkout with zero providers, no manual patching
+    urn: acc:isolate-provider-boundary:E002-SMOKE-001-cli-writes-extensions-lock
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - .atdd/extensions.lock exists and validates against its schema
+    - The core block carries atdd_version and all three policy digests
+    - The providers block is present and empty
+  when:
+    abstract: the extensions.lock command is run end-to-end against the checkout

@@ -1,0 +1,22 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: the single projection reader that replaces every manifest read path
+      type: use_cases
+    integration:
+    - count: 1
+      rationale: the manifest-backed repository is removed and its consumers repointed
+        at the projection reader
+      type: repositories
+description: 'CORE-034: decommission the manifest read-fallback. Once projection is
+  in blocking mode, no core reader consults .atdd/manifest.yaml for shared lifecycle
+  state.'
+sizing:
+  footprint_score: 8
+  footprint_size: S
+  wmbts: 1
+urn: feature:migrate-projection-authority:decommission-manifest-fallback
+wagon: wagon:migrate-projection-authority
+wmbts:
+- wmbt:migrate-projection-authority:Y002

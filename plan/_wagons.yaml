@@ -1056,6 +1056,87 @@ wagons:
   total: 0
   manifest: plan/enforce_binding_plan/_enforce_binding_plan.yaml
   path: plan/enforce_binding_plan/
+- wagon: enforce-merge-authority
+  description: 'Make CI the real lifecycle authority rather than a formatting check
+    (M3). Canonical, schema-valid projection YAML is only well-formatted text; this
+    wagon adds the gates that make it correct: a legal-transition validator that diffs
+    the committed projection against the merge-base and checks it against the section-6
+    lifecycle evidence model, a schema and parser for the ATDD commit-trailer group
+    that turns git history into a reliable event log, a cross-check binding those
+    trailers to the projection diff they accompany, a no-secrets-in-history validator
+    enforcing invariant I8, a push/PR workflow that executes the whole required-check
+    set, and the branch-protection policy that makes those checks required rather
+    than advisory (I6).'
+  theme: commons
+  subject: agent:coder
+  context: on push and pull request against the protected branch, after the committed
+    projection has been produced and before a merge is admitted
+  action: parses the ATDD commit-trailer group out of git history, diffs the committed
+    projection against the merge-base, and runs the required-check set (legal transition,
+    trailer/projection cross-check, no-secrets) as branch-protected CI jobs
+  goal: make CI the merge authority so that a canonical but lifecycle-illegal, untrailered,
+    or secret-bearing projection change cannot reach the shared source of truth
+  outcome: canonical but illegal projection changes are rejected in CI, and every
+    admitted merge carries a trailer group that provably matches its projection diff
+  produce:
+  - name: commons:enforce:lifecycle-evidence
+    contract: contract:commons:projection-evidence
+    telemetry: null
+    to: internal
+  - name: commons:enforce:commit-trailer
+    contract: contract:commons:projection-trailer
+    telemetry: null
+    to: internal
+  - name: commons:enforce:merge-event
+    contract: contract:commons:projection-merge-event
+    telemetry: null
+    to: internal
+  - name: commons:enforce:field-ownership
+    contract: contract:commons:projection-field-ownership
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  wmbt:
+    C001: minimize likelihood of an illegal-transition-merge, in which a canonical
+      and schema-valid projection diff whose phase change is not lifecycle-legal relative
+      to the merge-base, or which carries no evidence for a gate it skips, is admitted
+      to the protected branch
+    C002: minimize likelihood of a trailer-projection-mismatch, in which a commit's
+      ATDD trailers and the projection object diff it carries disagree on the object,
+      the phase transition, or the projection digest, or in which a projection object
+      changes with no ATDD-Object trailer at all
+    C003: minimize likelihood of a history-secret-leak, in which a raw token, bearer
+      token, credential, or private key reaches git history through an ATDD trailer
+      value or a committed projection object, where only digests are ever admissible
+    C004: 'minimize likelihood of advisory-disposition-on-a-new-rule by requiring
+      every convention node this program authors to ship disposition: strict, and
+      permitting advisory only with a written precondition and a named issue that
+      discharges it'
+    D001: maximize likelihood of a commit-trailer-schema that pins the canonical ATDD
+      trailer group (ATDD-Object, ATDD-Transition, ATDD-Token-Digest, ATDD-Gate, ATDD-Projection-Digest,
+      ATDD-Summary, ATDD-Summary-Digest), the value grammar of each trailer, and which
+      trailers a given projection diff class is required to carry
+    D002: maximize likelihood of a required-check-policy that names, for the protected
+      branch, the exact required status-check contexts emitted by the merge-authority
+      run plus the branch-protection settings (no bypass, up-to-date before merge)
+      that make CI the merge authority rather than an advisory signal
+    E001: maximize likelihood of a deterministic commit-trailer-parse that lifts a
+      raw commit message into the schema-typed ATDD trailer group, handles grouped
+      trailers for a multi-object commit and the ATDD-Summary form for a squash merge,
+      and refuses a trailer block that violates the schema instead of silently dropping
+      it
+    E002: maximize likelihood of a merge-authority-run on push and pull request that
+      executes the full section-4 required-check set (projection canonicality, projection
+      schema, legal transition, trailer/diff cross-check, field-writer, no-secrets,
+      core no-provider) and fails the run when any one of them fails
+    total: 8
+  total: 0
+  manifest: plan/enforce_merge_authority/_enforce_merge_authority.yaml
+  path: plan/enforce_merge_authority/
 - wagon: enforce-structured-logging
   description: Enforce structured logging and prohibit print() in non-CLI production
     Python code
@@ -1513,6 +1594,99 @@ wagons:
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
+- wagon: govern-projection-fields
+  description: Field ownership and safe conflicts for the committed projection (M4).
+    Declares, as machine-readable data, the single legal writer and merge rule of
+    every projection field; enforces that declaration in CI with a field-writer validator;
+    implements a projection merge driver that auto-merges disjoint objects and the
+    three safe same-object cases while conflicting with an actionable report on everything
+    else; proves the driver with an ownership-class by divergence-case test matrix;
+    and makes retirement a tombstone record that no later merge can resurrect. Prevents
+    same-object and wrong-writer corruption of the shared source of truth.
+  theme: commons
+  subject: agent:coder
+  context: merging-two-branches-that-touched-the-same-per-uid-projection-object, and
+    validating a pushed projection diff against the writer identity carried by its
+    commit trailers
+  action: resolves every touched projection field to its single declared writer and
+    merge rule, rejects a diff whose committing writer does not own a touched field,
+    auto-merges only identical, no-op, or evidence-backed same-object divergence,
+    and records retirement as a non-deletable tombstone
+  goal: prevent same-object and wrong-writer corruption of the committed projection,
+    so the shared source of truth stays trustworthy without an operator adjudicating
+    every merge
+  outcome: disjoint objects merge cleanly; unsafe same-object conflicts block with
+    a report naming the field, both writers, and the failing rule; wrong-writer field
+    changes fail CI; tombstoned objects never resurrect
+  produce:
+  - name: commons:govern:field-writer-validator
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:projection-merge-driver
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:merge-driver-matrix
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:tombstone-record
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  - contract: contract:commons:projection-evidence
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:lifecycle-evidence
+    telemetry: null
+  - contract: contract:commons:projection-trailer
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:commit-trailer
+    telemetry: null
+  - contract: contract:commons:projection-merge-event
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:merge-event
+    telemetry: null
+  - name: commons:enforce:field-ownership
+    contract: contract:commons:projection-field-ownership
+    telemetry: null
+    from: wagon:enforce-merge-authority
+  wmbt:
+    C001: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting
+      a field-ownership policy that omits any projection schema field or names a writer
+      outside the declared writer set
+    C002: minimize likelihood of a merge-matrix-blind-spot, by exercising every ownership
+      merge rule against every divergence case (identical, no-op, evidence-backed,
+      unsafe) in the merge-driver test matrix
+    D001: maximize likelihood of a machine-readable field-ownership-policy that names,
+      for every projection field, its single legal writer and its merge rule, so the
+      field-writer validator and the merge driver read one declared source instead
+      of prose
+    D002: maximize likelihood of single-owner-body-rule-computability by carrying
+      owner_actor and last_lifecycle_actor on the projection object, so the field-writer
+      validator can accept or reject a body edit and the merge driver can explain
+      a conflict
+    E001: minimize likelihood of a wrong-writer-field-change reaching main, by failing
+      CI when a human commit mutates external_refs or an extension bot commit mutates
+      a lifecycle field owned by core
+    E002: maximize likelihood of a safe-projection-merge completing without operator
+      intervention when the two sides are identical, one side is a strict no-op, or
+      the further phase carries verifiable evidence for every skipped gate
+    K001: minimize likelihood of a tombstoned-object-resurrection, by recording retirement
+      as state TOMBSTONED with a reason digest, never deleting the projection file,
+      and refusing any later merge that revives the uid
+    R001: maximize likelihood of an unsafe-merge-conflict being raised with an actionable
+      report naming the field, both sides' writers, and the failing ownership or evidence
+      rule, never resolved by blind max phase
+    total: 8
+  total: 0
+  manifest: plan/govern_projection_fields/_govern_projection_fields.yaml
+  path: plan/govern_projection_fields/
 - wagon: implement-code
   description: Implements code that makes RED tests GREEN, then refactors to clean
     4-layer architecture
@@ -1782,6 +1956,88 @@ wagons:
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/
+- wagon: isolate-provider-boundary
+  description: 'Milestone M5: prove ATDD core is provider-free. Core defines the SyncProvider
+    seam (mirror/detect_drift/digest) and a registration/discovery surface that is
+    empty by default; a static import-boundary test enforces the §8.1 boundary law
+    (provider code imports core, core never imports provider code); a non-GitHub remote
+    conformance suite drives the full workflow against a bare git remote with zero
+    providers; .atdd/extensions.lock pins the core schema, lifecycle-policy and merge-policy
+    digests alongside every provider digest; and a cross-repo smoke test proves a
+    registered extension is presentation-only — its failure never blocks merge and
+    it writes back only through the constrained external_refs.* path.'
+  theme: commons
+  subject: agent:coder
+  context: core-provider-boundary, milestone-m5, zero providers registered against
+    a bare git remote
+  action: defines the SyncProvider seam and its registration surface, statically enforces
+    the core-never-imports-provider law, drives the full workflow against a bare remote
+    with no providers, pins core and provider digests into .atdd/extensions.lock,
+    and proves an attached extension mirrors through external_refs.* only
+  goal: make it impossible for a lifecycle decision to depend on GitHub, so an extension
+    can be attached or removed without changing what core decides
+  outcome: core completes its full workflow with zero providers against a bare git
+    remote, the import-boundary test is green, .atdd/extensions.lock pins every core
+    and provider digest, and a registered extension provider mirrors without ever
+    blocking merge
+  produce:
+  - name: commons:isolate:external-ref-update
+    contract: contract:commons:provider-external-ref-update
+    telemetry: null
+    to: internal
+  - name: commons:isolate:extensions-lock
+    contract: contract:commons:provider-extensions-lock
+    telemetry: null
+    to: internal
+  - name: commons:isolate:sync-provider-interface
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:isolate:provider-registry
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:isolate:import-boundary-guard
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:isolate:remote-conformance-suite
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  - contract: contract:commons:projection-field-ownership
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:field-ownership
+    telemetry: null
+  wmbt:
+    C001: minimize likelihood of a core-provider-import surviving into main, by statically
+      walking the core import graph and failing on any provider, gh, or GitHub-API
+      dependency reachable from a lifecycle module
+    C002: maximize likelihood of a provider-free-workflow completing end to end against
+      a bare git remote with zero providers registered, proving no lifecycle decision
+      depends on GitHub
+    D001: maximize likelihood of a sync-provider-interface that core owns and providers
+      implement, where mirror() yields only bot-namespaced ExternalRefUpdate records,
+      detect_drift() is alarm-only, and no authoritative state ever crosses back into
+      core
+    E001: maximize likelihood of a provider-registration and discovery seam that is
+      empty by default, deterministic in ordering, and never consulted by a lifecycle
+      decision
+    E002: maximize likelihood of a deterministic extensions-lock that pins the core
+      schema, lifecycle policy and merge policy digests alongside every registered
+      provider digest, so a drifting extension is detected before it mirrors
+    K001: maximize likelihood of a core-extension-smoke proving the mirror is presentation-only,
+      where a failing provider never blocks merge and the only projection write-back
+      is through the constrained external_refs path
+    total: 6
+  total: 0
+  manifest: plan/isolate_provider_boundary/_isolate_provider_boundary.yaml
+  path: plan/isolate_provider_boundary/
 - wagon: judge-ambiguous-decisions
   description: 'Coach v9 LLM-judgment surface and pre-coach issue review: atdd judge
     core (§5.5) with six v1 call sites (§6.9: borderline tier-1, reviewer concern,
@@ -1990,6 +2246,104 @@ wagons:
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
+- wagon: migrate-projection-authority
+  description: 'M8 of the state-projection collaboration model: move the shared source
+    of truth off the legacy manifest and the GitHub hot path onto the committed deterministic
+    projection. Ships the manifest-to-projection migration tool (CORE-031) with a
+    refuse-before-write guard, a non-blocking shadow-mode projection CI (CORE-032)
+    that reports drift while the cutover is staged, removal of GitHub reads from every
+    core lifecycle decision (CORE-033), decommission of the manifest read-fallback
+    once projection blocks (CORE-034), the core migration runbook (CORE-035), and
+    the cross-repo rollout and rollback plan (X-006).'
+  theme: commons
+  subject: agent:coder
+  context: post-cutover-staging, projection spine and merge authority already shipped;
+    the legacy manifest and GitHub hot-path reads are still live and must be retired
+    in order
+  action: migrates the legacy manifest into uid-keyed committed projection files,
+    runs a non-blocking shadow projection CI to surface drift, strips GitHub reads
+    out of every core lifecycle decision, decommissions the manifest read-fallback,
+    and publishes the migration runbook and the cross-repo rollout and rollback plan
+  goal: make the committed projection the only shared source of truth, so lifecycle
+    decisions never depend on a provider API or on a hand-editable manifest
+  outcome: projection is the shared committed state, GitHub is an optional mirror
+    no lifecycle decision reads, and the legacy manifest no longer acts as a fallback
+    source of truth
+  produce:
+  - name: commons:migrate:manifest-projection-migrator
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:shadow-projection-report
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:github-read-removal
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:manifest-fallback-decommission
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:migration-runbook
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:rollout-rollback-plan
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  - contract: contract:commons:projection-evidence
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:lifecycle-evidence
+    telemetry: null
+  - contract: contract:commons:projection-trailer
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:commit-trailer
+    telemetry: null
+  - contract: contract:commons:provider-external-ref-update
+    from: wagon:isolate-provider-boundary
+    name: commons:isolate:external-ref-update
+    telemetry: null
+  - contract: contract:commons:provider-extensions-lock
+    from: wagon:isolate-provider-boundary
+    name: commons:isolate:extensions-lock
+    telemetry: null
+  wmbt:
+    C001: 'minimize likelihood of a lossy-migration-write: the migration tool refuses
+      before writing any projection file when a manifest entry carries no uid, a duplicate
+      uid, or a phase outside the lifecycle vocabulary'
+    D001: maximize likelihood of a migration-runbook that names the cutover steps
+      in order, the developer-facing command changes, and the numbered invariant each
+      step preserves
+    E001: maximize likelihood of a complete manifest-projection-migration that reads
+      the legacy manifest, hydrates the store, and emits one deterministic .atdd/state/projection/<uid>.yaml
+      per work item keyed by the immutable uid rather than the mutable slug
+    K001: maximize likelihood of a clean projection-authority-cutover in which the
+      committed projection is the shared source of truth, GitHub is an optional mirror,
+      and the legacy manifest no longer acts as a fallback source of truth
+    M001: maximize likelihood of a shadow-projection-report that recomputes the projection
+      on every push and surfaces drift against both the committed projection and the
+      manifest-derived projection while remaining non-blocking
+    P001: maximize likelihood of a rollout-rollback-plan that stages shadow mode ahead
+      of blocking mode, names its rollback trigger and restore procedure, and is agreed
+      across the core and extension repos before the first irreversible step
+    Y001: 'minimize likelihood of a github-hot-path-read: no core lifecycle decision,
+      validator, or gate calls the GitHub API, and every remaining provider access
+      sits behind the SyncProvider seam and the external-ref quarantine'
+    Y002: 'minimize likelihood of a manifest-read-fallback: once projection is in
+      blocking mode, no core reader consults .atdd/manifest.yaml for shared lifecycle
+      state'
+    total: 8
+  total: 0
+  manifest: plan/migrate_projection_authority/_migrate_projection_authority.yaml
+  path: plan/migrate_projection_authority/
 - wagon: observe-and-correct
   description: 'Detect-and-correct observer sidecar for coach v9: implements `atdd
     observer` (run/attach/status/aggregate-approve), event-driven runtime watcher,
@@ -2092,6 +2446,137 @@ wagons:
   total: 0
   manifest: plan/observe_and_correct/_observe_and_correct.yaml
   path: plan/observe_and_correct/
+- wagon: project-shared-state
+  description: 'Milestone M1 projection spine: deterministic project(store), hydrate(projection),
+    a projection digest pinned by golden files, the canonical CI identity project(hydrate(projection))
+    == projection, and immutable UID minting with slug-rename semantics. Makes the
+    committed per-uid projection the shared source of truth that CI can validate with
+    no GitHub API and no committed SQLite store (invariants I1, I2).'
+  theme: commons
+  subject: agent:coder
+  context: core-repo, milestone-m1, projection schema v1 accepted, zero sync providers
+    registered, developer sqlite store gitignored
+  action: projects the local store to canonical per-uid YAML, hydrates the public
+    store back from that projection, stamps a digest over the canonical bytes, and
+    mints immutable uids that alone name the projection files
+  goal: make the committed projection a deterministic, CI-verifiable shared source
+    of truth so lifecycle state travels through Git alone
+  outcome: project(hydrate(projection)) == projection holds byte-for-byte in CI, golden
+    files pin the canonical bytes, and a slug rename leaves uid and projection filename
+    unchanged
+  produce:
+  - name: commons:project:projection-object
+    contract: contract:commons:projection-object
+    telemetry: null
+    to: internal
+  consume: []
+  wmbt:
+    C001: minimize likelihood of nondeterministic-projection-content (wall-clock timestamps,
+      absolute host paths, unstable set or dict iteration order) surviving into a
+      committed projection file
+    C002: minimize likelihood of a noncanonical-projection reaching main by failing
+      CI whenever project(hydrate(projection)) does not equal the committed projection
+      byte-for-byte
+    E001: maximize likelihood of a deterministic-projection-write that is byte-identical
+      for the same logical store, carrying no timestamps, host paths, or unstable
+      ordering (invariant I1)
+    E002: maximize likelihood of a lossless projection-hydration that rebuilds the
+      public store objects from the committed projection at HEAD with no provider
+      registered and no committed sqlite store
+    E003: maximize likelihood of a stable projection-digest computed over the canonical
+      bytes and pinned by golden-file tests that fail on any unintended byte change
+    E004: maximize likelihood of an immutable uid-mint that is globally unique, never
+      reused, and is the sole identity driving the projection filename
+    Y001: 'minimize likelihood of a slug-rename mutating object identity: renaming
+      slug or title must leave uid and the .atdd/state/projection/<uid>.yaml filename
+      unchanged'
+    total: 7
+  total: 0
+  manifest: plan/project_shared_state/_project_shared_state.yaml
+  path: plan/project_shared_state/
+- wagon: reconcile-local-store
+  description: 'The M2 reconcile spine. The local SQLite store is the private authoring
+    workspace; the committed per-UID projection is the shared source of truth. This
+    wagon makes the relation store = hydrate(projection @ store_base_commit) + replay(local_overlay)
+    explicit and mechanical: it stamps store_base_commit metadata on every hydrate,
+    records an explicit overlay event for every local authoring command instead of
+    inferring intent from SQLite diffs, gates any reconcile that would overwrite a
+    dirty store, implements `atdd state reconcile` as backup -> hydrate incoming ->
+    replay overlay -> re-project -> advance base (or stop with a conflict report and
+    keep the backup), fires reconcile from every HEAD-moving git hook, and proves
+    the whole thing with a Dev A / Dev B collaboration test in which B pulls A''s
+    merged work through Git alone and keeps B''s uncommitted private work intact.
+    Covers CORE-010 through CORE-015; satisfies invariants I3 and I5.'
+  theme: commons
+  subject: agent:coder
+  context: local-developer-checkout, after HEAD moves (pull, merge, rebase, checkout,
+    amend) while the local store may hold uncommitted overlay events
+  action: stamps store_base_commit on hydrate, appends an explicit overlay event for
+    every local authoring command, refuses to clobber a dirty store, and reconciles
+    by hydrating the incoming projection and replaying the overlay on top of it, re-projecting
+    affected objects and advancing store_base_commit, or halting with a conflict report
+    and a retained backup
+  goal: solve the Dev A / Dev B local-store update problem so a developer can pull
+    or rebase merged peer work through Git projection alone and never silently lose
+    private uncommitted authoring
+  outcome: 'reconcile is deterministic and non-destructive: no-overlay stores hydrate
+    cleanly, dirty stores replay their overlay or conflict loudly with a backup, and
+    the A/B collaboration test passes with no provider API in the hot path'
+  produce:
+  - name: commons:reconcile:store-base-commit
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:overlay-event-log
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:dirty-store-gate
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:reconcile-command
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:head-change-hooks
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:collaboration-suite
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  wmbt:
+    C001: minimize likelihood of a dirty-store-overwrite during reconcile
+    E001: maximize likelihood of a complete overlay-event-log recording every uncommitted
+      local authoring command
+    K001: maximize likelihood of a proven collaboration-flow in which Dev B keeps
+      private work across Dev A's merge
+    M001: maximize likelihood of a head-change-reconcile firing on every operation
+      that moves HEAD
+    P001: maximize likelihood of a durable store-base-commit stamped on the local
+      store at every hydrate
+    P002: maximize likelihood of cold-start-hydrate succeeding when no store or no
+      base commit exists and no overlay is present, while refusing and emitting remediation
+      when a store is missing its base commit but carries overlay events
+    R001: maximize likelihood of a correct overlay-replay onto the freshly hydrated
+      incoming projection
+    R002: maximize likelihood of an actionable conflict-report with a retained backup
+      when replay is invalid
+    Y001: minimize likelihood of overlay-event-replayed-twice by giving each event
+      a stable event_id and a status (pending/projected/committed/discarded/conflicted),
+      recording which events a projection represents, and replaying only pending or
+      projected-but-uncommitted events
+    total: 9
+  total: 0
+  manifest: plan/reconcile_local_store/_reconcile_local_store.yaml
+  path: plan/reconcile_local_store/
 - wagon: review-phase-boundaries
   description: 'Stands up the coach v9 adversarial reviewer surface that gates every
     meaningful phase boundary (PLANNED/RED/GREEN/SMOKE/optional REFACTOR): a no-write
