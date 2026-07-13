@@ -12,11 +12,11 @@ the legacy coach validator.
 """
 from __future__ import annotations
 
-import pytest
-
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    stage_file,
+)
 from atdd.validators.conventions.policy.archetype import TEMPLATES, TEMPLATE_IDS
-from atdd.validators.conventions.policy import _parity
 
 FAMILY = "policy"
 TEMPLATE = "forbidden_construct_absence"
@@ -47,26 +47,38 @@ def test_clean_baseline_zero_on_real_graph(clean_convention_graph) -> None:
     )
 
 
-def test_fault_injection() -> None:
-    """Create a real file under src/atdd carrying a past-deadline suppression marker;
-    assert the convention evaluator catches it, then confirm clean after revert.
+_PROBE_REL = "src/atdd/_stale_suppression_probe.py"
+
+
+def test_fault_injection(clean_convention_graph, tmp_path) -> None:
+    """Stage a file carrying a past-deadline suppression marker under a temp root;
+    assert the convention evaluator catches it, and that the real tree is untouched.
 
     Legacy parity (verdict `both`) was proven against
     test_no_stale_suppressions.py::test_no_stale_suppressions before that legacy
     validator was decommissioned (#1207); coach.rule-id.stale-suppression now binds
     its implementation.ref to this variant. The convention fault-injection is the
-    live coverage."""
-    root = _parity.repo_root()
-    inj = root / "src" / "atdd" / "_atdd1212_stale_suppression_parity.py"
+    live coverage.
+
+    The scanner is a pure filesystem scanner — it takes the graph only to read
+    `.root` and then rglobs `_STALE_SCAN_ROOTS` — so the fault has to be a real file
+    it really reads, and there is no node to mutate. It does NOT have to be a real
+    file in the REAL checkout (#1458, E035): the probe is staged under `tmp_path` at
+    the same relative path and the graph is re-pointed there. Same scanner, same code
+    path — it just walks a two-file tree instead of the whole repo, so the two graph
+    rebuilds AND the `src/atdd/*.py` residue both go away.
+    """
     # Build the pragma at runtime so no contiguous `atdd:suppress(...)` literal
     # appears in this committed test file (which the scanner itself walks).
     pragma = "atdd:" + "suppress(demo.parity.rule)" + " UNTIL=2000-01-01"
-    marker = f"x = 1  # {pragma}\n"
+    stage_file(tmp_path, _PROBE_REL, f"x = 1  # {pragma}\n")
 
-    with _parity.temp_new_file(inj, marker):
-        conv = _template().evaluate(load_composed_graph(root), {"variant": VARIANT})
-        hit = [v for v in conv if v.get("location", "").endswith(f"{inj.name}:1")]
-        assert hit, f"{VARIANT}: convention evaluator did not catch injected stale marker"
-        assert "UNTIL=2000-01-01" in hit[0]["matched_construct"]
+    staged = graph_rooted_at(clean_convention_graph, tmp_path)
+    conv = _template().evaluate(staged, {"variant": VARIANT})
 
-    assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []
+    hit = [v for v in conv if v.get("location", "").endswith("_stale_suppression_probe.py:1")]
+    assert hit, f"{VARIANT}: convention evaluator did not catch injected stale marker"
+    assert "UNTIL=2000-01-01" in hit[0]["matched_construct"]
+
+    # The real checkout carries no stale marker and was never written to.
+    assert _template().evaluate(clean_convention_graph, {"variant": VARIANT}) == []
