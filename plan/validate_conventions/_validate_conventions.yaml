@@ -42,7 +42,7 @@ produce:
   to: external
 consume: []
 wmbt:
-  total: 20
+  total: 21
   E032: minimize time of clean-convention-graph-construction — the composed convention
     graph is built once per pytest session and reused by every read-only baseline and
     contract test
@@ -53,6 +53,10 @@ wmbt:
     template-evaluator fault families (coherence, presence, resolution, coverage,
     acyclicity) inject faults into a cloned convention graph via graph_mutations instead
     of rewriting plan or convention YAML on disk
+  E035: minimize likelihood of root-reader-fault-filesystem-mutation — the last seven
+    fault families (policy, schema, grammar, composition, boundary, sizing, uniqueness)
+    inject faults into a cloned graph or into a temp tree the graph is re-pointed at,
+    so no fault family rewrites the real checkout and none re-composes the clean graph
   E001: minimize likelihood of registry-family-template-mismatch — registry.yaml declares exactly the 13 canonical families and 22 templates
   E002: minimize likelihood of registry-archetype-divergence — each family archetype.py exposes exactly the template ids registry.yaml assigns it
   E003: minimize likelihood of incomplete-template-contract — template_contract.py defines all eight mandatory template metadata fields
