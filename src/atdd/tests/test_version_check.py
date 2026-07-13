@@ -252,3 +252,141 @@ class TestAutoUpgrade:
                 assert call.args[0] == "3.7.2"
             # Pinned attempt fired with the correct version.
             assert "atdd==3.7.2" in mock_run.call_args_list[1].args[0]
+
+
+# ---------------------------------------------------------------------------
+# #1449 — the push gate must judge the INSTALLED CLI, never the working tree.
+#
+# `atdd/__init__.py` resolves `importlib.metadata.version("atdd")`. In a source
+# checkout that resolves against `src/atdd.egg-info/PKG-INFO` — a GITIGNORED
+# build artifact any `pip install -e .` (CI does this) leaves behind, frozen at
+# whatever version the tree was last built at. The pre-push hook exports
+# PYTHONPATH=src, so the gate imported that ghost and blocked developers whose
+# installed CLI was perfectly current.
+#
+# The gate MEANS "is the CLI you are running outdated?" — so it must ask the
+# `atdd` executable on PATH, and fail OPEN when that is unknowable.
+# ---------------------------------------------------------------------------
+
+from contextlib import contextmanager
+
+from atdd.version_check import is_outdated, _gate_main
+
+
+@contextmanager
+def _gate_env(*, tree, cli, pypi, which="/Users/dev/.local/bin/atdd"):
+    """Pin the three versions the gate could possibly consult.
+
+    ``tree``  — the ghost: what `from atdd import __version__` yields in a
+                source checkout (a stale egg-info, or 0.0.0 on a clean tree).
+    ``cli``   — what the `atdd` executable on PATH actually reports.
+    ``pypi``  — the published latest.
+    """
+    run = MagicMock(return_value=subprocess.CompletedProcess(
+        args=[], returncode=0, stdout=f"atdd {cli}\n", stderr=""))
+    with patch("atdd.version_check.__version__", tree), \
+         patch("shutil.which", return_value=which), \
+         patch("subprocess.run", run), \
+         patch("atdd.version_check._fetch_latest_version", return_value=pypi):
+        yield run
+
+
+class TestGateJudgesTheInstalledCli:
+    """#1449 acceptance (i) + (ii): the gate follows the CLI, not the tree."""
+
+    def test_stale_egg_info_does_not_block_a_current_cli(self):
+        """(i) Ghost tree 3.117.0 + installed CLI 4.5.2 (== latest) → NOT blocked.
+
+        This is the lived bug: a gitignored egg-info blocked every push.
+        """
+        with _gate_env(tree="3.117.0", cli="4.5.2", pypi="4.5.2"):
+            outdated, current, latest = is_outdated()
+        assert not outdated, "a stale egg-info must never block a current CLI"
+        assert current == "4.5.2", "the gate must report the INSTALLED version"
+
+    def test_stale_egg_info_does_not_exit_the_push_gate(self):
+        """(i) end-to-end through _gate_main: the hook must exit 0."""
+        with _gate_env(tree="3.117.0", cli="4.5.2", pypi="4.5.2"):
+            _gate_main()  # must not raise SystemExit
+
+    def test_genuinely_outdated_cli_is_blocked(self):
+        """(ii) Installed CLI 4.0.0 < latest 4.5.2 → blocked, even though the
+        tree's ghost (4.5.2) looks current. The gate must not be fooled either way.
+        """
+        with _gate_env(tree="4.5.2", cli="4.0.0", pypi="4.5.2"):
+            outdated, current, latest = is_outdated()
+        assert outdated, "an outdated installed CLI must be blocked"
+        assert current == "4.0.0"
+
+    def test_genuinely_outdated_cli_exits_1(self):
+        """(ii) end-to-end: the push gate exits 1 for a stale CLI."""
+        with _gate_env(tree="4.5.2", cli="4.0.0", pypi="4.5.2"):
+            with pytest.raises(SystemExit) as exc:
+                _gate_main()
+        assert exc.value.code == 1
+
+
+class TestGateFailsOpenOnUnknowableVersion:
+    """#1449 scope (b): never block on garbage."""
+
+    def test_no_atdd_on_path_fails_open(self):
+        with _gate_env(tree="3.117.0", cli="4.5.2", pypi="4.5.2", which=None):
+            outdated, _, _ = is_outdated()
+        assert not outdated, "unresolvable CLI must fail OPEN, not block"
+
+    def test_dev_install_0_0_0_fails_open(self):
+        with _gate_env(tree="0.0.0", cli="0.0.0", pypi="4.5.2"):
+            outdated, _, _ = is_outdated()
+        assert not outdated, "a 0.0.0 dev CLI must fail OPEN"
+
+    def test_unparseable_cli_output_fails_open(self):
+        from atdd.version_check import installed_cli_version
+        run = MagicMock(return_value=subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="who knows\n", stderr=""))
+        with patch("shutil.which", return_value="/usr/bin/atdd"), \
+             patch("subprocess.run", run), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.5.2"):
+            assert installed_cli_version() is None
+            outdated, _, _ = is_outdated()
+        assert not outdated
+
+
+class TestInstalledCliVersionResolution:
+    """The resolver itself: it must be immune to the working tree."""
+
+    def test_reads_the_version_from_the_executable_on_path(self):
+        from atdd.version_check import installed_cli_version
+        run = MagicMock(return_value=subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="atdd 4.5.2\n", stderr=""))
+        with patch("shutil.which", return_value="/Users/dev/.local/bin/atdd"), \
+             patch("subprocess.run", run):
+            assert installed_cli_version() == "4.5.2"
+        assert run.call_args.args[0][0] == "/Users/dev/.local/bin/atdd"
+
+    def test_scrubs_pythonpath_so_the_source_tree_cannot_leak_in(self):
+        """The pre-push hook exports PYTHONPATH=src. If that leaked into the
+        subprocess, a pip-generated shim without `-E` would import the tree's
+        atdd and re-resolve the very egg-info ghost we are escaping.
+        """
+        from atdd.version_check import installed_cli_version
+        run = MagicMock(return_value=subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="atdd 4.5.2\n", stderr=""))
+        with patch("shutil.which", return_value="/usr/bin/atdd"), \
+             patch("subprocess.run", run), \
+             patch.dict("os.environ", {"PYTHONPATH": "/repo/src"}):
+            installed_cli_version()
+        assert "PYTHONPATH" not in run.call_args.kwargs["env"]
+
+    def test_subprocess_failure_returns_none(self):
+        from atdd.version_check import installed_cli_version
+        run = MagicMock(return_value=subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="boom"))
+        with patch("shutil.which", return_value="/usr/bin/atdd"), \
+             patch("subprocess.run", run):
+            assert installed_cli_version() is None
+
+    def test_timeout_returns_none(self):
+        from atdd.version_check import installed_cli_version
+        with patch("shutil.which", return_value="/usr/bin/atdd"), \
+             patch("subprocess.run", side_effect=subprocess.TimeoutExpired("atdd", 10)):
+            assert installed_cli_version() is None

@@ -27,9 +27,25 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 _PUBLISH_YML = _REPO_ROOT / ".github" / "workflows" / "publish.yml"
 
 
-def test_real_cli_reconcile_base_no_pypi_prints_the_git_tag(capsys):
+def _mk_root(path: Path) -> Path:
+    """A throwaway Control Root.
+
+    ``reconcile-base`` PERSISTS the base it resolves (#1449). Without an explicit
+    ``--root`` this test would resolve the operator's real shared State Store and
+    regress the live release version to the fixture's tag. Hermetic or nothing.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    (path / ".git").mkdir(exist_ok=True)
+    (path / ".atdd").mkdir(parents=True, exist_ok=True)
+    (path / ".atdd" / "config.yaml").write_text("x\n", encoding="utf-8")
+    return path
+
+
+def test_real_cli_reconcile_base_no_pypi_prints_the_git_tag(tmp_path, capsys):
     """The real CLI, with the PyPI query disabled, echoes the git tag base."""
-    assert run(["version", "reconcile-base", "--git-tag", "3.151.4", "--no-pypi"]) == 0
+    root = _mk_root(tmp_path / "repo")
+    assert run(["version", "reconcile-base", "--git-tag", "3.151.4", "--no-pypi",
+                "--root", str(root)]) == 0
     out = capsys.readouterr().out.strip()
     assert out == "3.151.4"
 

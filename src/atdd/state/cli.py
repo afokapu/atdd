@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
@@ -544,17 +545,46 @@ def _cmd_version(args) -> int:
         return 2
 
     if args.version_op == "reconcile-base":
-        # Pure computation + a best-effort PyPI query; no store needed. The base is
-        # max(git tag, PyPI latest) so the next bump never regresses below the
-        # published latest; PyPI-unreachable falls back to the git tag (#1326).
+        # The base is max(git tag, PyPI latest) so the next bump never regresses
+        # below the published latest; PyPI-unreachable falls back to the git tag
+        # (#1326).
         pypi_latest = None if args.no_pypi else ver.latest_on_pypi(args.package)
         try:
             base = ver.resolve_release_base(args.git_tag, pypi_latest)
         except ver.VersionError as exc:
             _log.warning("version reconcile-base failed", extra={"error": str(exc),
                                                                  "git_tag": args.git_tag})
-            print(f"ERROR: {exc}")
+            print(f"ERROR: {exc}", file=sys.stderr)
             return 1
+
+        # #1449: PERSIST the base. This used to be a pure computation that printed
+        # and wrote nothing, so `reconcile-base --git-tag X` reported success while
+        # the store kept its old value — the store drifted five minor versions
+        # behind PyPI because every reconcile looked like it had worked. A command
+        # must never print a value it did not write.
+        resolution, conn_or_rc = _open_store(args.root)
+        if resolution is None:
+            _log.warning("version reconcile-base could not open the store to persist",
+                         extra={"base": base, "git_tag": args.git_tag})
+            print("ERROR: resolved a release base but no State Store could be opened "
+                  "to persist it; refusing to report a value that was not written.",
+                  file=sys.stderr)
+            return conn_or_rc
+        conn = conn_or_rc
+        try:
+            ver.set_version(conn, base)
+        except ver.VersionError as exc:
+            _log.warning("version reconcile-base persist failed",
+                         extra={"error": str(exc), "base": base})
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        finally:
+            conn.close()
+
+        # stdout stays a BARE version string: publish.yml captures it with
+        # BASE=$(atdd state version reconcile-base ...). Confirmations go to stderr.
+        print(f"Reconciled release base to {base} (persisted; no version_decided signal)",
+              file=sys.stderr)
         print(base)
         return 0
 
