@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 _GITHUB_PROVIDER = "github"
 _CREATE_ISSUE_OP = "create_issue"
+_UPDATE_ISSUE_OP = "update_issue"
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -53,6 +54,16 @@ class PublishResult:
     state: Optional[str]
     github_number: Optional[int]      # set when the sync projection succeeded
     projection_deferred: bool         # True when enqueued to the outbox instead
+
+
+@dataclass(frozen=True)
+class RevisionResult:
+    """Outcome of a store-first issue revision."""
+
+    issue_number: int
+    slug: str
+    state: Optional[str]
+    projection_deferred: bool
 
 
 def derive_slug(title: str) -> str:
@@ -177,5 +188,79 @@ def publish_issue(
 
     return PublishResult(
         slug=slug, state=status, github_number=github_number,
+        projection_deferred=projection_deferred,
+    )
+
+
+def revise_issue(
+    issue_number: int,
+    *,
+    body: Optional[str] = None,
+    issue_type: Optional[str] = None,
+    control_root: Optional[Path] = None,
+) -> RevisionResult:
+    """Revise an issue-backed work item store-first, then project to GitHub.
+
+    The State Store is authoritative. A store lookup/write failure raises
+    :class:`PublishError` and no provider mutation is attempted. The GitHub body
+    update is best-effort projection: on failure it is recorded in the outbox so
+    a retry path can replay it later.
+    """
+    if body is None and issue_type is None:
+        raise PublishError("revision requires --body-file and/or explicit --type")
+
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.store import StateStore
+    from atdd.state.work_item_writer import revise_work_item_issue
+
+    try:
+        db_path = init_state_store(start=control_root)
+        conn = connect(db_path)
+    except Exception as exc:
+        raise PublishError(
+            "State Store unreachable — refusing to revise without the "
+            f"authoritative store write: {exc}"
+        ) from exc
+
+    projection_deferred = False
+    try:
+        try:
+            obj = revise_work_item_issue(
+                conn, issue_number, body=body, issue_type=issue_type,
+            )
+        except Exception as exc:
+            raise PublishError(
+                f"State Store revision failed for github issue #{issue_number}: {exc}"
+            ) from exc
+
+        if body is not None:
+            store = StateStore(conn)
+            try:
+                from atdd.integrations.github.issue_state import update_body
+
+                update_body(issue_number, body)
+            except Exception as exc:
+                projection_deferred = True
+                store.sync.enqueue_outbox(
+                    _GITHUB_PROVIDER,
+                    _UPDATE_ISSUE_OP,
+                    {
+                        "issue_number": issue_number,
+                        "slug": obj.uid,
+                        "body": body,
+                        "type": issue_type,
+                    },
+                )
+                logger.warning(
+                    "github issue body update deferred to outbox; store revision stands",
+                    extra={"issue_number": issue_number, "slug": obj.uid, "error": str(exc)},
+                )
+    finally:
+        conn.close()
+
+    return RevisionResult(
+        issue_number=issue_number,
+        slug=obj.uid,
+        state=obj.state,
         projection_deferred=projection_deferred,
     )

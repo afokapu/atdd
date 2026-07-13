@@ -312,7 +312,9 @@ jobs:
   # to catch.
   #
   # Substrate digest coherence and the gate wiring are likewise blocking (real
-  # invariants). train-interlocking is deferred to #1361 (blocked on #1292/#1345).
+  # invariants). train-interlocking is no longer deferred: the #1426 fan-out
+  # composes its list-valued realizes_convention and the extension ships enabled,
+  # so its rules bind, verify, and enforce here like any other.
   enforce-extensions:
     runs-on: ubuntu-latest
     if: >-

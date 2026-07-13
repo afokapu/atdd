@@ -1,7 +1,7 @@
 train_id: 0202-report-advisory-violation
 title: 0202-report-advisory-violation
-description: An advisory convention node reports violations; they are surfaced in
-  the report and the job still passes.
+description: An advisory convention node reports violations; they are surfaced in the report and the job
+  still passes.
 themes:
 - commons
 sequence:
@@ -14,6 +14,7 @@ participants:
 - wagon:enforce-conventions-ci
 - wagon:verify-enforcement
 status: planned
+category: alternate
 source_interlocking:
   interlocking_id: interlocking:enforce-extension-conventions
   route_id: advisory-violation-reports

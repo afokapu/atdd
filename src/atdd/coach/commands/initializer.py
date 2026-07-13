@@ -210,7 +210,6 @@ class ProjectInitializer:
         """
         self.target_dir = target_dir or Path.cwd()
         self.atdd_config_dir = self.target_dir / ".atdd"
-        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
         # Package template location
@@ -420,7 +419,6 @@ class ProjectInitializer:
         """Repoint all paths to the new repo root after migration."""
         self.target_dir = new_root
         self.atdd_config_dir = new_root / ".atdd"
-        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
     def init(

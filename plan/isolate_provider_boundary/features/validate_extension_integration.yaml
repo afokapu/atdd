@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: the end-to-end core-plus-extension smoke driver covering push, CI,
+        merge and mirror
+      type: workflows
+    integration:
+    - count: 1
+      rationale: constrained external_refs.* write-back path applying only bot-namespaced
+        provider records
+      type: synchronizers
+description: 'Cross-repo end-to-end smoke test: core plus one real extension provider,
+  proving provider failure never blocks merge and the only write-back is the constrained
+  external_refs.* path (X-005).'
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 1
+urn: feature:isolate-provider-boundary:validate-extension-integration
+wagon: wagon:isolate-provider-boundary
+wmbts:
+- wmbt:isolate-provider-boundary:K001

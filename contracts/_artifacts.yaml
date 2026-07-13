@@ -12,11 +12,10 @@ artifacts:
   urn: contract:commons:coach:canonical-surface-name
   version: 1.0.0
   title: CommonsCoachCanonicalSurfaceName
-  description: 'The role-aware canonical name shape for a coach-managed multiplexer
-    surface or workspace (issue #865). Format `<REPO><N>[-phaseN]-<role>-<slug>`,
-    role in {worker, coach-daemon, observer}, reusing the #470 naming primitive. Produced
-    by the enforce-surface-conformance feature; consumed by the bound naming-drift
-    validator and the dispatch conformance pass to detect and re-apply non-canonical
+  description: 'The role-aware canonical name shape for a coach-managed multiplexer surface or workspace
+    (issue #865). Format `<REPO><N>[-phaseN]-<role>-<slug>`, role in {worker, coach-daemon, observer},
+    reusing the #470 naming primitive. Produced by the enforce-surface-conformance feature; consumed by
+    the bound naming-drift validator and the dispatch conformance pass to detect and re-apply non-canonical
     names.'
   path: contracts/commons/coach/canonical-surface-name.schema.json
   producer: wagon:consolidate-coach-workspace
@@ -26,8 +25,8 @@ artifacts:
   urn: contract:commons:coach:dashboard-card
   version: 1.0.0
   title: CommonsCoachDashboardCard
-  description: One per-worker card rendered by `atdd coach dashboard` — the data the
-    reader produces from coach runtime and the grid renderer consumes.
+  description: One per-worker card rendered by `atdd coach dashboard` — the data the reader produces from
+    coach runtime and the grid renderer consumes.
   path: contracts/commons/coach/dashboard-card.schema.json
   producer: wagon:coach-ops
   consumers:
@@ -52,9 +51,9 @@ artifacts:
   urn: contract:commons:decision:escalation
   version: 1.0.0
   title: CommonsDecisionEscalation
-  description: An external signal that a worker decision cannot be safely auto-mediated
-    and needs a human. Produced by the mediate-decision feature whenever the safety
-    gate fires or the coach cannot be parsed/answers too slowly.
+  description: An external signal that a worker decision cannot be safely auto-mediated and needs a human.
+    Produced by the mediate-decision feature whenever the safety gate fires or the coach cannot be parsed/answers
+    too slowly.
   path: contracts/commons/decision/escalation.schema.json
   producer: wagon:mediate-worker-decisions
   consumers: []
@@ -62,9 +61,9 @@ artifacts:
   urn: contract:commons:decision:record
   version: 1.0.0
   title: CommonsDecisionRecord
-  description: 'The durable, externally-observable audit record of a mediated decision:
-    what was asked, what was decided (or that it was escalated), and what happened
-    when it was applied. Produced by the apply-decision feature; consumed by the observer/ledger.'
+  description: 'The durable, externally-observable audit record of a mediated decision: what was asked,
+    what was decided (or that it was escalated), and what happened when it was applied. Produced by the
+    apply-decision feature; consumed by the observer/ledger.'
   path: contracts/commons/decision/record.schema.json
   producer: wagon:mediate-worker-decisions
   consumers:
@@ -73,9 +72,8 @@ artifacts:
   urn: contract:commons:decision:request
   version: 1.0.0
   title: CommonsDecisionRequest
-  description: A blocked worker's decision prompt, normalized from a cmux notification
-    (or the emit CLI), ready for coach mediation. Flows from the sense-decision feature
-    to the mediate-decision feature.
+  description: A blocked worker's decision prompt, normalized from a cmux notification (or the emit CLI),
+    ready for coach mediation. Flows from the sense-decision feature to the mediate-decision feature.
   path: contracts/commons/decision/request.schema.json
   producer: wagon:mediate-worker-decisions
   consumers:
@@ -84,10 +82,9 @@ artifacts:
   urn: contract:commons:decision:verdict
   version: 1.0.0
   title: CommonsDecisionVerdict
-  description: 'The mediated outcome of a decision request. disposition encodes the
-    safety guarantee in the contract itself: a human_required verdict carries no selected
-    option and MUST NOT be auto-applied. Flows from the mediate-decision feature to
-    the apply-decision feature.'
+  description: 'The mediated outcome of a decision request. disposition encodes the safety guarantee in
+    the contract itself: a human_required verdict carries no selected option and MUST NOT be auto-applied.
+    Flows from the mediate-decision feature to the apply-decision feature.'
   path: contracts/commons/decision/verdict.schema.json
   producer: wagon:mediate-worker-decisions
   consumers:
@@ -114,8 +111,8 @@ artifacts:
   urn: contract:commons:error:response
   version: 1.0.0
   title: CommonsErrorResponse
-  description: Structured error response contract for all HTTP endpoints. All error
-    responses MUST conform to this shape for consistent client-side handling.
+  description: Structured error response contract for all HTTP endpoints. All error responses MUST conform
+    to this shape for consistent client-side handling.
   path: contracts/commons/error/response.schema.json
   producer: wagon:verify-contracts
   consumers:
@@ -124,17 +121,77 @@ artifacts:
   urn: contract:commons:feed:blocked-item
   version: 1.0.0
   title: CommonsFeedBlockedItem
-  description: 'One pending blocked-decision entry as it appears in ''cmux rpc feed.list''
-    for a spawned worker. This is the boundary contract of the daemon''s journey:
-    the surface-worker-decisions feature (producer) guarantees a worker''s escalation-worthy
-    decision is published in this shape, and bridge-cmux-feed''s CmuxFeedSource (consumer)
-    reads exactly these fields into its frozen FeedItem. Mirrors src/atdd/mediate_worker_decisions/bridge_cmux_feed/src/domain/feed_item.py.
-    Only kinds question | permission | exitPlan are blocked decisions; toolUse/telemetry
-    entries are not.'
+  description: 'One pending blocked-decision entry as it appears in ''cmux rpc feed.list'' for a spawned
+    worker. This is the boundary contract of the daemon''s journey: the surface-worker-decisions feature
+    (producer) guarantees a worker''s escalation-worthy decision is published in this shape, and bridge-cmux-feed''s
+    CmuxFeedSource (consumer) reads exactly these fields into its frozen FeedItem. Mirrors src/atdd/mediate_worker_decisions/bridge_cmux_feed/src/domain/feed_item.py.
+    Only kinds question | permission | exitPlan are blocked decisions; toolUse/telemetry entries are not.'
   path: contracts/commons/feed/blocked-item.schema.json
   producer: wagon:mediate-worker-decisions
   consumers:
   - wagon:mediate-worker-decisions
+- id: commons:projection-evidence
+  urn: contract:commons:projection-evidence
+  version: 1.0.0
+  title: Lifecycle Evidence Policy v1
+  description: 'The evidence each lifecycle transition must carry (doc section 6). The legal-transition
+    validator is the load-bearing gate: canonical YAML alone is formatting, not correctness (section 4).
+    COMPLETE is DERIVED from merge-to-main for v1 (section 18 decision 1).'
+  path: contracts/commons/projection-evidence.schema.json
+  producer: wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
+- id: commons:projection-field-ownership
+  urn: contract:commons:projection-field-ownership
+  version: 1.0.0
+  title: Projection Field Ownership Policy
+  description: Which writer may write each projection field (doc section 7.1). Prevents same-object and
+    wrong-writer corruption. Humans may not write external_refs; extensions may not write lifecycle fields
+    (section 4).
+  path: contracts/commons/projection-field-ownership.schema.json
+  producer: wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:isolate-provider-boundary
+- id: commons:projection-merge-event
+  urn: contract:commons:projection-merge-event
+  version: 1.0.0
+  title: Merge And Squash Event Policy
+  description: Allowed merge methods and the ATDD-Summary artifact format (doc section 5), plus the phase-merge
+    admissibility rule (section 7.2). Same-object phase divergence auto-merges ONLY on identical transitions,
+    a strict no-op side, or verifiable evidence for every skipped gate. NEVER blind max-phase.
+  path: contracts/commons/projection-merge-event.schema.json
+  producer: wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+- id: commons:projection-object
+  urn: contract:commons:projection-object
+  version: 1.0.0
+  title: Projection Object v1
+  description: The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`.
+    Authoritative for shared project state (doc section 2.1). Identity is the immutable uid, never the
+    slug; the filename is derived from the uid. Deletion is a tombstone, never file removal (section 10).
+  path: contracts/commons/projection-object.schema.json
+  producer: wagon:project-shared-state
+  consumers:
+  - wagon:reconcile-local-store
+  - wagon:enforce-merge-authority
+  - wagon:govern-projection-fields
+  - wagon:isolate-provider-boundary
+  - wagon:migrate-projection-authority
+- id: commons:projection-trailer
+  urn: contract:commons:projection-trailer
+  version: 1.0.0
+  title: ATDD Commit Trailer Group
+  description: The structured trailer group that makes git history a reliable event log (doc section 5).
+    Free prose is insufficient. Raw tokens, bearer tokens, secrets or credentials are INVALID (rule 5,
+    I8).
+  path: contracts/commons/projection-trailer.schema.json
+  producer: wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
 - id: commons:provider-capability
   urn: contract:commons:provider-capability
   version: 1.0.0
@@ -144,6 +201,30 @@ artifacts:
   producer: wagon:govern-providers
   consumers:
   - wagon:bind-extension-conventions
+- id: commons:provider-extensions-lock
+  urn: contract:commons:provider-extensions-lock
+  version: 1.0.0
+  title: Extensions Lock Scope
+  description: '`.atdd/extensions.lock` must lock core schema, lifecycle policy, merge policy and provider
+    digests (doc section 10 rule 5). Locking these is what lets a provider failure be non-blocking (section
+    12 rule 6).'
+  path: contracts/commons/provider-extensions-lock.schema.json
+  producer: wagon:isolate-provider-boundary
+  consumers:
+  - wagon:enforce-merge-authority
+  - wagon:migrate-projection-authority
+- id: commons:provider-external-ref-update
+  urn: contract:commons:provider-external-ref-update
+  version: 1.0.0
+  title: External Ref Update Contract
+  description: The ONLY record a SyncProvider.mirror() may return (doc section 8.2). Bot-namespaced. Core
+    applies provider metadata only through a constrained external_refs.* update path. The extension never
+    edits projection directly, and detect_drift() is alarm-only.
+  path: contracts/commons/provider-external-ref-update.schema.json
+  producer: wagon:isolate-provider-boundary
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
 - id: commons:rule-registry
   urn: contract:commons:rule-registry
   version: 1.0.0
@@ -166,9 +247,9 @@ artifacts:
   urn: contract:frontend:train:render-metadata
   version: 1.0.0
   title: FrontendTrainRenderMetadata
-  description: Optional render-content expectations attached to a train manifest.
-    Consumed by tester validator test_train_renders_content.py to verify that mounting
-    the train produces non-empty, non-stub DOM output. SPEC-CODER-TRAIN-0003.
+  description: Optional render-content expectations attached to a train manifest. Consumed by tester validator
+    test_train_renders_content.py to verify that mounting the train produces non-empty, non-stub DOM output.
+    SPEC-CODER-TRAIN-0003.
   path: contracts/frontend/train/render-metadata.schema.json
   producer: wagon:govern-lifecycle
   consumers:

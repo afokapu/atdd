@@ -1,0 +1,90 @@
+schema_version: 1.1.0
+rule_id: tester.interlocking.production-runner-used
+kind: rule
+status: active
+name: Interlocking tests exercise the production runners, not mocks
+statement: >-
+  A test that exercises an interlocking MUST drive the production runtime objects — `InterlockingRunner`
+  (route resolution) and `TrainRunner` (linear train execution), the core afokapu/atdd#1251 call model —
+  and MUST NOT substitute a mock, a patched runner, a monkeypatched runner method, or a hand-built route
+  resolver for them. This is the stack-bound tester obligation owned by the train-interlocking-enforcement
+  extension; its python-pytest realization (the `tester.interlocking.route-coverage.impl` detector) scans
+  the consumer's `e2e/**/*.py` interlocking tests and flags any that (a) fail to reference both production
+  runner symbols, or (b) contain a forbidden mock/patch/monkeypatch/hand-resolver pattern around runner
+  execution. An interlocking test that mocks the route-control path proves nothing about production: it is
+  a DESCRIPTIVE green that asserts against a fake, so the real InterlockingRunner -> TrainRunner behavior
+  is never exercised.
+implementation:
+  type: validator
+  ref: tester.interlocking.production-runner-used
+content:
+  summary: >-
+    A "interlocking tests use the production runners, not mocks" obligation. The python realization scans
+    each interlocking-related `e2e/**/*.py` test (one that references the route space — an interlocking_id,
+    route_id, or train_id — or the runner symbols) and enforces two checks: it references both
+    `InterlockingRunner` and `TrainRunner` (the `test_interlocking_tests_use_production_runners` check), and
+    it carries none of the forbidden substitution patterns (the
+    `test_interlocking_tests_do_not_mock_trainrunner_or_interlockingrunner` check).
+  normative_text: |
+    The core runtime call model (afokapu/atdd#1251) is `Station Master -> InterlockingRunner.resolve_train
+    -> TrainRunner.execute`. A test that claims to exercise an interlocking route but replaces either runner
+    with a test double exercises the double, not production route control, so a regression in real route
+    resolution stays green.
+
+    REQUIRED production symbols a interlocking test must reference:
+      - InterlockingRunner
+      - TrainRunner
+
+    FORBIDDEN substitution patterns (any one is a violation):
+      - MockInterlockingRunner
+      - MockTrainRunner
+      - unittest.mock.patch around runner execution (patch(...InterlockingRunner/TrainRunner/resolve_train/execute...))
+      - pytest monkeypatch replacing runner behavior (monkeypatch.setattr(...runner...))
+      - a hand-built route resolver replacing InterlockingRunner (a locally defined `resolve_train` function
+        or a `*Resolver` class in the test that stands in for the production runner)
+
+    WHICH per-stack discovery applies (here: python `e2e/**/*.py` scanned for the production symbols and the
+    forbidden patterns) is delegated to this python-pytest realization.
+  fix_hint: |
+    Rewrite the flagged interlocking test to drive the real runners. Import and call
+    `InterlockingRunner(interlocking_yaml_path).resolve_train(action, inputs, state)` to get the selected
+    train_id, then `TrainRunner(selected_train_id).execute(...)`. Delete any `MockInterlockingRunner` /
+    `MockTrainRunner`, any `patch(...)` / `monkeypatch.setattr(...)` aimed at the runners or their
+    `resolve_train` / `execute` methods, and any locally hand-built route resolver. This rule is `strict`:
+    an interlocking test that mocks the route-control path is a descriptive green proving nothing about
+    production and therefore blocks.
+  exceptions:
+    - Non-interlocking e2e tests (no reference to any interlocking_id/route_id/train_id and no runner
+      symbol) are out of scope — they are not interlocking tests.
+    - Per-stack renderings other than python (dart/ts/go/...) are owned by their own workspace packages and
+      are not checked by this python-pytest detector.
+metadata:
+  aliases:
+    - TESTER-INTERLOCKING-PRODUCTION-RUNNER-USED-001
+  severity: 1
+  disposition: strict
+  introduced_in: 0.1.0
+notes: >-
+  DISPOSITION JUSTIFICATION (strict, severity 1). A mocked or patched runner makes an interlocking e2e
+  test a DESCRIPTIVE green — it asserts against a fake route resolver, so a real regression in the
+  production InterlockingRunner -> TrainRunner path (core afokapu/atdd#1251) is never caught. That is the
+  exact silent-green failure mode train-interlocking enforcement exists to close (afokapu/atdd#1246), so the
+  obligation blocks rather than advises. The detector emits RAW facts only; the strict disposition is
+  applied by the gate. Per boundary spec §6.2, the core runtime contract this realizes (afokapu/atdd#1251)
+  is referenced NARRATIVELY here and in the implementation manifest, never as a graph edge.
+terms:
+- term_id: production_runner
+  text: >-
+    one of the two runtime objects in the core afokapu/atdd#1251 call model — `InterlockingRunner` (resolves
+    a guarded route to exactly one train_id) and `TrainRunner` (executes the selected linear train). An
+    interlocking test must drive these, not stand-ins for them.
+- term_id: forbidden_substitution
+  text: >-
+    a test double that replaces a production runner: `MockInterlockingRunner`/`MockTrainRunner`, an
+    `unittest.mock.patch` or pytest `monkeypatch` aimed at a runner or its `resolve_train`/`execute` method,
+    or a hand-built route resolver standing in for InterlockingRunner. Any such pattern makes the test
+    exercise the fake rather than production route control.
+- term_id: descriptive_green
+  text: >-
+    a test that passes by asserting against a mocked/patched/hand-built substitute rather than by
+    exercising the production path; it is green while the real route-control behavior is unproven.

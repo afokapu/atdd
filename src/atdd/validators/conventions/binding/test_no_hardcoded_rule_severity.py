@@ -48,11 +48,13 @@ def test_no_hardcoded_rule_severity_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_no_hardcoded_rule_severity_clean_baseline() -> None:
+def test_no_hardcoded_rule_severity_clean_baseline(clean_convention_graph) -> None:
     """Both binding templates flag nothing on the real repo for this variant."""
-    P.assert_clean_baseline(VARIANT, P.repo_root())
+    P.assert_clean_baseline(VARIANT, P.repo_root(), graph=clean_convention_graph)
 
 
-def test_no_hardcoded_rule_severity_convention_fault() -> None:
+def test_no_hardcoded_rule_severity_convention_fault(clean_convention_graph) -> None:
     """Inject the binding fault; the convention path catches it (oracle retired #1365)."""
-    P.assert_fault_convention_only(VARIANT, CONVENTION, RULE_ID, P.repo_root())
+    P.assert_fault_convention_only(
+        VARIANT, CONVENTION, RULE_ID, P.repo_root(), graph=clean_convention_graph
+    )

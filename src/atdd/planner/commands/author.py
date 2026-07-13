@@ -26,6 +26,8 @@ import yaml
 # (planner.theme.commons-coach-boundary, #970).
 from atdd.planner.commands.author_issue import (  # noqa: F401
     create_issue_body,
+    extract_issue_type,
+    issue_type_enum,
     validate_issue_body,
 )
 
@@ -315,6 +317,11 @@ _PLAN_ROOT = "plan"
 _SLUG_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 _WMBT_CODE_RE = re.compile(r"^[DLPCEMYRK][0-9]{3}$")
 _TRAIN_ID_RE = re.compile(r"^[0-9]{4}-[a-z][a-z0-9-]*$")
+# Typed train identity (issue #1421): train:<subject>:<slug>. Matches the
+# schema's train_id pattern for the typed form; the legacy NNNN-slug form above
+# is still accepted during the migration transition.
+_TYPED_TRAIN_ID_RE = re.compile(r"^train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$")
+_TRAIN_CATEGORIES = ("nominal", "error", "alternate", "exception")
 _IL_ID_RE = re.compile(r"^interlocking:[a-z][a-z0-9-]*$")
 _PLAN_URN_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(:[A-Za-z0-9-]+)*$")
 
@@ -491,10 +498,24 @@ def create_wmbt(spec: dict, *, root: Path | str | None = None) -> Path:
 
 
 def validate_train(spec: dict) -> None:
-    """Reject a structurally invalid train before any write (WMBT C005)."""
+    """Reject a structurally invalid train before any write (WMBT C005).
+
+    Accepts the typed ``train:<subject>:<slug>`` identity (issue #1421) and, for
+    the migration transition, the legacy ``NNNN-slug`` form.
+    """
     tid = spec.get("train_id", "")
-    if not _TRAIN_ID_RE.match(tid or ""):
-        raise AuthorInputError("train_id", f"invalid train_id {tid!r}; expected NNNN-kebab-slug")
+    if not (_TYPED_TRAIN_ID_RE.match(tid or "") or _TRAIN_ID_RE.match(tid or "")):
+        raise AuthorInputError(
+            "train_id",
+            f"invalid train_id {tid!r}; expected typed train:<subject>:<slug> "
+            f"or legacy NNNN-kebab-slug",
+        )
+    category = spec.get("category")
+    if category is not None and category not in _TRAIN_CATEGORIES:
+        raise AuthorInputError(
+            "category",
+            f"invalid category {category!r}; expected one of {_TRAIN_CATEGORIES}",
+        )
 
 
 def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
@@ -503,22 +524,40 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
     tid = spec["train_id"]
     plan = _plan_root(root)
     registry_path = plan / "_trains.yaml"
-    per_train = plan / "_trains" / f"{tid}.yaml"
+
+    # Bucket + on-disk home derivation. Typed ids (issue #1421) nest under
+    # plan/_trains/<subject>/<slug>.yaml and bucket by subject/category — the
+    # legacy `{tid[0]}-trains` derivation would place a `train:...` id under a
+    # nonsense `t-trains` bucket at a colon-named file. The legacy NNNN-slug
+    # form keeps its flat home + digit buckets during the transition.
+    if _TYPED_TRAIN_ID_RE.match(tid):
+        subject, slug = tid[len("train:"):].split(":", 1)
+        category = spec.get("category", "nominal")
+        group = subject
+        sub = category
+        rel_path = f"plan/_trains/{subject}/{slug}.yaml"
+        per_train = plan / "_trains" / subject / f"{slug}.yaml"
+    else:
+        group = f"{tid[0]}-trains"
+        sub = f"{tid[0]}0-nominal"
+        rel_path = f"plan/_trains/{tid}.yaml"
+        per_train = plan / "_trains" / f"{tid}.yaml"
 
     registry = {}
     if registry_path.exists():
         registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
     registry.setdefault("trains", {})
-    group = f"{tid[0]}-trains"
-    sub = f"{tid[0]}0-nominal"
     bucket = registry["trains"].setdefault(group, {}).setdefault(sub, [])
     if not any(isinstance(e, dict) and e.get("train_id") == tid for e in bucket):
-        bucket.append({
+        entry = {
             "train_id": tid,
             "description": spec.get("description", ""),
-            "path": f"plan/_trains/{tid}.yaml",
+            "path": rel_path,
             "wagons": spec.get("wagons", []),
-        })
+        }
+        if _TYPED_TRAIN_ID_RE.match(tid):
+            entry["category"] = spec.get("category", "nominal")
+        bucket.append(entry)
         bucket.sort(key=lambda e: e.get("train_id", ""))
     _write_yaml(registry_path, registry)
 
@@ -536,8 +575,8 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
         # is deliberately absent: train.schema sets additionalProperties=false and
         # defines no such property; it belongs to the _trains.yaml registry entry
         # above, and expresses itself here as the `participants` fallback (#1401).
-        for key in ("themes", "family", "primary_wagon", "dependencies", "sequence",
-                    "acceptances"):
+        for key in ("category", "themes", "family", "primary_wagon", "dependencies",
+                    "sequence", "acceptances"):
             if key in spec:
                 train_doc[key] = spec[key]
 
@@ -979,11 +1018,11 @@ def build_parser() -> argparse.ArgumentParser:
     # `issue` — author / validate a GitHub issue BODY from issue.schema.json
     # (#1223). Peer of the other authored kinds; schema-driven generation +
     # the schema-driven compliance gate (--check). Planner-side + coach-free.
-    iss = sub.add_parser("issue", help="author a schema-valid issue body and publish it store-first (or --check a body)")
+    iss = sub.add_parser("issue", help="author a schema-valid issue body, publish it store-first, or revise an existing issue")
     iss.add_argument("--title", default=None, help="issue title (the H1 + Problem Statement subject)")
     iss.add_argument("--slug", default=None,
                      help="work_item slug (the store uid); derived from --title when omitted (#1272)")
-    iss.add_argument("--type", default="implementation", dest="issue_type",
+    iss.add_argument("--type", default=None, dest="issue_type",
                      help="issue Type (e.g. implementation, bug, refactor)")
     iss.add_argument("--status", default="INIT",
                      help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...)")
@@ -992,6 +1031,10 @@ def build_parser() -> argparse.ArgumentParser:
     iss.add_argument("--feature", default=None, help="feature urn the issue lands")
     iss.add_argument("--check", default=None, metavar="PATH",
                      help="validate an existing body file against issue.schema.json (no generation)")
+    iss.add_argument("--revise", type=int, metavar="ISSUE",
+                     help="revise an existing store-registered GitHub issue number")
+    iss.add_argument("--body-file", default=None, metavar="PATH",
+                     help="replacement issue body markdown for --revise")
     # #1309: the one capability the removed `atdd issue <slug> --dry-run` had and
     # nothing else covered — render + validate + print, writing NOTHING. `--check`
     # only validates an existing FILE, and a bare `atdd author issue` publishes
@@ -1167,10 +1210,98 @@ def run(argv: list[str]) -> int:
                 return 1
             print(f"atdd author issue: {args.check} is schema-valid")
             return 0
+
+        if args.revise is not None:
+            if args.body_file is None and args.issue_type is None:
+                print(
+                    "atdd author issue: --revise requires --body-file and/or explicit --type",
+                    file=sys.stderr,
+                )
+                return 2
+
+            body = None
+            if args.body_file is not None:
+                try:
+                    body = Path(args.body_file).read_text(encoding="utf-8")
+                except OSError as exc:
+                    logger.warning(
+                        "atdd author issue cannot read --body-file",
+                        extra={"path": args.body_file, "error": str(exc)},
+                    )
+                    print(
+                        f"atdd author issue: cannot read {args.body_file}: {exc}",
+                        file=sys.stderr,
+                    )
+                    return 2
+
+            violations: list[str] = []
+            if body is not None:
+                violations.extend(validate_issue_body(body))
+                body_type = extract_issue_type(body)
+                if args.issue_type is not None and body_type is not None and body_type != args.issue_type:
+                    violations.append(
+                        f"body Type {body_type!r} does not match explicit --type "
+                        f"{args.issue_type!r}"
+                    )
+            if args.issue_type is not None and args.issue_type not in issue_type_enum():
+                violations.append(
+                    f"invalid --type {args.issue_type!r}: not in the issue type "
+                    f"vocabulary ({', '.join(issue_type_enum())})"
+                )
+            if violations:
+                print("atdd author issue: revised issue body/type is not schema-valid:", file=sys.stderr)
+                for v in violations:
+                    print(f"  - {v}", file=sys.stderr)
+                return 1
+
+            if getattr(args, "dry_run", False):
+                if body is not None:
+                    sys.stdout.write(body)
+                else:
+                    print(
+                        f"atdd author issue: revision for github #{args.revise} "
+                        "is schema-valid"
+                    )
+                return 0
+
+            from atdd.planner.commands.author_publish import PublishError, revise_issue
+
+            try:
+                result = revise_issue(
+                    args.revise,
+                    body=body,
+                    issue_type=args.issue_type,
+                )
+            except PublishError as exc:
+                logger.warning(
+                    "atdd author issue revision failed",
+                    extra={"issue_number": args.revise, "error": str(exc)},
+                )
+                print(f"atdd author issue: {exc}", file=sys.stderr)
+                return 2
+
+            if body is not None:
+                sys.stdout.write(body)
+            if result.projection_deferred:
+                print(
+                    f"atdd author issue: revised work_item {result.slug!r} "
+                    f"(state={result.state}) for github #{result.issue_number}; "
+                    "github projection deferred to the outbox",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"atdd author issue: revised work_item {result.slug!r} "
+                    f"(state={result.state}) for github #{result.issue_number}",
+                    file=sys.stderr,
+                )
+            return 0
+
+        issue_type = args.issue_type or "implementation"
         spec = {
             "title": args.title,
             "status": args.status,
-            "type": args.issue_type,
+            "type": issue_type,
             "branch": args.branch,
             "train": args.train,
             "feature": args.feature,
@@ -1203,7 +1334,7 @@ def run(argv: list[str]) -> int:
             result = publish_issue(
                 slug, body,
                 title=args.title or "Untitled ATDD issue",
-                status=args.status, issue_type=args.issue_type,
+                status=args.status, issue_type=issue_type,
                 branch=args.branch, train=args.train, feature=args.feature,
             )
         except PublishError as exc:

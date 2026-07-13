@@ -1,0 +1,21 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'Object actor/ownership metadata that makes the single-owner body
+        rule '
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: single-owner-body-rule-computability
+      type: value_objects
+description: Object actor/ownership metadata that makes the single-owner body rule
+  machine-checkable by CI and the merge driver.
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:govern-projection-fields:define-actor-ownership
+wagon: wagon:govern-projection-fields
+wmbts:
+- wmbt:govern-projection-fields:D002

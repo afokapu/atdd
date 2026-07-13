@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:provider-extensions-lock",
+  "title": "Extensions Lock Scope",
+  "description": "`.atdd/extensions.lock` must lock core schema, lifecycle policy, merge policy and provider digests (doc section 10 rule 5). Locking these is what lets a provider failure be non-blocking (section 12 rule 6).",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "core": {
+      "additionalProperties": false,
+      "properties": {
+        "atdd_version": {
+          "type": "string"
+        },
+        "lifecycle_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "merge_policy_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "projection_schema_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "atdd_version",
+        "projection_schema_digest",
+        "lifecycle_policy_digest",
+        "merge_policy_digest"
+      ],
+      "type": "object"
+    },
+    "providers": {
+      "additionalProperties": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "digest"
+        ],
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema_version",
+    "core",
+    "providers"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "provider_extensions_lock",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:isolate-provider-boundary",
+    "consumers": [
+      "wagon:enforce-merge-authority",
+      "wagon:migrate-projection-authority"
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the provider_extensions_lock projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A provider_extensions_lock conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/isolate_provider_boundary/_isolate_provider_boundary.yaml",
+      "feature_refs": [
+        "feature:isolate-provider-boundary:define-provider-interface"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  }
+}

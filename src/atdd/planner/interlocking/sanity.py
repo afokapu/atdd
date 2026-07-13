@@ -37,8 +37,8 @@ _log = logging.getLogger(__name__)
 from .digest import route_projection_digest
 from .discovery import INTERLOCKINGS_HOME, registry_entries
 from .guards import GuardSyntaxError, parse_guard
-from .loader import InterlockingError
-from .models import CATEGORY_BY_DIGIT, TrainInterlocking
+from .loader import InterlockingError, target_train_category
+from .models import TrainInterlocking
 from .projections import project_route_to_train_sequence
 
 __all__ = [
@@ -61,7 +61,6 @@ __all__ = [
     "does_not_carry_cargo_violations",
 ]
 
-_CATEGORY_DIGIT = {v: k for k, v in CATEGORY_BY_DIGIT.items()}
 # Field-name tokens that would smuggle Cargo runtime state into a YAML that is
 # only allowed to SELECT routes and name contract identities (#1249 node 13).
 _FORBIDDEN_CARGO_TOKENS = ("cargo", "train_result", "artifact_data", "artifact_value")
@@ -110,14 +109,25 @@ def entrypoint_shape_violations(il: TrainInterlocking, root=None) -> List[dict]:
 
 # --- 3. route category matches train id -------------------------------------
 def route_category_violations(il: TrainInterlocking, root=None) -> List[dict]:
+    """``planner.train.interlocking-route-category-matches-train-id``: a route's
+    declared ``category`` must agree with the ``category`` FIELD of the target
+    train it selects (issue #1421).
+
+    Category is a validated field on the train, never a digit embedded in the
+    identity, so this is a field COMPARE — it does not parse ``train_id``. A route
+    whose target train declares no category (unmigrated during transition) is not
+    judged here. The reader is shared with the semantic validator, so both paths
+    resolve the target train's category identically (#1440).
+    """
     out: List[dict] = []
     for route in il.routes:
-        actual_digit = route.train_id[1] if len(route.train_id) >= 2 else ""
-        expected_digit = _CATEGORY_DIGIT.get(route.category, route.category_digit)
-        if route.category_digit != actual_digit or route.category_digit != expected_digit:
+        train_category = target_train_category(route.train_path, root)
+        if train_category is None:
+            continue
+        if route.category != train_category:
             out.append({"interlocking_id": _iid(il), "route_id": route.route_id,
-                        "category": route.category, "expected_digit": expected_digit,
-                        "actual_train_id": route.train_id, "actual_digit": actual_digit})
+                        "category": route.category, "train_id": route.train_id,
+                        "train_category": train_category, "train_path": route.train_path})
     return out
 
 

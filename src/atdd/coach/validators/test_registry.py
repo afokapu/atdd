@@ -555,21 +555,21 @@ def test_new_registries_follow_urn_conventions(temp_repo):
 
     Given: Existing URN patterns in urn.py
     When: Building new registries (tester, coder)
-    Then: Uses URNBuilder for URN generation and validation
+    Then: Uses URNGrammar for URN generation and validation
     """
     from atdd.coach.commands.registry import RegistryBuilder
 
-    # Mock URNBuilder to verify it's used
-    with patch('atdd.coach.commands.registry.URNBuilder') as mock_urn:
+    # Mock URNGrammar to verify it's used
+    with patch('atdd.coach.commands.registry.URNGrammar') as mock_urn:
         mock_urn.test.return_value = "test:wagon:file::func"
         mock_urn.impl.return_value = "impl:wagon:layer:comp:lang"
 
         builder = RegistryBuilder(temp_repo)
 
-        # Should use URNBuilder for test URNs
+        # Should use URNGrammar for test URNs
         test_urn = mock_urn.test("wagon", "file", "func")
         assert test_urn.startswith("test:")
 
-        # Should use URNBuilder for impl URNs
+        # Should use URNGrammar for impl URNs
         impl_urn = mock_urn.impl("wagon", "layer", "comp", "lang")
         assert impl_urn.startswith("impl:")

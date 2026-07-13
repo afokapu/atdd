@@ -1,0 +1,36 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: session-scoped clean_convention_graph fixture in a new top-level
+        conventions/conftest.py
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: _support/graph_mutations.py clone plus fault primitives
+      type: value_objects
+    integration:
+    - count: 0
+      rationale: no new contract; reuses the composed convention graph
+      type: schemas
+    presentation:
+    - count: 0
+      rationale: pytest-collected; marker-partitioned CI job
+      type: controllers
+description: Cuts validate-conventions CI runtime by composing the clean convention
+  graph once per pytest session, injecting template-evaluator faults into cloned in-memory
+  graphs instead of rewriting convention YAML, partitioning the suite by mutation
+  class, and running the non-mutating subset under pytest-xdist. Preserves every rule,
+  the baseline-clean plus fault-caught invariant, and the Y003 coverage-preserved
+  guards; changes no production validator behaviour.
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 6
+urn: feature:validate-conventions:tune-convention-suite
+wagon: wagon:validate-conventions
+wmbts:
+- wmbt:validate-conventions:E032
+- wmbt:validate-conventions:E033
+- wmbt:validate-conventions:E034
+- wmbt:validate-conventions:E035

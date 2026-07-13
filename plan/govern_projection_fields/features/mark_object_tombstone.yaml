@@ -1,0 +1,32 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: tombstone_object() writing state and reason digest; refuse_resurrection()
+        during merge of a tombstoned uid
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: TombstoneRecord holding uid, reason digest, and tombstone metadata
+        as a retirement record
+      type: entities
+    - count: 1
+      rationale: NoResurrection specification rejecting any incoming live phase on
+        a tombstoned uid
+      type: specifications
+    integration:
+    - count: 1
+      rationale: projection writer persisting the tombstone in place; physical removal
+        stays in archival compaction
+      type: stores
+description: 'The tombstone lifecycle: retirement writes state TOMBSTONED with a reason
+  digest, deletes no projection file, and any later merge that revives the uid is
+  refused.'
+sizing:
+  footprint_score: 7
+  footprint_size: M
+  wmbts: 1
+urn: feature:govern-projection-fields:mark-object-tombstone
+wagon: wagon:govern-projection-fields
+wmbts:
+- wmbt:govern-projection-fields:K001

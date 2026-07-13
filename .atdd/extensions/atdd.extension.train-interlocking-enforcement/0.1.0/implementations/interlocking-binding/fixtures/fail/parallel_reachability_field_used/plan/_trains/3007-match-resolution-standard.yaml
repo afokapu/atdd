@@ -1,0 +1,6 @@
+# Train artifact present so declaration_to_runtime stays clean; only the schema-drift signal fires.
+schema_version: 1.0.0
+train_id: 3007-match-resolution-standard
+title: Match resolution standard
+sequence:
+  - match

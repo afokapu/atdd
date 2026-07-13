@@ -42,10 +42,11 @@ def test_no_orphan_nodes_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """Real repo: every rule-bearing convention node is a relationship endpoint."""
     root = _parity.repo_root()
-    viols = _parity.conv_violations(root, _reachability_no_orphan)
+    viols = _parity.conv_violations(root, _reachability_no_orphan,
+                                    graph=clean_convention_graph)
     assert viols == [], f"clean baseline must be 0, got {viols[:3]}"
 
 

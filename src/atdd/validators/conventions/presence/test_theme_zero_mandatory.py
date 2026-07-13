@@ -49,9 +49,9 @@ def test_theme_zero_mandatory_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_theme_zero_clean_baseline(repo_root: Path) -> None:
+def test_theme_zero_clean_baseline(clean_convention_graph) -> None:
     """Real composed graph: the commons floor is declared, so 0 violations."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 def test_theme_zero_catches_injected_fault(repo_root: Path) -> None:

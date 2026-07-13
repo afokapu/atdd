@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: the end-to-end provider-free workflow driver the conformance suite
+        executes
+      type: workflows
+    integration:
+    - count: 1
+      rationale: bare git remote harness that provisions and drives a provider-free
+        remote
+      type: clients
+description: "Conformance suite driving the full core workflow (project, hydrate,\
+  \ reconcile, transition, CI validators) against a bare git remote with zero providers\
+  \ \u2014 the M5 exit criterion (CORE-029)."
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 1
+urn: feature:isolate-provider-boundary:verify-remote-conformance
+wagon: wagon:isolate-provider-boundary
+wmbts:
+- wmbt:isolate-provider-boundary:C002

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
@@ -100,6 +101,42 @@ def _build_parser() -> argparse.ArgumentParser:
     v_rb.add_argument("--no-pypi", dest="no_pypi", action="store_true",
                       help="Skip the PyPI query and resolve from the git tag only.")
     v_rb.add_argument("--root", default=None)
+
+    # Projection spine (#1400): object create/rename, project, hydrate, digest,
+    # canonicality. Its parsers live next to their implementation.
+    from atdd.state.projection_cli import add_parsers as add_projection_parsers
+
+    add_projection_parsers(sub)
+
+    # Reconcile spine (#1400): reconcile, freshness, overlay, author. Its parsers
+    # live next to their implementation.
+    from atdd.state.reconcile_cli import add_parsers as add_reconcile_parsers
+
+    add_reconcile_parsers(sub)
+
+    # Merge authority (#1400): trailers, merge-authority, policy-check, disposition-check.
+    # Its parsers live next to their implementation.
+    from atdd.state.merge_authority_cli import add_parsers as add_merge_authority_parsers
+
+    add_merge_authority_parsers(sub)
+
+    # Field governance (#1400): ownership-check, field-writer, merge-projection,
+    # merge-matrix-check, compact-archive. Its parsers live next to their implementation.
+    from atdd.state.govern_cli import add_parsers as add_govern_parsers
+
+    add_govern_parsers(sub)
+
+    # Provider boundary (#1400): import-boundary, conformance, providers, extensions-lock,
+    # mirror. Its parsers live next to their implementation.
+    from atdd.state.provider_cli import add_parsers as add_provider_parsers
+
+    add_provider_parsers(sub)
+
+    # Migration to projection authority (#1400): mint-uids, migrate-manifest, shadow, hot-path,
+    # manifest-fallback, cutover, runbook-check, rollout-check.
+    from atdd.state.migrate_cli import add_parsers as add_migrate_parsers
+
+    add_migrate_parsers(sub)
 
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
@@ -508,17 +545,46 @@ def _cmd_version(args) -> int:
         return 2
 
     if args.version_op == "reconcile-base":
-        # Pure computation + a best-effort PyPI query; no store needed. The base is
-        # max(git tag, PyPI latest) so the next bump never regresses below the
-        # published latest; PyPI-unreachable falls back to the git tag (#1326).
+        # The base is max(git tag, PyPI latest) so the next bump never regresses
+        # below the published latest; PyPI-unreachable falls back to the git tag
+        # (#1326).
         pypi_latest = None if args.no_pypi else ver.latest_on_pypi(args.package)
         try:
             base = ver.resolve_release_base(args.git_tag, pypi_latest)
         except ver.VersionError as exc:
             _log.warning("version reconcile-base failed", extra={"error": str(exc),
                                                                  "git_tag": args.git_tag})
-            print(f"ERROR: {exc}")
+            print(f"ERROR: {exc}", file=sys.stderr)
             return 1
+
+        # #1449: PERSIST the base. This used to be a pure computation that printed
+        # and wrote nothing, so `reconcile-base --git-tag X` reported success while
+        # the store kept its old value — the store drifted five minor versions
+        # behind PyPI because every reconcile looked like it had worked. A command
+        # must never print a value it did not write.
+        resolution, conn_or_rc = _open_store(args.root)
+        if resolution is None:
+            _log.warning("version reconcile-base could not open the store to persist",
+                         extra={"base": base, "git_tag": args.git_tag})
+            print("ERROR: resolved a release base but no State Store could be opened "
+                  "to persist it; refusing to report a value that was not written.",
+                  file=sys.stderr)
+            return conn_or_rc
+        conn = conn_or_rc
+        try:
+            ver.set_version(conn, base)
+        except ver.VersionError as exc:
+            _log.warning("version reconcile-base persist failed",
+                         extra={"error": str(exc), "base": base})
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        finally:
+            conn.close()
+
+        # stdout stays a BARE version string: publish.yml captures it with
+        # BASE=$(atdd state version reconcile-base ...). Confirmations go to stderr.
+        print(f"Reconciled release base to {base} (persisted; no version_decided signal)",
+              file=sys.stderr)
         print(base)
         return 0
 
@@ -639,6 +705,39 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_version(args)
     if args.op == "trace":
         return _cmd_trace(args)
+
+    from atdd.state.projection_cli import OPS as PROJECTION_OPS, dispatch as projection_dispatch
+
+    if args.op in PROJECTION_OPS:
+        return projection_dispatch(args)
+
+    from atdd.state.reconcile_cli import OPS as RECONCILE_OPS, dispatch as reconcile_dispatch
+
+    if args.op in RECONCILE_OPS:
+        return reconcile_dispatch(args)
+
+    from atdd.state.merge_authority_cli import (
+        OPS as MERGE_AUTHORITY_OPS,
+        dispatch as merge_authority_dispatch,
+    )
+
+    if args.op in MERGE_AUTHORITY_OPS:
+        return merge_authority_dispatch(args)
+
+    from atdd.state.govern_cli import OPS as GOVERN_OPS, dispatch as govern_dispatch
+
+    if args.op in GOVERN_OPS:
+        return govern_dispatch(args)
+
+    from atdd.state.provider_cli import OPS as PROVIDER_OPS, dispatch as provider_dispatch
+
+    if args.op in PROVIDER_OPS:
+        return provider_dispatch(args)
+
+    from atdd.state.migrate_cli import OPS as MIGRATE_OPS, dispatch as migrate_dispatch
+
+    if args.op in MIGRATE_OPS:
+        return migrate_dispatch(args)
 
     parser.print_help()
     return 2

@@ -1,0 +1,21 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'Bootstrap semantics: hydrate and stamp store_base_commit on a clean
+        co'
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: cold-start-hydrate
+      type: value_objects
+description: 'Bootstrap semantics: hydrate and stamp store_base_commit on a clean
+  cold start; refuse with remediation when a baseless store is dirty.'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:reconcile-local-store:hydrate-cold-store
+wagon: wagon:reconcile-local-store
+wmbts:
+- wmbt:reconcile-local-store:P002

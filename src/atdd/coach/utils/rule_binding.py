@@ -98,7 +98,7 @@ class RepoYamlValidationError(ValueError):
     Surfaces (a) ``disposition:`` declared in repo YAML (walker sets it per
     spec v12 §4.4); (b) literal ``id:`` field at the top of an acceptance
     block (rule-id is derived per §3.3 — declaring it is misleading);
-    (c) acceptance URN that fails ``URNBuilder.PATTERNS['acc']``;
+    (c) acceptance URN that fails ``URNGrammar.PATTERNS['acc']``;
     (d) derived rule-id that fails the canonical-archetype + grammar check.
     """
 
@@ -324,7 +324,7 @@ def find_convention_files(
 # ---------------------------------------------------------------------------
 # Pattern matching the WMBT-shaped acceptance body inside an `acc:` URN:
 #   <WMBT-id>-<HARNESS>-<NNN>(-<slug>)?
-# The HARNESS list mirrors URNBuilder.HARNESS_CODES.
+# The HARNESS list mirrors URNGrammar.HARNESS_CODES.
 _WMBT_ACC_BODY_RE = re.compile(
     r"^([DLPCEMYRK][0-9]{3})-"
     r"(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|"
@@ -768,10 +768,10 @@ def _walk_repo_acceptance_file(
     acceptances that fail the §4.3 walker invariants — those are surfaced
     by Track B substrate validators.
     """
-    # Defer URNBuilder import to walk-time so the module loads even when
+    # Defer URNGrammar import to walk-time so the module loads even when
     # the graph package is not yet importable (avoids import cycles in
     # validators that import rule_binding at module-import time).
-    from atdd.coach.utils.graph.urn import URNBuilder
+    from atdd.coach.utils.graph.urn import URNGrammar
 
     try:
         with open(file_path) as fh:
@@ -828,13 +828,13 @@ def _walk_repo_acceptance_file(
             # surfaces this separately.
             continue
 
-        # (3) Acceptance URN must match URNBuilder.PATTERNS['acc']. Per the
+        # (3) Acceptance URN must match URNGrammar.PATTERNS['acc']. Per the
         # spec, "failure of (a) is a parent-graph problem caught by
         # `atdd repo validate`" — so the walker SKIPS malformed-URN
         # acceptances rather than failing loud on the whole registry build.
         # The substrate enforcement validator (Track B / Issue #410)
         # surfaces the URN violation separately.
-        if not URNBuilder.validate_urn(acc_urn, "acc"):
+        if not URNGrammar.validate_urn(acc_urn, "acc"):
             continue
 
         # (4) Walker invariant: phase + (harness OR signal+threshold).
@@ -890,7 +890,7 @@ def find_repo_rules(
     Raises ``RepoYamlValidationError`` for structural violations:
       - ``disposition:`` declared anywhere in repo YAML (§4.4).
       - Literal top-level ``id:`` field on an acceptance block (§3.3).
-      - Acceptance URN failing ``URNBuilder.PATTERNS['acc']``.
+      - Acceptance URN failing ``URNGrammar.PATTERNS['acc']``.
       - Derivation producing a rule-id that fails repo grammar.
 
     Returns a list of ``(source_path, metadata)`` tuples. Order is

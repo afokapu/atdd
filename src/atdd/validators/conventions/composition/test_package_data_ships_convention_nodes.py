@@ -12,10 +12,12 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-import contextlib
 from pathlib import Path
 
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    mirror_file,
+)
 from atdd.validators.conventions.composition.archetype import TEMPLATE_IDS, TEMPLATES
 
 FAMILY = "composition"
@@ -42,24 +44,29 @@ def _template():
     return by_id[TEMPLATE]
 
 
-def _convention_evidence(repo_root: Path):
-    """Run the variant through the OFFICIAL path: real composed graph ->
+def _convention_evidence(graph):
+    """Run the variant through the OFFICIAL path: composed graph ->
     TemplateContract.evaluate(graph, config)."""
-    return _template().evaluate(load_composed_graph(repo_root), config=_CONFIG)
+    return _template().evaluate(graph, config=_CONFIG)
 
 
-@contextlib.contextmanager
-def _drop_package_data_glob(repo_root: Path):
-    """Inject the variant's fault into a temp-restored copy of the real
-    pyproject.toml: drop a convention-node package-data glob, then revert."""
-    p = repo_root / "pyproject.toml"
-    orig = p.read_text(encoding="utf-8")
-    assert _FAULT_GLOB in orig, "fault precondition: package-data glob must exist on clean repo"
-    p.write_text(orig.replace(_FAULT_GLOB, "", 1), encoding="utf-8")
-    try:
-        yield
-    finally:
-        p.write_text(orig, encoding="utf-8")
+def _drop_package_data_glob(clean_graph, tmp_path):
+    """Stage a pyproject.toml with one convention-node package-data glob dropped.
+
+    The evaluator reads pyproject's `tool.setuptools.package-data` off `graph.root`;
+    there is no node for it, so the fault has to be a real TOML it really parses. It
+    used to be the REAL pyproject.toml, rewritten and reverted in a `finally` — a file
+    that is edited by other work in flight, so the window was a genuine collision risk,
+    not just a slow one. Mirroring it into `tmp_path` from its own bytes and dropping
+    the glob in the copy injects the identical fault against an identical document
+    (#1458, E035). `mirror_file` raises if the glob is already absent, so the fault
+    can never go vacuous.
+    """
+    mirror_file(
+        _REPO_ROOT, tmp_path, "pyproject.toml",
+        lambda t: t.replace(_FAULT_GLOB, "", 1),
+    )
+    return graph_rooted_at(clean_graph, tmp_path)
 
 
 def test_package_data_ships_convention_nodes_variant_contract() -> None:
@@ -68,28 +75,28 @@ def test_package_data_ships_convention_nodes_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_clean_baseline_no_violations() -> None:
+def test_clean_baseline_no_violations(clean_convention_graph) -> None:
     # The real repo ships every required convention-node/schema glob.
-    assert _convention_evidence(_REPO_ROOT) == []
+    assert _convention_evidence(clean_convention_graph) == []
 
 
-def test_evidence_keys_subset_of_failure_evidence() -> None:
+def test_evidence_keys_subset_of_failure_evidence(clean_convention_graph, tmp_path) -> None:
     # On an injected fault the evidence keys must be a SUBSET of the contract.
     allowed = set(FAILURE_EVIDENCE)
-    with _drop_package_data_glob(_REPO_ROOT):
-        ev = _convention_evidence(_REPO_ROOT)
+    ev = _convention_evidence(_drop_package_data_glob(clean_convention_graph, tmp_path))
     assert ev, "convention path must flag the dropped glob"
     for record in ev:
         assert set(record).issubset(allowed), f"evidence keys escape contract: {set(record) - allowed}"
 
 
-def test_fault_injection() -> None:
+def test_fault_injection(clean_convention_graph, tmp_path) -> None:
     # Legacy parity (verdict 'both') was proven against the legacy validator
     # before it was decommissioned (#1207); the convention fault-injection is
     # the live coverage.
-    assert _convention_evidence(_REPO_ROOT) == [], "convention path must be clean on clean repo"
-    with _drop_package_data_glob(_REPO_ROOT):
-        convention_caught = bool(_convention_evidence(_REPO_ROOT))
-    assert convention_caught, (
-        f"convention path must catch the injected fault: convention_caught={convention_caught}"
+    assert _convention_evidence(clean_convention_graph) == [], (
+        "convention path must be clean on the real repo"
     )
+    staged = _drop_package_data_glob(clean_convention_graph, tmp_path)
+    assert bool(_convention_evidence(staged)), "convention path must catch the injected fault"
+    # The real pyproject.toml still ships the glob and was never written to.
+    assert _convention_evidence(clean_convention_graph) == []

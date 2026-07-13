@@ -56,8 +56,8 @@ def _enforce_run_steps() -> list[tuple[str, dict, str]]:
     return steps
 
 
-def test_binding_lock_binds_runnable_set_without_train_interlocking():
-    """GT-001: the canonical lock binds a non-empty coder/tester set; train-interlocking omitted (#1361)."""
+def test_binding_lock_binds_runnable_set_including_train_interlocking():
+    """GT-001: the canonical lock binds a non-empty coder/tester set, train-interlocking included."""
     assert BINDING_LOCK.is_file(), f"canonical binding.lock missing at {BINDING_LOCK}"
     lock = yaml.safe_load(BINDING_LOCK.read_text(encoding="utf-8")) or {}
     bound = [c for c in lock.get("conventions", []) if c.get("disposition") == "bound"]
@@ -66,11 +66,14 @@ def test_binding_lock_binds_runnable_set_without_train_interlocking():
     assert any(i.startswith(("coder.", "tester.")) for i in ids), (
         f"expected coder/tester bound conventions, got: {sorted(ids)}"
     )
-    # train-interlocking is deferred to #1361 (blocked on #1292/#1345): the core
-    # composer cannot yet compose its list-valued realizes_convention, and an
-    # unresolvable bound entry would fail --verify-substrate and break the gate.
-    assert not any("interlocking" in i for i in ids), (
-        "train-interlocking must NOT be bound here — deferred to #1361 (#1292/#1345)"
+    # train-interlocking was held out while its two blockers stood: the composer
+    # could not compose a list-valued realizes_convention, and an unresolvable
+    # bound entry would have failed --verify-substrate. Both are now discharged —
+    # the #1426 implementation fan-out composes the list form, and main ships the
+    # extension enabled — so the rules bind, verify, and run. Pin that.
+    assert any("interlocking" in i for i in ids), (
+        "train-interlocking must be bound: the extension ships enabled and the "
+        "fan-out composes its list-valued realizes_convention"
     )
 
 

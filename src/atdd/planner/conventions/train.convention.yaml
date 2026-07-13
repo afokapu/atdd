@@ -1,6 +1,6 @@
 version: "1.0"
 name: "Train Convention"
-description: "Convention for multi-wagon workflow orchestration with theme-based numbering"
+description: "Convention for multi-wagon workflow orchestration on the typed train:<subject>:<slug> identity"
 
 # =============================================================================
 # Rules registry (#1054) — binds the executable-train substrate validators into
@@ -21,186 +21,6 @@ production_implementation:
 structure:
   $ref: "schemas:planner:train"
 
-# Hierarchical numbering system: [Theme][Category][Variation]
-numbering:
-  pattern: "{theme_digit}{category_digit}{variation_digits}-{kebab-case-name}"
-  description: "Four-digit hierarchical prefix: [Theme 0-9][Category 0-3][Variation 01-99] + kebab-case name"
-
-  structure:
-    theme: "Single digit 0-9 identifying the theme"
-    category: "Single digit 0-3 identifying the test category"
-    variation: "Two digits 01-99 identifying specific train within category"
-
-  categories:
-    "0":
-      name: "nominal"
-      description: "Happy path - perfect conditions, standard flows"
-      examples:
-        - "0001-auth-session-standard"
-        - "2001-story-to-graph-perfect"
-        - "3001-solo-match-complete"
-
-    "1":
-      name: "error"
-      description: "Unexpected system failures - crashes, unavailability, infrastructure issues"
-      examples:
-        - "0101-auth-service-offline"
-        - "2101-graph-database-offline"
-        - "3101-state-commit-service-crash"
-
-    "2":
-      name: "alternate"
-      description: "Valid alternative flows - different inputs, modes, configurations"
-      examples:
-        - "0201-sso-authentication"
-        - "2201-xml-source-conversion"
-        - "3201-match-with-pause-resume"
-
-    "3":
-      name: "exception"
-      description: "Expected failures handled gracefully - validation errors, business rule violations"
-      examples:
-        - "0301-invalid-credentials"
-        - "2301-empty-input-file"
-        - "3301-fragment-pool-exhausted"
-
-  theme_ranges:
-    commons:
-      theme_digit: "0"
-      category_range: "00-03"
-      variation_range: "01-99"
-      description: "Identity, session, account, identifiers, UX systems"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "0001-auth-session-standard (nominal)"
-        - "0101-auth-service-offline (error)"
-        - "0201-sso-authentication (alternate)"
-        - "0301-invalid-credentials (exception)"
-
-    mechanic:
-      theme_digit: "1"
-      category_range: "10-13"
-      variation_range: "01-99"
-      description: "Core decision loop, timebank, predictions, domain impacts"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "1001-decision-standard (nominal)"
-        - "1101-state-commit-service-crash (error)"
-        - "1201-instant-decision-no-timebank (alternate)"
-        - "1301-timebank-exhausted (exception)"
-
-    scenario:
-      theme_digit: "2"
-      category_range: "20-23"
-      variation_range: "01-99"
-      description: "Story processing, curation, graph construction, fragments"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "2001-story-to-graph-perfect (nominal)"
-        - "2101-graph-database-offline (error)"
-        - "2201-xml-source-conversion (alternate)"
-        - "2301-empty-input-file (exception)"
-
-    match:
-      theme_digit: "3"
-      category_range: "30-33"
-      variation_range: "01-99"
-      description: "Solo, duel, team gameplay orchestration"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "3001-solo-match-complete (nominal)"
-        - "3101-state-commit-service-crash (error)"
-        - "3201-match-with-pause-resume (alternate)"
-        - "3301-fragment-pool-exhausted (exception)"
-
-    sensory:
-      theme_digit: "4"
-      category_range: "40-43"
-      variation_range: "01-99"
-      description: "Gesture interpretation, tone, feedback, audio, haptics"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "4001-gesture-interpretation-standard (nominal)"
-        - "4101-gesture-sensor-failure (error)"
-        - "4201-keyboard-input-fallback (alternate)"
-        - "4301-ambiguous-gesture-detected (exception)"
-
-    player:
-      theme_digit: "5"
-      category_range: "50-53"
-      variation_range: "01-99"
-      description: "Onboarding, progression, achievements, review"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "5001-rating-update-standard (nominal)"
-        - "5101-rating-service-unavailable (error)"
-        - "5201-provisional-rating-period (alternate)"
-        - "5301-achievement-already-unlocked (exception)"
-
-    league:
-      theme_digit: "6"
-      category_range: "60-63"
-      variation_range: "01-99"
-      description: "Tournaments, brackets, leaderboards, rewards"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "6001-league-definition-standard (nominal)"
-        - "6101-leaderboard-service-crash (error)"
-        - "6201-league-delegation-to-partner (alternate)"
-        - "6301-insufficient-participants (exception)"
-
-    audience:
-      theme_digit: "7"
-      category_range: "70-73"
-      variation_range: "01-99"
-      description: "Streaming, donations, viewer engagement"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "7001-stream-broadcast-standard (nominal)"
-        - "7101-streaming-platform-offline (error)"
-        - "7201-multi-platform-broadcast (alternate)"
-        - "7301-donation-insufficient-balance (exception)"
-
-    monetization:
-      theme_digit: "8"
-      category_range: "80-83"
-      variation_range: "01-99"
-      description: "Wallets, cameo flows, transactions, reconciliation"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "8001-wallet-initialization-standard (nominal)"
-        - "8101-wallet-service-unavailable (error)"
-        - "8201-sponsor-backed-minting (alternate)"
-        - "8301-insufficient-balance-for-spend (exception)"
-
-    partnership:
-      theme_digit: "9"
-      category_range: "90-93"
-      variation_range: "01-99"
-      description: "Sponsors, partners, personas, attribution, reporting"
-      capacity: "400 trains (4 categories × 100 variations)"
-      examples:
-        - "9001-sponsor-onboarding-standard (nominal)"
-        - "9101-reporting-service-crash (error)"
-        - "9201-multi-sponsor-agreement (alternate)"
-        - "9301-sponsor-agreement-expired (exception)"
-
-  capacity:
-    per_theme: 400
-    per_category: 100
-    total_system: 4000
-    description: "10 themes × 4 categories × 100 variations = 4,000 possible trains"
-
-  validation:
-    pattern: "^[0-9]{4}-[a-z][a-z0-9-]*$"
-    theme_digit: "Position 0: Theme category (0-9)"
-    category_digit: "Position 1: Test category (0=nominal, 1=error, 2=alternate, 3=exception)"
-    variation_digits: "Position 2-3: Variation within category (01-99)"
-    name_part: "kebab-case descriptive name"
-
-# Train-level acceptances (substrate spec v12 §5.2)
-# Optional block — when present, each acceptance contributes a derived rule
-# to the registry via the repo-rule walker (atdd.coach.utils.rule_binding.find_repo_rules).
 acceptances:
   optional: true
   shape: "Mirrors the WMBT acceptance shape (see planner/conventions/acceptance.convention.yaml)."
@@ -226,19 +46,19 @@ acceptances:
           metric: "duplicate_side_effects_on_retry"
           threshold: 0
 
-# URN naming pattern
+# URN naming pattern. Typed grammar (issue #1421): the legacy NNNN digit identity
+# is RETIRED. The grammar itself is single-sourced in
+# src/atdd/coach/utils/graph/urn_grammar.yaml and executed by URNGrammar — it is
+# not restated here.
 urn_naming:
-  pattern: "train:{train_id}"
-  description: "Unique identifier for train using hierarchical theme-category-variation-name format"
+  pattern: "train:{subject}:{slug}"
+  description: "Typed train identity: train:<subject>:<slug>, where subject is the durable noun the journey is about. `category` (nominal|error|alternate|exception) is a validated FIELD, never an identity digit."
 
   examples:
-    - urn: "train:2001-story-to-graph-perfect"
-      train_id: "2001-story-to-graph-perfect"
-      theme: "scenario"
-      theme_digit: "2"
+    - urn: "train:substrate:author-artifacts"
+      subject: "substrate"
+      slug: "author-artifacts"
       category: "nominal"
-      category_digit: "0"
-      variation: 1
 
   linearity_rule:
     description: "Trains are strictly linear: sequences contain steps only. No loops, routes, or branching."
@@ -278,22 +98,18 @@ urn_naming:
       Each orchestrator can implement multiple trains within its theme.
       URN format: train:{theme}:{train_id} directly references the train specification.
 
+  # Category rides as a FIELD (#1421/#1440) — reclassifying a train edits metadata,
+  # never its identity.
   examples_continued:
-    - urn: "train:3301-fragment-pool-exhausted"
-      train_id: "3301-fragment-pool-exhausted"
+    - urn: "train:fragment-pool:exhaust"
+      train_id: "train:fragment-pool:exhaust"
       theme: "match"
-      theme_digit: "3"
       category: "exception"
-      category_digit: "3"
-      variation: 1
 
-    - urn: "train:0101-auth-service-offline"
-      train_id: "0101-auth-service-offline"
+    - urn: "train:auth-session:recover-offline-service"
+      train_id: "train:auth-session:recover-offline-service"
       theme: "commons"
-      theme_digit: "0"
       category: "error"
-      category_digit: "1"
-      variation: 1
 
 # Registry organization
 registry:
@@ -354,22 +170,21 @@ registry:
   path_structure: "plan/_trains/{train_id}.yaml"
 
   benefits:
-    - "Flat file structure - no subdirectories needed"
-    - "Train ID contains all metadata (theme, category, variation)"
-    - "Simple file organization - all trains in single directory"
-    - "Natural sorting by train ID (numeric order)"
+    - "Identity names the journey; theme, category and ordering ride as FIELDS (#1421)"
+    - "Reclassifying a train edits metadata instead of renaming it and every reference to it"
+    - "Simple file organization - trains bucketed by subject"
     - "4-category structure mirrors WMBT test categories"
 
 # Naming conventions
 naming:
   train_id:
-    pattern: "{number}-{descriptive-name}"
+    pattern: "train:{subject}:{slug}"
     format: "kebab-case"
-    preference: "Action-object or flow-descriptor pattern"
+    preference: "Subject is the durable noun the journey is about; slug is action-object"
     examples:
-      - "20-story-to-scenario (process flow)"
-      - "30-match-solo (mode-type)"
-      - "00-auth-session (action-object)"
+      - "train:story:convert-to-scenario (process flow)"
+      - "train:match:play-solo (mode-type)"
+      - "train:auth-session:handshake (action-object)"
 
   title:
     format: "Title Case"
@@ -393,7 +208,7 @@ naming:
 theme_alignment:
   description: "Train themes should align with primary wagon themes"
   rules:
-    - "Primary theme = first digit of train_id"
+    - "Primary theme = first entry of the declared themes array"
     - "Secondary themes allowed when train spans multiple themes"
     - "Most wagons in train should match primary theme"
 
@@ -603,10 +418,10 @@ schema_references:
   train: "schemas/planner/train.schema.json"
 
 validation_rules:
-  - "train_id must match pattern: {theme_digit}{variation_digit}-{name}"
-  - "First digit determines primary theme category"
-  - "File must exist at path: plan/_trains/{train_id}.yaml"
+  - "train_id must match the typed pattern: train:{subject}:{slug}"
+  - "Category is a declared field (nominal|error|alternate|exception), never a digit in the identity"
+  - "Spec file must exist at the train's declared path"
   - "All participants must be declared in participants list"
   - "Dependencies must reference valid train_ids"
   - "Artifacts in sequence must follow domain:resource pattern"
-  - "Themes array must include primary theme based on first digit"
+  - "Themes must be declared in the themes array"

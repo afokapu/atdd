@@ -1,0 +1,53 @@
+# The field-ownership policy — who may write each projection field (spec §7.1).
+#
+# Machine-readable, and read by two things that must never disagree: the field-writer
+# validator (`atdd state field-writer`), which refuses a diff whose committing actor does
+# not own a field it touched, and the projection merge driver (`atdd state merge-projection`),
+# which reads `rule` to decide whether same-object divergence is safe to auto-merge.
+#
+# Shape: contracts/commons/projection-field-ownership.schema.json.
+# Executable form: src/atdd/state/ownership.py :: DEFAULT_POLICY (bound by a coherence test).
+#
+# `writer` is a ROLE, never a person: `human` is an actor, not a writer, and a policy that
+# names one is rejected. Every projection schema field must appear exactly once (#1400).
+fields:
+- field: body
+  writer: core_authoring
+  rule: conflict-unless-single-owner
+- field: extension_digests
+  writer: core_lifecycle
+  rule: derived
+- field: external_refs
+  writer: extension_bot
+  rule: bot-only
+  lifecycle_readable: false
+- field: last_lifecycle_actor
+  writer: core_lifecycle
+  rule: derived
+- field: owner_actor
+  writer: core_authoring
+  rule: mutable
+- field: phase
+  writer: core_lifecycle
+  rule: monotonic-gated
+- field: slug
+  writer: core_authoring
+  rule: mutable
+- field: state
+  writer: core_lifecycle
+  rule: monotonic-gated
+- field: title
+  writer: core_authoring
+  rule: mutable
+- field: tombstone
+  writer: core_lifecycle
+  rule: conflict-unless-same-digest
+- field: train
+  writer: core_train_ops
+  rule: conflict-unless-same-digest
+- field: uid
+  writer: core_create
+  rule: immutable
+- field: wmbts
+  writer: core_test_ops
+  rule: policy-merge

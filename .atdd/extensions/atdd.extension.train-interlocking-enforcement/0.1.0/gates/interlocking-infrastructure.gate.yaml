@@ -1,0 +1,30 @@
+schema_version: "1.0.0"
+
+# Gate: WHEN the interlocking runtime-infrastructure check runs (afokapu/atdd-extensions#25).
+#
+# The infrastructure validator proves the consumer repo's runtime actually ships
+# an InterlockingRunner route-control layer wired into the Station Master ->
+# TrainRunner path (core afokapu/atdd#1251). Missing/unwired runtime infrastructure
+# is a hard defect, so this gate is CI/strict.
+gate_id: atdd.extension.train-interlocking-enforcement.infrastructure
+# The five granular coder.train.interlocking-* conventions authored by #25 all gate here (CI/strict).
+realizes_convention:
+  - coder.train.interlocking-runner-exists
+  - coder.train.interlocking-resolution-model-exists
+  - coder.train.station-master-interlocking-routing
+  - coder.train.interlocking-delegates-to-trainrunner
+  - coder.train.interlocking-does-not-carry-cargo
+implementation: implementations/interlocking-infrastructure
+scope: scopes/interlocking-targets.scope.yaml
+
+stages:
+  - id: ci
+    mode: strict
+    description: >-
+      Block on CI when an interlocking declares routes but the consumer runtime
+      lacks an InterlockingRunner, or the Station Master entrypoint does not route
+      through it before delegating to TrainRunner.
+
+# Pre-confirm (planner-time) is NOT owned here: interlocking SCHEMA/projection
+# sanity + Confirm gating live in core planner validators (afokapu/atdd#1249).
+# This extension only inspects consumer-repo RUNTIME code, which exists at CI time.

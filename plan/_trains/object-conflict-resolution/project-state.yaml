@@ -1,0 +1,81 @@
+train_id: train:object-conflict-resolution:project-state
+title: State Projection Collaboration Model
+description: 'State projection train: make the committed deterministic projection the shared source of
+  truth, the local SQLite store a private authoring workspace, git history plus structured ATDD trailers
+  the audit log, and CI the merge authority. Core becomes git-native and provider-free; GitHub Issues
+  becomes a non-authoritative human mirror implemented as an extension. Builds the projection spine, the
+  reconcile spine with an explicit overlay event log, CI legal-transition authority, field ownership and
+  safe conflicts, the provider seam, and the manifest-to-projection migration.'
+themes:
+- commons
+family: behavior
+primary_wagon: project-shared-state
+sequence:
+- artifact: commons:projection-object
+  from: wagon:project-shared-state
+  intent: Define the per-UID projection schema v1 as the shared committed state
+  step: 1
+  to: system:atdd-cli
+- artifact: commons:project-projector
+  from: wagon:project-shared-state
+  intent: Project the local store deterministically to byte-identical per-UID YAML (invariant I1)
+  step: 2
+  to: system:git
+- artifact: commons:project-hydrator
+  from: wagon:project-shared-state
+  intent: Hydrate a store from the committed projection at HEAD
+  step: 3
+  to: system:atdd-cli
+- artifact: commons:reconcile-overlay-log
+  from: wagon:reconcile-local-store
+  intent: Record store_base_commit and append every local authoring event to the explicit overlay log
+  step: 4
+  to: system:atdd-cli
+- artifact: commons:reconcile-reconciler
+  from: wagon:reconcile-local-store
+  intent: 'Reconcile after any HEAD change: hydrate incoming projection, replay local overlay, re-project
+    affected objects'
+  step: 5
+  to: system:atdd-cli
+- artifact: commons:projection-trailer
+  from: wagon:enforce-merge-authority
+  intent: Emit the canonical ATDD trailer group on every projection-bearing commit
+  step: 6
+  to: system:git
+- artifact: commons:enforce-canonicality-gate
+  from: wagon:enforce-merge-authority
+  intent: Validate in CI that project(hydrate(projection)) equals the committed projection
+  step: 7
+  to: system:ci
+- artifact: commons:projection-evidence
+  from: wagon:enforce-merge-authority
+  intent: Reject canonical but lifecycle-illegal projection changes against the merge base
+  step: 8
+  to: system:ci
+- artifact: commons:projection-field-ownership
+  from: wagon:govern-projection-fields
+  intent: Enforce field ownership so no writer touches a field it does not own
+  step: 9
+  to: system:ci
+- artifact: commons:provider-external-ref-update
+  from: wagon:isolate-provider-boundary
+  intent: Expose the SyncProvider seam so core runs complete with zero providers registered
+  step: 10
+  to: system:atdd-cli
+- artifact: commons:migrate-projection-migrator
+  from: wagon:migrate-projection-authority
+  intent: Migrate the manifest mirror into projection authority and decommission the read-fallback
+  step: 11
+  to: system:git
+participants:
+- wagon:project-shared-state
+- wagon:reconcile-local-store
+- wagon:enforce-merge-authority
+- wagon:govern-projection-fields
+- wagon:isolate-provider-boundary
+- wagon:migrate-projection-authority
+- system:atdd-cli
+- system:git
+- system:ci
+status: planned
+category: nominal

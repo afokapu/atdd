@@ -1,0 +1,80 @@
+urn: wmbt:enforce-merge-authority:C003
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: history-secret-leak
+context_clarifier: invariant I8 says git history contains no secrets; because history is immutable and
+  trailers carry digests, the only safe place to catch a raw token is before the commit is admitted to
+  the protected branch
+lens: functional.effectiveness
+statement: minimize likelihood of a history-secret-leak, in which a raw token, bearer token, credential,
+  or private key reaches git history through an ATDD trailer value or a committed projection object, where
+  only digests are ever admissible
+acceptances:
+- given:
+    abstract:
+    - a commit whose `ATDD-Token-Digest` trailer carries a raw `ghp_...` token instead of `sha256:<hex>`
+    - a projection object carrying an `external_refs` value that embeds a bearer token
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: No no-secrets validator exists, so a raw bearer token in a trailer value and a credential
+      in a projection object both reach history
+    urn: acc:enforce-merge-authority:C003-UNIT-001-raw-token-in-trailer-is-admitted
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - both the trailer value and the projection value are reported as secrets
+    - the report redacts the matched value rather than echoing it
+    - no no-secrets validator is registered, so the run fails (not_implemented)
+  when:
+    abstract: the no-secrets-in-history validator is run over the commit
+- given:
+    abstract:
+    - 'a corpus of trailer values and projection objects: raw provider tokens, bearer headers, private-key
+      blocks, and the admissible `sha256:<hex>` digest form'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: The no-secrets validator rejects raw credentials in trailers and projections while admitting
+      the digest forms, and never echoes a matched secret
+    urn: acc:enforce-merge-authority:C003-UNIT-002-secrets-rejected-digests-admitted
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - every raw credential is rejected, naming the trailer key or projection field
+    - every `sha256:<hex>` digest value is admitted
+    - no rejection message contains the matched secret verbatim
+  when:
+    abstract: the no-secrets-in-history validator is run over the corpus
+- identity:
+    urn: acc:enforce-merge-authority:C003-SMOKE-001-history-secret-leak
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: history-secret-leak holds against a real repo checkout, the installed atdd CLI,
+      and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising history-secret-leak
+  when:
+    abstract: the C003 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - history-secret-leak is observed to hold end-to-end against real infrastructure, with no mocks or
+      manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

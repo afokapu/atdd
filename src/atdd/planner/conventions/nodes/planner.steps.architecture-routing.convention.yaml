@@ -1,0 +1,109 @@
+schema_version: 1.1.0
+rule_id: planner.steps.architecture-routing
+kind: pattern
+status: active
+name: 'Steps: Architecture Routing'
+statement: Each JTBD step declares its primary architecture layer(s) and a canonical
+  call sequence across presentation, application, domain, and integration, giving
+  a routable mapping from step to architecture.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/steps.convention.yaml
+  legacy_section: architecture-routing
+  extraction_mode: high_fidelity
+content:
+  summary: Binding steps to layers and call sequences keeps the JTBD taxonomy minimal
+    yet routable, so a step can be mechanically placed into the layered architecture.
+  examples:
+  - resolve routes application.event → application.use_case → domain.policy → integration.call_external
+    → integration.persist
+  - conclude routes application.use_case → domain.validate → integration.persist →
+    integration.archive
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: layers_by_step
+  text: The primary architecture layer(s) each step lands in.
+  values:
+    define:
+    - domain
+    locate:
+    - application
+    prepare:
+    - application
+    confirm:
+    - application
+    execute:
+    - domain
+    - application
+    monitor:
+    - presentation
+    modify:
+    - application
+    resolve:
+    - application
+    conclude:
+    - integration
+    - application
+- term_id: sequence_by_step
+  text: The canonical ordered call sequence across layers for each step, written as
+    layer.operation tokens.
+  values:
+    define:
+    - presentation.command
+    - application.use_case
+    - domain.create
+    - integration.persist
+    locate:
+    - application.query
+    - integration.read
+    - application.aggregate
+    - presentation.display
+    prepare:
+    - application.use_case
+    - domain.validate
+    - integration.read
+    - application.stage
+    confirm:
+    - application.query
+    - integration.read
+    - domain.validate
+    - application.decide
+    execute:
+    - presentation.command
+    - application.use_case
+    - domain.mutate
+    - integration.persist
+    monitor:
+    - presentation.query
+    - application.query
+    - integration.read
+    - application.aggregate
+    - presentation.display
+    modify:
+    - presentation.command
+    - application.use_case
+    - domain.mutate
+    - integration.persist
+    resolve:
+    - application.event
+    - application.use_case
+    - domain.policy
+    - integration.call_external
+    - integration.persist
+    conclude:
+    - application.use_case
+    - domain.validate
+    - integration.persist
+    - integration.archive
+  examples:
+    positive:
+    - define → layers [domain], sequence [presentation.command, application.use_case,
+      domain.create, integration.persist]
+    - monitor → layers [presentation], sequence [presentation.query, application.query,
+      integration.read, application.aggregate, presentation.display]

@@ -5,7 +5,7 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
-  content_digest: be8374f435aff2e5e63f409a3d674af82bac6a4a4ca084e18996c3a3b8400b1c
+  content_digest: b7fccc5da22db62870f0a5cb3602b052e027c52837f6abebf72a20111f8d18cf
 entrypoint:
   exposed: true
   actions:
@@ -91,16 +91,16 @@ fragments:
   - acceptance:unbound-declaration-detected
   guards:
   - id: guard:unbound-declaration
-    expression: declared == true and gating == true and realized == true and bound
-      == false and core_backed == true
+    expression: declared == true and gating == true and realized == true and bound == false and core_backed
+      == true
 - id: frag:succession-loss-blocked
   kind: alt
   acceptance_refs:
   - acceptance:succession-loss-blocked
   guards:
   - id: guard:succession-loss
-    expression: declared == true and gating == true and realized == true and bound
-      == false and core_backed == false
+    expression: declared == true and gating == true and realized == true and bound == false and core_backed
+      == false
 - id: frag:unrealized-obligation-detected
   kind: alt
   acceptance_refs:
@@ -129,26 +129,23 @@ residuals:
   kind: structural
   acceptance_ref: acceptance:enforcement-ratchet-baseline
   validator_ref: src/atdd/enforce/validators/test_ratchet_baseline.py
-  reason: the pre-existing 13 failing rules are held flat by a recorded baseline rather
-    than by a guarded route, because the baseline is a stored artifact and not a decision
-    branch
+  reason: the pre-existing 13 failing rules are held flat by a recorded baseline rather than by a guarded
+    route, because the baseline is a stored artifact and not a decision branch
 - id: residual:mirror-coherence
   kind: structural
   acceptance_ref: acceptance:mirror-coherence-validation
   validator_ref: src/atdd/planner/validators/test_extension_mirror_coherence.py
-  reason: extension nodes mirror core rules as data read by a validator, not as a
-    route the enforcement entrypoint can take
+  reason: extension nodes mirror core rules as data read by a validator, not as a route the enforcement
+    entrypoint can take
 - id: residual:duplicate-precedence
   kind: structural
   acceptance_ref: acceptance:duplicate-rule-precedence
   validator_ref: src/atdd/coach/validators/test_rule_id_uniqueness.py
-  reason: a duplicate rule_id is detected while building the registry at import time,
-    before any enforcement entrypoint runs, so it cannot be expressed as a guarded
-    route
+  reason: a duplicate rule_id is detected while building the registry at import time, before any enforcement
+    entrypoint runs, so it cannot be expressed as a guarded route
 routes:
 - route_id: clean-gate-passes
   category: nominal
-  category_digit: '0'
   priority: 10
   guard_ref: guard:clean-gate
   train_id: 0007-enforce-extension-conventions
@@ -163,7 +160,6 @@ routes:
     - artifact
 - route_id: strict-violation-fails
   category: alternate
-  category_digit: '2'
   priority: 20
   guard_ref: guard:strict-violation
   train_id: 0201-enforce-strict-failure
@@ -178,7 +174,6 @@ routes:
     - artifact
 - route_id: advisory-violation-reports
   category: alternate
-  category_digit: '2'
   priority: 30
   guard_ref: guard:advisory-violation
   train_id: 0202-report-advisory-violation
@@ -193,7 +188,6 @@ routes:
     - artifact
 - route_id: unbound-declaration-detected
   category: alternate
-  category_digit: '2'
   priority: 40
   guard_ref: guard:unbound-declaration
   train_id: 0203-detect-unbound-declaration
@@ -208,7 +202,6 @@ routes:
     - artifact
 - route_id: succession-loss-blocked
   category: alternate
-  category_digit: '2'
   priority: 50
   guard_ref: guard:succession-loss
   train_id: 0204-detect-succession-loss
@@ -223,7 +216,6 @@ routes:
     - artifact
 - route_id: unrealized-obligation-detected
   category: alternate
-  category_digit: '2'
   priority: 60
   guard_ref: guard:unrealized-obligation
   train_id: 0205-detect-unrealized-obligation
@@ -238,7 +230,6 @@ routes:
     - artifact
 - route_id: orphan-detector-decommissioned
   category: alternate
-  category_digit: '2'
   priority: 70
   guard_ref: guard:orphan-detector
   train_id: 0206-decommission-orphan-detector

@@ -1,0 +1,34 @@
+schema_version: 1.1.0
+rule_id: planner.train.definition
+kind: family
+status: draft
+name: Train — advisory semantic anchor
+statement: A train is an executable end-to-end system/user journey — a strictly-linear,
+  ordered sequence of steps that moves artifacts across a set of wagons from a declared
+  initial input to exactly one terminal contract, telling ONE coherent journey. This
+  is a planner domain-decomposition artifact naming WHAT journey the domain must support;
+  how the journey is run and whether it holds state at runtime are coder/tester concerns.
+  This node is an advisory semantic anchor — it enforces nothing directly; the enforceable
+  parts of this meaning are decomposed into the constraint/rule nodes that require it.
+terms:
+- term_id: semantic_anchor
+  label: Advisory semantic anchor
+  text: a definitional node that gives the artifact a stable meaning but is not itself
+    bound to a validator; it is transitively protected by the enforceable constraint/rule
+    nodes that require it.
+- term_id: train
+  label: Train
+  text: train -> {executable, linear, single-outcome, wagon-composed, initial-input,
+    single-terminal-contract}.
+  values:
+    executable: an end-to-end journey the domain can run, not a fragment.
+    linear: strictly sequential steps, no loops/routes/branching (see planner.train.linearity).
+    single-outcome: tells ONE coherent journey, 2 min / 3-7 sweet-spot wagons (see
+      planner.train.scope).
+    wagon-composed: an ordered sequence of steps between declared participants (see
+      planner.train.sequence, planner.train.participants).
+    initial-input: starts from a declared initial input and moves artifacts along (see
+      planner.train.initial-cargo-inputs-declared, planner.train.artifact-flow).
+    single-terminal-contract: the terminal step declares exactly one primary artifact,
+      the source of truth for family (see planner.train.terminal-contract, planner.train.family,
+      planner.train.family-matches-terminal-contract).
