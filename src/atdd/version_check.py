@@ -12,7 +12,11 @@ Disable sync reminder: CI=true ATDD_NO_UPGRADE_NOTICE=1 (CI only)
 import json
 import logging
 import os
+import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Optional, Tuple
@@ -343,16 +347,83 @@ def print_upgrade_sync_notice() -> None:
 
 # --- Version gate (git hook enforcement) ---
 
+_SEMVER_RE = re.compile(r"(\d+\.\d+\.\d+)")
+
+# The `atdd --version` probe must be immune to the caller's environment. The
+# pre-push hook exports PYTHONPATH=<repo>/src so that `atdd validate` runs the
+# working tree's code; if that leaked into this probe, a console script whose
+# shebang lacks `-E` would import the tree's `atdd` and resolve
+# `importlib.metadata.version("atdd")` against `src/atdd.egg-info/PKG-INFO` —
+# the very ghost the gate exists to ignore. Scrub it, and run from a neutral
+# cwd so no source tree is on the path at all.
+_PROBE_SILENCE = {"CI": "true", "ATDD_NO_UPDATE_CHECK": "1", "ATDD_NO_UPGRADE_NOTICE": "1"}
+
+
+def installed_cli_version() -> Optional[str]:
+    """Return the version of the ``atdd`` CLI on PATH — the one the operator runs.
+
+    The gate means to ask "is the CLI you are running outdated?". It must not ask
+    the working tree: ``atdd/__init__.py`` resolves
+    ``importlib.metadata.version("atdd")``, which in a source checkout picks up
+    ``src/atdd.egg-info/PKG-INFO`` — a gitignored build artifact that any
+    ``pip install -e .`` (CI does this) leaves frozen at an ancient version.
+    Worktrees were measured carrying ghosts from 3.112.0 to 4.1.1 (#1449).
+
+    Returns:
+        The semver string reported by the executable, or None when it cannot be
+        determined (no ``atdd`` on PATH, probe failure, unparseable output).
+        Callers MUST treat None as "unknowable" and fail open — never block a
+        push on a version we could not establish.
+    """
+    exe = shutil.which("atdd")
+    if not exe:
+        return None
+
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env.update(_PROBE_SILENCE)
+
+    try:
+        result = subprocess.run(
+            [exe, "--version"],
+            capture_output=True, text=True, timeout=10,
+            env=env, cwd=tempfile.gettempdir(),
+        )
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    match = _SEMVER_RE.search(result.stdout or "")
+    return match.group(1) if match else None
+
+
+def _gate_version() -> Optional[str]:
+    """The version the push gate judges, or None when it is unknowable.
+
+    None means fail OPEN. A dev/editable install legitimately reports 0.0.0
+    (#1172 makes the tree version dynamic and store-projected), and there is
+    nothing to compare it against.
+    """
+    current = installed_cli_version()
+    if not current or current == "0.0.0":
+        return None
+    return current
+
+
 def is_outdated() -> Tuple[bool, str, str]:
-    """Check if installed atdd is outdated vs PyPI (no cache).
+    """Check if the INSTALLED atdd CLI is outdated vs PyPI (no cache).
+
+    Judges the ``atdd`` executable on PATH, never the working tree (#1449).
 
     Returns:
         Tuple of (outdated, current_version, latest_version).
+        If the installed version is unknowable, returns (False, "", "") — open.
         If PyPI is unreachable, returns (False, current, "").
     """
-    current = __version__
-    if current == "0.0.0":
-        return False, current, ""
+    current = _gate_version()
+    if current is None:
+        return False, "", ""
 
     latest = _fetch_latest_version()
     if latest is None:
@@ -524,9 +595,11 @@ def _gate_main(minimum_version: Optional[str] = None) -> None:
             )
 
     if minimum_version is not None:
-        current = __version__
-        if current == "0.0.0":
-            return  # dev install always passes
+        current = _gate_version()
+        if current is None:
+            # Unknowable installed version (dev install / no atdd on PATH) —
+            # fail OPEN. Never block a push on a version we could not establish.
+            return
         if _parse_version(current) >= _parse_version(minimum_version):
             print(f"atdd {current} meets minimum_version {minimum_version}")
             return
@@ -541,7 +614,10 @@ def _gate_main(minimum_version: Optional[str] = None) -> None:
     outdated, current, latest = is_outdated()
 
     if not outdated:
-        if not latest:
+        if not current:
+            print("WARNING: Could not determine the installed atdd version "
+                  "— skipping version gate", file=sys.stderr)
+        elif not latest:
             print(f"WARNING: Could not reach PyPI — skipping version gate (atdd {current})",
                   file=sys.stderr)
         else:
