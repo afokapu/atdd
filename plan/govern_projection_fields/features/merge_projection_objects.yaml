@@ -1,0 +1,41 @@
+components:
+  backend:
+    application:
+    - count: 3
+      rationale: merge_projection_object(); classify_divergence() into identical/no-op/evidence-backed/unsafe;
+        build_conflict_report()
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: MergePolicy applying the per-field merge rule declared by the field-ownership
+        policy
+      type: policies
+    - count: 1
+      rationale: PhaseEvidenceCheck proving the further side carries evidence for
+        every skipped gate
+      type: services
+    - count: 1
+      rationale: UnsafeMergeConflict carrying field, both writers, and the failing
+        ownership or evidence rule
+      type: exceptions
+    integration:
+    - count: 1
+      rationale: conflict report renderer emitting the operator-actionable field,
+        writers, and failing rule
+      type: formatters
+    presentation:
+    - count: 1
+      rationale: the git merge-driver entrypoint taking base/ours/theirs and writing
+        the merged projection or conflicting
+      type: controllers
+description: 'The projection merge driver: auto-merge disjoint objects and the three
+  safe same-object cases, and conflict with an actionable report on every unsafe divergence.'
+sizing:
+  footprint_score: 11
+  footprint_size: L
+  wmbts: 2
+urn: feature:govern-projection-fields:merge-projection-objects
+wagon: wagon:govern-projection-fields
+wmbts:
+- wmbt:govern-projection-fields:E002
+- wmbt:govern-projection-fields:R001

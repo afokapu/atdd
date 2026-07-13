@@ -1,0 +1,62 @@
+# Shadow-mode projection CI (#1400 CORE-032, M001).
+#
+# Recomputes project(store) on every push and reports its drift against BOTH the committed
+# projection and the manifest-derived one.
+#
+# THIS JOB IS NON-BLOCKING, AND THAT IS THE POINT. It exits 0 even when it finds drift, and it is
+# deliberately absent from the required-status-check list in `.github/atdd-merge-authority-policy.yaml`.
+# A shadow check that could fail a build is a blocking check with a misleading name: it would demand
+# the trust that the shadow window exists to EARN. Flip the gate on day one and the first unnoticed
+# drift stops every merge in the repo; leave it off entirely and the drift accumulates unseen until
+# the day you do flip it, when every branch is red at once and nobody knows which one broke it.
+#
+# `atdd state canonicality` (atdd-projection-canonicality.yml) is the check that BLOCKS. When the
+# drift reported here has been zero for long enough that the team believes it, that gate becomes
+# required — see `.atdd/policy/migration-rollout.yaml`, step `blocking-mode` — and this job's job
+# is done.
+#
+# It needs no GitHub API and no provider: it reads the store, the projection, and the manifest.
+
+name: ATDD Projection Shadow
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shadow-projection:
+    name: shadow projection drift (non-blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install atdd
+        run: python -m pip install --quiet -e .
+
+      - name: Report projection drift
+        id: shadow
+        env:
+          CI: "true"
+        run: |
+          # Exits 0 by design, drift or no drift (M001). The report is the deliverable.
+          atdd state shadow --root . | tee shadow-report.txt
+
+      - name: Publish the drift report to the job summary
+        if: always()
+        run: |
+          {
+            echo '## Shadow projection drift'
+            echo
+            echo 'Non-blocking by design — this job reports, it does not gate.'
+            echo
+            echo '```'
+            cat shadow-report.txt 2>/dev/null || echo '(no report produced)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,84 @@
+urn: wmbt:enforce-merge-authority:C002
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: trailer-projection-mismatch
+context_clarifier: when the trailers claim one event and the projection diff shows another, the git event
+  log has stopped describing shared state; the cross-check binds the two so the audit log cannot drift
+  from the truth it is supposed to record
+lens: functional.effectiveness
+statement: minimize likelihood of a trailer-projection-mismatch, in which a commit's ATDD trailers and
+  the projection object diff it carries disagree on the object, the phase transition, or the projection
+  digest, or in which a projection object changes with no ATDD-Object trailer at all
+acceptances:
+- given:
+    abstract:
+    - a commit that changes `.atdd/state/projection/wi_x.yaml` and carries no ATDD-Object trailer
+    - a commit whose ATDD-Projection-Digest disagrees with the digest of the projection it commits
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: No cross-check exists, so a projection object diff carrying no ATDD-Object trailer, and a
+      trailer whose digest disagrees with the projection, are admitted
+    urn: acc:enforce-merge-authority:C002-UNIT-001-untrailed-projection-diff-is-admitted
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - the untrailed projection diff is reported as a missing ATDD-Object trailer
+    - the digest disagreement is reported, naming both digests
+    - no cross-check validator is registered, so the run fails (not_implemented)
+  when:
+    abstract: the trailer/projection cross-check validator is run over each commit
+- given:
+    abstract:
+    - a commit whose trailers and projection diff agree on object, transition, and digest
+    - commits that disagree on each of those three fields in turn
+    - a phase diff carrying no ATDD-Transition trailer
+    - a squash merge carrying an ATDD-Summary artifact plus its summary digest
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: The cross-check binds every trailer claim to the projection diff it accompanies and admits
+      only commits where the two agree
+    urn: acc:enforce-merge-authority:C002-UNIT-002-trailers-must-match-projection-diff
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - the agreeing commit is admitted
+    - each disagreement is rejected, naming the field and both sides
+    - a phase diff with no ATDD-Transition trailer is rejected
+    - the squash merge is admitted when the summary artifact digest matches, and rejected when it does
+      not
+  when:
+    abstract: the trailer/projection cross-check validator is run over each commit
+- identity:
+    urn: acc:enforce-merge-authority:C002-SMOKE-001-trailer-projection-mismatch
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: trailer-projection-mismatch holds against a real repo checkout, the installed
+      atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising trailer-projection-mismatch
+  when:
+    abstract: the C002 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - trailer-projection-mismatch is observed to hold end-to-end against real infrastructure, with no
+      mocks or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

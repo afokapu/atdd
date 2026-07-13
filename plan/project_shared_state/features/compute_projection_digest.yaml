@@ -1,0 +1,22 @@
+components:
+  backend:
+    domain:
+    - count: 1
+      rationale: projection_digest() folds the canonical bytes of the projection set
+        into one sha256 value
+      type: services
+    integration:
+    - count: 1
+      rationale: golden-fixture reader supplying the pinned canonical bytes and recorded
+        digest to the tests
+      type: stores
+description: Projection digest computed over the canonical bytes, plus golden-file
+  tests that pin those bytes and fail loudly on any unintended change (CORE-007).
+sizing:
+  footprint_score: 4
+  footprint_size: S
+  wmbts: 1
+urn: feature:project-shared-state:compute-projection-digest
+wagon: wagon:project-shared-state
+wmbts:
+- wmbt:project-shared-state:E003

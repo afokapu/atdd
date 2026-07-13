@@ -1,0 +1,25 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'scripted A/B scenario: hydrate both, author both, merge A, pull
+        B, assert B intact'
+      type: workflows
+    integration:
+    - count: 1
+      rationale: bare-git-remote fixture, no GitHub, proving the hot path is provider-free
+      type: clients
+    - count: 1
+      rationale: two-checkout fixture builder with independent local stores
+      type: repositories
+description: 'CORE-015. The A/B test over a bare git remote: after A merges, B pulls
+  and B store becomes hydrate(new HEAD projection) + replay(B overlay). No provider
+  API is contacted.'
+sizing:
+  footprint_score: 13
+  footprint_size: L
+  wmbts: 1
+urn: feature:reconcile-local-store:verify-collaboration-flow
+wagon: wagon:reconcile-local-store
+wmbts:
+- wmbt:reconcile-local-store:K001

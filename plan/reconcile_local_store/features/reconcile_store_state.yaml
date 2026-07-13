@@ -1,0 +1,41 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: 'reconcile(): hydrate-or-replay orchestration; replay_overlay():
+        apply events onto public state'
+      type: use_cases
+    - count: 1
+      rationale: backup -> hydrate -> replay -> re-project -> advance base, with rollback
+        to backup
+      type: workflows
+    domain:
+    - count: 1
+      rationale: ReplayValidator decides whether each overlay event still applies
+        to the incoming public state
+      type: services
+    - count: 1
+      rationale: ConflictReport (offending events, incoming object state, backup path)
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: read projection blobs at store_base_commit and at HEAD from git object
+        storage
+      type: repositories
+    presentation:
+    - count: 1
+      rationale: '`atdd state reconcile` subcommand: flags, exit codes, conflict-report
+        rendering'
+      type: controllers
+description: 'CORE-013. `atdd state reconcile`: no overlay means hydrate incoming;
+  otherwise back up, hydrate incoming, replay the overlay, re-project, advance base,
+  or conflict and keep the backup.'
+sizing:
+  footprint_score: 13
+  footprint_size: L
+  wmbts: 2
+urn: feature:reconcile-local-store:reconcile-store-state
+wagon: wagon:reconcile-local-store
+wmbts:
+- wmbt:reconcile-local-store:R001
+- wmbt:reconcile-local-store:R002

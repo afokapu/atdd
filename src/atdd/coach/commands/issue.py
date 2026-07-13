@@ -217,15 +217,11 @@ class IssueManager:
             return False
         return True
 
-    def _load_manifest(self) -> Dict[str, Any]:
-        """Load the manifest.yaml file."""
-        with open(self.manifest_file) as f:
-            return yaml.safe_load(f) or {}
-
-    def _save_manifest(self, manifest: Dict[str, Any]) -> None:
-        """Save the manifest.yaml file."""
-        with open(self.manifest_file, "w") as f:
-            yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
+    # _load_manifest / _save_manifest are RETIRED (#1400 CORE-034, Y002). The State Store is the
+    # source of truth for lifecycle state and the committed projection is what peers share; a
+    # reader that fell back to `.atdd/manifest.yaml` was a second source of truth that only spoke
+    # up when the first was quiet. `self.manifest_file` survives for `_commit_manifest_change`,
+    # which hands the path to `git commit` and never asks the file a question.
 
     def _commit_manifest_change(
         self,
@@ -357,8 +353,23 @@ class IssueManager:
             return str(value) if value else None
         except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             logger.debug(
-                "State Store read unavailable; falling back to manifest",
+                "State Store read unavailable; the issue resolves to nothing",
                 extra={"issue": issue_number, "field": field, "error": str(exc)},
+            )
+            return None
+
+    def _store_slug(self, issue_number: int) -> Optional[str]:
+        """The work-item slug for *issue_number*, from the store (#1400 CORE-034)."""
+        try:
+            from atdd.state.work_item_reader import WorkItemReader
+
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                entry = reader.session_entry(issue_number)
+            return str(entry["slug"]) if entry and entry.get("slug") else None
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            logger.debug(
+                "State Store read unavailable; the issue resolves to no slug",
+                extra={"issue": issue_number, "error": str(exc)},
             )
             return None
 
@@ -381,19 +392,23 @@ class IssueManager:
         return self._store_work_item_field(issue_number, "branch")
 
     def branch_is_registered(self, branch: str) -> bool:
-        """Return True if *branch*'s work item is registered (store-first).
+        """Return True if *branch*'s work item is registered — from the store alone.
 
         #1270 slice C: the store-backed replacement for the pre-commit hook's
         ``grep "slug:" .atdd/manifest.yaml``. Resolves the branch → slug (strips
         the ``prefix/`` segment; a work item is keyed in the store by its slug
-        uid), checks the State Store first, then the manifest mirror.
+        uid) and asks the State Store.
 
-        Returns True when the slug is registered, OR when the repo has nothing to
-        check against — an empty store *and* no manifest — mirroring the hook's
-        historical "no manifest ⇒ don't block" behaviour so a barely-initialised
-        repo is never falsely blocked. Returns False only when the repo IS
-        atdd-managed (store holds work items, or a manifest exists) yet the slug
-        is absent from both. Never raises; makes no GitHub calls.
+        #1400 CORE-034 (Y002): the manifest fallback that followed is retired. It made this
+        gate answer from whichever source happened to be populated — and the two could disagree,
+        which meant a branch could be "registered" to the hook and unknown to every command that
+        reads the store. One source, one answer.
+
+        Returns True when the slug is registered, OR when the store holds nothing to check
+        against — mirroring the hook's historical "nothing to check ⇒ don't block" behaviour so
+        a barely-initialised repo is never falsely blocked. Returns False only when the repo IS
+        atdd-managed (the store holds work items) yet the slug is absent. Never raises; makes no
+        GitHub calls.
         """
         slug = branch.split("/", 1)[-1] if "/" in branch else branch
         store_has_items = False
@@ -412,18 +427,12 @@ class IssueManager:
                 conn.close()
         except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             logger.debug(
-                "branch-registration store read unavailable; using manifest",
+                "branch-registration store read unavailable; nothing to check against",
                 extra={"branch": branch, "error": str(exc)},
             )
 
-        if self.manifest_file.exists():
-            manifest = self._load_manifest()
-            for session in manifest.get("sessions") or []:
-                if session.get("slug") == slug:
-                    return True
-            return False  # manifest present but slug absent → not registered
-        # No manifest: decide from the store alone. Absent from a populated store
-        # → not registered; empty store → nothing to check → do not block.
+        # Absent from a populated store → not registered; empty store → nothing to
+        # check → do not block.
         return not store_has_items
 
     def _store_update_fields(self, issue_number: int, fields: Dict[str, Any]) -> bool:
@@ -748,30 +757,20 @@ class IssueManager:
         Idempotent: sub-issues whose titles already contain ``wmbt:<wagon>:<id>``
         are left alone. Missing ones are created and linked to the parent.
 
-        Manifest requirement: the session entry for ``issue_number`` must have
-        ``wagon`` and ``feature`` fields so the backfill can resolve the feature
-        YAML and its WMBT URN list. This is intentional — sync is only safe
-        for issues whose plan artifacts are known.
+        Store requirement: the work item for ``issue_number`` must carry ``wagon``
+        and ``feature`` so the backfill can resolve the feature YAML and its WMBT
+        URN list. This is intentional — sync is only safe for issues whose plan
+        artifacts are known.
 
         Returns the number of sub-issues created, or 1 on a hard error.
         """
-        # #1270 slice B: read wagon/feature store-first (authoritative since
-        # #1203), falling back to the .atdd/manifest.yaml mirror.
+        # #1270 slice B / #1400 CORE-034 (Y002): wagon and feature come from the store, and
+        # only from the store. The manifest fallback is retired — an issue the store does not
+        # know is an issue this command cannot safely sync, and reading a stale mirror to find
+        # a plan artifact is how you create sub-issues against the wrong feature.
         wagon = self._store_work_item_field(issue_number, "wagon")
         feature_urn = self._store_work_item_field(issue_number, "feature")
-        if not wagon or not feature_urn:
-            manifest = self._load_manifest() if self.manifest_file.exists() else {}
-            entry = next(
-                (s for s in (manifest.get("sessions") or [])
-                 if s.get("issue_number") == issue_number),
-                None,
-            )
-            if entry is None and not (wagon or feature_urn):
-                print(f"Error: Issue #{issue_number} not found in store or manifest.")
-                return 1
-            if entry is not None:
-                wagon = wagon or entry.get("wagon")
-                feature_urn = feature_urn or entry.get("feature")
+        slug = self._store_slug(issue_number) or wagon
 
         if not wagon or not feature_urn:
             print(
@@ -809,7 +808,7 @@ class IssueManager:
                 wmbt_id=wmbt["id"],
                 statement=wmbt["statement"],
                 acceptances=wmbt["acceptances"],
-                test_file=f"src/atdd/coach/commands/tests/test_{wmbt['id']}_{entry.get('slug', wagon)}.py",
+                test_file=f"src/atdd/coach/commands/tests/test_{wmbt['id']}_{slug}.py",
             )
             sub_number = client.create_issue(
                 title=sub_title,

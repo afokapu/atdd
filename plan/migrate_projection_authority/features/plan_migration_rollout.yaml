@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: rollout step ordering (shadow before blocking); rollback trigger
+        plus restore procedure per irreversible step
+      type: policies
+    domain:
+    - count: 1
+      rationale: the M8 cutover exit criteria evaluated as a single pass/fail specification
+      type: specifications
+description: 'X-006: the cross-repo migration rollout and rollback plan. Stages shadow
+  mode ahead of blocking mode, names every rollback trigger and restore procedure,
+  and closes on the M8 cutover exit criteria.'
+sizing:
+  footprint_score: 7
+  footprint_size: S
+  wmbts: 2
+urn: feature:migrate-projection-authority:plan-migration-rollout
+wagon: wagon:migrate-projection-authority
+wmbts:
+- wmbt:migrate-projection-authority:P001
+- wmbt:migrate-projection-authority:K001

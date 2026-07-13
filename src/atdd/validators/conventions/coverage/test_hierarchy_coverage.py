@@ -24,6 +24,7 @@ from atdd.validators.conventions.coverage.archetype import (
     _source_has_required_target,
 )
 from atdd.validators.conventions.coverage import _parity
+from atdd.validators.conventions._support.graph_mutations import add_node, clone_graph
 
 FAMILY = "coverage"
 TEMPLATE = "source_has_required_target"
@@ -59,17 +60,25 @@ def test_fixture_valid_and_invalid() -> None:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), set(v) - set(FAILURE_EVIDENCE)
 
 
-def test_fault_injection_convention_catches() -> None:
+_PROBE_WMBT = "wmbt:validate-conventions:E998"
+
+
+def test_fault_injection_convention_catches(clean_convention_graph) -> None:
     """Inject a WMBT with no acceptances. The convention evaluator catches it.
+
+    The WMBT node is added straight to a deep clone of the session graph (#1416) — the
+    same node the on-disk ``E998.yaml`` used to add on rebuild — so the wmbt->acceptance
+    hierarchy leg fires, with no plan/ file written and the shared graph untouched.
+
     Oracle retired (#1365): the legacy hierarchy validator (phase-gated warn-only,
     a convention-only improvement) is being decommissioned; the convention path is
     the live coverage."""
-    root = _parity.repo_root()
-    rel = "plan/validate_conventions/E998.yaml"
-    content = "urn: wmbt:validate-conventions:E998\n"
+    faulted = clone_graph(clean_convention_graph)
+    add_node(faulted, id=_PROBE_WMBT, kind="wmbt", fields={"urn": _PROBE_WMBT})
 
-    with _parity.inject_tempfile(root, rel, content):
-        conv = _parity.conv_violations(root, _source_has_required_target,
-                                       {"variant": VARIANT})
-    caught = [v for v in conv if v["source_node"] == "wmbt:validate-conventions:E998"]
+    conv = _source_has_required_target(faulted, {"variant": VARIANT})
+    caught = [v for v in conv if v["source_node"] == _PROBE_WMBT]
     assert caught, "convention evaluator must catch the missing-acceptance WMBT"
+    assert set(caught[0]).issubset(set(FAILURE_EVIDENCE))
+    # the shared clean graph carried no such WMBT and stays clean
+    assert _source_has_required_target(clean_convention_graph, {"variant": VARIANT}) == []

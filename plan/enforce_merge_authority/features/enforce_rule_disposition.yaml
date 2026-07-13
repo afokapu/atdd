@@ -1,0 +1,21 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: disposition validator over authored convention nodes
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: advisory-disposition-on-a-new-rule
+      type: value_objects
+description: 'Every convention node authored by this program ships disposition: strict.
+  Advisory requires a written precondition and a named discharging issue, the shape
+  planner.contract.registry-coherence already uses.'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:enforce-merge-authority:enforce-rule-disposition
+wagon: wagon:enforce-merge-authority
+wmbts:
+- wmbt:enforce-merge-authority:C004

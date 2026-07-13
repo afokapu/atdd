@@ -1,0 +1,27 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'stamp_base_commit(): write store_base_commit + schema version on
+        hydrate'
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: StoreBaseCommit (commit sha, resolved-at-HEAD, unknown/absent sentinel)
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: sqlite metadata table read/write for store_base_commit and dirty
+        marker
+      type: stores
+description: 'CORE-010. Record store_base_commit in the local store metadata: the
+  commit the store was last hydrated from. Written on every hydrate, advanced only
+  on a successful reconcile.'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:reconcile-local-store:track-base-commit
+wagon: wagon:reconcile-local-store
+wmbts:
+- wmbt:reconcile-local-store:P001

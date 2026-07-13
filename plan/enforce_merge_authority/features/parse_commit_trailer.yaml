@@ -1,0 +1,33 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'parse_trailers(): lift a raw commit message into the schema-typed
+        trailer group, refusing a schema-violating block'
+      type: use_cases
+    domain:
+    - count: 2
+      rationale: TrailerGroup (typed ATDD-* trailers for one object); TransitionTrailer
+        (PHASE->PHASE plus token digest and gate id)
+      type: value_objects
+    - count: 1
+      rationale: TrailerParseError carrying the offending trailer key, so a malformed
+        block is refused rather than dropped
+      type: exceptions
+    integration:
+    - count: 1
+      rationale: git commit message reader mapping the raw trailer block onto the
+        trailer schema
+      type: mappers
+description: Pin the canonical ATDD commit-trailer group as a schema and parse it
+  deterministically from a commit message, including grouped multi-object and squash-merge
+  summary trailers (CORE-017).
+sizing:
+  footprint_score: 9
+  footprint_size: M
+  wmbts: 2
+urn: feature:enforce-merge-authority:parse-commit-trailer
+wagon: wagon:enforce-merge-authority
+wmbts:
+- wmbt:enforce-merge-authority:D001
+- wmbt:enforce-merge-authority:E001

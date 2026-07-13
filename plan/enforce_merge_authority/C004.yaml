@@ -1,0 +1,72 @@
+urn: wmbt:enforce-merge-authority:C004
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: advisory-disposition-on-a-new-rule
+context_clarifier: when a new validator ships advisory because the author was unsure, so a real violation
+  is reported and ignored; the projection corpus starts empty, so there is nothing to grandfather and
+  advisory is pure debt
+lens: functional.effectiveness
+statement: 'minimize likelihood of advisory-disposition-on-a-new-rule by requiring every convention node
+  this program authors to ship disposition: strict, and permitting advisory only with a written precondition
+  and a named issue that discharges it'
+acceptances:
+- given:
+    abstract:
+    - A convention node authored by train train:object-conflict-resolution:project-state
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: a new convention node may ship advisory with no stated precondition
+    urn: acc:enforce-merge-authority:C004-UNIT-001-not-implemented
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
+  then:
+    abstract:
+    - a new convention node may ship advisory with no stated precondition
+  when:
+    abstract: the disposition validator inspects its metadata
+- given:
+    abstract:
+    - A convention node authored by train train:object-conflict-resolution:project-state
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: a new convention node ships strict, or advisory with a precondition and a discharging issue
+    urn: acc:enforce-merge-authority:C004-UNIT-002-holds
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
+  then:
+    abstract:
+    - a new convention node ships strict, or advisory with a precondition and a discharging issue
+  when:
+    abstract: the disposition validator inspects its metadata
+- identity:
+    urn: acc:enforce-merge-authority:C004-SMOKE-001-advisory-disposition-on-a-new-rule
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: advisory-disposition-on-a-new-rule holds against a real repo checkout, the installed
+      atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising advisory-disposition-on-a-new-rule
+  when:
+    abstract: the C004 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - advisory-disposition-on-a-new-rule is observed to hold end-to-end against real infrastructure, with
+      no mocks or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

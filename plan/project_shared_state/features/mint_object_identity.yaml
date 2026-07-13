@@ -1,0 +1,29 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: mint_uid() on create and rename_slug() updating display metadata
+        without touching identity
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: 'ObjectUid: globally unique, never reused, immutable once minted,
+        and the sole file-naming key'
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: store adapter refusing any write that would rewrite an existing object's
+        uid
+      type: repositories
+description: 'Immutable UID minting and slug rename semantics: uid alone drives the
+  projection filename, while slug and title are mutable display metadata that never
+  move a file (CORE-009).'
+sizing:
+  footprint_score: 7
+  footprint_size: M
+  wmbts: 2
+urn: feature:project-shared-state:mint-object-identity
+wagon: wagon:project-shared-state
+wmbts:
+- wmbt:project-shared-state:E004
+- wmbt:project-shared-state:Y001

@@ -4,13 +4,17 @@ RED tests for #280 D002 — atdd issue <N> --sync-wmbts backfill path.
 WMBT covered:
 - wmbt:govern-lifecycle:D002 — acc:govern-lifecycle:D002-UNIT-001-sync-wmbts-backfill
 
-These tests exercise IssueManager.sync_wmbts() against a pure file-system
-fixture: a temp repo with a manifest session, a feature YAML, and WMBT
-YAMLs. The GitHub client double is built via
-``unittest.mock.create_autospec(GitHubClient, instance=True)`` so any
-method-name drift between the caller and the real class surface is caught
+These tests exercise IssueManager.sync_wmbts() against a temp repo holding a
+work item in the State Store, a feature YAML, and WMBT YAMLs. The GitHub client
+double is built via ``unittest.mock.create_autospec(GitHubClient, instance=True)``
+so any method-name drift between the caller and the real class surface is caught
 at call time — this file previously used a hand-rolled stub and was part
 of the #304 root cause.
+
+RETARGETED at the store (#1400 CORE-034 / Y002-UNIT-002). ``sync_wmbts`` resolved the issue's
+wagon and feature store-first with a ``.atdd/manifest.yaml`` fallback; that fallback is retired,
+so the fixture seeds the store — which is where the command has read since #1203 anyway. The
+behaviour under test (a sub-issue per WMBT URN in the feature YAML, idempotently) is unchanged.
 
 Run: PYTHONPATH=src python3 -m pytest -q src/atdd/coach/commands/tests/test_sync_wmbts.py -v
 """
@@ -74,28 +78,39 @@ def _write_atdd_config(atdd_dir: Path) -> None:
     )
 
 
-def _write_manifest_with_feature(
-    atdd_dir: Path,
+def _seed_store_with_feature(
+    repo_root: Path,
     issue_number: int,
     wagon: str,
     feature: str,
 ) -> None:
-    (atdd_dir / "manifest.yaml").write_text(
-        "version: '2.0'\n"
-        "created: '2026-04-14'\n"
-        "sessions:\n"
-        f"  - id: '{issue_number}'\n"
-        f"    slug: {feature}\n"
-        "    file: null\n"
-        f"    issue_number: {issue_number}\n"
-        "    type: implementation\n"
-        "    status: PLANNED\n"
-        "    created: '2026-04-14'\n"
-        "    archived: null\n"
-        f"    wagon: {wagon}\n"
-        f"    feature: 'feature:{wagon}:{feature}'\n",
-        encoding="utf-8",
-    )
+    """Register the work item in the State Store, carrying its wagon and feature.
+
+    #1400 CORE-034: this is where ``sync_wmbts`` reads them from. The manifest session that
+    used to stand in for this is retired — a plan artifact resolved from a stale mirror is how
+    you file sub-issues against the wrong feature.
+    """
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    conn = connect(init_state_store(start=repo_root))
+    try:
+        store = StateStore(conn)
+        store.objects.upsert(
+            feature, WORK_ITEM_KIND, state="PLANNED",
+            data={
+                "id": str(issue_number),
+                "type": "implementation",
+                "wagon": wagon,
+                "feature": f"feature:{wagon}:{feature}",
+            },
+        )
+        store.external_refs.link(
+            feature, GITHUB_PROVIDER, "issue", str(issue_number), data={"source": "test-fixture"},
+        )
+    finally:
+        conn.close()
 
 
 def _write_feature_yaml(plan_dir: Path, wagon: str, feature: str, wmbt_ids: List[str]) -> None:
@@ -142,8 +157,8 @@ def _build_fixture_repo(tmp_path: Path, issue_number: int = 270) -> Path:
     atdd_dir = tmp_path / ".atdd"
     atdd_dir.mkdir()
     _write_atdd_config(atdd_dir)
-    _write_manifest_with_feature(
-        atdd_dir,
+    _seed_store_with_feature(
+        tmp_path,
         issue_number=issue_number,
         wagon="implement-code",
         feature="enforce-train-composition",

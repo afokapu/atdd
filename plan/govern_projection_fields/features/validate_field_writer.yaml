@@ -1,0 +1,37 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: resolve_writer_identity() from commit trailers; assert_owns_every_touched_field()
+        against the policy
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: WriterOwnsField specification evaluated per touched projection field
+        path
+      type: specifications
+    - count: 1
+      rationale: WrongWriterViolation carrying field, actual writer, and the legal
+        writer from the policy
+      type: exceptions
+    integration:
+    - count: 1
+      rationale: git diff and trailer reader supplying touched projection field paths
+        and the committing identity
+      type: clients
+    presentation:
+    - count: 1
+      rationale: the bound field-writer validator CI invokes over a pushed commit
+        range, exiting non-zero on violation
+      type: validators
+description: 'The CI field-writer validator: reject a projection diff whose committing
+  writer does not own a touched field, in both directions (human writes external_refs,
+  bot writes lifecycle).'
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 1
+urn: feature:govern-projection-fields:validate-field-writer
+wagon: wagon:govern-projection-fields
+wmbts:
+- wmbt:govern-projection-fields:E001

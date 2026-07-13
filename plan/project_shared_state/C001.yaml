@@ -1,0 +1,76 @@
+urn: wmbt:project-shared-state:C001
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: nondeterministic-projection-content
+context_clarifier: when project(store) builds each projection document, wall-clock timestamps, absolute
+  host paths, and set or dict iteration order are the three known determinism leaks that must be refused
+  before any file is written
+lens: functional.availability
+statement: minimize likelihood of nondeterministic-projection-content (wall-clock timestamps, absolute
+  host paths, unstable set or dict iteration order) surviving into a committed projection file
+acceptances:
+- given:
+    abstract:
+    - A store object whose serialized document would carry a generated_at timestamp or an absolute /Users/...
+      store path
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: a projection document carrying a wall-clock timestamp or an absolute host path is rejected
+      before any write
+    urn: acc:project-shared-state:C001-UNIT-001-rejects-timestamp-and-host-path
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - A determinism error is raised naming the offending field
+    - No projection file is written for the offending object
+  when:
+    abstract: project(store, out_dir=<tmp>) is invoked
+- given:
+    abstract:
+    - A store object whose wmbts and external_refs arrive as an unordered set and dict
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: sets and dicts reaching the serializer are emitted in a total, content-derived order rather
+      than iteration order
+    urn: acc:project-shared-state:C001-UNIT-002-orders-unordered-collections
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The emitted sequence order is identical under both hash seeds
+    - The order is derived from element content, not from insertion or hash order
+  when:
+    abstract: the projection serializer is invoked on that object under two different PYTHONHASHSEED values
+- identity:
+    urn: acc:project-shared-state:C001-SMOKE-001-nondeterministic-projection-content
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: nondeterministic-projection-content holds against a real repo checkout, the
+      installed atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising nondeterministic-projection-content
+  when:
+    abstract: the C001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - nondeterministic-projection-content is observed to hold end-to-end against real infrastructure,
+      with no mocks or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

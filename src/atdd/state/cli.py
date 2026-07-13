@@ -102,6 +102,42 @@ def _build_parser() -> argparse.ArgumentParser:
                       help="Skip the PyPI query and resolve from the git tag only.")
     v_rb.add_argument("--root", default=None)
 
+    # Projection spine (#1400): object create/rename, project, hydrate, digest,
+    # canonicality. Its parsers live next to their implementation.
+    from atdd.state.projection_cli import add_parsers as add_projection_parsers
+
+    add_projection_parsers(sub)
+
+    # Reconcile spine (#1400): reconcile, freshness, overlay, author. Its parsers
+    # live next to their implementation.
+    from atdd.state.reconcile_cli import add_parsers as add_reconcile_parsers
+
+    add_reconcile_parsers(sub)
+
+    # Merge authority (#1400): trailers, merge-authority, policy-check, disposition-check.
+    # Its parsers live next to their implementation.
+    from atdd.state.merge_authority_cli import add_parsers as add_merge_authority_parsers
+
+    add_merge_authority_parsers(sub)
+
+    # Field governance (#1400): ownership-check, field-writer, merge-projection,
+    # merge-matrix-check, compact-archive. Its parsers live next to their implementation.
+    from atdd.state.govern_cli import add_parsers as add_govern_parsers
+
+    add_govern_parsers(sub)
+
+    # Provider boundary (#1400): import-boundary, conformance, providers, extensions-lock,
+    # mirror. Its parsers live next to their implementation.
+    from atdd.state.provider_cli import add_parsers as add_provider_parsers
+
+    add_provider_parsers(sub)
+
+    # Migration to projection authority (#1400): mint-uids, migrate-manifest, shadow, hot-path,
+    # manifest-fallback, cutover, runbook-check, rollout-check.
+    from atdd.state.migrate_cli import add_parsers as add_migrate_parsers
+
+    add_migrate_parsers(sub)
+
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
     t_list = trace_sub.add_parser("list", help="List Hub sessions.")
@@ -669,6 +705,39 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_version(args)
     if args.op == "trace":
         return _cmd_trace(args)
+
+    from atdd.state.projection_cli import OPS as PROJECTION_OPS, dispatch as projection_dispatch
+
+    if args.op in PROJECTION_OPS:
+        return projection_dispatch(args)
+
+    from atdd.state.reconcile_cli import OPS as RECONCILE_OPS, dispatch as reconcile_dispatch
+
+    if args.op in RECONCILE_OPS:
+        return reconcile_dispatch(args)
+
+    from atdd.state.merge_authority_cli import (
+        OPS as MERGE_AUTHORITY_OPS,
+        dispatch as merge_authority_dispatch,
+    )
+
+    if args.op in MERGE_AUTHORITY_OPS:
+        return merge_authority_dispatch(args)
+
+    from atdd.state.govern_cli import OPS as GOVERN_OPS, dispatch as govern_dispatch
+
+    if args.op in GOVERN_OPS:
+        return govern_dispatch(args)
+
+    from atdd.state.provider_cli import OPS as PROVIDER_OPS, dispatch as provider_dispatch
+
+    if args.op in PROVIDER_OPS:
+        return provider_dispatch(args)
+
+    from atdd.state.migrate_cli import OPS as MIGRATE_OPS, dispatch as migrate_dispatch
+
+    if args.op in MIGRATE_OPS:
+        return migrate_dispatch(args)
 
     parser.print_help()
     return 2

@@ -1,0 +1,79 @@
+urn: wmbt:govern-projection-fields:K001
+step: conclude
+direction: minimize
+dimension: likelihood
+object_of_control: tombstoned-object-resurrection
+context_clarifier: when an object is retired, the projection records a tombstone rather than deleting
+  the file, and later merges must refuse to bring the uid back to life
+lens: functional.sustainability
+statement: minimize likelihood of a tombstoned-object-resurrection, by recording retirement as state TOMBSTONED
+  with a reason digest, never deleting the projection file, and refusing any later merge that revives
+  the uid
+acceptances:
+- given:
+    abstract:
+    - A projection object whose state is TOMBSTONED with a reason digest
+    - A merge whose incoming side sets a live phase on that same uid
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: A tombstoned object can currently be revived by a merge that reintroduces a live phase, and
+      retirement may be expressed as file deletion
+    urn: acc:govern-projection-fields:K001-UNIT-001-red-tombstoned-object-revived
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The merge is refused with a resurrection conflict naming the uid
+    - The tombstoned projection file still exists on disk
+  when:
+    abstract: the projection merge driver is invoked on the tombstoned object
+- given:
+    abstract:
+    - A live projection object and a retirement request carrying a reason
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: Retirement writes state TOMBSTONED with a reason digest and tombstone metadata, deletes no
+      file, and any later merge reviving the uid is refused
+    urn: acc:govern-projection-fields:K001-UNIT-002-green-tombstone-is-a-record-not-a-deletion
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The projection file persists with state TOMBSTONED, a reason digest, and tombstone metadata
+    - No projection file is removed from disk by the retirement
+    - A later merge that sets a live phase on the tombstoned uid is refused with a resurrection conflict
+    - Physical removal remains available only through the separate archival compaction operation
+  when:
+    abstract: the tombstone lifecycle operation is applied and the object is then merged against a reviving
+      side
+- identity:
+    urn: acc:govern-projection-fields:K001-SMOKE-001-tombstoned-object-resurrection
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: tombstoned-object-resurrection holds against a real repo checkout, the installed
+      atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising tombstoned-object-resurrection
+  when:
+    abstract: the K001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - tombstoned-object-resurrection is observed to hold end-to-end against real infrastructure, with
+      no mocks or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'
