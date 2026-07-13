@@ -229,6 +229,87 @@ def build_enforce_substrate(tmp_path: Path, *, detector_in_extension: bool) -> P
     return tmp_path
 
 
+# A provider CLI that reports a violation only for files that genuinely CONTAIN one.
+# PROVIDER_CLI above emits one violation per scan ROOT unconditionally, so a clean
+# tree is not expressible with it — and a gate that can only ever be red proves
+# nothing. This one reads the files, so both a dirty and a clean verdict are real
+# (#1428 E002: exit 1 on a strict violation AND exit 0 on a clean tree).
+CONTENT_SENSITIVE_PROVIDER_CLI = '''\
+import argparse, json, os, sys
+from pathlib import Path
+ap = argparse.ArgumentParser()
+ap.add_argument("--impl", default=os.environ.get("ATDD_IMPL_ID"))
+ap.add_argument("--impls-root", default=None)
+ap.add_argument("scan_roots", nargs="*")
+args = ap.parse_args()
+rule_id = os.environ.get("ATDD_IMPL_ID")
+violations = []
+for root in json.loads(os.environ.get("ATDD_SCAN_ROOTS", "[]")):
+    for path in sorted(Path(root).rglob("*.py")):
+        for n, line in enumerate(path.read_text().splitlines(), start=1):
+            if "VIOLATION" in line:
+                violations.append({
+                    "rule_id": rule_id, "file": str(path), "line": n, "col": 0,
+                    "evidence": "marker found", "source_line": line,
+                })
+json.dump(violations, sys.stdout)
+'''
+
+
+def build_content_sensitive_substrate(tmp_path: Path) -> Path:
+    """A real substrate whose provider verdict DEPENDS on the code it scans.
+
+    Same shape as :func:`build_enforce_substrate` (real vendored provider CLI, real
+    bound STRICT convention node, real binding lock, real subprocess boundary) but
+    the detector actually reads the files. Yields two consumer trees:
+
+      ``dirty/``  one real violation  -> verdict FAIL -> exit 1
+      ``clean/``  no violation        -> verdict PASS -> exit 0
+    """
+    atdd = tmp_path / ".atdd"
+    ws = atdd / "workspaces" / "atdd.workspace.python-pytest" / "0.1.0"
+    (ws / "cli").mkdir(parents=True)
+    (ws / "cli" / "scan.py").write_text(CONTENT_SENSITIVE_PROVIDER_CLI, encoding="utf-8")
+    (ws / "atdd.workspace.yaml").write_text(
+        "schema_version: '1.0.0'\nkind: workspace\n"
+        "workspace_id: atdd.workspace.python-pytest\ncontract_version: '1.1.0'\n",
+        encoding="utf-8",
+    )
+
+    ext = atdd / "extensions" / "acme.extension.rules" / "0.1.0"
+    (ext / "conventions").mkdir(parents=True)
+    (ext / "conventions" / "acme.rule.owned.convention.yaml").write_text(
+        _CONVENTION_NODE, encoding="utf-8"
+    )
+
+    impl = ext / "implementations" / "owned_detector"
+    impl.mkdir(parents=True)
+    (impl / "atdd.implementation.yaml").write_text(
+        "schema_version: '1.1.0'\nkind: implementation\n"
+        "implementation_id: acme.rule.owned\n"
+        "targets_workspace: atdd.workspace.python-pytest\n"
+        "contract_version: '1.1.0'\n"
+        "realizes_convention: acme.rule.owned\n"
+        "entrypoint: detect.py\nreport: test_owned_report.py\n",
+        encoding="utf-8",
+    )
+    (impl / "test_owned_report.py").write_text("", encoding="utf-8")
+
+    (atdd / "binding.lock.yaml").write_text(
+        "schema_version: 1.0.0\nconventions:\n"
+        "- convention_id: acme.rule.owned\n  disposition: bound\n"
+        "  implementation_id: acme.rule.owned\n"
+        "  workspace_id: atdd.workspace.python-pytest\n  contract_version: 1.1.0\n",
+        encoding="utf-8",
+    )
+
+    (tmp_path / "dirty").mkdir()
+    (tmp_path / "dirty" / "bad.py").write_text("x = 1  # VIOLATION\n", encoding="utf-8")
+    (tmp_path / "clean").mkdir()
+    (tmp_path / "clean" / "ok.py").write_text("x = 1\n", encoding="utf-8")
+    return tmp_path
+
+
 def write_binding_lock(project_root: Path, conventions: list[dict]) -> Path:
     """Write a minimal ``.atdd/binding.lock.yaml`` with the given convention entries."""
     import yaml

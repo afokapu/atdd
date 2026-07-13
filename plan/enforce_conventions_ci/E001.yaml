@@ -1,0 +1,71 @@
+urn: "wmbt:enforce-conventions-ci:E001"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "advisory-enforcement-bypass"
+context_clarifier: "#1359 wired `atdd enforce` into CI but ran its VERDICT as an ADVISORY ratchet STAGE — the step carries `continue-on-error: true` and pipes the command through `|| true`, so a strict convention FAIL prints a notice and the job still reports success; the enforce-extensions job is already a member of the validate-gate fan-in, so the ONLY thing standing between a convention regression and a blocked merge is those two swallow guards; removing them promotes the job from a command nobody is accountable to into a required blocking check, which is the point of the whole train"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of advisory-enforcement-bypass by promoting the enforce-extensions CI job from an advisory stage to a required blocking check — dropping continue-on-error and the || true guard so a strict FAIL exits the job non-zero — and keeping it in the validate-gate fan-in, so a convention regression blocks the merge instead of only printing a notice"
+acceptances:
+  - identity:
+      urn: "acc:enforce-conventions-ci:E001-UNIT-001-verdict-step-carries-no-swallow-guard"
+      id: "AC-UNIT-001"
+      purpose: "the CI step that runs the `atdd enforce` verdict carries neither of the two guards that swallow a non-zero exit — no `continue-on-error: true` and no `|| true` — so the step's failure is the job's failure"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a workflow definition whose enforce verdict step is written with a swallow guard, and one written without either guard"
+    when:
+      abstract: "the blocking-check reader is asked whether each workflow's enforce verdict step is blocking"
+    then:
+      abstract:
+        - "a step carrying `continue-on-error: true` is reported as NOT blocking, naming the guard that swallows the failure"
+        - "a step whose run pipes the enforce command through `|| true` is reported as NOT blocking"
+        - "a step carrying neither guard is reported as blocking"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E001-UNIT-002-blocking-job-is-required-by-the-gate-fan-in"
+      id: "AC-UNIT-002"
+      purpose: "a blocking verdict step only blocks the MERGE if the job carrying it is a member of the validate-gate fan-in and the gate refuses a non-success result — both halves are asserted, so neither can be dropped silently"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a workflow whose validate-gate job declares the enforce job in `needs` and checks its result, and one whose gate omits the enforce job"
+    when:
+      abstract: "the fan-in reader resolves which jobs the validate-gate requires"
+    then:
+      abstract:
+        - "the enforce job is reported as required when the gate both needs it and inspects its result"
+        - "a gate that omits the enforce job from `needs` is reported as NOT requiring it, so the omission cannot pass unnoticed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E001-SMOKE-001-real-workflow-enforces-blockingly"
+      id: "AC-SMOKE-001"
+      purpose: "over the repository's REAL committed workflow, the enforce verdict runs blocking under the ratchet baseline and its job is required by the validate-gate — the live wiring that makes a convention regression block the merge"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the repository's real committed .github/workflows/atdd-validate.yml"
+    when:
+      abstract: "the real workflow's enforce verdict step and the validate-gate fan-in are read"
+    then:
+      abstract:
+        - "the enforce verdict step carries neither `continue-on-error: true` nor `|| true` — a strict FAIL exits the job non-zero"
+        - "the verdict step invokes the ratchet baseline, so the pre-existing violations are held flat rather than reding the first blocking build"
+        - "the enforce job is a member of the validate-gate `needs` fan-in and the gate fails on its non-success result"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
