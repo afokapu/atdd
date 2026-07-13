@@ -125,7 +125,50 @@ jobs:
   # Convention validator family/template/variant layer (#1204/#1206/#1212) — the
   # real-graph engine. Gates so the convention layer actually enforces in CI; a
   # prerequisite for retiring any legacy persona validator (no silent coverage loss).
+  #
+  # #1418/#1417: the suite is partitioned by mutation class and runs as TWO jobs, because
+  # xdist workers share ONE checkout — a test that rewrites a plan or convention YAML would
+  # corrupt every other worker's view of the tree. So the non-mutating majority runs here
+  # under `-n auto`, the writers run serially in `validate-conventions-serial`, and BOTH fan
+  # into validate-gate. The classification is enforced at runtime by the audit-hook guard in
+  # conventions/_support/mutation_guard.py, and the two subsets are asserted to collect
+  # exactly the un-split suite (E036) — a marker filter must never be able to drop coverage.
   validate-conventions:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      # pytest-xdist is a declared dependency in pyproject.toml, but this job installs a
+      # bare list rather than the package, so `-n auto` would be an unknown option without it.
+      - name: Install dependencies
+        run: pip3 install pytest pytest-xdist jsonschema pyyaml tree-sitter tree-sitter-typescript
+
+      - name: Run convention validators (non-mutating subset, parallel)
+        run: >-
+          PYTHONPATH=src python3 -m pytest src/atdd/validators/conventions/
+          -m "not convention_filesystem_mutation" -n auto --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The other half of the partition above: every convention test that writes the checkout (or
+  # drives a subprocess over it). These share one working tree by construction, so they run in
+  # one process, serially, and never under -n.
+  validate-conventions-serial:
     runs-on: ubuntu-latest
     if: >-
       github.event_name != 'issues' ||
@@ -148,8 +191,10 @@ jobs:
       - name: Install dependencies
         run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
 
-      - name: Run convention validators
-        run: PYTHONPATH=src python3 -m pytest src/atdd/validators/conventions/ -v --tb=short
+      - name: Run convention validators (filesystem-mutating subset, serial)
+        run: >-
+          PYTHONPATH=src python3 -m pytest src/atdd/validators/conventions/
+          -m "convention_filesystem_mutation" -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -358,7 +403,7 @@ jobs:
   # check that no longer reports.
 
   validate-gate:
-    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-smoke, import-discipline-test, parity-test, incident-defense-test, enforce-extensions]
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-conventions-serial, validate-smoke, import-discipline-test, parity-test, incident-defense-test, enforce-extensions]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -371,6 +416,7 @@ jobs:
                         "coder:${{ needs.validate-coder.result }}" \
                         "coach:${{ needs.validate-coach.result }}" \
                         "conventions:${{ needs.validate-conventions.result }}" \
+                        "conventions-serial:${{ needs.validate-conventions-serial.result }}" \
                         "smoke:${{ needs.validate-smoke.result }}" \
                         "import-discipline:${{ needs.import-discipline-test.result }}" \
                         "parity:${{ needs.parity-test.result }}" \
