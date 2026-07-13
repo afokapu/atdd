@@ -13,10 +13,10 @@ in parallel with legacy validators (imports no persona validator module).
 from __future__ import annotations
 
 from atdd.validators.conventions.resolution.archetype import TEMPLATE_IDS
-from atdd.validators.conventions.resolution._parity import (
-    evaluate_variant,
-    inject_patch,
-    repo_root,
+from atdd.validators.conventions.resolution._parity import evaluate_variant
+from atdd.validators.conventions._support.graph_mutations import (
+    clone_graph,
+    replace_field_value,
 )
 
 FAMILY = "resolution"
@@ -40,8 +40,9 @@ def test_plan_urn_resolution_variant_contract() -> None:
 # Fault: rewrite a produced contract URN's domain so neither the resource-level
 # nor the domain-level contracts/ directory resolves. The govern_lifecycle wagon
 # produces contract:commons:compliance:gate, which resolves on the clean repo.
-_WAGON_MANIFEST = "plan/govern_lifecycle/_govern_lifecycle.yaml"
-_FAULT = ("contract:commons:compliance:gate", "contract:zzznope:compliance:gate")
+_FAULT_WAGON = "govern-lifecycle"
+_CONTRACT_URN = "contract:commons:compliance:gate"
+_BROKEN_URN = "contract:zzznope:compliance:gate"
 
 # Legacy parity oracle RETIRED (#1207): the legacy validator
 # `test_plan_urn_resolution.py` was deleted once `both`-parity was proven
@@ -54,14 +55,25 @@ def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
-def test_fault_injection() -> None:
+def test_fault_injection(clean_convention_graph) -> None:
     """Inject an unresolvable contract URN; the convention path (variant evaluator:
-    produce-URN -> contracts/ dir) must catch it (legacy oracle retired, #1207)."""
-    root = repo_root()
-    with inject_patch(root, _WAGON_MANIFEST, *_FAULT):
-        evidence = evaluate_variant(TEMPLATE, VARIANT, root=root)
+    produce-URN -> contracts/ dir) must catch it (legacy oracle retired, #1207).
 
+    The produced contract URN lives under ``produce[].contract`` in the wagon node's
+    fields, so the fault is injected by :func:`replace_field_value` on a deep clone of the
+    session graph (#1416) — the domain segment is rewritten so no contracts/ directory
+    resolves, with no file written and the shared graph untouched."""
+    wagon_id = next(
+        w.id for w in clean_convention_graph.by_kind("wagon")
+        if w.fields.get("wagon") == _FAULT_WAGON
+    )
+    faulted = clone_graph(clean_convention_graph)
+    replace_field_value(faulted, wagon_id, _CONTRACT_URN, _BROKEN_URN)
+
+    evidence = evaluate_variant(TEMPLATE, VARIANT, graph=faulted)
     assert evidence, "convention path did not catch the unresolvable contract URN"
     for record in evidence:
         assert set(record).issubset(FAILURE_EVIDENCE), record
-    assert evaluate_variant(TEMPLATE, VARIANT, root=root) == []
+    assert any(r.get("artifact_ref") == _BROKEN_URN for r in evidence), evidence
+    # the shared clean graph's produced contract URN still resolves
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []

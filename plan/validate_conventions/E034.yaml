@@ -1,0 +1,89 @@
+urn: wmbt:validate-conventions:E034
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: evaluator-fault-filesystem-mutation
+context_clarifier: the remaining template-evaluator fault families (coherence, presence,
+  resolution, coverage, acyclicity) inject their faults into a deep-cloned convention
+  graph via graph_mutations instead of rewriting plan or convention YAML on disk,
+  so no working-tree file is ever mutated
+lens: functional.sustainability
+statement: minimize likelihood of evaluator-fault-filesystem-mutation by ensuring
+  the remaining template-evaluator fault families inject their faults into a deep-cloned
+  convention graph via graph_mutations instead of rewriting plan or convention YAML
+  on disk, so no working-tree file is ever mutated
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E034-RED-001-evaluator-fault-rewrites-plan-yaml
+    id: AC-RED-001
+    purpose: Before the migrated families inject into cloned graphs, an evaluator
+      fault family injects its fault by rewriting a real plan or convention YAML on
+      disk and reverting it in a finally block.
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A retained on-disk fault helper (e.g. coherence _parity.patch_file)
+    - A byte-level snapshot of the plan YAML it targets
+  when:
+    abstract: An evaluator fault variant is executed through the on-disk helper
+  then:
+    abstract:
+    - The targeted plan YAML differs from its snapshot at some point during the test
+    - A test asserting the file is byte-identical throughout therefore fails
+  metadata:
+    author: atdd:planner
+    created: '2026-07-10'
+- identity:
+    urn: acc:validate-conventions:E034-GREEN-001-evaluator-fault-injected-into-cloned-graph
+    id: AC-GREEN-001
+    purpose: The remaining template-evaluator fault families inject their faults into
+      a deep clone of the session graph via graph_mutations, producing the same violation
+      with no plan or convention YAML written.
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A _support/graph_mutations.py exposing add_node, set_node_field, remove_node_field,
+      break_ref and replace_field_value
+    - The session-scoped clean_convention_graph fixture from E032
+  when:
+    abstract: An evaluator fault variant is executed against a cloned, mutated graph
+  then:
+    abstract:
+    - The family template flags the injected fault, and only the injected node
+    - Evidence keys are a subset of the template's declared failure_evidence
+    - Every convention and plan YAML under the repo is byte-identical before and after
+    - "The session clean_convention_graph is unmutated \u2014 its node ids are unchanged"
+  metadata:
+    author: atdd:planner
+    created: '2026-07-10'
+- identity:
+    urn: acc:validate-conventions:E034-SMOKE-001-no-yaml-written-in-real-checkout
+    id: AC-SMOKE-001
+    purpose: In a real checkout, running the migrated evaluator fault families through
+      the real pytest entrypoint leaves the working tree untouched.
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout with a clean git working tree
+  when:
+    abstract: pytest is invoked as a subprocess over the migrated evaluator fault
+      families
+  then:
+    abstract:
+    - The suite exits 0
+    - git status reports no residual modification to any tracked convention or plan
+      YAML
+    - "The migrated evaluator faults are still caught \u2014 coverage is preserved,\
+      \ not removed"
+  metadata:
+    author: atdd:planner
+    created: '2026-07-10'

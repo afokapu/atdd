@@ -12,13 +12,13 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-from pathlib import Path
 
 from atdd.validators.conventions.presence import archetype, fixtures
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
-
-from .conftest import patched
+from atdd.validators.conventions._support.graph_mutations import (
+    clone_graph,
+    set_node_field,
+)
 
 FAMILY = "presence"
 TEMPLATE = "conditional_requirement"
@@ -34,9 +34,18 @@ LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_feedback_loop_smoke_c
 
 _TC = {t.template_id: t for t in archetype.TEMPLATES}
 # observe-and-correct:observer-runtime-and-rules is the live feedback-loop feature
-# whose only close_the_loop SMOKE acceptance lives in WMBT P001.
-P001_WMBT = "plan/observe_and_correct/P001.yaml"
+# whose only close_the_loop SMOKE acceptance lives in WMBT P001. Clearing that WMBT's
+# acceptances on the clone removes the feature's only close_the_loop SMOKE, so the
+# conditional-requirement evaluator flags the feature — the same outcome the on-disk
+# ``close_the_loop:`` rename produced, with nothing written to disk.
+_P001 = "wmbt:observe-and-correct:P001"
 _TARGET_FEATURE = "feature:observe-and-correct:observer-runtime-and-rules"
+
+
+def _fault(clean):
+    faulted = clone_graph(clean)
+    set_node_field(faulted, _P001, "acceptances", [])
+    return faulted
 
 
 def _evaluate(graph) -> list:
@@ -54,7 +63,7 @@ def test_feedback_loop_clean_baseline(clean_convention_graph) -> None:
     assert _evaluate(clean_convention_graph) == []
 
 
-def test_feedback_loop_fragment_catches_missing(repo_root: Path) -> None:
+def test_feedback_loop_fragment_catches_missing() -> None:
     """In-memory real-graph fragment: a feedback-loop feature whose WMBT lacks a
     close_the_loop SMOKE acceptance is caught; the with-block fragment is clean."""
     assert _evaluate(fixtures.VALID_FRAGMENTS[TEMPLATE][VARIANT]) == []
@@ -64,21 +73,23 @@ def test_feedback_loop_fragment_catches_missing(repo_root: Path) -> None:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
 
 
-def test_feedback_loop_catches_injected_fault(repo_root: Path) -> None:
-    """Disabling the close_the_loop block on the real SMOKE acceptance is caught."""
-    with patched(repo_root, P001_WMBT, "    close_the_loop:", "    close_the_loop_DISABLED:"):
-        violations = _evaluate(load_composed_graph(repo_root))
+def test_feedback_loop_catches_injected_fault(clean_convention_graph) -> None:
+    """Disabling the feature's only close_the_loop SMOKE acceptance is caught (#1416).
+
+    Injected into a deep clone of the session graph — no disk write."""
+    violations = _evaluate(_fault(clean_convention_graph))
     assert any(v["node_id"] == _TARGET_FEATURE for v in violations)
+    # the shared clean graph still satisfies the requirement
+    assert _evaluate(clean_convention_graph) == []
 
 
-def test_feedback_loop_convention_fault(repo_root: Path) -> None:
+def test_feedback_loop_convention_fault(clean_convention_graph) -> None:
     """The convention evaluator catches the injected fault (the feature's only
     close_the_loop SMOKE acceptance is disabled). Oracle retired (#1365)."""
-    with patched(repo_root, P001_WMBT, "    close_the_loop:", "    close_the_loop_DISABLED:"):
-        convention_caught = any(
-            v["node_id"] == _TARGET_FEATURE for v in _evaluate(load_composed_graph(repo_root))
-        )
+    convention_caught = any(
+        v["node_id"] == _TARGET_FEATURE for v in _evaluate(_fault(clean_convention_graph))
+    )
     # oracle retired (#1365): the convention evaluator is the live coverage
     assert convention_caught, (
-        f"convention evaluator did not catch the disabled close_the_loop SMOKE acceptance"
+        "convention evaluator did not catch the disabled close_the_loop SMOKE acceptance"
     )
