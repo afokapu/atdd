@@ -293,15 +293,26 @@ jobs:
       - name: Run incident-defense suite (§9)
         run: PYTHONPATH=src python3 -m pytest tests/incident_defenses/ -v --tb=short
 
-  # Extension-convention enforcement (#1359). Runs `atdd enforce` over the
-  # vendored, committed substrate (.atdd/{extensions,workspaces} + binding.lock).
-  # The convention VERDICT is ADVISORY (non-blocking) — a deliberate ratchet
-  # STAGE: the toolkit does not yet pass 13/25 of its own extension rules (active
-  # core debt, not legacy), so the verdict is surfaced but does not fail the
-  # build. The flip to a BLOCKING gate is a tracked follow-up (decommission #1207
-  # + extract the subagent-orchestration surface out of core). Substrate digest
-  # coherence and the gate wiring ARE blocking (real invariants). train-interlocking
-  # is deferred to #1361 (blocked on #1292/#1345).
+  # Extension-convention enforcement (#1359 wired it; #1428 made it REQUIRED).
+  # Runs `atdd enforce` over the vendored, committed substrate
+  # (.atdd/{extensions,workspaces} + binding.lock).
+  #
+  # The convention VERDICT is now BLOCKING — this job's failure fails the
+  # validate-gate fan-in and blocks the merge. That is the point of train 0007:
+  # enforcement nobody is accountable to is not enforcement.
+  #
+  # It is blocking BUT BASELINED. The toolkit does not pass its own rules today
+  # (23 of 51 enforced rules carry violations), so the verdict is judged against
+  # `.atdd/enforce-ratchet.yaml` — a per-rule violation-count DEBT REGISTER
+  # (#1428 E003). A rule at or below its recorded count is held FLAT; a rule ABOVE
+  # it, or a clean rule that starts failing, FAILS the build. The register can only
+  # ever be TIGHTENED — to pay debt down, fix violations and re-record with
+  # `atdd enforce --paths src/atdd --record-ratchet .atdd/enforce-ratchet.yaml`.
+  # NEVER raise a count to green a red build: that is precisely what this gate exists
+  # to catch.
+  #
+  # Substrate digest coherence and the gate wiring are likewise blocking (real
+  # invariants). train-interlocking is deferred to #1361 (blocked on #1292/#1345).
   enforce-extensions:
     runs-on: ubuntu-latest
     if: >-
@@ -333,18 +344,23 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
         run: PYTHONPATH=src python3 -m atdd enforce --verify-substrate --repo-root .
 
-      # Advisory (non-blocking) ratchet stage — surfaces the real PASS/FAIL verdict
-      # without failing the build. Do NOT make this blocking until the toolkit's
-      # self-debt is paid (decommission #1207 + orchestration-out-of-core).
-      - name: Enforce extension conventions (ADVISORY — ratchet stage, #1359)
-        continue-on-error: true
+      # BLOCKING (#1428 E001). No `continue-on-error`, no `|| true`: a strict
+      # convention FAIL exits non-zero, fails this job, and blocks the merge via the
+      # validate-gate fan-in.
+      #
+      # `--ratchet` is what makes that safe on day one (#1428 E003): the repository's
+      # pre-existing violations are held FLAT against the recorded baseline, so this
+      # goes green on the known debt — while any rule climbing ABOVE its baseline, or
+      # any clean rule that starts failing, reds the build.
+      - name: Enforce extension conventions (BLOCKING — ratcheted, #1428)
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
-          echo "::notice::ADVISORY extension enforcement (#1359 ratchet stage) — verdict is non-blocking until the toolkit passes its own rules."
           # Scope to the toolkit's product code (config `code.toolkit: src/atdd`);
           # avoids scanning the vendored substrate's own intentional-dirty fixtures.
-          PYTHONPATH=src python3 -m atdd enforce --repo-root . --paths src/atdd || true
+          # The baseline was recorded over this exact scope — they must not diverge.
+          PYTHONPATH=src python3 -m atdd enforce --repo-root . --paths src/atdd \
+            --ratchet .atdd/enforce-ratchet.yaml
 
       # Blocking: the gate wiring + substrate guards must hold (regression guard).
       - name: Assert enforce gate wiring

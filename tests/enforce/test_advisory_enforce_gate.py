@@ -1,19 +1,19 @@
-"""Advisory extension-enforcement gate (#1359).
+"""Extension-enforcement gate wiring (#1359 activated it; #1428 made it REQUIRED).
 
-Guards the MECHANISM #1359 activates against the vendored, committed substrate:
+Guards the MECHANISM against the vendored, committed substrate:
 
   * the canonical ``.atdd/binding.lock.yaml`` binds a real (non-no-op) coder/tester
     set, and train-interlocking is DEFERRED (#1361, blocked on #1292/#1345) — an
     unresolvable bind would break ``--verify-substrate`` and the gate;
   * ``atdd enforce --verify-substrate`` passes against the committed vendored tree
     (digest coherence — a real, blocking invariant);
-  * CI wires ``atdd enforce`` and runs its VERDICT as an ADVISORY (non-blocking)
-    ratchet stage — the toolkit does not yet pass its own extension rules, so a FAIL
-    verdict must not break the build. The flip to a BLOCKING gate is a tracked
-    follow-up (decommission #1207 + extract orchestration out of core).
+  * CI wires ``atdd enforce`` and runs its VERDICT as a BLOCKING check — no
+    ``continue-on-error``, no ``|| true`` — judged against the
+    ``.atdd/enforce-ratchet.yaml`` debt register so the toolkit's pre-existing
+    violations are held flat while any regression fails the build (#1428).
 
 These are fast + dependency-light (no tree-sitter): the heavy convention verdict is
-produced by the advisory CI step itself, visible in the CI log, not re-run here.
+produced by the blocking CI step itself, visible in the CI log, not re-run here.
 """
 from __future__ import annotations
 
@@ -92,13 +92,19 @@ def test_ci_runs_enforce_verify_substrate():
     )
 
 
-def test_ci_enforce_verdict_is_advisory():
-    """GT-900 mechanism: the `atdd enforce` VERDICT step is advisory (non-blocking ratchet stage).
+def test_ci_enforce_verdict_is_blocking():
+    """GT-900 mechanism: the `atdd enforce` VERDICT step is BLOCKING (#1428 E001).
 
     A verdict step is any `atdd enforce` invocation that is NOT `--verify-substrate`.
-    It must be non-blocking (``continue-on-error: true`` or ``|| true``) so the
-    toolkit's current self-debt (13/25 rules) does not break the build — this is an
-    explicit ratchet stage, not the destination (#1359).
+    It must carry NEITHER swallow guard — no ``continue-on-error: true``, no
+    ``|| true`` — so a strict convention FAIL exits the job non-zero and blocks the
+    merge via the validate-gate fan-in.
+
+    This INVERTS the #1359 assertion. #1359 shipped the verdict as a deliberate
+    ADVISORY ratchet STAGE because the toolkit did not pass its own rules; #1428 ends
+    that stage by pairing the flip with `.atdd/enforce-ratchet.yaml`, a per-rule
+    violation-count baseline that holds the pre-existing debt flat while failing any
+    regression. The stage was never the destination.
     """
     verdict_steps = [
         (job, step, run)
@@ -107,8 +113,17 @@ def test_ci_enforce_verdict_is_advisory():
     ]
     assert verdict_steps, "CI must run the `atdd enforce` verdict (a non --verify-substrate invocation)"
     for job, step, run in verdict_steps:
-        advisory = step.get("continue-on-error") is True or "|| true" in run
-        assert advisory, (
-            f"the `atdd enforce` verdict step in job {job!r} must be ADVISORY "
-            f"(continue-on-error: true or `|| true`) — #1359 ratchet stage"
+        assert step.get("continue-on-error") is not True, (
+            f"the `atdd enforce` verdict step in job {job!r} carries "
+            f"`continue-on-error: true` — a strict FAIL would report SUCCESS (#1428)"
+        )
+        assert "|| true" not in run, (
+            f"the `atdd enforce` verdict step in job {job!r} pipes through `|| true` "
+            f"— a strict FAIL would report SUCCESS (#1428)"
+        )
+        # Blocking WITHOUT the ratchet would red the build on pre-existing debt: the
+        # flip and the baseline are one change, never two.
+        assert "--ratchet" in run, (
+            f"the blocking `atdd enforce` verdict step in job {job!r} must judge "
+            f"against the recorded ratchet baseline (#1428 E003)"
         )

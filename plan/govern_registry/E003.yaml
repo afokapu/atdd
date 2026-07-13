@@ -49,9 +49,9 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-10"
   - identity:
-      urn: "acc:govern-registry:E003-SMOKE-001-real-advisory-path-b-blocks-real-core-deletion"
+      urn: "acc:govern-registry:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession"
       id: "AC-SMOKE-001"
-      purpose: "over the toolkit's real CI wiring Path B is advisory, so deleting a real bound-and-mirrored core rule is refused — proving the latent enforcement hole exists live"
+      purpose: "over the toolkit's real CI wiring Path B is now a BLOCKING gate (#1428 E001), so succession for a real bound-and-mirrored core rule is genuinely safe and the guard permits deleting it — while an UNBOUND twin is still refused, proving the guard was not hollowed out by the flip"
       phase: "SMOKE"
     harness:
       type: "integration"
@@ -60,11 +60,14 @@ acceptances:
       abstract:
         - "the toolkit's real enforce-extensions CI job and its real binding.lock + vendored extension nodes"
     when:
-      abstract: "whether Path B is a blocking gate is read from the real CI workflow, and the succession guard is driven for a real core rule whose extension twin is bound"
+      abstract: "whether Path B is a blocking gate is read from the real CI workflow, and the succession guard is driven for a real core rule whose extension twin is bound, and again for one whose twin is not bound"
     then:
       abstract:
-        - "Path B is found to be non-blocking (the enforce-extensions convention verdict is advisory / continue-on-error)"
-        - "the guard refuses deleting the real bound-and-mirrored core rule, naming it — its sole blocking enforcement would silently vanish"
+        - "Path B is found to be BLOCKING (the enforce-extensions convention verdict carries neither continue-on-error nor || true) — the latent enforcement hole this WMBT recorded is closed"
+        - "the guard PERMITS deleting the real bound-and-mirrored core rule: its twin is bound and blockingly enforced, so enforcement genuinely survives the deletion"
+        - "the guard still REFUSES deleting a core rule whose extension twin is not bound, naming it — a blocking gate that enforces nothing enforces nothing"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-10"
+      updated: "2026-07-13"
+      updated_by: "#1428 (enforce-conventions-ci): the guard and its WMBT are unchanged; the LIVE EVIDENCE flipped when E001 made Path B blocking. The 'bound AND blockingly enforced' conjunct that was false at authoring time is now true."
