@@ -83,14 +83,19 @@ def _load_registry(convention_path: Path) -> List[dict]:
 def _tokenize(command: str) -> Optional[List[str]]:
     """Split *command* into argv tokens; None when it cannot be parsed.
 
-    ``shlex.split`` raises on an unbalanced quote.  Callers treat None as "no
-    match" so the classifier fails OPEN (Decision 6, issue #668) rather than
-    letting a tokenizer error brick every subsequent tool call.
+    ``shlex.split`` raises on an unbalanced quote.  Returning None lets the
+    caller degrade to substring matching (block on doubt) — see ``_matches``.
+
+    A tokenizer failure is NOT a classifier crash.  A crash is our own bug and
+    must fail OPEN so the guard cannot brick every tool call (Decision 6, issue
+    #668) — that contract lives at the hook boundary and is unaffected here.
+    An untokenizable command is malformed INPUT, and allowing it outright would
+    make an unbalanced quote the bypass for the entire prohibition.
     """
     try:
         tokens = shlex.split(command)
-    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Fail open per Decision 6 in issue #668
-        _logger.warning("forbidden_command_classifier: untokenizable command, failing open: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-01
+    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Untokenizable input degrades to substring matching, not to allow
+        _logger.warning("forbidden_command_classifier: untokenizable command, falling back to substring match: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-01
         return None
     return [t.strip(_SHELL_PUNCTUATION) for t in tokens]
 
@@ -115,15 +120,24 @@ def _matches(command: str, match_spec: dict) -> bool:
     three-token run.  Scanning the whole token list rather than only the head
     keeps ``&&``/``;`` chains and leading env assignments blocked.
 
+    When the command cannot be tokenized (unbalanced quote) the argv rule
+    degrades to the substring test on the joined tokens — block on doubt.
+    Allowing outright would make ``gh issue create --title "unclosed`` a
+    one-character bypass of the whole prohibition.  The fallback is safe for
+    false positives too: an innocuous mention (``grep -rn "gh issue create"``)
+    tokenizes fine and never reaches it, so a command must be BOTH malformed
+    AND name the forbidden phrase to be blocked this way.
+
     The substring forms below are retained for rules whose targets are not
     clean argv runs (see the registry's cmux/git-config/loop rules), but any
     NEW prohibition on a plain command should use ``argv``.
     """
     if "argv" in match_spec:
+        argv = [str(t) for t in match_spec["argv"]]
         tokens = _tokenize(command)
         if tokens is None:
-            return False  # Untokenizable → fail open
-        return _has_consecutive_run(tokens, [str(t) for t in match_spec["argv"]])
+            return " ".join(argv) in command  # Untokenizable → block on doubt
+        return _has_consecutive_run(tokens, argv)
 
     if "contains" in match_spec:
         return match_spec["contains"] in command

@@ -110,9 +110,42 @@ def test_7_gh_issue_list_is_allowed(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Fail open (Decision 6, #668): a tokenizer error must never brick the agent
+# Untokenizable input: fall back to substring semantics (block on doubt)
+#
+# A TOKENIZER failure is not a classifier CRASH, and the two must not be
+# conflated.  A crash is OUR bug — the guard must fail OPEN rather than brick
+# every tool call (Decision 6, #668; pinned by
+# test_pretooluse_fail_open_on_classifier_error.py).  A tokenizer failure is
+# UNTRUSTED INPUT: the command is malformed, and allowing it outright hands an
+# attacker (or a careless agent) a trivial bypass — append an unbalanced quote
+# and shlex raises, so nothing matches, so the command runs.
+#
+# So when shlex cannot parse, the argv rule degrades to the OLD substring test
+# on the joined tokens.  That is strictly safer than allowing, and it costs
+# nothing on the false-positive front: the innocuous mentions in this file
+# (grep/commit/echo) all tokenize FINE and never reach the fallback.  A command
+# has to be BOTH malformed AND contain the forbidden phrase to be blocked here.
 # ---------------------------------------------------------------------------
 
-def test_8_unbalanced_quote_fails_open(tmp_path: Path) -> None:
+def test_8_unbalanced_quote_in_a_harmless_command_is_allowed(tmp_path: Path) -> None:
+    """The tokenizer error must not brick a command that names nothing forbidden."""
     d = _classify('echo "oops', tmp_path)  # shlex.split raises on this
-    assert d.action == "allow", "a tokenizer error must fail OPEN, not block"
+    assert d.action == "allow", "a malformed but harmless command must not be blocked"
+
+
+def test_8b_unbalanced_quote_does_not_bypass_the_guard(tmp_path: Path) -> None:
+    """An unbalanced quote must not smuggle a real invocation past the guard.
+
+    shlex.split raises here, so the consecutive-run scan cannot run.  Allowing
+    on tokenizer failure would make this the one-character bypass of the entire
+    prohibition.  The matcher degrades to substring semantics instead.
+    """
+    d = _classify('gh issue create --title "unclosed', tmp_path)
+    assert d.action == "block", "unbalanced quote is a trivial bypass if we allow"
+    assert d.rule_id == "ATDD-FORBID-GH-ISSUE-CREATE"
+
+
+def test_8c_unbalanced_quote_bypass_closed_for_gh_pr_create(tmp_path: Path) -> None:
+    d = _classify("gh pr create --body 'unclosed", tmp_path)
+    assert d.action == "block"
+    assert d.rule_id == "ATDD-FORBID-GH-PR-CREATE"

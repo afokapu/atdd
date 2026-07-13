@@ -21,6 +21,12 @@ description: |
                      command — the substring forms below FALSE-POSITIVE on
                      greps, commit messages, and docs that merely quote the
                      command.
+                     When the command cannot be tokenized (unbalanced quote),
+                     an argv rule DEGRADES to a substring test on the joined
+                     tokens — block on doubt. Allowing outright would make
+                     `gh issue create --title "unclosed` a one-character bypass
+                     of the prohibition. This is distinct from the classifier
+                     CRASH path, which still fails OPEN (see fail_behavior).
     contains       — substring that must appear in the command
     contains_all   — list of substrings that must ALL appear
     contains_any   — list of substrings where ANY one is sufficient
