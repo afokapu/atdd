@@ -742,7 +742,10 @@ class RegistryBuilder:
             with open(manifest_path) as f:
                 manifest = yaml.safe_load(f)
         except Exception as e:
-            _logger.debug("Skipping unreadable wagon manifest %s: %s", manifest_path, e)
+            _logger.debug(
+                "Skipping unreadable wagon manifest %s: %s", manifest_path, e,
+                extra={"path": str(manifest_path), "error": str(e)},
+            )
             return None
 
         slug = manifest.get("wagon", "")

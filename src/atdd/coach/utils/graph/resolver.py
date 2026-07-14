@@ -164,7 +164,10 @@ class BaseResolver(ABC):
             with open(path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
         except Exception as e:
-            LOG.debug("Skipping unreadable YAML %s: %s", path, e)
+            LOG.debug(
+                "Skipping unreadable YAML %s: %s", path, e,
+                extra={"path": str(path), "error": str(e)},
+            )
             return None
 
         return data if isinstance(data, dict) else None
@@ -473,7 +476,10 @@ class AcceptanceResolver(BaseResolver):
                     context=context,
                 ))
         except Exception as e:
-            LOG.debug("Skipping unreadable acceptance source %s: %s", yaml_file, e)
+            LOG.debug(
+                "Skipping unreadable acceptance source %s: %s", yaml_file, e,
+                extra={"path": str(yaml_file), "error": str(e)},
+            )
         return declarations
 
 
@@ -824,7 +830,10 @@ class ContractResolver(BaseResolver):
             with open(contract_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception as e:
-            LOG.debug("Skipping unreadable contract schema %s: %s", contract_file, e)
+            LOG.debug(
+                "Skipping unreadable contract schema %s: %s", contract_file, e,
+                extra={"path": str(contract_file), "error": str(e)},
+            )
             return None
 
         if not isinstance(data, dict):
@@ -900,7 +909,10 @@ class TelemetryResolver(BaseResolver):
                 else:
                     data = yaml.safe_load(f)
         except Exception as e:
-            LOG.debug("Skipping unreadable telemetry file %s: %s", telemetry_file, e)
+            LOG.debug(
+                "Skipping unreadable telemetry file %s: %s", telemetry_file, e,
+                extra={"path": str(telemetry_file), "error": str(e)},
+            )
             return ""
 
         if not isinstance(data, dict):
@@ -933,7 +945,10 @@ class TelemetryResolver(BaseResolver):
                 else:
                     data = yaml.safe_load(f)
         except Exception as e:
-            LOG.debug("Skipping unreadable telemetry file %s: %s", telemetry_file, e)
+            LOG.debug(
+                "Skipping unreadable telemetry file %s: %s", telemetry_file, e,
+                extra={"path": str(telemetry_file), "error": str(e)},
+            )
             return None
 
         if not isinstance(data, dict):
@@ -1241,7 +1256,10 @@ class TrainResolver(BaseResolver):
 
                 return yaml.safe_load(path.read_text(encoding="utf-8"))
             except Exception as e:
-                LOG.debug("Skipping unreadable alias map %s: %s", path, e)
+                LOG.debug(
+                    "Skipping unreadable alias map %s: %s", path, e,
+                    extra={"path": str(path), "error": str(e)},
+                )
                 return None
         return None
 
@@ -1490,7 +1508,10 @@ class ComponentResolver(BaseResolver):
         try:
             content = code_file.read_text(encoding="utf-8")
         except Exception as e:
-            LOG.debug("Skipping unreadable code file %s: %s", code_file, e)
+            LOG.debug(
+                "Skipping unreadable code file %s: %s", code_file, e,
+                extra={"path": str(code_file), "error": str(e)},
+            )
             return []
 
         declarations: List[URNDeclaration] = []
@@ -1586,7 +1607,10 @@ class TableResolver(BaseResolver):
         try:
             content = sql_file.read_text(encoding="utf-8")
         except Exception as e:
-            LOG.debug("Skipping unreadable SQL file %s: %s", sql_file, e)
+            LOG.debug(
+                "Skipping unreadable SQL file %s: %s", sql_file, e,
+                extra={"path": str(sql_file), "error": str(e)},
+            )
             return []
 
         return [
@@ -1723,7 +1747,10 @@ class TestResolver(BaseResolver):
         try:
             content = test_file.read_text(encoding="utf-8")
         except Exception as e:
-            LOG.debug("Skipping unreadable test file %s: %s", test_file, e)
+            LOG.debug(
+                "Skipping unreadable test file %s: %s", test_file, e,
+                extra={"path": str(test_file), "error": str(e)},
+            )
             return False
 
         for line in content.split("\n"):
@@ -1822,7 +1849,10 @@ class TestResolver(BaseResolver):
         try:
             content = test_file.read_text(encoding="utf-8")
         except Exception as e:
-            LOG.debug("Skipping unreadable test file %s: %s", test_file, e)
+            LOG.debug(
+                "Skipping unreadable test file %s: %s", test_file, e,
+                extra={"path": str(test_file), "error": str(e)},
+            )
             return []
 
         declarations: List[URNDeclaration] = []
@@ -2037,7 +2067,10 @@ class ResolverRegistry:
         try:
             content = fpath.read_text(encoding="utf-8")
         except Exception as e:
-            LOG.debug("Skipping unreadable source file %s: %s", fpath, e)
+            LOG.debug(
+                "Skipping unreadable source file %s: %s", fpath, e,
+                extra={"path": str(fpath), "error": str(e)},
+            )
             return [], [], None
 
         found_component = (

@@ -700,7 +700,8 @@ class EdgeValidator:
 
         except Exception as e:
             _logger.warning(
-                "Failed to rewrite JEL contract $id in %s: %s", contract_file, e
+                "Failed to rewrite JEL contract $id in %s: %s", contract_file, e,
+                extra={"path": str(contract_file), "error": str(e)},
             )
             return {
                 "file_path": str(contract_file),

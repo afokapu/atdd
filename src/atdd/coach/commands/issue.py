@@ -2349,16 +2349,19 @@ class IssueManager:
         issue_id: str, issue_type: Optional[str], status: str, current_train: str
     ) -> None:
         """Explain how to attach a train before transitioning past PLANNED."""
-        print(f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}")
-        print(f"  Current Train: {current_train or '(empty)'}")
-        print( "  Fix:")
-        print( "    1. cd into the issue's worktree (find via: git worktree list | grep <branch>):")
-        print( "       cd /path/to/<feat-or-fix>-<slug>")
-        print( "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")")
-        print( "    3. Run:")
-        print(f"       atdd update {issue_id} --train <train_id>   # then: atdd coach transition {issue_id} {status}")
-        print( "  Why train: implementation-type issues require lineage to a Train past PLANNED")
-        print( "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)")
+        for line in (
+            f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}",
+            f"  Current Train: {current_train or '(empty)'}",
+            "  Fix:",
+            "    1. cd into the issue's worktree (find via: git worktree list | grep <branch>):",
+            "       cd /path/to/<feat-or-fix>-<slug>",
+            "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")",
+            "    3. Run:",
+            f"       atdd update {issue_id} --train <train_id>   # then: atdd coach transition {issue_id} {status}",
+            "  Why train: implementation-type issues require lineage to a Train past PLANNED",
+            "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)",
+        ):
+            print(line)
 
     def _gate_pr_exists(
         self, issue_number: int, issue_id: str, branch: Optional[str], force: bool
@@ -2392,22 +2395,23 @@ class IssueManager:
     @staticmethod
     def _print_pr_required_help(issue_id: str, gate_branch: str) -> None:
         """Explain how to open the PR that the PLANNED gate requires."""
-        print(
+        for line in (
             f"\nError: No open PR found for branch "
-            f"'{gate_branch}' — cannot transition to PLANNED."
-        )
-        print( "  Fix:")
-        print( "    1. cd into the issue's worktree")
-        print( "       (find via: git worktree list | grep <branch>):")
-        print(f"       cd /path/to/<feat-or-fix>-<slug>")
-        print( "    2. Make at least one commit on the branch:")
-        print( "       git add <files> && git commit -m \"<message>\"")
-        print( "       git push")
-        print(f"    3. atdd pr {issue_id}")
-        print(f"    4. atdd coach transition {issue_id} PLANNED")
-        print( "  Why PR: PLANNED transition assumes the branch is reviewable;")
-        print( "          a draft PR is the canonical review surface. (See #478.)")
-        print(f"  Bypass: atdd coach transition {issue_id} PLANNED --force")
+            f"'{gate_branch}' — cannot transition to PLANNED.",
+            "  Fix:",
+            "    1. cd into the issue's worktree",
+            "       (find via: git worktree list | grep <branch>):",
+            f"       cd /path/to/<feat-or-fix>-<slug>",
+            "    2. Make at least one commit on the branch:",
+            "       git add <files> && git commit -m \"<message>\"",
+            "       git push",
+            f"    3. atdd pr {issue_id}",
+            f"    4. atdd coach transition {issue_id} PLANNED",
+            "  Why PR: PLANNED transition assumes the branch is reviewable;",
+            "          a draft PR is the canonical review surface. (See #478.)",
+            f"  Bypass: atdd coach transition {issue_id} PLANNED --force",
+        ):
+            print(line)
 
     def _gate_train_crossref(self, train: str) -> bool:
         """The --train value names a train registered in _trains.yaml."""
