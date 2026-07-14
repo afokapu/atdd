@@ -21,7 +21,7 @@ from typing import Any, Dict, List
 import pytest
 import yaml
 
-pytestmark = [pytest.mark.coach]
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 WORKFLOW_FILE = REPO_ROOT / ".github" / "workflows" / "atdd-review.yml"
