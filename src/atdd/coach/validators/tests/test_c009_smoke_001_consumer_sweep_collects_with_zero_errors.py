@@ -37,7 +37,12 @@ import pytest
 
 from ._wheel_harness import _SESSION_TMP, built_wheel, repo_root
 
-pytestmark = [pytest.mark.coach]
+# `platform` marks this a TOOLKIT-SELF test: it needs the toolkit checkout (and/or a
+# wheel built from it), which a consumer repo does not have. `atdd validate <phase>`
+# adds `-m "not platform"` outside the source repo (E025), so this is deselected there
+# and runs here. Without the marker these ship in the wheel and ERROR in every
+# consumer's sweep — the #954 self-test-leak pathology, which this issue must not add to.
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 _PHASES = ("planner", "tester", "coder", "coach")
 
