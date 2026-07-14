@@ -21,21 +21,14 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from .._fixtures import make_checkout  # re-exported: the acceptances import it from here
+
 #: The in-tree ``src/`` root, so the subprocess drives THIS working copy's CLI.
 _SRC = Path(__file__).resolve().parents[4]
 
 #: The repo this working copy lives in — the source of the runbook and the rollout plan, which the
 #: D001/P001 SMOKEs check through the shipped command against the real authored documents.
 REPO_ROOT = _SRC.parent
-
-
-def make_checkout(path: Path) -> Path:
-    """A real git worktree carrying a real Control Root marker."""
-    path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init", "--quiet", str(path)], check=True, capture_output=True)
-    (path / ".atdd").mkdir(exist_ok=True)
-    (path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    return path
 
 
 def atdd_state(root: Path, *args: str, cwd: Path | None = None) -> subprocess.CompletedProcess:

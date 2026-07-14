@@ -582,7 +582,7 @@ def check_canonicality(projection_dir: Path) -> CanonicalityReport:
     """
     projection_dir = Path(projection_dir)
     committed = _read_bytes(projection_dir)
-    with _memory_store() as store, tempfile.TemporaryDirectory() as tmp:
+    with MemoryStore() as store, tempfile.TemporaryDirectory() as tmp:
         hydrate(projection_dir, store)
         result = project(store, Path(tmp))
         canonical = {path.name: path.read_bytes() for path in result.files.values()}
@@ -592,16 +592,17 @@ def check_canonicality(projection_dir: Path) -> CanonicalityReport:
         _log.warning(
             "projection canonicality check failed",
             extra={"projection_dir": str(projection_dir),
-                   "mismatches": [m.filename for m in mismatches]},
+                "mismatches": [m.filename for m in mismatches]},
         )
     return CanonicalityReport(checked=len(committed), mismatches=mismatches)
 
 
-class _memory_store:  # noqa: N801 — a context-manager helper, used as `with _memory_store()`
+class MemoryStore:
     """An ephemeral, migrated State Store held entirely in memory.
 
     The canonicality check must touch no developer SQLite (spec §4), so it hydrates
-    into RAM and throws the connection away.
+    into RAM and throws the connection away. Shadow runs on the same terms and for the
+    same reason, so it uses this one rather than keeping a second copy of it.
     """
 
     def __enter__(self) -> StateStore:

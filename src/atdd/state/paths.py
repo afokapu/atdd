@@ -171,7 +171,14 @@ def _default_git_common_dir(start: Path) -> Optional[Path]:
             ["git", "rev-parse", "--git-common-dir"],
             cwd=str(start), capture_output=True, text=True, timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+    except (OSError, subprocess.SubprocessError) as exc:
+        # Not an error: git being absent or slow is exactly when marker-based resolution takes
+        # over. Said out loud anyway, so "we fell back" is a fact in the log rather than an
+        # inference from a resolver that quietly chose the other path.
+        _log.debug(
+            "git could not resolve the common dir; falling back to marker-based resolution",
+            extra={"start": str(start), "error": str(exc)},
+        )
         return None
     if result.returncode != 0:
         return None
