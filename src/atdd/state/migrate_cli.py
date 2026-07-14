@@ -123,8 +123,10 @@ def _cmd_mint_uids(args) -> int:
     try:
         minted, path = migration.mint_uids(migration.manifest_path(_root(args)))
     except migration.MigrationError as exc:
-        _log.warning("uids could not be minted into the legacy manifest",
-                     extra={"command": "mint-uids", "error": str(exc)})
+        _log.warning(
+            "uids could not be minted into the legacy manifest",
+            extra={"command": "mint-uids", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     print(
         f"minted {minted} uid(s) into {path}" if minted
@@ -151,8 +153,10 @@ def _cmd_migrate_manifest(args) -> int:
                             "defects": len(exc.defects)})
         return _fail(str(exc))
     except migration.MigrationError as exc:
-        _log.warning("the manifest could not be migrated",
-                     extra={"command": "migrate-manifest", "error": str(exc)})
+        _log.warning(
+            "the manifest could not be migrated",
+            extra={"command": "migrate-manifest", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     print(report.render())
     return 0
@@ -169,8 +173,10 @@ def _cmd_hot_path(args) -> int:
     try:
         report = hot_path.check(_package(args))
     except hot_path.ImportBoundaryError as exc:
-        _log.warning("the hot-path guard could not run",
-                     extra={"command": "hot-path", "error": str(exc)})
+        _log.warning(
+            "the hot-path guard could not run",
+            extra={"command": "hot-path", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -182,8 +188,10 @@ def _cmd_manifest_fallback(args) -> int:
     try:
         report = manifest_fallback.check(_package(args))
     except manifest_fallback.ManifestScanError as exc:
-        _log.warning("the manifest-fallback scan could not run",
-                     extra={"command": "manifest-fallback", "error": str(exc)})
+        _log.warning(
+            "the manifest-fallback scan could not run",
+            extra={"command": "manifest-fallback", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -207,8 +215,10 @@ def _cmd_runbook_check(args) -> int:
     try:
         report = runbook.check(_root(args))
     except FileNotFoundError as exc:
-        _log.warning("the runbook check could not run",
-                     extra={"command": "runbook-check", "error": str(exc)})
+        _log.warning(
+            "the runbook check could not run",
+            extra={"command": "runbook-check", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -220,8 +230,10 @@ def _cmd_rollout_check(args) -> int:
     try:
         report = rollout.check(_root(args))
     except rollout.RolloutError as exc:
-        _log.warning("the rollout check could not run",
-                     extra={"command": "rollout-check", "error": str(exc)})
+        _log.warning(
+            "the rollout check could not run",
+            extra={"command": "rollout-check", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())

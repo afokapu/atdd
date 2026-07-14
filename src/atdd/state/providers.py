@@ -98,6 +98,8 @@ def discover_providers() -> Dict[str, SyncProvider]:
         try:
             providers[name] = factory()
         except Exception as exc:  # noqa: BLE001 - a broken factory must not abort the rest
-            _log.warning("sync provider factory failed",
-                         extra={"provider": name, "error": str(exc)})
+            _log.warning(
+                "sync provider factory failed",
+                extra={"provider": name, "error": str(exc)},
+            )
     return providers

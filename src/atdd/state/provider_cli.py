@@ -113,8 +113,10 @@ def _cmd_import_boundary(args) -> int:
     try:
         report = import_boundary.check(package)
     except import_boundary.ImportBoundaryError as exc:
-        _log.warning("the import-boundary guard could not run",
-                     extra={"command": "import-boundary", "error": str(exc)})
+        _log.warning(
+            "the import-boundary guard could not run",
+            extra={"command": "import-boundary", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -134,8 +136,10 @@ def _conformance_in(work: Path) -> int:
     try:
         report = conformance.run_in(work)
     except conformance.ConformanceError as exc:
-        _log.warning("the conformance suite could not be set up",
-                     extra={"command": "conformance", "error": str(exc)})
+        _log.warning(
+            "the conformance suite could not be set up",
+            extra={"command": "conformance", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -147,8 +151,10 @@ def _cmd_providers(args) -> int:
     try:
         providers = _register(args)
     except (ProviderRegistryError, ImportError) as exc:
-        _log.warning("a provider could not be registered",
-                     extra={"command": "providers", "error": str(exc)})
+        _log.warning(
+            "a provider could not be registered",
+            extra={"command": "providers", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not providers:
         print("no SyncProvider is registered — core runs provider-free (spec §8.1)")
@@ -190,8 +196,10 @@ def _cmd_mirror(args) -> int:
     try:
         providers = _register(args)
     except (ProviderRegistryError, ImportError) as exc:
-        _log.warning("a provider could not be registered",
-                     extra={"command": "mirror", "error": str(exc)})
+        _log.warning(
+            "a provider could not be registered",
+            extra={"command": "mirror", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
 
     documents = read_projection(projection_dir)
@@ -201,8 +209,10 @@ def _cmd_mirror(args) -> int:
     except ProviderBoundaryError as exc:
         # A refusal at the apply path writes NOTHING, and it is still not a gate: the mirror did
         # not happen, the projection is untouched, and merge authority never knew (I7).
-        _log.warning("the mirror's write-back was refused; the projection is untouched",
-                     extra={"command": "mirror", "rule": exc.rule, "error": str(exc)})
+        _log.warning(
+            "the mirror's write-back was refused; the projection is untouched",
+            extra={"command": "mirror", "rule": exc.rule, "error": str(exc)},
+        )
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1 if args.strict else 0
 

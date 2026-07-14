@@ -148,8 +148,10 @@ def ingest_inbox(store: StateStore, providers: Mapping[str, SyncProvider]) -> In
             ingested += 1
         except Exception as exc:  # noqa: BLE001 — per-provider isolation
             errors.append(f"ingest {name}: {exc}")
-            _log.warning("provider ingest failed",
-                         extra={"provider": name, "error": str(exc)})
+            _log.warning(
+                "provider ingest failed",
+                extra={"provider": name, "error": str(exc)},
+            )
     return IngestResult(providers=len(providers), ingested=ingested,
                         skipped_no_ingest=skipped, errors=errors)
 

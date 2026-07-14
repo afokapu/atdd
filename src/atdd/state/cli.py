@@ -573,8 +573,10 @@ def _cmd_version(args) -> int:
         # must never print a value it did not write.
         resolution, conn_or_rc = _open_store(args.root)
         if resolution is None:
-            _log.warning("version reconcile-base could not open the store to persist",
-                         extra={"base": base, "git_tag": args.git_tag})
+            _log.warning(
+                "version reconcile-base could not open the store to persist",
+                extra={"base": base, "git_tag": args.git_tag},
+            )
             print("ERROR: resolved a release base but no State Store could be opened "
                   "to persist it; refusing to report a value that was not written.",
                   file=sys.stderr)
@@ -583,8 +585,10 @@ def _cmd_version(args) -> int:
         try:
             ver.set_version(conn, base)
         except ver.VersionError as exc:
-            _log.warning("version reconcile-base persist failed",
-                         extra={"error": str(exc), "base": base})
+            _log.warning(
+                "version reconcile-base persist failed",
+                extra={"error": str(exc), "base": base},
+            )
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
         finally:
@@ -672,8 +676,10 @@ def _cmd_trace(args) -> int:
             try:
                 print(_json.dumps(hub.export_trace(store, args.session), indent=2, sort_keys=True))
             except KeyError as exc:
-                _log.warning("trace export: session not found",
-                             extra={"session": args.session, "error": str(exc)})
+                _log.warning(
+                    "trace export: session not found",
+                    extra={"session": args.session, "error": str(exc)},
+                )
                 print(f"ERROR: {exc}")
                 return 1
             return 0
@@ -681,8 +687,10 @@ def _cmd_trace(args) -> int:
             try:
                 outbox_id = hub.promote_trace(store, args.session)
             except KeyError as exc:
-                _log.warning("trace promote: session not found",
-                             extra={"session": args.session, "error": str(exc)})
+                _log.warning(
+                    "trace promote: session not found",
+                    extra={"session": args.session, "error": str(exc)},
+                )
                 print(f"ERROR: {exc}")
                 return 1
             print(f"Promoted trace for {args.session} → outbox#{outbox_id}")

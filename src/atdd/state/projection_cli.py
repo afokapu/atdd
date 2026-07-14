@@ -125,8 +125,10 @@ def _cmd_object(args) -> int:
         print(f"{obj.uid}  slug={obj.data.get('slug')}  title={obj.data.get('title')}")
         return 0
     except (KeyError, ValueError) as exc:
-        _log.warning("state object op failed",
-                     extra={"op": args.object_op, "error": str(exc)})
+        _log.warning(
+            "state object op failed",
+            extra={"op": args.object_op, "error": str(exc)},
+        )
         print(f"ERROR: {exc}")
         return 1
     finally:

@@ -289,8 +289,10 @@ def check(root: Path, *, plan_path: Optional[Path] = None) -> RolloutReport:
         problems.extend(rule(plan))
 
     if problems:
-        _log.warning("the migration rollout plan is not sound",
-                     extra={"plan": str(path), "problems": [p.render() for p in problems]})
+        _log.warning(
+            "the migration rollout plan is not sound",
+            extra={"plan": str(path), "problems": [p.render() for p in problems]},
+        )
     return RolloutReport(problems=problems, plan=plan)
 
 

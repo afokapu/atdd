@@ -131,8 +131,10 @@ def _cmd_reconcile(args) -> int:
         print(f"ERROR: {exc}")
         return 1
     except ReplayConflictError as exc:
-        _log.warning("reconcile stopped with a conflict; the backup is kept",
-                     extra={"conflicts": len(exc.report.conflicts)})
+        _log.warning(
+            "reconcile stopped with a conflict; the backup is kept",
+            extra={"conflicts": len(exc.report.conflicts)},
+        )
         print(exc.report.render())
         return 1
     except DirtyStoreError as exc:
@@ -185,8 +187,10 @@ def _cmd_author(args) -> int:
     try:
         event = _AUTHOR_COMMANDS[args.author_op](conn, args)
     except (KeyError, ValueError, overlay.OverlayLogError) as exc:
-        _log.warning("authoring command failed",
-                     extra={"op": args.author_op, "error": str(exc)})
+        _log.warning(
+            "authoring command failed",
+            extra={"op": args.author_op, "error": str(exc)},
+        )
         print(f"ERROR: {exc}")
         return 1
     finally:

@@ -287,8 +287,10 @@ def mint_uids(path: Path, *, entropy: Optional[bytes] = None) -> Tuple[int, Path
             yaml.safe_dump(document, default_flow_style=False, sort_keys=False),
             encoding="utf-8",
         )
-    _log.info("minted work-item uids into the legacy manifest",
-              extra={"manifest": str(path), "minted": minted, "entries": len(sessions)})
+    _log.info(
+        "minted work-item uids into the legacy manifest",
+        extra={"manifest": str(path), "minted": minted, "entries": len(sessions)},
+    )
     return minted, path
 
 
