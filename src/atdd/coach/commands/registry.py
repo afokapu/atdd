@@ -294,8 +294,10 @@ class RegistryBuilder:
         changed_fields = []
 
         # Fields to compare
-        compare_fields = ["description", "theme", "subject", "context", "action",
-                         "goal", "outcome", "produce", "consume", "wmbt", "total"]
+        compare_fields = [
+            "description", "theme", "subject", "context", "action",
+            "goal", "outcome", "produce", "consume", "wmbt", "total",
+        ]
 
         for field in compare_fields:
             old_val = old_entry.get(field)
@@ -467,6 +469,35 @@ class RegistryBuilder:
     # CLI output formatting and user interaction
     # ========================================================================
 
+    def _print_report_banner(self):
+        """Print the shared change-report banner."""
+        print("\n" + "=" * 60)
+        print("DETAILED CHANGE REPORT")
+        print("=" * 60)
+
+    def _print_entity_changes(self, changes: List[Dict], key: str, label: str):
+        """Print the new/updated sections of a change report for one entity kind.
+
+        Args:
+            changes: List of change records
+            key: The record field naming the entity (e.g. "wagon", "artifact")
+            label: Plural display label (e.g. "WAGONS")
+        """
+        new_entries = [c for c in changes if c["type"] == "new"]
+        updated_entries = [c for c in changes if c["type"] == "updated"]
+
+        if new_entries:
+            print(f"\n🆕 NEW {label} ({len(new_entries)}):")
+            for change in sorted(new_entries, key=lambda x: x[key]):
+                print(f"  • {change[key]}")
+
+        if updated_entries:
+            print(f"\n🔄 UPDATED {label} ({len(updated_entries)}):")
+            for change in sorted(updated_entries, key=lambda x: x[key]):
+                fields = ", ".join(change["fields"])
+                print(f"  • {change[key]}")
+                print(f"    Changed fields: {fields}")
+
     def _print_change_report(self, changes: List[Dict], preserved_drafts: List[str]):
         """
         Print detailed change report.
@@ -478,27 +509,8 @@ class RegistryBuilder:
         if not changes and not preserved_drafts:
             return
 
-        print("\n" + "=" * 60)
-        print("DETAILED CHANGE REPORT")
-        print("=" * 60)
-
-        # Group changes by type
-        new_wagons = [c for c in changes if c["type"] == "new"]
-        updated_wagons = [c for c in changes if c["type"] == "updated"]
-
-        # Report new wagons
-        if new_wagons:
-            print(f"\n🆕 NEW WAGONS ({len(new_wagons)}):")
-            for change in sorted(new_wagons, key=lambda x: x["wagon"]):
-                print(f"  • {change['wagon']}")
-
-        # Report updated wagons with field changes
-        if updated_wagons:
-            print(f"\n🔄 UPDATED WAGONS ({len(updated_wagons)}):")
-            for change in sorted(updated_wagons, key=lambda x: x["wagon"]):
-                fields = ", ".join(change["fields"])
-                print(f"  • {change['wagon']}")
-                print(f"    Changed fields: {fields}")
+        self._print_report_banner()
+        self._print_entity_changes(changes, "wagon", "WAGONS")
 
         # Report unchanged wagons (synced but no changes)
         unchanged_count = len([c for c in changes if c["type"] == "updated" and not c["fields"]])
@@ -523,28 +535,8 @@ class RegistryBuilder:
         if not changes:
             return
 
-        print("\n" + "=" * 60)
-        print("DETAILED CHANGE REPORT")
-        print("=" * 60)
-
-        # Group changes by type
-        new_artifacts = [c for c in changes if c["type"] == "new"]
-        updated_artifacts = [c for c in changes if c["type"] == "updated"]
-
-        # Report new artifacts
-        if new_artifacts:
-            print(f"\n🆕 NEW ARTIFACTS ({len(new_artifacts)}):")
-            for change in sorted(new_artifacts, key=lambda x: x["artifact"]):
-                print(f"  • {change['artifact']}")
-
-        # Report updated artifacts with field changes
-        if updated_artifacts:
-            print(f"\n🔄 UPDATED ARTIFACTS ({len(updated_artifacts)}):")
-            for change in sorted(updated_artifacts, key=lambda x: x["artifact"]):
-                fields = ", ".join(change["fields"])
-                print(f"  • {change['artifact']}")
-                print(f"    Changed fields: {fields}")
-
+        self._print_report_banner()
+        self._print_entity_changes(changes, "artifact", "ARTIFACTS")
         print("\n" + "=" * 60)
 
     def _print_telemetry_change_report(self, changes: List[Dict]):
@@ -557,28 +549,8 @@ class RegistryBuilder:
         if not changes:
             return
 
-        print("\n" + "=" * 60)
-        print("DETAILED CHANGE REPORT")
-        print("=" * 60)
-
-        # Group changes by type
-        new_signals = [c for c in changes if c["type"] == "new"]
-        updated_signals = [c for c in changes if c["type"] == "updated"]
-
-        # Report new signals
-        if new_signals:
-            print(f"\n🆕 NEW SIGNALS ({len(new_signals)}):")
-            for change in sorted(new_signals, key=lambda x: x["signal"]):
-                print(f"  • {change['signal']}")
-
-        # Report updated signals with field changes
-        if updated_signals:
-            print(f"\n🔄 UPDATED SIGNALS ({len(updated_signals)}):")
-            for change in sorted(updated_signals, key=lambda x: x["signal"]):
-                fields = ", ".join(change["fields"])
-                print(f"  • {change['signal']}")
-                print(f"    Changed fields: {fields}")
-
+        self._print_report_banner()
+        self._print_entity_changes(changes, "signal", "SIGNALS")
         print("\n" + "=" * 60)
 
     # ========================================================================
@@ -744,27 +716,9 @@ class RegistryBuilder:
             existing_wagons = {}
 
         drifted: List[str] = []
-
         for rel_path in touched_sources:
-            manifest_path = self.repo_root / rel_path
-            if not manifest_path.exists():
-                continue
-            try:
-                with open(manifest_path) as f:
-                    manifest = yaml.safe_load(f)
-            except Exception:
-                continue
-
-            slug = manifest.get("wagon", "")
-            if not slug:
-                continue
-
-            current = existing_wagons.get(slug)
-            if current is None:
-                drifted.append(slug)
-                continue
-
-            if manifest.get("description", "") != current.get("description", ""):
+            slug = self._drifted_wagon_slug(rel_path, existing_wagons)
+            if slug:
                 drifted.append(slug)
 
         if drifted:
@@ -777,6 +731,30 @@ class RegistryBuilder:
 
         print(f"✅ GT-002 scoped check: {len(touched_sources)} wagon source(s) checked, all in sync")
         return {"has_changes": False, "drifted_wagons": []}
+
+    def _drifted_wagon_slug(self, rel_path: str, existing_wagons: Dict) -> Optional[str]:
+        """Slug of a wagon whose source drifted from the aggregate entry, else None."""
+        manifest_path = self.repo_root / rel_path
+        if not manifest_path.exists():
+            return None
+
+        try:
+            with open(manifest_path) as f:
+                manifest = yaml.safe_load(f)
+        except Exception as e:
+            _logger.debug("Skipping unreadable wagon manifest %s: %s", manifest_path, e)
+            return None
+
+        slug = manifest.get("wagon", "")
+        if not slug:
+            return None
+
+        current = existing_wagons.get(slug)
+        if current is None:
+            return slug
+        if manifest.get("description", "") != current.get("description", ""):
+            return slug
+        return None
 
     def update_contract_registry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
@@ -1332,15 +1310,21 @@ class RegistryBuilder:
             stats["changes"].append({key: entity_id, "type": "updated", "fields": changed_fields})
 
     def _preserve_orphan_entries(
-        self, existing: Dict, entries: List[Dict], stats: Dict, id_key: str = "id"
+        self,
+        existing: Dict,
+        entries: List[Dict],
+        stats: Dict,
+        id_key: str = "id",
+        path_key: str = "path",
     ) -> None:
         """Carry over registry entries that are drafts or whose source file is gone."""
         already_built = {e.get(id_key) for e in entries}
         for entity_id, entity in existing.items():
             if entity_id in already_built:
                 continue
-            path_exists = entity.get("path") and (self.repo_root / entity.get("path")).exists()
-            if entity.get("draft", False) or not path_exists:
+            source = entity.get(path_key)
+            source_exists = source and (self.repo_root / source).exists()
+            if entity.get("draft", False) or not source_exists:
                 entries.append(entity)
                 stats["preserved_drafts"] += 1
 
@@ -1417,18 +1401,30 @@ class RegistryBuilder:
         if items:
             return None
         try:
-            if registry_path.exists():
-                existing = yaml.safe_load(registry_path.read_text()) or {}
-                if not any(existing.get(k) for k in ("tests", "functions", "implementations")):
-                    registry_path.unlink()
-                    d = registry_path.parent
-                    while d != self.repo_root and d.exists() and not any(d.iterdir()):
-                        d.rmdir()
-                        d = d.parent
+            self._remove_empty_stub(registry_path)
         except OSError as exc:
             _logger.debug("empty-stub cleanup skipped", extra={"kind": kind, "error": str(exc)})
         print(f"  (no {kind} artifacts — skipping; extension-domain registry not stubbed)")
         return {"registry": kind, "skipped": True, "stats": stats}
+
+    def _remove_empty_stub(self, registry_path: Path) -> None:
+        """Delete an existing *empty* registry stub, plus the dirs it leaves behind."""
+        if not registry_path.exists():
+            return
+
+        existing = yaml.safe_load(registry_path.read_text()) or {}
+        if any(existing.get(k) for k in ("tests", "functions", "implementations")):
+            return
+
+        registry_path.unlink()
+        self._prune_empty_parents(registry_path.parent)
+
+    def _prune_empty_parents(self, start: Path) -> None:
+        """Remove now-empty parent dirs, walking up to (not including) the repo root."""
+        d = start
+        while d != self.repo_root and d.exists() and not any(d.iterdir()):
+            d.rmdir()
+            d = d.parent
 
     def build_tester(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
@@ -1452,7 +1448,6 @@ class RegistryBuilder:
                 registry_data = yaml.safe_load(f)
                 existing_tests = {t.get("urn"): t for t in registry_data.get("tests", [])}
 
-        tests = []
         stats = {
             "total_files": 0,
             "processed": 0,
@@ -1464,61 +1459,14 @@ class RegistryBuilder:
         }
 
         # Scan for test files
-        if self.tester_dir.exists():
-            test_files = list(self.tester_dir.glob("**/*_test.py"))
-            test_files.extend(list(self.tester_dir.glob("**/test_*.py")))
-            test_files = [f for f in test_files if not f.name.startswith("_")]
-            stats["total_files"] = len(test_files)
-
-            for test_file in sorted(test_files):
-                try:
-                    with open(test_file) as f:
-                        content = f.read()
-
-                    urns = re.findall(r'URN:\s*(\S+)', content)
-                    spec_urns = re.findall(r'Spec:\s*(\S+)', content)
-                    acceptance_urns = re.findall(r'Acceptance:\s*(\S+)', content)
-
-                    rel_path = test_file.relative_to(self.tester_dir)
-                    wagon = rel_path.parts[0] if len(rel_path.parts) > 1 else "unknown"
-
-                    for urn in urns:
-                        test_entry = {
-                            "urn": urn,
-                            "file": str(test_file.relative_to(self.repo_root)),
-                            "wagon": wagon
-                        }
-
-                        if spec_urns:
-                            test_entry["spec_urn"] = spec_urns[0]
-                        if acceptance_urns:
-                            test_entry["acceptance_urn"] = acceptance_urns[0]
-
-                        if urn in existing_tests:
-                            stats["updated"] += 1
-                        else:
-                            stats["new"] += 1
-                            stats["changes"].append({
-                                "test": urn,
-                                "type": "new",
-                                "fields": ["all fields (new test)"]
-                            })
-
-                        tests.append(test_entry)
-                        stats["processed"] += 1
-
-                except Exception as e:
-                    print(f"  ⚠️  Error processing {test_file}: {e}")
-                    stats["errors"] += 1
+        test_files = self._collect_tester_files()
+        stats["total_files"] = len(test_files)
+        tests = self._scan_test_files(test_files, existing_tests, stats)
 
         # Preserve draft tests (file doesn't exist or draft: true)
-        for urn, test in existing_tests.items():
-            is_draft = test.get("draft", False)
-            file_exists = test.get("file") and (self.repo_root / test.get("file")).exists()
-            if is_draft or not file_exists:
-                if urn not in [t.get("urn") for t in tests]:
-                    tests.append(test)
-                    stats["preserved_drafts"] += 1
+        self._preserve_orphan_entries(
+            existing_tests, tests, stats, id_key="urn", path_key="file"
+        )
 
         # Show preview
         print(f"\n📋 PREVIEW:")
@@ -1534,6 +1482,68 @@ class RegistryBuilder:
             return skip
         output = {"tests": tests}
         return self._confirm_and_apply(mode, "tester", registry_path, output, stats)
+
+    def _collect_tester_files(self) -> List[Path]:
+        """Test files under the tester dir, ignoring private (_-prefixed) modules."""
+        if not self.tester_dir.exists():
+            return []
+
+        test_files = list(self.tester_dir.glob("**/*_test.py"))
+        test_files.extend(self.tester_dir.glob("**/test_*.py"))
+        return [f for f in test_files if not f.name.startswith("_")]
+
+    def _scan_test_files(
+        self, test_files: List[Path], existing_tests: Dict, stats: Dict
+    ) -> List[Dict[str, Any]]:
+        """Build registry entries for every URN declared across the test files."""
+        tests: List[Dict[str, Any]] = []
+        for test_file in sorted(test_files):
+            try:
+                tests.extend(self._extract_test_entries(test_file, existing_tests, stats))
+            except Exception as e:
+                print(f"  ⚠️  Error processing {test_file}: {e}")
+                stats["errors"] += 1
+        return tests
+
+    def _extract_test_entries(
+        self, test_file: Path, existing_tests: Dict, stats: Dict
+    ) -> List[Dict[str, Any]]:
+        """Build one registry entry per URN declared in a single test file."""
+        with open(test_file) as f:
+            content = f.read()
+
+        urns = re.findall(r'URN:\s*(\S+)', content)
+        spec_urns = re.findall(r'Spec:\s*(\S+)', content)
+        acceptance_urns = re.findall(r'Acceptance:\s*(\S+)', content)
+
+        rel_path = test_file.relative_to(self.tester_dir)
+        wagon = rel_path.parts[0] if len(rel_path.parts) > 1 else "unknown"
+
+        entries = []
+        for urn in urns:
+            test_entry = {
+                "urn": urn,
+                "file": str(test_file.relative_to(self.repo_root)),
+                "wagon": wagon
+            }
+            if spec_urns:
+                test_entry["spec_urn"] = spec_urns[0]
+            if acceptance_urns:
+                test_entry["acceptance_urn"] = acceptance_urns[0]
+
+            if urn in existing_tests:
+                stats["updated"] += 1
+            else:
+                stats["new"] += 1
+                stats["changes"].append({
+                    "test": urn,
+                    "type": "new",
+                    "fields": ["all fields (new test)"]
+                })
+
+            entries.append(test_entry)
+            stats["processed"] += 1
+        return entries
 
     def build_coder(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
@@ -1557,7 +1567,6 @@ class RegistryBuilder:
                 registry_data = yaml.safe_load(f)
                 existing_impls = {i.get("urn"): i for i in registry_data.get("implementations", [])}
 
-        implementations = []
         stats = {
             "total_files": 0,
             "processed": 0,
@@ -1569,84 +1578,14 @@ class RegistryBuilder:
         }
 
         # Scan for Python implementation files
-        if self.python_dir.exists():
-            py_files = list(self.python_dir.glob("**/*.py"))
-            py_files = [
-                f for f in py_files
-                if not f.name.startswith("_")
-                and "__pycache__" not in str(f)
-                and "/tests/" not in str(f)
-                and "/test/" not in str(f)
-                and not f.name.endswith("_test.py")
-                and not f.name.startswith("test_")
-            ]
-            stats["total_files"] = len(py_files)
-
-            for py_file in sorted(py_files):
-                try:
-                    with open(py_file) as f:
-                        content = f.read()
-
-                    spec_urns = re.findall(r'Spec:\s*(\S+)', content)
-                    test_urns = re.findall(r'Test:\s*(\S+)', content)
-
-                    rel_path = py_file.relative_to(self.python_dir)
-                    parts = rel_path.parts
-
-                    wagon = parts[0] if len(parts) > 0 else "unknown"
-                    layer = "unknown"
-
-                    if "domain" in str(py_file):
-                        layer = "domain"
-                    elif "application" in str(py_file):
-                        layer = "application"
-                    elif "integration" in str(py_file) or "infrastructure" in str(py_file):
-                        layer = "integration"
-                    elif "presentation" in str(py_file):
-                        layer = "presentation"
-
-                    component = py_file.stem
-                    impl_urn = f"impl:{wagon}:{layer}:{component}:python"
-
-                    impl_entry = {
-                        "urn": impl_urn,
-                        "file": str(py_file.relative_to(self.repo_root)),
-                        "wagon": wagon,
-                        "layer": layer,
-                        "component_type": "entity",
-                        "language": "python"
-                    }
-
-                    if spec_urns:
-                        impl_entry["spec_urn"] = spec_urns[0]
-                    if test_urns:
-                        impl_entry["test_urn"] = test_urns[0]
-
-                    if impl_urn in existing_impls:
-                        stats["updated"] += 1
-                    else:
-                        stats["new"] += 1
-                        stats["changes"].append({
-                            "impl": impl_urn,
-                            "type": "new",
-                            "fields": ["all fields (new implementation)"]
-                        })
-
-                    implementations.append(impl_entry)
-                    stats["processed"] += 1
-
-                except Exception as e:
-                    print(f"  ⚠️  Error processing {py_file}: {e}")
-                    stats["errors"] += 1
+        py_files = self._collect_coder_files()
+        stats["total_files"] = len(py_files)
+        implementations = self._scan_python_files(py_files, existing_impls, stats)
 
         # Preserve draft implementations (file doesn't exist or draft: true)
-        for urn, impl in existing_impls.items():
-            is_draft = impl.get("draft", False)
-            file_exists = impl.get("file") and (self.repo_root / impl.get("file")).exists()
-            if is_draft or not file_exists:
-                if urn not in [i.get("urn") for i in implementations]:
-                    implementations.append(impl)
-                    stats["preserved_drafts"] += 1
+        self._preserve_orphan_entries(
+            existing_impls, implementations, stats, id_key="urn", path_key="file"
+        )
 
         # Show preview
         print(f"\n📋 PREVIEW:")
@@ -1659,6 +1598,89 @@ class RegistryBuilder:
         # Use helper for confirm/apply
         output = {"implementations": implementations}
         return self._confirm_and_apply(mode, "coder", registry_path, output, stats)
+
+    def _collect_coder_files(self) -> List[Path]:
+        """Python implementation files, excluding private modules, caches and tests."""
+        if not self.python_dir.exists():
+            return []
+
+        return [
+            f for f in self.python_dir.glob("**/*.py")
+            if not f.name.startswith("_")
+            and "__pycache__" not in str(f)
+            and "/tests/" not in str(f)
+            and "/test/" not in str(f)
+            and not f.name.endswith("_test.py")
+            and not f.name.startswith("test_")
+        ]
+
+    def _detect_impl_layer(self, py_file: Path) -> str:
+        """Infer which architectural layer an implementation file belongs to."""
+        path_str = str(py_file)
+        if "domain" in path_str:
+            return "domain"
+        if "application" in path_str:
+            return "application"
+        if "integration" in path_str or "infrastructure" in path_str:
+            return "integration"
+        if "presentation" in path_str:
+            return "presentation"
+        return "unknown"
+
+    def _scan_python_files(
+        self, py_files: List[Path], existing_impls: Dict, stats: Dict
+    ) -> List[Dict[str, Any]]:
+        """Build a registry entry per Python implementation file."""
+        implementations: List[Dict[str, Any]] = []
+        for py_file in sorted(py_files):
+            try:
+                implementations.append(
+                    self._build_impl_entry(py_file, existing_impls, stats)
+                )
+                stats["processed"] += 1
+            except Exception as e:
+                print(f"  ⚠️  Error processing {py_file}: {e}")
+                stats["errors"] += 1
+        return implementations
+
+    def _build_impl_entry(
+        self, py_file: Path, existing_impls: Dict, stats: Dict
+    ) -> Dict[str, Any]:
+        """Build one coder registry entry from a Python implementation file."""
+        with open(py_file) as f:
+            content = f.read()
+
+        spec_urns = re.findall(r'Spec:\s*(\S+)', content)
+        test_urns = re.findall(r'Test:\s*(\S+)', content)
+
+        parts = py_file.relative_to(self.python_dir).parts
+        wagon = parts[0] if len(parts) > 0 else "unknown"
+        layer = self._detect_impl_layer(py_file)
+        impl_urn = f"impl:{wagon}:{layer}:{py_file.stem}:python"
+
+        impl_entry = {
+            "urn": impl_urn,
+            "file": str(py_file.relative_to(self.repo_root)),
+            "wagon": wagon,
+            "layer": layer,
+            "component_type": "entity",
+            "language": "python"
+        }
+        if spec_urns:
+            impl_entry["spec_urn"] = spec_urns[0]
+        if test_urns:
+            impl_entry["test_urn"] = test_urns[0]
+
+        if impl_urn in existing_impls:
+            stats["updated"] += 1
+        else:
+            stats["new"] += 1
+            stats["changes"].append({
+                "impl": impl_urn,
+                "type": "new",
+                "fields": ["all fields (new implementation)"]
+            })
+        return impl_entry
 
     def build_supabase(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
@@ -1682,7 +1704,6 @@ class RegistryBuilder:
                 registry_data = yaml.safe_load(f)
                 existing_funcs = {fn.get("id"): fn for fn in registry_data.get("functions", [])}
 
-        functions = []
         stats = {
             "total_dirs": 0,
             "processed": 0,
@@ -1695,51 +1716,16 @@ class RegistryBuilder:
 
         # Scan for function directories
         functions_dir = self.supabase_dir / "functions"
-        if functions_dir.exists():
-            func_dirs = [d for d in functions_dir.iterdir() if d.is_dir()]
-            stats["total_dirs"] = len(func_dirs)
-
-            for func_dir in sorted(func_dirs):
-                try:
-                    func_id = func_dir.name
-                    index_file = func_dir / "index.ts"
-
-                    if not index_file.exists():
-                        continue
-
-                    rel_path = str(index_file.relative_to(self.repo_root))
-
-                    func_entry = {
-                        "id": func_id,
-                        "path": rel_path,
-                        "description": f"Supabase function: {func_id}"
-                    }
-
-                    if func_id in existing_funcs:
-                        stats["updated"] += 1
-                    else:
-                        stats["new"] += 1
-                        stats["changes"].append({
-                            "function": func_id,
-                            "type": "new",
-                            "fields": ["all fields (new function)"]
-                        })
-
-                    functions.append(func_entry)
-                    stats["processed"] += 1
-
-                except Exception as e:
-                    print(f"  ⚠️  Error processing {func_dir}: {e}")
-                    stats["errors"] += 1
+        func_dirs = (
+            [d for d in functions_dir.iterdir() if d.is_dir()]
+            if functions_dir.exists()
+            else []
+        )
+        stats["total_dirs"] = len(func_dirs)
+        functions = self._scan_supabase_functions(func_dirs, existing_funcs, stats)
 
         # Preserve draft functions (path doesn't exist or draft: true)
-        for func_id, func in existing_funcs.items():
-            is_draft = func.get("draft", False)
-            path_exists = func.get("path") and (self.repo_root / func.get("path")).exists()
-            if is_draft or not path_exists:
-                if func_id not in [fn.get("id") for fn in functions]:
-                    functions.append(func)
-                    stats["preserved_drafts"] += 1
+        self._preserve_orphan_entries(existing_funcs, functions, stats)
 
         # Show preview
         print(f"\n📋 PREVIEW:")
@@ -1753,6 +1739,35 @@ class RegistryBuilder:
             return skip
         output = {"functions": functions}
         return self._confirm_and_apply(mode, "supabase", registry_path, output, stats)
+
+    def _scan_supabase_functions(
+        self, func_dirs: List[Path], existing_funcs: Dict, stats: Dict
+    ) -> List[Dict[str, Any]]:
+        """Build a registry entry per supabase function directory holding an index.ts."""
+        functions: List[Dict[str, Any]] = []
+        for func_dir in sorted(func_dirs):
+            try:
+                index_file = func_dir / "index.ts"
+                if not index_file.exists():
+                    continue
+
+                func_id = func_dir.name
+                changed = None if func_id not in existing_funcs else []
+                self._record_registry_change(
+                    stats, "function", func_id, changed, "all fields (new function)"
+                )
+
+                functions.append({
+                    "id": func_id,
+                    "path": str(index_file.relative_to(self.repo_root)),
+                    "description": f"Supabase function: {func_id}"
+                })
+                stats["processed"] += 1
+
+            except Exception as e:
+                print(f"  ⚠️  Error processing {func_dir}: {e}")
+                stats["errors"] += 1
+        return functions
 
     def build_python_manifest(self, preview_only: bool = False) -> Dict[str, Any]:
         """
@@ -1770,13 +1785,7 @@ class RegistryBuilder:
             return {"total_modules": 0, "manifest_created": False}
 
         # Discover Python modules
-        modules = []
-        for item in self.python_dir.iterdir():
-            if item.is_dir() and not item.name.startswith('.') and not item.name.startswith('_'):
-                if (item / '__init__.py').exists() or any(item.rglob('*.py')):
-                    modules.append(item.name)
-
-        modules = sorted(modules)
+        modules = self._discover_python_modules()
 
         stats = {
             "total_modules": len(modules),
@@ -1784,7 +1793,54 @@ class RegistryBuilder:
         }
 
         # Generate manifest data structure
-        manifest_data = {
+        manifest_data = self._python_manifest_data(modules)
+
+        # Show preview
+        print(f"\n📋 PREVIEW:")
+        print(f"  • {stats['total_modules']} Python modules discovered")
+        print(f"  • Modules: {', '.join(modules)}")
+
+        if preview_only:
+            print("\n⚠️  Preview mode - no changes applied")
+            return stats
+
+        # Ask for confirmation
+        print("\n❓ Do you want to generate python/_manifest.yaml?")
+        print("   Type 'yes' to confirm, or anything else to cancel:")
+        response = input("   > ").strip().lower()
+
+        if response != "yes":
+            print("\n❌ Manifest generation cancelled by user")
+            stats["cancelled"] = True
+            return stats
+
+        # Write manifest
+        manifest_path = self.python_dir / "_manifest.yaml"
+        with open(manifest_path, "w") as f:
+            yaml.dump(manifest_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+        stats["manifest_created"] = True
+
+        print(f"\n✅ Python manifest generated successfully!")
+        print(f"  • Discovered {stats['total_modules']} modules")
+        print(f"  • Modules: {', '.join(modules)}")
+        print(f"  📝 Manifest: {manifest_path}")
+
+        return stats
+
+    def _discover_python_modules(self) -> List[str]:
+        """Package directories under python/ that actually contain Python sources."""
+        modules = []
+        for item in self.python_dir.iterdir():
+            if not item.is_dir() or item.name.startswith(('.', '_')):
+                continue
+            if (item / '__init__.py').exists() or any(item.rglob('*.py')):
+                modules.append(item.name)
+        return sorted(modules)
+
+    def _python_manifest_data(self, modules: List[str]) -> Dict[str, Any]:
+        """The python/_manifest.yaml document generated for the discovered modules."""
+        return {
             "project": {
                 "name": "jel-extractor",
                 "version": "0.1.0",
@@ -1819,39 +1875,6 @@ class RegistryBuilder:
                 "target_version": "py310"
             }
         }
-
-        # Show preview
-        print(f"\n📋 PREVIEW:")
-        print(f"  • {stats['total_modules']} Python modules discovered")
-        print(f"  • Modules: {', '.join(modules)}")
-
-        if preview_only:
-            print("\n⚠️  Preview mode - no changes applied")
-            return stats
-
-        # Ask for confirmation
-        print("\n❓ Do you want to generate python/_manifest.yaml?")
-        print("   Type 'yes' to confirm, or anything else to cancel:")
-        response = input("   > ").strip().lower()
-
-        if response != "yes":
-            print("\n❌ Manifest generation cancelled by user")
-            stats["cancelled"] = True
-            return stats
-
-        # Write manifest
-        manifest_path = self.python_dir / "_manifest.yaml"
-        with open(manifest_path, "w") as f:
-            yaml.dump(manifest_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-        stats["manifest_created"] = True
-
-        print(f"\n✅ Python manifest generated successfully!")
-        print(f"  • Discovered {stats['total_modules']} modules")
-        print(f"  • Modules: {', '.join(modules)}")
-        print(f"  📝 Manifest: {manifest_path}")
-
-        return stats
 
     def check(self) -> int:
         """Check all registry mirrors for drift without applying any changes.
@@ -1968,63 +1991,7 @@ class RegistryBuilder:
         }
 
         for wagon_entry in wagons:
-            slug = wagon_entry.get("wagon", "")
-
-            # Load wagon manifest to get features and wmbt.total
-            manifest_path = None
-            if "manifest" in wagon_entry:
-                manifest_path = self.repo_root / wagon_entry["manifest"]
-            else:
-                # Fallback: construct from slug
-                dirname = slug.replace("-", "_")
-                manifest_path = self.plan_dir / dirname / f"_{dirname}.yaml"
-
-            enriched_entry = wagon_entry.copy()
-
-            if manifest_path and manifest_path.exists():
-                try:
-                    with open(manifest_path) as f:
-                        manifest = yaml.safe_load(f)
-
-                    # Extract features from manifest (DOMAIN)
-                    features = self._extract_features_from_manifest(manifest, slug)
-                    enriched_entry["features"] = features
-                    if features:
-                        stats["with_features"] += 1
-
-                    # Extract WMBT total from manifest (DOMAIN)
-                    wmbt_total = self._extract_wmbt_total_from_manifest(manifest)
-
-                    # Structure WMBT with total and coverage
-                    if "wmbt" in enriched_entry and enriched_entry["wmbt"]:
-                        stats["wmbt_simplified"] += 1
-                    enriched_entry["wmbt"] = {
-                        "total": wmbt_total,
-                        "coverage": 0  # To be computed later
-                    }
-
-                    # Remove legacy root-level total field
-                    if "total" in enriched_entry:
-                        del enriched_entry["total"]
-
-                    stats["enriched"] += 1
-
-                except Exception as e:
-                    print(f"  ⚠️  Error processing {slug}: {e}")
-                    # Keep original entry if error
-                    enriched_entry["features"] = []
-                    enriched_entry["wmbt"] = {"total": 0, "coverage": 0}
-                    if "total" in enriched_entry:
-                        del enriched_entry["total"]
-            else:
-                # No manifest, add empty features and default wmbt
-                enriched_entry["features"] = []
-                enriched_entry["wmbt"] = {"total": wagon_entry.get("total", 0), "coverage": 0}
-                # Remove legacy root-level total field
-                if "total" in enriched_entry:
-                    del enriched_entry["total"]
-
-            enriched_wagons.append(enriched_entry)
+            enriched_wagons.append(self._enrich_wagon_entry(wagon_entry, stats))
 
         # Show preview
         print(f"\n📋 PREVIEW:")
@@ -2048,6 +2015,56 @@ class RegistryBuilder:
         print(f"  📝 Registry: {registry_path}")
 
         return stats
+
+    def _resolve_wagon_manifest_path(self, wagon_entry: Dict, slug: str) -> Path:
+        """A wagon's manifest path: the declared one, else derived from its slug."""
+        if "manifest" in wagon_entry:
+            return self.repo_root / wagon_entry["manifest"]
+
+        dirname = slug.replace("-", "_")
+        return self.plan_dir / dirname / f"_{dirname}.yaml"
+
+    def _enrich_wagon_entry(self, wagon_entry: Dict, stats: Dict) -> Dict[str, Any]:
+        """Add features and a structured WMBT block to one wagon entry."""
+        slug = wagon_entry.get("wagon", "")
+        manifest_path = self._resolve_wagon_manifest_path(wagon_entry, slug)
+        enriched_entry = wagon_entry.copy()
+
+        if not manifest_path.exists():
+            # No manifest, add empty features and default wmbt
+            enriched_entry["features"] = []
+            enriched_entry["wmbt"] = {"total": wagon_entry.get("total", 0), "coverage": 0}
+            enriched_entry.pop("total", None)
+            return enriched_entry
+
+        try:
+            with open(manifest_path) as f:
+                manifest = yaml.safe_load(f)
+
+            # Extract features from manifest (DOMAIN)
+            features = self._extract_features_from_manifest(manifest, slug)
+            enriched_entry["features"] = features
+            if features:
+                stats["with_features"] += 1
+
+            # Structure WMBT with total and coverage
+            if enriched_entry.get("wmbt"):
+                stats["wmbt_simplified"] += 1
+            enriched_entry["wmbt"] = {
+                "total": self._extract_wmbt_total_from_manifest(manifest),
+                "coverage": 0  # To be computed later
+            }
+            stats["enriched"] += 1
+
+        except Exception as e:
+            print(f"  ⚠️  Error processing {slug}: {e}")
+            # Keep original entry if error
+            enriched_entry["features"] = []
+            enriched_entry["wmbt"] = {"total": 0, "coverage": 0}
+
+        # Remove legacy root-level total field
+        enriched_entry.pop("total", None)
+        return enriched_entry
 
     def update_feature_implementation_paths(self, preview_only: bool = False) -> Dict[str, Any]:
         """
@@ -2078,42 +2095,7 @@ class RegistryBuilder:
 
         for feature_file in sorted(feature_files):
             try:
-                # Load feature manifest
-                with open(feature_file) as f:
-                    feature_data = yaml.safe_load(f)
-
-                if not feature_data:
-                    continue
-
-                # Extract URN
-                urn = feature_data.get("urn", "")
-                if not urn:
-                    continue
-
-                # Parse URN to get wagon and feature slugs (DOMAIN)
-                wagon_slug, feature_slug = self._parse_feature_urn(urn)
-                if not wagon_slug or not feature_slug:
-                    continue
-
-                # Convert to snake_case for filesystem (DOMAIN)
-                wagon_snake = self._kebab_to_snake(wagon_slug)
-                feature_snake = self._kebab_to_snake(feature_slug)
-
-                # Find existing implementation paths (INTEGRATION)
-                impl_paths = self._find_implementation_paths(wagon_snake, feature_snake)
-
-                # Add paths to feature data
-                feature_data["paths"] = impl_paths
-                if impl_paths:
-                    stats["with_paths"] += 1
-
-                if not preview_only:
-                    # Write updated feature manifest
-                    with open(feature_file, "w") as f:
-                        yaml.dump(feature_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
-
-                stats["updated"] += 1
-
+                self._update_feature_paths(feature_file, preview_only, stats)
             except Exception as e:
                 print(f"  ⚠️  Error processing {feature_file}: {e}")
                 stats["errors"] += 1
@@ -2132,6 +2114,43 @@ class RegistryBuilder:
             print(f"\n✅ Feature manifests updated successfully!")
 
         return stats
+
+    def _update_feature_paths(
+        self, feature_file: Path, preview_only: bool, stats: Dict
+    ) -> None:
+        """Stamp filesystem-discovered implementation paths onto one feature manifest."""
+        with open(feature_file) as f:
+            feature_data = yaml.safe_load(f)
+
+        if not feature_data:
+            return
+
+        urn = feature_data.get("urn", "")
+        if not urn:
+            return
+
+        # Parse URN to get wagon and feature slugs (DOMAIN)
+        wagon_slug, feature_slug = self._parse_feature_urn(urn)
+        if not wagon_slug or not feature_slug:
+            return
+
+        # Find existing implementation paths (INTEGRATION), keyed by snake_case dirs
+        impl_paths = self._find_implementation_paths(
+            self._kebab_to_snake(wagon_slug), self._kebab_to_snake(feature_slug)
+        )
+
+        feature_data["paths"] = impl_paths
+        if impl_paths:
+            stats["with_paths"] += 1
+
+        if not preview_only:
+            with open(feature_file, "w") as f:
+                yaml.dump(
+                    feature_data, f, default_flow_style=False,
+                    sort_keys=False, allow_unicode=True
+                )
+
+        stats["updated"] += 1
 
     def update_all(self) -> Dict[str, Any]:
         """Update all registries (alias for backward compatibility)."""
