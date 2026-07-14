@@ -19,12 +19,19 @@ from datetime import datetime
 from pathlib import Path
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_stack_container
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
 CONTRACTS_DIR = REPO_ROOT / "contracts"
-MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
+
+# The supabase tree is declared in .atdd/config.yaml, not frozen here
+# (coach.graph.implementation-root-resolution). None == no supabase stack.
+SUPABASE_DIR = resolve_stack_container("supabase", REPO_ROOT)
+MIGRATIONS_DIR = (
+    SUPABASE_DIR / "migrations" if SUPABASE_DIR is not None else None
+)
 
 
 def contract_needs_migration(contract_path: Path) -> bool:
@@ -164,6 +171,14 @@ def main():
     parser.add_argument("--validate", action="store_true", help="Only validate coverage, don't generate")
 
     args = parser.parse_args()
+
+    if MIGRATIONS_DIR is None:
+        print(
+            "❌ No supabase stack declared. This command writes SQL migrations, "
+            "so it needs `stack_containers.supabase` (or the default supabase/ "
+            "layout) in .atdd/config.yaml."
+        )
+        return 1
 
     MIGRATIONS_DIR.mkdir(parents=True, exist_ok=True)
 

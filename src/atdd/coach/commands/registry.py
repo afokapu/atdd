@@ -64,8 +64,21 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
-from atdd.coach.utils.config import load_atdd_config
+from atdd.coach.utils.config import (
+    load_atdd_config,
+    resolve_code_root,
+    resolve_stack_container,
+)
 from atdd.coach.utils.theme_map import get_theme_map
+
+
+def _present(path: Optional[Path]) -> bool:
+    """True when a stack root is both declared and present on disk.
+
+    An undeclared stack (resolver returned None) and a declared-but-missing
+    directory both mean "nothing to scan here" to every caller below.
+    """
+    return path is not None and path.exists()
 
 _logger = logging.getLogger(__name__)
 
@@ -100,8 +113,11 @@ class RegistryLoader:
         self.contracts_dir = repo_root / "contracts"
         self.telemetry_dir = repo_root / "telemetry"
         self.tester_dir = repo_root / "atdd" / "tester"
-        self.python_dir = repo_root / "python"
-        self.supabase_dir = repo_root / "supabase"
+        # Stack roots are declared in .atdd/config.yaml, not frozen here
+        # (coach.graph.implementation-root-resolution). None == not declared,
+        # which reads the same as "absent" at every use site below.
+        self.python_dir = resolve_code_root("python", repo_root)
+        self.supabase_dir = resolve_stack_container("supabase", repo_root)
 
     def load_all(self) -> Dict[str, Any]:
         """Load all registries without distinction."""
@@ -151,7 +167,9 @@ class RegistryLoader:
             return yaml.safe_load(f) or {"tests": []}
 
     def load_coder(self) -> Dict[str, Any]:
-        """Load coder implementation registry (python/_implementations.yaml)."""
+        """Load coder implementation registry (<python root>/_implementations.yaml)."""
+        if self.python_dir is None:
+            return {"implementations": []}
         registry_path = self.python_dir / "_implementations.yaml"
         if not registry_path.exists():
             return {"implementations": []}
@@ -160,7 +178,9 @@ class RegistryLoader:
             return yaml.safe_load(f) or {"implementations": []}
 
     def load_supabase(self) -> Dict[str, Any]:
-        """Load supabase functions registry (supabase/_functions.yaml)."""
+        """Load supabase functions registry (<supabase container>/_functions.yaml)."""
+        if self.supabase_dir is None:
+            return {"functions": []}
         registry_path = self.supabase_dir / "_functions.yaml"
         if not registry_path.exists():
             return {"functions": []}
@@ -201,8 +221,11 @@ class RegistryBuilder:
         self.contracts_dir = repo_root / "contracts"
         self.telemetry_dir = repo_root / "telemetry"
         self.tester_dir = repo_root / "atdd" / "tester"
-        self.python_dir = repo_root / "python"
-        self.supabase_dir = repo_root / "supabase"
+        # Stack roots are declared in .atdd/config.yaml, not frozen here
+        # (coach.graph.implementation-root-resolution). None == not declared,
+        # which reads the same as "absent" at every use site below.
+        self.python_dir = resolve_code_root("python", repo_root)
+        self.supabase_dir = resolve_stack_container("supabase", repo_root)
 
     # ========================================================================
     # MODE HANDLING - Unified confirmation and apply logic
@@ -1515,6 +1538,18 @@ class RegistryBuilder:
             mode = "check" if preview_only else "interactive"
         print("\n📊 Analyzing coder registry from Python files...")
 
+        if self.python_dir is None:
+            print("  ⚠️  No python root declared under .atdd/config.yaml::code")
+            return {
+                "total_files": 0,
+                "processed": 0,
+                "updated": 0,
+                "new": 0,
+                "errors": 0,
+                "preserved_drafts": 0,
+                "changes": [],
+            }
+
         # Load existing registry
         registry_path = self.python_dir / "_implementations.yaml"
         existing_impls = {}
@@ -1640,6 +1675,18 @@ class RegistryBuilder:
             mode = "check" if preview_only else "interactive"
         print("\n📊 Analyzing supabase registry from function files...")
 
+        if self.supabase_dir is None:
+            print("  ⚠️  No supabase container declared under .atdd/config.yaml")
+            return {
+                "total_dirs": 0,
+                "processed": 0,
+                "updated": 0,
+                "new": 0,
+                "errors": 0,
+                "preserved_drafts": 0,
+                "changes": [],
+            }
+
         # Load existing registry
         registry_path = self.supabase_dir / "_functions.yaml"
         existing_funcs = {}
@@ -1731,8 +1778,8 @@ class RegistryBuilder:
         print("\n📊 Building Python manifest from discovered modules...")
 
         # Check if python directory exists
-        if not self.python_dir.exists():
-            print("  ⚠️  No python/ directory found")
+        if not _present(self.python_dir):
+            print("  ⚠️  No python root found (declare it under .atdd/config.yaml::code)")
             return {"total_modules": 0, "manifest_created": False}
 
         # Discover Python modules
