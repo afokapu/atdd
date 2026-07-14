@@ -61,6 +61,7 @@ import re
 import ast
 import logging
 import sys
+import warnings
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -68,6 +69,9 @@ from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.utils.theme_map import get_theme_map
 
 _logger = logging.getLogger(__name__)
+
+# Train ID category digit → category name (train.convention.yaml).
+CATEGORY_MAP = {"0": "nominal", "1": "error", "2": "alternate", "3": "exception"}
 
 # Import URNGrammar for URN generation (following conventions)
 try:
@@ -612,7 +616,6 @@ class RegistryBuilder:
         manifest_files = list(self.plan_dir.glob("*/_*.yaml"))
         manifest_files = [f for f in manifest_files if f.name != "_wagons.yaml"]
 
-        updated_wagons = []
         stats = {
             "total_manifests": len(manifest_files),
             "updated": 0,
@@ -621,73 +624,12 @@ class RegistryBuilder:
             "changes": []
         }
 
-        for manifest_path in sorted(manifest_files):
-            try:
-                with open(manifest_path) as f:
-                    manifest = yaml.safe_load(f)
-
-                slug = manifest.get("wagon", "")
-                if not slug:
-                    print(f"  ⚠️  Skipping {manifest_path}: no wagon slug found")
-                    continue
-
-                # Get relative paths
-                wagon_dir = manifest_path.parent
-                rel_manifest = str(manifest_path.relative_to(self.repo_root))
-                rel_dir = str(wagon_dir.relative_to(self.repo_root)) + "/"
-
-                # Build registry entry
-                entry = {
-                    "wagon": slug,
-                    "description": manifest.get("description", ""),
-                    "theme": manifest.get("theme", ""),
-                    "subject": manifest.get("subject", ""),
-                    "context": manifest.get("context", ""),
-                    "action": manifest.get("action", ""),
-                    "goal": manifest.get("goal", ""),
-                    "outcome": manifest.get("outcome", ""),
-                    "produce": manifest.get("produce", []),
-                    "consume": manifest.get("consume", []),
-                    "wmbt": manifest.get("wmbt", {}),
-                    "total": manifest.get("total", 0),
-                    "manifest": rel_manifest,
-                    "path": rel_dir
-                }
-
-                # Check if updating or new
-                if slug in existing_wagons:
-                    stats["updated"] += 1
-                    changes = self._detect_changes(slug, existing_wagons[slug], entry)
-                    if changes:
-                        stats["changes"].append({
-                            "wagon": slug,
-                            "type": "updated",
-                            "fields": changes
-                        })
-                else:
-                    stats["new"] += 1
-                    stats["changes"].append({
-                        "wagon": slug,
-                        "type": "new",
-                        "fields": ["all fields (new wagon)"]
-                    })
-
-                updated_wagons.append(entry)
-
-            except Exception as e:
-                print(f"  ❌ Error processing {manifest_path}: {e}")
+        updated_wagons = self._scan_wagon_manifests(manifest_files, existing_wagons, stats)
 
         # Preserve draft wagons (those without manifests or with draft: true)
-        preserved_drafts = []
-        for slug, wagon in existing_wagons.items():
-            is_draft = wagon.get("draft", False)
-            has_no_manifest = not wagon.get("manifest") and not wagon.get("path")
-            if is_draft or has_no_manifest:
-                # Check if already added from manifest scan
-                if slug not in [w.get("wagon") for w in updated_wagons]:
-                    updated_wagons.append(wagon)
-                    preserved_drafts.append(slug)
-                    stats["preserved_drafts"] += 1
+        preserved_drafts = self._preserve_orphan_wagons(
+            existing_wagons, updated_wagons, stats
+        )
 
         # Sort by wagon slug
         updated_wagons.sort(key=lambda w: w.get("wagon", ""))
@@ -704,6 +646,75 @@ class RegistryBuilder:
         # Use helper for confirm/apply
         output = {"wagons": updated_wagons}
         return self._confirm_and_apply(mode, "wagon", registry_path, output, stats)
+
+    def _scan_wagon_manifests(
+        self, manifest_files: List[Path], existing_wagons: Dict, stats: Dict
+    ) -> List[Dict[str, Any]]:
+        """Build a registry entry per wagon manifest, recording new/updated stats."""
+        updated_wagons: List[Dict[str, Any]] = []
+        for manifest_path in sorted(manifest_files):
+            try:
+                entry = self._build_wagon_entry(manifest_path)
+                if entry is None:
+                    continue
+
+                slug = entry["wagon"]
+                changed = (
+                    self._detect_changes(slug, existing_wagons[slug], entry)
+                    if slug in existing_wagons
+                    else None
+                )
+                self._record_registry_change(
+                    stats, "wagon", slug, changed, "all fields (new wagon)"
+                )
+                updated_wagons.append(entry)
+
+            except Exception as e:
+                print(f"  ❌ Error processing {manifest_path}: {e}")
+        return updated_wagons
+
+    def _build_wagon_entry(self, manifest_path: Path) -> Optional[Dict[str, Any]]:
+        """Build one wagon registry entry. Returns None when the manifest has no slug."""
+        with open(manifest_path) as f:
+            manifest = yaml.safe_load(f)
+
+        slug = manifest.get("wagon", "")
+        if not slug:
+            print(f"  ⚠️  Skipping {manifest_path}: no wagon slug found")
+            return None
+
+        return {
+            "wagon": slug,
+            "description": manifest.get("description", ""),
+            "theme": manifest.get("theme", ""),
+            "subject": manifest.get("subject", ""),
+            "context": manifest.get("context", ""),
+            "action": manifest.get("action", ""),
+            "goal": manifest.get("goal", ""),
+            "outcome": manifest.get("outcome", ""),
+            "produce": manifest.get("produce", []),
+            "consume": manifest.get("consume", []),
+            "wmbt": manifest.get("wmbt", {}),
+            "total": manifest.get("total", 0),
+            "manifest": str(manifest_path.relative_to(self.repo_root)),
+            "path": str(manifest_path.parent.relative_to(self.repo_root)) + "/"
+        }
+
+    def _preserve_orphan_wagons(
+        self, existing_wagons: Dict, updated_wagons: List[Dict], stats: Dict
+    ) -> List[str]:
+        """Carry over draft/manifest-less wagons; returns the slugs preserved."""
+        already_built = {w.get("wagon") for w in updated_wagons}
+        preserved_drafts = []
+        for slug, wagon in existing_wagons.items():
+            if slug in already_built:
+                continue
+            has_no_manifest = not wagon.get("manifest") and not wagon.get("path")
+            if wagon.get("draft", False) or has_no_manifest:
+                updated_wagons.append(wagon)
+                preserved_drafts.append(slug)
+                stats["preserved_drafts"] += 1
+        return preserved_drafts
 
     def check_wagon_registry_scoped(self, changed_files: List[str]) -> Dict[str, Any]:
         """PR-scoped registry drift check (wmbt:govern-lifecycle:E018).
@@ -791,7 +802,6 @@ class RegistryBuilder:
                 registry_data = yaml.safe_load(f)
                 existing_artifacts = {a.get("id"): a for a in registry_data.get("artifacts", [])}
 
-        artifacts = []
         stats = {
             "total_schemas": 0,
             "processed": 0,
@@ -806,66 +816,10 @@ class RegistryBuilder:
         schema_files = list(self.contracts_dir.glob("**/*.schema.json"))
         stats["total_schemas"] = len(schema_files)
 
-        for schema_path in sorted(schema_files):
-            try:
-                with open(schema_path) as f:
-                    schema = json.load(f)
-
-                # Extract metadata
-                schema_id = schema.get("$id", "")
-                version = schema.get("version", "1.0.0")
-                title = schema.get("title", "")
-                description = schema.get("description", "")
-                metadata = schema.get("x-artifact-metadata", {})
-
-                # Build artifact entry
-                rel_path = str(schema_path.relative_to(self.repo_root))
-
-                artifact_id = schema_id
-                artifact = {
-                    "id": artifact_id,
-                    "urn": f"contract:{schema_id}",
-                    "version": version,
-                    "title": title,
-                    "description": description,
-                    "path": rel_path,
-                    "producer": metadata.get("producer", ""),
-                    "consumers": metadata.get("consumers", []),
-                }
-
-                # Track changes
-                if artifact_id in existing_artifacts:
-                    stats["updated"] += 1
-                    changes = self._detect_contract_changes(artifact_id, existing_artifacts[artifact_id], artifact)
-                    if changes:
-                        stats["changes"].append({
-                            "artifact": artifact_id,
-                            "type": "updated",
-                            "fields": changes
-                        })
-                else:
-                    stats["new"] += 1
-                    stats["changes"].append({
-                        "artifact": artifact_id,
-                        "type": "new",
-                        "fields": ["all fields (new artifact)"]
-                    })
-
-                artifacts.append(artifact)
-                stats["processed"] += 1
-
-            except Exception as e:
-                print(f"  ⚠️  Error processing {schema_path}: {e}")
-                stats["errors"] += 1
+        artifacts = self._scan_contract_schemas(schema_files, existing_artifacts, stats)
 
         # Preserve draft artifacts (path doesn't exist or draft: true)
-        for artifact_id, artifact in existing_artifacts.items():
-            is_draft = artifact.get("draft", False)
-            path_exists = artifact.get("path") and (self.repo_root / artifact.get("path")).exists()
-            if is_draft or not path_exists:
-                if artifact_id not in [a.get("id") for a in artifacts]:
-                    artifacts.append(artifact)
-                    stats["preserved_drafts"] += 1
+        self._preserve_orphan_entries(existing_artifacts, artifacts, stats)
 
         # Show preview
         print(f"\n📋 PREVIEW:")
@@ -881,6 +835,52 @@ class RegistryBuilder:
         # Use helper for confirm/apply
         output = {"artifacts": artifacts}
         return self._confirm_and_apply(mode, "contract", registry_path, output, stats)
+
+    def _scan_contract_schemas(
+        self, schema_files: List[Path], existing_artifacts: Dict, stats: Dict
+    ) -> List[Dict[str, Any]]:
+        """Build a registry entry per contract schema, recording new/updated stats."""
+        artifacts: List[Dict[str, Any]] = []
+        for schema_path in sorted(schema_files):
+            try:
+                artifact = self._build_artifact_entry(schema_path)
+                artifact_id = artifact["id"]
+                changed = (
+                    self._detect_contract_changes(
+                        artifact_id, existing_artifacts[artifact_id], artifact
+                    )
+                    if artifact_id in existing_artifacts
+                    else None
+                )
+                self._record_registry_change(
+                    stats, "artifact", artifact_id, changed, "all fields (new artifact)"
+                )
+                artifacts.append(artifact)
+                stats["processed"] += 1
+
+            except Exception as e:
+                print(f"  ⚠️  Error processing {schema_path}: {e}")
+                stats["errors"] += 1
+        return artifacts
+
+    def _build_artifact_entry(self, schema_path: Path) -> Dict[str, Any]:
+        """Build one contract registry entry from a JSON schema file."""
+        with open(schema_path) as f:
+            schema = json.load(f)
+
+        schema_id = schema.get("$id", "")
+        metadata = schema.get("x-artifact-metadata", {})
+
+        return {
+            "id": schema_id,
+            "urn": f"contract:{schema_id}",
+            "version": schema.get("version", "1.0.0"),
+            "title": schema.get("title", ""),
+            "description": schema.get("description", ""),
+            "path": str(schema_path.relative_to(self.repo_root)),
+            "producer": metadata.get("producer", ""),
+            "consumers": metadata.get("consumers", []),
+        }
 
     def update_telemetry_registry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
         """
@@ -906,7 +906,6 @@ class RegistryBuilder:
                 registry_data = yaml.safe_load(f)
                 existing_signals = {s.get("id"): s for s in registry_data.get("signals", [])}
 
-        signals = []
         stats = {
             "total_files": 0,
             "processed": 0,
@@ -924,64 +923,10 @@ class RegistryBuilder:
 
         stats["total_files"] = len(signal_files)
 
-        for signal_path in sorted(signal_files):
-            try:
-                # Load signal file
-                if signal_path.suffix == ".json":
-                    with open(signal_path) as f:
-                        signal_data = json.load(f)
-                else:
-                    with open(signal_path) as f:
-                        signal_data = yaml.safe_load(f)
-
-                # Extract metadata
-                signal_id = signal_data.get("$id", signal_data.get("id", ""))
-                signal_type = signal_data.get("type", "event")
-                description = signal_data.get("description", "")
-
-                # Build signal entry
-                rel_path = str(signal_path.relative_to(self.repo_root))
-
-                signal = {
-                    "id": signal_id,
-                    "type": signal_type,
-                    "description": description,
-                    "path": rel_path,
-                }
-
-                # Track changes
-                if signal_id in existing_signals:
-                    stats["updated"] += 1
-                    changes = self._detect_telemetry_changes(signal_id, existing_signals[signal_id], signal)
-                    if changes:
-                        stats["changes"].append({
-                            "signal": signal_id,
-                            "type": "updated",
-                            "fields": changes
-                        })
-                else:
-                    stats["new"] += 1
-                    stats["changes"].append({
-                        "signal": signal_id,
-                        "type": "new",
-                        "fields": ["all fields (new signal)"]
-                    })
-
-                signals.append(signal)
-                stats["processed"] += 1
-
-            except Exception as e:
-                print(f"  ⚠️  Error processing {signal_path}: {e}")
-                stats["errors"] += 1
+        signals = self._scan_telemetry_signals(signal_files, existing_signals, stats)
 
         # Preserve draft signals (path doesn't exist or draft: true)
-        for signal_id, signal in existing_signals.items():
-            is_draft = signal.get("draft", False)
-            path_exists = signal.get("path") and (self.repo_root / signal.get("path")).exists()
-            if is_draft or not path_exists:
-                if signal_id not in [s.get("id") for s in signals]:
-                    signals.append(signal)
-                    stats["preserved_drafts"] += 1
+        self._preserve_orphan_entries(existing_signals, signals, stats)
 
         # Show preview
         print(f"\n📋 PREVIEW:")
@@ -997,6 +942,48 @@ class RegistryBuilder:
         # Use helper for confirm/apply
         output = {"signals": signals}
         return self._confirm_and_apply(mode, "telemetry", registry_path, output, stats)
+
+    def _scan_telemetry_signals(
+        self, signal_files: List[Path], existing_signals: Dict, stats: Dict
+    ) -> List[Dict[str, Any]]:
+        """Build a registry entry per telemetry signal, recording new/updated stats."""
+        signals: List[Dict[str, Any]] = []
+        for signal_path in sorted(signal_files):
+            try:
+                signal = self._build_signal_entry(signal_path)
+                signal_id = signal["id"]
+                changed = (
+                    self._detect_telemetry_changes(
+                        signal_id, existing_signals[signal_id], signal
+                    )
+                    if signal_id in existing_signals
+                    else None
+                )
+                self._record_registry_change(
+                    stats, "signal", signal_id, changed, "all fields (new signal)"
+                )
+                signals.append(signal)
+                stats["processed"] += 1
+
+            except Exception as e:
+                print(f"  ⚠️  Error processing {signal_path}: {e}")
+                stats["errors"] += 1
+        return signals
+
+    def _build_signal_entry(self, signal_path: Path) -> Dict[str, Any]:
+        """Build one telemetry registry entry from a signal file (JSON or YAML)."""
+        with open(signal_path) as f:
+            if signal_path.suffix == ".json":
+                signal_data = json.load(f)
+            else:
+                signal_data = yaml.safe_load(f)
+
+        return {
+            "id": signal_data.get("$id", signal_data.get("id", "")),
+            "type": signal_data.get("type", "event"),
+            "description": signal_data.get("description", ""),
+            "path": str(signal_path.relative_to(self.repo_root)),
+        }
 
     # Alias methods for unified API
     def build_planner(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
@@ -1064,24 +1051,31 @@ class RegistryBuilder:
         """Generate category key like '00-commons-nominal' from digits and names."""
         return f"{theme_digit}{category_digit}-{theme_name}-{category_name}"
 
+    def _index_trains_by_id(self, trains_list: List[Dict]) -> Dict[str, Dict]:
+        """Index a flat list of train entries by train_id, skipping unidentified ones."""
+        indexed = {}
+        for train in trains_list:
+            train_id = train.get("train_id")
+            if train_id:
+                indexed[train_id] = train
+        return indexed
+
     def _flatten_nested_trains(self, trains_data: Dict) -> Dict[str, Dict]:
         """Flatten nested theme-category-grouped structure to dict by train_id."""
-        existing_trains = {}
-        if isinstance(trains_data, dict):
-            for theme_key, categories in trains_data.items():
-                if isinstance(categories, dict):
-                    for category_key, trains_list in categories.items():
-                        if isinstance(trains_list, list):
-                            for train in trains_list:
-                                train_id = train.get("train_id")
-                                if train_id:
-                                    existing_trains[train_id] = train
-        elif isinstance(trains_data, list):
+        if isinstance(trains_data, list):
             # Handle legacy flat list format
-            for train in trains_data:
-                train_id = train.get("train_id")
-                if train_id:
-                    existing_trains[train_id] = train
+            return self._index_trains_by_id(trains_data)
+
+        if not isinstance(trains_data, dict):
+            return {}
+
+        existing_trains: Dict[str, Dict] = {}
+        for categories in trains_data.values():
+            if not isinstance(categories, dict):
+                continue
+            for trains_list in categories.values():
+                if isinstance(trains_list, list):
+                    existing_trains.update(self._index_trains_by_id(trains_list))
         return existing_trains
 
     def build_trains(self, mode: str = "interactive") -> Dict[str, Any]:
@@ -1112,28 +1106,15 @@ class RegistryBuilder:
         Returns:
             Statistics about the update (includes has_changes flag for check mode)
         """
-        import warnings
-
         print("\n📊 Analyzing trains registry from manifest files...")
 
         # Set up paths
         trains_dir = self.plan_dir / "_trains"
         registry_path = self.plan_dir / "_trains.yaml"
 
-        # Theme and category mappings — merge built-in defaults with
-        # consumer overrides from .atdd/config.yaml (#291).
+        # Theme map merges built-in defaults with consumer overrides (#291).
         theme_map = get_theme_map(load_atdd_config(self.repo_root))
-        category_map = {
-            "0": "nominal", "1": "error", "2": "alternate", "3": "exception"
-        }
-
-        # Load existing registry (handle nested structure)
-        existing_trains = {}
-        if registry_path.exists():
-            with open(registry_path) as f:
-                registry_data = yaml.safe_load(f)
-                trains_data = registry_data.get("trains", {})
-                existing_trains = self._flatten_nested_trains(trains_data)
+        existing_trains = self._load_existing_trains(registry_path)
 
         stats = {
             "total_manifests": 0,
@@ -1146,214 +1127,271 @@ class RegistryBuilder:
             "changes": []
         }
 
-        # Check if trains directory exists
         if not trains_dir.exists():
             print(f"  ⚠️  No _trains/ directory found at {trains_dir}")
-            # Still preserve existing drafts in nested structure
-            draft_entries = []
-            for train_id, train in existing_trains.items():
-                if train.get("draft", False):
-                    # Parse grouping from train_id
-                    theme_digit = train_id[0] if train_id and train_id[0].isdigit() else "0"
-                    category_digit = train_id[1] if train_id and len(train_id) > 1 and train_id[1].isdigit() else "0"
-                    train["_theme_digit"] = theme_digit
-                    train["_category_digit"] = category_digit
-                    train["_theme_name"] = theme_map.get(theme_digit, "unknown")
-                    train["_category_name"] = category_map.get(category_digit, "unknown")
-                    draft_entries.append(train)
-                    stats["preserved_drafts"] += 1
-
-            if stats["preserved_drafts"] > 0:
-                # Build nested structure for drafts
-                nested_drafts = {}
-                for entry in draft_entries:
-                    theme_digit = entry.pop("_theme_digit", "0")
-                    category_digit = entry.pop("_category_digit", "0")
-                    theme_name = entry.pop("_theme_name", "unknown")
-                    category_name = entry.pop("_category_name", "unknown")
-                    theme_key = self._get_theme_key(theme_digit, theme_name)
-                    category_key = self._get_category_key(theme_digit, category_digit, theme_name, category_name)
-                    if theme_key not in nested_drafts:
-                        nested_drafts[theme_key] = {}
-                    if category_key not in nested_drafts[theme_key]:
-                        nested_drafts[theme_key][category_key] = []
-                    nested_drafts[theme_key][category_key].append(entry)
-
-                print(f"\n📋 PREVIEW:")
-                print(f"  • {stats['preserved_drafts']} draft trains will be preserved")
-                output = {"trains": nested_drafts}
-                return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
-
-            stats["has_changes"] = False
-            return stats
+            return self._preserve_drafts_without_manifests(
+                mode, registry_path, existing_trains, theme_map, stats
+            )
 
         # Scan for train manifests
-        manifest_files = list(trains_dir.glob("*.yaml"))
-        manifest_files = [f for f in manifest_files if not f.name.startswith("_")]
+        manifest_files = [
+            f for f in trains_dir.glob("*.yaml") if not f.name.startswith("_")
+        ]
         stats["total_manifests"] = len(manifest_files)
 
         # Collect all train entries (flat list first, then group)
         all_train_entries = []
-
         for manifest_path in sorted(manifest_files):
             try:
-                with open(manifest_path) as f:
-                    manifest = yaml.safe_load(f)
-
-                if not manifest:
-                    print(f"  ⚠️  Skipping empty manifest: {manifest_path}")
-                    continue
-
-                train_id = manifest.get("train_id", manifest.get("train", ""))
-                if not train_id:
-                    # Try to infer from filename (e.g., 0001-auth-session.yaml -> 0001-auth-session)
-                    train_id = manifest_path.stem
-
-                # Parse theme and category from train_id
-                # Format: NNXX-name where N=theme digit, X=category digit
-                theme_digit = ""
-                category_digit = ""
-                theme_name = ""
-                category_name = ""
-
-                if train_id and len(train_id) >= 2 and train_id[0].isdigit():
-                    theme_digit = train_id[0]
-                    theme_name = theme_map.get(theme_digit, "unknown")
-                    if train_id[1].isdigit():
-                        category_digit = train_id[1]
-                        category_name = category_map.get(category_digit, "unknown")
-
-                # Build train entry
-                rel_manifest = str(manifest_path.relative_to(self.repo_root))
-
-                # Section 1: Normalize file→path
-                path_value = manifest.get("path")
-                file_value = manifest.get("file")
-                if file_value and not path_value:
-                    # Migrate file to path
-                    path_value = file_value
-                    stats["file_to_path_migrations"] += 1
-                    warnings.warn(
-                        f"Train {train_id}: 'file' field is deprecated, migrating to 'path'",
-                        DeprecationWarning,
-                        stacklevel=2
-                    )
-
-                # Section 4: Extract wagons from participants
-                participants = manifest.get("participants", [])
-                wagons = self._extract_wagons_from_participants(participants)
-
-                # Also include explicitly listed wagons
-                explicit_wagons = manifest.get("wagons", [])
-                if explicit_wagons:
-                    # Validate subset relationship
-                    explicit_set = set(explicit_wagons)
-                    participant_set = set(wagons)
-                    if not explicit_set.issubset(participant_set) and participant_set:
-                        extra = explicit_set - participant_set
-                        warnings.warn(
-                            f"Train {train_id}: registry wagons {extra} not in YAML participants",
-                            UserWarning,
-                            stacklevel=2
-                        )
-                    wagons = explicit_wagons  # Use explicit if provided
-
-                # Section 5: Normalize test/code fields
-                test_normalized = self._normalize_test_code_field(manifest.get("test"))
-                code_normalized = self._normalize_test_code_field(manifest.get("code"))
-
-                entry = {
-                    "train_id": train_id,
-                    "description": manifest.get("description", manifest.get("title", "")),
-                    "path": f"plan/_trains/{train_id}.yaml",
-                    "wagons": wagons,
-                }
-
-                # Add test/code if present
-                if test_normalized:
-                    entry["test"] = test_normalized
-                if code_normalized:
-                    entry["code"] = code_normalized
-
-                # Add expectations if present
-                expectations = manifest.get("expectations")
-                if expectations:
-                    entry["expectations"] = expectations
-
-                # Store grouping metadata (not in final output)
-                entry["_theme_digit"] = theme_digit
-                entry["_category_digit"] = category_digit
-                entry["_theme_name"] = theme_name
-                entry["_category_name"] = category_name
-
-                # Check if updating or new
-                if train_id in existing_trains:
-                    stats["updated"] += 1
-                    # Check for field changes
-                    old = existing_trains[train_id]
-                    changed_fields = []
-                    for field in ["description", "wagons", "path", "test", "code", "expectations"]:
-                        if old.get(field) != entry.get(field):
-                            changed_fields.append(field)
-                    if changed_fields:
-                        stats["changes"].append({
-                            "train": train_id,
-                            "type": "updated",
-                            "fields": changed_fields
-                        })
-                else:
-                    stats["new"] += 1
-                    stats["changes"].append({
-                        "train": train_id,
-                        "type": "new",
-                        "fields": ["all fields (new train)"]
-                    })
-
-                all_train_entries.append(entry)
-                stats["processed"] += 1
-
+                entry = self._process_train_manifest(
+                    manifest_path, existing_trains, theme_map, stats
+                )
             except Exception as e:
                 print(f"  ❌ Error processing {manifest_path}: {e}")
                 stats["errors"] += 1
+                continue
 
-        # Preserve draft trains (those without manifests or with draft: true)
-        for train_id, train in existing_trains.items():
-            is_draft = train.get("draft", False)
-            has_no_manifest = not train.get("manifest")
-            if is_draft or has_no_manifest:
-                if train_id not in [t.get("train_id") for t in all_train_entries]:
-                    # Parse grouping from train_id for draft trains
-                    theme_digit = train_id[0] if train_id and train_id[0].isdigit() else "0"
-                    category_digit = train_id[1] if train_id and len(train_id) > 1 and train_id[1].isdigit() else "0"
-                    train["_theme_digit"] = theme_digit
-                    train["_category_digit"] = category_digit
-                    train["_theme_name"] = theme_map.get(theme_digit, "unknown")
-                    train["_category_name"] = category_map.get(category_digit, "unknown")
-                    all_train_entries.append(train)
-                    stats["preserved_drafts"] += 1
+            if entry is not None:
+                all_train_entries.append(entry)
+                stats["processed"] += 1
 
-        # Sort by train_id
+        self._preserve_orphan_draft_trains(
+            existing_trains, all_train_entries, theme_map, stats
+        )
+
         all_train_entries.sort(key=lambda t: t.get("train_id", ""))
+        nested_trains = self._nest_train_entries(all_train_entries)
+        self._print_trains_preview(stats, nested_trains)
 
-        # Build nested structure: {theme_key: {category_key: [trains]}}
-        nested_trains = {}
-        for entry in all_train_entries:
+        # Use helper for confirm/apply
+        output = {"trains": nested_trains}
+        return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
+
+    def _load_existing_trains(self, registry_path: Path) -> Dict[str, Dict]:
+        """Load the existing trains registry, flattened to a dict keyed by train_id."""
+        if not registry_path.exists():
+            return {}
+        with open(registry_path) as f:
+            registry_data = yaml.safe_load(f)
+            return self._flatten_nested_trains(registry_data.get("trains", {}))
+
+    def _tag_train_grouping(self, train: Dict, train_id: str, theme_map: Dict) -> None:
+        """Stamp theme/category grouping metadata onto an existing (draft) train entry."""
+        theme_digit = train_id[0] if train_id and train_id[0].isdigit() else "0"
+        category_digit = (
+            train_id[1]
+            if train_id and len(train_id) > 1 and train_id[1].isdigit()
+            else "0"
+        )
+        train["_theme_digit"] = theme_digit
+        train["_category_digit"] = category_digit
+        train["_theme_name"] = theme_map.get(theme_digit, "unknown")
+        train["_category_name"] = CATEGORY_MAP.get(category_digit, "unknown")
+
+    def _nest_train_entries(self, entries: List[Dict]) -> Dict[str, Dict]:
+        """Group entries into the nested {theme_key: {category_key: [train]}} output shape."""
+        nested: Dict[str, Dict] = {}
+        for entry in entries:
             theme_digit = entry.pop("_theme_digit", "0")
             category_digit = entry.pop("_category_digit", "0")
             theme_name = entry.pop("_theme_name", "unknown")
             category_name = entry.pop("_category_name", "unknown")
 
             theme_key = self._get_theme_key(theme_digit, theme_name)
-            category_key = self._get_category_key(theme_digit, category_digit, theme_name, category_name)
+            category_key = self._get_category_key(
+                theme_digit, category_digit, theme_name, category_name
+            )
+            nested.setdefault(theme_key, {}).setdefault(category_key, []).append(entry)
+        return nested
 
-            if theme_key not in nested_trains:
-                nested_trains[theme_key] = {}
-            if category_key not in nested_trains[theme_key]:
-                nested_trains[theme_key][category_key] = []
+    def _preserve_drafts_without_manifests(
+        self,
+        mode: str,
+        registry_path: Path,
+        existing_trains: Dict,
+        theme_map: Dict,
+        stats: Dict,
+    ) -> Dict[str, Any]:
+        """No _trains/ directory: keep whatever drafts the registry already holds."""
+        draft_entries = []
+        for train_id, train in existing_trains.items():
+            if train.get("draft", False):
+                self._tag_train_grouping(train, train_id, theme_map)
+                draft_entries.append(train)
+                stats["preserved_drafts"] += 1
 
-            nested_trains[theme_key][category_key].append(entry)
+        if not stats["preserved_drafts"]:
+            stats["has_changes"] = False
+            return stats
 
-        # Show preview
+        print(f"\n📋 PREVIEW:")
+        print(f"  • {stats['preserved_drafts']} draft trains will be preserved")
+        output = {"trains": self._nest_train_entries(draft_entries)}
+        return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
+
+    def _parse_train_grouping(self, train_id: str, theme_map: Dict) -> Dict[str, str]:
+        """Derive theme/category grouping metadata from a manifest-declared train_id.
+
+        Format: NNXX-name where N=theme digit, X=category digit.
+        """
+        grouping = {
+            "_theme_digit": "",
+            "_category_digit": "",
+            "_theme_name": "",
+            "_category_name": "",
+        }
+        if not (train_id and len(train_id) >= 2 and train_id[0].isdigit()):
+            return grouping
+
+        grouping["_theme_digit"] = train_id[0]
+        grouping["_theme_name"] = theme_map.get(train_id[0], "unknown")
+        if train_id[1].isdigit():
+            grouping["_category_digit"] = train_id[1]
+            grouping["_category_name"] = CATEGORY_MAP.get(train_id[1], "unknown")
+        return grouping
+
+    def _resolve_train_wagons(self, manifest: Dict, train_id: str) -> List[str]:
+        """Participants are the canonical wagon source; an explicit list overrides them.
+
+        Train First-Class Spec v0.6 Section 4.
+        """
+        wagons = self._extract_wagons_from_participants(manifest.get("participants", []))
+
+        explicit_wagons = manifest.get("wagons", [])
+        if not explicit_wagons:
+            return wagons
+
+        # Validate subset relationship before letting the explicit list win
+        explicit_set = set(explicit_wagons)
+        participant_set = set(wagons)
+        if not explicit_set.issubset(participant_set) and participant_set:
+            extra = explicit_set - participant_set
+            warnings.warn(
+                f"Train {train_id}: registry wagons {extra} not in YAML participants",
+                UserWarning,
+                stacklevel=2
+            )
+        return explicit_wagons
+
+    def _build_train_entry(
+        self, manifest: Dict, train_id: str, theme_map: Dict, stats: Dict
+    ) -> Dict[str, Any]:
+        """Build one registry entry from a train manifest (spec v0.6 normalization)."""
+        # Section 1: Normalize file→path (deprecation)
+        if manifest.get("file") and not manifest.get("path"):
+            stats["file_to_path_migrations"] += 1
+            warnings.warn(
+                f"Train {train_id}: 'file' field is deprecated, migrating to 'path'",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        entry = {
+            "train_id": train_id,
+            "description": manifest.get("description", manifest.get("title", "")),
+            "path": f"plan/_trains/{train_id}.yaml",
+            "wagons": self._resolve_train_wagons(manifest, train_id),
+        }
+
+        # Section 5: Normalize test/code fields, keeping them out when empty
+        test_normalized = self._normalize_test_code_field(manifest.get("test"))
+        code_normalized = self._normalize_test_code_field(manifest.get("code"))
+        if test_normalized:
+            entry["test"] = test_normalized
+        if code_normalized:
+            entry["code"] = code_normalized
+
+        expectations = manifest.get("expectations")
+        if expectations:
+            entry["expectations"] = expectations
+
+        # Store grouping metadata (stripped again when nesting the output)
+        entry.update(self._parse_train_grouping(train_id, theme_map))
+        return entry
+
+    def _record_registry_change(
+        self,
+        stats: Dict,
+        key: str,
+        entity_id: str,
+        changed_fields: Optional[List[str]],
+        new_label: str,
+    ) -> None:
+        """Log a registry entry as new or updated, and bump the matching counter.
+
+        ``changed_fields`` is None when the entity is absent from the existing
+        registry (i.e. new); an empty list means present but unchanged.
+        """
+        if changed_fields is None:
+            stats["new"] += 1
+            stats["changes"].append({key: entity_id, "type": "new", "fields": [new_label]})
+            return
+
+        stats["updated"] += 1
+        if changed_fields:
+            stats["changes"].append({key: entity_id, "type": "updated", "fields": changed_fields})
+
+    def _preserve_orphan_entries(
+        self, existing: Dict, entries: List[Dict], stats: Dict, id_key: str = "id"
+    ) -> None:
+        """Carry over registry entries that are drafts or whose source file is gone."""
+        already_built = {e.get(id_key) for e in entries}
+        for entity_id, entity in existing.items():
+            if entity_id in already_built:
+                continue
+            path_exists = entity.get("path") and (self.repo_root / entity.get("path")).exists()
+            if entity.get("draft", False) or not path_exists:
+                entries.append(entity)
+                stats["preserved_drafts"] += 1
+
+    def _detect_train_changes(self, old: Dict, entry: Dict) -> List[str]:
+        """Fields that differ between the stored train entry and the rebuilt one."""
+        return [
+            field
+            for field in ["description", "wagons", "path", "test", "code", "expectations"]
+            if old.get(field) != entry.get(field)
+        ]
+
+    def _process_train_manifest(
+        self, manifest_path: Path, existing_trains: Dict, theme_map: Dict, stats: Dict
+    ) -> Optional[Dict[str, Any]]:
+        """Load and normalize a single train manifest. Returns None when it is empty."""
+        with open(manifest_path) as f:
+            manifest = yaml.safe_load(f)
+
+        if not manifest:
+            print(f"  ⚠️  Skipping empty manifest: {manifest_path}")
+            return None
+
+        # Fall back to the filename (e.g. 0001-auth-session.yaml -> 0001-auth-session)
+        train_id = manifest.get("train_id", manifest.get("train", "")) or manifest_path.stem
+
+        entry = self._build_train_entry(manifest, train_id, theme_map, stats)
+        changed = (
+            self._detect_train_changes(existing_trains[train_id], entry)
+            if train_id in existing_trains
+            else None
+        )
+        self._record_registry_change(
+            stats, "train", train_id, changed, "all fields (new train)"
+        )
+        return entry
+
+    def _preserve_orphan_draft_trains(
+        self, existing_trains: Dict, all_train_entries: List[Dict], theme_map: Dict, stats: Dict
+    ) -> None:
+        """Carry over registry trains that are drafts or have no manifest of their own."""
+        already_built = {t.get("train_id") for t in all_train_entries}
+        for train_id, train in existing_trains.items():
+            if train_id in already_built:
+                continue
+            if train.get("draft", False) or not train.get("manifest"):
+                self._tag_train_grouping(train, train_id, theme_map)
+                all_train_entries.append(train)
+                stats["preserved_drafts"] += 1
+
+    def _print_trains_preview(self, stats: Dict, nested_trains: Dict) -> None:
+        """Show what building the trains registry would change."""
         print(f"\n📋 PREVIEW:")
         print(f"  • {stats['updated']} trains will be updated")
         print(f"  • {stats['new']} new trains will be added")
@@ -1363,10 +1401,6 @@ class RegistryBuilder:
             print(f"  ⚠️  {stats['file_to_path_migrations']} file→path migrations (deprecation)")
         if stats["errors"] > 0:
             print(f"  ⚠️  {stats['errors']} errors encountered")
-
-        # Use helper for confirm/apply
-        output = {"trains": nested_trains}
-        return self._confirm_and_apply(mode, "trains", registry_path, output, stats)
 
     def _skip_empty_stub(self, kind: str, registry_path, items, stats) -> Optional[Dict[str, Any]]:
         """Do not (re)create a vestigial empty registry stub.
