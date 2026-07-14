@@ -41,7 +41,11 @@ from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
 
-pytestmark = [pytest.mark.coach]
+# `platform` is what excludes this from consumer sweeps: the audit reaches for
+# find_repo_root()/src/atdd, which in a consumer repo resolves to *their* root
+# where it can never exist. The skip in the test is a fallback; the marker is the
+# contract (coach.source-layout.platform-marker-on-toolkit-selftest).
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 
 _RULE = bind_rule("coach.graph.implementation-root-resolution")

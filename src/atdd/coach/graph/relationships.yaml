@@ -248,6 +248,17 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: start_to_start
+  reason: 'two halves of the toolkit-only-path class: the production-code rule scans
+    shipped code and exempts test files; this rule covers exactly that exemption, requiring
+    the platform marker so a toolkit-self test never runs in a consumer sweep'
+  source_ref: coach.source-layout.platform-marker-on-toolkit-selftest
+  strength: important
+  target_ref: coach.source-layout.no-toolkit-self-layout-assumption
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: 'the forcing check is what operationalizes the obligation: admission refuses
     any transport/orchestration provider that does not realize dispatch-verifies-channel-live,
