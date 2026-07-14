@@ -33,6 +33,13 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
+from atdd.state.conformance import (
+    STORE_GITIGNORE,
+    clone_of,
+    seed_bare_remote,
+    write_gh_shim,
+)
+
 #: The in-tree ``src/`` root, so every subprocess drives THIS working copy's CLI.
 _SRC = Path(__file__).resolve().parents[4]
 
@@ -46,17 +53,7 @@ def gh_tripwire(root: Path) -> Tuple[Path, Path]:
     Returns ``(bin_dir, marker)``. The marker's *absence* after a run is the assertion: not "gh
     returned nothing useful" but "gh was never reached for".
     """
-    bin_dir = Path(root) / "tripwire-bin"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    marker = bin_dir / "gh-was-invoked"
-    shim = bin_dir / "gh"
-    shim.write_text(
-        '#!/bin/sh\necho "$@" >> "$(dirname "$0")/gh-was-invoked"\n'
-        'echo "gh is not available" >&2\nexit 127\n',
-        encoding="utf-8",
-    )
-    shim.chmod(0o755)
-    return bin_dir, marker
+    return write_gh_shim(root, message="gh is not available")
 
 
 def env(root: Path, *, extension: Optional[Path] = None) -> dict:
@@ -112,25 +109,12 @@ def out(repo: Path, *args: str) -> str:
 
 def bare_remote(tmp_path: Path) -> Path:
     """A bare git remote carrying ``main``: git object storage and nothing else."""
-    remote = tmp_path / "remote.git"
-    subprocess.run(
-        ["git", "init", "--bare", "--quiet", "--initial-branch=main", str(remote)],
-        check=True, capture_output=True, timeout=60,
+    return seed_bare_remote(
+        tmp_path,
+        gitignore=STORE_GITIGNORE + "tripwire-bin/\n",
+        message="seed: control root, field-ownership policy",
+        prepare=install_policy,
     )
-    seed = tmp_path / "seed"
-    subprocess.run(["git", "clone", "--quiet", str(remote), str(seed)],
-                   check=True, capture_output=True, timeout=60)
-    _identify(seed)
-    (seed / ".atdd" / "state" / "projection").mkdir(parents=True, exist_ok=True)
-    (seed / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    (seed / ".atdd" / "state" / "projection" / ".gitkeep").write_text("", encoding="utf-8")
-    (seed / ".gitignore").write_text(
-        ".atdd/state/state.sqlite*\n.atdd/version_cache.json\ntripwire-bin/\n", encoding="utf-8")
-    install_policy(seed)
-    git(seed, "add", "-A")
-    git(seed, "commit", "--quiet", "-m", "seed: control root, field-ownership policy")
-    git(seed, "push", "--quiet", "origin", "main")
-    return remote
 
 
 def install_policy(root: Path) -> Path:
@@ -148,16 +132,8 @@ def install_policy(root: Path) -> Path:
     return target
 
 
-def _identify(clone: Path, name: str = "Dev", email: str = "dev@example.invalid") -> None:
-    git(clone, "config", "user.email", email)
-    git(clone, "config", "user.name", name)
-
-
 def clone(remote: Path, path: Path) -> Path:
-    subprocess.run(["git", "clone", "--quiet", str(remote), str(path)],
-                   check=True, capture_output=True, timeout=60)
-    _identify(path)
-    return path
+    return clone_of(remote, path)
 
 
 def repo_on_bare_remote(tmp_path: Path) -> Tuple[Path, Path]:

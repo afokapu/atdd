@@ -28,6 +28,7 @@ from typing import Iterable, Optional, Sequence, Tuple
 
 import yaml
 
+from atdd.state.conformance import identify, seed_bare_remote
 from atdd.state.merge_driver import EVIDENCE_RELATIVE
 from atdd.state.ownership import POLICY_RELATIVE
 
@@ -73,36 +74,22 @@ def out(repo: Path, *args: str) -> str:
     return git(repo, *args).stdout.strip()
 
 
-def bare_remote(tmp_path: Path) -> Path:
-    """A bare git remote carrying ``main``: git object storage and nothing else."""
-    remote = tmp_path / "remote.git"
-    subprocess.run(
-        ["git", "init", "--bare", "--quiet", "--initial-branch=main", str(remote)],
-        check=True, capture_output=True, timeout=60,
-    )
-    seed = tmp_path / "seed"
-    subprocess.run(
-        ["git", "clone", "--quiet", str(remote), str(seed)],
-        check=True, capture_output=True, timeout=60,
-    )
-    _identify(seed)
-    (seed / ".atdd" / "state" / "projection").mkdir(parents=True, exist_ok=True)
-    (seed / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    (seed / ".atdd" / "state" / "projection" / ".gitkeep").write_text("", encoding="utf-8")
-    (seed / ".gitignore").write_text(
-        ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n", encoding="utf-8",
-    )
+def _seed_policy_and_driver(seed: Path) -> None:
     install_policy(seed)
     register_merge_driver(seed)
-    git(seed, "add", "-A")
-    git(seed, "commit", "--quiet", "-m", "seed: control root, field-ownership policy, merge driver")
-    git(seed, "push", "--quiet", "origin", "main")
-    return remote
+
+
+def bare_remote(tmp_path: Path) -> Path:
+    """A bare git remote carrying ``main``: git object storage and nothing else."""
+    return seed_bare_remote(
+        tmp_path,
+        message="seed: control root, field-ownership policy, merge driver",
+        prepare=_seed_policy_and_driver,
+    )
 
 
 def _identify(clone: Path, name: str = "Dev", email: str = "dev@example.invalid") -> None:
-    git(clone, "config", "user.email", email)
-    git(clone, "config", "user.name", name)
+    identify(clone, name=name, email=email)
 
 
 def clone(remote: Path, path: Path) -> Path:

@@ -60,6 +60,11 @@ INVARIANT_I7 = "I7 — the mirror is non-authoritative: no lifecycle decision ma
 #: The uid-bearing trailer a projection commit carries (spec §5).
 _TRAILER = "ATDD-Object"
 
+#: What a Control Root never shares. The store is the private authoring workspace (spec §2.1);
+#: ``version_cache.json`` is the CLI's per-checkout upgrade-check cache. Committing either would
+#: push one developer's private state at another.
+STORE_GITIGNORE = ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n"
+
 
 class ConformanceError(RuntimeError):
     """The suite could not be set up (a git fault, not a gate failure)."""
@@ -123,19 +128,33 @@ def _watch_registry(tripwire: Tripwire, step: Callable[[], str]) -> Iterator[Non
         provider_seam.discover_providers = original  # type: ignore[assignment]
 
 
-@contextmanager
-def _gh_tripwire(tmp: Path) -> Iterator[Path]:
-    """Put a ``gh`` that cannot work first on ``PATH``; it leaves a marker if anything calls it."""
-    bin_dir = tmp / "tripwire-bin"
+#: What the `gh` shim says on stderr when something reaches for it.
+GH_UNAVAILABLE = "gh is not available: core runs against a bare remote"
+
+
+def write_gh_shim(root: Path, *, message: str = GH_UNAVAILABLE) -> Tuple[Path, Path]:
+    """A ``gh`` that cannot work, in ``root/tripwire-bin``; it notes any call and exits non-zero.
+
+    Returns ``(bin_dir, marker)``. The marker's *absence* after a run is the assertion: not
+    "gh returned nothing useful" but "gh was never reached for".
+    """
+    bin_dir = Path(root) / "tripwire-bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
     marker = bin_dir / "gh-was-invoked"
     shim = bin_dir / "gh"
     shim.write_text(
         '#!/bin/sh\necho "$@" >> "$(dirname "$0")/gh-was-invoked"\n'
-        'echo "gh is not available: core runs against a bare remote" >&2\nexit 127\n',
+        f'echo "{message}" >&2\nexit 127\n',
         encoding="utf-8",
     )
     shim.chmod(0o755)
+    return bin_dir, marker
+
+
+@contextmanager
+def _gh_tripwire(tmp: Path) -> Iterator[Path]:
+    """Put a ``gh`` that cannot work first on ``PATH``; it leaves a marker if anything calls it."""
+    bin_dir, marker = write_gh_shim(tmp)
     previous = os.environ.get("PATH", "")
     os.environ["PATH"] = f"{bin_dir}{os.pathsep}{previous}"
     try:
@@ -182,13 +201,39 @@ def git(repo: Path, *args: str, check: bool = True) -> str:
     return result.stdout.strip()
 
 
-def _identify(repo: Path) -> None:
-    git(repo, "config", "user.email", "dev@example.invalid")
-    git(repo, "config", "user.name", "Dev")
+def identify(repo: Path, *, name: str = "Dev", email: str = "dev@example.invalid") -> None:
+    """Pin a git identity, so a fixture's commits never depend on the developer's config."""
+    git(repo, "config", "user.email", email)
+    git(repo, "config", "user.name", name)
 
 
-def setup(root: Path) -> Context:
-    """A bare remote and two clones of it. No GitHub, no API, no provider — just git."""
+def clone_of(remote: Path, path: Path) -> Path:
+    """A working clone of ``remote`` with a pinned git identity."""
+    subprocess.run(
+        ["git", "clone", "--quiet", str(remote), str(path)],
+        check=True, capture_output=True, timeout=60,
+    )
+    identify(path)
+    return path
+
+
+def seed_bare_remote(
+    root: Path,
+    *,
+    gitignore: str = STORE_GITIGNORE,
+    message: str = "seed: control root + empty projection",
+    prepare: Optional[Callable[[Path], None]] = None,
+) -> Path:
+    """A bare remote carrying ``main``, seeded with a Control Root and an empty projection.
+
+    Bare on purpose: git object storage, no GitHub, no API, no provider — so there is no
+    remote API to call even if a step wanted to. This is the fixture every live acceptance in
+    ``atdd.state`` builds on, which is why it is defined once, here, rather than per wagon.
+
+    ``prepare`` runs against the seed checkout after the Control Root exists and before the
+    seed commit, for whatever else a caller needs committed on ``main`` (a field-ownership
+    policy, a merge driver).
+    """
     root = Path(root)
     remote = root / "remote.git"
     subprocess.run(
@@ -196,23 +241,31 @@ def setup(root: Path) -> Context:
         check=True, capture_output=True, timeout=60,
     )
     seed = root / "seed"
-    subprocess.run(["git", "clone", "--quiet", str(remote), str(seed)],
-                   check=True, capture_output=True, timeout=60)
-    _identify(seed)
+    subprocess.run(
+        ["git", "clone", "--quiet", str(remote), str(seed)],
+        check=True, capture_output=True, timeout=60,
+    )
+    identify(seed)
     (seed / ".atdd" / "state" / "projection").mkdir(parents=True, exist_ok=True)
     (seed / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
     (seed / ".atdd" / "state" / "projection" / ".gitkeep").write_text("", encoding="utf-8")
-    (seed / ".gitignore").write_text(".atdd/state/state.sqlite*\n", encoding="utf-8")
+    (seed / ".gitignore").write_text(gitignore, encoding="utf-8")
+    if prepare is not None:
+        prepare(seed)
     git(seed, "add", "-A")
-    git(seed, "commit", "--quiet", "-m", "seed: control root")
+    git(seed, "commit", "--quiet", "-m", message)
     git(seed, "push", "--quiet", "origin", "main")
+    return remote
 
-    author = root / "author"
-    peer = root / "peer"
-    for clone in (author, peer):
-        subprocess.run(["git", "clone", "--quiet", str(remote), str(clone)],
-                       check=True, capture_output=True, timeout=60)
-        _identify(clone)
+
+def setup(root: Path) -> Context:
+    """A bare remote and two clones of it. No GitHub, no API, no provider — just git."""
+    root = Path(root)
+    remote = seed_bare_remote(
+        root, gitignore=".atdd/state/state.sqlite*\n", message="seed: control root",
+    )
+    author = clone_of(remote, root / "author")
+    peer = clone_of(remote, root / "peer")
     return Context(remote=remote, author=author, peer=peer)
 
 
