@@ -61,7 +61,6 @@ def _pytest(root: Path, *args: str, env: dict | None = None) -> subprocess.Compl
     )
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_real_checkout_collects_the_full_suite() -> None:
     """No coverage was traded for speed: the suite still collects every test it had."""
     root = _repo_root()
@@ -78,7 +77,6 @@ def test_real_checkout_collects_the_full_suite() -> None:
     )
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_real_checkout_composes_the_graph_once(tmp_path: Path) -> None:
     """Through the real entrypoint, the read-only suite composes the graph exactly once."""
     root = _repo_root()
@@ -99,7 +97,6 @@ def test_real_checkout_composes_the_graph_once(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_y003_coverage_guards_stay_green() -> None:
     """The sweep's permanent coverage guards must survive the perf work."""
     root = _repo_root()

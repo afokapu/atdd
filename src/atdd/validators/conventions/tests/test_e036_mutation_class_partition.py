@@ -22,10 +22,14 @@ the guard's notion of "the checkout" is the temp dir, not this repo):
                 parallel workers, and nothing notices.
 
   E036-GREEN-001  the mechanism. With the guard armed, that same test FAILS and names the path
-                it wrote; a test that takes the session graph while marked serial FAILS; and
-                the two cases that are NOT hazards — a marked writer, and an unmarked test
-                writing outside the checkout — still pass, so the guard has no false positive
-                to suppress.
+                it wrote; so does a test whose SUBPROCESS writes the checkout and reverts (the
+                shape a fault test's ``finally`` leaves — invisible to ``git status``, caught by
+                an mtime fingerprint); and so does a serial test that takes the session graph.
+                Meanwhile the four cases that are NOT hazards — a marked writer, a write outside
+                the checkout, a plain reader, and a subprocess that reads the checkout without
+                writing it — all stay green. That last one is the load-bearing case: after #1458
+                the nested ``pytest`` runs in E032/E033/E035 write nothing, and calling every
+                spawner serial would drag all of them into the serial job for no reason.
 
 Runtime is reported on the PR as a measured number, never asserted: CI wall-clock swings far
 more than the effect, and the cheapest way to satisfy a timing gate is to delete the fault
@@ -117,17 +121,34 @@ def test_marked_test_taking_the_session_graph(clean_convention_graph):
     assert clean_convention_graph is not None
 
 
-def test_unmarked_subprocess_over_the_checkout():
+def test_unmarked_subprocess_writing_the_checkout():
+    # Writes a file and deletes it again — the shape a fault test's `finally` leaves behind.
+    # `git status` sees a clean tree afterwards; the tree was still dirty in between, which is
+    # the window that corrupts a parallel worker. Only an mtime fingerprint catches it.
+    code = (
+        "import pathlib;"
+        f"p = pathlib.Path(r'{HERE}') / 'probe.tmp';"
+        "p.write_text('x'); p.unlink()"
+    )
+    subprocess.run([sys.executable, "-c", code], cwd=str(HERE), check=True)
+
+
+def test_unmarked_subprocess_reading_the_checkout():
+    # Spawns a subprocess over the checkout but writes NOTHING. This is NOT a hazard, and it is
+    # the case that matters: after #1458 the nested `pytest` runs in E032/E033/E035 write nothing,
+    # and one of them is literally the test asserting so. A guard that called every spawner serial
+    # would drag all of them into the serial job — and did, until it was fixed.
     subprocess.run([sys.executable, "-c", "pass"], cwd=str(HERE), check=True)
 """
 
 # The unmarked hazards the guard must catch, and the safe cases it must NOT flag.
-_HAZARDS = ("test_unmarked_writer_inside_checkout", "test_unmarked_subprocess_over_the_checkout")
+_HAZARDS = ("test_unmarked_writer_inside_checkout", "test_unmarked_subprocess_writing_the_checkout")
 _SESSION_GRAPH_ABUSE = "test_marked_test_taking_the_session_graph"
 _MUST_STAY_GREEN = (
     "test_marked_writer_inside_checkout",
     "test_unmarked_writer_outside_checkout",
     "test_unmarked_reader",
+    "test_unmarked_subprocess_reading_the_checkout",
 )
 
 _PARALLEL_SUBSET = ["-m", "not convention_filesystem_mutation"]
@@ -182,7 +203,6 @@ def _outcome(stdout: str, test_name: str) -> str:
     return "NOT-SELECTED"
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_red_unmarked_writer_runs_in_the_parallel_subset(tmp_path: Path) -> None:
     """E036-RED-001: without the guard, the writer is selected into the `-n auto` subset and
     passes green while mutating the shared checkout. Nothing stands between it and the
@@ -203,7 +223,6 @@ def test_red_unmarked_writer_runs_in_the_parallel_subset(tmp_path: Path) -> None
     assert _outcome(result.stdout, "test_marked_writer_inside_checkout") == "NOT-SELECTED"
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_green_guard_fails_the_unmarked_writer_and_the_marked_graph_consumer(tmp_path: Path) -> None:
     """E036-GREEN-001: with the guard armed, every hazard is red and every non-hazard is green."""
     suite = _synthetic_suite(tmp_path, _GUARDED_CONFTEST)

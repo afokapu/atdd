@@ -16,13 +16,24 @@ subprocesses, and neither names a write at the call site. So the guard observes 
 inferring: a ``sys.addaudithook`` records, for the test currently executing,
 
   * every path *inside the checkout* opened for write, created, removed, renamed or copied;
-  * every subprocess spawned with its cwd inside the checkout.
+  * every subprocess spawned with its cwd inside the checkout — and, for those, whether the
+    tree ACTUALLY changed across the call.
 
-Both are serial-only reasons. The write is the direct hazard. The subprocess is an indirect
-one — what it does to the tree is opaque from here, and the E033/E034 smoke tests spawn a
-whole ``pytest`` over the repo — so a spawner is classified serial rather than assumed
-innocent. That is deliberately conservative: it costs a handful of tests their parallelism
-and buys a guard that an indirection cannot fool.
+The direct write is the obvious hazard. The subprocess is the subtle one: what it does to the
+tree is opaque from here, and the E032-E036 smoke tests each spawn a whole ``pytest`` over the
+repo. Calling every spawner serial is sound but far too blunt — after #1458 root-redirected the
+fault families most of those nested runs write nothing at all, and one of them
+(``test_migrated_families_write_nothing_to_the_tracked_tree``) is *the test that asserts so*;
+marking it serial then collided with the session-graph guard below and failed a correct test.
+
+So the spawn is not the verdict. The ``subprocess.Popen`` audit event fires BEFORE the child is
+exec'd, which is a free moment to fingerprint the tree and diff it at teardown — an observation
+instead of an assumption, and it costs nothing for the tests that never spawn one.
+
+The fingerprint is (mtime_ns, size), NOT content: a fault test writes a file and reverts it in a
+``finally``, so the bytes match again by the time anyone looks and ``git status`` reports a clean
+tree. The tree was still dirty in between, and that window is exactly what corrupts a parallel
+worker. mtime survives the revert; content does not.
 
 Writes *outside* the checkout (``tmp_path``, site-packages) are not a hazard — workers share
 the checkout, not the temp dirs — and neither are the per-run regenerable paths in
@@ -93,6 +104,8 @@ class MutationRecord:
     """What one test did to the checkout."""
 
     writes: set[str] = field(default_factory=set)
+    # Subprocesses that PROVABLY changed the tree. A spawn on its own is not here: the audit
+    # hook cannot see inside the child, so the tree is fingerprinted instead (below).
     subprocesses: set[str] = field(default_factory=set)
 
     def __bool__(self) -> bool:
@@ -103,7 +116,11 @@ class MutationRecord:
         if self.writes:
             parts.append("wrote " + ", ".join(sorted(self.writes)[:6]))
         if self.subprocesses:
-            parts.append("spawned " + ", ".join(sorted(self.subprocesses)[:6]))
+            parts.append(
+                "its subprocess changed the tree ("
+                + ", ".join(sorted(self.subprocesses)[:6])
+                + ")"
+            )
         return "; ".join(parts)
 
 
@@ -124,6 +141,41 @@ class _Recorder:
     def __init__(self) -> None:
         self.root: Path | None = None
         self.current: MutationRecord | None = None
+        # (path -> (mtime_ns, size)) of the tracked surface, captured on this test's FIRST
+        # subprocess spawn, plus the commands spawned since. None until a test spawns one.
+        self.pre_spawn: dict[str, tuple[int, int]] | None = None
+        self.spawned: list[str] = []
+
+    def fingerprint(self) -> dict[str, tuple[int, int]]:
+        """(mtime_ns, size) of every path in the checkout — the whole thing, not a shortlist.
+
+        Narrowing this to the areas the convention suite happens to write today (plan/, src/atdd/,
+        pyproject.toml) saves ~30ms and silently stops noticing a subprocess that writes anywhere
+        else. The whole tree is 4.5k entries in ~43ms, and only the handful of tests that spawn a
+        subprocess ever pay it, so there is nothing to buy by guessing.
+
+        mtime, NOT content: a fault test writes a file and reverts it in a ``finally``, so the
+        bytes match again by the time anyone looks and ``git status`` reports a clean tree. The
+        tree WAS dirty in between, and that window is exactly what corrupts a parallel worker.
+        mtime survives the revert; content does not.
+
+        Directories, not just files: a test that CREATES a probe file and deletes it again leaves
+        no trace in a file-only fingerprint — the file is absent from both snapshots — but it does
+        bump its parent directory's mtime. ``plan/validate_conventions/E996.yaml`` is that shape.
+        """
+        assert self.root is not None
+        out: dict[str, tuple[int, int]] = {}
+        for dirpath, dirnames, filenames in os.walk(self.root):
+            dirnames[:] = [d for d in dirnames if d not in _IGNORED_PATH_PARTS]
+            for p in [dirpath] + [os.path.join(dirpath, n) for n in filenames]:
+                # lexists, not try/except: a dangling symlink is the only thing os.walk can hand
+                # us that cannot be stat'd, and swallowing a real OSError here would hide exactly
+                # the kind of tree damage this function exists to notice.
+                if not os.path.lexists(p):
+                    continue
+                st = os.stat(p, follow_symlinks=False)
+                out[os.path.relpath(p, self.root)] = (st.st_mtime_ns, st.st_size)
+        return out
 
     def repo_relative(self, path: object, *, cwd_relative: bool = True) -> str | None:
         """Repo-relative path, or None when the path is outside the checkout, ignored, or not
@@ -186,7 +238,15 @@ class _Recorder:
             cwd = args[2] if len(args) > 2 else None
             if cwd is not None and self.repo_relative(cwd) is None:
                 return
-            rec.subprocesses.add(_describe_argv(args[1] if len(args) > 1 else None, args[0] if args else None))
+            self.spawned.append(
+                _describe_argv(args[1] if len(args) > 1 else None, args[0] if args else None)
+            )
+            # This event fires BEFORE the child is exec'd, so the tree is still pristine here —
+            # fingerprint it now and diff at teardown. That turns "spawned a subprocess" (an
+            # assumption) into "its subprocess changed the tree" (an observation), and it costs
+            # nothing for the ~90% of tests that never spawn one.
+            if self.pre_spawn is None:
+                self.pre_spawn = self.fingerprint()
 
 
 _RECORDER = _Recorder()
@@ -209,12 +269,26 @@ def install(root: Path) -> None:
 def begin() -> None:
     """Start recording for the test about to run."""
     _RECORDER.current = MutationRecord()
+    _RECORDER.pre_spawn = None
+    _RECORDER.spawned = []
 
 
 def end() -> MutationRecord:
-    """Stop recording and return what the test did to the checkout."""
+    """Stop recording and return what the test did to the checkout.
+
+    If the test spawned a subprocess over the checkout, the tree is re-fingerprinted and diffed
+    against the snapshot taken at spawn time. Only a subprocess that ACTUALLY disturbed the tree
+    makes the test serial — a nested `pytest --collect-only`, a `git status`, or a suite that
+    provably writes nothing (which is what #1458 made the fault families) stays parallel.
+    """
     record = _RECORDER.current or MutationRecord()
+    if _RECORDER.pre_spawn is not None:
+        after = _RECORDER.fingerprint()
+        if after != _RECORDER.pre_spawn:
+            record.subprocesses.update(_RECORDER.spawned)
     _RECORDER.current = None
+    _RECORDER.pre_spawn = None
+    _RECORDER.spawned = []
     return record
 
 

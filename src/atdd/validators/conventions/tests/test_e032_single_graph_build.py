@@ -56,7 +56,6 @@ def _repo_root() -> Path:
     raise RuntimeError("repo root not found")
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_clean_graph_composed_once_across_readonly_suite(tmp_path: Path) -> None:
     root = _repo_root()
     count_file = tmp_path / "graph_builds.json"

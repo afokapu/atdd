@@ -43,6 +43,7 @@ WORKFLOW = ".github/workflows/atdd-validate.yml"
 PARALLEL_JOB = "validate-conventions"
 SERIAL_JOB = "validate-conventions-serial"
 GATE_JOB = "validate-gate"
+EXIT_NO_TESTS_COLLECTED = 5  # pytest.ExitCode.NO_TESTS_COLLECTED
 
 
 def _repo_root() -> Path:
@@ -63,6 +64,11 @@ def _collected(root: Path, *selector: str) -> int:
          "-p", "no:cacheprovider", *selector],
         cwd=root, env=dict(os.environ), capture_output=True, text=True, timeout=600,
     )
+    # pytest exits 5 for "no tests collected". That is a legitimate answer of ZERO here, not a
+    # crash: the whole direction of #1458 is the mutating subset shrinking, and the day it hits
+    # empty this helper must report 0 rather than blow up and take the partition proof with it.
+    if result.returncode == EXIT_NO_TESTS_COLLECTED:
+        return 0
     assert result.returncode == 0, (
         f"collection failed for selector {selector or '(none)'}:\n{result.stdout[-3000:]}"
     )
@@ -72,7 +78,6 @@ def _collected(root: Path, *selector: str) -> int:
     return int(match.group(1))
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_smoke_001_the_two_subsets_collect_the_whole_suite() -> None:
     """E036-SMOKE-001: parallel + serial == the un-split suite, and neither half is empty."""
     root = _repo_root()
@@ -86,14 +91,18 @@ def test_smoke_001_the_two_subsets_collect_the_whole_suite() -> None:
         "collected un-split. Some test falls through both filters and is no longer run by any "
         "CI job — coverage was dropped, not parallelised."
     )
+    # Not a floor for its own sake: #1458 root-redirected seven fault families, but the LOADER
+    # fault tests (coherence/coverage/presence/resolution) still inject by writing a real file —
+    # their evaluators re-scan disk, so the fault has to BE on disk. While that is true, a serial
+    # count of zero means the marker stopped being applied, not that the suite got safer.
     assert serial > 0, (
         "no test is marked serial, which cannot be true while the loader fault families still "
-        "write the tree — the marker has stopped being applied"
+        "write the tree — the marker has stopped being applied. If the loader faults have since "
+        "been migrated off disk, delete this assertion deliberately; do not let it rot into a lie."
     )
     assert parallel > 0, "the parallel subset is empty — the split bought nothing"
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_smoke_002_ci_runs_both_subsets_and_the_gate_fans_in_both() -> None:
     """E036-SMOKE-002: both jobs exist, select complementary halves, and reach validate-gate."""
     root = _repo_root()

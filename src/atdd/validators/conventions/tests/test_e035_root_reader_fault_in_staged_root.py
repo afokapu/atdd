@@ -84,6 +84,7 @@ def _tracked_hashes(root: Path) -> dict:
     return out
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_on_disk_fault_rewrites_the_checkout() -> None:
     """E035-RED-001: the retired on-disk mechanism mutates a TRACKED file mid-test.
 

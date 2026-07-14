@@ -55,7 +55,6 @@ def _dirty_conventions(root: Path) -> str:
     return result.stdout
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_binding_family_writes_no_convention_yaml() -> None:
     root = _repo_root()
 
@@ -76,7 +75,6 @@ def test_binding_family_writes_no_convention_yaml() -> None:
     )
 
 
-@pytest.mark.convention_filesystem_mutation
 def test_binding_fault_is_still_caught() -> None:
     """Coverage preserved: the fault-injection tests are still collected AND green."""
     root = _repo_root()
