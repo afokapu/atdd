@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
-from atdd.state.conformance import (
+from atdd.state.bare_remote import (
     STORE_GITIGNORE,
     clone_of,
     seed_bare_remote,

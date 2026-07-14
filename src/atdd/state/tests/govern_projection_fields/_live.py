@@ -28,7 +28,7 @@ from typing import Iterable, Optional, Sequence, Tuple
 
 import yaml
 
-from atdd.state.conformance import identify, seed_bare_remote
+from atdd.state.bare_remote import identify, seed_bare_remote
 from atdd.state.merge_driver import EVIDENCE_RELATIVE
 from atdd.state.ownership import POLICY_RELATIVE
 

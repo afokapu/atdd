@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
-from atdd.state.conformance import clone_of, seed_bare_remote
+from atdd.state.bare_remote import clone_of, seed_bare_remote
 
 #: The in-tree ``src/`` root, so the subprocess drives THIS working copy's CLI.
 _SRC = Path(__file__).resolve().parents[4]
