@@ -14,26 +14,26 @@ scope:
   - src/atdd
 
 rules:
-  coder.dead-code.reachability:                                   321
+  coder.dead-code.reachability:                                   59
   coder.dead-code.reachability-typescript:                        29
   coder.design.orphan-ui:                                         7
   coder.design.primitives:                                        5
   coder.error-response.code-format:                               1
-  coder.logging.coach-silent-swallow:                             308
+  coder.logging.coach-silent-swallow:                             248
   coder.logging.structured:                                       15
-  coder.refactor.complexity-cognitive:                            190
-  coder.refactor.complexity-cyclomatic:                           207
-  coder.refactor.complexity-length:                               113
-  coder.refactor.complexity-nesting:                              278
+  coder.refactor.complexity-cognitive:                            130
+  coder.refactor.complexity-cyclomatic:                           147
+  coder.refactor.complexity-length:                               76
+  coder.refactor.complexity-nesting:                              173
   coder.refactor.composition-consumer:                            63
   coder.refactor.composition-root:                                8
-  coder.refactor.quality-comments:                                21
+  coder.refactor.quality-comments:                                20
   coder.refactor.quality-comments-typescript:                     2
-  coder.refactor.quality-duplication:                             54
-  coder.refactor.quality-file-length:                             42
+  coder.refactor.quality-duplication:                             52
+  coder.refactor.quality-file-length:                             40
   coder.refactor.quality-mi:                                      11
   coder.refactor.quality-naming:                                  3
   coder.security.sql-injection:                                   1
   tester.acceptance-violation.live-smoke-acceptance-must-execute: 1
   tester.acceptance-violation.metric-implementation-must-exist:   1
-  tester.smoke.no-collaborator-substitution:                      3
+  tester.smoke.no-collaborator-substitution:                      1
