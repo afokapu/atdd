@@ -18,7 +18,12 @@ from atdd.validators.conventions._support.graph_mutations import (
     graph_rooted_at,
     mirror_file,
 )
-from atdd.validators.conventions.composition.archetype import TEMPLATE_IDS, TEMPLATES
+from atdd.validators.conventions.composition.archetype import (
+    PACKAGE_DATA_FAULT_ANCHOR,
+    PACKAGE_DATA_FAULT_REPLACEMENT,
+    TEMPLATE_IDS,
+    TEMPLATES,
+)
 
 FAMILY = "composition"
 TEMPLATE = "composed_graph_loads"
@@ -34,17 +39,12 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_composition_data_shippe
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _CONFIG = {"variant": VARIANT}
-# The package-data declaration the fault removes. Under the #1474 broad-ship policy
-# this one line is what ships every convention-node tree, so narrowing it to the
-# conventions' own `*.yaml` (which does NOT reach into `nodes/`) reproduces exactly
-# the #1369 defect: the archetype conventions ship, their atomised nodes do not.
-#
-# It used to remove the literal `, "nodes/*.yaml"` fragment, which no longer exists —
-# and which is the same brittleness that let the real bug through: a fault keyed to
-# one declaration STYLE stops being injectable the moment the style changes, and a
-# fault that cannot be injected proves nothing.
-_FAULT_GLOB = '"atdd" = ["**/*"]'
-_FAULT_REPLACEMENT = '"atdd" = ["*.yaml"]'
+# Imported, not re-typed. The E035 staged-root guard injects the same fault, and when
+# each site wrote the anchor out by hand the copies drifted from the pyproject they
+# point at — which is how a fault keyed to one declaration STYLE stops being injectable
+# the moment the style changes. A fault that cannot be injected proves nothing.
+_FAULT_GLOB = PACKAGE_DATA_FAULT_ANCHOR
+_FAULT_REPLACEMENT = PACKAGE_DATA_FAULT_REPLACEMENT
 
 
 def _template():

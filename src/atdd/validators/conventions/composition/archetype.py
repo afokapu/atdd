@@ -76,6 +76,20 @@ _REQUIRED_CONVENTION_SOURCES = (
     'planner/schemas/author',
 )
 
+# The package-data fault, named once. Narrowing the broad-ship glob to the conventions'
+# own `*.yaml` stops it reaching into `nodes/` (a single `*` does not cross a directory
+# separator under glob semantics), which reproduces #1369 exactly: the archetype
+# conventions ship, their atomised nodes do not.
+#
+# It lives HERE, next to the evaluator it is the inverse of, because both the
+# composition variant and the E035 staged-root guard inject it — and when it was written
+# out by hand in each of them, the two copies drifted from the pyproject they anchor to.
+# `mirror_file` raises when the anchor is absent, so a drifted copy does not fail
+# quietly; it just fails somewhere confusing, on a test that has nothing to do with
+# packaging.
+PACKAGE_DATA_FAULT_ANCHOR = '"atdd" = ["**/*"]'
+PACKAGE_DATA_FAULT_REPLACEMENT = '"atdd" = ["*.yaml"]'
+
 
 def _pkg_dir(pkg, src_root):
     """The source dir a package-data key is resolved against.
