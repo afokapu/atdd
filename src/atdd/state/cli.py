@@ -26,6 +26,7 @@ from typing import Optional, Sequence, Tuple
 
 from dataclasses import dataclass, field
 
+from atdd.state.cli_support import START_DIR_HELP, add_verb, opt
 from atdd.state.db import current_version, init_state_store
 from atdd.state.paths import (
     ATDD_DIR,
@@ -49,58 +50,69 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="op")
 
-    doctor = sub.add_parser("doctor", help="Print and validate the detected State Store layout.")
-    doctor.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(sub, "doctor", "Print and validate the detected State Store layout.", root=START_DIR_HELP)
 
-    layout = sub.add_parser("layout", help="Layout guards.")
-    layout.add_argument("--check", action="store_true", help="Validate the layout; non-zero on violation.")
-    layout.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "layout", "Layout guards.",
+        opt("--check", action="store_true", help="Validate the layout; non-zero on violation."),
+        root=START_DIR_HELP,
+    )
 
-    init = sub.add_parser("init", help="Create (if needed) and migrate the State Store SQLite database.")
-    init.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "init", "Create (if needed) and migrate the State Store SQLite database.",
+        root=START_DIR_HELP,
+    )
 
-    imp = sub.add_parser("import-manifest",
-                         help="Import .atdd/manifest.yaml operational state into the State Store (#1183).")
-    imp.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "import-manifest",
+        "Import .atdd/manifest.yaml operational state into the State Store (#1183).",
+        root=START_DIR_HELP,
+    )
 
-    ml = sub.add_parser(
-        "migrate-layout",
-        help="Consolidate to a single project-root State Store, rebuilt from main's "
-             "manifest (#1315 / #1168 Phase 5).")
-    ml.add_argument("--project-root", default=None,
-                    help="Project root (parent of main/). Default: derived from --root/cwd via git.")
-    ml.add_argument("--root", default=None,
-                    help="Starting directory used to derive the project root (default: cwd).")
+    add_verb(
+        sub, "migrate-layout",
+        "Consolidate to a single project-root State Store, rebuilt from main's "
+        "manifest (#1315 / #1168 Phase 5).",
+        opt("--project-root", default=None,
+            help="Project root (parent of main/). Default: derived from --root/cwd via git."),
+        root="Starting directory used to derive the project root (default: cwd).",
+    )
 
     version = sub.add_parser(
         "version", help="Release version source-of-truth (#1172).")
     version_sub = version.add_subparsers(dest="version_op")
-    v_show = version_sub.add_parser("show", help="Print the current release version (with context).")
-    v_show.add_argument("--root", default=None)
-    v_emit = version_sub.add_parser(
-        "emit", help="Print the build-consumable version string (0.0.0+local if no store version).")
-    v_emit.add_argument("--root", default=None)
-    v_bump = version_sub.add_parser("bump", help="Bump the release version (writes store + appends event).")
-    v_bump.add_argument("--class", dest="change_class", required=True,
-                        choices=["PATCH", "MINOR", "MAJOR"], help="Semver change class.")
-    v_bump.add_argument("--pr", default=None, help="Originating PR number (recorded in the bump event).")
-    v_bump.add_argument("--root", default=None)
-    v_set = version_sub.add_parser(
-        "set", help="Reconcile the current release version to an explicit value "
-        "(e.g. the latest git tag) without emitting a version_decided signal.")
-    v_set.add_argument("version", help="The version to set as authoritative current (X.Y.Z).")
-    v_set.add_argument("--root", default=None)
-    v_rb = version_sub.add_parser(
-        "reconcile-base",
-        help="Print the authoritative release base = max(git tag, PyPI latest) for the "
-        "next bump (#1326). Falls back to the git tag if PyPI is unreachable.")
-    v_rb.add_argument("--git-tag", dest="git_tag", default=None,
-                      help="The latest git tag core (X.Y.Z, without a leading 'v').")
-    v_rb.add_argument("--package", default="atdd",
-                      help="PyPI package to query for the published latest (default: atdd).")
-    v_rb.add_argument("--no-pypi", dest="no_pypi", action="store_true",
-                      help="Skip the PyPI query and resolve from the git tag only.")
-    v_rb.add_argument("--root", default=None)
+    add_verb(version_sub, "show", "Print the current release version (with context).", root=None)
+    add_verb(
+        version_sub, "emit",
+        "Print the build-consumable version string (0.0.0+local if no store version).",
+        root=None,
+    )
+    add_verb(
+        version_sub, "bump", "Bump the release version (writes store + appends event).",
+        opt("--class", dest="change_class", required=True,
+            choices=["PATCH", "MINOR", "MAJOR"], help="Semver change class."),
+        opt("--pr", default=None, help="Originating PR number (recorded in the bump event)."),
+        root=None,
+    )
+    add_verb(
+        version_sub, "set",
+        "Reconcile the current release version to an explicit value "
+        "(e.g. the latest git tag) without emitting a version_decided signal.",
+        opt("version", help="The version to set as authoritative current (X.Y.Z)."),
+        root=None,
+    )
+    add_verb(
+        version_sub, "reconcile-base",
+        "Print the authoritative release base = max(git tag, PyPI latest) for the "
+        "next bump (#1326). Falls back to the git tag if PyPI is unreachable.",
+        opt("--git-tag", dest="git_tag", default=None,
+            help="The latest git tag core (X.Y.Z, without a leading 'v')."),
+        opt("--package", default="atdd",
+            help="PyPI package to query for the published latest (default: atdd)."),
+        opt("--no-pypi", dest="no_pypi", action="store_true",
+            help="Skip the PyPI query and resolve from the git tag only."),
+        root=None,
+    )
 
     # Projection spine (#1400): object create/rename, project, hydrate, digest,
     # canonicality. Its parsers live next to their implementation.
@@ -140,14 +152,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
-    t_list = trace_sub.add_parser("list", help="List Hub sessions.")
-    t_list.add_argument("--root", default=None)
-    t_export = trace_sub.add_parser("export", help="Export a session's trace as JSON.")
-    t_export.add_argument("--session", required=True)
-    t_export.add_argument("--root", default=None)
-    t_promote = trace_sub.add_parser("promote", help="Promote a session's trace to the outbox.")
-    t_promote.add_argument("--session", required=True)
-    t_promote.add_argument("--root", default=None)
+    add_verb(trace_sub, "list", "List Hub sessions.", root=None)
+    add_verb(trace_sub, "export", "Export a session's trace as JSON.",
+             opt("--session", required=True), root=None)
+    add_verb(trace_sub, "promote", "Promote a session's trace to the outbox.",
+             opt("--session", required=True), root=None)
 
     return parser
 

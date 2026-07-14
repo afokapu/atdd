@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from atdd.state import conformance, extensions_lock, import_boundary, provider_seam
+from atdd.state.cli_support import add_verb, opt
 from atdd.state.extensions_lock import LockError
 from atdd.state.projection import PROJECTION_RELATIVE, canonical_bytes, read_projection
 from atdd.state.provider_seam import ProviderBoundaryError, ProviderRegistryError, SyncProvider
@@ -44,46 +45,50 @@ _log = logging.getLogger(__name__)
 OPS = ("import-boundary", "conformance", "providers", "extensions-lock", "mirror")
 
 
+#: Register a provider for one invocation. Repeatable, and spelled the same by every verb
+#: that takes it — the composition root is the only way a provider ever gets in (spec §8).
+def _provider_opt():
+    return opt("--provider", action="append", default=None, metavar="PKG.MOD:FACTORY",
+               help="Register a provider for this invocation (repeatable).")
+
+
 def add_parsers(sub) -> None:
     """Register the provider-boundary verbs on the ``atdd state`` sub-parser."""
-    ib = sub.add_parser(
-        "import-boundary",
-        help="Prove core's import graph reaches no provider, gh, or GitHub API (spec §8.1).")
-    ib.add_argument("--package", default=None,
-                    help="The atdd package directory to walk (default: the running one).")
-    ib.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "import-boundary",
+        "Prove core's import graph reaches no provider, gh, or GitHub API (spec §8.1).",
+        opt("--package", default=None,
+            help="The atdd package directory to walk (default: the running one)."),
+    )
 
-    cf = sub.add_parser(
-        "conformance",
-        help="Drive the full workflow against a bare git remote with ZERO providers (M5).")
-    cf.add_argument("--work", default=None,
-                    help="Directory to build the bare remote and clones in (default: a temp dir).")
-    cf.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "conformance",
+        "Drive the full workflow against a bare git remote with ZERO providers (M5).",
+        opt("--work", default=None,
+            help="Directory to build the bare remote and clones in (default: a temp dir)."),
+    )
 
-    pv = sub.add_parser(
-        "providers", help="List the registered SyncProviders. Empty by default.")
-    pv.add_argument("--provider", action="append", default=None, metavar="PKG.MOD:FACTORY",
-                    help="Register a provider for this invocation (repeatable).")
-    pv.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "providers", "List the registered SyncProviders. Empty by default.",
+        _provider_opt(),
+    )
 
-    el = sub.add_parser(
-        "extensions-lock",
-        help="Write .atdd/extensions.lock: core's policy digests + every provider's digest.")
-    el.add_argument("--verify", action="store_true",
-                    help="Verify the committed lock instead of writing it (fails on drift).")
-    el.add_argument("--provider", action="append", default=None, metavar="PKG.MOD:FACTORY",
-                    help="Register a provider for this invocation (repeatable).")
-    el.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "extensions-lock",
+        "Write .atdd/extensions.lock: core's policy digests + every provider's digest.",
+        opt("--verify", action="store_true",
+            help="Verify the committed lock instead of writing it (fails on drift)."),
+        _provider_opt(),
+    )
 
-    mr = sub.add_parser(
-        "mirror",
-        help="Run the mirror job: external_refs.* only, and a provider failure never blocks.")
-    mr.add_argument("--provider", action="append", default=None, metavar="PKG.MOD:FACTORY",
-                    help="Register a provider for this invocation (repeatable).")
-    mr.add_argument("--strict", action="store_true",
-                    help="Exit non-zero if a provider failed. For debugging — never for CI (I7).")
-    mr.add_argument("--from", dest="from_dir", default=None, help="Projection directory.")
-    mr.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "mirror",
+        "Run the mirror job: external_refs.* only, and a provider failure never blocks.",
+        _provider_opt(),
+        opt("--strict", action="store_true",
+            help="Exit non-zero if a provider failed. For debugging — never for CI (I7)."),
+        opt("--from", dest="from_dir", default=None, help="Projection directory."),
+    )
 
 
 def _root(args) -> Path:
