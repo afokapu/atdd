@@ -1248,7 +1248,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 94
+    total: 93
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -1324,10 +1324,6 @@ wagons:
       the current branch slug is absent from the manifest
     Y005: minimize atdd issue reconcile missing from the CLI when bulk backfill of
       unregistered open issues is needed
-    E013: minimize issues-filed-without-duplicate-search when an operator runs atdd
-      issue <slug> by running gh issue list --search before GitHub issue creation
-      and aborting with a warning listing matches unless --no-dup-check is passed
-      (#657)
     E014: minimize agent-spawn-commands-containing-dangerously-skip-permissions by
       detecting the forbidden flag in the adapter command string and raising SpawnPermissionViolation
       before the multiplexer dispatches (#657)
@@ -1344,10 +1340,10 @@ wagons:
     E018: minimize pr-registry-gate-absorbs-unrelated-repo-wide-drift when a PR runs
       GT-002 by adding --scope changed-files to atdd registry update --check that
       limits drift detection to wagon sources in git diff main..HEAD (#582)
-    E019: minimize issue-author-submits-non-compliant-body-or-triggers-redundant-create-edit-graphql-pair
-      when an operator runs atdd issue <slug> by validating the full body locally
-      (--check gate) before any GitHub call and publishing via a single gh issue create
-      with no follow-up gh issue edit for body (#792)
+    E019: 'minimize issue-author-submits-non-compliant-body when an operator authors
+      an issue by validating the body against issue.schema.json before any GitHub
+      call and publishing store-first via a single create (#792; the mint-path create+edit
+      acceptances retired with the mint path in #1477)'
     E020: minimize codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md
       by renaming the persona template to CONDUCTOR.md.tmpl, updating AgentConfigSync.AGENT_FILES['codex']
       to 'CONDUCTOR.md', and emitting a migration notice when a stale AGENTS.md with
