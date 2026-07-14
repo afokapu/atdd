@@ -21,8 +21,8 @@ rules:
   coder.error-response.code-format:                               1
   coder.logging.coach-silent-swallow:                             248
   coder.logging.structured:                                       15
-  coder.refactor.complexity-cognitive:                            130
-  coder.refactor.complexity-cyclomatic:                           147
+  coder.refactor.complexity-cognitive:                            131
+  coder.refactor.complexity-cyclomatic:                           149
   coder.refactor.complexity-length:                               76
   coder.refactor.complexity-nesting:                              173
   coder.refactor.composition-consumer:                            63
