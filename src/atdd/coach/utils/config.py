@@ -4,15 +4,44 @@ ATDD Configuration Loader.
 Loads configuration from .atdd/config.yaml for train validation and enforcement.
 """
 
+import logging
 import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Stack layout defaults (coach.graph.implementation-root-resolution)
+#
+# These two maps are the ONLY place in core that names a concrete stack path.
+# Validators must never re-derive them: they call resolve_code_root() /
+# resolve_stack_container() and skip the stack when the resolver returns None.
+#
+# They are also the designated relocation target for #1121 — the *invariant*
+# (config-driven resolution) stays core; these *defaults* move to
+# atdd.workspace.python-pytest. Keeping them in one module is what makes that
+# move a lift rather than a 57-file re-sweep.
+# ---------------------------------------------------------------------------
+
+# Where a stack's source code lives — what an implementation resolver walks.
 DEFAULT_CODE_ROOTS: Dict[str, str] = {
     "python": "python",
     "supabase": "supabase/functions",
     "web": "web/src",
+}
+
+# Where a stack's *project* lives — the directory holding its manifests and
+# sibling trees (package.json, tsconfig.json, tests/, migrations/). Distinct
+# from the code root: web code sits in `web/src`, but `tsconfig.json` sits in
+# `web/`. For python the two coincide; that is a property of the layout, not a
+# rule, so it is declared rather than derived.
+DEFAULT_STACK_CONTAINERS: Dict[str, str] = {
+    "python": "python",
+    "supabase": "supabase",
+    "web": "web",
 }
 
 
@@ -49,6 +78,94 @@ def get_code_roots(config: Optional[Dict[str, Any]]) -> Dict[str, Path]:
     for key, value in overrides.items():
         merged[key] = Path(value)
     return merged
+
+
+def get_stack_containers(config: Optional[Dict[str, Any]]) -> Dict[str, Path]:
+    """
+    Resolve the declared stack-container map from an ATDD config dict.
+
+    A *container* is the stack's project directory — where its manifests
+    (``package.json``, ``tsconfig.json``) and sibling trees (``tests/``,
+    ``migrations/``) sit. It is not derivable from the code root: ``web/src``
+    implies a ``web`` container, but ``apps/frontend/src`` does not imply
+    ``apps``. So it is declared, under the optional ``stack_containers:`` key,
+    and merged over :data:`DEFAULT_STACK_CONTAINERS`.
+
+    Same skip-unknown contract as :func:`get_code_roots`: keys with no
+    resolver are preserved verbatim, and callers skip what they cannot handle.
+    """
+    if not isinstance(config, dict):
+        overrides: Dict[str, Any] = {}
+    else:
+        overrides = config.get("stack_containers") or {}
+        if not isinstance(overrides, dict):
+            overrides = {}
+
+    merged: Dict[str, Path] = {
+        k: Path(v) for k, v in DEFAULT_STACK_CONTAINERS.items()
+    }
+    for key, value in overrides.items():
+        merged[key] = Path(value)
+    return merged
+
+
+def _resolve(
+    which: str,
+    stack: str,
+    repo_root: Path,
+    config: Optional[Dict[str, Any]],
+) -> Optional[Path]:
+    """Shared body for the two public resolvers."""
+    if config is None:
+        config = load_atdd_config(repo_root)
+    table = (
+        get_code_roots(config) if which == "code root" else get_stack_containers(config)
+    )
+    relative = table.get(stack)
+    if relative is None:
+        # Decision #2: an undeclared stack is skipped, never a crash. A consumer
+        # may name `rust`/`go`/`dart` in config long before a resolver ships,
+        # and a consumer with no web tier must not fail the web validators.
+        logger.debug(
+            "no %s declared for stack %r; skipping (declare it under "
+            ".atdd/config.yaml to enable)",
+            which,
+            stack,
+        )
+        return None
+    return repo_root / relative
+
+
+def resolve_code_root(
+    stack: str,
+    repo_root: Path,
+    config: Optional[Dict[str, Any]] = None,
+) -> Optional[Path]:
+    """
+    Absolute path to *stack*'s code root, or ``None`` if it is not declared.
+
+    This is the single seam validators use instead of hardcoding
+    ``REPO_ROOT / "python"``. Returning ``None`` (rather than a path that does
+    not exist) lets a caller distinguish "this repo has no such stack" from
+    "the stack is declared but its directory is missing" — the two want
+    different skip messages.
+    """
+    return _resolve("code root", stack, repo_root, config)
+
+
+def resolve_stack_container(
+    stack: str,
+    repo_root: Path,
+    config: Optional[Dict[str, Any]] = None,
+) -> Optional[Path]:
+    """
+    Absolute path to *stack*'s project container, or ``None`` if not declared.
+
+    Use this for stack-level artifacts that sit beside the code root rather
+    than inside it — ``web/tsconfig.json``, ``web/tests``,
+    ``supabase/migrations``. Use :func:`resolve_code_root` for source scans.
+    """
+    return _resolve("container", stack, repo_root, config)
 
 
 def load_atdd_config(repo_root: Path) -> Dict[str, Any]:

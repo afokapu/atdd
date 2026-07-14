@@ -79,6 +79,14 @@
         "description": "Path to implementation root (relative to repo root)"
       }
     },
+    "stack_containers": {
+      "type": "object",
+      "description": "Stack-container map: the project directory per stack, holding stack-level manifests (package.json, tsconfig.json) and sibling trees (tests/, migrations/). Distinct from `code`, the source root: web code lives in web/src but tsconfig.json sits in web/. Keys are stack names, values are paths relative to the repo root. Consumed via atdd.coach.utils.config.resolve_stack_container.",
+      "additionalProperties": {
+        "type": "string",
+        "description": "Path to the stack's project container (relative to repo root)"
+      }
+    },
     "coverage": {
       "type": "object",
       "description": "Hierarchy coverage validation settings (ATDD Hierarchy Coverage Spec v0.1)",
