@@ -869,29 +869,44 @@ class IssueManager:
         if status and status != "TBD":
             expected.append(f"atdd:{status}")
 
-        archetypes_raw = (meta.get("Archetypes") or "").strip()
-        if archetypes_raw and archetypes_raw.upper() != "TBD":
-            for part in archetypes_raw.split(","):
-                name = part.strip().strip("`").strip()
-                if name and name.upper() != "TBD":
-                    expected.append(f"archetype:{name}")
-
-        wagon_raw = (meta.get("Wagon") or "").strip()
-        if wagon_raw and wagon_raw.upper() != "TBD":
-            # Accept multiple ``wagon:X`` tokens in the row (cross-wagon
-            # issues are first-class per Decision #5). Tolerate backticks
-            # and descriptive trailers. Fall back to bare slug if the row
-            # contains no ``wagon:`` prefix.
-            matches = re.findall(r"wagon:([a-z][a-z0-9-]*)", wagon_raw)
-            if matches:
-                for slug in matches:
-                    expected.append(f"wagon:{slug}")
-            else:
-                slug = wagon_raw.strip("`").strip()
-                if re.fullmatch(r"[a-z][a-z0-9-]*", slug):
-                    expected.append(f"wagon:{slug}")
-
+        expected.extend(self._archetype_labels(meta.get("Archetypes")))
+        expected.extend(self._wagon_labels(meta.get("Wagon")))
         return expected
+
+    @staticmethod
+    def _archetype_labels(archetypes_raw: Optional[str]) -> List[str]:
+        """One archetype:<id> label per comma-separated entry, backticks tolerated."""
+        archetypes_raw = (archetypes_raw or "").strip()
+        if not archetypes_raw or archetypes_raw.upper() == "TBD":
+            return []
+
+        labels = []
+        for part in archetypes_raw.split(","):
+            name = part.strip().strip("`").strip()
+            if name and name.upper() != "TBD":
+                labels.append(f"archetype:{name}")
+        return labels
+
+    @staticmethod
+    def _wagon_labels(wagon_raw: Optional[str]) -> List[str]:
+        """One wagon:<slug> label per ``wagon:X`` token in the row.
+
+        Cross-wagon issues are first-class (Decision #5), so multiple tokens are
+        accepted; backticks and descriptive trailers are tolerated. A row with
+        no ``wagon:`` prefix falls back to a bare slug.
+        """
+        wagon_raw = (wagon_raw or "").strip()
+        if not wagon_raw or wagon_raw.upper() == "TBD":
+            return []
+
+        matches = re.findall(r"wagon:([a-z][a-z0-9-]*)", wagon_raw)
+        if matches:
+            return [f"wagon:{slug}" for slug in matches]
+
+        slug = wagon_raw.strip("`").strip()
+        if re.fullmatch(r"[a-z][a-z0-9-]*", slug):
+            return [f"wagon:{slug}"]
+        return []
 
     def _reconcile_closed_phase_labels(self, expected: Set[str]) -> Set[str]:
         """Normalize the expected label set for a CLOSED issue.
@@ -1627,21 +1642,28 @@ class IssueManager:
             if not in_table:
                 continue
 
-            # Extract command — strip backticks
-            command = cells[2].strip("`").strip()
-            if not command:
-                continue
-
-            gates.append({
-                "id": cells[0].strip(),
-                "phase": cells[1].strip(),
-                "command": command,
-                "expected": cells[3].strip(),
-                "validator": cells[4].strip("`").strip(),
-                "status": cells[5].strip(),
-            })
+            gate = IssueManager._gate_row(cells)
+            if gate:
+                gates.append(gate)
 
         return gates
+
+    @staticmethod
+    def _gate_row(cells: List[str]) -> Optional[Dict[str, str]]:
+        """One gate-test table row; None when it declares no command."""
+        # Extract command — strip backticks
+        command = cells[2].strip("`").strip()
+        if not command:
+            return None
+
+        return {
+            "id": cells[0].strip(),
+            "phase": cells[1].strip(),
+            "command": command,
+            "expected": cells[3].strip(),
+            "validator": cells[4].strip("`").strip(),
+            "status": cells[5].strip(),
+        }
 
     def _run_gate_tests(
         self, gates: List[Dict[str, str]], force: bool = False,
@@ -1706,30 +1728,46 @@ class IssueManager:
         if not section_match:
             return artifacts
 
-        section = section_match.group(1)
+        headings = {
+            "### Created": "created",
+            "### Modified": "modified",
+            "### Deleted": "deleted",
+        }
 
         # Parse each subsection
         current_key = None
-        for line in section.splitlines():
+        for line in section_match.group(1).splitlines():
             stripped = line.strip()
-            if stripped.startswith("### Created"):
-                current_key = "created"
-            elif stripped.startswith("### Modified"):
-                current_key = "modified"
-            elif stripped.startswith("### Deleted"):
-                current_key = "deleted"
-            elif stripped.startswith("- ") and current_key:
-                path = stripped[2:].strip().strip("`")
-                # Skip placeholders
-                if path.startswith("(") or not path:
-                    continue
-                # Strip trailing descriptions after ' — ' or ' - '
-                for sep in (" — ", " - ", " ("):
-                    if sep in path:
-                        path = path[:path.index(sep)].strip()
+
+            heading = next(
+                (key for prefix, key in headings.items() if stripped.startswith(prefix)),
+                None,
+            )
+            if heading:
+                current_key = heading
+                continue
+
+            if not (stripped.startswith("- ") and current_key):
+                continue
+
+            path = IssueManager._artifact_path(stripped)
+            if path:
                 artifacts[current_key].append(path)
 
         return artifacts
+
+    @staticmethod
+    def _artifact_path(bullet: str) -> Optional[str]:
+        """The path an artifact bullet names; None for a template placeholder."""
+        path = bullet[2:].strip().strip("`")
+        if path.startswith("(") or not path:
+            return None
+
+        # Strip trailing descriptions after ' — ' or ' - '
+        for sep in (" — ", " - ", " ("):
+            if sep in path:
+                path = path[:path.index(sep)].strip()
+        return path
 
     def _verify_artifacts(
         self, artifacts: Dict[str, List[str]], force: bool = False,
@@ -1740,53 +1778,59 @@ class IssueManager:
         - Modified: file must have changes vs main
         - Deleted: file must NOT exist in HEAD
         """
-        messages = []
-        all_valid = True
-
         total = sum(len(v) for v in artifacts.values())
         if total == 0:
             return True, ["  No artifacts declared"]
 
-        for path in artifacts["created"]:
-            if force:
-                messages.append(f"  Created:  {path} — SKIPPED (--force)")
-                continue
-            result = subprocess.run(
-                ["git", "ls-tree", "HEAD", "--", path],
-                capture_output=True, text=True, cwd=str(self.target_dir),
+        all_valid = True
+        messages: List[str] = []
+        for kind in ("created", "modified", "deleted"):
+            valid, group_messages = self._verify_artifact_group(
+                kind, artifacts[kind], force
             )
-            if result.stdout.strip():
-                messages.append(f"  Created:  {path} — EXISTS")
-            else:
-                messages.append(f"  Created:  {path} — MISSING")
-                all_valid = False
+            all_valid = all_valid and valid
+            messages.extend(group_messages)
 
-        for path in artifacts["modified"]:
-            if force:
-                messages.append(f"  Modified: {path} — SKIPPED (--force)")
-                continue
-            result = subprocess.run(
-                ["git", "diff", "main...HEAD", "--", path],
-                capture_output=True, text=True, cwd=str(self.target_dir),
-            )
-            if result.stdout.strip():
-                messages.append(f"  Modified: {path} — CHANGED")
-            else:
-                messages.append(f"  Modified: {path} — NO CHANGES vs main")
-                all_valid = False
+        return all_valid, messages
 
-        for path in artifacts["deleted"]:
+    # kind -> (message prefix, git argv, git prints output when satisfied,
+    #          satisfied word, unsatisfied word)
+    _ARTIFACT_CHECKS = {
+        "created": (
+            "  Created:  ", ["git", "ls-tree", "HEAD", "--"],
+            True, "EXISTS", "MISSING",
+        ),
+        "modified": (
+            "  Modified: ", ["git", "diff", "main...HEAD", "--"],
+            True, "CHANGED", "NO CHANGES vs main",
+        ),
+        "deleted": (
+            "  Deleted:  ", ["git", "ls-tree", "HEAD", "--"],
+            False, "CONFIRMED GONE", "STILL EXISTS",
+        ),
+    }
+
+    def _verify_artifact_group(
+        self, kind: str, paths: List[str], force: bool
+    ) -> Tuple[bool, List[str]]:
+        """Verify one artifact group (created / modified / deleted) against git."""
+        prefix, argv, expect_output, satisfied, unsatisfied = self._ARTIFACT_CHECKS[kind]
+
+        all_valid = True
+        messages: List[str] = []
+        for path in paths:
             if force:
-                messages.append(f"  Deleted:  {path} — SKIPPED (--force)")
+                messages.append(f"{prefix}{path} — SKIPPED (--force)")
                 continue
+
             result = subprocess.run(
-                ["git", "ls-tree", "HEAD", "--", path],
+                argv + [path],
                 capture_output=True, text=True, cwd=str(self.target_dir),
             )
-            if not result.stdout.strip():
-                messages.append(f"  Deleted:  {path} — CONFIRMED GONE")
+            if bool(result.stdout.strip()) == expect_output:
+                messages.append(f"{prefix}{path} — {satisfied}")
             else:
-                messages.append(f"  Deleted:  {path} — STILL EXISTS")
+                messages.append(f"{prefix}{path} — {unsatisfied}")
                 all_valid = False
 
         return all_valid, messages
@@ -1969,41 +2013,49 @@ class IssueManager:
 
         Returns (valid, messages). If _trains.yaml doesn't exist, passes (no constraint).
         """
-        messages = []
         plan_dir = self.target_dir / "plan"
-        trains_file = plan_dir / "_trains.yaml"
-
-        valid_ids: set = set()
-
-        if trains_file.exists():
-            with open(trains_file) as f:
-                data = yaml.safe_load(f) or {}
-            for _theme, categories in data.get("trains", {}).items():
-                if isinstance(categories, dict):
-                    for _cat, trains_list in categories.items():
-                        if isinstance(trains_list, list):
-                            for t in trains_list:
-                                tid = t.get("train_id", "")
-                                if tid:
-                                    valid_ids.add(tid)
-
-        trains_dir = plan_dir / "_trains"
-        if trains_dir.exists():
-            for f in trains_dir.glob("*.yaml"):
-                valid_ids.add(f.stem)
+        valid_ids = self._registered_train_ids(plan_dir)
 
         if not valid_ids:
             # No trains defined — skip cross-ref
             return True, []
 
         if train_value in valid_ids:
-            messages.append(f"  Train: {train_value} — VALID (in _trains.yaml)")
-            return True, messages
+            return True, [f"  Train: {train_value} — VALID (in _trains.yaml)"]
 
-        messages.append(
-            f"  Train: {train_value} — NOT FOUND in _trains.yaml"
-        )
-        return False, messages
+        return False, [f"  Train: {train_value} — NOT FOUND in _trains.yaml"]
+
+    @staticmethod
+    def _registered_train_ids(plan_dir: Path) -> set:
+        """Every known train id: the _trains.yaml registry plus loose _trains/ stems."""
+        valid_ids: set = set()
+
+        trains_file = plan_dir / "_trains.yaml"
+        if trains_file.exists():
+            with open(trains_file) as f:
+                data = yaml.safe_load(f) or {}
+            valid_ids.update(IssueManager._train_ids_in_registry(data))
+
+        trains_dir = plan_dir / "_trains"
+        if trains_dir.exists():
+            valid_ids.update(f.stem for f in trains_dir.glob("*.yaml"))
+
+        return valid_ids
+
+    @staticmethod
+    def _train_ids_in_registry(data: dict) -> set:
+        """Train ids inside the nested {theme: {category: [train]}} registry shape."""
+        train_ids: set = set()
+        for categories in data.get("trains", {}).values():
+            if not isinstance(categories, dict):
+                continue
+            for trains_list in categories.values():
+                if not isinstance(trains_list, list):
+                    continue
+                train_ids.update(t.get("train_id", "") for t in trains_list)
+
+        train_ids.discard("")
+        return train_ids
 
     def _validate_pr_exists_for_branch(
         self, branch_name: str,
@@ -2076,234 +2128,26 @@ class IssueManager:
         if not self._check_initialized():
             return 1
 
-        from atdd.coach.github import GitHubClientError
-
-        try:
-            issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            print(f"Error: Invalid issue number '{issue_id}'")
+        resolved = self._resolve_issue(issue_id)
+        if resolved is None:
             return 1
-
-        # Projects v2 board sync is decommissioned (#1051). The lifecycle state
-        # machine runs entirely on the ``atdd:<phase>`` label (REST) plus the
-        # local .atdd/manifest.yaml mirror — no GraphQL board reads or writes.
-        try:
-            client = self._get_github_client()
-            issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            print(f"Error: {e}")
-            return 1
+        issue_number, issue, client = resolved
 
         updated = []
 
         # Status transition with validation
         if status:
             status = status.upper()
-            current_labels = [l["name"] for l in issue.get("labels", [])]
-            current_status = "UNKNOWN"
-            for label in current_labels:
-                if label.startswith("atdd:") and label != "atdd-issue":
-                    current_status = label.split(":")[1]
-                    break
+            current_labels, current_status = self._read_phase_labels(issue)
+            issue_body = issue.get("body", "") or ""
 
-            allowed = self.VALID_TRANSITIONS.get(current_status, set())
-            if status not in allowed and current_status != "UNKNOWN":
-                print(f"Error: Cannot transition from {current_status} to {status}")
-                print(f"  Allowed: {', '.join(sorted(allowed)) or '(terminal state)'}")
+            if not self._transition_gates_pass(
+                issue_number, issue_id, issue_body, current_status, status,
+                branch, train, force,
+            ):
                 return 1
 
-            # E008: Enforce train assignment for transitions past PLANNED
-            # Train is only required for implementation/migration/refactor types.
-            # Other types (cleanup, analysis, planning, tracking) are train-optional.
-            issue_body = issue.get("body", "") or ""
-            issue_type = self._parse_issue_type(issue_body)
-
-            post_planned = {"RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE"}
-            train_required = issue_type in self.TRAIN_REQUIRED_TYPES if issue_type else True
-
-            if status in post_planned and train_required and not train:
-                # Train lineage is read from the local manifest mirror (#1051),
-                # never the Projects v2 board. An absent/TBD train fails loudly;
-                # a present train is cross-referenced against plan/_trains.yaml
-                # below (no board fallback recovers an unknown value).
-                current_train = (self._manifest_train(issue_number) or "").strip()
-                if not current_train or current_train.upper() == "TBD":
-                    print(f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}")
-                    print(f"  Current Train: {current_train or '(empty)'}")
-                    print( "  Fix:")
-                    print( "    1. cd into the issue's worktree (find via: git worktree list | grep <branch>):")
-                    print( "       cd /path/to/<feat-or-fix>-<slug>")
-                    print( "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")")
-                    print( "    3. Run:")
-                    print(f"       atdd update {issue_id} --train <train_id>   # then: atdd coach transition {issue_id} {status}")
-                    print( "  Why train: implementation-type issues require lineage to a Train past PLANNED")
-                    print( "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)")
-                    return 1
-                train_valid, train_messages = self._validate_train_against_trains_yaml(current_train)
-                for msg in train_messages:
-                    print(msg)
-                if not train_valid:
-                    print(f"\nError: Train '{current_train}' (from manifest) not found in _trains.yaml")
-                    print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
-                    return 1
-
-            # Issue #478 — PR-existence gate at INIT → PLANNED.
-            # `atdd branch` defers PR creation; `atdd pr` opens it post-commit.
-            # Block PLANNED transition when no PR exists for the issue's branch.
-            # --force bypasses the gate with a ::warning::.
-            if status == "PLANNED":
-                gate_branch = branch
-                if not gate_branch:
-                    gate_branch = (self._manifest_branch(issue_number) or "").strip()
-
-                if gate_branch:
-                    pr_exists, pr_messages = self._validate_pr_exists_for_branch(
-                        gate_branch
-                    )
-                    for msg in pr_messages:
-                        print(msg)
-                    if not pr_exists:
-                        if force:
-                            print(
-                                "::warning::PR-existence gate bypassed (--force); "
-                                f"branch '{gate_branch}' has no open PR."
-                            )
-                        else:
-                            print(
-                                f"\nError: No open PR found for branch "
-                                f"'{gate_branch}' — cannot transition to PLANNED."
-                            )
-                            print( "  Fix:")
-                            print( "    1. cd into the issue's worktree")
-                            print( "       (find via: git worktree list | grep <branch>):")
-                            print(f"       cd /path/to/<feat-or-fix>-<slug>")
-                            print( "    2. Make at least one commit on the branch:")
-                            print( "       git add <files> && git commit -m \"<message>\"")
-                            print( "       git push")
-                            print(f"    3. atdd pr {issue_id}")
-                            print(f"    4. atdd coach transition {issue_id} PLANNED")
-                            print( "  Why PR: PLANNED transition assumes the branch is reviewable;")
-                            print( "          a draft PR is the canonical review surface. (See #478.)")
-                            print(f"  Bypass: atdd coach transition {issue_id} PLANNED --force")
-                            return 1
-
-            # Train cross-reference: validate --train value against _trains.yaml
-            # This check applies regardless of --force (identity enforcement)
-            if train:
-                train_valid, train_messages = self._validate_train_against_trains_yaml(train)
-                for msg in train_messages:
-                    print(msg)
-                if not train_valid:
-                    print(f"\nError: Train '{train}' not found in _trains.yaml")
-                    print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
-                    return 1
-
-            # COACH-RATCHET-PRES-001 (issue #358): SMOKE→REFACTOR requires
-            # smoke evidence when the PR includes a presentation-layer
-            # ratchet improvement >20%. The detector runs git diff against
-            # origin/main; absence of evidence blocks the transition.
-            if status == "REFACTOR" and not force:
-                gate_ok, gate_messages = self._check_smoke_evidence_gate(issue_number)
-                for msg in gate_messages:
-                    print(msg)
-                if not gate_ok:
-                    print(f"\nError: Presentation-layer ratchet detected — smoke evidence required")
-                    print(f"  Fix: atdd validate coder --smoke-required {issue_number}")
-                    print(f"  Bypass: atdd update {issue_id} --status REFACTOR --force")
-                    return 1
-
-            # Gate verification: run gate commands before allowing COMPLETE
-            if status == "COMPLETE":
-                # Rebase check: branch must not be behind main
-                if not force:
-                    rebase_ok, rebase_msg = self._check_rebased_on_main()
-                    if rebase_msg:
-                        print(rebase_msg)
-                    if not rebase_ok:
-                        print(f"\nError: Branch is behind main — cannot transition to COMPLETE")
-                        print(f"  Fix: git fetch origin main && git rebase origin/main")
-                        print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
-                        return 1
-                else:
-                    print(f"  Bypassing rebase check (--force)")
-
-                gates = self._parse_gate_tests(issue_body)
-
-                if gates:
-                    if force:
-                        print(f"\n  Bypassing {len(gates)} gate tests (--force)")
-                    else:
-                        print(f"\nRunning {len(gates)} gate tests for #{issue_number}:")
-
-                    all_passed, gate_messages = self._run_gate_tests(gates, force=force)
-
-                    for msg in gate_messages:
-                        print(msg)
-
-                    if not all_passed:
-                        print(f"\nError: Gate tests failed — cannot transition to COMPLETE")
-                        print(f"  Fix: Resolve failing gates, then retry")
-                        print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
-                        return 1
-
-                    if not force:
-                        print()  # blank line after gate results
-                elif not force:
-                    print(f"\n  Warning: No gate tests found in issue body")
-
-                # Artifact verification
-                artifacts = self._parse_artifacts(issue_body)
-                artifact_count = sum(len(v) for v in artifacts.values())
-
-                if artifact_count > 0:
-                    if force:
-                        print(f"  Bypassing artifact verification (--force)")
-                    else:
-                        print(f"Verifying {artifact_count} artifacts for #{issue_number}:")
-
-                    artifacts_valid, artifact_messages = self._verify_artifacts(
-                        artifacts, force=force,
-                    )
-
-                    for msg in artifact_messages:
-                        print(msg)
-
-                    if not artifacts_valid:
-                        print(f"\nError: Artifact verification failed — cannot transition to COMPLETE")
-                        print(f"  Fix: Update ## Artifacts section with correct paths")
-                        print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
-                        return 1
-
-                    if not force:
-                        print()
-                elif not force:
-                    print(f"  Warning: No artifacts declared in issue body")
-
-                # Release gate verification
-                if force:
-                    print(f"  Bypassing release gate (--force)")
-                else:
-                    print(f"Verifying release gate for #{issue_number}:")
-
-                release_valid, release_messages = self._verify_release_gate(force=force)
-
-                for msg in release_messages:
-                    print(msg)
-
-                if not release_valid:
-                    print(f"\nError: Release gate failed — cannot transition to COMPLETE")
-                    print(f"  Fix: Bump version, commit, and create tag")
-                    print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
-                    return 1
-
-                if not force:
-                    print()
-
-            # Swap phase label — the sole authoritative phase write (#1051).
-            phase_labels = [l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"]
-            if phase_labels:
-                client.remove_label(issue_number, phase_labels)
-            client.add_label(issue_number, [f"atdd:{status}"])
+            self._write_phase_label(client, issue_number, current_labels, status)
 
             # R001: mirror the transition into the local manifest so readers of
             # .atdd/manifest.yaml do not diverge from GitHub state.
@@ -2311,30 +2155,14 @@ class IssueManager:
             updated.append(f"status: {status}")
 
         # Validate branch prefix (every branch = a worktree)
-        if branch:
-            allowed = tuple(f"{p}/" for p in ALLOWED_BRANCH_PREFIXES)
-            if not any(branch.startswith(p) for p in allowed):
-                print(
-                    f"Error: Branch '{branch}' must start with an allowed prefix: "
-                    f"{', '.join(allowed)}\n"
-                    f"Each branch is a git worktree. Example: feat/my-feature"
-                )
-                return 1
+        if branch and not self._branch_prefix_allowed(branch):
+            return 1
 
-        # Text fields are mirrored into the local manifest (#1051) — the
-        # Projects v2 board that previously carried branch/train/feature/
-        # archetypes is decommissioned.
-        text_updates = {
-            "branch": branch,
-            "train": train,
-            "feature_urn": feature_urn,
-            "archetypes": archetypes,
-        }
-        manifest_text = {k: v for k, v in text_updates.items() if v}
-        if manifest_text:
-            self._update_manifest_fields(issue_number, manifest_text)
-            for key, value in manifest_text.items():
-                updated.append(f"{key}: {value}")
+        updated.extend(
+            self._apply_text_updates(
+                issue_number, branch, train, feature_urn, archetypes
+            )
+        )
 
         if updated:
             print(f"Updated #{issue_number}:")
@@ -2344,6 +2172,379 @@ class IssueManager:
             print("Nothing to update.")
 
         return 0
+
+    def _resolve_issue(self, issue_id: str) -> Optional[Tuple[int, dict, Any]]:
+        """(issue_number, issue, client). None (after printing) when it cannot be read."""
+        from atdd.coach.github import GitHubClientError
+
+        try:
+            issue_number = int(issue_id)
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            print(f"Error: Invalid issue number '{issue_id}'")
+            return None
+
+        # Projects v2 board sync is decommissioned (#1051). The lifecycle state
+        # machine runs entirely on the ``atdd:<phase>`` label (REST) plus the
+        # local .atdd/manifest.yaml mirror — no GraphQL board reads or writes.
+        try:
+            client = self._get_github_client()
+            issue = client.get_issue(issue_number)
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            print(f"Error: {e}")
+            return None
+
+        return issue_number, issue, client
+
+    @staticmethod
+    def _write_phase_label(
+        client: Any, issue_number: int, current_labels: List[str], status: str
+    ) -> None:
+        """Swap the atdd:<phase> label — the sole authoritative phase write (#1051)."""
+        phase_labels = [
+            l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"
+        ]
+        if phase_labels:
+            client.remove_label(issue_number, phase_labels)
+        client.add_label(issue_number, [f"atdd:{status}"])
+
+    @staticmethod
+    def _branch_prefix_allowed(branch: str) -> bool:
+        """Every branch is a git worktree, so it must carry an allowed prefix."""
+        allowed = tuple(f"{p}/" for p in ALLOWED_BRANCH_PREFIXES)
+        if any(branch.startswith(p) for p in allowed):
+            return True
+
+        print(
+            f"Error: Branch '{branch}' must start with an allowed prefix: "
+            f"{', '.join(allowed)}\n"
+            f"Each branch is a git worktree. Example: feat/my-feature"
+        )
+        return False
+
+    def _apply_text_updates(
+        self,
+        issue_number: int,
+        branch: Optional[str],
+        train: Optional[str],
+        feature_urn: Optional[str],
+        archetypes: Optional[str],
+    ) -> List[str]:
+        """Mirror the text fields into the local manifest; names what changed.
+
+        Issue #1051: the Projects v2 board that previously carried branch /
+        train / feature / archetypes is decommissioned.
+        """
+        text_updates = {
+            "branch": branch,
+            "train": train,
+            "feature_urn": feature_urn,
+            "archetypes": archetypes,
+        }
+        manifest_text = {k: v for k, v in text_updates.items() if v}
+        if not manifest_text:
+            return []
+
+        self._update_manifest_fields(issue_number, manifest_text)
+        return [f"{key}: {value}" for key, value in manifest_text.items()]
+
+    # -------------------------------------------------------------------------
+    # Transition gates (each prints its own diagnosis; False blocks the write)
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _read_phase_labels(issue: dict) -> Tuple[List[str], str]:
+        """(all labels, current phase). Phase is UNKNOWN when no atdd:<phase> label."""
+        current_labels = [l["name"] for l in issue.get("labels", [])]
+        for label in current_labels:
+            if label.startswith("atdd:") and label != "atdd-issue":
+                return current_labels, label.split(":")[1]
+        return current_labels, "UNKNOWN"
+
+    def _transition_gates_pass(
+        self,
+        issue_number: int,
+        issue_id: str,
+        issue_body: str,
+        current_status: str,
+        status: str,
+        branch: Optional[str],
+        train: Optional[str],
+        force: bool,
+    ) -> bool:
+        """Every gate guarding this phase transition, in order. False = blocked."""
+        if not self._gate_transition_allowed(current_status, status):
+            return False
+
+        if not self._gate_train_required(issue_number, issue_id, issue_body, status, train):
+            return False
+
+        if status == "PLANNED" and not self._gate_pr_exists(
+            issue_number, issue_id, branch, force
+        ):
+            return False
+
+        # Train cross-reference applies regardless of --force (identity enforcement)
+        if train and not self._gate_train_crossref(train):
+            return False
+
+        if (status == "REFACTOR" and not force
+                and not self._gate_smoke_evidence(issue_number, issue_id)):
+            return False
+
+        if status == "COMPLETE" and not self._gate_complete(
+            issue_number, issue_id, issue_body, force
+        ):
+            return False
+
+        return True
+
+    def _gate_transition_allowed(self, current_status: str, status: str) -> bool:
+        """The phase machine permits current_status -> status."""
+        allowed = self.VALID_TRANSITIONS.get(current_status, set())
+        if status not in allowed and current_status != "UNKNOWN":
+            print(f"Error: Cannot transition from {current_status} to {status}")
+            print(f"  Allowed: {', '.join(sorted(allowed)) or '(terminal state)'}")
+            return False
+        return True
+
+    def _gate_train_required(
+        self,
+        issue_number: int,
+        issue_id: str,
+        issue_body: str,
+        status: str,
+        train: Optional[str],
+    ) -> bool:
+        """E008: implementation-type issues need a valid train past PLANNED.
+
+        Other types (cleanup, analysis, planning, tracking) are train-optional.
+        """
+        issue_type = self._parse_issue_type(issue_body)
+        post_planned = {"RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE"}
+        train_required = issue_type in self.TRAIN_REQUIRED_TYPES if issue_type else True
+
+        if status not in post_planned or not train_required or train:
+            return True
+
+        # Train lineage is read from the local manifest mirror (#1051), never the
+        # Projects v2 board. An absent/TBD train fails loudly; a present train is
+        # cross-referenced against plan/_trains.yaml (no board fallback recovers
+        # an unknown value).
+        current_train = (self._manifest_train(issue_number) or "").strip()
+        if not current_train or current_train.upper() == "TBD":
+            self._print_train_required_help(issue_id, issue_type, status, current_train)
+            return False
+
+        train_valid, train_messages = self._validate_train_against_trains_yaml(current_train)
+        for msg in train_messages:
+            print(msg)
+        if not train_valid:
+            print(f"\nError: Train '{current_train}' (from manifest) not found in _trains.yaml")
+            print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
+            return False
+        return True
+
+    @staticmethod
+    def _print_train_required_help(
+        issue_id: str, issue_type: Optional[str], status: str, current_train: str
+    ) -> None:
+        """Explain how to attach a train before transitioning past PLANNED."""
+        print(f"Error: Train field required for {issue_type or 'unknown'} type before transitioning to {status}")
+        print(f"  Current Train: {current_train or '(empty)'}")
+        print( "  Fix:")
+        print( "    1. cd into the issue's worktree (find via: git worktree list | grep <branch>):")
+        print( "       cd /path/to/<feat-or-fix>-<slug>")
+        print( "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")")
+        print( "    3. Run:")
+        print(f"       atdd update {issue_id} --train <train_id>   # then: atdd coach transition {issue_id} {status}")
+        print( "  Why train: implementation-type issues require lineage to a Train past PLANNED")
+        print( "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)")
+
+    def _gate_pr_exists(
+        self, issue_number: int, issue_id: str, branch: Optional[str], force: bool
+    ) -> bool:
+        """Issue #478 — PR-existence gate at INIT -> PLANNED.
+
+        ``atdd branch`` defers PR creation; ``atdd pr`` opens it post-commit. A
+        PLANNED transition is blocked when the issue's branch has no open PR.
+        --force bypasses the gate with a ``::warning::``.
+        """
+        gate_branch = branch or (self._manifest_branch(issue_number) or "").strip()
+        if not gate_branch:
+            return True
+
+        pr_exists, pr_messages = self._validate_pr_exists_for_branch(gate_branch)
+        for msg in pr_messages:
+            print(msg)
+        if pr_exists:
+            return True
+
+        if force:
+            print(
+                "::warning::PR-existence gate bypassed (--force); "
+                f"branch '{gate_branch}' has no open PR."
+            )
+            return True
+
+        self._print_pr_required_help(issue_id, gate_branch)
+        return False
+
+    @staticmethod
+    def _print_pr_required_help(issue_id: str, gate_branch: str) -> None:
+        """Explain how to open the PR that the PLANNED gate requires."""
+        print(
+            f"\nError: No open PR found for branch "
+            f"'{gate_branch}' — cannot transition to PLANNED."
+        )
+        print( "  Fix:")
+        print( "    1. cd into the issue's worktree")
+        print( "       (find via: git worktree list | grep <branch>):")
+        print(f"       cd /path/to/<feat-or-fix>-<slug>")
+        print( "    2. Make at least one commit on the branch:")
+        print( "       git add <files> && git commit -m \"<message>\"")
+        print( "       git push")
+        print(f"    3. atdd pr {issue_id}")
+        print(f"    4. atdd coach transition {issue_id} PLANNED")
+        print( "  Why PR: PLANNED transition assumes the branch is reviewable;")
+        print( "          a draft PR is the canonical review surface. (See #478.)")
+        print(f"  Bypass: atdd coach transition {issue_id} PLANNED --force")
+
+    def _gate_train_crossref(self, train: str) -> bool:
+        """The --train value names a train registered in _trains.yaml."""
+        train_valid, train_messages = self._validate_train_against_trains_yaml(train)
+        for msg in train_messages:
+            print(msg)
+        if not train_valid:
+            print(f"\nError: Train '{train}' not found in _trains.yaml")
+            print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
+            return False
+        return True
+
+    def _gate_smoke_evidence(self, issue_number: int, issue_id: str) -> bool:
+        """COACH-RATCHET-PRES-001 (issue #358): SMOKE -> REFACTOR needs smoke evidence.
+
+        Required when the PR includes a presentation-layer ratchet improvement
+        >20%. The detector runs git diff against origin/main; absence of
+        evidence blocks the transition.
+        """
+        gate_ok, gate_messages = self._check_smoke_evidence_gate(issue_number)
+        for msg in gate_messages:
+            print(msg)
+        if not gate_ok:
+            print(f"\nError: Presentation-layer ratchet detected — smoke evidence required")
+            print(f"  Fix: atdd validate coder --smoke-required {issue_number}")
+            print(f"  Bypass: atdd update {issue_id} --status REFACTOR --force")
+            return False
+        return True
+
+    def _gate_complete(
+        self, issue_number: int, issue_id: str, issue_body: str, force: bool
+    ) -> bool:
+        """Everything COMPLETE requires: rebase, gate tests, artifacts, release."""
+        return (
+            self._gate_rebased(issue_id, force)
+            and self._gate_tests(issue_number, issue_id, issue_body, force)
+            and self._gate_artifacts(issue_number, issue_id, issue_body, force)
+            and self._gate_release(issue_number, issue_id, force)
+        )
+
+    def _gate_rebased(self, issue_id: str, force: bool) -> bool:
+        """The branch is not behind main."""
+        if force:
+            print(f"  Bypassing rebase check (--force)")
+            return True
+
+        rebase_ok, rebase_msg = self._check_rebased_on_main()
+        if rebase_msg:
+            print(rebase_msg)
+        if not rebase_ok:
+            print(f"\nError: Branch is behind main — cannot transition to COMPLETE")
+            print(f"  Fix: git fetch origin main && git rebase origin/main")
+            print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+            return False
+        return True
+
+    def _gate_tests(
+        self, issue_number: int, issue_id: str, issue_body: str, force: bool
+    ) -> bool:
+        """The gate tests the issue body declares all pass."""
+        gates = self._parse_gate_tests(issue_body)
+        if not gates:
+            if not force:
+                print(f"\n  Warning: No gate tests found in issue body")
+            return True
+
+        if force:
+            print(f"\n  Bypassing {len(gates)} gate tests (--force)")
+        else:
+            print(f"\nRunning {len(gates)} gate tests for #{issue_number}:")
+
+        all_passed, gate_messages = self._run_gate_tests(gates, force=force)
+        for msg in gate_messages:
+            print(msg)
+
+        if not all_passed:
+            print(f"\nError: Gate tests failed — cannot transition to COMPLETE")
+            print(f"  Fix: Resolve failing gates, then retry")
+            print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+            return False
+
+        if not force:
+            print()  # blank line after gate results
+        return True
+
+    def _gate_artifacts(
+        self, issue_number: int, issue_id: str, issue_body: str, force: bool
+    ) -> bool:
+        """The artifacts the issue body declares all exist."""
+        artifacts = self._parse_artifacts(issue_body)
+        artifact_count = sum(len(v) for v in artifacts.values())
+        if artifact_count == 0:
+            if not force:
+                print(f"  Warning: No artifacts declared in issue body")
+            return True
+
+        if force:
+            print(f"  Bypassing artifact verification (--force)")
+        else:
+            print(f"Verifying {artifact_count} artifacts for #{issue_number}:")
+
+        artifacts_valid, artifact_messages = self._verify_artifacts(
+            artifacts, force=force,
+        )
+        for msg in artifact_messages:
+            print(msg)
+
+        if not artifacts_valid:
+            print(f"\nError: Artifact verification failed — cannot transition to COMPLETE")
+            print(f"  Fix: Update ## Artifacts section with correct paths")
+            print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+            return False
+
+        if not force:
+            print()
+        return True
+
+    def _gate_release(self, issue_number: int, issue_id: str, force: bool) -> bool:
+        """The release gate: version bumped, committed and tagged."""
+        if force:
+            print(f"  Bypassing release gate (--force)")
+        else:
+            print(f"Verifying release gate for #{issue_number}:")
+
+        release_valid, release_messages = self._verify_release_gate(force=force)
+        for msg in release_messages:
+            print(msg)
+
+        if not release_valid:
+            print(f"\nError: Release gate failed — cannot transition to COMPLETE")
+            print(f"  Fix: Bump version, commit, and create tag")
+            print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
+            return False
+
+        if not force:
+            print()
+        return True
 
     # -------------------------------------------------------------------------
     # E005: close-wmbt
@@ -2435,41 +2636,11 @@ class IssueManager:
             print("Error: .atdd/config.yaml not found. Run `atdd init` first.")
             return 1
 
-        # Fetch open atdd-issues from GitHub
-        result = subprocess.run(
-            [
-                "gh", "issue", "list",
-                "--label", "atdd-issue",
-                "--state", "open",
-                "--limit", "200",
-                "--json", "number,title,state,createdAt,labels",
-            ],
-            capture_output=True, text=True, timeout=30,
-        )
-        if result.returncode != 0:
-            print(f"Error: gh issue list failed: {result.stderr.strip()}")
+        gh_issues = self._fetch_open_atdd_issues()
+        if gh_issues is None:
             return 1
 
-        try:
-            gh_issues = json.loads(result.stdout) or []
-        except (json.JSONDecodeError, ValueError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
-            print(f"Error: could not parse gh output: {exc}")
-            return 1
-
-        # The set of issue numbers already registered in the State Store.
-        registered: set = set()
-        try:
-            from atdd.state.work_item_reader import WorkItemReader
-
-            with WorkItemReader(control_root=self.target_dir) as reader:
-                registered = {
-                    entry["issue_number"]
-                    for entry in reader.all_work_items()
-                    if entry.get("issue_number") is not None
-                }
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
-            logger.debug("reconcile: store read failed; treating store as empty",
-                         extra={"error": str(exc)})
+        registered = self._registered_issue_numbers()
 
         added = 0
         for issue in gh_issues:
@@ -2477,20 +2648,9 @@ class IssueManager:
             if number is None or number in registered:
                 continue
 
-            title = issue.get("title", "")
-            slug_raw = re.sub(r"^\w+(?:\([^)]*\))?:\s*", "", title)
-            slug_raw = re.sub(r"\s*\(#\d+\)\s*$", "", slug_raw)
-            slug = re.sub(r"[^a-z0-9]+", "-", slug_raw.lower()).strip("-") or f"issue-{number}"
-
-            status = "INIT"
-            for label in issue.get("labels", []):
-                name = label.get("name", "")
-                if name.startswith("atdd:"):
-                    status = name[5:]
-                    break
-
+            slug = self._slug_from_title(issue.get("title", ""), number)
+            status = self._phase_from_labels(issue.get("labels", []))
             created_raw = issue.get("createdAt", "")
-            created = created_raw[:10] if created_raw else str(date.today())
 
             entry = {
                 "id": str(number),
@@ -2499,7 +2659,7 @@ class IssueManager:
                 "issue_number": number,
                 "type": "implementation",
                 "status": status,
-                "created": created,
+                "created": created_raw[:10] if created_raw else str(date.today()),
                 "archived": None,
             }
             # The State Store is the sole registry (#1270 Slice G) — create the
@@ -2518,3 +2678,58 @@ class IssueManager:
 
         print(f"reconcile: added {added} issue(s) to the State Store")
         return 0
+
+    @staticmethod
+    def _fetch_open_atdd_issues() -> Optional[List[dict]]:
+        """Open atdd-issues on GitHub. None (after printing) when gh fails."""
+        result = subprocess.run(
+            [
+                "gh", "issue", "list",
+                "--label", "atdd-issue",
+                "--state", "open",
+                "--limit", "200",
+                "--json", "number,title,state,createdAt,labels",
+            ],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            print(f"Error: gh issue list failed: {result.stderr.strip()}")
+            return None
+
+        try:
+            return json.loads(result.stdout) or []
+        except (json.JSONDecodeError, ValueError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+            print(f"Error: could not parse gh output: {exc}")
+            return None
+
+    def _registered_issue_numbers(self) -> set:
+        """Issue numbers already registered in the State Store; empty when unreadable."""
+        try:
+            from atdd.state.work_item_reader import WorkItemReader
+
+            with WorkItemReader(control_root=self.target_dir) as reader:
+                return {
+                    entry["issue_number"]
+                    for entry in reader.all_work_items()
+                    if entry.get("issue_number") is not None
+                }
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+            logger.debug("reconcile: store read failed; treating store as empty",
+                         extra={"error": str(exc)})
+            return set()
+
+    @staticmethod
+    def _slug_from_title(title: str, number: int) -> str:
+        """A kebab slug from an issue title, stripping the type prefix and (#N) suffix."""
+        slug_raw = re.sub(r"^\w+(?:\([^)]*\))?:\s*", "", title)
+        slug_raw = re.sub(r"\s*\(#\d+\)\s*$", "", slug_raw)
+        return re.sub(r"[^a-z0-9]+", "-", slug_raw.lower()).strip("-") or f"issue-{number}"
+
+    @staticmethod
+    def _phase_from_labels(labels: List[dict]) -> str:
+        """The atdd:<phase> a label set carries; INIT when it carries none."""
+        for label in labels:
+            name = label.get("name", "")
+            if name.startswith("atdd:"):
+                return name[5:]
+        return "INIT"
