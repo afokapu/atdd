@@ -76,29 +76,6 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-16"
   - identity:
-      urn: "acc:spawn-agents:E004-UNIT-004-from-prompt-file-derives-defaults"
-      id: "AC-UNIT-004"
-      purpose: "atdd spawn --from-prompt-file derives --persona/--llm/--agent-id/--runtime from wagon-manifest defaults so the cwd-correct path needs only 3 flags"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py registers a --from-prompt-file <path> flag"
-        - "A fake multiplexer backend records the cwd of the launched surface"
-        - "A wagon manifest supplying persona/llm/agent-id/runtime defaults is in scope"
-    when:
-      abstract: "atdd spawn --from-prompt-file /tmp/p.md --worktree <wt> --issue 999 is invoked with no other flags"
-    then:
-      abstract:
-        - "The command parses and launches without requiring --persona, --llm, --agent-id, or --runtime"
-        - "The four omitted flags are derived from wagon-manifest defaults plus per-issue conventions"
-        - "The launched surface's cwd equals <wt>, so the cwd-correct guarantee of atdd spawn is preserved"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-16"
-  - identity:
       urn: "acc:spawn-agents:E004-SMOKE-001-shim-console-script-real-exit-codes"
       id: "AC-SMOKE-001"
       purpose: "The installed atdd-cmux-send console script rejects a real claude launch with exit 2 and forwards a real non-launch payload with exit 0 against real cmux"

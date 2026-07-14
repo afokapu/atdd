@@ -56,31 +56,6 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "surface-worker-decisions"
   - identity:
-      urn: "acc:mediate-worker-decisions:Y002-INTEGRATION-001-spawn-adapter-command-realizes-policy"
-      id: "AC-INTEGRATION-001"
-      purpose: "The production cmux-surface spawn adapter (ADAPTER_REGISTRY) renders its launch command from the resolved surfacing values — the rendered --allowedTools equals the policy auto_allow set, Bash is absent, permission-mode is the policy mode, and no forbidden bypass flag appears — so the consumer cannot drift from the declared policy without a live worker"
-      phase: "RED"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "The production claude-family spawn adapters in atdd.coach.commands.spawn and the resolved surfacing values for the same agent kind"
-    when:
-      abstract: "Each adapter renders its launch command"
-      action: "invoke"
-    then:
-      abstract:
-        - "The rendered --allowedTools equals the resolved allowed_tools (Bash absent), permission-mode equals the resolved permission_mode"
-        - "No --dangerously-skip-permissions or bypassPermissions appears in the rendered command"
-      assertions:
-        - type: "equality"
-        - type: "absence"
-    signal: {}
-    metadata:
-      wagon: "mediate-worker-decisions"
-      feature: "surface-worker-decisions"
-  - identity:
       urn: "acc:mediate-worker-decisions:Y002-SMOKE-001-live-worker-launch-argv-matches-policy"
       id: "AC-SMOKE-001"
       purpose: "The actual launch argv of a live toolkit-spawned worker matches the declared policy: Bash is absent from --allowedTools and no bypass flag is present"

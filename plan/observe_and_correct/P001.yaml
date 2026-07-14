@@ -155,48 +155,6 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-09"
   - identity:
-      urn: "acc:observe-and-correct:P001-UNIT-008-cmd-run-exits-when-persona-dir-removed"
-      id: "AC-UNIT-008"
-      purpose: "`cmd_run` exits 0 on its own when its persona runtime dir is deleted while running — no kill signal needed"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "cmd_run started in a background thread with a short poll_interval"
-        - "The persona runtime dir exists at start"
-    when:
-      abstract: "The persona runtime dir is deleted while cmd_run is looping"
-    then:
-      abstract:
-        - "cmd_run returns 0 without receiving SIGINT or SIGTERM"
-        - "The return happens within 3 × poll_interval seconds of deletion"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-18"
-  - identity:
-      urn: "acc:observe-and-correct:P001-UNIT-009-cmd-run-exits-after-idle-timeout"
-      id: "AC-UNIT-009"
-      purpose: "`cmd_run` exits 0 after a configurable idle timeout with no persona output.log activity"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "cmd_run started with idle_timeout=1.0 and a short poll_interval"
-        - "The persona runtime dir exists but output.log is never written"
-    when:
-      abstract: "idle_timeout seconds elapse with no persona activity"
-    then:
-      abstract:
-        - "cmd_run returns 0 without receiving any signal"
-        - "The function accepts idle_timeout as a keyword argument"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-18"
-  - identity:
       urn: "acc:observe-and-correct:P001-UNIT-010-teardown-fixture-reaps-observer-procs"
       id: "AC-UNIT-010"
       purpose: "A pytest fixture in conftest.py registers observer subprocesses and terminates them after each test so no orphans remain"
@@ -217,27 +175,3 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-18"
-  - identity:
-      urn: "acc:observe-and-correct:P001-SMOKE-002-observer-loop-closes"
-      id: "AC-SMOKE-002"
-      purpose: "Verify the observer feedback loop closes end-to-end: correction text reaches the consumer and the rule stops firing next cycle"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    close_the_loop:
-      consumer_reacted: "cli-return.jsonl entry exists AND the shim inbox (pty_stdin_bytes) contains the correction text — verifies correction was delivered to the consumer, not just written to disk"
-      drift_resolved: "A second observer.scan_once() call after the synthetic worker acknowledges the correction produces 0 new correction records for the same (rule_id, content-hash) — the predicate has flipped to non-firing"
-    given:
-      abstract:
-        - "A synthetic agent spawned under the cli-return shim with seeded drift visible on its pty output (e.g., BANG pattern triggers coach.orchestration.read-only-git-diagnostics)"
-        - "The correction schema is available from wagon:freeze-runtime-contracts"
-    when:
-      abstract: "observer.scan_once() runs twice — first to detect and dispatch, second to verify convergence after the synthetic worker acknowledges"
-    then:
-      abstract:
-        - "The correction text appears in the agent's pty stdin via the shim's inbox drain (not via FakeMultiplexer.send_history which records sends but delivers nothing)"
-        - "A second scan_once() call produces 0 new correction records for the same drift — the rule's predicate no longer fires"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-21"

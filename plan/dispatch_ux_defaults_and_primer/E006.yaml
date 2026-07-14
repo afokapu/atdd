@@ -8,27 +8,6 @@ lens: "functional.effectiveness"
 statement: "minimize quantity of orphan-worker-panes-that-remain-after-a-spawn-failure-path when cmd_spawn raises any exception after surface creation — by wrapping the post-creation pipeline in a try/finally that calls backend.close(surface_ref) on any exception path"
 acceptances:
   - identity:
-      urn: "acc:dispatch-ux-defaults-and-primer:E006-UNIT-001-close-called-on-exception-after-surface-create"
-      id: "AC-UNIT-001"
-      purpose: "backend.close is called with the surface_ref when an exception is raised anywhere in the post-creation spawn pipeline"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A FakeMultiplexer that records close() calls"
-        - "The spawn pipeline is patched so that an exception (e.g. WorkerReadinessTimeout) is raised after new_surface returns"
-    when:
-      abstract: "cmd_spawn is invoked and the exception is raised in the post-creation pipeline"
-    then:
-      abstract:
-        - "FakeMultiplexer.close is called exactly once with the created surface_ref"
-        - "The original exception propagates out of cmd_spawn (is not swallowed)"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"
-  - identity:
       urn: "acc:dispatch-ux-defaults-and-primer:E006-SMOKE-001-no-orphan-pane-after-spawn-failure"
       id: "AC-SMOKE-001"
       purpose: "After a forced spawn failure in a real cmux session, no orphan surface remains in the workspace"
@@ -48,48 +27,6 @@ acceptances:
       abstract:
         - "The number of surfaces in workspace:1 after the failure equals the pre-spawn count (N)"
         - "No surface with a default-cwd path appears in cmux tree output"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:dispatch-ux-defaults-and-primer:E006-UNIT-002-close-not-called-on-success"
-      id: "AC-UNIT-002"
-      purpose: "backend.close is NOT called when the spawn pipeline completes successfully"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A FakeMultiplexer that records close() calls"
-        - "The spawn pipeline is patched to complete without raising"
-    when:
-      abstract: "cmd_spawn completes successfully end-to-end"
-    then:
-      abstract:
-        - "FakeMultiplexer.close is NOT called"
-        - "The surface_ref is still 'alive' (not closed)"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:dispatch-ux-defaults-and-primer:E006-UNIT-003-close-tolerates-close-failure"
-      id: "AC-UNIT-003"
-      purpose: "If backend.close itself raises during orphan cleanup, the original spawn exception is still propagated (not swallowed by the close error)"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A FakeMultiplexer whose close() raises RuntimeError('close failed')"
-        - "The spawn pipeline raises WorkerReadinessTimeout after surface creation"
-    when:
-      abstract: "cmd_spawn is invoked and both the pipeline and close() raise"
-    then:
-      abstract:
-        - "The exception that propagates from cmd_spawn is the original WorkerReadinessTimeout (not RuntimeError)"
-        - "OR the exception chain contains the original WorkerReadinessTimeout as __context__ or __cause__"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"

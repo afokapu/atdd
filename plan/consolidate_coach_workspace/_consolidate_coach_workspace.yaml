@@ -41,12 +41,11 @@ produce:
 consume: []
 
 wmbt:
-  total: 9
+  total: 8
   Y001: "minimize quantity of coach-orchestration-tabs so N issues / N invocations resolve to one canonical tab"
   E001: "increase likelihood of multi-issue-orchestration-state-visibility via a consolidated per-issue status view"
   D001: "minimize quantity of coach-pane-shrinkage-when-workers-are-added via a fixed 50/50 split and workers-as-surfaces"
   Y002: "minimize quantity of surfaces-spawned-per-worker by running the observer headless"
-  E002: "minimize quantity of obs-surfaces-co-spawned-by-cmd-spawn by running the observer headless in the live cmd_spawn path"
   C001: "maximize likelihood of each per-workspace worker keeping its own single-identity daemon scope after a layout pass"
   E003: "minimize likelihood of logging a layout target without invoking a backend layout primitive"
   E004: "minimize likelihood of emitting a managed surface name lacking the role-aware canonical shape"
