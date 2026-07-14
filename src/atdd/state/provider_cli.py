@@ -177,9 +177,11 @@ def _cmd_extensions_lock(args) -> int:
             return 0
         path = extensions_lock.write_lock(root, providers)
     except (LockError, ProviderRegistryError, ImportError) as exc:
-        _log.warning("the extensions lock could not be written or verified",
-                     extra={"command": "extensions-lock", "verify": bool(args.verify),
-                            "error": str(exc)})
+        _log.warning(
+            "the extensions lock could not be written or verified",
+            extra={"command": "extensions-lock", "verify": bool(args.verify),
+                "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     core = extensions_lock.core_block(root)
     print(f"wrote {path.relative_to(root) if path.is_relative_to(root) else path}")

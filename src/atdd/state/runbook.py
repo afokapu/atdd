@@ -211,9 +211,11 @@ def check(
         ))
 
     if problems:
-        _log.warning("the migration runbook does not match the steps the code ships",
-                     extra={"runbook": str(runbook_path),
-                            "problems": [p.render() for p in problems]})
+        _log.warning(
+            "the migration runbook does not match the steps the code ships",
+            extra={"runbook": str(runbook_path),
+                "problems": [p.render() for p in problems]},
+        )
     return RunbookReport(
         problems=problems, sections=sorted(sections), known_invariants=known, citations=citations,
     )

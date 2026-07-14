@@ -226,7 +226,7 @@ def compare(
         _log.warning(
             "shadow projection found drift; the run is non-blocking and exits 0 (M001)",
             extra={"root": str(root), "drifts": [d.render() for d in drifts],
-                   "exit_code": SHADOW_EXIT_CODE},
+                "exit_code": SHADOW_EXIT_CODE},
         )
     return report
 

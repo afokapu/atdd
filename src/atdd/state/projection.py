@@ -592,7 +592,7 @@ def check_canonicality(projection_dir: Path) -> CanonicalityReport:
         _log.warning(
             "projection canonicality check failed",
             extra={"projection_dir": str(projection_dir),
-                   "mismatches": [m.filename for m in mismatches]},
+                "mismatches": [m.filename for m in mismatches]},
         )
     return CanonicalityReport(checked=len(committed), mismatches=mismatches)
 

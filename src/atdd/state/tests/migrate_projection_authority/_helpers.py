@@ -54,8 +54,10 @@ def write_manifest(root: Path, sessions: Sequence[Dict[str, Any]]) -> Path:
     path = Path(root) / ".atdd" / "manifest.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        yaml.safe_dump({"version": "2.0", "sessions": list(sessions)},
-                       default_flow_style=False, sort_keys=False),
+        yaml.safe_dump(
+            {"version": "2.0", "sessions": list(sessions)},
+            default_flow_style=False, sort_keys=False,
+        ),
         encoding="utf-8",
     )
     return path

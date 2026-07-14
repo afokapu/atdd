@@ -561,8 +561,11 @@ def _cmd_version(args) -> int:
         try:
             base = ver.resolve_release_base(args.git_tag, pypi_latest)
         except ver.VersionError as exc:
-            _log.warning("version reconcile-base failed", extra={"error": str(exc),
-                                                                 "git_tag": args.git_tag})
+            _log.warning(
+                "version reconcile-base failed",
+                extra={"error": str(exc),
+                    "git_tag": args.git_tag},
+            )
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
 
@@ -627,8 +630,10 @@ def _cmd_version(args) -> int:
             try:
                 new = ver.bump(conn, args.change_class, pr=args.pr)
             except ver.VersionError as exc:
-                _log.warning("version bump failed", extra={"error": str(exc),
-                                                           "change_class": args.change_class})
+                _log.warning(
+                    "version bump failed",
+                    extra={"error": str(exc), "change_class": args.change_class},
+                )
                 print(f"ERROR: {exc}")
                 return 1
             print(f"Bumped release version to {new} ({args.change_class})")
@@ -637,8 +642,11 @@ def _cmd_version(args) -> int:
             try:
                 new = ver.set_version(conn, args.version)
             except ver.VersionError as exc:
-                _log.warning("version set failed", extra={"error": str(exc),
-                                                          "version": args.version})
+                _log.warning(
+                    "version set failed",
+                    extra={"error": str(exc),
+                        "version": args.version},
+                )
                 print(f"ERROR: {exc}")
                 return 1
             print(f"Set release version to {new} (reconcile; no version_decided signal)")

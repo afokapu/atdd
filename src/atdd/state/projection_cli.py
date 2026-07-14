@@ -63,13 +63,17 @@ def add_parsers(sub) -> None:
     rename.add_argument("--root", default=None, help="Starting directory (default: cwd).")
 
     proj = sub.add_parser("project", help="Project the store to canonical per-uid YAML.")
-    proj.add_argument("--out", default=None,
-                      help=f"Output directory (default: <control-root>/{PROJECTION_RELATIVE}).")
+    proj.add_argument(
+        "--out", default=None,
+        help=f"Output directory (default: <control-root>/{PROJECTION_RELATIVE}).",
+    )
     proj.add_argument("--root", default=None, help="Starting directory (default: cwd).")
 
     hyd = sub.add_parser("hydrate", help="Rebuild the store from the committed projection.")
-    hyd.add_argument("--from", dest="from_dir", default=None,
-                     help=f"Projection directory (default: <control-root>/{PROJECTION_RELATIVE}).")
+    hyd.add_argument(
+        "--from", dest="from_dir", default=None,
+        help=f"Projection directory (default: <control-root>/{PROJECTION_RELATIVE}).",
+    )
     hyd.add_argument("--root", default=None, help="Starting directory (default: cwd).")
 
     dig = sub.add_parser("digest", help="Print the digest over the projection's canonical bytes.")

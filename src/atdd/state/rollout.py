@@ -251,7 +251,8 @@ def _check_dependencies(plan: Plan) -> List[RolloutProblem]:
             dep = plan.by_id(dep_id)
             if dep is None:
                 problems.append(RolloutProblem(
-                    RULE_MALFORMED, step.id, f"depends on {dep_id!r}, which the plan does not define",
+                    RULE_MALFORMED, step.id,
+                    f"depends on {dep_id!r}, which the plan does not define",
                 ))
             elif dep.order >= step.order:
                 problems.append(RolloutProblem(

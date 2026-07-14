@@ -120,11 +120,15 @@ def push_outbox(
         except Exception as exc:  # noqa: BLE001 — per-message isolation; one failure must not abort the drain
             failed += 1
             errors.append(f"outbox#{msg.id} {msg.provider}/{msg.operation}: {exc}")
-            _log.warning("outbox push failed",
-                         extra={"outbox_id": msg.id, "provider": msg.provider,
-                                "operation": msg.operation, "error": str(exc)})
-    return PushResult(pending=len(pending), pushed=pushed, failed=failed,
-                      skipped_no_provider=skipped, errors=errors)
+            _log.warning(
+                "outbox push failed",
+                extra={"outbox_id": msg.id, "provider": msg.provider,
+                    "operation": msg.operation, "error": str(exc)},
+            )
+    return PushResult(
+        pending=len(pending), pushed=pushed, failed=failed,
+        skipped_no_provider=skipped, errors=errors,
+    )
 
 
 def ingest_inbox(store: StateStore, providers: Mapping[str, SyncProvider]) -> IngestResult:
@@ -152,8 +156,10 @@ def ingest_inbox(store: StateStore, providers: Mapping[str, SyncProvider]) -> In
                 "provider ingest failed",
                 extra={"provider": name, "error": str(exc)},
             )
-    return IngestResult(providers=len(providers), ingested=ingested,
-                        skipped_no_ingest=skipped, errors=errors)
+    return IngestResult(
+        providers=len(providers), ingested=ingested,
+        skipped_no_ingest=skipped, errors=errors,
+    )
 
 
 def apply_inbox(store: StateStore, *, dry_run: bool = False) -> ApplyResult:
@@ -190,9 +196,13 @@ def _apply_event(store: StateStore, provider: str, payload: Dict[str, Any]) -> b
         return True
     if kind == EVENT_EXTERNAL_IMPORTED:
         uid = payload.get("uid") or f"{provider}-{payload['ref_kind']}-{payload['ref_value']}"
-        store.objects.upsert(uid, payload.get("object_kind", "work_item"),
-                             state=payload.get("state"), data=payload.get("data") or {})
-        store.external_refs.link(uid, provider, payload["ref_kind"], str(payload["ref_value"]),
-                                 data={"source": "inbox-import"})
+        store.objects.upsert(
+            uid, payload.get("object_kind", "work_item"),
+            state=payload.get("state"), data=payload.get("data") or {},
+        )
+        store.external_refs.link(
+            uid, provider, payload["ref_kind"], str(payload["ref_value"]),
+            data={"source": "inbox-import"},
+        )
         return True
     return False

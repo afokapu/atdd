@@ -355,6 +355,24 @@ class ConformanceReport:
         return "\n".join(lines)
 
 
+def _run_step(context: Context, step: Step) -> StepResult:
+    """One step, with the registry watched for its duration.
+
+    A step that raises is a report line, not a crash: the run has to reach the end so that one
+    report names everything that is wrong rather than the first thing.
+    """
+    context.step = step.name
+    with _watch_registry(context.tripwire, lambda: context.step):
+        try:
+            return StepResult(step.name, True, step.run(context))
+        except Exception as exc:  # noqa: BLE001 - a failed step is a report line, not a crash
+            _log.warning(
+                "a conformance step failed against the bare remote",
+                extra={"step": step.name, "error": str(exc)},
+            )
+            return StepResult(step.name, False, f"{type(exc).__name__}: {exc}")
+
+
 def run(context: Context, *, steps: Sequence[Step] = STEPS) -> ConformanceReport:
     """Drive the workflow with **zero providers registered** and every tripwire armed (C002).
 
@@ -362,21 +380,10 @@ def run(context: Context, *, steps: Sequence[Step] = STEPS) -> ConformanceReport
     everything that is wrong rather than the first thing. A step that *touches a provider* is not
     a failing step at all — it may well succeed — which is exactly why the tripwires exist.
     """
-    results: List[StepResult] = []
     context.providers = {}
 
     with _gh_tripwire(context.remote.parent) as marker:
-        for step in steps:
-            context.step = step.name
-            with _watch_registry(context.tripwire, lambda: context.step):
-                try:
-                    results.append(StepResult(step.name, True, step.run(context)))
-                except Exception as exc:  # noqa: BLE001 - a failed step is a report line, not a crash
-                    _log.warning(
-                        "a conformance step failed against the bare remote",
-                        extra={"step": step.name, "error": str(exc)},
-                    )
-                    results.append(StepResult(step.name, False, f"{type(exc).__name__}: {exc}"))
+        results: List[StepResult] = [_run_step(context, step) for step in steps]
         if marker.is_file():
             context.tripwire.gh_invocations.extend(
                 f"the run invoked `gh`: {line.strip()}"

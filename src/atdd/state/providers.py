@@ -77,9 +77,10 @@ def _entry_point_factories() -> Dict[str, ProviderFactory]:
         try:
             out[ep.name] = ep.load()
         except Exception as exc:  # noqa: BLE001 - one bad entry must not abort discovery
-            _log.warning("sync provider entry-point failed to load",
-                         extra={"entry_point": ep.name, "group": ENTRY_POINT_GROUP,
-                                "error": str(exc)})
+            _log.warning(
+                "sync provider entry-point failed to load",
+                extra={"entry_point": ep.name, "group": ENTRY_POINT_GROUP, "error": str(exc)},
+            )
     return out
 
 

@@ -148,9 +148,11 @@ def _cmd_migrate_manifest(args) -> int:
         )
     except migration.LossyMigrationError as exc:
         # The refusal is the feature: nothing was written, and every offending entry is named.
-        _log.warning("refused a lossy migration; the projection directory is untouched",
-                     extra={"command": "migrate-manifest", "root": str(root),
-                            "defects": len(exc.defects)})
+        _log.warning(
+            "refused a lossy migration; the projection directory is untouched",
+            extra={"command": "migrate-manifest", "root": str(root),
+                "defects": len(exc.defects)},
+        )
         return _fail(str(exc))
     except migration.MigrationError as exc:
         _log.warning(
