@@ -29,6 +29,14 @@ from atdd.coach.utils.graph.urn import URNGrammar
 
 LOG = logging.getLogger(__name__)
 
+# Single-pass code scan (ResolverRegistry.find_all_declarations_single_pass).
+# Same patterns the individual component/test resolvers use.
+_COMPONENT_URN_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*(component:[^\s]+)")
+_TEST_URN_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
+_REGEX_META_RE = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
+_CODE_EXTENSIONS = {".py", ".dart", ".ts", ".tsx"}
+_CODE_GLOBS = ["*.py", "*.dart", "*.ts", "*.tsx"]
+
 
 @dataclass
 class URNDeclaration:
@@ -148,6 +156,42 @@ class BaseResolver(ABC):
                 if any(fname.endswith(ext) for ext in extensions):
                     yield Path(dirpath) / fname
 
+    def _load_yaml_dict(self, path: Path) -> Optional[dict]:
+        """Parse a YAML file to a mapping. None when unreadable or not a mapping."""
+        import yaml
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+        except Exception as e:
+            LOG.debug("Skipping unreadable YAML %s: %s", path, e)
+            return None
+
+        return data if isinstance(data, dict) else None
+
+    def _urn_declaration(
+        self, yaml_file: Path, prefix: str, context: str
+    ) -> Optional[URNDeclaration]:
+        """Declaration for a file's top-level ``urn:`` field carrying ``prefix``.
+
+        None when the file is unreadable, is not a mapping, or declares no
+        matching URN.
+        """
+        data = self._load_yaml_dict(yaml_file)
+        if not data:
+            return None
+
+        urn = data.get("urn")
+        if not (urn and urn.startswith(prefix)):
+            return None
+
+        return URNDeclaration(
+            urn=urn,
+            family=self.family,
+            source_path=yaml_file,
+            context=context,
+        )
+
     def _validate_urn_format(self, urn: str) -> Optional[str]:
         """Validate URN format against PATTERNS. Returns error message or None."""
         pattern = URNGrammar.PATTERNS.get(self.family)
@@ -200,25 +244,18 @@ class WagonResolver(BaseResolver):
             return declarations
 
         for manifest in self.plan_dir.rglob("_*.yaml"):
-            try:
-                import yaml
-
-                with open(manifest, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-                if data and isinstance(data, dict):
-                    wagon_slug = data.get("wagon")
-                    if wagon_slug:
-                        urn = f"wagon:{wagon_slug}"
-                        declarations.append(
-                            URNDeclaration(
-                                urn=urn,
-                                family=self.family,
-                                source_path=manifest,
-                                context="wagon manifest",
-                            )
-                        )
-            except Exception:
+            data = self._load_yaml_dict(manifest)
+            if not data:
                 continue
+
+            wagon_slug = data.get("wagon")
+            if wagon_slug:
+                declarations.append(URNDeclaration(
+                    urn=f"wagon:{wagon_slug}",
+                    family=self.family,
+                    source_path=manifest,
+                    context="wagon manifest",
+                ))
 
         return declarations
 
@@ -271,24 +308,9 @@ class FeatureResolver(BaseResolver):
             return declarations
 
         for feature_file in self.plan_dir.rglob("features/*.yaml"):
-            try:
-                import yaml
-
-                with open(feature_file, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-                if data and isinstance(data, dict):
-                    feature_urn = data.get("urn")
-                    if feature_urn and feature_urn.startswith("feature:"):
-                        declarations.append(
-                            URNDeclaration(
-                                urn=feature_urn,
-                                family=self.family,
-                                source_path=feature_file,
-                                context="feature file",
-                            )
-                        )
-            except Exception:
-                continue
+            declaration = self._urn_declaration(feature_file, "feature:", "feature file")
+            if declaration:
+                declarations.append(declaration)
 
         return declarations
 
@@ -349,24 +371,9 @@ class WMBTResolver(BaseResolver):
                 if not wmbt_pattern.match(wmbt_file.name):
                     continue
 
-                try:
-                    import yaml
-
-                    with open(wmbt_file, "r", encoding="utf-8") as f:
-                        data = yaml.safe_load(f)
-                    if data and isinstance(data, dict):
-                        wmbt_urn = data.get("urn")
-                        if wmbt_urn and wmbt_urn.startswith("wmbt:"):
-                            declarations.append(
-                                URNDeclaration(
-                                    urn=wmbt_urn,
-                                    family=self.family,
-                                    source_path=wmbt_file,
-                                    context="WMBT file",
-                                )
-                            )
-                except Exception:
-                    continue
+                declaration = self._urn_declaration(wmbt_file, "wmbt:", "WMBT file")
+                if declaration:
+                    declarations.append(declaration)
 
         return declarations
 
@@ -425,8 +432,6 @@ class AcceptanceResolver(BaseResolver):
         if not self.plan_dir.exists():
             return declarations
 
-        import yaml
-
         # WMBT acceptances: plan/<wagon>/[DLPCEMYRK]NNN.yaml
         wmbt_pattern = re.compile(r"^[DLPCEMYRK]\d{3}\.yaml$")
         for wagon_dir in self.plan_dir.iterdir():
@@ -434,49 +439,41 @@ class AcceptanceResolver(BaseResolver):
                 continue
 
             for wmbt_file in wagon_dir.glob("*.yaml"):
-                if not wmbt_pattern.match(wmbt_file.name):
-                    continue
-
-                try:
-                    with open(wmbt_file, "r", encoding="utf-8") as f:
-                        data = yaml.safe_load(f)
-                    if data and isinstance(data, dict):
-                        for acc in data.get("acceptances", []):
-                            acc_urn = acc.get("identity", {}).get("urn")
-                            if acc_urn and acc_urn.startswith("acc:"):
-                                declarations.append(
-                                    URNDeclaration(
-                                        urn=acc_urn,
-                                        family=self.family,
-                                        source_path=wmbt_file,
-                                        context="WMBT acceptance block",
-                                    )
-                                )
-                except Exception:
-                    continue
+                if wmbt_pattern.match(wmbt_file.name):
+                    declarations.extend(self._acc_declarations_in(wmbt_file, "WMBT acceptance block"))
 
         # Train acceptances: plan/_trains/<train-id>.yaml
         trains_dir = self.plan_dir / "_trains"
         if trains_dir.is_dir():
             for train_file in trains_dir.glob("*.yaml"):
-                try:
-                    with open(train_file, "r", encoding="utf-8") as f:
-                        data = yaml.safe_load(f)
-                    if data and isinstance(data, dict):
-                        for acc in data.get("acceptances", []) or []:
-                            acc_urn = acc.get("identity", {}).get("urn")
-                            if acc_urn and acc_urn.startswith("acc:"):
-                                declarations.append(
-                                    URNDeclaration(
-                                        urn=acc_urn,
-                                        family=self.family,
-                                        source_path=train_file,
-                                        context="train acceptance block",
-                                    )
-                                )
-                except Exception:
-                    continue
+                declarations.extend(self._acc_declarations_in(train_file, "train acceptance block"))
 
+        return declarations
+
+    def _acc_declarations_in(self, yaml_file: Path, context: str) -> List[URNDeclaration]:
+        """The ``acc:`` URN declarations carried in one WMBT / train YAML file."""
+        import yaml
+
+        declarations: List[URNDeclaration] = []
+        try:
+            with open(yaml_file, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+
+            if not isinstance(data, dict):
+                return declarations
+
+            for acc in data.get("acceptances", []) or []:
+                acc_urn = acc.get("identity", {}).get("urn")
+                if not (acc_urn and acc_urn.startswith("acc:")):
+                    continue
+                declarations.append(URNDeclaration(
+                    urn=acc_urn,
+                    family=self.family,
+                    source_path=yaml_file,
+                    context=context,
+                ))
+        except Exception as e:
+            LOG.debug("Skipping unreadable acceptance source %s: %s", yaml_file, e)
         return declarations
 
 
@@ -561,18 +558,17 @@ class SecurityResolver(BaseResolver):
                 wagon_dir = fallback_path.parent.parent
                 wagon_slug = wagon_slug or wagon_dir.name.replace("_", "-")
             except (AttributeError, IndexError) as exc:
+                context = {
+                    "resolver": "security",
+                    "phase": "wagon_feature_path_fallback",
+                    "fallback_path": str(fallback_path),
+                    "wagon_slug": wagon_slug,
+                    "feature_slug": feature_slug,
+                    "exception_type": type(exc).__name__,
+                }
                 LOG.warning(
                     "SecurityResolver: could not derive wagon/feature from path %s: %s",
-                    fallback_path,
-                    exc,
-                    extra={
-                        "resolver": "security",
-                        "phase": "wagon_feature_path_fallback",
-                        "fallback_path": str(fallback_path),
-                        "wagon_slug": wagon_slug,
-                        "feature_slug": feature_slug,
-                        "exception_type": type(exc).__name__,
-                    },
+                    fallback_path, exc, extra=context,
                 )
         return wagon_slug, feature_slug
 
@@ -593,45 +589,45 @@ class SecurityResolver(BaseResolver):
         if not self.plan_dir.exists():
             return declarations
 
-        import yaml
-
         for feature_file in self._iter_feature_files():
-            try:
-                with open(feature_file, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-            except Exception:
-                continue
-            if not isinstance(data, dict):
-                continue
-            security = data.get("security")
-            if not isinstance(security, dict):
-                continue
-            abuse_cases = security.get("abuse_cases")
-            if not isinstance(abuse_cases, list) or not abuse_cases:
+            declarations.extend(self._security_declarations_in(feature_file))
+
+        return declarations
+
+    def _security_declarations_in(self, feature_file: Path) -> List[URNDeclaration]:
+        """The ``security:`` URNs declared by one feature YAML's abuse_cases block."""
+        data = self._load_yaml_dict(feature_file)
+        if not data:
+            return []
+
+        security = data.get("security")
+        if not isinstance(security, dict):
+            return []
+
+        abuse_cases = security.get("abuse_cases")
+        if not isinstance(abuse_cases, list) or not abuse_cases:
+            return []
+
+        wagon_slug, feature_slug = self._extract_wagon_feature_from_yaml(data, feature_file)
+        if not wagon_slug or not feature_slug:
+            return []
+
+        declarations: List[URNDeclaration] = []
+        for abuse in abuse_cases:
+            if not isinstance(abuse, dict):
                 continue
 
-            wagon_slug, feature_slug = self._extract_wagon_feature_from_yaml(data, feature_file)
-            if not wagon_slug or not feature_slug:
-                continue
+            seq, err = self.derive_threat_seq(abuse.get("id"))
+            if err:
+                raise ValueError(f"{feature_file}: {err}")
 
-            for abuse in abuse_cases:
-                if not isinstance(abuse, dict):
-                    continue
-                abuse_id = abuse.get("id")
-                seq, err = self.derive_threat_seq(abuse_id)
-                if err:
-                    raise ValueError(f"{feature_file}: {err}")
-                urn = f"security:{wagon_slug}:{feature_slug}:{seq}"
-                declarations.append(
-                    URNDeclaration(
-                        urn=urn,
-                        family=self.family,
-                        source_path=feature_file,
-                        context="abuse_case",
-                        metadata=self._abuse_metadata(abuse),
-                    )
-                )
-
+            declarations.append(URNDeclaration(
+                urn=f"security:{wagon_slug}:{feature_slug}:{seq}",
+                family=self.family,
+                source_path=feature_file,
+                context="abuse_case",
+                metadata=self._abuse_metadata(abuse),
+            ))
         return declarations
 
     def resolve(self, urn: str) -> URNResolution:
@@ -642,12 +638,12 @@ class SecurityResolver(BaseResolver):
         if error:
             return URNResolution(urn=urn, family=self.family, error=error)
 
-        parts = urn.replace("security:", "").split(":")
-        if len(parts) != 3:
+        parsed = self._parse_security_urn(urn)
+        if parsed is None:
             return URNResolution(
                 urn=urn, family=self.family, error="Invalid security URN format"
             )
-        wagon_slug, feature_slug, seq = parts
+        wagon_slug, feature_slug, seq = parsed
 
         wagon_dir = self.plan_dir / wagon_slug.replace("-", "_")
         feature_path = wagon_dir / "features" / f"{feature_slug.replace('-', '_')}.yaml"
@@ -661,41 +657,13 @@ class SecurityResolver(BaseResolver):
                 error=f"Feature file not found for security URN: {feature_path}",
             )
 
-        try:
-            import yaml
-
-            with open(feature_path, "r", encoding="utf-8") as f:
-                data = yaml.safe_load(f)
-        except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
-            LOG.warning(
-                "SecurityResolver: failed to parse feature file %s: %s",
-                feature_path,
-                exc,
-                extra={
-                    "resolver": "security",
-                    "phase": "resolve_yaml_load",
-                    "urn": urn,
-                    "feature_path": str(feature_path),
-                    "wagon_slug": wagon_slug,
-                    "feature_slug": feature_slug,
-                    "threat_seq": seq,
-                    "exception_type": type(exc).__name__,
-                },
-            )
-            return URNResolution(
-                urn=urn,
-                family=self.family,
-                error=f"Failed to parse feature file {feature_path}: {exc}",
-            )
+        data, load_error = self._load_feature_yaml(feature_path, urn)
+        if load_error:
+            return URNResolution(urn=urn, family=self.family, error=load_error)
 
         security = (data or {}).get("security") or {}
-        abuse_cases = security.get("abuse_cases") or []
-        for abuse in abuse_cases:
-            if not isinstance(abuse, dict):
-                continue
-            derived_seq, derive_err = self.derive_threat_seq(abuse.get("id"))
-            if derive_err or derived_seq != seq:
-                continue
+        abuse = self._matching_abuse(security.get("abuse_cases") or [], seq)
+        if abuse is not None:
             return URNResolution(
                 urn=urn,
                 family=self.family,
@@ -712,6 +680,52 @@ class SecurityResolver(BaseResolver):
             is_deterministic=False,
             error=f"No abuse_case with threat-seq {seq} found in {feature_path}",
         )
+
+    def _parse_security_urn(self, urn: str) -> Optional[Tuple[str, str, str]]:
+        """(wagon, feature, threat-seq) from a security URN; None when malformed."""
+        parts = urn.replace("security:", "").split(":")
+        if len(parts) != 3:
+            return None
+        return parts[0], parts[1], parts[2]
+
+    def _load_feature_yaml(
+        self, feature_path: Path, urn: str
+    ) -> Tuple[Optional[dict], Optional[str]]:
+        """Parse a feature YAML for resolution. Returns (data, error message)."""
+        import yaml
+
+        try:
+            with open(feature_path, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f), None
+        except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+            wagon_slug, feature_slug, seq = self._parse_security_urn(urn) or ("", "", "")
+            LOG.warning(
+                "SecurityResolver: failed to parse feature file %s: %s",
+                feature_path, exc,
+                extra={
+                    "resolver": "security",
+                    "phase": "resolve_yaml_load",
+                    "urn": urn,
+                    "feature_path": str(feature_path),
+                    "wagon_slug": wagon_slug,
+                    "feature_slug": feature_slug,
+                    "threat_seq": seq,
+                    "exception_type": type(exc).__name__,
+                },
+            )
+            return None, f"Failed to parse feature file {feature_path}: {exc}"
+
+    def _matching_abuse(self, abuse_cases: list, seq: str) -> Optional[dict]:
+        """The abuse_case whose derived threat sequence equals ``seq``."""
+        for abuse in abuse_cases:
+            if not isinstance(abuse, dict):
+                continue
+
+            derived_seq, derive_err = self.derive_threat_seq(abuse.get("id"))
+            if derive_err or derived_seq != seq:
+                continue
+            return abuse
+        return None
 
 
 class ContractResolver(BaseResolver):
@@ -795,31 +809,38 @@ class ContractResolver(BaseResolver):
         if not self.contracts_dir.exists():
             return declarations
 
-        import json
-
         for contract_file in self.contracts_dir.rglob("*.schema.json"):
-            try:
-                with open(contract_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                contract_id = data.get("$id")
-                # Skip urn:jel:* IDs (JEL package headers, not ATDD contracts)
-                if contract_id and contract_id.startswith("urn:jel:"):
-                    continue
-                if contract_id:
-                    urn = f"contract:{contract_id}"
-                    declarations.append(
-                        URNDeclaration(
-                            urn=urn,
-                            family=self.family,
-                            source_path=contract_file,
-                            context="contract schema",
-                        )
-                    )
-            except Exception:
-                continue
+            declaration = self._contract_declaration(contract_file)
+            if declaration:
+                declarations.append(declaration)
 
         return declarations
+
+    def _contract_declaration(self, contract_file: Path) -> Optional[URNDeclaration]:
+        """The ``contract:`` URN declared by one schema file, if it declares one."""
+        import json
+
+        try:
+            with open(contract_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            LOG.debug("Skipping unreadable contract schema %s: %s", contract_file, e)
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        contract_id = data.get("$id")
+        # Skip urn:jel:* IDs (JEL package headers, not ATDD contracts)
+        if not contract_id or contract_id.startswith("urn:jel:"):
+            return None
+
+        return URNDeclaration(
+            urn=f"contract:{contract_id}",
+            family=self.family,
+            source_path=contract_file,
+            context="contract schema",
+        )
 
 
 class TelemetryResolver(BaseResolver):
@@ -858,41 +879,33 @@ class TelemetryResolver(BaseResolver):
         if not self.telemetry_dir.exists():
             return paths
 
-        for telemetry_file in self.telemetry_dir.rglob("*.yaml"):
-            try:
-                import yaml
-
-                with open(telemetry_file, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-
-                file_id = data.get("$id") or data.get("id", "")
-
-                # Match against telemetry ID
-                if file_id == telemetry_id:
+        # A file matches on either the bare id or the telemetry:-prefixed one
+        wanted = {telemetry_id, f"telemetry:{telemetry_id}"}
+        for pattern in ("*.yaml", "*.json"):
+            for telemetry_file in self.telemetry_dir.rglob(pattern):
+                if self._telemetry_file_id(telemetry_file) in wanted:
                     paths.append(telemetry_file)
-                elif file_id == f"telemetry:{telemetry_id}":
-                    paths.append(telemetry_file)
-
-            except Exception:
-                continue
-
-        # Also check JSON files
-        for telemetry_file in self.telemetry_dir.rglob("*.json"):
-            try:
-                import json
-
-                with open(telemetry_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                file_id = data.get("$id") or data.get("id", "")
-
-                if file_id == telemetry_id or file_id == f"telemetry:{telemetry_id}":
-                    paths.append(telemetry_file)
-
-            except Exception:
-                continue
 
         return paths
+
+    def _telemetry_file_id(self, telemetry_file: Path) -> str:
+        """The ``$id``/``id`` a telemetry file declares; "" when unreadable."""
+        import json
+        import yaml
+
+        try:
+            with open(telemetry_file, "r", encoding="utf-8") as f:
+                if telemetry_file.suffix == ".json":
+                    data = json.load(f)
+                else:
+                    data = yaml.safe_load(f)
+        except Exception as e:
+            LOG.debug("Skipping unreadable telemetry file %s: %s", telemetry_file, e)
+            return ""
+
+        if not isinstance(data, dict):
+            return ""
+        return data.get("$id") or data.get("id", "")
 
     def find_declarations(self) -> List[URNDeclaration]:
         """Find all telemetry URN declarations."""
@@ -900,56 +913,47 @@ class TelemetryResolver(BaseResolver):
         if not self.telemetry_dir.exists():
             return declarations
 
-        import yaml
-        import json
-
-        for telemetry_file in self.telemetry_dir.rglob("*.yaml"):
-            try:
-                with open(telemetry_file, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-
-                telemetry_id = data.get("$id") or data.get("id")
-                if telemetry_id:
-                    urn = (
-                        telemetry_id
-                        if telemetry_id.startswith("telemetry:")
-                        else f"telemetry:{telemetry_id}"
-                    )
-                    declarations.append(
-                        URNDeclaration(
-                            urn=urn,
-                            family=self.family,
-                            source_path=telemetry_file,
-                            context="telemetry definition",
-                        )
-                    )
-            except Exception:
-                continue
-
-        for telemetry_file in self.telemetry_dir.rglob("*.json"):
-            try:
-                with open(telemetry_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                telemetry_id = data.get("$id") or data.get("id")
-                if telemetry_id:
-                    urn = (
-                        telemetry_id
-                        if telemetry_id.startswith("telemetry:")
-                        else f"telemetry:{telemetry_id}"
-                    )
-                    declarations.append(
-                        URNDeclaration(
-                            urn=urn,
-                            family=self.family,
-                            source_path=telemetry_file,
-                            context="telemetry definition",
-                        )
-                    )
-            except Exception:
-                continue
+        for pattern in ("*.yaml", "*.json"):
+            for telemetry_file in self.telemetry_dir.rglob(pattern):
+                declaration = self._telemetry_declaration(telemetry_file)
+                if declaration:
+                    declarations.append(declaration)
 
         return declarations
+
+    def _telemetry_declaration(self, telemetry_file: Path) -> Optional[URNDeclaration]:
+        """The ``telemetry:`` URN declared by one telemetry file (YAML or JSON)."""
+        import json
+        import yaml
+
+        try:
+            with open(telemetry_file, "r", encoding="utf-8") as f:
+                if telemetry_file.suffix == ".json":
+                    data = json.load(f)
+                else:
+                    data = yaml.safe_load(f)
+        except Exception as e:
+            LOG.debug("Skipping unreadable telemetry file %s: %s", telemetry_file, e)
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        telemetry_id = data.get("$id") or data.get("id")
+        if not telemetry_id:
+            return None
+
+        urn = (
+            telemetry_id
+            if telemetry_id.startswith("telemetry:")
+            else f"telemetry:{telemetry_id}"
+        )
+        return URNDeclaration(
+            urn=urn,
+            family=self.family,
+            source_path=telemetry_file,
+            context="telemetry definition",
+        )
 
 
 class SubjectResolver(BaseResolver):
@@ -1023,17 +1027,28 @@ class SubjectResolver(BaseResolver):
             block = data  # bare top-level mapping fallback
 
         if isinstance(block, list):
-            for item in block:
-                if isinstance(item, dict):
-                    name = item.get("subject") or item.get("name")
-                    if isinstance(name, str) and name:
-                        entries[name] = item
-                elif isinstance(item, str) and item:
-                    entries[item] = {"subject": item}
-        elif isinstance(block, dict):
-            for name, item in block.items():
-                if isinstance(name, str) and isinstance(item, dict):
+            return SubjectResolver._entries_from_list(block)
+
+        if isinstance(block, dict):
+            return {
+                name: item
+                for name, item in block.items()
+                if isinstance(name, str) and isinstance(item, dict)
+            }
+
+        return entries
+
+    @staticmethod
+    def _entries_from_list(block: list) -> Dict[str, dict]:
+        """Subjects from the canonical list-of-entries shape."""
+        entries: Dict[str, dict] = {}
+        for item in block:
+            if isinstance(item, dict):
+                name = item.get("subject") or item.get("name")
+                if isinstance(name, str) and name:
                     entries[name] = item
+            elif isinstance(item, str) and item:
+                entries[item] = {"subject": item}
         return entries
 
     def resolve(self, urn: str) -> URNResolution:
@@ -1195,21 +1210,10 @@ class TrainResolver(BaseResolver):
         ``NNNN-slug`` (optionally ``train:``-prefixed) and whose values are
         ``subject/slug`` | ``subject:slug`` | ``train:subject:slug``.
         """
-        trains_dir = self.plan_dir / "_trains"
-        raw = None
-        for candidate in self._ALIAS_FILE_CANDIDATES:
-            path = trains_dir / candidate
-            if path.exists():
-                try:
-                    import yaml
-
-                    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-                except Exception:
-                    raw = None
-                break
-
+        raw = self._load_alias_document()
         if not isinstance(raw, dict):
             return {}
+
         mapping = raw.get("aliases") if isinstance(raw.get("aliases"), dict) else raw
         if not isinstance(mapping, dict):
             return {}
@@ -1223,6 +1227,23 @@ class TrainResolver(BaseResolver):
             if typed:
                 result[legacy] = typed
         return result
+
+    def _load_alias_document(self) -> Optional[dict]:
+        """Parse the first alias-map file that exists. None when absent or unreadable."""
+        trains_dir = self.plan_dir / "_trains"
+        for candidate in self._ALIAS_FILE_CANDIDATES:
+            path = trains_dir / candidate
+            if not path.exists():
+                continue
+
+            try:
+                import yaml
+
+                return yaml.safe_load(path.read_text(encoding="utf-8"))
+            except Exception as e:
+                LOG.debug("Skipping unreadable alias map %s: %s", path, e)
+                return None
+        return None
 
     def _alias_lookup(self, legacy_id: str) -> Optional[Tuple[str, str]]:
         return self._load_alias_map().get(legacy_id)
@@ -1261,47 +1282,43 @@ class TrainResolver(BaseResolver):
         if not trains_dir.exists():
             return declarations
 
-        import yaml
-
         # Typed: plan/_trains/<subject>/<slug>.yaml  (path -> subject/slug).
         for subject_dir in sorted(trains_dir.iterdir()):
             if not subject_dir.is_dir() or subject_dir.name.startswith("_"):
                 continue
-            subject = subject_dir.name
+
             for train_file in sorted(subject_dir.glob("*.yaml")):
                 if train_file.name.startswith("_"):
                     continue
-                declarations.append(
-                    URNDeclaration(
-                        urn=f"train:{subject}:{train_file.stem}",
-                        family=self.family,
-                        source_path=train_file,
-                        context="train definition (typed)",
-                    )
-                )
+                declarations.append(URNDeclaration(
+                    urn=f"train:{subject_dir.name}:{train_file.stem}",
+                    family=self.family,
+                    source_path=train_file,
+                    context="train definition (typed)",
+                ))
 
         # Legacy flat files (migration window). Registry/alias files (``_*``)
         # are skipped.
         for train_file in sorted(trains_dir.glob("*.yaml")):
             if train_file.name.startswith("_"):
                 continue
-            try:
-                with open(train_file, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-            except Exception:
-                data = None
-            train_id = (data.get("id") if isinstance(data, dict) else None) or train_file.stem
-            urn = train_id if str(train_id).startswith("train:") else f"train:{train_id}"
-            declarations.append(
-                URNDeclaration(
-                    urn=urn,
-                    family=self.family,
-                    source_path=train_file,
-                    context="train definition (legacy)",
-                )
-            )
+
+            declarations.append(URNDeclaration(
+                urn=self._legacy_train_urn(train_file),
+                family=self.family,
+                source_path=train_file,
+                context="train definition (legacy)",
+            ))
 
         return declarations
+
+    def _legacy_train_urn(self, train_file: Path) -> str:
+        """URN for a legacy flat train file: its ``id`` field, else the file stem."""
+        data = self._load_yaml_dict(train_file)
+        train_id = (data.get("id") if data else None) or train_file.stem
+        if str(train_id).startswith("train:"):
+            return train_id
+        return f"train:{train_id}"
 
 
 class ComponentResolver(BaseResolver):
@@ -1395,28 +1412,43 @@ class ComponentResolver(BaseResolver):
                 continue
 
             for layer_dir in layer_dirs.get(layer, []):
-                search_paths = [
-                    base_dir / wagon_id.replace("-", "_") / feature_id.replace("-", "_") / layer_dir,
-                    base_dir / wagon_id.replace("-", "_") / feature_id.replace("-", "_") / "src" / layer_dir,
-                    base_dir / "features" / feature_id.replace("-", "_") / layer_dir,
-                    base_dir / wagon_id.replace("-", "_") / layer_dir,
-                ]
-                # For assembly, also check the feature root without layer subdir
-                if layer == "assembly":
-                    search_paths.append(
-                        base_dir / wagon_id.replace("-", "_") / feature_id.replace("-", "_")
-                    )
-
+                search_paths = self._component_search_paths(
+                    base_dir, wagon_id, feature_id, layer, layer_dir
+                )
                 for search_path in search_paths:
-                    if not search_path.exists():
-                        continue
-
-                    for ext in ["*.py", "*.dart", "*.ts", "*.tsx"]:
-                        for f in search_path.rglob(ext):
-                            if self._stem_match(component_name, f):
-                                paths.append(f)
+                    paths.extend(self._matching_component_files(search_path, component_name))
 
         return paths
+
+    def _component_search_paths(
+        self, base_dir: Path, wagon_id: str, feature_id: str, layer: str, layer_dir: str
+    ) -> List[Path]:
+        """Directories that may hold a component for this wagon/feature/layer."""
+        wagon = wagon_id.replace("-", "_")
+        feature = feature_id.replace("-", "_")
+
+        search_paths = [
+            base_dir / wagon / feature / layer_dir,
+            base_dir / wagon / feature / "src" / layer_dir,
+            base_dir / "features" / feature / layer_dir,
+            base_dir / wagon / layer_dir,
+        ]
+        # For assembly, also check the feature root without layer subdir
+        if layer == "assembly":
+            search_paths.append(base_dir / wagon / feature)
+        return search_paths
+
+    def _matching_component_files(self, search_path: Path, component_name: str) -> List[Path]:
+        """Code files under search_path whose stem matches the component name."""
+        if not search_path.exists():
+            return []
+
+        return [
+            f
+            for ext in _CODE_GLOBS
+            for f in search_path.rglob(ext)
+            if self._stem_match(component_name, f)
+        ]
 
     def _find_train_infra_files(
         self,
@@ -1448,33 +1480,37 @@ class ComponentResolver(BaseResolver):
     def find_declarations(self) -> List[URNDeclaration]:
         """Find all component URN declarations in code files."""
         declarations = []
-        # Support both # and // comment styles, case-insensitive URN:
-        urn_pattern = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*(component:[^\s]+)")
-        # Filter out regex patterns that are not actual URNs
-        regex_metacharacters = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
+        for code_file in self._walk_files(self.repo_root, _CODE_EXTENSIONS):
+            declarations.extend(self._component_declarations_in(code_file))
 
-        for code_file in self._walk_files(self.repo_root, {".py", ".dart", ".ts", ".tsx"}):
-            try:
-                content = code_file.read_text(encoding="utf-8")
-                for line_num, line in enumerate(content.split("\n"), 1):
-                    match = urn_pattern.search(line)
-                    if match:
-                        urn_candidate = match.group(1)
-                        # Skip regex patterns that are not actual URNs
-                        if regex_metacharacters.search(urn_candidate):
-                            continue
-                        declarations.append(
-                            URNDeclaration(
-                                urn=urn_candidate,
-                                family=self.family,
-                                source_path=code_file,
-                                line_number=line_num,
-                                context="code comment",
-                            )
-                        )
-            except Exception:
+        return declarations
+
+    def _component_declarations_in(self, code_file: Path) -> List[URNDeclaration]:
+        """Component URN declarations carried in one code file's comments."""
+        try:
+            content = code_file.read_text(encoding="utf-8")
+        except Exception as e:
+            LOG.debug("Skipping unreadable code file %s: %s", code_file, e)
+            return []
+
+        declarations: List[URNDeclaration] = []
+        for line_num, line in enumerate(content.split("\n"), 1):
+            match = _COMPONENT_URN_RE.search(line)
+            if not match:
                 continue
 
+            # Skip regex patterns that are not actual URNs
+            urn_candidate = match.group(1)
+            if _REGEX_META_RE.search(urn_candidate):
+                continue
+
+            declarations.append(URNDeclaration(
+                urn=urn_candidate,
+                family=self.family,
+                source_path=code_file,
+                line_number=line_num,
+                context="code comment",
+            ))
         return declarations
 
 
@@ -1541,23 +1577,27 @@ class TableResolver(BaseResolver):
         table_pattern = re.compile(r"create\s+table\s+(?:if\s+not\s+exists\s+)?(\w+)", re.IGNORECASE)
 
         for sql_file in supabase_dir.rglob("*.sql"):
-            try:
-                content = sql_file.read_text(encoding="utf-8")
-                for match in table_pattern.finditer(content):
-                    table_name = match.group(1)
-                    urn = f"table:{table_name}"
-                    declarations.append(
-                        URNDeclaration(
-                            urn=urn,
-                            family=self.family,
-                            source_path=sql_file,
-                            context="CREATE TABLE statement",
-                        )
-                    )
-            except Exception:
-                continue
+            declarations.extend(self._table_declarations_in(sql_file, table_pattern))
 
         return declarations
+
+    def _table_declarations_in(self, sql_file: Path, table_pattern) -> List[URNDeclaration]:
+        """A ``table:`` URN for every CREATE TABLE statement in one SQL file."""
+        try:
+            content = sql_file.read_text(encoding="utf-8")
+        except Exception as e:
+            LOG.debug("Skipping unreadable SQL file %s: %s", sql_file, e)
+            return []
+
+        return [
+            URNDeclaration(
+                urn=f"table:{match.group(1)}",
+                family=self.family,
+                source_path=sql_file,
+                context="CREATE TABLE statement",
+            )
+            for match in table_pattern.finditer(content)
+        ]
 
 
 class MigrationResolver(BaseResolver):
@@ -1607,16 +1647,12 @@ class MigrationResolver(BaseResolver):
         for migration_file in migrations_dir.glob("*.sql"):
             match = migration_pattern.match(migration_file.name)
             if match:
-                migration_id = match.group(1)
-                urn = f"migration:{migration_id}"
-                declarations.append(
-                    URNDeclaration(
-                        urn=urn,
-                        family=self.family,
-                        source_path=migration_file,
-                        context="migration file",
-                    )
-                )
+                declarations.append(URNDeclaration(
+                    urn=f"migration:{match.group(1)}",
+                    family=self.family,
+                    source_path=migration_file,
+                    context="migration file",
+                ))
 
         return declarations
 
@@ -1672,17 +1708,7 @@ class TestResolver(BaseResolver):
             return URNResolution(urn=urn, family=self.family, error=error)
 
         # Header scanning only (S8.4) — no path-based derivation
-        paths = []
-        for test_file in self._iter_test_files():
-            try:
-                content = test_file.read_text(encoding="utf-8")
-                for line in content.split("\n"):
-                    match = self._URN_COMMENT_RE.search(line)
-                    if match and match.group(1) == urn:
-                        paths.append(test_file)
-                        break
-            except Exception:
-                continue
+        paths = [f for f in self._iter_test_files() if self._declares_test_urn(f, urn)]
 
         return URNResolution(
             urn=urn,
@@ -1691,6 +1717,20 @@ class TestResolver(BaseResolver):
             is_deterministic=len(paths) == 1,
             error=None if paths else f"Test file not found for: {urn}",
         )
+
+    def _declares_test_urn(self, test_file: Path, urn: str) -> bool:
+        """Whether a test file's header declares exactly this test URN."""
+        try:
+            content = test_file.read_text(encoding="utf-8")
+        except Exception as e:
+            LOG.debug("Skipping unreadable test file %s: %s", test_file, e)
+            return False
+
+        for line in content.split("\n"):
+            match = self._URN_COMMENT_RE.search(line)
+            if match and match.group(1) == urn:
+                return True
+        return False
 
     @classmethod
     def parse_test_header(cls, content: str) -> dict:
@@ -1712,57 +1752,58 @@ class TestResolver(BaseResolver):
             "format": None,
         }
 
+        # Header fields each carried by a single "Key: value" comment line
+        simple_fields = (
+            ("acceptance", cls._ACCEPTANCE_RE),
+            ("wmbt", cls._WMBT_RE),
+            ("train", cls._TRAIN_RE),
+            ("phase", cls._PHASE_RE),
+            ("layer", cls._LAYER_RE),
+            ("assertion", cls._ASSERTION_RE),
+        )
+
         for line in content.split("\n"):
-            # Test URN
-            m = cls._URN_COMMENT_RE.search(line)
-            if m:
-                candidate = m.group(1)
-                if cls._REGEX_META_RE.search(candidate):
-                    continue
-                if candidate.startswith("test:") and result["test_urn"] is None:
-                    result["test_urn"] = candidate
-                    # Determine format
-                    if candidate.startswith("test:train:"):
-                        result["format"] = "journey"
-                    elif ":" in candidate[5:] and re.match(
-                        r"^test:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]",
-                        candidate,
-                    ):
-                        result["format"] = "acceptance"
-                    else:
-                        result["format"] = "legacy"
+            if cls._parse_urn_header_line(line, result):
+                continue
 
-            # Acceptance line
-            m = cls._ACCEPTANCE_RE.search(line)
-            if m:
-                result["acceptance"] = m.group(1)
-
-            # WMBT line
-            m = cls._WMBT_RE.search(line)
-            if m:
-                result["wmbt"] = m.group(1)
-
-            # Train line
-            m = cls._TRAIN_RE.search(line)
-            if m:
-                result["train"] = m.group(1)
-
-            # Phase line
-            m = cls._PHASE_RE.search(line)
-            if m:
-                result["phase"] = m.group(1)
-
-            # Layer line
-            m = cls._LAYER_RE.search(line)
-            if m:
-                result["layer"] = m.group(1)
-
-            # Assertion line (structural | behavioral)
-            m = cls._ASSERTION_RE.search(line)
-            if m:
-                result["assertion"] = m.group(1)
+            for field, pattern in simple_fields:
+                m = pattern.search(line)
+                if m:
+                    result[field] = m.group(1)
 
         return result
+
+    @classmethod
+    def _parse_urn_header_line(cls, line: str, result: Dict) -> bool:
+        """Record the first ``test:`` URN on this line and its format.
+
+        Returns True when the line carries a regex pattern rather than a URN,
+        in which case the caller skips the rest of the line.
+        """
+        m = cls._URN_COMMENT_RE.search(line)
+        if not m:
+            return False
+
+        candidate = m.group(1)
+        if cls._REGEX_META_RE.search(candidate):
+            return True
+
+        if candidate.startswith("test:") and result["test_urn"] is None:
+            result["test_urn"] = candidate
+            result["format"] = cls._test_urn_format(candidate)
+        return False
+
+    @classmethod
+    def _test_urn_format(cls, candidate: str) -> str:
+        """Which test-URN grammar a candidate follows."""
+        if candidate.startswith("test:train:"):
+            return "journey"
+
+        is_acceptance = ":" in candidate[5:] and re.match(
+            r"^test:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]",
+            candidate,
+        )
+        return "acceptance" if is_acceptance else "legacy"
 
     def find_declarations(self) -> List[URNDeclaration]:
         """Find all test URN declarations in test files."""
@@ -1770,35 +1811,45 @@ class TestResolver(BaseResolver):
         seen_urns: Dict[str, URNDeclaration] = {}
 
         for test_file in self._iter_test_files():
-            try:
-                content = test_file.read_text(encoding="utf-8")
-            except Exception:
+            declarations.extend(self._test_declarations_in(test_file, seen_urns))
+
+        return declarations
+
+    def _test_declarations_in(
+        self, test_file: Path, seen_urns: Dict[str, URNDeclaration]
+    ) -> List[URNDeclaration]:
+        """Test URN declarations in one file; the first declaration of each URN wins."""
+        try:
+            content = test_file.read_text(encoding="utf-8")
+        except Exception as e:
+            LOG.debug("Skipping unreadable test file %s: %s", test_file, e)
+            return []
+
+        declarations: List[URNDeclaration] = []
+        for line_num, line in enumerate(content.split("\n"), 1):
+            match = self._URN_COMMENT_RE.search(line)
+            if not match:
                 continue
 
-            lines = content.split("\n")
+            urn_candidate = match.group(1)
+            if self._REGEX_META_RE.search(urn_candidate):
+                continue
+            if not urn_candidate.startswith("test:"):
+                continue
+            if urn_candidate in seen_urns:
+                continue
 
-            for line_num, line in enumerate(lines, 1):
-                match = self._URN_COMMENT_RE.search(line)
-                if not match:
-                    continue
-                urn_candidate = match.group(1)
-                if self._REGEX_META_RE.search(urn_candidate):
-                    continue
-
-                if urn_candidate.startswith("test:"):
-                    if urn_candidate not in seen_urns:
-                        # Parse metadata for context
-                        header = self.parse_test_header(content)
-                        decl = URNDeclaration(
-                            urn=urn_candidate,
-                            family=self.family,
-                            source_path=test_file,
-                            line_number=line_num,
-                            context=f"test file ({header.get('format', 'unknown')} format)",
-                        )
-                        seen_urns[urn_candidate] = decl
-                        declarations.append(decl)
-
+            # Parse metadata for context
+            header = self.parse_test_header(content)
+            decl = URNDeclaration(
+                urn=urn_candidate,
+                family=self.family,
+                source_path=test_file,
+                line_number=line_num,
+                context=f"test file ({header.get('format', 'unknown')} format)",
+            )
+            seen_urns[urn_candidate] = decl
+            declarations.append(decl)
         return declarations
 
     # Test file name patterns (checked against filename, not glob)
@@ -1952,80 +2003,20 @@ class ResolverRegistry:
         if not scan_component and not scan_test:
             return result, content_cache
 
-        # Patterns (same as individual resolvers use)
-        component_urn_re = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*(component:[^\s]+)")
-        test_urn_re = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
-        regex_meta_re = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
-        test_file_patterns = TestResolver._TEST_PATTERNS
-
         component_decls: List[URNDeclaration] = []
         test_decls: List[URNDeclaration] = []
         seen_test_urns: Dict[str, URNDeclaration] = {}
 
-        skip_dirs = BaseResolver._SKIP_DIRS
-        extensions = {".py", ".dart", ".ts", ".tsx"}
+        for fpath, fname in self._walk_code_files():
+            found_component, found_test, content = self._scan_code_file(
+                fpath, fname, scan_component, scan_test, seen_test_urns
+            )
+            component_decls.extend(found_component)
+            test_decls.extend(found_test)
 
-        for dirpath, dirnames, filenames in os.walk(self.repo_root):
-            dirnames[:] = [d for d in dirnames if d not in skip_dirs]
-            for fname in filenames:
-                if not any(fname.endswith(ext) for ext in extensions):
-                    continue
-
-                fpath = Path(dirpath) / fname
-                try:
-                    content = fpath.read_text(encoding="utf-8")
-                except Exception:
-                    continue
-
-                has_decl = False
-                lines = content.split("\n")
-
-                # Component URN scan
-                if scan_component:
-                    for line_num, line in enumerate(lines, 1):
-                        match = component_urn_re.search(line)
-                        if match:
-                            urn_candidate = match.group(1)
-                            if regex_meta_re.search(urn_candidate):
-                                continue
-                            component_decls.append(
-                                URNDeclaration(
-                                    urn=urn_candidate,
-                                    family="component",
-                                    source_path=fpath,
-                                    line_number=line_num,
-                                    context="code comment",
-                                )
-                            )
-                            has_decl = True
-
-                # Test URN scan (only for test-named files)
-                is_test_file = any(p.match(fname) for p in test_file_patterns)
-                if scan_test and is_test_file:
-                    for line_num, line in enumerate(lines, 1):
-                        match = test_urn_re.search(line)
-                        if not match:
-                            continue
-                        urn_candidate = match.group(1)
-                        if regex_meta_re.search(urn_candidate):
-                            continue
-                        if urn_candidate.startswith("test:"):
-                            if urn_candidate not in seen_test_urns:
-                                header = TestResolver.parse_test_header(content)
-                                decl = URNDeclaration(
-                                    urn=urn_candidate,
-                                    family="test",
-                                    source_path=fpath,
-                                    line_number=line_num,
-                                    context=f"test file ({header.get('format', 'unknown')} format)",
-                                )
-                                seen_test_urns[urn_candidate] = decl
-                                test_decls.append(decl)
-                                has_decl = True
-
-                # Cache content of files with URN declarations
-                if has_decl:
-                    content_cache[str(fpath)] = content
+            # Cache content of files with URN declarations
+            if found_component or found_test:
+                content_cache[str(fpath)] = content
 
         if scan_component:
             result["component"] = component_decls
@@ -2033,6 +2024,95 @@ class ResolverRegistry:
             result["test"] = test_decls
 
         return result, content_cache
+
+    def _scan_code_file(
+        self,
+        fpath: Path,
+        fname: str,
+        scan_component: bool,
+        scan_test: bool,
+        seen_test_urns: Dict[str, URNDeclaration],
+    ) -> Tuple[List[URNDeclaration], List[URNDeclaration], Optional[str]]:
+        """Scan one code file for component and/or test URN declarations."""
+        try:
+            content = fpath.read_text(encoding="utf-8")
+        except Exception as e:
+            LOG.debug("Skipping unreadable source file %s: %s", fpath, e)
+            return [], [], None
+
+        found_component = (
+            self._scan_component_urns(content, fpath) if scan_component else []
+        )
+
+        # Test URNs are only declared in test-named files
+        is_test_file = any(p.match(fname) for p in TestResolver._TEST_PATTERNS)
+        found_test = (
+            self._scan_test_urns(content, fpath, seen_test_urns)
+            if scan_test and is_test_file
+            else []
+        )
+        return found_component, found_test, content
+
+    def _walk_code_files(self):
+        """Yield (path, filename) for every code file, pruning vendored/build dirs."""
+        for dirpath, dirnames, filenames in os.walk(self.repo_root):
+            dirnames[:] = [d for d in dirnames if d not in BaseResolver._SKIP_DIRS]
+            for fname in filenames:
+                if any(fname.endswith(ext) for ext in _CODE_EXTENSIONS):
+                    yield Path(dirpath) / fname, fname
+
+    def _scan_component_urns(self, content: str, fpath: Path) -> List[URNDeclaration]:
+        """Component URN declarations carried in one file's comments."""
+        decls: List[URNDeclaration] = []
+        for line_num, line in enumerate(content.split("\n"), 1):
+            match = _COMPONENT_URN_RE.search(line)
+            if not match:
+                continue
+
+            urn_candidate = match.group(1)
+            if _REGEX_META_RE.search(urn_candidate):
+                continue
+
+            decls.append(
+                URNDeclaration(
+                    urn=urn_candidate,
+                    family="component",
+                    source_path=fpath,
+                    line_number=line_num,
+                    context="code comment",
+                )
+            )
+        return decls
+
+    def _scan_test_urns(
+        self, content: str, fpath: Path, seen_test_urns: Dict[str, URNDeclaration]
+    ) -> List[URNDeclaration]:
+        """Test URN declarations in one test file, first declaration of each URN winning."""
+        decls: List[URNDeclaration] = []
+        for line_num, line in enumerate(content.split("\n"), 1):
+            match = _TEST_URN_RE.search(line)
+            if not match:
+                continue
+
+            urn_candidate = match.group(1)
+            if _REGEX_META_RE.search(urn_candidate):
+                continue
+            if not urn_candidate.startswith("test:"):
+                continue
+            if urn_candidate in seen_test_urns:
+                continue
+
+            header = TestResolver.parse_test_header(content)
+            decl = URNDeclaration(
+                urn=urn_candidate,
+                family="test",
+                source_path=fpath,
+                line_number=line_num,
+                context=f"test file ({header.get('format', 'unknown')} format)",
+            )
+            seen_test_urns[urn_candidate] = decl
+            decls.append(decl)
+        return decls
 
     @property
     def families(self) -> List[str]:
