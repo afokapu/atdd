@@ -12,7 +12,7 @@ Test strategy
 -------------
 The GitHub client double is built via ``create_autospec(GitHubClient, instance=True)``
 so any method-name drift between the caller and the real class surface is
-caught at call time (same discipline as ``test_sync_wmbts`` after the
+caught at call time (same discipline the removed ``test_sync_wmbts`` used after the
 #304 incident).
 
 Body fixture shape is the real PARENT-ISSUE-TEMPLATE.md metadata table —

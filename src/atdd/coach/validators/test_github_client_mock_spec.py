@@ -12,7 +12,7 @@ contains ``GitHubClient``. Any such class must either:
 Hand-rolled plain classes are rejected because they silently accept any
 method name the caller happens to invoke, letting production call sites
 drift away from the real client surface without any test catching it. The
-originating bug (issue #304) had ``IssueManager.sync_wmbts`` calling
+originating bug (issue #304) had the since-removed ``IssueManager.sync_wmbts`` calling
 ``client.list_sub_issues(...)``, a method that does not exist on the real
 ``GitHubClient``; every test passed because the fakes also defined
 ``list_sub_issues``.

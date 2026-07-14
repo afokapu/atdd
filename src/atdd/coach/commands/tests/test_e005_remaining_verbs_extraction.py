@@ -18,7 +18,6 @@ function/method:
     atdd coach is-registered <B>  -> IssueManager.branch_is_registered(B)
     atdd coach check <N>          -> IssueLifecycle.check(N)
     atdd coach close-wmbt <N> <I> -> IssueLifecycle.close_wmbt(N, I, force=...)
-    atdd coach sync-wmbts <N>     -> IssueManager.sync_wmbts(N)
     atdd coach enter <N>          -> IssueLifecycle.enter(N)
 
 These tests prove the WIRING (auto-discovery + delegation + deprecated-shim
@@ -69,7 +68,6 @@ _VERBS = [
     ("is-registered", "is_registered"),
     ("check", "check"),
     ("close-wmbt", "close_wmbt"),
-    ("sync-wmbts", "sync_wmbts"),
     ("enter", "enter"),
 ]
 
@@ -243,27 +241,6 @@ class TestCloseWmbtDelegation:
             coach.run_cli(["close-wmbt", str(_FAKE_ISSUE), "E005"])
         spy.assert_called_once_with(_FAKE_ISSUE, "E005", force=False)
 
-
-
-class TestSyncWmbtsDelegation:
-    def test_coach_sync_wmbts_maps_nonneg_to_zero(self, hermetic):
-        from atdd.coach.commands import coach
-        from atdd.coach.commands.issue import IssueManager
-
-        spy = MagicMock(return_value=3)  # rc >= 0 -> exit 0
-        with patch.object(IssueManager, "sync_wmbts", spy):
-            rc = coach.run_cli(["sync-wmbts", str(_FAKE_ISSUE)])
-        assert rc == 0
-        spy.assert_called_once_with(_FAKE_ISSUE)
-
-    def test_coach_sync_wmbts_maps_negative_to_one(self, hermetic):
-        from atdd.coach.commands import coach
-        from atdd.coach.commands.issue import IssueManager
-
-        spy = MagicMock(return_value=-1)  # rc < 0 -> exit 1
-        with patch.object(IssueManager, "sync_wmbts", spy):
-            rc = coach.run_cli(["sync-wmbts", str(_FAKE_ISSUE)])
-        assert rc == 1
 
 
 
