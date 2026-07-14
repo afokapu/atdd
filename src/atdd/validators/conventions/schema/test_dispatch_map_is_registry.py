@@ -19,12 +19,12 @@ Imports no persona validator module, so it is parallel-safe with legacy validato
 """
 from __future__ import annotations
 
-import contextlib
 from pathlib import Path
 
-import pytest
-
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    mirror_file,
+)
 from atdd.validators.conventions.schema.archetype import TEMPLATES, TEMPLATE_IDS
 
 FAMILY = "schema"
@@ -57,22 +57,27 @@ def _contract():
     return by_id[TEMPLATE]
 
 
-def _evaluate(root: Path, graph=None):
-    """Run the variant through the official path on the real composed graph."""
-    g = graph if graph is not None else load_composed_graph(root)
-    return _contract().evaluate(g, config={"variant": VARIANT})
+def _evaluate(graph):
+    """Run the variant through the official path on the composed graph."""
+    return _contract().evaluate(graph, config={"variant": VARIANT})
 
 
-@contextlib.contextmanager
-def _patched(root: Path, rel: str, old: str, new: str):
-    p = root / rel
-    orig = p.read_text(encoding="utf-8")
-    assert old in orig, f"fault anchor {old!r} not found in {rel}"
-    p.write_text(orig.replace(old, new, 1), encoding="utf-8")
-    try:
-        yield
-    finally:
-        p.write_text(orig, encoding="utf-8")
+# The variant reads BOTH the registry and its schema off `graph.root`, so a staged root
+# must carry both — the schema unfaulted, the registry faulted (#1458, E035). There is
+# no dispatch node to mutate: the evaluator yaml-loads the whole file and runs
+# jsonschema over the raw document, so the fault has to be a real YAML it really parses.
+_DISPATCH_SCHEMA = "plan/_dispatch.schema.json"
+
+
+def _staged_faulted_registry(clean_graph, tmp_path):
+    """Mirror the real registry + schema into `tmp_path`, faulting the registry."""
+    root = _repo_root()
+    mirror_file(root, tmp_path, _DISPATCH_SCHEMA)
+    mirror_file(
+        root, tmp_path, _DISPATCH,
+        lambda t: t.replace(_FAULT_ANCHOR, _FAULT_REPLACEMENT, 1),
+    )
+    return graph_rooted_at(clean_graph, tmp_path)
 
 
 # --- contract ---------------------------------------------------------------
@@ -83,14 +88,11 @@ def test_dispatch_map_is_registry_variant_contract() -> None:
 
 
 # --- official-path execution + evidence shape -------------------------------
-@pytest.mark.convention_filesystem_mutation
-def test_evidence_keys_subset_of_contract() -> None:
+def test_evidence_keys_subset_of_contract(clean_convention_graph, tmp_path) -> None:
     """Whatever the variant emits, its evidence keys are a subset of the template
     contract's declared failure_evidence (proven via a faulted registry)."""
-    root = _repo_root()
     allowed = set(FAILURE_EVIDENCE)
-    with _patched(root, _DISPATCH, _FAULT_ANCHOR, _FAULT_REPLACEMENT):
-        ev = _evaluate(root)
+    ev = _evaluate(_staged_faulted_registry(clean_convention_graph, tmp_path))
     assert ev, "faulted registry produced no evidence"
     for rec in ev:
         assert set(rec).issubset(allowed), f"evidence keys escape contract: {set(rec) - allowed}"
@@ -99,14 +101,14 @@ def test_evidence_keys_subset_of_contract() -> None:
 # --- clean baseline ---------------------------------------------------------
 def test_clean_baseline_is_silent(clean_convention_graph) -> None:
     """The real declared registry conforms to its schema → zero violations."""
-    assert _evaluate(_repo_root(), graph=clean_convention_graph) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 # --- fault injection (convention path is the live coverage; oracle retired #1365) ---
-@pytest.mark.convention_filesystem_mutation
-def test_fault_caught_by_convention() -> None:
-    """Inject one schema fault (entry missing `train_id`); the convention path catches it."""
-    root = _repo_root()
-    with _patched(root, _DISPATCH, _FAULT_ANCHOR, _FAULT_REPLACEMENT):
-        convention_caught = bool(_evaluate(root))
-    assert convention_caught, "convention path missed the schema fault"
+def test_fault_caught_by_convention(clean_convention_graph, tmp_path) -> None:
+    """Inject one schema fault (entry missing `train_id`) into a staged copy of the
+    registry; the convention path catches it and `plan/_dispatch.yaml` is never
+    rewritten in the working tree."""
+    staged = _staged_faulted_registry(clean_convention_graph, tmp_path)
+    assert bool(_evaluate(staged)), "convention path missed the schema fault"
+    assert _evaluate(clean_convention_graph) == [], "the real registry was written to"

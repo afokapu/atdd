@@ -36,6 +36,11 @@ logger = logging.getLogger(__name__)
 # Known branch prefixes for slug → branch name mapping
 _BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
 
+# The Claude Code PreToolUse hook that enforces the forbidden-command registry
+# (#668). Wired into the project's .claude/settings.json by #1454 — before that
+# it was installed on disk but invoked by nothing.
+_PRETOOLUSE_HOOK_NAME = "claude-pre-tool-use.sh"
+
 
 # Domain-agnostic prompt copy for `atdd init` theme declaration (#291,
 # Decision #7). Lists the 10 built-in names and the three mode choices
@@ -555,6 +560,10 @@ class ProjectInitializer:
             # missing direnv.
             self.install_path_shim_enforcement(force)
 
+            # Wire the L1 agent-level guard: the PreToolUse hook that blocks
+            # forbidden commands before the agent runs them (#1454).
+            self.install_claude_pretooluse_hook()
+
             # Install train-render harness when consumer repo has a frontend (#335)
             self._install_harness(force)
 
@@ -986,6 +995,90 @@ class ProjectInitializer:
             missing_label="gh pre-commit hook",
         )
         self._warn_if_direnv_missing()
+
+    def install_claude_pretooluse_hook(self) -> None:
+        """Wire the forbidden-command guard into the project's Claude settings (#1454).
+
+        ``claude-pre-tool-use.sh`` has enforced the prohibition registry since
+        #668 — it classifies each Bash tool call and exits 2 on a hard block.
+        But ``PreToolUse`` appeared in no settings file, so Claude Code never
+        invoked it: the guard was dead code and the prohibition was advisory
+        text agents could (and did) ignore (#1430).
+
+        This installs both halves of the seam:
+
+          * ``.atdd/hooks/claude-pre-tool-use.sh`` — the hook itself, so the
+            wiring can never point at a missing file.
+          * ``.claude/settings.json`` — a ``PreToolUse`` entry matching ``Bash``
+            that invokes it.  Project-scoped (not ``~/.claude``) so the guard
+            travels with the repo and binds every agent working in it.
+
+        The prohibition list is NOT written here.  The hook delegates to
+        ``forbidden_command_classifier``, which reads
+        ``forbidden_commands.convention.yaml`` — the single source of truth.
+        Adding a prohibition means editing that registry and nothing else.
+
+        Idempotent, and merges rather than overwrites: operator-authored keys
+        and other PreToolUse hooks are preserved, and a re-run never duplicates
+        the guard entry.  A settings file we cannot parse is left untouched
+        (warn, don't clobber).
+        """
+        hook_dst = self.atdd_config_dir / "hooks" / _PRETOOLUSE_HOOK_NAME
+        self._install_executable_template(
+            self.package_root / "templates" / "hooks" / _PRETOOLUSE_HOOK_NAME,
+            hook_dst,
+            missing_label="Claude PreToolUse hook",
+        )
+        if not hook_dst.is_file():
+            return  # Template missing — never wire settings at a hook that isn't there.
+
+        settings_path = self.target_dir / ".claude" / "settings.json"
+        settings: Dict = {}
+        if settings_path.is_file():
+            try:
+                settings = json.loads(settings_path.read_text() or "{}")
+            except json.JSONDecodeError as exc:
+                logger.warning(
+                    "Could not parse %s (%s) — leaving it untouched. "
+                    "Add the PreToolUse hook by hand or fix the JSON and re-run.",
+                    settings_path, exc, extra={"path": str(settings_path)},
+                )
+                print(f"Warning: {settings_path} is not valid JSON — PreToolUse guard NOT wired.")
+                return
+        if not isinstance(settings, dict):
+            print(f"Warning: {settings_path} is not a JSON object — PreToolUse guard NOT wired.")
+            return
+
+        # $CLAUDE_PROJECT_DIR resolves to the repo the agent is working in, so
+        # the entry stays correct across worktrees and checkouts.
+        command = f'"$CLAUDE_PROJECT_DIR"/.atdd/hooks/{_PRETOOLUSE_HOOK_NAME}'
+
+        hooks = settings.setdefault("hooks", {})
+        if not isinstance(hooks, dict):
+            print(f"Warning: {settings_path} has a non-object 'hooks' key — PreToolUse guard NOT wired.")
+            return
+        pre_tool_use = hooks.setdefault("PreToolUse", [])
+        if not isinstance(pre_tool_use, list):
+            print(f"Warning: {settings_path} has a non-list 'PreToolUse' key — PreToolUse guard NOT wired.")
+            return
+
+        already_wired = any(
+            _PRETOOLUSE_HOOK_NAME in hook.get("command", "")
+            for group in pre_tool_use
+            if isinstance(group, dict)
+            for hook in group.get("hooks", [])
+            if isinstance(hook, dict)
+        )
+        if already_wired:
+            return
+
+        pre_tool_use.append({
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": command}],
+        })
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+        print(f"Wired PreToolUse forbidden-command guard → {settings_path}")
 
     def _install_executable_template(
         self, src: Path, dst: Path, *, missing_label: str

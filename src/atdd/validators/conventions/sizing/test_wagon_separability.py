@@ -12,14 +12,11 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-import contextlib
-
-import yaml
-
-import pytest
-
-from atdd.coach.utils.repo import find_repo_root
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    clone_graph,
+    node_at,
+    set_node_field,
+)
 from atdd.validators.conventions.sizing import fixtures as F
 from atdd.validators.conventions.sizing.archetype import (
     TEMPLATE_IDS,
@@ -75,7 +72,12 @@ def test_fixture_fragments_valid_clean_invalid_flagged() -> None:
     assert _TEMPLATE.evaluate(F.INVALID_FRAGMENTS[VARIANT], cfg)
 
 
-def test_live_corpus_legacy_parity() -> None:
+def _flagged(graph) -> set:
+    return {ev["source_node_or_scope"].split(":", 1)[1]
+            for ev in evaluate_separability(graph)}
+
+
+def test_live_corpus_legacy_parity(clean_convention_graph) -> None:
     """HONESTY NOTE: separability is an ADVISORY metric that genuinely fires on the
     valid live corpus (non-separable wagons are a real advisory signal, NOT false
     positives), so a clean baseline of [] is NOT the right invariant here.
@@ -85,49 +87,47 @@ def test_live_corpus_legacy_parity() -> None:
     test still pins on the live graph is that the evaluator RUNS, surfaces findings, and
     is deterministic. The real differential — a wagon flipped non-separable is caught —
     lives in ``test_fault_injection_legacy_parity`` below.
+
+    Determinism is asserted over the session graph evaluated twice (#1458, E035). What
+    is under test is the EVALUATOR's determinism — it iterates dicts and sets and could
+    order-depend — not the loader's, and re-composing the same unchanged tree twice to
+    check that cost two full graph builds to re-derive an input already in hand.
     """
-    root = find_repo_root()
-    conv = {ev["source_node_or_scope"].split(":", 1)[1]
-            for ev in evaluate_separability(load_composed_graph(root))}
+    conv = _flagged(clean_convention_graph)
     assert conv, "advisory metric expected to surface findings on the live corpus"
 
-    again = {ev["source_node_or_scope"].split(":", 1)[1]
-             for ev in evaluate_separability(load_composed_graph(root))}
+    again = _flagged(clean_convention_graph)
     assert conv == again, f"evaluator is non-deterministic on the live graph: {conv ^ again}"
 
 
-@contextlib.contextmanager
-def _inject_tokens(root, mapping):
-    orig = {}
-    try:
-        for rel, text in mapping.items():
-            p = root / rel
-            orig[rel] = p.read_text(encoding="utf-8")
-            d = yaml.safe_load(orig[rel])
-            d["object_of_control"] = text
-            d["statement"] = text
-            p.write_text(yaml.safe_dump(d, sort_keys=False), encoding="utf-8")
-        yield
-    finally:
-        for rel, text in orig.items():
-            (root / rel).write_text(text, encoding="utf-8")
+def _inject_tokens(graph, mapping):
+    """Rewrite each named WMBT's salient-token fields, in a CLONE of the graph.
+
+    `_wmbts_by_wagon` derives its tokens from `object_of_control` + `statement` on the
+    WMBT nodes, so setting those two fields in memory is the same fault the on-disk
+    rewrite of the three WMBT YAMLs produced (#1458, E035).
+    """
+    for rel, text in mapping.items():
+        wmbt = node_at(graph, rel)
+        set_node_field(graph, wmbt.id, "object_of_control", text)
+        set_node_field(graph, wmbt.id, "statement", text)
 
 
-@pytest.mark.convention_filesystem_mutation
-def test_fault_injection_legacy_parity() -> None:
-    """Flip a currently-separable wagon to non-separable by rewriting its WMBTs'
-    tokens; assert the convention evaluator flags it, then revert and assert it stops.
+def test_fault_injection_legacy_parity(clean_convention_graph) -> None:
+    """Flip a currently-separable wagon to non-separable by rewriting its WMBTs' tokens
+    in a cloned graph; assert the convention evaluator flags it and that the shared
+    session graph never saw the fault.
 
     The legacy in-process scan oracle was dropped with the retired legacy validator
-    (#1207 sweep, #1385); this differential is the live coverage.
+    (#1207 sweep, #1385); this differential is the live coverage. The old mechanism
+    rewrote three real plan YAMLs and rebuilt the graph twice (#1458, E035).
     """
-    root = find_repo_root()
-    with _inject_tokens(root, _INJECT):
-        graph = load_composed_graph(root)
-        conv = {ev["source_node_or_scope"].split(":", 1)[1] for ev in evaluate_separability(graph)}
+    graph = clone_graph(clean_convention_graph)
+    _inject_tokens(graph, _INJECT)
 
-    assert _TARGET_WAGON in conv, f"convention missed injected fault: {conv}"
-
-    reverted = {ev["source_node_or_scope"].split(":", 1)[1]
-                for ev in evaluate_separability(load_composed_graph(root))}
-    assert _TARGET_WAGON not in reverted, "fault survived revert — injection leaked"
+    assert _TARGET_WAGON in _flagged(graph), (
+        f"convention missed injected fault: {_flagged(graph)}"
+    )
+    assert _TARGET_WAGON not in _flagged(clean_convention_graph), (
+        "fault leaked out of the clone into the shared session graph"
+    )
