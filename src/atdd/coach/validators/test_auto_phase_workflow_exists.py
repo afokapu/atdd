@@ -16,6 +16,9 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
+# Toolkit dogfood: asserts on toolkit-only repo content (#1475).
+pytestmark = [pytest.mark.platform]
+
 REPO_ROOT = find_repo_root()
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "atdd-auto-phase.yml"
 TEMPLATE_PATH = (
