@@ -1,0 +1,37 @@
+schema_version: 1.0.0
+rule_id: coach.source-layout.platform-marker-on-toolkit-selftest
+kind: rule
+status: active
+name: Toolkit-self validator tests carry the platform marker
+statement: A shipped validator test that asserts on a path which exists only in the toolkit checkout
+  (find_repo_root()/src/atdd, /docs, /.github/workflows, or a Path(__file__).parents[N] that escapes the
+  atdd package) MUST carry pytest.mark.platform — on the module's pytestmark, or on the individual test
+  function when the module also holds tests that gate the consumer's own repo.
+rationale: 'The sibling rule coach.source-layout.no-toolkit-self-layout-assumption exempts test files,
+  because for a test the remedy is not package-relative resolution — the test genuinely means to assert on
+  the toolkit repo. The remedy is exclusion from consumer sweeps. That exclusion is the `platform` marker,
+  which `atdd validate` injects as `not platform` whenever is_atdd_source_repo() is False. Nothing enforced
+  that the marker was actually applied, so it never was: five such tests shipped and failed in every
+  consumer repo, because find_repo_root() there resolves to the CONSUMER''s root, where src/atdd and
+  docs/smoke-audit.md can never exist (#954, #1325, #1341, #1475). We are structurally blind to this in CI —
+  the exclusion only fires when NOT in the source repo, so the toolkit''s own suite runs a superset and is
+  always green.'
+terms:
+- term_id: toolkit_only_path
+  text: a path rooted at the repo root that descends into src/atdd, docs, or .github/workflows — content
+    that exists in the toolkit checkout and can never exist in a consumer repo
+- term_id: platform_marker
+  text: pytest.mark.platform; `atdd validate` appends `not platform` to the marker expression in consumer
+    mode (TestRunner.run_tests), deselecting toolkit dogfood tests
+implementation:
+  type: validator
+  ref: test_platform_marker_on_toolkit_selftests::test_no_unmarked_toolkit_selftests
+metadata:
+  aliases:
+  - COACH-PKG-LAYOUT-003
+  severity: 4
+  disposition: strict
+  introduced_in: 4.7.0
+  core_surface: toolkit_self
+notes: 'Incident refs: #954, #1325, #1341, #1475. Complements COACH-PKG-LAYOUT-001, which scans production
+  code and explicitly excludes tests.'

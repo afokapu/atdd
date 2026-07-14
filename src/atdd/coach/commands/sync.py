@@ -146,14 +146,6 @@ class AgentConfigSync:
 
         print(f"\nSync complete: {synced_count} updated, {unchanged_count} unchanged")
 
-        # Wire the PreToolUse forbidden-command guard into .claude/settings.json
-        # (#1454). Syncing the claude agent means syncing what binds it — the
-        # managed CLAUDE.md block AND the hook that enforces the prohibitions
-        # that block declares. Without this the guard is never invoked.
-        if "claude" in agents:
-            from atdd.coach.commands.initializer import ProjectInitializer
-            ProjectInitializer(self.target_dir).install_claude_pretooluse_hook()
-
         # Refresh VS Code workspace file if in worktree layout
         from atdd.coach.utils.repo import detect_worktree_layout
         if detect_worktree_layout(self.target_dir) == "worktree-ready":
