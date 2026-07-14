@@ -111,11 +111,22 @@ REMOVED_COMMANDS = {
         "  atdd issue <N> --status <TO>      -> atdd coach transition <N> <TO>\n"
         "  atdd issue <N> --check            -> atdd coach check <N>\n"
         "  atdd issue <N> --close-wmbt <ID>  -> atdd coach close-wmbt <N> <ID>\n"
-        "  atdd issue <N> --sync-wmbts       -> atdd coach sync-wmbts <N>\n"
         "  atdd issue reconcile              -> atdd coach reconcile\n"
         "  atdd issue sync-labels [...]      -> atdd coach sync-labels [<N>|--all]\n"
         "  atdd issue is-registered <branch> -> atdd coach is-registered <branch>\n"
         "  atdd issue review <N>             -> atdd coach issue-review <N>\n"
+    ),
+    "new": (
+        "`atdd new` has been REMOVED (#1477).\n"
+        "It was the last entry point into the orphaned `IssueManager` mint path,\n"
+        "which predates the schema substrate. Creation is store-first and\n"
+        "schema-driven:\n"
+        "\n"
+        "  atdd new <slug>                   -> atdd author issue --title <t> --slug <s>\n"
+        "\n"
+        "The WMBT sub-issue backfill that rode on it (`atdd coach sync-wmbts`) is\n"
+        "removed with it: it resolved plan artifacts through a `wagon` field that\n"
+        "the store no longer carries (Wagon -> Train + Feature).\n"
     ),
 }
 
@@ -743,34 +754,9 @@ Phase descriptions:
         help="Compare .atdd/schemas/.version against installed atdd version"
     )
 
-    # ----- atdd new <slug> -----
-    new_parser = subparsers.add_parser(
-        "new",
-        help="[DEPRECATED] Use 'atdd author issue --title <t> --slug <s>' instead",
-        description="DEPRECATED: Use 'atdd author issue --title <t> --slug <s>' instead.\n\nCreate a new GitHub Issue with Project v2 fields and WMBT sub-issues"
-    )
-    new_parser.add_argument(
-        "slug",
-        type=str,
-        help="Issue name (kebab-case)"
-    )
-    new_parser.add_argument(
-        "--type", "-t",
-        type=str,
-        default="implementation",
-        choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
-        help="Issue type (default: implementation)"
-    )
-    new_parser.add_argument(
-        "--train",
-        type=str,
-        help="Train ID to assign (e.g., 0001-auth-session-standard)"
-    )
-    new_parser.add_argument(
-        "--archetypes", "-a",
-        type=str,
-        help="Comma-separated archetypes (e.g., be,contracts,wmbt)"
-    )
+    # NOTE: 'atdd new' was REMOVED by #1477 — it was the only live entry point
+    # into the orphaned IssueManager mint path. See REMOVED_COMMANDS["new"];
+    # creation is `atdd author issue` (store-first, schema-driven — #1272).
 
     # NOTE: 'session' subcommand removed in E009; replaced by top-level issue commands.
 
@@ -2291,20 +2277,6 @@ Phase descriptions:
             worktree_layout=args.worktree_layout,
             consumer_repo=getattr(args, "consumer_repo", False),
             toolkit=getattr(args, "toolkit", False),
-        )
-
-    # atdd new <slug> — DEPRECATED, delegates to the shared create path.
-    # #1349: point operators at the store-first canonical `atdd author issue`
-    # (#1272) rather than the also-deprecated `atdd issue <slug>` alias.
-    elif args.command == "new":
-        _deprecation_warning("atdd new <slug>", "atdd author issue", stream=sys.stderr)
-        from atdd.coach.commands.issue_lifecycle import IssueLifecycle
-        lifecycle = IssueLifecycle()
-        return lifecycle.create(
-            slug=args.slug,
-            issue_type=getattr(args, 'type', 'implementation'),
-            train=getattr(args, 'train', None),
-            archetypes=getattr(args, 'archetypes', None),
         )
 
     # atdd list (top-level shorthand)
