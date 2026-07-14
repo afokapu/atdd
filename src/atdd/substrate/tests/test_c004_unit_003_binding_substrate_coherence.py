@@ -24,9 +24,12 @@ implementation cannot be fooled by a bug in the implementation.
 """
 from __future__ import annotations
 
-from atdd.substrate import admission
+import pytest
+
+from atdd.substrate import admission, coherence, installer
 from atdd.substrate.tests.conftest import (
     DOOMED,
+    DOOMED_RULE,
     KEEPER,
     KEEPER_RULE,
     WORKSPACE,
@@ -87,3 +90,24 @@ def test_removing_the_last_extension_and_its_workspace_leaves_no_orphans(
 
     assert incoherences(bound_substrate) == []
     assert bound_conventions(bound_substrate) == []
+
+
+def test_the_production_checker_agrees_with_the_oracle(bound_substrate) -> None:
+    """`coherence.check_coherence` is the invariant the CLI verifies itself against.
+
+    Pinned against the raw-artifact oracle so the two cannot drift: a checker that
+    silently stopped detecting anything would still let `remove` report success.
+    """
+    assert coherence.check_coherence(bound_substrate) == []
+
+    # Withdraw the package from the substrate lock ALONE — precisely the half-update
+    # the old `remove` performed — and the checker must see the rules it stranded.
+    installer.remove_lock_entry(bound_substrate, DOOMED)
+
+    violations = coherence.check_coherence(bound_substrate)
+    assert [v.convention_id for v in violations] == [DOOMED_RULE]
+    assert violations[0].missing_package == DOOMED
+    assert incoherences(bound_substrate)  # the independent oracle agrees
+
+    with pytest.raises(coherence.IncoherentSubstrateError, match=DOOMED_RULE):
+        coherence.assert_coherent(bound_substrate)
