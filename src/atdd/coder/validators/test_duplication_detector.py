@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coder.utils.python_file_walker import walk_consumer_python_files
@@ -40,7 +41,7 @@ _RULE_DUP_PY = bind_rule("coder.duplication.no-intra-layer-code-python")
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 DUPLICATION_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "duplication.convention.yaml"

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -35,7 +36,7 @@ _RULE_HTTP_CLIENT = bind_rule("coder.boundaries.http-client")
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-WEB_SRC_DIR = REPO_ROOT / "web" / "src"
+WEB_SRC_DIR = resolve_code_root("web", REPO_ROOT)
 CONFIG_PATH = REPO_ROOT / ".atdd" / "config.yaml"
 
 _SKIP_DIRS = {
@@ -138,8 +139,8 @@ def scan_raw_fetch(files: List[Path]) -> List[Dict]:
 # ---------------------------------------------------------------------------
 def analyze_contract_driven_http(repo_root: Path) -> Tuple[int, Sequence]:
     """Run scanner and return (count, violation_strings) for baseline registry."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
     whitelist = load_whitelist()
     files = find_ts_files(web_src, whitelist)
@@ -194,7 +195,7 @@ def test_no_raw_fetch_calls():
     When:  Scanning for raw fetch() calls
     Then:  No raw fetch() usage found outside whitelisted files
     """
-    if not WEB_SRC_DIR.exists():
+    if WEB_SRC_DIR is None or not WEB_SRC_DIR.exists():
         pytest.skip("No web/src directory found — skipping contract-driven HTTP check")
 
     whitelist = load_whitelist()

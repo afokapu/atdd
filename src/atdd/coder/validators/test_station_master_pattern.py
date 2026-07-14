@@ -12,18 +12,26 @@ Convention: atdd/coder/conventions/boundaries.convention.yaml::station_master_pa
 import ast
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Optional, Tuple
+
+import pytest
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_entrypoint
 
 
-def get_python_dir() -> Path:
-    """Get the python directory path in the consumer repo."""
-    return find_repo_root() / "python"
+def get_python_dir() -> Optional[Path]:
+    """The python code root, or None when the repo declares no python stack."""
+    return resolve_code_root("python", find_repo_root())
 
-def resolve_server_file() -> Path:
-    """Resolve station master entrypoint (app.py)."""
-    return get_python_dir() / "app.py"
+def resolve_server_file() -> Optional[Path]:
+    """The station-master entrypoint, or None when the repo has no python stack.
+
+    Both the root and the entrypoint filename are declared
+    (.atdd/config.yaml::code / ::stack_entrypoints) — a consumer whose station
+    master is `main.py` says so in config rather than forking this validator.
+    """
+    return resolve_stack_entrypoint("python", find_repo_root())
 
 def test_composition_accepts_shared_dependencies():
     """
@@ -40,6 +48,8 @@ def test_composition_accepts_shared_dependencies():
         ):
     """
     python_dir = get_python_dir()
+    if python_dir is None:
+        pytest.skip("no python stack declared under .atdd/config.yaml::code")
 
     # Find all composition.py files in wagon directories
     composition_files = list(python_dir.glob("*/*/composition.py"))
@@ -114,6 +124,8 @@ def test_direct_adapters_exist_for_cross_wagon_clients():
     Expected: If http_*_client.py exists, direct_*_client.py should also exist.
     """
     python_dir = get_python_dir()
+    if python_dir is None:
+        pytest.skip("no python stack declared under .atdd/config.yaml::code")
 
     # Find all client directories
     client_dirs = list(python_dir.glob("*/*/src/integration/clients"))
@@ -178,6 +190,8 @@ def test_game_py_delegates_to_composition():
         - wire_api_dependencies(state_repository=..., ...)
     """
     server_file = resolve_server_file()
+    if server_file is None:
+        pytest.skip("no python station-master entrypoint declared")
 
     if not server_file.exists():
         print("app.py not found - skipping Station Master delegation check")
