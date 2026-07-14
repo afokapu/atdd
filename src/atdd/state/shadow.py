@@ -43,7 +43,7 @@ from atdd.state.projection import (
     PROJECTION_RELATIVE,
     build_documents,
     canonical_bytes,
-    memory_store,  # re-exported below: a shadow run touches no developer SQLite either
+    MemoryStore,  # re-exported below: a shadow run touches no developer SQLite either
     read_projection,
 )
 from atdd.state.store import StateStore
@@ -257,5 +257,5 @@ def canonical_of(store: StateStore) -> Dict[str, bytes]:
 
 __all__ = [
     "Drift", "SHADOW_EXIT_CODE", "SOURCES", "SOURCE_COMMITTED", "SOURCE_MANIFEST", "ShadowReport",
-    "canonical_of", "compare", "compare_repo", "memory_store",
+    "MemoryStore", "canonical_of", "compare", "compare_repo",
 ]

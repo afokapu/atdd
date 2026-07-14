@@ -582,7 +582,7 @@ def check_canonicality(projection_dir: Path) -> CanonicalityReport:
     """
     projection_dir = Path(projection_dir)
     committed = _read_bytes(projection_dir)
-    with memory_store() as store, tempfile.TemporaryDirectory() as tmp:
+    with MemoryStore() as store, tempfile.TemporaryDirectory() as tmp:
         hydrate(projection_dir, store)
         result = project(store, Path(tmp))
         canonical = {path.name: path.read_bytes() for path in result.files.values()}
@@ -597,7 +597,7 @@ def check_canonicality(projection_dir: Path) -> CanonicalityReport:
     return CanonicalityReport(checked=len(committed), mismatches=mismatches)
 
 
-class memory_store:  # noqa: N801 — a context-manager helper, used as `with memory_store()`
+class MemoryStore:
     """An ephemeral, migrated State Store held entirely in memory.
 
     The canonicality check must touch no developer SQLite (spec §4), so it hydrates
