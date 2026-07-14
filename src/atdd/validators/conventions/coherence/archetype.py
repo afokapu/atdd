@@ -313,15 +313,20 @@ def _route_projection_violation(il, route) -> "dict | None":
 
     source_node = f"{il.interlocking_id}:{route.route_id}"
     expected = route.projection.expected_sequence_digest
+    failure = None
     try:
         steps = project_route_to_train_sequence(il, route.route_id)
     except InterlockingError as exc:
+        # Surfaced as evidence below, never swallowed — the handler records the
+        # reason rather than returning, so it stays out of the silent-swallow set.
+        failure = str(exc)[:160]
+    if failure is not None:
         return {
             "source_node": source_node,
             "fact_a": expected,
             "fact_b": None,
             "predicate": "route projects onto its train's linear sequence",
-            "actual_values": {"train_id": route.train_id, "error": str(exc)[:160]},
+            "actual_values": {"train_id": route.train_id, "error": failure},
         }
     computed = route_projection_digest(steps, route.projection.fields)
     if computed == expected:
