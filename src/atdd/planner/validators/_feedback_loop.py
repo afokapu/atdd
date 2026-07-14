@@ -22,11 +22,14 @@ the scan helpers so they outlive the retired legacy validator (#1207 sweep).
 """
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
@@ -57,6 +60,20 @@ _SMOKE_URN_RE = re.compile(
 # ---------------------------------------------------------------------------
 
 
+def _read_feature(yaml_file: Path) -> Optional[Dict[str, Any]]:
+    """The feature mapping at ``yaml_file``; None when unreadable or not a mapping."""
+    try:
+        with open(yaml_file) as fh:
+            data = yaml.safe_load(fh) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        _log.debug(
+            "feedback-loop scan skipped an unreadable feature",
+            extra={"path": str(yaml_file), "error": str(exc).splitlines()[0][:120]},
+        )
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def iter_feedback_loop_features(
     plan_dir: Path,
 ) -> List[Tuple[Path, Dict[str, Any]]]:
@@ -71,14 +88,8 @@ def iter_feedback_loop_features(
         if not features_dir.is_dir():
             continue
         for yaml_file in sorted(features_dir.glob("*.yaml")):
-            try:
-                with open(yaml_file) as fh:
-                    data = yaml.safe_load(fh) or {}
-            except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-                continue
-            if not isinstance(data, dict):
-                continue
-            if data.get("kind") == "feedback-loop":
+            data = _read_feature(yaml_file)
+            if data is not None and data.get("kind") == "feedback-loop":
                 results.append((yaml_file, data))
     return results
 
@@ -100,7 +111,11 @@ def load_wmbt_yaml(path: Path) -> Optional[Dict[str, Any]]:
         with open(path) as fh:
             data = yaml.safe_load(fh)
             return data if isinstance(data, dict) else None
-    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except (OSError, yaml.YAMLError) as exc:
+        _log.debug(
+            "feedback-loop scan skipped an unreadable WMBT",
+            extra={"path": str(path), "error": str(exc).splitlines()[0][:120]},
+        )
         return None
 
 
@@ -131,16 +146,26 @@ def wmbt_has_close_the_loop_smoke(wmbt_data: Dict[str, Any]) -> bool:
     return False
 
 
+def _kind_lineno_in(fh) -> Optional[int]:
+    """The 1-based line number of the ``kind:`` field in an open feature file."""
+    for idx, line in enumerate(fh, start=1):
+        if line.lstrip().startswith("kind:"):
+            return idx
+    return None
+
+
 def _find_kind_lineno(feature_path: Path) -> int:
     """Return 1-based line number of the kind: field (for suppress-marker scanning)."""
     try:
         with open(feature_path) as fh:
-            for idx, line in enumerate(fh, start=1):
-                if line.lstrip().startswith("kind:"):
-                    return idx
-    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-        pass
-    return 1
+            found = _kind_lineno_in(fh)
+    except OSError as exc:
+        _log.debug(
+            "kind: line scan skipped (unreadable feature)",
+            extra={"path": str(feature_path), "error": str(exc).splitlines()[0][:120]},
+        )
+        return 1
+    return found or 1
 
 
 def _is_suppressed(feature_path: Path, lineno: int) -> bool:
@@ -150,13 +175,35 @@ def _is_suppressed(feature_path: Path, lineno: int) -> bool:
             lines = fh.readlines()
         line = lines[lineno - 1] if lineno <= len(lines) else ""
         return bool(_SUPPRESS_RE.search(line))
-    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except OSError as exc:
+        _log.debug(
+            "suppress-marker scan skipped (unreadable feature)",
+            extra={"path": str(feature_path), "error": str(exc).splitlines()[0][:120]},
+        )
         return False
 
 
 # ---------------------------------------------------------------------------
 # Pure evaluator
 # ---------------------------------------------------------------------------
+
+
+def _any_wmbt_closes_the_loop(wmbt_urns: Sequence[Any], plan_dir: Path) -> bool:
+    """True when any of a feature's WMBTs declares a close-the-loop SMOKE. A URN
+    that is not a string, does not resolve, or does not load is simply not a
+    closer."""
+    for wmbt_urn in wmbt_urns:
+        if not isinstance(wmbt_urn, str):
+            continue
+        wmbt_path = _wmbt_urn_to_path(plan_dir, wmbt_urn)
+        if wmbt_path is None:
+            continue
+        wmbt_data = load_wmbt_yaml(wmbt_path)
+        if wmbt_data is None:
+            continue
+        if wmbt_has_close_the_loop_smoke(wmbt_data):
+            return True
+    return False
 
 
 def evaluate_feedback_loop_coverage(
@@ -172,21 +219,7 @@ def evaluate_feedback_loop_coverage(
             continue
 
         wmbt_urns: List[str] = feature_data.get("wmbts") or []
-        found_close_the_loop = False
-        for wmbt_urn in wmbt_urns:
-            if not isinstance(wmbt_urn, str):
-                continue
-            wmbt_path = _wmbt_urn_to_path(plan_dir, wmbt_urn)
-            if wmbt_path is None:
-                continue
-            wmbt_data = load_wmbt_yaml(wmbt_path)
-            if wmbt_data is None:
-                continue
-            if wmbt_has_close_the_loop_smoke(wmbt_data):
-                found_close_the_loop = True
-                break
-
-        if found_close_the_loop:
+        if _any_wmbt_closes_the_loop(wmbt_urns, plan_dir):
             continue
 
         feature_urn = feature_data.get("urn", "")

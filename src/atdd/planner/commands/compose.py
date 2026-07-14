@@ -83,11 +83,12 @@ def installed_core_node_ids() -> set[str]:
     ids: set[str] = set()
     for sub in ("coach/conventions/nodes", "planner/conventions/nodes"):
         d = base / sub
-        if d.exists():
-            for f in d.glob("*.convention.yaml"):
-                rid = (yaml.safe_load(f.read_text()) or {}).get("rule_id")
-                if rid:
-                    ids.add(rid)
+        if not d.exists():
+            continue
+        for f in d.glob("*.convention.yaml"):
+            rid = (yaml.safe_load(f.read_text()) or {}).get("rule_id")
+            if rid:
+                ids.add(rid)
     return ids
 
 
@@ -158,9 +159,29 @@ def validate_realizes(ext_pkg: dict, core_ids: set[str]) -> set[str]:
     """Validate the extension's ``realizes`` block + cross-graph cleanliness. Raises
     CompositionError on any violation. Returns the set of realized core node ids."""
     ext = ext_pkg["manifest"]
+    errors: list[str] = []
+    realized_core = _collect_realized_core(ext_pkg, core_ids, errors)
+
+    # depends_on.targets must be DERIVED from realizes (no duplication/drift) when
+    # realizes is present.
+    if ext.get("realizes"):
+        extra = set(extension_target_nodes(ext)) - realized_core
+        if extra:
+            errors.append(f"depends_on.targets not derived from realizes (unrealized targets: {sorted(extra)})")
+
+    errors.extend(_cross_package_edge_errors(ext_pkg, core_ids))
+
+    if errors:
+        raise CompositionError("; ".join(errors))
+    return realized_core
+
+
+def _collect_realized_core(ext_pkg: dict, core_ids: set[str], errors: list[str]) -> set[str]:
+    """The core node ids the extension's ``realizes`` block resolves to, appending
+    a message to ``errors`` for every entry that does not."""
+    ext = ext_pkg["manifest"]
     owned = extension_owned_node_ids(ext_pkg)
     own_candidates = set(extension_design_candidates(ext))
-    errors: list[str] = []
     realized_core: set[str] = set()
 
     for en, cn in realizes_mappings(ext):
@@ -175,26 +196,23 @@ def validate_realizes(ext_pkg: dict, core_ids: set[str]) -> set[str]:
             errors.append(f"realizes.core_node {cn!r} does not resolve to a shipped core node")
         else:
             realized_core.add(cn)
+    return realized_core
 
-    # depends_on.targets must be DERIVED from realizes (no duplication/drift) when
-    # realizes is present.
-    if ext.get("realizes"):
-        declared = set(extension_target_nodes(ext))
-        extra = declared - realized_core
-        if extra:
-            errors.append(f"depends_on.targets not derived from realizes (unrealized targets: {sorted(extra)})")
 
-    # no AUTHORED cross-package edges: an extension graph edge must not reference a core node
+def _cross_package_edge_errors(ext_pkg: dict, core_ids: set[str]) -> list[str]:
+    """no AUTHORED cross-package edges: an extension graph edge must not reference
+    a core node."""
+    errors: list[str] = []
     for e in extension_graph_edges(ext_pkg):
         for ref in (e.get("source_ref"), e.get("target_ref")):
             base = str(ref or "").split("#", 1)[0]
-            if base in core_ids:
-                errors.append(f"authored cross-package edge references core node {base!r}; "
-                              "cross-package linkage must use realizes, not graph edges")
-
-    if errors:
-        raise CompositionError("; ".join(errors))
-    return realized_core
+            if base not in core_ids:
+                continue
+            errors.append(
+                f"authored cross-package edge references core node {base!r}; "
+                "cross-package linkage must use realizes, not graph edges"
+            )
+    return errors
 
 
 # ─── the forcing rule: a transport provider MUST realize the mediation obligation ──
@@ -248,6 +266,22 @@ def validate_transport_realizes_mediation(pkg: dict, core_ids: set[str]) -> None
 
 
 # ─── the composed protocol view ─────────────────────────────────────────────
+def _derived_realizes_edge(en: str, cn: str, ws_id) -> dict:
+    """A composed `realizes` edge carrying the provenance triple. Derived — it lives
+    ONLY in the returned view, never written back to source."""
+    return {
+        "relation": "realizes",
+        "source_ref": en,                 # extension node
+        "target_ref": cn,                 # core node
+        "derived": True,                  # composed artifact, NOT authored source
+        "provenance": {
+            "core_authority": cn,
+            "extension_realization": en,
+            "execution_target": ws_id,
+        },
+    }
+
+
 def compose_protocol_view(core_node_ids, ext_pkg: dict, *, mode: str = "composed") -> dict:
     """Compose an extension into a protocol VIEW over the core node set. Pure data —
     no implementation is executed. ``mode='core'`` is source-only (no derived edges);
@@ -266,19 +300,10 @@ def compose_protocol_view(core_node_ids, ext_pkg: dict, *, mode: str = "composed
     realization_index: dict[str, list] = {}
     if mode == "composed":
         for en, cn in realizes_mappings(ext):
-            if cn in core:
-                derived_edges.append({
-                    "relation": "realizes",
-                    "source_ref": en,                 # extension node
-                    "target_ref": cn,                 # core node
-                    "derived": True,                  # composed artifact, NOT authored source
-                    "provenance": {
-                        "core_authority": cn,
-                        "extension_realization": en,
-                        "execution_target": ws_id,
-                    },
-                })
-                realization_index.setdefault(cn, []).append(en)
+            if cn not in core:
+                continue
+            derived_edges.append(_derived_realizes_edge(en, cn, ws_id))
+            realization_index.setdefault(cn, []).append(en)
 
     return {
         "extension_id": ext.get("extension_id"),
@@ -300,8 +325,6 @@ def validate_package(path, *, core_ids: "set[str] | None" = None) -> dict:
     AuthorInputError / jsonschema.ValidationError on any violation. Returns a report."""
     import json
 
-    import jsonschema
-
     root = pathlib.Path(path)
     pkgs = discover_packages(root)
     if not pkgs:
@@ -318,40 +341,56 @@ def validate_package(path, *, core_ids: "set[str] | None" = None) -> dict:
         # Forcing rule (#1268): a transport/mediation provider must realize the
         # dispatch-verifies-channel-live obligation. Runs for every kind.
         validate_transport_realizes_mediation(p, core_ids)
-        entry = {"kind": p["kind"]}
-        # Enforce the validator/family contract on every shipped implementation
-        # manifest in the package (atdd.core.implementation-schema).
-        impl_count = 0
-        for imp in sorted(p["dir"].rglob(IMPLEMENTATION_MANIFEST)):
-            try:
-                validate_implementation_manifest(yaml.safe_load(imp.read_text()) or {})
-            except AuthorInputError as exc:
-                raise CompositionError(
-                    f"invalid implementation manifest {imp.relative_to(root)}: {exc}") from exc
-            impl_count += 1
-        entry["implementations"] = impl_count
+        entry = {"kind": p["kind"], "implementations": _validate_implementations(p, root)}
         if p["kind"] == "extension":
             entry["id"] = p["manifest"].get("extension_id")
-            for rel in ((p["manifest"].get("owns") or {}).get("conventions") or []):
-                node_path = p["dir"] / rel
-                if not node_path.exists():
-                    raise CompositionError(f"owns path missing: {rel}")
-                jsonschema.validate(yaml.safe_load(node_path.read_text()), node_schema)
-            validate_realizes(p, core_ids)
-            orphans = extension_orphan_nodes(p)
-            if orphans:
-                raise CompositionError(
-                    "orphan convention node(s) referenced by no relationship edge: "
-                    + ", ".join(sorted(orphans))
-                )
-            view = compose_protocol_view(core_ids, p, mode="composed")
-            if view["executed_implementations"]:
-                raise CompositionError("composition must not execute runtime implementations")
-            report["views"].append(view)
+            _validate_extension_package(p, core_ids, node_schema, report)
         else:
             entry["id"] = p["manifest"].get("workspace_id")
         report["packages"].append(entry)
     return report
+
+
+def _validate_implementations(p: dict, root: pathlib.Path) -> int:
+    """Enforce the validator/family contract on every shipped implementation
+    manifest in the package (atdd.core.implementation-schema). Returns the count."""
+    impl_count = 0
+    for imp in sorted(p["dir"].rglob(IMPLEMENTATION_MANIFEST)):
+        try:
+            validate_implementation_manifest(yaml.safe_load(imp.read_text()) or {})
+        except AuthorInputError as exc:
+            raise CompositionError(
+                f"invalid implementation manifest {imp.relative_to(root)}: {exc}") from exc
+        impl_count += 1
+    return impl_count
+
+
+def _validate_owned_nodes(p: dict, node_schema) -> None:
+    """Every convention node the extension `owns` exists and is schema-valid."""
+    import jsonschema
+
+    for rel in ((p["manifest"].get("owns") or {}).get("conventions") or []):
+        node_path = p["dir"] / rel
+        if not node_path.exists():
+            raise CompositionError(f"owns path missing: {rel}")
+        jsonschema.validate(yaml.safe_load(node_path.read_text()), node_schema)
+
+
+def _validate_extension_package(p: dict, core_ids, node_schema, report: dict) -> None:
+    """Extension-only checks: owned nodes are schema-valid, `realizes` resolves,
+    no orphan nodes, and the composed view executes nothing."""
+    _validate_owned_nodes(p, node_schema)
+    validate_realizes(p, core_ids)
+    orphans = extension_orphan_nodes(p)
+    if orphans:
+        raise CompositionError(
+            "orphan convention node(s) referenced by no relationship edge: "
+            + ", ".join(sorted(orphans))
+        )
+    view = compose_protocol_view(core_ids, p, mode="composed")
+    if view["executed_implementations"]:
+        raise CompositionError("composition must not execute runtime implementations")
+    report["views"].append(view)
 
 
 def validate_package_cli(path) -> int:

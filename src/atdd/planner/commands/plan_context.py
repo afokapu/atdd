@@ -76,25 +76,37 @@ def load_working_context(root: Path | str = ".") -> dict:
     edges touching them are included. Resolution falls back to the installed
     package so consumer repos (no src/atdd/ tree) still get the bundled
     conventions; repo-vendored nodes override the package (#1275)."""
+    guidelines = _load_guidelines(root)
+    return {"guidelines": guidelines, "edges": _load_guideline_edges(root, guidelines)}
+
+
+def _load_guidelines(root: Path | str) -> dict:
+    """The guideline nodes (session-protocol + decomposition-protocol), keyed by
+    rule_id. Repo-vendored nodes override the packaged ones (#1275)."""
     guidelines: dict = {}
     for nodes_dir in _nodes_dirs(root):
         for f in sorted(nodes_dir.glob("*.convention.yaml")):
             doc = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
             rid = doc.get("rule_id", "")
-            if isinstance(rid, str) and rid.startswith(_GUIDELINE_PREFIXES):
-                guidelines[rid] = {
-                    "kind": doc.get("kind"),
-                    "statement": doc.get("statement"),
-                    "terms": [t.get("term_id") for t in (doc.get("terms") or []) if isinstance(t, dict)],
-                }
+            if not (isinstance(rid, str) and rid.startswith(_GUIDELINE_PREFIXES)):
+                continue
+            guidelines[rid] = {
+                "kind": doc.get("kind"),
+                "statement": doc.get("statement"),
+                "terms": [t.get("term_id") for t in (doc.get("terms") or []) if isinstance(t, dict)],
+            }
+    return guidelines
 
-    edges: list = []
+
+def _load_guideline_edges(root: Path | str, guidelines: dict) -> list:
+    """The relationship edges touching a guideline node."""
     graph = _graph_path(root)
-    if graph is not None:
-        g = yaml.safe_load(graph.read_text(encoding="utf-8")) or {}
-        for e in (g.get("edges") or []):
-            src, tgt = e.get("source_ref"), e.get("target_ref")
-            if src in guidelines or tgt in guidelines:
-                edges.append({"source": src, "target": tgt, "type": e.get("type"), "reason": e.get("reason")})
-
-    return {"guidelines": guidelines, "edges": edges}
+    if graph is None:
+        return []
+    g = yaml.safe_load(graph.read_text(encoding="utf-8")) or {}
+    edges: list = []
+    for e in (g.get("edges") or []):
+        src, tgt = e.get("source_ref"), e.get("target_ref")
+        if src in guidelines or tgt in guidelines:
+            edges.append({"source": src, "target": tgt, "type": e.get("type"), "reason": e.get("reason")})
+    return edges
