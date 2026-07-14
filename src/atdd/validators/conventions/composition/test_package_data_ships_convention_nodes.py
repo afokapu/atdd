@@ -34,9 +34,17 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_composition_data_shippe
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _CONFIG = {"variant": VARIANT}
-# The exact package-data glob fragment the fault removes (first occurrence is the
-# coach.conventions nodes glob; must be present on the clean repo).
-_FAULT_GLOB = ', "nodes/*.yaml"'
+# The package-data declaration the fault removes. Under the #1474 broad-ship policy
+# this one line is what ships every convention-node tree, so narrowing it to the
+# conventions' own `*.yaml` (which does NOT reach into `nodes/`) reproduces exactly
+# the #1369 defect: the archetype conventions ship, their atomised nodes do not.
+#
+# It used to remove the literal `, "nodes/*.yaml"` fragment, which no longer exists —
+# and which is the same brittleness that let the real bug through: a fault keyed to
+# one declaration STYLE stops being injectable the moment the style changes, and a
+# fault that cannot be injected proves nothing.
+_FAULT_GLOB = '"atdd" = ["**/*"]'
+_FAULT_REPLACEMENT = '"atdd" = ["*.yaml"]'
 
 
 def _template():
@@ -64,7 +72,7 @@ def _drop_package_data_glob(clean_graph, tmp_path):
     """
     mirror_file(
         _REPO_ROOT, tmp_path, "pyproject.toml",
-        lambda t: t.replace(_FAULT_GLOB, "", 1),
+        lambda t: t.replace(_FAULT_GLOB, _FAULT_REPLACEMENT, 1),
     )
     return graph_rooted_at(clean_graph, tmp_path)
 
