@@ -25,7 +25,12 @@ from atdd.validators.conventions.coverage.archetype import (
     _source_has_required_target,
 )
 from atdd.validators.conventions.coverage import _parity
-from atdd.validators.conventions._support.graph_mutations import add_node, clone_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    add_node,
+    clone_graph,
+    graph_rooted_at,
+    stage_file,
+)
 
 FAMILY = "coverage"
 TEMPLATE = "source_has_required_target"
@@ -80,25 +85,51 @@ def test_fault_injection_legacy_parity_both_catch(clean_convention_graph) -> Non
     assert _source_has_required_target(clean_convention_graph, {"variant": VARIANT}) == []
 
 
-@pytest.mark.convention_filesystem_mutation
-def test_inline_suppression_is_respected() -> None:
+def _wmbt_yaml(number: str, marker: str) -> str:
+    return (
+        f"urn: wmbt:validate-conventions:{number}{marker}\n"
+        "acceptances:\n"
+        "  - identity:\n"
+        f"      urn: acc:validate-conventions:{number}-UNIT-001-no-smoke-here\n"
+    )
+
+
+def test_inline_suppression_is_respected(clean_convention_graph, tmp_path) -> None:
     """A no-SMOKE WMBT carrying the inline suppression marker is NOT flagged —
     mirrors the legacy disposition gate so the clean baseline holds at 0.
 
-    Stays on disk (loader): the evaluator reads the suppression marker from the WMBT's
-    source FILE at ``node.location``, so the fault must be a real file — an in-memory node
-    has no source text to carry the marker."""
-    root = _parity.repo_root()
-    rel = "plan/validate_conventions/E996.yaml"
-    content = (
-        "urn: wmbt:validate-conventions:E996  "
-        "# atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-01\n"
-        "acceptances:\n"
-        "  - identity:\n"
-        "      urn: acc:validate-conventions:E996-UNIT-001-no-smoke-here\n"
+    The marker must live in a real FILE: the evaluator reads it from the WMBT's source at
+    ``graph.root / node.location``, so an in-memory node alone has no source text to carry
+    it. That file does NOT have to be the checkout, though (#1458) — it is staged under a
+    temp root, and the node that points at it is added to a graph re-rooted there. Same
+    evaluator, same read, same bytes; nothing written to the tree.
+
+    The suppression assertion is NEGATIVE, so on its own it would pass for any reason the
+    node failed to be considered at all — a typo'd id, an unread file, a node that never
+    made it into the graph. The UNSUPPRESSED twin is therefore staged alongside it as a
+    positive control: identical in every way but the marker, and it MUST be flagged. Only
+    the marker can explain the difference between the two.
+    """
+    staged = graph_rooted_at(clean_convention_graph, tmp_path)
+    suppressed = "wmbt:validate-conventions:E996"
+    control = "wmbt:validate-conventions:E995"
+    marker = "  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-12-01"
+
+    for number, node_id, mark in (("E996", suppressed, marker), ("E995", control, "")):
+        rel = f"plan/validate_conventions/{number}.yaml"
+        stage_file(tmp_path, rel, _wmbt_yaml(number, mark))
+        add_node(
+            staged, id=node_id, kind="wmbt", location=rel,
+            fields={"urn": node_id,
+                    "acceptances": [{"identity": {
+                        "urn": f"acc:validate-conventions:{number}-UNIT-001-no-smoke-here"}}]},
+        )
+
+    conv = _source_has_required_target(staged, {"variant": VARIANT})
+    flagged = {v["source_node"] for v in conv}
+
+    assert control in flagged, (
+        "the unsuppressed twin was not flagged — the staged WMBT is not reaching the "
+        "evaluator at all, so the suppression assertion below would pass vacuously"
     )
-    with _parity.inject_tempfile(root, rel, content):
-        conv = _parity.conv_violations(root, _source_has_required_target,
-                                       {"variant": VARIANT})
-    assert not [v for v in conv if v["source_node"] == "wmbt:validate-conventions:E996"], \
-        "inline-suppressed WMBT must not be flagged"
+    assert suppressed not in flagged, "inline-suppressed WMBT must not be flagged"
