@@ -58,11 +58,38 @@ def built_wheel() -> Path:
     shutil.copytree(repo_root(), build_tree, ignore=_NOT_COPIED, symlinks=True)
 
     outdir = Path(_SESSION_TMP.name) / "dist"
-    subprocess.run(
+    proc = subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "--no-isolation",
          "--outdir", str(outdir), str(build_tree)],
-        check=True, capture_output=True, text=True,
+        # `cwd` is the pristine copy, NOT the repo root — and that is load-bearing.
+        # `python -m build` resolves `build` on sys.path, which begins with the cwd. A
+        # `python -m build` run by hand in the checkout leaves a (gitignored) `build/`
+        # DIRECTORY there, and Python then imports THAT as a namespace package instead
+        # of the real module. The acceptances start failing on a machine where the
+        # packaging is perfectly fine, and the error names neither `build/` nor the
+        # shadowing. The copy is built by `_NOT_COPIED`, which excludes `build`, so
+        # there is nothing here to shadow it.
+        cwd=str(build_tree),
+        capture_output=True, text=True,
     )
+    if proc.returncode != 0:
+        # NOT `check=True`: that raises CalledProcessError with the real error sealed
+        # inside `.stderr`, which pytest's traceback does not print. The gate then
+        # reports "the build failed" and nothing else, which is indistinguishable from
+        # a genuine packaging break — and sends you hunting the wrong bug.
+        #
+        # `build` is a `dev` extra, not a runtime dependency (see pyproject), so the
+        # overwhelmingly likely cause is that it simply is not installed in the
+        # interpreter running pytest. Say so, and surface the real output.
+        raise RuntimeError(
+            f"`{sys.executable} -m build` failed (exit {proc.returncode}) while building "
+            f"the wheel these packaging acceptances assert against.\n\n"
+            f"Most likely: `build` is not installed in this interpreter. It is a test-time\n"
+            f"dependency of the toolkit's own validator suite:\n"
+            f"    pip install 'atdd[dev]'      # or: pip install build\n"
+            f"    pipx inject atdd build setuptools wheel   # if atdd is a pipx install\n\n"
+            f"--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}"
+        )
     wheels = sorted(outdir.glob("atdd-*.whl"))
     if len(wheels) != 1:
         raise RuntimeError(f"expected exactly one built wheel, got {wheels}")

@@ -35,7 +35,17 @@ Issues = "https://github.com/afokapu/atdd/issues"
 Changelog = "https://github.com/afokapu/atdd/releases"
 
 [project.optional-dependencies]
-dev = []
+# #1474: the packaging acceptances (E062, C008, C009) build a REAL wheel into a REAL
+# venv — `_wheel_harness` shells out to `sys.executable -m build`. That makes `build`
+# a test-time dependency of the toolkit's own validator suite, and an undeclared one
+# is how it stays invisible: nothing imports it, so no import-discipline check sees
+# it, and `atdd validate --local` just dies with an opaque CalledProcessError.
+#
+# These are NOT runtime dependencies. The acceptances that need them are
+# `platform`-marked, so a consumer's `atdd validate <phase>` deselects them and never
+# builds anything. Putting `build` in `dependencies` would make every consumer install
+# a build backend for a test they never run.
+dev = ["build>=1.0", "setuptools>=61.0", "wheel"]
 viz = ["streamlit", "st-link-analysis"]
 
 [project.scripts]
