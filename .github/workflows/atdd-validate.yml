@@ -171,18 +171,28 @@ jobs:
   # there:
   #
   #   * wheel-completeness — every non-.py source file is present in the package.
-  #   * ZERO pytest collection errors across all four phases. A missing data file
-  #     surfaces at IMPORT: `bind_rule()` runs at module scope, so an absent rule
-  #     node raises RuleNotInRegistryError while pytest is still collecting and the
-  #     whole sweep aborts before running a test. Pre-fix that is 15 errors in
-  #     tester and 15 in coder.
+  #   * a fully GREEN consumer sweep — every shipped validator across all four
+  #     phases must PASS when run from a consumer that has no `src/atdd/`. A
+  #     missing data file surfaces at IMPORT (`bind_rule()` runs at module scope,
+  #     so an absent rule node raises RuleNotInRegistryError while pytest is still
+  #     collecting and the whole sweep aborts — pre-fix that is 15 errors in tester
+  #     and 15 in coder); a stack-path hardcode or a leaked toolkit self-test
+  #     surfaces at RUN. Collection alone cannot see the second class.
   #
-  # It deliberately does NOT gate on a fully green consumer sweep. Some validators
-  # still fail in a consumer for an unrelated reason (#954: toolkit self-tests carry
-  # no `platform` marker, so they run in consumer mode and assert on `src/atdd/` and
-  # `docs/smoke-audit.md`, which no consumer has). That is a different mechanism with
-  # a different fix. Gating on it here would mean shipping a job that is red on
-  # arrival, which is worse than no job.
+  # HISTORY (#1489): this gate first shipped (#1474) running `--collect-only`. That
+  # made it structurally blind to every RUNTIME consumer failure — #689 stack-path
+  # hardcodes and the #1341 toolkit-self-test residue shipped straight past it,
+  # because collection exits 0 while the sweep, actually run, is red. A gate that
+  # cannot fail is a stub; `test_wheel_completeness` was one for months. So the
+  # verdict now comes from a REAL run (collection stays only as a fast pre-check).
+  #
+  # This job is EXPECTED to be RED on arrival, and that is deliberate — there are
+  # genuine consumer failures on `main` today (#689's surviving stack hardcode, the
+  # 2 remaining #1341 self-test leaks, `coder.dead-code.reachability`'s strict
+  # false-positive). They are separately owned. Do NOT green this job by adding
+  # `continue-on-error`, marker-excluding the failures, or narrowing the sweep —
+  # that recreates the exact bug #1489 exists to kill. Fix the failures behind the
+  # gate, or let the operator sequence them; never weaken the gate to hide them.
   validate-consumer:
     runs-on: ubuntu-latest
     if: >-
@@ -234,11 +244,14 @@ jobs:
           git init -q .
           test ! -e src/atdd || (echo "::error::consumer repo has a toolkit source tree" && exit 1)
 
-      # THE GATE. A missing data file surfaces at IMPORT — `bind_rule()` runs at
-      # module scope, so an absent rule node raises RuleNotInRegistryError while
-      # pytest is still collecting and the sweep dies before running a test.
-      # Pre-fix: 15 collection errors in tester, 15 in coder. Zero is the invariant.
-      - name: Consumer sweep — all four phases must COLLECT with zero errors
+      # FAST PRE-CHECK (not the verdict). A missing data file surfaces at IMPORT —
+      # `bind_rule()` runs at module scope, so an absent rule node raises
+      # RuleNotInRegistryError while pytest is still collecting and the sweep dies
+      # before running a test. Pre-fix: 15 collection errors in tester, 15 in coder.
+      # Collection is cheap and localises a packaging defect precisely, so we run it
+      # first — but it is NOT the gate. Collection exits 0 on a repo whose sweep is
+      # red (that blindness is the #1489 defect), so its verdict cannot stand alone.
+      - name: Consumer sweep — collection pre-check (all four phases must COLLECT)
         run: |
           PKG=$(/tmp/consumer-venv/bin/python -c "import atdd, pathlib; print(pathlib.Path(atdd.__file__).resolve().parent)")
           cd /tmp/consumer-repo
@@ -248,6 +261,35 @@ jobs:
             if ! /tmp/consumer-venv/bin/python -m pytest "$PKG/$phase/validators" \
                  -q -p no:cacheprovider --collect-only -m "not platform"; then
               echo "::error::$phase does not COLLECT off the installed wheel — a file its validators read at import did not ship"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $failed
+
+      # THE GATE (#1489). Run the shipped validators for real from the consumer
+      # repo; the job's verdict is the sweep's exit code, not collection's. This is
+      # the only step that can see a RUNTIME consumer failure — a stack-path
+      # hardcode (#689) or a leaked toolkit self-test (#1341) passes collection and
+      # fails here. Every phase runs even after an earlier one fails, so the log
+      # reports the FULL failure set in one pass rather than stopping at the first.
+      # `-m "not platform"` matches how a consumer actually invokes `atdd validate`
+      # (platform-marked toolkit self-tests are not part of a consumer's surface);
+      # it is the consumer's real filter, NOT a device to deselect failures.
+      #
+      # This is EXPECTED to be red while #689 / #1341 residue / dead-code.reachability
+      # are open. Do not add `continue-on-error`, `|| true`, or narrow the sweep to
+      # green it — see the job header. Fix the failures, do not hide them.
+      - name: Consumer sweep — all four phases must PASS (real run, exit 0)
+        run: |
+          PKG=$(/tmp/consumer-venv/bin/python -c "import atdd, pathlib; print(pathlib.Path(atdd.__file__).resolve().parent)")
+          cd /tmp/consumer-repo
+          failed=0
+          for phase in planner tester coder coach; do
+            echo "::group::run $phase"
+            if ! /tmp/consumer-venv/bin/python -m pytest "$PKG/$phase/validators" \
+                 -q -p no:cacheprovider -rf -m "not platform"; then
+              echo "::error::$phase FAILS when run off the installed wheel — a shipped validator does not pass in a consumer repo"
               failed=1
             fi
             echo "::endgroup::"
