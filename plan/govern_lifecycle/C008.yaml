@@ -3,116 +3,101 @@ step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
-context_clarifier: "`coach/validators/test_wheel_completeness.py` (#451) was built\
-  \ for exactly this bug class and has never executed a single assertion in any environment.\
-  \ Three independent reasons: (1) it `pytest.skip`s when `Path(atdd.__file__)` IS\
-  \ the source tree \u2014 which is how CI runs it (`PYTHONPATH=src`), and how local\
-  \ dev runs it; (2) `find_repo_src_atdd()` walks parents of its own `__file__`, so\
-  \ from an installed wheel it finds no source tree and skips again; (3) even if it\
-  \ ran, `collect_source_fixture_files()` scans only `src/atdd/**/validators/fixtures/**`,\
-  \ so it is blind to `coach/schemas/*.md`, `conventions/nodes/` and `coach/templates/`\
-  \ \u2014 the directories that actually broke. Its rule node also sits at `disposition:\
-  \ advisory`, never flipped to strict. A gate that cannot run and cannot see is not\
-  \ a gate."
+context_clarifier: '`coach/validators/test_wheel_completeness.py` (#451) was built for exactly this bug
+  class and has never executed a single assertion in any environment. Three independent reasons: (1) it
+  `pytest.skip`s when `Path(atdd.__file__)` IS the source tree — which is how CI runs it (`PYTHONPATH=src`),
+  and how local dev runs it; (2) `find_repo_src_atdd()` walks parents of its own `__file__`, so from an
+  installed wheel it finds no source tree and skips again; (3) even if it ran, `collect_source_fixture_files()`
+  scans only `src/atdd/**/validators/fixtures/**`, so it is blind to `coach/schemas/*.md`, `conventions/nodes/`
+  and `coach/templates/` — the directories that actually broke. Its rule node also sits at `disposition:
+  advisory`, never flipped to strict. A gate that cannot run and cannot see is not a gate.'
 lens: functional.effectiveness
 statement: minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
-  by broadening its scan from `validators/fixtures/**` to EVERY non-.py file under
-  `src/atdd/` (minus the same explicit deny-list the package-data policy names), by
-  resolving the source tree from the working directory when the imported package lives
-  outside the checkout so the check EXECUTES against a real installed wheel instead
-  of skipping, and by flipping its rule node from `advisory` to a gating disposition
+  by broadening its scan from `validators/fixtures/**` to EVERY non-.py file under `src/atdd/` (minus
+  the same explicit deny-list the package-data policy names), by resolving the source tree from the working
+  directory when the imported package lives outside the checkout so the check EXECUTES against a real
+  installed wheel instead of skipping, and by flipping its rule node from `advisory` to a gating disposition
   so a miss fails the build
 acceptances:
 - identity:
     urn: acc:govern-lifecycle:C008-UNIT-001-scan-covers-every-non-py-package-file
     id: AC-UNIT-001
-    purpose: "The scan sees the files that actually broke: it collects every non-.py\
-      \ file under the source tree \u2014 not just `validators/fixtures/**` \u2014\
-      \ so `coach/schemas/*.md` (#663), `coder/conventions/nodes/*.yaml` (#1369) and\
-      \ `coach/templates/bin/*.shim` (#952) are all in scope, while `.py` modules\
-      \ and build cruft are not"
+    purpose: 'The scan sees the files that actually broke: it collects every non-.py file under the source
+      tree — not just `validators/fixtures/**` — so `coach/schemas/*.md` (#663), `coder/conventions/nodes/*.yaml`
+      (#1369) and `coach/templates/bin/*.shim` (#952) are all in scope, while `.py` modules and build
+      cruft are not'
     phase: GREEN
   harness:
     type: unit
     category: backend
   given:
     abstract:
-    - 'A synthetic source tree carrying: a validator fixture, a `coach/schemas/x.md`,
-      a `coder/conventions/nodes/r.convention.yaml`, a `coach/templates/bin/gh.shim`,
-      a `.py` module, and cruft (`__pycache__/x.pyc`, `.DS_Store`)'
+    - 'A synthetic source tree carrying: a validator fixture, a `coach/schemas/x.md`, a `coder/conventions/nodes/r.convention.yaml`,
+      a `coach/templates/bin/gh.shim`, a `.py` module, and cruft (`__pycache__/x.pyc`, `.DS_Store`)'
   when:
-    abstract: The wheel-completeness scan collects the shippable data files of that
-      tree
+    abstract: The wheel-completeness scan collects the shippable data files of that tree
   then:
     abstract:
-    - "The `.md`, the `nodes/*.yaml`, the `.shim` and the fixture are ALL collected\
-      \ \u2014 the scan is no longer confined to `validators/fixtures/**`"
-    - "The `.py` module is NOT collected \u2014 setuptools ships it as a module, so\
-      \ asserting on it as package data would be a category error"
-    - "The `__pycache__/x.pyc` and `.DS_Store` cruft are NOT collected \u2014 they\
-      \ must not ship, so asserting they do would fail the gate on a file that is\
-      \ correctly absent"
+    - The `.md`, the `nodes/*.yaml`, the `.shim` and the fixture are ALL collected — the scan is no longer
+      confined to `validators/fixtures/**`
+    - The `.py` module is NOT collected — setuptools ships it as a module, so asserting on it as package
+      data would be a category error
+    - The `__pycache__/x.pyc` and `.DS_Store` cruft are NOT collected — they must not ship, so asserting
+      they do would fail the gate on a file that is correctly absent
 - identity:
     urn: acc:govern-lifecycle:C008-UNIT-002-gate-executes-against-an-installed-wheel-instead-of-skipping
     id: AC-UNIT-002
-    purpose: "The gate stops passing vacuously: when the imported `atdd` lives outside\
-      \ the checkout (a real wheel install) but the toolkit repo IS the working directory,\
-      \ source-tree discovery resolves from the working directory, the scan RUNS,\
-      \ and a data file missing from the package root FAILS \u2014 where today the\
-      \ same situation yields a skip"
+    purpose: 'The gate stops passing vacuously: when the imported `atdd` lives outside the checkout (a
+      real wheel install) but the toolkit repo IS the working directory, source-tree discovery resolves
+      from the working directory, the scan RUNS, and a data file missing from the package root FAILS —
+      where today the same situation yields a skip'
     phase: GREEN
   harness:
     type: unit
     category: backend
   given:
     abstract:
-    - A synthetic toolkit checkout (`pyproject.toml` + `src/atdd/...` carrying a data
-      file) that is NOT an ancestor of the imported package's `__file__`, standing
-      in for the wheel-install layout
+    - A synthetic toolkit checkout (`pyproject.toml` + `src/atdd/...` carrying a data file) that is NOT
+      an ancestor of the imported package's `__file__`, standing in for the wheel-install layout
     - A synthetic installed package root from which that one data file is absent
   when:
-    abstract: The gate runs with the working directory at the synthetic checkout and
-      the installed package root pointed at the incomplete package
+    abstract: The gate runs with the working directory at the synthetic checkout and the installed package
+      root pointed at the incomplete package
   then:
     abstract:
-    - "The gate FAILS, naming the missing file \u2014 it does not skip; source-tree\
-      \ discovery falls back to the working directory when the `__file__` walk finds\
-      \ no checkout"
-    - The failure message names the file, its expected install path, and points at
-      the `[tool.setuptools.package-data]` policy that must ship it
-    - "When the same package root DOES carry the file, the gate passes \u2014 so the\
-      \ failure above is attributable to the missing file and not to the discovery\
-      \ change itself"
+    - The gate FAILS, naming the missing file — it does not skip; source-tree discovery falls back to
+      the working directory when the `__file__` walk finds no checkout
+    - The failure message names the file, its expected install path, and points at the `[tool.setuptools.package-data]`
+      policy that must ship it
+    - When the same package root DOES carry the file, the gate passes — so the failure above is attributable
+      to the missing file and not to the discovery change itself
 - identity:
     urn: acc:govern-lifecycle:C008-UNIT-003-editable-install-still-short-circuits
     id: AC-UNIT-003
-    purpose: "The one skip that is legitimate survives: when the imported package\
-      \ IS the source tree (editable / `PYTHONPATH=src`), source and wheel root are\
-      \ the same directory and the scan is a tautology, so it still short-circuits\
-      \ rather than asserting `x.exists()` about `x` \u2014 the new discovery fallback\
-      \ must not turn every local dev run into a self-comparison"
+    purpose: 'The one skip that is legitimate survives: when the imported package IS the source tree (editable
+      / `PYTHONPATH=src`), source and wheel root are the same directory and the scan is a tautology, so
+      it still short-circuits rather than asserting `x.exists()` about `x` — the new discovery fallback
+      must not turn every local dev run into a self-comparison'
     phase: GREEN
   harness:
     type: unit
     category: backend
   given:
     abstract:
-    - "A synthetic checkout whose `src/atdd/` IS the imported package directory \u2014\
-      \ the editable-install layout"
+    - A synthetic checkout whose `src/atdd/` IS the imported package directory — the editable-install
+      layout
   when:
     abstract: The gate runs against it
   then:
     abstract:
-    - "The gate short-circuits (skips) with a reason that names the editable install\
-      \ \u2014 it does not assert, because source == wheel root makes every assertion\
-      \ trivially true"
+    - The gate short-circuits (skips) with a reason that names the editable install — it does not assert,
+      because source == wheel root makes every assertion trivially true
 - identity:
     urn: acc:govern-lifecycle:C008-UNIT-004-rule-node-carries-a-gating-disposition
     id: AC-UNIT-004
-    purpose: "The gate can actually fail a build: `coach.wheel-completeness.fixture-missing-from-wheel`\
-      \ carries a gating disposition, not the `advisory` it has sat at since 3.7.1\
-      \ \u2014 a validator whose violations never fail anything is documentation,\
-      \ not enforcement"
+    purpose: 'The gate can actually fail a build: `coach.wheel-completeness.fixture-missing-from-wheel`
+      carries a gating disposition, not the `advisory` it has sat at since 3.7.1 — a validator whose violations
+      never fail anything is documentation, not enforcement'
     phase: GREEN
   harness:
     type: unit
@@ -121,11 +106,37 @@ acceptances:
     abstract:
     - The shipped convention node `coach.wheel-completeness.fixture-missing-from-wheel.convention.yaml`
   when:
-    abstract: Its disposition is read through the rule-binding registry the validator
-      itself binds against
+    abstract: Its disposition is read through the rule-binding registry the validator itself binds against
   then:
     abstract:
-    - "The disposition is a gating one \u2014 a violation fails the build; it is no\
-      \ longer `advisory`"
-    - The validator's `bind_rule()` id still resolves against the node, so flipping
-      the disposition did not orphan the binding
+    - The disposition is a gating one — a violation fails the build; it is no longer `advisory`
+    - The validator's `bind_rule()` id still resolves against the node, so flipping the disposition did
+      not orphan the binding
+- identity:
+    urn: acc:govern-lifecycle:C008-SMOKE-001-repaired-gate-executes-against-a-real-wheel
+    id: AC-SMOKE-001
+    purpose: 'The repaired gate does the one thing it has never done: EXECUTE. Run the shipped test_wheel_completeness
+      against a real wheel installed into a real clean venv, with the toolkit checkout as the working
+      directory — the topology the validate-consumer CI job creates — and it must report a passing assertion,
+      not a skip. A skip here is the #451 defect verbatim, and the unit acceptances cannot detect it because
+      they call the gate''s internals directly rather than letting pytest decide to run it at all'
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A wheel built from the repo and `pip install`ed into a freshly created virtualenv — the shipped
+      copy of the validator, not the source-tree copy
+    - The toolkit checkout as the working directory, so source-tree discovery resolves through the cwd
+      fallback rather than through the validator's own `__file__`
+  when:
+    abstract: The installed package's `coach/validators/test_wheel_completeness.py` is run by pytest
+  then:
+    abstract:
+    - It PASSES — every file the source tree ships is present in the installed package
+    - 'It reports a passed assertion, not a skip: before #1474 this exact invocation skipped, and a gate
+      that skips in every environment it is ever run in has never enforced anything'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-14'

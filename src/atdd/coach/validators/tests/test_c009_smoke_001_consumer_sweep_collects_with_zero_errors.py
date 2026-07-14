@@ -141,31 +141,8 @@ def test_c009_smoke_001_consumer_sweep_collects_with_zero_errors(phase: str):
     )
 
 
-@pytest.mark.smoke
-def test_c009_smoke_001_wheel_completeness_gate_passes_against_the_installed_package():
-    """The gate itself, run the only way it has ever been able to run.
-
-    Package imported from the venv's site-packages; cwd at the toolkit checkout, so
-    source-tree discovery resolves via the cwd fallback. This is the topology the
-    `validate-consumer` CI job creates, and the only one in which the gate has
-    anything to say.
-    """
-    python, pkg_dir, _ = _consumer_env()
-
-    result = subprocess.run(
-        [str(python), "-m", "pytest",
-         str(pkg_dir / "coach" / "validators" / "test_wheel_completeness.py"),
-         "-q", "-p", "no:cacheprovider", "-rs"],
-        capture_output=True, text=True, cwd=repo_root(), env=_clean_env(),
-    )
-    output = result.stdout + result.stderr
-
-    assert result.returncode == 0, (
-        f"the wheel-completeness gate FAILS against the installed wheel — a file the "
-        f"source tree ships is absent from the package:\n{output[-3000:]}"
-    )
-    assert " passed" in output, (
-        f"the gate did not execute a single assertion against a real wheel — it "
-        f"skipped, which is precisely the #451 defect this issue repairs:\n"
-        f"{output[-2000:]}"
-    )
+# The gate itself, run against this same installed wheel, is asserted by
+# C008-SMOKE-001 (test_c008_smoke_001_repaired_gate_executes_against_a_real_wheel) —
+# it is C008's claim ("the gate can run") rather than C009's ("the consumer sweep
+# collects"). It reuses `_consumer_env()` from here, so both share one built wheel
+# and one venv.

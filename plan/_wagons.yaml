@@ -1594,9 +1594,10 @@ wagons:
     E062: 'minimize likelihood of a-non-py-file-that-shipped-code-reads-at-runtime-being-omitted-from-the-built-wheel-because-a-hand-enumerated-package-data-glob-was-never-added-for-it
       by replacing the per-directory package-data enumeration (which drops 174 of
       610 non-.py files, including the coder+tester conventions/nodes trees bind_rule
-      reads at import) with a broad-ship policy plus an explicit exclude-package-data
-      deny-list, so a new data directory ships by default and omitting it takes a
-      deliberate exclusion (#663, #952, #1369)'
+      reads at import) with a broad-ship policy plus an exclude-package-data deny-list
+      naming ONLY build/OS cruft, so the invariant is the installed package is the
+      source tree minus cruft and a new data directory ships by default (#663, #952,
+      #1369)'
     C008: 'minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
       by broadening the #451 scan to every non-.py source file, resolving the source
       tree from the working directory so it EXECUTES against a real installed wheel
