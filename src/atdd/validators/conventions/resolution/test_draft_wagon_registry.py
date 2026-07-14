@@ -12,13 +12,16 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
 from atdd.validators.conventions.resolution.archetype import TEMPLATE_IDS
 from atdd.validators.conventions.resolution._parity import (
     evaluate_variant,
-    inject_patch,
     repo_root,
+)
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    mirror_file,
 )
 
 FAMILY = "resolution"
@@ -50,17 +53,29 @@ def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
-@pytest.mark.convention_filesystem_mutation
-def test_fault_injection() -> None:
+def test_fault_injection(clean_convention_graph, tmp_path: Path) -> None:
     """Inject a phantom registry consume->wagon reference; the convention path
-    (variant evaluator: registry consume.from -> registry slug set) must catch it."""
+    (variant evaluator: registry consume.from -> registry slug set) must catch it.
+
+    Staged, not written (#1458): ``_draft_wagon_registry`` reads ``plan/_wagons.yaml``
+    through ``graph.root`` and reads no node, so mirroring that one file with the phantom
+    ref and re-rooting a copy of the session graph at the temp tree runs the identical
+    evaluator over the real registry's own bytes — without touching the checkout, and
+    without a graph rebuild.
+
+    Non-vacuity is structural on both ends: ``mirror_file`` raises if the fault anchor has
+    drifted out of the real registry, and the evaluator returns [] outright when the
+    registry is absent, so an empty staged tree could not satisfy the assertion below.
+    """
     # Legacy parity (verdict 'both') was proven against the legacy validator before
     # it was decommissioned (#1207); the convention fault-injection is the live coverage.
-    root = repo_root()
-    with inject_patch(root, _REGISTRY, *_FAULT):
-        evidence = evaluate_variant(TEMPLATE, VARIANT, root=root)
+    mirror_file(repo_root(), tmp_path, _REGISTRY, lambda t: t.replace(*_FAULT, 1))
+    evidence = evaluate_variant(
+        TEMPLATE, VARIANT, graph=graph_rooted_at(clean_convention_graph, tmp_path)
+    )
 
     assert evidence, "convention path did not catch the phantom registry consume ref"
     for record in evidence:
         assert set(record).issubset(FAILURE_EVIDENCE), record
-    assert evaluate_variant(TEMPLATE, VARIANT, root=root) == []
+    # The untouched session graph stays clean: the phantom ref exists only in the temp tree.
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []

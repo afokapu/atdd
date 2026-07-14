@@ -19,6 +19,7 @@ import pytest
 
 from atdd.validators.conventions._support import sentinels as S
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import clone_graph, node_at
 
 # E019 — graph normalizes real nodes
 def test_graph_normalizes_real_nodes(repo_root: Path) -> None:
@@ -38,19 +39,29 @@ def test_no_sentinel_selects_vacuously(repo_root: Path) -> None:
 
 
 # E021 — failure evidence is template-shaped
-@pytest.mark.convention_filesystem_mutation
-def test_evidence_is_template_shaped(repo_root: Path) -> None:
-    wagon = repo_root / "plan" / "validate_conventions" / "_validate_conventions.yaml"
-    orig = wagon.read_text(encoding="utf-8")
-    wagon.write_text(orig.replace("theme: commons", "theme: bogus_noncanonical", 1), encoding="utf-8")
-    try:
-        r = S.theme_must_be_canonical(load_composed_graph(repo_root))
-    finally:
-        wagon.write_text(orig, encoding="utf-8")
+def test_evidence_is_template_shaped(clean_convention_graph) -> None:
+    """The fault is injected into a CLONE of the session graph — no file, no rebuild.
+
+    This one never needed the filesystem at all: ``theme_must_be_canonical`` reads
+    ``Node.theme`` and nothing else, so rewriting the wagon's YAML on disk and rebuilding
+    the graph was an expensive way to change one in-memory attribute. ``node_at`` still
+    anchors the fault to the same wagon FILE the on-disk write targeted, so a moved or
+    renamed manifest raises instead of silently faulting nothing.
+    """
+    faulted = clone_graph(clean_convention_graph)
+    wagon = node_at(faulted, "plan/validate_conventions/_validate_conventions.yaml")
+    assert wagon.theme == "commons", (
+        f"fault anchor drifted: expected the wagon to start canonical, got {wagon.theme!r}"
+    )
+    wagon.theme = "bogus_noncanonical"
+
+    r = S.theme_must_be_canonical(faulted)
     allowed = {"node_id", "field", "value", "grammar_name", "node_location"}
     assert r.violations, "no evidence produced to shape-check"
     for ev in r.violations:
         assert set(ev).issubset(allowed), f"evidence not template-shaped: {set(ev)}"
+    # The shared session graph keeps its canonical theme — the clone absorbed the fault.
+    assert S.theme_must_be_canonical(clean_convention_graph).violations == []
 
 
 # E025 — train nodes use the conformant detail representation
