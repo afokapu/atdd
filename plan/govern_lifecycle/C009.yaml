@@ -1,5 +1,5 @@
-urn: wmbt:govern-lifecycle:E064
-step: verify
+urn: wmbt:govern-lifecycle:C009
+step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: a-packaging-regression-reaching-a-consumer-repo-undetected-because-no-ci-job-ever-installs-the-wheel-and-every-job-runs-the-toolkit-from-its-own-source-tree
@@ -24,7 +24,7 @@ statement: "minimize likelihood of a-packaging-regression-reaching-a-consumer-re
   \ pytest collection"
 acceptances:
 - identity:
-    urn: acc:govern-lifecycle:E064-UNIT-001-workflow-declares-a-wheel-installing-consumer-job
+    urn: acc:govern-lifecycle:C009-UNIT-001-workflow-declares-a-wheel-installing-consumer-job
     id: AC-UNIT-001
     purpose: "The oracle exists and is wired as a gate: `atdd-validate.yml` declares\
       \ a `validate-consumer` job that installs the BUILT WHEEL rather than running\
@@ -51,7 +51,7 @@ acceptances:
     - 'It gates: the job is in the workflow''s required-check set, so a packaging
       regression turns the PR red rather than being reported and ignored'
 - identity:
-    urn: acc:govern-lifecycle:E064-SMOKE-001-consumer-sweep-collects-with-zero-errors-off-the-installed-wheel
+    urn: acc:govern-lifecycle:C009-SMOKE-001-consumer-sweep-collects-with-zero-errors-off-the-installed-wheel
     id: AC-SMOKE-001
     purpose: "The oracle actually catches THIS bug: with the wheel installed in a\
       \ clean venv and the working directory a synthetic consumer repo, all four phase\

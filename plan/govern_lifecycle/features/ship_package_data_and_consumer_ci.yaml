@@ -18,8 +18,8 @@ sizing:
   footprint_size: M
 wmbts:
 - wmbt:govern-lifecycle:E062
-- wmbt:govern-lifecycle:E063
-- wmbt:govern-lifecycle:E064
+- wmbt:govern-lifecycle:C008
+- wmbt:govern-lifecycle:C009
 components:
   backend:
     presentation:

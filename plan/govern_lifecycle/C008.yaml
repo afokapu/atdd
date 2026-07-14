@@ -1,5 +1,5 @@
-urn: wmbt:govern-lifecycle:E063
-step: verify
+urn: wmbt:govern-lifecycle:C008
+step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
@@ -24,7 +24,7 @@ statement: minimize likelihood of the-wheel-completeness-gate-passing-vacuously-
   so a miss fails the build
 acceptances:
 - identity:
-    urn: acc:govern-lifecycle:E063-UNIT-001-scan-covers-every-non-py-package-file
+    urn: acc:govern-lifecycle:C008-UNIT-001-scan-covers-every-non-py-package-file
     id: AC-UNIT-001
     purpose: "The scan sees the files that actually broke: it collects every non-.py\
       \ file under the source tree \u2014 not just `validators/fixtures/**` \u2014\
@@ -53,7 +53,7 @@ acceptances:
       \ must not ship, so asserting they do would fail the gate on a file that is\
       \ correctly absent"
 - identity:
-    urn: acc:govern-lifecycle:E063-UNIT-002-gate-executes-against-an-installed-wheel-instead-of-skipping
+    urn: acc:govern-lifecycle:C008-UNIT-002-gate-executes-against-an-installed-wheel-instead-of-skipping
     id: AC-UNIT-002
     purpose: "The gate stops passing vacuously: when the imported `atdd` lives outside\
       \ the checkout (a real wheel install) but the toolkit repo IS the working directory,\
@@ -84,7 +84,7 @@ acceptances:
       \ failure above is attributable to the missing file and not to the discovery\
       \ change itself"
 - identity:
-    urn: acc:govern-lifecycle:E063-UNIT-003-editable-install-still-short-circuits
+    urn: acc:govern-lifecycle:C008-UNIT-003-editable-install-still-short-circuits
     id: AC-UNIT-003
     purpose: "The one skip that is legitimate survives: when the imported package\
       \ IS the source tree (editable / `PYTHONPATH=src`), source and wheel root are\
@@ -107,7 +107,7 @@ acceptances:
       \ \u2014 it does not assert, because source == wheel root makes every assertion\
       \ trivially true"
 - identity:
-    urn: acc:govern-lifecycle:E063-UNIT-004-rule-node-carries-a-gating-disposition
+    urn: acc:govern-lifecycle:C008-UNIT-004-rule-node-carries-a-gating-disposition
     id: AC-UNIT-004
     purpose: "The gate can actually fail a build: `coach.wheel-completeness.fixture-missing-from-wheel`\
       \ carries a gating disposition, not the `advisory` it has sat at since 3.7.1\
