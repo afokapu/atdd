@@ -44,6 +44,15 @@ DEFAULT_STACK_CONTAINERS: Dict[str, str] = {
     "web": "web",
 }
 
+# A stack's entrypoint ("root app"), relative to its code root — the station
+# master for python. A root app is a starting point of a path just as much as a
+# root directory is, so it is declared rather than frozen into validator source:
+# a consumer whose backend entrypoint is `main.py` or `server/asgi.py` should not
+# have to fork a validator to say so.
+DEFAULT_STACK_ENTRYPOINTS: Dict[str, str] = {
+    "python": "app.py",
+}
+
 
 def get_code_roots(config: Optional[Dict[str, Any]]) -> Dict[str, Path]:
     """
@@ -109,18 +118,39 @@ def get_stack_containers(config: Optional[Dict[str, Any]]) -> Dict[str, Path]:
     return merged
 
 
+def get_stack_entrypoints(config: Optional[Dict[str, Any]]) -> Dict[str, Path]:
+    """Resolve the declared stack-entrypoint map (relative to each code root)."""
+    if not isinstance(config, dict):
+        overrides: Dict[str, Any] = {}
+    else:
+        overrides = config.get("stack_entrypoints") or {}
+        if not isinstance(overrides, dict):
+            overrides = {}
+
+    merged: Dict[str, Path] = {
+        k: Path(v) for k, v in DEFAULT_STACK_ENTRYPOINTS.items()
+    }
+    for key, value in overrides.items():
+        merged[key] = Path(value)
+    return merged
+
+
+_TABLES = {
+    "code root": get_code_roots,
+    "container": get_stack_containers,
+}
+
+
 def _resolve(
     which: str,
     stack: str,
     repo_root: Path,
     config: Optional[Dict[str, Any]],
 ) -> Optional[Path]:
-    """Shared body for the two public resolvers."""
+    """Shared body for the two public root resolvers."""
     if config is None:
         config = load_atdd_config(repo_root)
-    table = (
-        get_code_roots(config) if which == "code root" else get_stack_containers(config)
-    )
+    table = _TABLES[which](config)
     relative = table.get(stack)
     if relative is None:
         # Decision #2: an undeclared stack is skipped, never a crash. A consumer
@@ -131,6 +161,7 @@ def _resolve(
             ".atdd/config.yaml to enable)",
             which,
             stack,
+            extra={"stack": stack, "root_kind": which},
         )
         return None
     return repo_root / relative
@@ -166,6 +197,36 @@ def resolve_stack_container(
     ``supabase/migrations``. Use :func:`resolve_code_root` for source scans.
     """
     return _resolve("container", stack, repo_root, config)
+
+
+def resolve_stack_entrypoint(
+    stack: str,
+    repo_root: Path,
+    config: Optional[Dict[str, Any]] = None,
+) -> Optional[Path]:
+    """
+    Absolute path to *stack*'s entrypoint file, or ``None`` if not resolvable.
+
+    Returns ``None`` when the stack has no declared code root or no declared
+    entrypoint — a repo may have a python tier with no station master, and that
+    is a fact to skip on, not to crash on (it is precisely what #689 got wrong:
+    the guard checked that the python root existed, then the tests reached for
+    an ``app.py`` that was never there).
+    """
+    if config is None:
+        config = load_atdd_config(repo_root)
+    root = resolve_code_root(stack, repo_root, config)
+    if root is None:
+        return None
+    entrypoint = get_stack_entrypoints(config).get(stack)
+    if entrypoint is None:
+        logger.debug(
+            "no entrypoint declared for stack %r; skipping",
+            stack,
+            extra={"stack": stack},
+        )
+        return None
+    return root / entrypoint
 
 
 def load_atdd_config(repo_root: Path) -> Dict[str, Any]:
