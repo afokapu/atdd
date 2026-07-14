@@ -1,0 +1,131 @@
+urn: wmbt:govern-lifecycle:E063
+step: verify
+direction: minimize
+dimension: likelihood
+object_of_control: the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
+context_clarifier: "`coach/validators/test_wheel_completeness.py` (#451) was built\
+  \ for exactly this bug class and has never executed a single assertion in any environment.\
+  \ Three independent reasons: (1) it `pytest.skip`s when `Path(atdd.__file__)` IS\
+  \ the source tree \u2014 which is how CI runs it (`PYTHONPATH=src`), and how local\
+  \ dev runs it; (2) `find_repo_src_atdd()` walks parents of its own `__file__`, so\
+  \ from an installed wheel it finds no source tree and skips again; (3) even if it\
+  \ ran, `collect_source_fixture_files()` scans only `src/atdd/**/validators/fixtures/**`,\
+  \ so it is blind to `coach/schemas/*.md`, `conventions/nodes/` and `coach/templates/`\
+  \ \u2014 the directories that actually broke. Its rule node also sits at `disposition:\
+  \ advisory`, never flipped to strict. A gate that cannot run and cannot see is not\
+  \ a gate."
+lens: functional.effectiveness
+statement: minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
+  by broadening its scan from `validators/fixtures/**` to EVERY non-.py file under
+  `src/atdd/` (minus the same explicit deny-list the package-data policy names), by
+  resolving the source tree from the working directory when the imported package lives
+  outside the checkout so the check EXECUTES against a real installed wheel instead
+  of skipping, and by flipping its rule node from `advisory` to a gating disposition
+  so a miss fails the build
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:E063-UNIT-001-scan-covers-every-non-py-package-file
+    id: AC-UNIT-001
+    purpose: "The scan sees the files that actually broke: it collects every non-.py\
+      \ file under the source tree \u2014 not just `validators/fixtures/**` \u2014\
+      \ so `coach/schemas/*.md` (#663), `coder/conventions/nodes/*.yaml` (#1369) and\
+      \ `coach/templates/bin/*.shim` (#952) are all in scope, while `.py` modules\
+      \ and build cruft are not"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'A synthetic source tree carrying: a validator fixture, a `coach/schemas/x.md`,
+      a `coder/conventions/nodes/r.convention.yaml`, a `coach/templates/bin/gh.shim`,
+      a `.py` module, and cruft (`__pycache__/x.pyc`, `.DS_Store`)'
+  when:
+    abstract: The wheel-completeness scan collects the shippable data files of that
+      tree
+  then:
+    abstract:
+    - "The `.md`, the `nodes/*.yaml`, the `.shim` and the fixture are ALL collected\
+      \ \u2014 the scan is no longer confined to `validators/fixtures/**`"
+    - "The `.py` module is NOT collected \u2014 setuptools ships it as a module, so\
+      \ asserting on it as package data would be a category error"
+    - "The `__pycache__/x.pyc` and `.DS_Store` cruft are NOT collected \u2014 they\
+      \ must not ship, so asserting they do would fail the gate on a file that is\
+      \ correctly absent"
+- identity:
+    urn: acc:govern-lifecycle:E063-UNIT-002-gate-executes-against-an-installed-wheel-instead-of-skipping
+    id: AC-UNIT-002
+    purpose: "The gate stops passing vacuously: when the imported `atdd` lives outside\
+      \ the checkout (a real wheel install) but the toolkit repo IS the working directory,\
+      \ source-tree discovery resolves from the working directory, the scan RUNS,\
+      \ and a data file missing from the package root FAILS \u2014 where today the\
+      \ same situation yields a skip"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A synthetic toolkit checkout (`pyproject.toml` + `src/atdd/...` carrying a data
+      file) that is NOT an ancestor of the imported package's `__file__`, standing
+      in for the wheel-install layout
+    - A synthetic installed package root from which that one data file is absent
+  when:
+    abstract: The gate runs with the working directory at the synthetic checkout and
+      the installed package root pointed at the incomplete package
+  then:
+    abstract:
+    - "The gate FAILS, naming the missing file \u2014 it does not skip; source-tree\
+      \ discovery falls back to the working directory when the `__file__` walk finds\
+      \ no checkout"
+    - The failure message names the file, its expected install path, and points at
+      the `[tool.setuptools.package-data]` policy that must ship it
+    - "When the same package root DOES carry the file, the gate passes \u2014 so the\
+      \ failure above is attributable to the missing file and not to the discovery\
+      \ change itself"
+- identity:
+    urn: acc:govern-lifecycle:E063-UNIT-003-editable-install-still-short-circuits
+    id: AC-UNIT-003
+    purpose: "The one skip that is legitimate survives: when the imported package\
+      \ IS the source tree (editable / `PYTHONPATH=src`), source and wheel root are\
+      \ the same directory and the scan is a tautology, so it still short-circuits\
+      \ rather than asserting `x.exists()` about `x` \u2014 the new discovery fallback\
+      \ must not turn every local dev run into a self-comparison"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - "A synthetic checkout whose `src/atdd/` IS the imported package directory \u2014\
+      \ the editable-install layout"
+  when:
+    abstract: The gate runs against it
+  then:
+    abstract:
+    - "The gate short-circuits (skips) with a reason that names the editable install\
+      \ \u2014 it does not assert, because source == wheel root makes every assertion\
+      \ trivially true"
+- identity:
+    urn: acc:govern-lifecycle:E063-UNIT-004-rule-node-carries-a-gating-disposition
+    id: AC-UNIT-004
+    purpose: "The gate can actually fail a build: `coach.wheel-completeness.fixture-missing-from-wheel`\
+      \ carries a gating disposition, not the `advisory` it has sat at since 3.7.1\
+      \ \u2014 a validator whose violations never fail anything is documentation,\
+      \ not enforcement"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The shipped convention node `coach.wheel-completeness.fixture-missing-from-wheel.convention.yaml`
+  when:
+    abstract: Its disposition is read through the rule-binding registry the validator
+      itself binds against
+  then:
+    abstract:
+    - "The disposition is a gating one \u2014 a violation fails the build; it is no\
+      \ longer `advisory`"
+    - The validator's `bind_rule()` id still resolves against the node, so flipping
+      the disposition did not orphan the binding

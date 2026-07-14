@@ -1,0 +1,91 @@
+urn: wmbt:govern-lifecycle:E062
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: a-non-py-file-that-shipped-code-reads-at-runtime-being-omitted-from-the-built-wheel-because-a-hand-enumerated-package-data-glob-was-never-added-for-it
+context_clarifier: '`[tool.setuptools.package-data]` enumerates one glob per package
+  directory, so a new non-.py data directory ships only if someone remembers to add
+  a glob for it. Nobody did: `atdd.coder.conventions` and `atdd.tester.conventions`
+  carry `["*.yaml"]` and never gained the `nodes/*.yaml` entry their coach/planner
+  siblings have, so 78 rule-node YAMLs that `bind_rule()` reads AT IMPORT never ship
+  (#1369); `atdd.coach.schemas` carries `["*.json"]` so its 4 `.md` docs never ship
+  (#663); `coach/templates/bin/` and `coach/schemas/fixtures/` have no key at all
+  (#952). 174 of the 610 non-.py files in `src/atdd/` are absent from the wheel today,
+  including `coach/templates/persona/*/*.tmpl` and `validators/conventions/registry.yaml`.
+  Enumeration is the defect: it fails open and drifts silently.'
+lens: functional.sustainability
+statement: minimize likelihood of a-non-py-file-that-shipped-code-reads-at-runtime-being-omitted-from-the-built-wheel-because-a-hand-enumerated-package-data-glob-was-never-added-for-it
+  by replacing the per-directory package-data enumeration with a broad-ship policy
+  (`"atdd" = ["**/*"]`) plus an explicit `[tool.setuptools.exclude-package-data]`
+  deny-list naming only what must NOT ship (`*.py`, which setuptools already installs
+  as modules, and byte-code/cache/OS cruft), so a newly added data directory ships
+  by default and omitting it requires a deliberate exclusion rather than a forgotten
+  inclusion
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:E062-SMOKE-001-built-wheel-carries-every-non-py-source-file
+    id: AC-SMOKE-001
+    purpose: "A wheel built from the real repo by the real build backend carries EVERY\
+      \ non-.py file under src/atdd/ that is not on the explicit deny-list \u2014\
+      \ the empirical proof that the broad-ship policy closes #663/#952/#1369, asserted\
+      \ against the artifact consumers actually install rather than against the glob\
+      \ text"
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - The repo checkout, built with `python -m build --wheel` in an isolated build
+      environment (the real PEP-517 path, in-tree backend included)
+    - "The set of every file under `src/atdd/` that is not a `.py` module and not\
+      \ byte-code/cache/OS cruft \u2014 the files shipped code reads at runtime"
+  when:
+    abstract: The built wheel is opened and its member list is diffed against that
+      source-tree set
+  then:
+    abstract:
+    - "Every non-.py, non-excluded source file is present in the wheel at its corresponding\
+      \ `atdd/...` path \u2014 the missing-set is empty, where today it holds 174\
+      \ files including `coder/conventions/nodes/`, `tester/conventions/nodes/`, `coach/schemas/*.md`,\
+      \ `coach/templates/bin/*.shim` and `coach/schemas/fixtures/`"
+    - "Every `.py` module still ships \u2014 the `exclude-package-data` deny-list\
+      \ suppresses .py as *data* only; setuptools still installs it as a module, so\
+      \ the deny-list cannot silently gut the package"
+    - "No `__pycache__/`, `*.pyc`, `*.pyo` or `.DS_Store` member appears in the wheel\
+      \ \u2014 the broad glob does not sweep build cruft in"
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-13'
+- identity:
+    urn: acc:govern-lifecycle:E062-UNIT-001-bind-rule-resolves-from-an-installed-wheel
+    id: AC-UNIT-001
+    purpose: "The concrete #1369 failure mode \u2014 `bind_rule()` raising RuleNotInRegistryError\
+      \ at IMPORT because the coder/tester rule-node YAMLs are not in the wheel, which\
+      \ aborts `atdd validate coder` at pytest COLLECTION before a single test runs\
+      \ \u2014 is gone: the rule registry resolves every coder and tester rule id\
+      \ from the wheel's own package directory"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A package root laid out like an installed wheel (no `src/` parent, no repo checkout
+      reachable) whose contents are exactly what the package-data policy ships
+    - "The set of rule ids declared by the coder and tester convention-node trees\
+      \ \u2014 the ids their shipped validators pass to `bind_rule()` at module import"
+  when:
+    abstract: The rule registry is resolved against that wheel-shaped package root
+      and each id is bound
+  then:
+    abstract:
+    - "Every coder and tester rule id binds \u2014 none raises `RuleNotInRegistryError`,\
+      \ because `coder/conventions/nodes/` and `tester/conventions/nodes/` are present\
+      \ in the package root"
+    - 'The registry the wheel exposes is not a strict subset of the source tree''s:
+      the coder and tester node counts match the source tree exactly, so no rule is
+      silently dropped'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-13'
