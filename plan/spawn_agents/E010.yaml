@@ -1,4 +1,7 @@
-urn: "wmbt:spawn-agents:E010"
+urn: "wmbt:spawn-agents:E010"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E010-SMOKE-001 'readiness-gate-with-real-multiplexer' exercised the readiness gate
+# inside `commands/spawn.py`, decommissioned with the coach's sub-worker orchestration.
+# The surviving unit behaviour is still bound to a live test.
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"

@@ -1,4 +1,7 @@
-urn: "wmbt:spawn-agents:E026"
+urn: "wmbt:spawn-agents:E026"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E026-SMOKE-001 'real-rendered-prompt-contains-graph-section' rendered the launch
+# prompt via `commands/spawn.py`. The launch-prompt renderer left core with spawn; the
+# surviving unit acceptance (template carries the slot) remains bound to a live test.
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"

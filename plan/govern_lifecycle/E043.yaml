@@ -38,3 +38,29 @@ acceptances:
       wagon: "govern-lifecycle"
       feature: "cmux-native-worker-launcher"
 
+  - identity:
+      urn: "acc:govern-lifecycle:E043-SMOKE-001-live-cmux-native-launch-feed-no-shim"
+      id: "AC-SMOKE-001"
+      purpose: "LIVE: cmux new-workspace --command boots a real claude worker whose positional prompt auto-submits the first turn, with NO atdd.coach.shim/PersonaShim process in the path, and the worker's activity publishes to cmux feed.list with source=claude (wrapper hooks active without the shim)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "a real cmux (>=0.64.7) and claude on PATH (skip otherwise)"
+        - "the production launch builders build_agent_seed_argv + build_cmux_launch_argv with a tiny task prompt and --allowedTools Read"
+    when:
+      abstract: "the built cmux new-workspace --command argv is run against the real cmux"
+      action: "invoke"
+    then:
+      abstract:
+        - "a worker surface is created and NO process matching atdd.coach.shim / PersonaShim exists in the launch path"
+        - "the positional prompt auto-submits — the worker starts its first turn unattended"
+        - "the worker's activity appears in cmux feed.list with source=claude; the workspace ref + a feed item are captured as evidence in docs/smoke-audit.md"
+    signal: {}
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-06-05"
+      wagon: "govern-lifecycle"
+      feature: "cmux-native-worker-launcher"

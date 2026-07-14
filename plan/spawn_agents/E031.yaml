@@ -1,4 +1,7 @@
-urn: "wmbt:spawn-agents:E031"
+urn: "wmbt:spawn-agents:E031"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E031-SMOKE-001 'live-spawn-argv-config-driven-scoped-bash' asserted on the argv
+# emitted by `commands/spawn.py`. spawn.py was decommissioned; the scoped-bash allow-list is
+# still enforced on the surviving runtime/agent_control launch plane (E031-UNIT-003, live test).
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"

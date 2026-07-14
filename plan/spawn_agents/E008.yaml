@@ -121,3 +121,26 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-19"
+  - identity:
+      urn: "acc:spawn-agents:E008-SMOKE-001-interactive-tty-prompt-blocks-until-valid-input"
+      id: "AC-SMOKE-001"
+      purpose: "In a real terminal session the prompt blocks for each persona, accepts a valid adapter id, and passes it to the coach run — regression guard against silent config-default bypass"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real terminal session runs atdd coach with no --persona-llm and no --no-prompt"
+        - "stdin.isatty() returns True"
+        - "ADAPTER_REGISTRY contains at least 'claude-code'"
+    when:
+      abstract: "The operator types 'claude-code' at each persona prompt"
+    then:
+      abstract:
+        - "The coach run proceeds with persona_llm mapping every persona to 'claude-code'"
+        - "No prompt is shown again — each persona is prompted exactly once per run"
+        - "The coach run does not block indefinitely — it proceeds after valid input is given"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-05-19"

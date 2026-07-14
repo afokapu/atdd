@@ -1,4 +1,9 @@
-urn: "wmbt:govern-lifecycle:E014"
+urn: "wmbt:govern-lifecycle:E014"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E014-SMOKE-001 'spawn-guard-reachable-from-cli' drove the permission guard
+# through `commands/spawn.py::cmd_spawn` (SpawnPermissionViolation). Spawning sub-workers
+# is orchestration and left core, so there is no CLI spawn path left to smoke. The guard
+# itself survives at runtime/agent_control and is covered by E014-UNIT-005, which is bound
+# to the live test tests/test_forbidden_launch_flag_guard.py.
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
