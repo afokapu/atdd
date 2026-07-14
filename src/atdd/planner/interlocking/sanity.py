@@ -84,13 +84,20 @@ def home_violations(il: TrainInterlocking, root: Path | str) -> List[dict]:
         except ValueError:
             actual_home = str(Path(loaded).parent)
         if actual_home != expected_home:
-            out.append({"interlocking_id": _iid(il), "path": str(loaded),
-                        "expected_home": expected_home, "actual_home": actual_home})
+            out.append({
+                "interlocking_id": _iid(il),
+                "path": str(loaded),
+                "expected_home": expected_home,
+                "actual_home": actual_home,
+            })
     registered = {e.get("interlocking_id") for e in registry_entries(root)}
     if registered and il.interlocking_id not in registered:
-        out.append({"interlocking_id": _iid(il), "path": il.source.path,
-                    "expected_home": expected_home,
-                    "actual_home": "absent from plan/_trains/_interlockings.yaml registry"})
+        out.append({
+            "interlocking_id": _iid(il),
+            "path": il.source.path,
+            "expected_home": expected_home,
+            "actual_home": "absent from plan/_trains/_interlockings.yaml registry",
+        })
     return out
 
 
@@ -99,11 +106,19 @@ def entrypoint_shape_violations(il: TrainInterlocking, root=None) -> List[dict]:
     ep = il.entrypoint
     out: List[dict] = []
     if ep.exposed and len(ep.actions) < 1:
-        out.append({"interlocking_id": _iid(il), "exposed": True,
-                    "actions": list(ep.actions), "field_path": "entrypoint.actions"})
+        out.append({
+            "interlocking_id": _iid(il),
+            "exposed": True,
+            "actions": list(ep.actions),
+            "field_path": "entrypoint.actions",
+        })
     if not ep.exposed and not ep.reason:
-        out.append({"interlocking_id": _iid(il), "exposed": False,
-                    "reason": ep.reason, "field_path": "entrypoint.reason"})
+        out.append({
+            "interlocking_id": _iid(il),
+            "exposed": False,
+            "reason": ep.reason,
+            "field_path": "entrypoint.reason",
+        })
     return out
 
 
@@ -125,9 +140,14 @@ def route_category_violations(il: TrainInterlocking, root=None) -> List[dict]:
         if train_category is None:
             continue
         if route.category != train_category:
-            out.append({"interlocking_id": _iid(il), "route_id": route.route_id,
-                        "category": route.category, "train_id": route.train_id,
-                        "train_category": train_category, "train_path": route.train_path})
+            out.append({
+                "interlocking_id": _iid(il),
+                "route_id": route.route_id,
+                "category": route.category,
+                "train_id": route.train_id,
+                "train_category": train_category,
+                "train_path": route.train_path,
+            })
     return out
 
 
@@ -139,10 +159,13 @@ def guard_grammar_violations(il: TrainInterlocking, root=None) -> List[dict]:
             parse_guard(guard.expression)
         except GuardSyntaxError as exc:
             invalid = getattr(exc, "token", None)
-            out.append({"interlocking_id": _iid(il), "guard_id": guard.id,
-                        "expression": guard.expression,
-                        "invalid_token": str(invalid) if invalid is not None else "",
-                        "reason": str(exc)[:160]})
+            out.append({
+                "interlocking_id": _iid(il),
+                "guard_id": guard.id,
+                "expression": guard.expression,
+                "invalid_token": str(invalid) if invalid is not None else "",
+                "reason": str(exc)[:160],
+            })
     return out
 
 
@@ -153,13 +176,21 @@ def route_resolution_violations(il: TrainInterlocking, root=None) -> List[dict]:
     route_ids = [r.route_id for r in il.routes]
     priorities = [r.priority for r in il.routes]
     if strategy not in ("fail_on_multiple_match", "first_priority"):
-        out.append({"interlocking_id": _iid(il), "strategy": strategy,
-                    "route_ids": route_ids, "priorities": priorities,
-                    "reason": "strategy is not an allowed deterministic strategy"})
+        out.append({
+            "interlocking_id": _iid(il),
+            "strategy": strategy,
+            "route_ids": route_ids,
+            "priorities": priorities,
+            "reason": "strategy is not an allowed deterministic strategy",
+        })
     elif strategy == "first_priority" and len(set(priorities)) != len(priorities):
-        out.append({"interlocking_id": _iid(il), "strategy": strategy,
-                    "route_ids": route_ids, "priorities": priorities,
-                    "reason": "first_priority requires unique integer priorities"})
+        out.append({
+            "interlocking_id": _iid(il),
+            "strategy": strategy,
+            "route_ids": route_ids,
+            "priorities": priorities,
+            "reason": "first_priority requires unique integer priorities",
+        })
     return out
 
 
@@ -177,9 +208,12 @@ def guard_coverage_violations(il: TrainInterlocking, root=None) -> List[dict]:
         if not routes and guard_id in residual_guards:
             continue
         status = "uncovered" if not routes else "multiply-covered"
-        out.append({"interlocking_id": _iid(il), "guard_id": guard_id,
-                    "route_id": routes[0] if routes else None,
-                    "coverage_status": status})
+        out.append({
+            "interlocking_id": _iid(il),
+            "guard_id": guard_id,
+            "route_id": routes[0] if routes else None,
+            "coverage_status": status,
+        })
     return out
 
 
@@ -190,17 +224,27 @@ def projection_equivalence_violations(il: TrainInterlocking, root: Path | str) -
         try:
             steps = project_route_to_train_sequence(il, route.route_id)
         except InterlockingError as exc:  # surfaced as evidence, never swallowed
-            out.append({"interlocking_id": _iid(il), "route_id": route.route_id,
-                        "train_id": route.train_id, "step": None, "field": "projection",
-                        "expected": route.projection.expected_sequence_digest,
-                        "actual": f"projection failed: {str(exc)[:120]}"})
+            out.append({
+                "interlocking_id": _iid(il),
+                "route_id": route.route_id,
+                "train_id": route.train_id,
+                "step": None,
+                "field": "projection",
+                "expected": route.projection.expected_sequence_digest,
+                "actual": f"projection failed: {str(exc)[:120]}",
+            })
             continue
         computed = route_projection_digest(steps, route.projection.fields)
         if computed != route.projection.expected_sequence_digest:
-            out.append({"interlocking_id": _iid(il), "route_id": route.route_id,
-                        "train_id": route.train_id, "step": None, "field": "sequence_digest",
-                        "expected": route.projection.expected_sequence_digest,
-                        "actual": computed})
+            out.append({
+                "interlocking_id": _iid(il),
+                "route_id": route.route_id,
+                "train_id": route.train_id,
+                "step": None,
+                "field": "sequence_digest",
+                "expected": route.projection.expected_sequence_digest,
+                "actual": computed,
+            })
     return out
 
 
@@ -210,8 +254,12 @@ def message_payload_typed_violations(il: TrainInterlocking, root=None) -> List[d
     for msg in il.messages:
         p = msg.payload
         if not p.contract and not p.no_payload_reason:
-            out.append({"interlocking_id": _iid(il), "message_id": msg.id,
-                        "payload": p.contract, "reason": p.no_payload_reason})
+            out.append({
+                "interlocking_id": _iid(il),
+                "message_id": msg.id,
+                "payload": p.contract,
+                "reason": p.no_payload_reason,
+            })
     return out
 
 
@@ -249,9 +297,13 @@ def _schema_declared_id(path: Path) -> "str | None":
     except (OSError, ValueError, yaml.YAMLError) as exc:
         # An unreadable / unparseable schema body simply does not declare a
         # resolvable $id; the payload-contract-body rule reports it as unresolved.
-        _log.debug("schema $id read skipped (unreadable contract body)",
-                   extra={"path": str(path),
-                          "error": str(exc).splitlines()[0][:120]})
+        _log.debug(
+            "schema $id read skipped (unreadable contract body)",
+            extra={
+                "path": str(path),
+                "error": str(exc).splitlines()[0][:120],
+            },
+        )
         return None
     if isinstance(doc, dict):
         sid = doc.get("$id")
@@ -309,13 +361,40 @@ def payload_contract_body_violations(il: TrainInterlocking, root: Path | str) ->
             continue
         resolved, expected = _contract_resolves(contract, root)
         if not resolved:
-            out.append({"interlocking_id": _iid(il), "message_id": msg.id,
-                        "contract": contract, "expected_schema_path": expected})
+            out.append({
+                "interlocking_id": _iid(il),
+                "message_id": msg.id,
+                "contract": contract,
+                "expected_schema_path": expected,
+            })
     return out
 
 
 # --- 9b. payload contract registered (#1314 item E, capstone) ----------------
 _CONTRACT_REGISTRY_PATH = "contracts/_contracts.yaml"
+
+
+def _entry_identity(entry) -> "str | None":
+    """The identity an entry declares, under any of the accepted spellings."""
+    if not isinstance(entry, dict):
+        return None
+    ident = entry.get("identity") or entry.get("id") or entry.get("$id")
+    return str(ident) if ident else None
+
+
+def _registry_identities(contracts) -> "set[str]":
+    """Normalized identities from a ``contracts:`` block — a list of entries, or a
+    mapping keyed by identity whose entry may restate (or omit) it."""
+    identities: "set[str]" = set()
+    if isinstance(contracts, list):
+        for entry in contracts:
+            ident = _entry_identity(entry)
+            if ident:
+                identities.add(_normalize_identity(ident))
+    elif isinstance(contracts, dict):
+        for key, entry in contracts.items():
+            identities.add(_normalize_identity(_entry_identity(entry) or str(key)))
+    return identities
 
 
 def _load_contract_registry(root: Path) -> "set[str]":
@@ -338,25 +417,16 @@ def _load_contract_registry(root: Path) -> "set[str]":
     except yaml.YAMLError as exc:
         # A malformed registry is owned by the #1332 coherence validator, not
         # this rule; treat as empty so we fail closed instead of raising.
-        _log.debug("contract registry read skipped (unparseable)",
-                   extra={"path": str(reg),
-                          "error": str(exc).splitlines()[0][:120]})
+        _log.debug(
+            "contract registry read skipped (unparseable)",
+            extra={
+                "path": str(reg),
+                "error": str(exc).splitlines()[0][:120],
+            },
+        )
         return set()
     contracts = doc.get("contracts") if isinstance(doc, dict) else None
-    identities: "set[str]" = set()
-    if isinstance(contracts, list):
-        for entry in contracts:
-            if isinstance(entry, dict):
-                ident = entry.get("identity") or entry.get("id") or entry.get("$id")
-                if ident:
-                    identities.add(_normalize_identity(str(ident)))
-    elif isinstance(contracts, dict):
-        for key, entry in contracts.items():
-            ident = None
-            if isinstance(entry, dict):
-                ident = entry.get("identity") or entry.get("id") or entry.get("$id")
-            identities.add(_normalize_identity(str(ident or key)))
-    return identities
+    return _registry_identities(contracts)
 
 
 def payload_contract_registered_violations(il: TrainInterlocking, root: Path | str) -> List[dict]:
@@ -374,9 +444,12 @@ def payload_contract_registered_violations(il: TrainInterlocking, root: Path | s
         if not contract:
             continue
         if _normalize_identity(contract) not in registered:
-            out.append({"interlocking_id": _iid(il), "message_id": msg.id,
-                        "contract": contract,
-                        "registry_path": _CONTRACT_REGISTRY_PATH})
+            out.append({
+                "interlocking_id": _iid(il),
+                "message_id": msg.id,
+                "contract": contract,
+                "registry_path": _CONTRACT_REGISTRY_PATH,
+            })
     return out
 
 
@@ -387,9 +460,13 @@ def fragment_acceptance_binding_violations(il: TrainInterlocking, root=None) -> 
         if frag.acceptance_refs:
             continue
         guard_id = frag.guards[0].id if frag.guards else None
-        out.append({"interlocking_id": _iid(il), "fragment_id": frag.id,
-                    "guard_id": guard_id, "acceptance_ref": None,
-                    "missing_side": "fragment-has-no-acceptance"})
+        out.append({
+            "interlocking_id": _iid(il),
+            "fragment_id": frag.id,
+            "guard_id": guard_id,
+            "acceptance_ref": None,
+            "missing_side": "fragment-has-no-acceptance",
+        })
     return out
 
 
@@ -408,9 +485,13 @@ def wmbt_surface_or_residual_violations(il: TrainInterlocking, root=None) -> Lis
         surfaced = bool(inv.expression and inv.expression.strip())
         if surfaced or ref in residual_wmbts:
             continue
-        out.append({"interlocking_id": _iid(il), "wmbt_ref": ref,
-                    "surface_kind": "invariant", "residual_id": None,
-                    "coverage_status": "unsurfaced"})
+        out.append({
+            "interlocking_id": _iid(il),
+            "wmbt_ref": ref,
+            "surface_kind": "invariant",
+            "residual_id": None,
+            "coverage_status": "unsurfaced",
+        })
     return out
 
 
@@ -420,38 +501,52 @@ def structural_residual_explicit_violations(il: TrainInterlocking, root=None) ->
     for rsd in il.residuals:
         if rsd.acceptance_ref and rsd.validator_ref and rsd.reason:
             continue
-        out.append({"interlocking_id": _iid(il), "residual_id": rsd.id,
-                    "acceptance_ref": rsd.acceptance_ref,
-                    "validator_ref": rsd.validator_ref, "reason": rsd.reason})
+        out.append({
+            "interlocking_id": _iid(il),
+            "residual_id": rsd.id,
+            "acceptance_ref": rsd.acceptance_ref,
+            "validator_ref": rsd.validator_ref,
+            "reason": rsd.reason,
+        })
     return out
 
 
 # --- 13. does not carry cargo (in YAML) -------------------------------------
 def _scan_cargo(obj, path: str, out: List[dict], iid: str) -> None:
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            norm = str(key).lower().replace("-", "_")
-            if any(tok in norm for tok in _FORBIDDEN_CARGO_TOKENS):
-                out.append({"interlocking_id": iid, "field_path": f"{path}.{key}",
-                            "forbidden_value_kind": norm})
-            _scan_cargo(value, f"{path}.{key}", out, iid)
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         for i, item in enumerate(obj):
             _scan_cargo(item, f"{path}[{i}]", out, iid)
+        return
+    if not isinstance(obj, dict):
+        return
+    for key, value in obj.items():
+        norm = str(key).lower().replace("-", "_")
+        if any(tok in norm for tok in _FORBIDDEN_CARGO_TOKENS):
+            out.append({
+                "interlocking_id": iid,
+                "field_path": f"{path}.{key}",
+                "forbidden_value_kind": norm,
+            })
+        _scan_cargo(value, f"{path}.{key}", out, iid)
 
 
 def does_not_carry_cargo_violations(il: TrainInterlocking, root=None) -> List[dict]:
     out: List[dict] = []
-    if il.loaded_from is not None and Path(il.loaded_from).is_file():
-        try:
-            raw = yaml.safe_load(Path(il.loaded_from).read_text(encoding="utf-8")) or {}
-        except yaml.YAMLError as exc:
-            # parse failure is owned by the loader/schema family, not this rule.
-            _log.debug("cargo scan skipped (unparseable interlocking yaml)",
-                       extra={"path": str(il.loaded_from),
-                              "error": str(exc).splitlines()[0][:120]})
-            return out
-        _scan_cargo(raw, "interlocking", out, _iid(il))
+    if il.loaded_from is None or not Path(il.loaded_from).is_file():
+        return out
+    try:
+        raw = yaml.safe_load(Path(il.loaded_from).read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        # parse failure is owned by the loader/schema family, not this rule.
+        _log.debug(
+            "cargo scan skipped (unparseable interlocking yaml)",
+            extra={
+                "path": str(il.loaded_from),
+                "error": str(exc).splitlines()[0][:120],
+            },
+        )
+        return out
+    _scan_cargo(raw, "interlocking", out, _iid(il))
     return out
 
 
