@@ -1,0 +1,5 @@
+phase: all
+passed_at: '2026-07-14T18:25:20.738464+00:00'
+source_hash: 6b6abc1636141a439925fc4b1c45e865bc8307450fb8180d8d605eae4ce203bf
+atdd_version: 4.7.1
+skipped_api: false
