@@ -17,13 +17,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from atdd.validators.conventions.presence import archetype
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
-
-from .conftest import patched
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    mirror_file,
+)
 
 FAMILY = "presence"
 TEMPLATE = "required_field_presence"
@@ -56,20 +55,54 @@ def test_theme_zero_clean_baseline(clean_convention_graph) -> None:
     assert _evaluate(clean_convention_graph) == []
 
 
-@pytest.mark.convention_filesystem_mutation
-def test_theme_zero_catches_injected_fault(repo_root: Path) -> None:
-    """Renaming the digit-0 token away from `commons` in the real convention is caught,
-    with template-shaped evidence."""
-    with patched(repo_root, THEME_CONVENTION,
-                 'theme_zero_token: "commons"', 'theme_zero_token: "platform"'):
-        violations = _evaluate(load_composed_graph(repo_root))
+def _staged_broken_floor(repo_root: Path, tmp_path: Path, graph):
+    """Mirror the theme convention with the digit-0 token renamed away from ``commons``,
+    and hand back a graph rooted at that staged tree.
+
+    ``presence.archetype._check_theme_zero_mandatory`` reads this convention through
+    ``graph.root`` and reads no node, so a redirected root is the whole fault surface: the
+    evaluator parses the real file's own bytes plus the rename, and the checkout is never
+    written. ``mirror_file`` raises if the anchor has drifted, so the fault cannot go
+    vacuous against an un-faulted tree.
+    """
+    mirror_file(repo_root, tmp_path, THEME_CONVENTION,
+                lambda t: t.replace('theme_zero_token: "commons"',
+                                    'theme_zero_token: "platform"', 1))
+    return graph_rooted_at(graph, tmp_path)
+
+
+def test_theme_zero_catches_injected_fault(
+    clean_convention_graph, repo_root: Path, tmp_path: Path
+) -> None:
+    """Renaming the digit-0 token away from `commons` in the convention is caught,
+    with template-shaped evidence.
+
+    NON-VACUITY: this evaluator reports the SAME violation for a missing file as for a
+    faulted one (an unreadable convention yields no ``theme_zero_token`` either), so a
+    staged tree that silently failed to materialize would still turn this test green. The
+    control leg below stages the convention UNFAULTED — a cosmetic trailing comment — and
+    requires the evaluator to be clean on it, which it can only be if it really parsed the
+    real file's bytes at the real relative path.
+    """
+    control = mirror_file(repo_root, tmp_path / "control", THEME_CONVENTION,
+                          lambda t: t + "\n# staged control (unfaulted)\n")
+    assert control.is_file()
+    assert _evaluate(graph_rooted_at(clean_convention_graph, tmp_path / "control")) == [], (
+        "the unfaulted staged tree reported a commons-floor violation — the staged root is "
+        "not being read as the real convention, so the faulted leg would pass vacuously"
+    )
+
+    violations = _evaluate(
+        _staged_broken_floor(repo_root, tmp_path / "faulted", clean_convention_graph)
+    )
     assert any(v["node_id"] == "theme.taxonomy.commons-floor" for v in violations)
     for v in violations:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
 
 
-@pytest.mark.convention_filesystem_mutation
-def test_theme_zero_is_convention_only_legacy_is_tautological(repo_root: Path) -> None:
+def test_theme_zero_is_convention_only_legacy_is_tautological(
+    clean_convention_graph, repo_root: Path, tmp_path: Path
+) -> None:
     """PARITY CLASSIFICATION: CONVENTION-ONLY (legacy is tautological, un-faultable).
 
     The legacy validator's ``resolve_theme_set`` sets ``resolved['0'] =
@@ -81,11 +114,11 @@ def test_theme_zero_is_convention_only_legacy_is_tautological(repo_root: Path) -
     legacy never provided. Parity-both is therefore not achievable; we assert the
     divergence explicitly rather than fake it.
     """
-    with patched(repo_root, THEME_CONVENTION,
-                 'theme_zero_token: "commons"', 'theme_zero_token: "platform"'):
-        convention_caught = bool(_evaluate(load_composed_graph(repo_root)))
+    staged = _staged_broken_floor(repo_root, tmp_path, clean_convention_graph)
     # oracle retired (#1365): the convention evaluator is the live coverage (it was
     # already stricter than the legacy tautology — convention-only by construction).
-    assert convention_caught, (
+    assert _evaluate(staged), (
         "convention evaluator did not catch the theme_zero-token fault"
     )
+    # The untouched session graph stays silent: the fault is in the staged tree only.
+    assert _evaluate(clean_convention_graph) == []
