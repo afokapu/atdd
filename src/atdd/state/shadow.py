@@ -43,6 +43,7 @@ from atdd.state.projection import (
     PROJECTION_RELATIVE,
     build_documents,
     canonical_bytes,
+    memory_store,  # re-exported below: a shadow run touches no developer SQLite either
     read_projection,
 )
 from atdd.state.store import StateStore
@@ -252,21 +253,6 @@ def compare_repo(
 def canonical_of(store: StateStore) -> Dict[str, bytes]:
     """The canonical bytes ``project(store)`` would write — computed, never written to disk."""
     return {uid: canonical_bytes(doc) for uid, doc in build_documents(store).items()}
-
-
-class memory_store:  # noqa: N801 — a context-manager helper
-    """An ephemeral, migrated State Store in RAM (a shadow run touches no developer SQLite)."""
-
-    def __enter__(self) -> StateStore:
-        from atdd.state.db import apply_migrations
-
-        self._conn = sqlite3.connect(":memory:")
-        self._conn.row_factory = sqlite3.Row
-        apply_migrations(self._conn)
-        return StateStore(self._conn)
-
-    def __exit__(self, *_exc: Any) -> None:
-        self._conn.close()
 
 
 __all__ = [

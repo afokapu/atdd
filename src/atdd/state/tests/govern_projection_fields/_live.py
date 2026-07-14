@@ -29,6 +29,8 @@ from typing import Iterable, Optional, Sequence, Tuple
 import yaml
 
 from atdd.state.bare_remote import identify, seed_bare_remote
+
+from .._fixtures import commit_all
 from atdd.state.merge_driver import EVIDENCE_RELATIVE
 from atdd.state.ownership import POLICY_RELATIVE
 
@@ -150,13 +152,12 @@ def write_evidence(repo: Path, uid: str, tokens: Iterable[str], *, gate: str) ->
 
 
 def commit(repo: Path, message: str, *, author: Optional[str] = None) -> str:
-    """Commit everything in ``repo``; return the new sha."""
-    git(repo, "add", "-A")
-    args = ["commit", "--quiet", "--allow-empty", "-m", message]
-    if author is not None:
-        args += ["--author", author]
-    git(repo, *args)
-    return out(repo, "rev-parse", "HEAD")
+    """Commit everything in ``repo``; return the new sha.
+
+    Through ``out``, not the plain fixture runner: this checkout has the projection merge
+    driver registered, and the driver has to be able to import ``atdd`` when git invokes it.
+    """
+    return commit_all(repo, message, author=author, run=out)
 
 
 def branch(repo: Path, name: str, *, at: Optional[str] = None) -> None:

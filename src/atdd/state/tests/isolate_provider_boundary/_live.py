@@ -40,6 +40,8 @@ from atdd.state.bare_remote import (
     write_gh_shim,
 )
 
+from .._fixtures import commit_all
+
 #: The in-tree ``src/`` root, so every subprocess drives THIS working copy's CLI.
 _SRC = Path(__file__).resolve().parents[4]
 
@@ -143,12 +145,8 @@ def repo_on_bare_remote(tmp_path: Path) -> Tuple[Path, Path]:
 
 
 def commit(repo: Path, message: str, *, author: Optional[str] = None) -> str:
-    git(repo, "add", "-A")
-    args = ["commit", "--quiet", "--allow-empty", "-m", message]
-    if author is not None:
-        args += ["--author", author]
-    git(repo, *args)
-    return out(repo, "rev-parse", "HEAD")
+    """Commit through ``out``, so git runs with the environment these acceptances need."""
+    return commit_all(repo, message, author=author, run=out)
 
 
 def projection_file(repo: Path, uid: str) -> Path:
