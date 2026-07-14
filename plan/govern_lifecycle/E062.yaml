@@ -1,0 +1,91 @@
+urn: "wmbt:govern-lifecycle:E062"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "pr-under-validation-scoping-silently-degrading-to-a-repo-wide-block"
+context_clarifier: "E056 (#1165) scoped the strict coach.pr.merge-blocks-on-pre-smoke-close gate to the PR under test, but the branch leg of that resolver never worked: _branch_pr_number calls int() on PRManager._existing_pr_for_branch(), which returns a URL, so the ValueError is swallowed by a bare except and the resolver returns None — whereupon select_blocking_violations falls back to blocking repo-wide, exactly the coupling E056 set out to remove; the pull_request CI event masks this because GITHUB_REF=refs/pull/<N>/merge resolves without touching the branch leg, while the push event (which atdd-validate.yml also triggers on) falls straight into it, so every contributor's branch run is failed by whichever open PR currently auto-closes a pre-SMOKE issue (PR #1456 then #1461, both against #1193); the twin gate coach.pr.closes-keyword-discipline has no scoping at all and carries the same latent blast radius; the resolver must resolve the branch's PR through one shared PRManager seam, and an unresolvable PR must degrade to advisory-only rather than to a repo-wide block, so a stranger's offense can never fail your branch while every offender stays blocked on its own CI"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of pr-under-validation-scoping-silently-degrading-to-a-repo-wide-block by resolving the branch's PR number through a single PRManager.pr_number_for_branch seam instead of int()-ing a URL behind a swallowing except, by degrading an unresolvable PR to advisory-only instead of a repo-wide block, and by extending the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E062-UNIT-001-branch-pr-resolves-through-prmanager-seam"
+      id: "AC-UNIT-001"
+      purpose: "the branch leg of the current-PR resolver returns the PR number for a branch that has an open PR, instead of swallowing a ValueError and returning None"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A PRManager whose underlying gh query yields the open PR for a branch as the URL form GitHub actually returns (https://github.com/<owner>/<repo>/pull/<N>), plus a branch with no open PR"
+    when:
+      abstract: "the shared PRManager.pr_number_for_branch seam resolves the branch, and the pre-smoke-close gate's current-PR resolver falls through to it with no CI environment set"
+    then:
+      abstract:
+        - "pr_number_for_branch returns the integer PR number parsed from the URL"
+        - "pr_number_for_branch returns None for a branch with no open PR"
+        - "the pre-smoke-close gate's current-PR resolver returns that same PR number from the branch alone, with no GITHUB_REF or PR_NUMBER set"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-13"
+  - identity:
+      urn: "acc:govern-lifecycle:E062-UNIT-002-unresolvable-pr-degrades-to-advisory"
+      id: "AC-UNIT-002"
+      purpose: "when no PR under validation can be resolved, offenders are logged as advisories and block nothing, superseding E056's repo-wide fallback"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A set of PR resolutions containing an offending PR that auto-closes an issue at a pre-SMOKE phase, and no resolvable PR under validation (no CI environment, no branch PR)"
+    when:
+      abstract: "each of the two coach PR gates selects the violations that block its disposition"
+    then:
+      abstract:
+        - "no violation is selected as blocking — an unresolvable PR under validation can never fail a run on another PR's offense"
+        - "every offender is still produced and logged for repo-health visibility"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-13"
+  - identity:
+      urn: "acc:govern-lifecycle:E062-UNIT-003-closes-keyword-gate-scopes-to-pr-under-validation"
+      id: "AC-UNIT-003"
+      purpose: "the twin gate coach.pr.closes-keyword-discipline scopes its strict failure to the PR under validation, as the pre-smoke-close gate does"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Violations from the closes-keyword-discipline scan for an offending PR B, evaluated once with a clean PR A as the PR under validation and once with the offending PR B as the PR under validation"
+    when:
+      abstract: "the closes-keyword-discipline gate selects the violations that block its disposition"
+    then:
+      abstract:
+        - "with the clean PR A under validation, no violation blocks even though PR B is offending"
+        - "with the offending PR B under validation, exactly its own violations block"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-13"
+  - identity:
+      urn: "acc:govern-lifecycle:E062-SMOKE-001-innocent-branch-not-blocked-by-a-sibling-offender"
+      id: "AC-SMOKE-001"
+      purpose: "the real gate modules, resolving the PR under validation from the branch alone (the push-event path that reds every contributor today), do not fail an innocent PR on a sibling PR's pre-SMOKE close violation, while the offending PR still fails on its own"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real coach.pr.merge-blocks-on-pre-smoke-close validator module, a push-event environment (GITHUB_REF=refs/heads/<branch>, no PR_NUMBER) as GitHub Actions sets it, and scanned resolutions in which a sibling PR auto-closes an issue at a pre-SMOKE phase while the branch's own PR is clean"
+    when:
+      abstract: "the validator's real scoping path runs end to end — real branch resolution through PRManager, real evaluator, real selection"
+    then:
+      abstract:
+        - "the PR under validation is resolved from the branch on a push-event ref"
+        - "the disposition gate receives no blocking violation and passes for the innocent branch"
+        - "the same path run on the offending PR's own branch does receive its violation and fails"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-13"
