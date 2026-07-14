@@ -107,6 +107,8 @@ class MutationRecord:
     # Subprocesses that PROVABLY changed the tree. A spawn on its own is not here: the audit
     # hook cannot see inside the child, so the tree is fingerprinted instead (below).
     subprocesses: set[str] = field(default_factory=set)
+    # The paths whose (mtime, size) moved across a subprocess — so the failure names a culprit.
+    changed_paths: set[str] = field(default_factory=set)
 
     def __bool__(self) -> bool:
         return bool(self.writes or self.subprocesses)
@@ -117,9 +119,8 @@ class MutationRecord:
             parts.append("wrote " + ", ".join(sorted(self.writes)[:6]))
         if self.subprocesses:
             parts.append(
-                "its subprocess changed the tree ("
-                + ", ".join(sorted(self.subprocesses)[:6])
-                + ")"
+                "its subprocess (" + ", ".join(sorted(self.subprocesses)[:3]) + ") changed "
+                + ", ".join(sorted(self.changed_paths)[:6])
             )
         return "; ".join(parts)
 
@@ -258,9 +259,23 @@ def install(root: Path) -> None:
 
     Idempotent: audit hooks cannot be removed once added, so a second call only re-points
     the root. xdist forks each worker with its own interpreter, so each arms its own.
+
+    Bytecode writing is disabled here — for this process and for every subprocess it spawns. That
+    is not tidiness, it is what makes the fingerprint mean anything. Importing a module creates
+    ``<pkg>/__pycache__/``, and creating that directory bumps ``<pkg>``'s OWN mtime. The
+    ``__pycache__`` entry itself is pruned from the fingerprint; its parent is not. So on a
+    checkout that has never been imported — which is CI, every single time — a purely READ-ONLY
+    nested pytest run is indistinguishable from a tree mutation. It passed locally for precisely
+    the reason it had to: the caches were already there.
+
+    Every spawn site in the suite builds its child env from ``os.environ``, so the variable reaches
+    the children. ``sys.dont_write_bytecode`` covers this process, whose own imports continue well
+    past collection.
     """
     global _INSTALLED
     _RECORDER.root = Path(os.path.normpath(root))
+    sys.dont_write_bytecode = True
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
     if not _INSTALLED:
         sys.addaudithook(_RECORDER.audit)
         _INSTALLED = True
@@ -283,9 +298,17 @@ def end() -> MutationRecord:
     """
     record = _RECORDER.current or MutationRecord()
     if _RECORDER.pre_spawn is not None:
+        before = _RECORDER.pre_spawn
         after = _RECORDER.fingerprint()
-        if after != _RECORDER.pre_spawn:
+        changed = sorted(
+            k for k in set(before) | set(after) if before.get(k) != after.get(k)
+        )
+        if changed:
             record.subprocesses.update(_RECORDER.spawned)
+            # Name what moved. A verdict of "your subprocess changed the tree" with no path is
+            # undebuggable from a CI log — which is exactly how the __pycache__ false positive
+            # above cost a round-trip to diagnose.
+            record.changed_paths.update(changed[:6])
     _RECORDER.current = None
     _RECORDER.pre_spawn = None
     _RECORDER.spawned = []
