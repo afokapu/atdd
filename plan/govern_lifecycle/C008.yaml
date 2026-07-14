@@ -13,19 +13,20 @@ context_clarifier: '`coach/validators/test_wheel_completeness.py` (#451) was bui
   advisory`, never flipped to strict. A gate that cannot run and cannot see is not a gate.'
 lens: functional.effectiveness
 statement: minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
-  by broadening its scan from `validators/fixtures/**` to EVERY non-.py file under `src/atdd/` (minus
-  the same explicit deny-list the package-data policy names), by resolving the source tree from the working
+  by broadening its scan from `validators/fixtures/**` to EVERY file under `src/atdd/` (minus
+  the same explicit cruft deny-list the package-data policy names), by resolving the source tree from the working
   directory when the imported package lives outside the checkout so the check EXECUTES against a real
   installed wheel instead of skipping, and by flipping its rule node from `advisory` to a gating disposition
   so a miss fails the build
 acceptances:
 - identity:
-    urn: acc:govern-lifecycle:C008-UNIT-001-scan-covers-every-non-py-package-file
+    urn: acc:govern-lifecycle:C008-UNIT-001-scan-covers-every-package-data-file
     id: AC-UNIT-001
-    purpose: 'The scan sees the files that actually broke: it collects every non-.py file under the source
+    purpose: 'The scan sees the files that actually broke: it collects every file under the source
       tree — not just `validators/fixtures/**` — so `coach/schemas/*.md` (#663), `coder/conventions/nodes/*.yaml`
-      (#1369) and `coach/templates/bin/*.shim` (#952) are all in scope, while `.py` modules and build
-      cruft are not'
+      (#1369) and `coach/templates/bin/*.shim` (#952) are all in scope. `.py` is in scope too: the
+      `.py` under `validators/fixtures/**` are not modules but DATA, so excluding `.py` would drop 21
+      of them and blind the gate. Only build/OS cruft is out of scope'
     phase: GREEN
   harness:
     type: unit

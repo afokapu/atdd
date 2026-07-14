@@ -2,9 +2,9 @@ schema_version: "1.0.0"
 convention_id: "coach.wheel-completeness"
 name: "Wheel Completeness Convention"
 description: |
-  Declares the build-time guard that every non-``.py`` file present in the
-  toolkit's source tree (``src/atdd/**``) must also ship in the installed
-  wheel under ``Path(atdd.__file__).parent``.
+  Declares the build-time guard that every file present in the toolkit's
+  source tree (``src/atdd/**``), minus build/OS cruft, must also ship in the
+  installed wheel under ``Path(atdd.__file__).parent``.
 
   Source-tree inverse scan (NOT code-AST): walk the data files in the
   source tree, compute the expected install-path for each, assert each
@@ -46,13 +46,25 @@ scan_scope:
     include:
       - "src/atdd/**"
     note: |
-      Walk every non-``.py`` file under the package. The deny-list mirrors
-      ``[tool.setuptools.exclude-package-data]`` in ``pyproject.toml``:
-      ``.py`` (setuptools installs it as a MODULE, so asserting on it as
-      package data is a category error) plus cache/OS cruft
-      (``__pycache__/``, ``*.pyc``, ``*.pyo``, ``.pytest_cache/``,
-      ``.DS_Store``), which must not ship at all — asserting those DID ship
-      would fail the gate on files that are correctly absent.
+      Walk EVERY file under the package. The deny-list mirrors
+      ``[tool.setuptools.exclude-package-data]`` in ``pyproject.toml`` and
+      names build/OS cruft only (``__pycache__/``, ``*.pyc``, ``*.pyo``,
+      ``.pytest_cache/``, ``.DS_Store``) — those must not ship at all, so
+      asserting they DID ship would fail the gate on files that are correctly
+      absent.
+
+      ``.py`` is deliberately IN scope, and deny-listing it would be a bug.
+      The obvious-looking argument for excluding it — setuptools installs
+      ``.py`` as a MODULE, so asserting on it as package data is a category
+      error — does not hold for the ``.py`` under
+      ``**/validators/fixtures/**``. Those are NOT modules:
+      ``[tool.setuptools.packages.find]``'s ``exclude`` deliberately keeps
+      those directories from being importable packages, so nothing installs
+      them as code. They are DATA — fixture sources the validators read and
+      parse — and they ship as package data or not at all. Excluding ``.py``
+      here drops 21 of them and blinds the gate to the loss. Scanning every
+      file sidesteps the module-or-data question entirely, which is a question
+      the gate has no business having to answer correctly.
     exempt:
       - "Editable install — when ``Path(atdd.__file__).resolve()`` is the
         repo's own ``src/atdd/__init__.py`` the source tree IS the wheel
@@ -67,7 +79,7 @@ enforcement:
   validator: "src/atdd/coach/validators/test_wheel_completeness.py"
   specs:
     - id: "SPEC-COACH-WHEEL-COMPLETENESS-0001"
-      description: "Source-tree inverse scan asserts every fixture ships in the wheel"
+      description: "Source-tree inverse scan asserts every non-cruft source file ships in the wheel"
       validates: "COACH-WHEEL-COMPLETENESS-001"
     - id: "SPEC-COACH-WHEEL-COMPLETENESS-0002"
       description: "Editable install short-circuits the scan via pytest.skip"

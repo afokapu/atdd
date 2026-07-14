@@ -1,5 +1,5 @@
-# URN: test:govern-lifecycle:ship-package-data-and-consumer-ci:C008-UNIT-001-scan-covers-every-non-py-package-file
-# Acceptance: acc:govern-lifecycle:C008-UNIT-001-scan-covers-every-non-py-package-file
+# URN: test:govern-lifecycle:ship-package-data-and-consumer-ci:C008-UNIT-001-scan-covers-every-package-data-file
+# Acceptance: acc:govern-lifecycle:C008-UNIT-001-scan-covers-every-package-data-file
 # WMBT: wmbt:govern-lifecycle:C008
 # Phase: GREEN
 # Layer: backend.domain
