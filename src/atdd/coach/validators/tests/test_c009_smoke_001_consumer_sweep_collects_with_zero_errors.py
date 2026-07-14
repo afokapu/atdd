@@ -1,0 +1,148 @@
+# URN: test:govern-lifecycle:ship-package-data-and-consumer-ci:C009-SMOKE-001-consumer-sweep-collects-with-zero-errors-off-the-installed-wheel
+# Acceptance: acc:govern-lifecycle:C009-SMOKE-001-consumer-sweep-collects-with-zero-errors-off-the-installed-wheel
+# WMBT: wmbt:govern-lifecycle:C009
+# Phase: SMOKE
+# Layer: backend.smoke
+# Assertion: behavioral
+"""C009-SMOKE-001 — the shipped validators COLLECT in a real consumer repo.
+
+Real infra: a wheel built from the checkout, `pip install`ed into a freshly
+created virtualenv, and exercised from a `git init`'d directory that has no
+`src/atdd/`. Nothing from the checkout is on the import path — so a data file that
+did not ship is genuinely absent, not shadowed.
+
+Why collection is the right invariant: a missing data file surfaces as an
+IMPORT-time failure. `bind_rule()` runs at module scope, so a rule node that did
+not ship raises `RuleNotInRegistryError` while pytest is still collecting, and the
+whole sweep aborts before running a single test. On the pre-fix wheel that is 15
+collection errors in `tester` and 15 in `coder`. Zero is the invariant.
+
+Collection — not a green sweep. A consumer's `atdd validate <phase>` still fails
+some tests for an unrelated reason (#954: toolkit self-tests carry no `platform`
+marker, so they run in consumer mode and assert on `src/atdd/` and
+`docs/smoke-audit.md`, which no consumer has). That is a different mechanism with
+a different fix, and it is explicitly out of scope for #1474. Gating on a green
+sweep would mean shipping a job that is red on arrival.
+"""
+from __future__ import annotations
+
+import functools
+import os
+import re
+import subprocess
+import venv
+from pathlib import Path
+
+import pytest
+
+from ._wheel_harness import _SESSION_TMP, built_wheel, repo_root
+
+# `platform` marks this a TOOLKIT-SELF test: it needs the toolkit checkout (and/or a
+# wheel built from it), which a consumer repo does not have. `atdd validate <phase>`
+# adds `-m "not platform"` outside the source repo (E025), so this is deselected there
+# and runs here. Without the marker these ship in the wheel and ERROR in every
+# consumer's sweep — the #954 self-test-leak pathology, which this issue must not add to.
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
+
+_PHASES = ("planner", "tester", "coder", "coach")
+
+
+def _clean_env() -> dict:
+    """The ambient environment with PYTHONPATH stripped.
+
+    Load-bearing. This suite is itself usually run with `PYTHONPATH=src` (that is how
+    CI invokes every validator job), and a subprocess inherits it — so the consumer
+    venv's `import atdd` would resolve to the CHECKOUT, not to site-packages. Every
+    data file would then be found no matter what the wheel contained, and the whole
+    suite would pass vacuously while the bug stayed live.
+
+    That is not hypothetical: it happened while writing these tests, and
+    `test_c009_smoke_001_no_source_tree_leaks_into_the_consumer_env` is the control
+    that caught it.
+    """
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
+
+
+@functools.lru_cache(maxsize=1)
+def _consumer_env() -> tuple[Path, Path, Path]:
+    """(venv python, installed atdd package dir, synthetic consumer repo).
+
+    The venv is real and clean: the wheel and its declared dependencies, nothing
+    else. The consumer repo is a `git init`'d directory holding no toolkit source.
+    """
+    root = Path(_SESSION_TMP.name)
+
+    venv_dir = root / "consumer-venv"
+    venv.create(venv_dir, with_pip=True, clear=False)
+    python = venv_dir / "bin" / "python"
+    if not python.exists():  # Windows layout
+        python = venv_dir / "Scripts" / "python.exe"
+
+    subprocess.run(
+        [str(python), "-m", "pip", "install", "-q", "pytest", str(built_wheel())],
+        check=True, capture_output=True, text=True, env=_clean_env(),
+    )
+
+    pkg_dir = Path(
+        subprocess.run(
+            [str(python), "-c",
+             "import atdd, pathlib; print(pathlib.Path(atdd.__file__).resolve().parent)"],
+            check=True, capture_output=True, text=True, env=_clean_env(),
+        ).stdout.strip()
+    )
+
+    consumer = root / "consumer-repo"
+    consumer.mkdir(exist_ok=True)
+    subprocess.run(["git", "init", "-q"], cwd=consumer, check=True)
+
+    return python, pkg_dir, consumer
+
+
+def _collect(phase: str) -> tuple[int, str]:
+    """Collect the installed package's `<phase>/validators/` from the consumer repo."""
+    python, pkg_dir, consumer = _consumer_env()
+    result = subprocess.run(
+        [str(python), "-m", "pytest", str(pkg_dir / phase / "validators"),
+         "-q", "-p", "no:cacheprovider", "--collect-only", "-m", "not platform"],
+        capture_output=True, text=True, cwd=consumer, env=_clean_env(),
+    )
+    output = result.stdout + result.stderr
+    errors = int((re.search(r"(\d+) error", output) or [0, 0])[1])
+    return errors, output
+
+
+@pytest.mark.smoke
+def test_c009_smoke_001_no_source_tree_leaks_into_the_consumer_env():
+    """Anti-vacuity control: the package under test really is the wheel."""
+    _, pkg_dir, consumer = _consumer_env()
+
+    assert not (consumer / "src" / "atdd").exists(), (
+        "the synthetic consumer repo contains a toolkit source tree — the sweep "
+        "would resolve data files from it and the test would pass vacuously"
+    )
+    assert "site-packages" in str(pkg_dir), (
+        f"the atdd under test is not an installed package ({pkg_dir}); the wheel's "
+        f"contents are not what is being exercised"
+    )
+
+
+@pytest.mark.smoke
+@pytest.mark.parametrize("phase", _PHASES)
+def test_c009_smoke_001_consumer_sweep_collects_with_zero_errors(phase: str):
+    errors, output = _collect(phase)
+
+    assert errors == 0, (
+        f"`atdd validate {phase}` hits {errors} pytest COLLECTION error(s) in a "
+        f"consumer repo off the installed wheel. A data file the shipped validators "
+        f"read at import did not ship, so the sweep aborts before running a single "
+        f"test — this is #1369.\n\n{output[-3000:]}"
+    )
+
+
+# The gate itself, run against this same installed wheel, is asserted by
+# C008-SMOKE-001 (test_c008_smoke_001_repaired_gate_executes_against_a_real_wheel) —
+# it is C008's claim ("the gate can run") rather than C009's ("the consumer sweep
+# collects"). It reuses `_consumer_env()` from here, so both share one built wheel
+# and one venv.
