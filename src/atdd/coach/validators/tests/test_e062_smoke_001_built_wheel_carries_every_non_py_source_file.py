@@ -58,25 +58,38 @@ def test_e062_smoke_001_built_wheel_carries_every_non_py_source_file():
 
 
 @pytest.mark.smoke
-def test_e062_smoke_001_deny_list_does_not_suppress_py_modules():
-    """The `**/*.py` deny-list entry must filter .py as DATA, never as a MODULE.
+def test_e062_smoke_001_every_py_ships_including_non_module_fixture_sources():
+    """Every `.py` ships — the module ones AND the fixture ones.
 
-    `exclude-package-data` feeds setuptools' data-file copier only; modules are
-    installed by a separate code path. If that ever stopped being true, the wheel
-    would ship with no Python in it at all — so pin it.
+    The tempting deny-list entry `**/*.py` ("setuptools installs modules anyway")
+    silently drops 21 files: the `.py` under `**/validators/fixtures/**` are NOT
+    modules. `[tool.setuptools.packages.find] exclude` keeps those directories from
+    being importable packages, so nothing installs them as code — they ship as DATA
+    or not at all.
+
+    Both classes are asserted together, because the whole point of the broad-ship
+    policy is that the packaging config never has to answer "is this .py a module or
+    data?" correctly.
     """
     src_atdd = repo_root() / "src" / "atdd"
-    source_modules = {
+    source_py = {
         f"atdd/{p.relative_to(src_atdd).as_posix()}"
         for p in src_atdd.rglob("*.py")
         if "__pycache__" not in p.parts
     }
-    missing = sorted(source_modules - wheel_members())
+    fixture_py = {m for m in source_py if "/validators/fixtures/" in m}
 
-    assert source_modules, "no .py modules found in the source tree — scan is broken"
+    assert source_py, "no .py found in the source tree — scan is broken"
+    assert fixture_py, (
+        "no .py found under validators/fixtures/ — the non-module .py class this test "
+        "exists to protect has vanished, so the test is now vacuous"
+    )
+
+    missing = sorted(source_py - wheel_members())
     assert not missing, (
-        f"{len(missing)} .py module(s) are missing from the wheel — the "
-        f"exclude-package-data deny-list has suppressed modules, not just data:\n"
+        f"{len(missing)} .py file(s) are missing from the wheel "
+        f"({len([m for m in missing if '/validators/fixtures/' in m])} of them fixture "
+        f"sources, which ship as data and have no module code path to fall back on):\n"
         + "\n".join(f"  {m}" for m in missing[:15])
     )
 

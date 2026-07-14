@@ -18,6 +18,7 @@ version from the State Store either way.
 from __future__ import annotations
 
 import functools
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,18 @@ from typing import Set
 # Held for the life of the process so the built wheel and the installed venv
 # outlive the individual test that first asked for them.
 _SESSION_TMP = tempfile.TemporaryDirectory(prefix="atdd-wheel-acceptance-")
+
+# Never copied into the build tree. `build/` is the one that matters: setuptools
+# does NOT clean `build/lib` between runs and `bdist_wheel` packs it wholesale, so
+# a file copied there by an EARLIER build survives into every later wheel. That
+# silently defeated the deny-list during development — stale `.pyc` kept appearing
+# in wheels whose config excluded them perfectly. Building from a pristine copy
+# means the artifact under test reflects the CURRENT config and nothing else.
+#
+# `__pycache__` is deliberately NOT excluded here: the source tree's byte-code is
+# exactly the cruft the deny-list must filter, so copying it in is what keeps
+# test_e062_smoke_001_wheel_carries_no_build_cruft honest.
+_NOT_COPIED = shutil.ignore_patterns(".git", "build", "dist", "*.egg-info", "node_modules")
 
 
 def repo_root() -> Path:
@@ -40,11 +53,14 @@ def repo_root() -> Path:
 
 @functools.lru_cache(maxsize=1)
 def built_wheel() -> Path:
-    """Build the wheel from the repo once, and return the path to it."""
+    """Build the wheel once, from a pristine copy of the repo, and return its path."""
+    build_tree = Path(_SESSION_TMP.name) / "src-copy"
+    shutil.copytree(repo_root(), build_tree, ignore=_NOT_COPIED, symlinks=True)
+
     outdir = Path(_SESSION_TMP.name) / "dist"
     subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "--no-isolation",
-         "--outdir", str(outdir), str(repo_root())],
+         "--outdir", str(outdir), str(build_tree)],
         check=True, capture_output=True, text=True,
     )
     wheels = sorted(outdir.glob("atdd-*.whl"))

@@ -27,20 +27,37 @@ sweep would mean shipping a job that is red on arrival.
 from __future__ import annotations
 
 import functools
-import json
+import os
 import re
 import subprocess
-import sys
 import venv
 from pathlib import Path
 
 import pytest
 
-from ._wheel_harness import _SESSION_TMP, built_wheel
+from ._wheel_harness import _SESSION_TMP, built_wheel, repo_root
 
 pytestmark = [pytest.mark.coach]
 
 _PHASES = ("planner", "tester", "coder", "coach")
+
+
+def _clean_env() -> dict:
+    """The ambient environment with PYTHONPATH stripped.
+
+    Load-bearing. This suite is itself usually run with `PYTHONPATH=src` (that is how
+    CI invokes every validator job), and a subprocess inherits it — so the consumer
+    venv's `import atdd` would resolve to the CHECKOUT, not to site-packages. Every
+    data file would then be found no matter what the wheel contained, and the whole
+    suite would pass vacuously while the bug stayed live.
+
+    That is not hypothetical: it happened while writing these tests, and
+    `test_c009_smoke_001_no_source_tree_leaks_into_the_consumer_env` is the control
+    that caught it.
+    """
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
 
 
 @functools.lru_cache(maxsize=1)
@@ -60,14 +77,14 @@ def _consumer_env() -> tuple[Path, Path, Path]:
 
     subprocess.run(
         [str(python), "-m", "pip", "install", "-q", "pytest", str(built_wheel())],
-        check=True, capture_output=True, text=True,
+        check=True, capture_output=True, text=True, env=_clean_env(),
     )
 
     pkg_dir = Path(
         subprocess.run(
             [str(python), "-c",
              "import atdd, pathlib; print(pathlib.Path(atdd.__file__).resolve().parent)"],
-            check=True, capture_output=True, text=True,
+            check=True, capture_output=True, text=True, env=_clean_env(),
         ).stdout.strip()
     )
 
@@ -84,7 +101,7 @@ def _collect(phase: str) -> tuple[int, str]:
     result = subprocess.run(
         [str(python), "-m", "pytest", str(pkg_dir / phase / "validators"),
          "-q", "-p", "no:cacheprovider", "--collect-only", "-m", "not platform"],
-        capture_output=True, text=True, cwd=consumer,
+        capture_output=True, text=True, cwd=consumer, env=_clean_env(),
     )
     output = result.stdout + result.stderr
     errors = int((re.search(r"(\d+) error", output) or [0, 0])[1])
@@ -121,23 +138,29 @@ def test_c009_smoke_001_consumer_sweep_collects_with_zero_errors(phase: str):
 
 @pytest.mark.smoke
 def test_c009_smoke_001_wheel_completeness_gate_passes_against_the_installed_package():
-    """The gate itself, run the only way it has ever been able to run."""
+    """The gate itself, run the only way it has ever been able to run.
+
+    Package imported from the venv's site-packages; cwd at the toolkit checkout, so
+    source-tree discovery resolves via the cwd fallback. This is the topology the
+    `validate-consumer` CI job creates, and the only one in which the gate has
+    anything to say.
+    """
     python, pkg_dir, _ = _consumer_env()
-    repo = Path(__file__).resolve().parents[4]
 
     result = subprocess.run(
         [str(python), "-m", "pytest",
          str(pkg_dir / "coach" / "validators" / "test_wheel_completeness.py"),
          "-q", "-p", "no:cacheprovider", "-rs"],
-        capture_output=True, text=True, cwd=repo,  # cwd = the toolkit checkout
+        capture_output=True, text=True, cwd=repo_root(), env=_clean_env(),
     )
     output = result.stdout + result.stderr
 
     assert result.returncode == 0, (
         f"the wheel-completeness gate FAILS against the installed wheel — a file the "
-        f"source tree ships as package data is absent from the package:\n{output[-3000:]}"
+        f"source tree ships is absent from the package:\n{output[-3000:]}"
     )
-    assert " skipped" not in output or " passed" in output, (
+    assert " passed" in output, (
         f"the gate did not execute a single assertion against a real wheel — it "
-        f"skipped, which is the #451 defect this issue repairs:\n{output[-2000:]}"
+        f"skipped, which is precisely the #451 defect this issue repairs:\n"
+        f"{output[-2000:]}"
     )

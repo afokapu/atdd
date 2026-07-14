@@ -2,15 +2,19 @@ schema_version: "1.0.0"
 convention_id: "coach.wheel-completeness"
 name: "Wheel Completeness Convention"
 description: |
-  Declares the build-time guard that every validator-fixture file present
-  in the toolkit's source tree (``src/atdd/**/validators/fixtures/**``)
-  must also ship in the installed wheel under
-  ``Path(atdd.__file__).parent``.
+  Declares the build-time guard that every non-``.py`` file present in the
+  toolkit's source tree (``src/atdd/**``) must also ship in the installed
+  wheel under ``Path(atdd.__file__).parent``.
 
-  Source-tree inverse scan (NOT code-AST): walk fixture files in the
+  Source-tree inverse scan (NOT code-AST): walk the data files in the
   source tree, compute the expected install-path for each, assert each
   exists. False-negative-resistant by construction — there is no code
   parsing involved.
+
+  Scope broadened in #1474. It was ``**/validators/fixtures/**``, which
+  could not see any of the directories that actually failed to ship —
+  ``coach/schemas/*.md`` (#663), ``coder/`` + ``tester/``
+  ``conventions/nodes/`` (#1369), ``coach/templates/bin/`` (#952).
 
 rationale: |
   Pre-#449 incident (verified live on 2026-05-06): v3.7.0 shipped with
@@ -23,26 +27,40 @@ rationale: |
   ``toolkit_packaging_issues`` diagnostics field made the cause legible.
 
   This convention promotes the pattern from "category of past bugs" to
-  "automated guard against future occurrences". The rule is shipped as
-  ``advisory`` for the 3.7.x line; flip to ``strict`` in 3.8.0 once the
-  install-path coverage is empirically clean across the active
-  consumer-repo fleet.
+  "automated guard against future occurrences".
+
+  #1474 — the rule shipped ``advisory`` for the 3.7.x line, with a promise
+  to flip to ``strict`` in 3.8.0. That never happened; it was still
+  ``advisory`` on 4.x, and ``advisory`` logs a warning and passes. Worse,
+  the validator had never executed a single assertion in ANY environment:
+  it skipped on editable install (which is how CI runs it), and its
+  ``__file__``-only source discovery skipped again from an installed wheel.
+  So the exact bug class it was built for — 174 files silently absent from
+  the wheel — shipped anyway, four times over. It is now ``strict``, its
+  discovery falls back to the working directory so it runs against a real
+  wheel, and the ``validate-consumer`` CI job creates that topology on
+  every PR.
 
 scan_scope:
   COACH-WHEEL-COMPLETENESS-001:
     include:
-      - "src/atdd/**/validators/fixtures/**"
+      - "src/atdd/**"
     note: |
-      Walk every file under any phase's validator fixture tree. Skip
-      cache-cruft (``__pycache__/``, ``*.pyc``, ``*.pyo``,
-      ``.pytest_cache/``, ``.DS_Store``) — those are build-artifacts
-      not source-of-truth and are explicitly recursive-excluded by
-      ``MANIFEST.in``.
+      Walk every non-``.py`` file under the package. The deny-list mirrors
+      ``[tool.setuptools.exclude-package-data]`` in ``pyproject.toml``:
+      ``.py`` (setuptools installs it as a MODULE, so asserting on it as
+      package data is a category error) plus cache/OS cruft
+      (``__pycache__/``, ``*.pyc``, ``*.pyo``, ``.pytest_cache/``,
+      ``.DS_Store``), which must not ship at all — asserting those DID ship
+      would fail the gate on files that are correctly absent.
     exempt:
       - "Editable install — when ``Path(atdd.__file__).resolve()`` is the
         repo's own ``src/atdd/__init__.py`` the source tree IS the wheel
-        root, so the check is trivially satisfied. ``pytest.skip`` keeps
-        local-dev runs noise-free; CI exercises the wheel-built path."
+        root, so every assertion compares a file to itself. ``pytest.skip``
+        keeps local-dev runs honest; the ``validate-consumer`` CI job
+        exercises the wheel-built path."
+      - "Consumer repo with no toolkit source tree reachable — there is
+        nothing to compare the installed package against."
 
 
 enforcement:
