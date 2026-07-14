@@ -24,7 +24,7 @@ metadata:
   severity: 3
   disposition: strict
   introduced_in: 3.85.0
-  enforced_in: 4.8.0
+  enforced_in: 4.7.0
   core_surface: toolkit_self
   not_generalized_to_workspace: true
 parity:
