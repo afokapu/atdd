@@ -11,9 +11,7 @@ goal: "replace babysit's polling-and-fixed-pattern model with an event-driven, e
 outcome: "`atdd observer run` operates as the coach's standing detect-and-correct sidecar, with 17 default rules wired in, dashboard + aggregate-approve operator surfaces at parity with babysit, and a parity test suite proving behavioral equivalence before babysit is decommissioned"
 
 features:
-  - urn: "feature:observe-and-correct:observer-runtime-and-rules"
   - urn: "feature:observe-and-correct:observer-operator-surface"
-  - urn: "feature:observe-and-correct:worker-coach-event-loop"
   - urn: "feature:observe-and-correct:shim-cli-return-delivery"
 
 produce:
@@ -81,12 +79,7 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 10
-  P001: "minimize quantity of observer-runtime-skeleton-gaps"
-  M001: "minimize likelihood of undetected-basic-protocol-violations"
-  M002: "minimize likelihood of unflagged-context-window-exhaustion"
-  M003: "minimize likelihood of undetected-multiplexer-and-bash-protocol-drift"
-  M004: "minimize likelihood of undetected-substrate-rule-id-and-suppression-violations"
+  total: 5
   L001: "minimize effort of locating-active-coach-surface-state"
   E001: "minimize effort of approving-known-safe-cross-surface-prompts"
   E003: "minimize quantity of observer-correction-loop-activation-gaps"

@@ -1,4 +1,7 @@
-urn: "wmbt:spawn-agents:E012"
+urn: "wmbt:spawn-agents:E012"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E012-SMOKE-001 'atomic-rename-on-real-cmux' drove `commands/spawn.py`'s atomic
+# surface rename against real cmux. spawn.py was decommissioned; the surviving unit
+# acceptance remains bound to a live test.
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"

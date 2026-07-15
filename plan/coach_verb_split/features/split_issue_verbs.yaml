@@ -10,7 +10,6 @@ wmbts:
   - "wmbt:coach-verb-split:E002"
   - "wmbt:coach-verb-split:E003"
   - "wmbt:coach-verb-split:E004"
-  - "wmbt:coach-verb-split:E005"
   - "wmbt:coach-verb-split:E006"
 components:
   backend:

@@ -1,4 +1,7 @@
-urn: "wmbt:spawn-agents:E011"
+urn: "wmbt:spawn-agents:E011"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E011-SMOKE-001 'verify-stage-with-real-multiplexer' exercised `commands/spawn.py`'s
+# _verify_stage against a real multiplexer. spawn.py was decommissioned; the surviving unit
+# acceptances remain bound to live tests.
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
