@@ -33,7 +33,7 @@ sequence:
 - step: 6
   intent: feed succession coverage to the deletion guard
   from: wagon:verify-enforcement
-  to: wagon:govern-registry
+  to: wagon:guard-succession
   artifact: commons:succession-coverage
 participants:
 - wagon:bind-extension-conventions

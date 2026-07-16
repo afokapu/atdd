@@ -1,10 +1,10 @@
 # URN: test:govern-registry:E003-UNIT-002-safe-succession-and-untwinned-deletion-allowed
-# Acceptance: acc:govern-registry:E003-UNIT-002-safe-succession-and-untwinned-deletion-allowed
+# Acceptance: acc:guard-succession:E003-UNIT-002-safe-succession-and-untwinned-deletion-allowed
 # WMBT: wmbt:govern-registry:E003
 # Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
-"""GREEN Test for acc:govern-registry:E003-UNIT-002-safe-succession-and-untwinned-deletion-allowed.
+"""GREEN Test for acc:guard-succession:E003-UNIT-002-safe-succession-and-untwinned-deletion-allowed.
 
 Deletion is permitted only when succession is genuinely safe — the twin is bound
 AND Path B is blocking — or when no extension twin mirrors the rule at all; a twin

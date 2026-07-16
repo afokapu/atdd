@@ -1,4 +1,4 @@
-urn: "wmbt:govern-registry:E003"
+urn: "wmbt:guard-succession:E003"
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.sustainability"
 statement: "minimize likelihood of silent-enforcement-loss by refusing to delete any core convention node whose extension twin is not both bound and blockingly enforced in CI, so removing a core rule cannot silently strip the only enforcement of an obligation an extension still mirrors"
 acceptances:
   - identity:
-      urn: "acc:govern-registry:E003-UNIT-001-advisory-twin-blocks-core-node-deletion"
+      urn: "acc:guard-succession:E003-UNIT-001-advisory-twin-blocks-core-node-deletion"
       id: "AC-UNIT-001"
       purpose: "deleting a core rule whose extension twin is bound but enforced only advisorily (Path B not blocking) is refused — the latent hole where deletion silently removes the sole blocking enforcement"
       phase: "GREEN"
@@ -28,7 +28,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-10"
   - identity:
-      urn: "acc:govern-registry:E003-UNIT-002-safe-succession-and-untwinned-deletion-allowed"
+      urn: "acc:guard-succession:E003-UNIT-002-safe-succession-and-untwinned-deletion-allowed"
       id: "AC-UNIT-002"
       purpose: "deletion is permitted only when succession is genuinely safe — the twin is bound AND Path B is blocking — or when no extension twin mirrors the rule at all; a twin that is not bound never makes deletion safe"
       phase: "GREEN"
@@ -49,7 +49,7 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-10"
   - identity:
-      urn: "acc:govern-registry:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession"
+      urn: "acc:guard-succession:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession"
       id: "AC-SMOKE-001"
       purpose: "over the toolkit's real CI wiring Path B is now a BLOCKING gate (#1428 E001), so succession for a real bound-and-mirrored core rule is genuinely safe and the guard permits deleting it — while an UNBOUND twin is still refused, proving the guard was not hollowed out by the flip"
       phase: "SMOKE"

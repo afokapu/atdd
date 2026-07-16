@@ -1,10 +1,10 @@
 # URN: test:govern-registry:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession
-# Acceptance: acc:govern-registry:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession
+# Acceptance: acc:guard-succession:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession
 # WMBT: wmbt:govern-registry:E003
 # Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
-"""SMOKE Test for acc:govern-registry:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession.
+"""SMOKE Test for acc:guard-succession:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession.
 
 Over the toolkit's real CI wiring, Path B (``atdd enforce``) is now a BLOCKING gate
 (#1428 E001), so succession for a bound-and-mirrored core rule is genuinely safe and

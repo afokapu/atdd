@@ -1,10 +1,10 @@
 # URN: test:govern-registry:E003-UNIT-001-advisory-twin-blocks-core-node-deletion
-# Acceptance: acc:govern-registry:E003-UNIT-001-advisory-twin-blocks-core-node-deletion
+# Acceptance: acc:guard-succession:E003-UNIT-001-advisory-twin-blocks-core-node-deletion
 # WMBT: wmbt:govern-registry:E003
 # Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
-"""GREEN Test for acc:govern-registry:E003-UNIT-001-advisory-twin-blocks-core-node-deletion.
+"""GREEN Test for acc:guard-succession:E003-UNIT-001-advisory-twin-blocks-core-node-deletion.
 
 Deleting a core rule whose extension twin is bound but enforced only advisorily
 (Path B not a blocking gate) is refused — the latent hole where deletion silently

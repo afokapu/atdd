@@ -158,7 +158,7 @@ trains:
         has actually vanished and the guard must block.'
       path: plan/_trains/0204-detect-succession-loss.yaml
       wagons:
-      - govern-registry
+      - guard-succession
       - verify-enforcement
     - train_id: 0205-detect-unrealized-obligation
       description: 'A gating node is declared but no provider implementation realizes

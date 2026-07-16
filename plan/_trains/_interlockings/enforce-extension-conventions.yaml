@@ -5,7 +5,7 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
-  content_digest: b7fccc5da22db62870f0a5cb3602b052e027c52837f6abebf72a20111f8d18cf
+  content_digest: 2efc581afcd87707444648cb5ff6d1df4109d5f3bc8da2cec43c68bf08ca948a
 entrypoint:
   exposed: true
   actions:
@@ -20,6 +20,7 @@ lifelines:
 - ref: wagon:reconcile-dispositions
 - ref: wagon:enforce-conventions-ci
 - ref: wagon:verify-enforcement
+- ref: wagon:guard-succession
 messages:
 - id: msg:project-registry
   kind: boundary
@@ -59,7 +60,7 @@ messages:
 - id: msg:feed-succession
   kind: boundary
   from: wagon:verify-enforcement
-  to: wagon:govern-registry
+  to: wagon:guard-succession
   intent: feed succession coverage to the deletion guard
   payload:
     contract: commons:succession-coverage
@@ -151,7 +152,7 @@ routes:
   train_id: 0007-enforce-extension-conventions
   train_path: plan/_trains/0007-enforce-extension-conventions.yaml
   projection:
-    expected_sequence_digest: 615eb1a50f59b9543e218be5b727ca44045287b383dd0c05a689e7d3320c1e1b
+    expected_sequence_digest: af58d0c4dadcdc5b3bbe388d9a382823433ba32aff4907eccbb450ede02af565
     fields:
     - step
     - intent
@@ -207,7 +208,7 @@ routes:
   train_id: 0204-detect-succession-loss
   train_path: plan/_trains/0204-detect-succession-loss.yaml
   projection:
-    expected_sequence_digest: d90202bff9ad9aa69cf71bf10be7ae112ee6523f4a0d11de57370beec68e978b
+    expected_sequence_digest: 8fa061f4e6bd88f664f9bda669b759dc422d9efd03dcab98d9c123d4499ea61e
     fields:
     - step
     - intent

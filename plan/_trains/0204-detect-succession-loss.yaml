@@ -8,10 +8,10 @@ sequence:
 - step: 1
   intent: block the core-node deletion
   from: wagon:verify-enforcement
-  to: wagon:govern-registry
+  to: wagon:guard-succession
   artifact: commons:succession-coverage
 participants:
-- wagon:govern-registry
+- wagon:guard-succession
 - wagon:verify-enforcement
 status: planned
 category: alternate
