@@ -43,6 +43,7 @@ from atdd.state.projection import (
     PROJECTION_RELATIVE,
     build_documents,
     canonical_bytes,
+    MemoryStore,  # re-exported below: a shadow run touches no developer SQLite either
     read_projection,
 )
 from atdd.state.store import StateStore
@@ -225,7 +226,7 @@ def compare(
         _log.warning(
             "shadow projection found drift; the run is non-blocking and exits 0 (M001)",
             extra={"root": str(root), "drifts": [d.render() for d in drifts],
-                   "exit_code": SHADOW_EXIT_CODE},
+                "exit_code": SHADOW_EXIT_CODE},
         )
     return report
 
@@ -254,22 +255,7 @@ def canonical_of(store: StateStore) -> Dict[str, bytes]:
     return {uid: canonical_bytes(doc) for uid, doc in build_documents(store).items()}
 
 
-class memory_store:  # noqa: N801 — a context-manager helper
-    """An ephemeral, migrated State Store in RAM (a shadow run touches no developer SQLite)."""
-
-    def __enter__(self) -> StateStore:
-        from atdd.state.db import apply_migrations
-
-        self._conn = sqlite3.connect(":memory:")
-        self._conn.row_factory = sqlite3.Row
-        apply_migrations(self._conn)
-        return StateStore(self._conn)
-
-    def __exit__(self, *_exc: Any) -> None:
-        self._conn.close()
-
-
 __all__ = [
     "Drift", "SHADOW_EXIT_CODE", "SOURCES", "SOURCE_COMMITTED", "SOURCE_MANIFEST", "ShadowReport",
-    "canonical_of", "compare", "compare_repo", "memory_store",
+    "MemoryStore", "canonical_of", "compare", "compare_repo",
 ]

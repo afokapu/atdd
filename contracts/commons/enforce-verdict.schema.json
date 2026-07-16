@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:enforce-verdict",
+  "title": "Per-rule enforcement verdict",
+  "description": "Per-rule enforcement verdict exchanged inside train 0007-enforce-extension-conventions.",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "rule_id": {
+      "type": "string"
+    },
+    "disposition": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule_id"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "enforce_verdict",
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/contracts/commons/enforce-verdict.schema.json",
+          "description": "Read the Per-rule enforcement verdict payload contract.",
+          "responses": {
+            "200": {
+              "description": "The payload contract schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "producer": "wagon:enforce-conventions-ci",
+    "consumers": [
+      "wagon:verify-enforcement"
+    ],
+    "dependencies": [],
+    "traceability": {
+      "wagon_ref": "plan/enforce_conventions_ci/_enforce_conventions_ci.yaml",
+      "feature_refs": [
+        "feature:enforce-conventions-ci:enforce-conventions-ci"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  }
+}

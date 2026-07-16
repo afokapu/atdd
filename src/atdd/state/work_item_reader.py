@@ -178,15 +178,16 @@ class WorkItemReader:
         the manifest scan it replaces, which had to pick the last duplicate slug.
         """
         for ref in self._store.external_refs.for_object(slug):
-            if ref.provider == GITHUB_PROVIDER and ref.ref_kind == _ISSUE_REF_KIND:
-                try:
-                    return int(ref.ref_value)
-                except (TypeError, ValueError):
-                    _log.debug(
-                        "non-integer github issue ref_value; treating slug as unlinked",
-                        extra={"slug": slug, "ref_value": ref.ref_value},
-                    )
-                    return None
+            if ref.provider != GITHUB_PROVIDER or ref.ref_kind != _ISSUE_REF_KIND:
+                continue
+            try:
+                return int(ref.ref_value)
+            except (TypeError, ValueError):
+                _log.debug(
+                    "non-integer github issue ref_value; treating slug as unlinked",
+                    extra={"slug": slug, "ref_value": ref.ref_value},
+                )
+                return None
         return None
 
     def session_entry(self, issue_number: int) -> Optional[dict]:

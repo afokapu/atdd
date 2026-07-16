@@ -1,0 +1,17 @@
+urn: feature:reconcile-dispositions:reconcile-dispositions
+wagon: wagon:reconcile-dispositions
+description: The reconcile-dispositions lane of train 0007-enforce-extension-conventions.
+sizing:
+  wmbts: 3
+  footprint_score: 6
+  footprint_size: S
+wmbts:
+- "wmbt:reconcile-dispositions:D001"
+- "wmbt:reconcile-dispositions:E001"
+- "wmbt:reconcile-dispositions:E002"
+components:
+  backend:
+    application:
+    - type: use_cases
+      count: 3
+      rationale: one use case per WMBT in reconcile-dispositions

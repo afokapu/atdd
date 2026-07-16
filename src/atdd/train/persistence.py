@@ -383,9 +383,11 @@ class JsonlPersistenceStore:
         run_dir = self._run_dir(run_id)
         run_dir.mkdir(parents=True, exist_ok=True)
 
+        snapshot_path = run_dir / "conventions.snapshot.yaml"
         snapshot_text = _normalized_snapshot(conventions.phase_machine)
-        (run_dir / "conventions.snapshot.yaml").write_text(snapshot_text, encoding="utf-8")
+        snapshot_path.write_text(snapshot_text, encoding="utf-8")
         (run_dir / "conventions.hash").write_text(conventions.snapshot_hash, encoding="utf-8")
+        snapshot_ref = str(snapshot_path.relative_to(self.repo_root))
 
         policy_handle_id = hashlib.sha256(
             f"atdd.coach.core:{conventions.snapshot_hash}".encode("utf-8")
@@ -405,9 +407,7 @@ class JsonlPersistenceStore:
                     "initial_phase": initial_phase.value,
                     "current_phase": initial_phase.value,
                     "conventions_hash": conventions.snapshot_hash,
-                    "conventions_snapshot_ref": str(
-                        (run_dir / "conventions.snapshot.yaml").relative_to(self.repo_root)
-                    ),
+                    "conventions_snapshot_ref": snapshot_ref,
                     "policy_handle_id": policy_handle_id,
                 },
                 seq=0,  # assigned by append_event

@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:succession-coverage",
+  "title": "Core-to-extension succession coverage",
+  "description": "Core-to-extension succession coverage exchanged inside train 0007-enforce-extension-conventions.",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "rule_id": {
+      "type": "string"
+    },
+    "disposition": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule_id"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "succession_coverage",
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/contracts/commons/succession-coverage.schema.json",
+          "description": "Read the Core-to-extension succession coverage payload contract.",
+          "responses": {
+            "200": {
+              "description": "The payload contract schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "producer": "wagon:verify-enforcement",
+    "consumers": [
+      "wagon:govern-registry"
+    ],
+    "dependencies": [],
+    "traceability": {
+      "wagon_ref": "plan/verify_enforcement/_verify_enforcement.yaml",
+      "feature_refs": [
+        "feature:verify-enforcement:verify-enforcement"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  }
+}

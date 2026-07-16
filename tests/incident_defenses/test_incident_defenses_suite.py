@@ -86,25 +86,11 @@ def test_i3_post_baseline_done_json_does_emit(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# I-4 — cmux broken-pipe avoidance on >=0.64.7
-#       The deprecated new-workspace / new-pane RPCs (which fail with
-#       "Broken pipe (errno 32)") are refused before they reach cmux.
+# I-4 — RETIRED in #1486. This defense pinned `commands.spawn._create_surface`
+#       refusing the deprecated cmux new-workspace / new-pane RPCs. Spawning
+#       sub-workers is orchestration and left core, so there is no longer a
+#       surface-creation path here to defend.
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize("deprecated_mode", ["workspace", "pane"])
-def test_i4_deprecated_multiplexer_mode_refused(deprecated_mode, tmp_path):
-    from atdd.coach.commands.spawn import (
-        DeprecatedMultiplexerModeError,
-        _create_surface,
-    )
-
-    with pytest.raises(DeprecatedMultiplexerModeError):
-        _create_surface(
-            object(),  # multiplexer never reached — raises before use
-            worktree=tmp_path,
-            command="claude",
-            name="agent-1",
-            mode=deprecated_mode,
-        )
 
 
 # --------------------------------------------------------------------------- #
@@ -277,26 +263,19 @@ def test_i8_decision_durable_even_if_body_raises(tmp_path):
 #        runtime.agent_control threads env_overrides (e.g. PATH=.atdd/bin:...)
 #        into the worker dispatch command. The git PATH-shim itself ships in
 #        #884; here we pin the runtime mechanism that delivers it.
+#
+#        #1486: the *delivery* half of this defense asserted on
+#        `commands.spawn._prepend_env_prefix`, which rendered env_overrides as a
+#        shell KEY=value prefix at spawn time. Spawning left core, so that
+#        assertion is retired. DispatchSpec still carries env_overrides as a
+#        typed field (§4.8) and that contract is still pinned here.
 # --------------------------------------------------------------------------- #
 def test_i10_env_overrides_threaded_into_dispatch(tmp_path):
-    from atdd.coach.commands.spawn import _prepend_env_prefix
     from atdd.runtime.agent_control import DispatchSpec
 
     shimmed_path = f"{tmp_path / '.atdd' / 'bin'}{os.pathsep}/usr/bin"
-    # #979: the legacy shim --env delivery was removed; the sole cmux-native
-    # launch plane threads DispatchSpec.env_overrides into the surface command
-    # as a shell KEY=value prefix (_prepend_env_prefix), so the git PATH shim
-    # still reaches the worker process.
-    cmd = _prepend_env_prefix(
-        "claude --permission-mode default",
-        {"PATH": shimmed_path},
-    )
-    assert cmd.startswith("PATH="), (
-        "DispatchSpec.env_overrides must reach the worker as a shell prefix (I-10)"
-    )
-    assert ".atdd/bin" in cmd, "the shimmed PATH (.atdd/bin first) must be delivered (I-10)"
 
-    # And DispatchSpec carries env_overrides as a typed field (§4.8).
+    # DispatchSpec carries env_overrides as a typed field (§4.8).
     spec = DispatchSpec(
         agent_id="agent-1",
         persona="coder",

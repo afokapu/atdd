@@ -6,13 +6,8 @@ sizing:
   footprint_score: 8
   footprint_size: "S"
 wmbts:
-  - "wmbt:spawn-agents:E013"
-  - "wmbt:spawn-agents:E014"
   - "wmbt:spawn-agents:M001"
-  - "wmbt:spawn-agents:M002"
-  - "wmbt:spawn-agents:L001"
   - "wmbt:spawn-agents:D002"
-  - "wmbt:spawn-agents:R001"
 components:
   backend:
     presentation:

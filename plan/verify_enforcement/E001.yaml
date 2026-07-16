@@ -1,0 +1,70 @@
+urn: "wmbt:verify-enforcement:E001"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "unsafe-core-retirement"
+context_clarifier: "every extension convention node is a high_fidelity mirror of a live core rule named by its source.legacy_rule_id, and under an advisory Path B that core twin is the ONLY blocking enforcement of the shared obligation; retiring a core node whose extension twin is not both bound AND blockingly running in CI therefore silently drops the rule; the succession-coverage proof produces, for every core rule that an extension mirrors, a record proving whether its twin is bound and Path B blocking — the retirement precondition the govern-registry succession guard consumes before it permits deleting the core node"
+lens: "functional.sustainability"
+statement: "minimize likelihood of unsafe-core-retirement by proving that every core convention node with an extension twin has that twin bound and blockingly running in CI before the core node may be retired, so retiring a core node can never silently drop the rule its twin mirrors"
+acceptances:
+  - identity:
+      urn: "acc:verify-enforcement:E001-UNIT-001-proof-marks-retirement-safe-only-when-twin-bound-and-blocking"
+      id: "AC-UNIT-001"
+      purpose: "the proof emits one succession-coverage record per core rule an extension mirrors, and marks retirement safe ONLY when the twin is bound AND Path B is blocking — a bound twin under an advisory Path B, and an unbound twin under a blocking Path B, are both marked unsafe"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a substrate whose extension nodes mirror three distinct core rules via source.legacy_rule_id — one twin bound, one twin unbound — with the bound convention ids read from the binding lock"
+    when:
+      abstract: "the succession-coverage proof is computed under a blocking Path B and again under an advisory Path B"
+    then:
+      abstract:
+        - "each record names the CORE rule_id its twin mirrors and carries the twin's treatment disposition, conforming to the commons:succession-coverage contract"
+        - "under a blocking Path B the bound-twin rule is retirement-safe while the unbound-twin rule is not"
+        - "under an advisory Path B no twinned core rule is retirement-safe, even the bound one — both bound and blocking are required"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:verify-enforcement:E001-UNIT-002-precondition-agrees-with-succession-guard"
+      id: "AC-UNIT-002"
+      purpose: "the retirement precondition the proof exposes is exactly the verdict the govern-registry succession guard consumes — it holds when no extension twin mirrors the rule, or the twin is bound and Path B blocking, and fails otherwise — so producer and consumer never disagree about whether a core node may be retired"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a substrate binding one mirrored core rule, a second core rule whose twin is unbound, and a third core rule that no extension node mirrors"
+    when:
+      abstract: "the retirement precondition is evaluated for each rule and the govern-registry succession guard is driven over the same substrate"
+    then:
+      abstract:
+        - "the precondition holds for the untwinned rule (no twin enforcement to lose) and for the bound-twin rule under a blocking Path B, and fails for the unbound-twin rule"
+        - "asserting succession coverage raises when any named core rule fails the precondition, naming that rule, and the guard permits exactly the deletions the precondition allows"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:verify-enforcement:E001-SMOKE-001-real-bound-twin-is-not-retirement-safe-under-advisory-path-b"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real substrate and real CI a core rule whose extension twin is bound is still NOT retirement-safe, because Path B is advisory — proving the succession coverage the guard consumes is honest about the live enforcement hole"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real .atdd extension nodes and binding.lock, and the real .github CI workflow that decides whether Path B is a blocking gate"
+    when:
+      abstract: "the live succession-coverage proof is computed over the real substrate and the real Path-B-blocking verdict"
+    then:
+      abstract:
+        - "Path B is found non-blocking, so at least one core rule whose extension twin is bound is marked NOT retirement-safe"
+        - "the retirement precondition fails for that real bound-twinned core rule — retiring it would silently drop its sole blocking enforcement"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

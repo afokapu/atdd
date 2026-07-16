@@ -1,0 +1,85 @@
+urn: "wmbt:reconcile-dispositions:E001"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-documentation-only-node-failing-a-build-through-an-incomplete-disposition-to-verdict-mapping"
+context_clarifier: "the lock-driven runner's `_verdict_for_rule` special-cases ONLY `advisory` (always pass) and lets every other treatment fall through to fail-on-any-violation. That partial mapping is a live bug: `documentation-only` falls through and fails on any violation, so the bound, documentation-only convention `tester.filename.urn` FAILs the enforce verdict today whenever its provider reports a record. The mapping must be made TOTAL across the treatment vocabulary read off the D001 model: `strict` and `suppress-and-clean` fail on any violation; `advisory` and `documentation-only` never fail. The verdict stays non-raising (FAIL is a value, D-2) and an unknown treatment continues to fail closed — E002 is what rejects the unknown at the metadata-read boundary; the verdict function itself must not silently pass an out-of-vocabulary node."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a documentation only node failing a build through an incomplete disposition to verdict mapping by making the mapping total across the treatment vocabulary so that strict and suppress-and-clean fail on any violation while advisory and documentation-only never fail"
+acceptances:
+  - identity:
+      urn: "acc:reconcile-dispositions:E001-UNIT-001-strict-and-suppress-and-clean-fail-on-any-violation"
+      id: "AC-UNIT-001"
+      purpose: "A strict node and a suppress-and-clean node each fail when the provider reports at least one violation"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Rule metadata whose treatment is strict, and separately one whose treatment is suppress-and-clean"
+        - "A raw violation list containing at least one record"
+    when:
+      abstract: "The verdict is computed for each treatment against the non-empty violation list"
+      action: "invoke"
+    then:
+      abstract:
+        - "The strict node's verdict is fail"
+        - "The suppress-and-clean node's verdict is fail"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "reconcile-dispositions"
+      feature: "reconcile-dispositions"
+  - identity:
+      urn: "acc:reconcile-dispositions:E001-UNIT-002-advisory-and-documentation-only-never-fail"
+      id: "AC-UNIT-002"
+      purpose: "An advisory node and a documentation-only node each pass even when the provider reports violations — the documentation-only regression is closed"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Rule metadata whose treatment is advisory, and separately one whose treatment is documentation-only"
+        - "A raw violation list containing at least one record"
+    when:
+      abstract: "The verdict is computed for each treatment against the non-empty violation list"
+      action: "invoke"
+    then:
+      abstract:
+        - "The advisory node's verdict is pass"
+        - "The documentation-only node's verdict is pass (previously fell through to fail)"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "reconcile-dispositions"
+      feature: "reconcile-dispositions"
+  - identity:
+      urn: "acc:reconcile-dispositions:E001-SMOKE-001-enforce-does-not-fail-a-bound-documentation-only-rule"
+      id: "AC-SMOKE-001"
+      purpose: "Running enforce over the committed vendored substrate no longer fails on the bound documentation-only rule tester.filename.urn"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "The committed .atdd/binding.lock.yaml binding the documentation-only convention tester.filename.urn"
+    when:
+      abstract: "`atdd enforce` runs its verdict over the repo"
+      action: "invoke"
+    then:
+      abstract:
+        - "The verdict for tester.filename.urn is not fail (documentation-only nodes never fail the build)"
+      assertions:
+        - type: "equals"
+    close_the_loop:
+      consumer_reacted: "the enforce verdict step reports tester.filename.urn as pass rather than fail"
+      drift_resolved: "the advisory enforce gate no longer surfaces a documentation-only false failure in its verdict log"
+    signal: {}
+    metadata:
+      wagon: "reconcile-dispositions"
+      feature: "reconcile-dispositions"

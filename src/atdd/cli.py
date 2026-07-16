@@ -1126,63 +1126,9 @@ Phase descriptions:
         help="Repo root holding .atdd/runtime/runs/ (defaults to the cwd).",
     )
 
-    # ----- atdd agent <subcommand> ... (J2 — #497) -----
-    # The persona-agent runtime CLI; argparse for sub-subcommands lives in
-    # `atdd.coach.commands.agent._build_parser`. We register a single
-    # `agent` token here and forward the remaining argv to that parser so
-    # the sub-subcommand surface stays in one place.
-    agent_parser = subparsers.add_parser(
-        "agent",
-        help=(
-            "Persona-agent runtime CLI: heartbeat / event / commit / ask / "
-            "escalate / done / context / review (writes to "
-            ".atdd/runtime/agents/<id>/)"
-        ),
-        add_help=False,
-    )
-    agent_parser.add_argument(
-        "agent_argv",
-        nargs=argparse.REMAINDER,
-        help="Forwarded to atdd.coach.commands.agent",
-    )
-
-    # ----- atdd observer <subcommand> ... (L1 — #500) -----
-    # Coach v9 detect-and-correct sidecar; argparse for sub-subcommands
-    # lives in `atdd.coach.commands.observer._build_parser`. Single
-    # `observer` token registered here forwards the remainder of argv.
-    observer_parser = subparsers.add_parser(
-        "observer",
-        help=(
-            "Coach v9 detect-and-correct sidecar: run / attach / status / "
-            "aggregate-approve (writes to .atdd/runtime/agents/<id>/"
-            "corrections.jsonl)"
-        ),
-        add_help=False,
-    )
-    observer_parser.add_argument(
-        "observer_argv",
-        nargs=argparse.REMAINDER,
-        help="Forwarded to atdd.coach.commands.observer",
-    )
-
-    # ----- atdd spawn ... (K1 — #499) -----
-    # Single rule-IDed entry point for every coach v9 persona launch.
-    # Sub-arg surface lives in `atdd.coach.commands.spawn._build_parser`;
-    # we register `spawn` here and forward argv so the surface stays in
-    # one place.
-    spawn_parser = subparsers.add_parser(
-        "spawn",
-        help=(
-            "Coach v9 persona launch: render launch prompt, dispatch "
-            "multiplexer, run per-LLM adapter, emit agent_spawned event."
-        ),
-        add_help=False,
-    )
-    spawn_parser.add_argument(
-        "spawn_argv",
-        nargs=argparse.REMAINDER,
-        help="Forwarded to atdd.coach.commands.spawn",
-    )
+    # NOTE (#1486): `atdd agent`, `atdd observer` and `atdd spawn` were the coach's
+    # sub-worker orchestration verbs (spawn/observe a persona agent). Orchestration
+    # left core, so those verbs and their backing modules are gone.
 
     # ----- atdd author ... (author-atdd-substrate wagon, #1097) -----
     # Author schema-valid substrate artifacts by construction. The sub-arg
@@ -1232,42 +1178,10 @@ Phase descriptions:
         help="Forwarded to atdd.enforce.cli",
     )
 
-    # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
-    # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
-    # Renders a prompt template, calls a structured-output LLM via the
-    # registry, validates the response against the caller's JSON Schema,
-    # and appends one record to .atdd/runtime/coach/judgments.jsonl.
-    judge_parser = subparsers.add_parser(
-        "judge",
-        help="Single boundary for ambiguous coach v9 routing decisions (#501)",
-        description=(
-            "Render a prompt template, call a structured-output LLM, "
-            "validate the response against the supplied JSON Schema, and "
-            "append a record to .atdd/runtime/coach/judgments.jsonl. "
-            "Behavior on LLM-unavailable follows coach.judge.fail_open."
-        ),
-    )
-    judge_parser.add_argument(
-        "--prompt-template", type=str, required=True, dest="prompt_template",
-        help="YAML file with a top-level `prompt` string field; placeholders use {key}.",
-    )
-    judge_parser.add_argument(
-        "--schema", type=str, required=True,
-        help="JSON Schema describing the expected LLM response shape.",
-    )
-    judge_parser.add_argument(
-        "--inputs", type=str, nargs="*", default=[],
-        help="key=value or key=@file pairs substituted into the prompt template.",
-    )
-    judge_parser.add_argument(
-        "--call-site", type=str, required=True, dest="call_site",
-        help="One of: phase-advance, violation-suppression, correction-injection, "
-             "review-disposition, escalation, merge-readiness.",
-    )
-    judge_parser.add_argument(
-        "--llm", type=str, default=None,
-        help="LLM client id from the registry (defaults to coach.judge_llm).",
-    )
+    # NOTE (#1486): `atdd judge` (the coach's structured-output routing boundary for
+    # sub-worker decisions) was decommissioned with the rest of the orchestration
+    # verbs. Its generic LLM registry/protocol survives at
+    # `atdd.coach.commands.llm_clients.registry`.
 
     # ----- atdd checkpoint <issue-number> -----
     checkpoint_parser = subparsers.add_parser(
@@ -2514,21 +2428,6 @@ Phase descriptions:
             repo_root=getattr(args, "resume_repo_root", None),
         )
 
-    # atdd agent <subcommand> ... (J2 — #497)
-    elif args.command == "agent":
-        from atdd.coach.commands.agent import run as run_agent
-        return run_agent(list(getattr(args, "agent_argv", []) or []))
-
-    # atdd observer <subcommand> ... (L1 — #500)
-    elif args.command == "observer":
-        from atdd.coach.commands.observer import run as run_observer
-        return run_observer(list(getattr(args, "observer_argv", []) or []))
-
-    # atdd spawn ... (K1 — #499)
-    elif args.command == "spawn":
-        from atdd.coach.commands.spawn import run as run_spawn
-        return run_spawn(list(getattr(args, "spawn_argv", []) or []))
-
     # atdd author ... (author-atdd-substrate wagon — #1097)
     elif args.command == "author":
         from atdd.planner.commands.author import run as run_author
@@ -2554,17 +2453,11 @@ Phase descriptions:
     # routed to atdd.enforce.cli — there is no `command == "enforce"` branch here
     # (its leading-dash flags cannot ride argparse REMAINDER).
 
-    # atdd judge ...  (O1 — #501)
-    elif args.command == "judge":
-        import atdd.coach.commands.llm_clients  # noqa: F401 — side-effect: registers production clients
-        from atdd.coach.commands.judge import run as run_judge
-        return run_judge(
-            prompt_template=args.prompt_template,
-            schema=args.schema,
-            inputs=list(getattr(args, "inputs", []) or []),
-            call_site=args.call_site,
-            llm=getattr(args, "llm", None),
-        )
+    # NOTE (#1486): `atdd judge` was the coach's structured-output routing boundary
+    # for sub-worker decisions — orchestration, so it left core with the rest. Its
+    # generic LLM plumbing (registry/protocol) was rehomed to
+    # `atdd.coach.commands.llm_clients.registry`, which `atdd coach issue-review`
+    # still uses (it imports llm_clients for the side-effect registration itself).
 
     # atdd checkpoint <issue-number>
     elif args.command == "checkpoint":
