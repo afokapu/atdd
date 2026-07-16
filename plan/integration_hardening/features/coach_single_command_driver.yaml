@@ -11,7 +11,6 @@ wmbts:
   - "wmbt:integration-hardening:E001"
   - "wmbt:integration-hardening:M001"
   - "wmbt:integration-hardening:L001"
-  - "wmbt:integration-hardening:L002"
   - "wmbt:integration-hardening:R001"
   - "wmbt:integration-hardening:P001"
   - "wmbt:integration-hardening:C001"

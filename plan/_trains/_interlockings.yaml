@@ -4,3 +4,7 @@ interlockings:
   path: plan/_trains/_interlockings/collaborate-through-projection.yaml
   theme: commons
   status: draft
+- interlocking_id: interlocking:enforce-extension-conventions
+  path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
+  theme: commons
+  status: draft

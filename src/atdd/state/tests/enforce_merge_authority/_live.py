@@ -24,6 +24,8 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
+from atdd.state.bare_remote import clone_of, seed_bare_remote
+
 #: The in-tree ``src/`` root, so the subprocess drives THIS working copy's CLI.
 _SRC = Path(__file__).resolve().parents[4]
 
@@ -54,42 +56,12 @@ def atdd_state(root: Path, *args: str) -> subprocess.CompletedProcess:
 
 def bare_remote(tmp_path: Path) -> Path:
     """A bare git remote carrying ``main``: git object storage and nothing else."""
-    remote = tmp_path / "remote.git"
-    subprocess.run(
-        ["git", "init", "--bare", "--quiet", "--initial-branch=main", str(remote)],
-        check=True, capture_output=True, timeout=60,
-    )
-    seed = tmp_path / "seed"
-    subprocess.run(
-        ["git", "clone", "--quiet", str(remote), str(seed)],
-        check=True, capture_output=True, timeout=60,
-    )
-    _identify(seed)
-    (seed / ".atdd" / "state" / "projection").mkdir(parents=True, exist_ok=True)
-    (seed / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    (seed / ".atdd" / "state" / "projection" / ".gitkeep").write_text("", encoding="utf-8")
-    (seed / ".gitignore").write_text(
-        ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n", encoding="utf-8",
-    )
-    _git(seed, "add", "-A")
-    _git(seed, "commit", "--quiet", "-m", "seed: control root + empty projection")
-    _git(seed, "push", "--quiet", "origin", "main")
-    return remote
-
-
-def _identify(clone: Path) -> None:
-    _git(clone, "config", "user.email", "dev@example.invalid")
-    _git(clone, "config", "user.name", "Dev")
+    return seed_bare_remote(tmp_path)
 
 
 def clone(remote: Path, path: Path) -> Path:
     """A working clone of ``remote`` with a pinned git identity."""
-    subprocess.run(
-        ["git", "clone", "--quiet", str(remote), str(path)],
-        check=True, capture_output=True, timeout=60,
-    )
-    _identify(path)
-    return path
+    return clone_of(remote, path)
 
 
 def repo_on_bare_remote(tmp_path: Path) -> Tuple[Path, Path]:

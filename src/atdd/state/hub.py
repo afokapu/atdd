@@ -79,9 +79,13 @@ def hub_session_projection(store: StateStore) -> List[HubSessionRow]:
             counts[ev.object_uid] = counts.get(ev.object_uid, 0) + 1
 
     return [
-        HubSessionRow(uid=o.uid, state=o.state, data=o.data,
-                      adapters=sorted(adapters_by_session.get(o.uid, [])),
-                      event_count=counts.get(o.uid, 0))
+        HubSessionRow(
+            uid=o.uid,
+            state=o.state,
+            data=o.data,
+            adapters=sorted(adapters_by_session.get(o.uid, [])),
+            event_count=counts.get(o.uid, 0),
+        )
         for o in store.objects.list(kind=KIND_HUB_SESSION)
     ]
 
@@ -109,8 +113,10 @@ def export_trace(store: StateStore, session_uid: str) -> Dict[str, Any]:
     if session is None or session.kind != KIND_HUB_SESSION:
         raise KeyError(f"hub session not found: {session_uid}")
 
-    adapter_uids = [r.dst_uid for r in
-                    store.relationships.list(src_uid=session_uid, rel_type=REL_SESSION_USES_ADAPTER)]
+    adapter_uids = [
+        r.dst_uid
+        for r in store.relationships.list(src_uid=session_uid, rel_type=REL_SESSION_USES_ADAPTER)
+    ]
     adapters = [a for a in (store.objects.get(u) for u in adapter_uids) if a is not None]
     events = store.events.list(object_uid=session_uid)
 

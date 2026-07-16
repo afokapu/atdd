@@ -1,0 +1,71 @@
+urn: "wmbt:govern-providers:E002"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "orphan-detector-bindings"
+context_clarifier: "an implementation may be bound in binding.lock.yaml to a convention_id that no convention node under .atdd/extensions declares — a mechanism enforcing an obligation nobody wrote down; today four such phantom entries exist as tester.* detectors with no node, and the runner silently defaults a nodeless bound rule to strict; the orphan detector must surface every such binding loudly by name so it is caught, not defaulted"
+lens: "functional.effectiveness"
+statement: "minimize quantity of orphan-detector-bindings by scanning binding.lock.yaml for every bound convention_id that no convention node under .atdd/extensions declares and reporting each by name, so an implementation bound to a convention nobody declared is caught instead of silently defaulting to strict"
+acceptances:
+  - identity:
+      urn: "acc:govern-providers:E002-UNIT-001-orphan-binding-detected"
+      id: "AC-UNIT-001"
+      purpose: "a bound convention_id with no matching convention node is reported as an orphan, while a bound convention_id that has a node is not, and a non-bound (legacy-fallback) entry is ignored"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a substrate whose binding.lock.yaml has three entries: a bound convention_id with a matching <id>.convention.yaml node, a bound convention_id with NO node, and a legacy-fallback entry with no node"
+    when:
+      abstract: "find_orphan_detectors(substrate_home) scans the lock against the convention nodes under .atdd/extensions"
+    then:
+      abstract:
+        - "the nodeless bound convention_id is returned as an orphan"
+        - "the node-backed bound convention_id is not returned"
+        - "the legacy-fallback (non-bound) entry is not returned — only bound implementations can be orphaned"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:E002-UNIT-002-orphan-detection-reports-loudly"
+      id: "AC-UNIT-002"
+      purpose: "when orphans exist the guard fails loudly, naming each orphan convention_id, rather than passing silently; when none exist it passes"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a substrate whose lock binds one convention_id that no node declares"
+    when:
+      abstract: "the orphan guard is asked to assert no orphan detectors over that substrate"
+    then:
+      abstract:
+        - "it signals failure (raises or returns a non-empty, non-passing result) rather than passing"
+        - "its message names the orphan convention_id"
+        - "over a substrate whose bound convention_ids all have nodes, the same guard passes"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:E002-SMOKE-001-real-lock-surfaces-the-four-phantom-tester-detectors"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real committed binding.lock.yaml the detector surfaces the four known phantom tester.* bindings that have no convention node"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real substrate_home with its committed .atdd/binding.lock.yaml and vendored .atdd/extensions convention nodes"
+    when:
+      abstract: "find_orphan_detectors(substrate_home) is driven over the real substrate"
+    then:
+      abstract:
+        - "the result includes the four known tester.* orphan convention_ids (live-smoke-acceptance-must-execute, metric-implementation-must-exist, smoke.no-collaborator-substitution, test-isolation.no-polluting-patterns)"
+        - "each returned orphan genuinely has no <id>.convention.yaml node under .atdd/extensions"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

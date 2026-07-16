@@ -130,7 +130,7 @@ def import_manifest(
     _log.info(
         "manifest imported into State Store",
         extra={"imported": imported, "external_refs": ext_count, "skipped": skipped,
-               "collisions": len(collisions), "db": str(store_db), "backup": str(backup)},
+            "collisions": len(collisions), "db": str(store_db), "backup": str(backup)},
     )
     return ImportResult(
         imported=imported, external_refs=ext_count, skipped=skipped,

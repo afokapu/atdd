@@ -1,0 +1,71 @@
+urn: "wmbt:enforce-conventions-ci:E002"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "strict-failure-propagation"
+context_clarifier: "the exit-code plumbing already WORKS — EnforceResult.exit_code returns 1 whenever any rule verdict failed, the CLI adapter returns that code, and `sys.exit(cli())` propagates it to the process — so this WMBT PINS that behaviour rather than rebuilding it; the pin matters because E001 makes the job blocking and the whole gate now rests on that one integer: if a refactor ever made the runner report a strict FAIL while still exiting 0, the blocking job would go green on a failing repository and the gate would be worse than useless — a silent false green is the single failure mode a blocking check cannot tolerate"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of strict-failure-propagation by pinning that a strict convention node reporting at least one violation drives EnforceResult.exit_code to 1 and makes the atdd enforce CLI exit non-zero, so a regression that lets a strict FAIL report success is caught before it can green a blocking gate"
+acceptances:
+  - identity:
+      urn: "acc:enforce-conventions-ci:E002-UNIT-001-strict-fail-drives-exit-code-one"
+      id: "AC-UNIT-001"
+      purpose: "an EnforceResult carrying at least one failed rule verdict reports passed=False and exit_code=1, while an all-passing result reports exit_code=0 — the aggregation that a blocking gate rests on"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "an EnforceResult built over rule verdicts in which one strict rule failed, and one built over verdicts that all passed"
+    when:
+      abstract: "each result's aggregate verdict and exit code are read"
+    then:
+      abstract:
+        - "the result carrying a failed strict verdict reports passed=False and exit_code=1"
+        - "the all-passing result reports passed=True and exit_code=0"
+        - "verdicts that merely did not run (skip, exempt, unrunnable) never by themselves drive a non-zero exit code"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E002-UNIT-002-cli-adapter-returns-the-non-zero-code"
+      id: "AC-UNIT-002"
+      purpose: "the CLI adapter hands the runner's non-zero exit code back to the process rather than absorbing it — the seam between the verdict and the shell that CI gates on"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a runner that reports a strict FAIL result, and a runner that reports an all-clean result"
+    when:
+      abstract: "the `atdd enforce` CLI adapter is driven over each"
+    then:
+      abstract:
+        - "the adapter returns 1 for the strict FAIL result, so the process exits non-zero"
+        - "the adapter returns 0 for the clean result"
+        - "the adapter prints the verdict report in both cases, so a failure is never silent"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E002-SMOKE-001-real-strict-violation-exits-non-zero"
+      id: "AC-SMOKE-001"
+      purpose: "end to end over a REAL substrate — a real strict convention node bound to a real vendored provider that reports a real violation makes the real `atdd enforce` process exit non-zero, proving the propagation the blocking CI job depends on"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "a real substrate — a vendored workspace provider CLI, a bound strict convention node, and a binding lock — over a consumer tree the provider reports a violation in"
+    when:
+      abstract: "the real `atdd enforce` runner is driven over that substrate as a subprocess, exactly as CI invokes it"
+    then:
+      abstract:
+        - "the aggregate verdict is FAIL and the process exit code is non-zero"
+        - "the report names the failing strict rule, so the failure is diagnosable rather than just a red build"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:disposition-policy",
+  "title": "Disposition to verdict policy",
+  "description": "Disposition to verdict policy exchanged inside train 0007-enforce-extension-conventions.",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "rule_id": {
+      "type": "string"
+    },
+    "disposition": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule_id"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "disposition_policy",
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/contracts/commons/disposition-policy.schema.json",
+          "description": "Read the Disposition to verdict policy payload contract.",
+          "responses": {
+            "200": {
+              "description": "The payload contract schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "producer": "wagon:reconcile-dispositions",
+    "consumers": [
+      "wagon:enforce-conventions-ci"
+    ],
+    "dependencies": [],
+    "traceability": {
+      "wagon_ref": "plan/reconcile_dispositions/_reconcile_dispositions.yaml",
+      "feature_refs": [
+        "feature:reconcile-dispositions:reconcile-dispositions"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  }
+}

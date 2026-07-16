@@ -1,6 +1,17 @@
 trains:
   0-commons:
     00-commons-nominal:
+    - train_id: 0007-enforce-extension-conventions
+      description: 'Enforce extension conventions as a CI gate: every gating node
+        is realized by a detector, bound, and reports no strict violation.'
+      path: plan/_trains/0007-enforce-extension-conventions.yaml
+      wagons:
+      - bind-extension-conventions
+      - enforce-conventions-ci
+      - govern-providers
+      - govern-registry
+      - reconcile-dispositions
+      - verify-enforcement
     - train_id: train:issue-lifecycle:drive-state-machine
       category: nominal
       description: Replace polling-and-trust with an event-driven, observer-augmented
@@ -120,3 +131,46 @@ trains:
       path: plan/_trains/substrate/bind-runtime.yaml
       wagons:
       - bind-substrate-runtime
+    02-commons-alternate:
+    - train_id: 0201-enforce-strict-failure
+      description: A strict convention node reports at least one violation, so the
+        enforce job exits non-zero and CI fails.
+      path: plan/_trains/0201-enforce-strict-failure.yaml
+      wagons:
+      - enforce-conventions-ci
+      - verify-enforcement
+    - train_id: 0202-report-advisory-violation
+      description: An advisory convention node reports violations; they are surfaced
+        in the report and the job still passes.
+      path: plan/_trains/0202-report-advisory-violation.yaml
+      wagons:
+      - enforce-conventions-ci
+      - verify-enforcement
+    - train_id: 0203-detect-unbound-declaration
+      description: 'A gating node is realized by a detector but absent from the lock
+        while its core twin still enforces it: latent hole, reported.'
+      path: plan/_trains/0203-detect-unbound-declaration.yaml
+      wagons:
+      - bind-extension-conventions
+      - reconcile-dispositions
+    - train_id: 0204-detect-succession-loss
+      description: 'A gating node is unbound and its core twin has been deleted: enforcement
+        has actually vanished and the guard must block.'
+      path: plan/_trains/0204-detect-succession-loss.yaml
+      wagons:
+      - guard-succession
+      - verify-enforcement
+    - train_id: 0205-detect-unrealized-obligation
+      description: 'A gating node is declared but no provider implementation realizes
+        it: an obligation nobody can check.'
+      path: plan/_trains/0205-detect-unrealized-obligation.yaml
+      wagons:
+      - bind-extension-conventions
+      - govern-providers
+    - train_id: 0206-decommission-orphan-detector
+      description: 'An implementation is bound to a convention_id no node declares:
+        a mechanism enforcing an obligation nobody wrote down.'
+      path: plan/_trains/0206-decommission-orphan-detector.yaml
+      wagons:
+      - bind-extension-conventions
+      - govern-providers
