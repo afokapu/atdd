@@ -11,28 +11,15 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.utils.config import resolve_stack_container
 
 REPO_ROOT = find_repo_root()
 CONTRACTS_DIR = REPO_ROOT / "contracts"
-
-# Declared, not hardcoded (coach.graph.implementation-root-resolution).
-SUPABASE_DIR = resolve_stack_container("supabase", REPO_ROOT)
-MIGRATIONS_DIR = (
-    SUPABASE_DIR / "migrations" if SUPABASE_DIR is not None else None
-)
-
-
-def _migration_files():
-    """Every .sql migration, or nothing when the repo has no supabase stack."""
-    if MIGRATIONS_DIR is None or not MIGRATIONS_DIR.exists():
-        return []
-    return sorted(MIGRATIONS_DIR.glob("*.sql"))
+MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
 
 
 def find_migration_for_table(table_name: str) -> Optional[str]:
     """Find migration file that created a specific table."""
-    for migration_file in _migration_files():
+    for migration_file in MIGRATIONS_DIR.glob("*.sql"):
         content = migration_file.read_text()
         if f"CREATE TABLE IF NOT EXISTS {table_name}" in content or \
            f"CREATE TABLE {table_name}" in content:
@@ -160,7 +147,7 @@ def main():
     # Find all tables in migrations
     tables_found = {}
 
-    for migration_file in _migration_files():
+    for migration_file in MIGRATIONS_DIR.glob("*.sql"):
         content = migration_file.read_text()
 
         # Find all CREATE TABLE statements
