@@ -72,24 +72,28 @@ acceptances:
 - identity:
     urn: acc:bind-substrate-runtime:L001-UNIT-002-family-fans-out-to-conventions
     id: AC-UNIT-002
-    purpose: "one implementation entry may realize N conventions \u2014 the family\
-      \ fans out to every convention it realizes, so a multi-rule detector binds each\
-      \ of them"
+    purpose: a family detector declaring realizes_convention as a list is fanned out
+      by the composer across every convention it realizes, so one implementation owns
+      N conventions; ownership collisions are still refused and co-emission (emits_rule_ids)
+      is never indexed as ownership
     phase: GREEN
   harness:
     type: unit
     category: backend
   given:
     abstract:
-    - A binding plan whose implementation declares realizes_convention as a list of
-      N convention rule ids
+    - A temp project whose lock lists a family extension whose implementation manifest
+      declares realizes_convention as a list of several convention_ids, plus a sibling
+      implementation that co-emits one of those rule_ids without owning it
   when:
-    abstract: the composer indexes implementations by realizes_convention
+    abstract: the composer indexes implementations by the conventions they realize
   then:
     abstract:
-    - The implementation is bound to each of the N conventions it realizes (fan-out),
-      not just the first
-    - Every realized convention resolves to that single implementation
+    - the single family implementation is indexed under every convention_id in its
+      realizes_convention list
+    - a second implementation realizing an already-owned convention is refused as
+      an ownership collision
+    - a co-emitted rule_id (emits_rule_ids) is never indexed as ownership
   metadata:
     author: atdd:self-compliance
-    created: '2026-07-11'
+    created: '2026-07-10'

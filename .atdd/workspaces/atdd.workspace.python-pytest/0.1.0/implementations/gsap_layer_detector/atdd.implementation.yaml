@@ -5,7 +5,9 @@ targets_workspace: atdd.workspace.python-pytest
 contract_version: "1.1.0"
 
 # Back-reference to the agnostic obligation this detector primarily realizes.
-realizes_convention: coder.presentation.gsap-layer
+realizes_convention:
+  - coder.presentation.gsap-layer
+  - coder.presentation.gsap-commons
 
 # One run can surface a SECOND rule_id (coder.presentation.gsap-commons) too —
 # both strict — exercising the v1.1 multi-rule output channel. Declared so the

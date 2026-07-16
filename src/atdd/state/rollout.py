@@ -251,7 +251,8 @@ def _check_dependencies(plan: Plan) -> List[RolloutProblem]:
             dep = plan.by_id(dep_id)
             if dep is None:
                 problems.append(RolloutProblem(
-                    RULE_MALFORMED, step.id, f"depends on {dep_id!r}, which the plan does not define",
+                    RULE_MALFORMED, step.id,
+                    f"depends on {dep_id!r}, which the plan does not define",
                 ))
             elif dep.order >= step.order:
                 problems.append(RolloutProblem(
@@ -289,8 +290,10 @@ def check(root: Path, *, plan_path: Optional[Path] = None) -> RolloutReport:
         problems.extend(rule(plan))
 
     if problems:
-        _log.warning("the migration rollout plan is not sound",
-                     extra={"plan": str(path), "problems": [p.render() for p in problems]})
+        _log.warning(
+            "the migration rollout plan is not sound",
+            extra={"plan": str(path), "problems": [p.render() for p in problems]},
+        )
     return RolloutReport(problems=problems, plan=plan)
 
 

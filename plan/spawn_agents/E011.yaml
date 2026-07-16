@@ -1,4 +1,7 @@
-urn: "wmbt:spawn-agents:E011"
+urn: "wmbt:spawn-agents:E011"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E011-SMOKE-001 'verify-stage-with-real-multiplexer' exercised `commands/spawn.py`'s
+# _verify_stage against a real multiplexer. spawn.py was decommissioned; the surviving unit
+# acceptances remain bound to live tests.
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -7,74 +10,6 @@ context_clarifier: "cmd_spawn currently pipelines the worker-launch flow with op
 lens: "functional.effectiveness"
 statement: "minimize likelihood of coach-spawn-pipeline-stages-that-silently-fail-without-raising-a-stage-specific-exception when cmd_spawn fires /rename, paste_text, and send_key(Enter) — by introducing _verify_stage() that polls capture_pane_text for an explicit success signal per stage, raises RenameNotAccepted/PasteDidNotLand/PromptNotSubmitted on timeout, and removing the silent-skip in _assert_worker_processing so all capture-capable backends raise on timeout"
 acceptances:
-  - identity:
-      urn: "acc:spawn-agents:E011-UNIT-001-verify-stage-raises-rename-not-accepted"
-      id: "AC-UNIT-001"
-      purpose: "_verify_stage raises RenameNotAccepted when capture_pane_text never returns the canonical name within the timeout; passes when the canonical name appears"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _verify_stage(stage_name, surface_ref, backend, expect_any, timeout_s, poll_interval_s)"
-        - "A fake backend whose capture_pane_text always returns 'Press Enter to send' (rename never reflected)"
-    when:
-      abstract: "_verify_stage is called with stage_name='rename-accepted', expect_any=('ATDD42',), timeout_s=0.1"
-    then:
-      abstract:
-        - "RenameNotAccepted is raised"
-        - "RenameNotAccepted is a subclass of WorkerReadinessTimeout"
-        - "When capture_pane_text returns a string containing 'ATDD42', _verify_stage returns without raising"
-    metadata:
-      author: "atdd:tester"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E011-UNIT-002-verify-stage-raises-paste-did-not-land"
-      id: "AC-UNIT-002"
-      purpose: "_verify_stage raises PasteDidNotLand when capture_pane_text never shows the paste indicator or prompt prefix within the timeout; passes when paste indicator appears"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _verify_stage and PasteDidNotLand"
-        - "A fake backend whose capture_pane_text always returns 'Press Enter to send'"
-    when:
-      abstract: "_verify_stage is called with stage_name='paste-landed', expect_any=('paste again to expand', 'You are the planner'), timeout_s=0.1"
-    then:
-      abstract:
-        - "PasteDidNotLand is raised"
-        - "PasteDidNotLand is a subclass of WorkerReadinessTimeout"
-        - "When capture_pane_text returns 'paste again to expand · 1 line', _verify_stage returns without raising"
-        - "When capture_pane_text returns a string starting with the prompt prefix, _verify_stage returns without raising"
-    metadata:
-      author: "atdd:tester"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E011-UNIT-003-verify-stage-raises-prompt-not-submitted"
-      id: "AC-UNIT-003"
-      purpose: "_verify_stage raises PromptNotSubmitted when no thinking/tool-use marker appears in capture_pane_text within the timeout; passes when thinking marker appears"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _verify_stage and PromptNotSubmitted"
-        - "A fake backend whose capture_pane_text shows the prompt text in the input box but no thinking marker (swallowed-Enter simulation)"
-    when:
-      abstract: "_verify_stage is called with stage_name='prompt-submitted', expect_any=('⏺ Thinking', '⏺ Reading', '⏺ Bash', '⏺ Running', '⏺ Writing', '✶', '✻', '✳'), timeout_s=0.1"
-    then:
-      abstract:
-        - "PromptNotSubmitted is raised"
-        - "PromptNotSubmitted is a subclass of WorkerReadinessTimeout"
-        - "When capture_pane_text returns '⏺ Thinking... · ATDD42', _verify_stage returns without raising"
-        - "When capture_pane_text returns '⏺ Bash(gh issue view 799)', _verify_stage returns without raising"
-    metadata:
-      author: "atdd:tester"
-      created: "2026-05-20"
   - identity:
       urn: "acc:spawn-agents:E011-UNIT-004-capture-pane-text-on-multiplexer-backend"
       id: "AC-UNIT-004"
@@ -116,94 +51,6 @@ acceptances:
         - "RenameNotAccepted is raised"
         - "When called with verify_after_send=False (the default), no capture probe occurs and no exception is raised even when the fake mux never reflects the name"
         - "When backend.capture_pane_text returns a string containing the canonical name, no exception is raised"
-    metadata:
-      author: "atdd:tester"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E011-UNIT-006-assert-worker-processing-hard-raises"
-      id: "AC-UNIT-006"
-      purpose: "_assert_worker_processing raises WorkerReadinessTimeout (not silently skips) when the backend implements capture_pane_text but the pane never shows a processing indicator"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py _assert_worker_processing with E011 changes"
-        - "A backend implementing capture_pane_text that always returns 'Press up to edit queued messages'"
-    when:
-      abstract: "_assert_worker_processing is called with timeout_s=0.1, poll_interval_s=0.01"
-    then:
-      abstract:
-        - "WorkerReadinessTimeout is raised (NOT silently returned)"
-        - "When capture_pane_text returns 'Press Enter to send' (another idle marker), WorkerReadinessTimeout is still raised"
-    metadata:
-      author: "atdd:tester"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E011-UNIT-007-verify-stage-retries-once-before-raise"
-      id: "AC-UNIT-007"
-      purpose: "_verify_stage exception message includes the stage name and surface ref; succeeds when the expected signal appears on the second capture poll"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _verify_stage and WorkerReadinessTimeout"
-        - "A fake backend that returns an idle string on first call and the expected signal on the second call"
-    when:
-      abstract: "_verify_stage is called with a stage_name and a backend that times out; separately with a backend that succeeds on second poll"
-    then:
-      abstract:
-        - "On timeout: the exception message contains the stage_name string"
-        - "On timeout: the exception message contains the surface_ref string"
-        - "When the signal appears on the second poll, _verify_stage returns without raising and at least 2 capture calls were made"
-    metadata:
-      author: "atdd:tester"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E011-INTEGRATION-001-full-spawn-path-verify-each-stage"
-      id: "AC-INTEGRATION-001"
-      purpose: "The full cmd_spawn path exercises all four verify stages (claude-up, rename-accepted, paste-landed, prompt-submitted) in sequence with a FakeMultiplexer scripted for correct progression; no agent_spawned when paste-landed fails"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A FakeMultiplexer whose capture_pane_text cycles through staged responses: calls 1-2 return Anthropic/accept-edits, 3-4 return canonical name, 5-6 return paste indicator, 7+ return thinking marker"
-        - "A tmp claude_projects_dir with a pre-created session .jsonl file"
-        - "A tmp claude_json_path (real ~/.claude.json never touched)"
-        - "A dummy launch prompt file exists on disk"
-    when:
-      abstract: "cmd_spawn is invoked end-to-end with the staged FakeMultiplexer; separately with a PasteFailsMux that always returns an idle string"
-    then:
-      abstract:
-        - "Happy-path: paste_calls and send_key_calls are populated; agent_spawned event exists in runtime/agents/"
-        - "Paste-fail path: an exception is raised and no agent_spawned event exists in runtime/agents/"
-    metadata:
-      author: "atdd:tester"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E011-SMOKE-001-verify-stage-with-real-multiplexer"
-      id: "AC-SMOKE-001"
-      purpose: "Against a real cmux session, capture_pane_text returns non-empty content confirming the method is wired to the backend and _verify_stage does not silently skip"
-      phase: "SMOKE"
-    harness:
-      type: "smoke"
-      category: "backend"
-    given:
-      abstract:
-        - "A real cmux session is available (CMUX_SOCKET set or default socket found)"
-        - "A real surface is created with a hermetic launch command (e.g. 'sleep 5')"
-        - "ATDD_RUN_SMOKE=1 is set in the environment"
-    when:
-      abstract: "capture_pane_text is called on the real cmux backend's surface ref"
-    then:
-      abstract:
-        - "capture_pane_text returns a string (not raises NotImplementedError)"
-        - "_verify_stage with expect_any=('',) (trivially true) completes without raising on a live surface"
     metadata:
       author: "atdd:tester"
       created: "2026-05-20"

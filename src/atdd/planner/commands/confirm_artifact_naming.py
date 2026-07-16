@@ -30,6 +30,28 @@ from atdd.planner.artifact_naming import (
 __all__ = ["assert_kept_artifact_naming"]
 
 
+def _produce_naming_failure(entry, wagon: str, config) -> "str | None":
+    """The naming complaint for one ``produce[]`` entry, or None when it is sound.
+
+    An entry with no ``name`` names nothing to check; one with a null/absent
+    ``contract`` has no path to mirror. A malformed identity short-circuits — it
+    cannot meaningfully mirror a path.
+    """
+    if not isinstance(entry, dict):
+        return None
+    name = entry.get("name")
+    if not name:
+        return None
+    ok, reason = is_valid_artifact_identity(name, config=config)
+    if not ok:
+        return f"{wagon} produce {name!r} — {reason}"
+    contract = entry.get("contract")
+    if not (isinstance(contract, str) and contract):
+        return None
+    ok, reason = path_mirrors_identity(name, contract)
+    return None if ok else f"{wagon} produce {name!r} — {reason}"
+
+
 def assert_kept_artifact_naming(session, root: Path | str = ".") -> None:
     """Raise :class:`SessionGateError` if any kept wagon unit produces an
     artifact whose identity is not theme-first or whose contract path does not
@@ -50,20 +72,9 @@ def assert_kept_artifact_naming(session, root: Path | str = ".") -> None:
         spec = unit.get("spec") or {}
         wagon = spec.get("wagon") or unit.get("ref", "")
         for entry in spec.get("produce") or []:
-            if not isinstance(entry, dict):
-                continue
-            name = entry.get("name")
-            if not name:
-                continue
-            ok, reason = is_valid_artifact_identity(name, config=config)
-            if not ok:
-                failures.append(f"{wagon} produce {name!r} — {reason}")
-                continue  # a malformed identity can't meaningfully mirror a path
-            contract = entry.get("contract")
-            if isinstance(contract, str) and contract:
-                ok, reason = path_mirrors_identity(name, contract)
-                if not ok:
-                    failures.append(f"{wagon} produce {name!r} — {reason}")
+            failure = _produce_naming_failure(entry, wagon, config)
+            if failure is not None:
+                failures.append(failure)
 
     if failures:
         raise SessionGateError(

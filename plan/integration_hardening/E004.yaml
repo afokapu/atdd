@@ -75,26 +75,6 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-13"
   - identity:
-      urn: "acc:integration-hardening:E004-INTEGRATION-002-uuid-captured"
-      id: "AC-INTEGRATION-002"
-      purpose: ".atdd/runtime/coach/<N>/<agent_id>.session.json exists after spawn with a valid claude_resume_uuid matching [a-f0-9-]{36}"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "atdd coach <N> completes spawn with a real Claude Code process in the surface"
-    when:
-      abstract: "spawn returns and the session file path is checked"
-    then:
-      abstract:
-        - ".atdd/runtime/coach/<N>/<agent_id>.session.json exists"
-        - "The file contains claude_resume_uuid matching [a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-13"
-  - identity:
       urn: "acc:integration-hardening:E004-INTEGRATION-003-status-surfaces-resume-hint"
       id: "AC-INTEGRATION-003"
       purpose: "atdd coach status output includes a 'Resume agent: claude --resume <UUID>' line read from the saved session JSON"

@@ -52,29 +52,6 @@ acceptances:
       author: "atdd:planner:734"
       created: "2026-05-17"
   - identity:
-      urn: "acc:integration-hardening:E009-INTEGRATION-002-resume-spawns-pending-phase-persona"
-      id: "AC-INTEGRATION-002"
-      purpose: "atdd coach --resume on an issue reconstructed mid-lifecycle records a persona spawn for the pending phase via the same orchestration the cold-start path uses"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A decisions.jsonl reconstructing issue 999 to phase SMOKE"
-        - "coach.run is invoked with --resume <RUN_ID> and a FakeMultiplexer injected so no real cmux pane is created"
-        - "spawn handler dependencies (_load_persona_prompt, _resolve_worktree) return synthetic values"
-    when:
-      abstract: "The resume path drives the SMOKE→REFACTOR transition"
-    then:
-      abstract:
-        - "FakeMultiplexer records at least one spawn invocation for the pending phase's persona (coder for SMOKE→REFACTOR)"
-        - "No real cmux pane is created"
-        - "The spawn count is non-zero — the resume run is not a paper walk"
-    metadata:
-      author: "atdd:planner:734"
-      created: "2026-05-17"
-  - identity:
       urn: "acc:integration-hardening:E009-INTEGRATION-003-no-paper-fast-forward-on-block"
       id: "AC-INTEGRATION-003"
       purpose: "When a pending phase cannot complete, the resume run BLOCKs/escalates and writes no phase-transition record for that phase or any later one — never a …→COMPLETE stamp"

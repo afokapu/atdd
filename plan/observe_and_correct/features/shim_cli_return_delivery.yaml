@@ -7,7 +7,6 @@ sizing:
   footprint_size: "M"
 wmbts:
   - "wmbt:observe-and-correct:E003"
-  - "wmbt:observe-and-correct:E004"
 components:
   backend:
     presentation:

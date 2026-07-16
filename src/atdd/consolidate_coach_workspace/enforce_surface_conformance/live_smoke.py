@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, List, Tuple
 
-from atdd.coach.observer_rules.canonical_role_naming import (
+from atdd.coach.utils.canonical_role_naming import (
     flag_non_conforming,
     is_conforming,
 )
