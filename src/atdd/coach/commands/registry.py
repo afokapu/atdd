@@ -231,6 +231,19 @@ class RegistryBuilder:
         self.python_dir = resolve_code_root("python", repo_root)
         self.supabase_dir = resolve_stack_container("supabase", repo_root)
 
+    @staticmethod
+    def _empty_stats(count_key: str) -> Dict[str, Any]:
+        """Zeroed stats block; ``count_key`` is total_files / total_dirs."""
+        return {
+            count_key: 0,
+            "processed": 0,
+            "updated": 0,
+            "new": 0,
+            "errors": 0,
+            "preserved_drafts": 0,
+            "changes": [],
+        }
+
     # ========================================================================
     # MODE HANDLING - Unified confirmation and apply logic
     # ========================================================================
@@ -1587,15 +1600,7 @@ class RegistryBuilder:
 
         if self.python_dir is None:
             print("  ⚠️  No python root declared under .atdd/config.yaml::code")
-            return {
-                "total_files": 0,
-                "processed": 0,
-                "updated": 0,
-                "new": 0,
-                "errors": 0,
-                "preserved_drafts": 0,
-                "changes": [],
-            }
+            return self._empty_stats("total_files")
 
         # Load existing registry
         registry_path = self.python_dir / "_implementations.yaml"
@@ -1605,15 +1610,7 @@ class RegistryBuilder:
                 registry_data = yaml.safe_load(f)
                 existing_impls = {i.get("urn"): i for i in registry_data.get("implementations", [])}
 
-        stats = {
-            "total_files": 0,
-            "processed": 0,
-            "updated": 0,
-            "new": 0,
-            "errors": 0,
-            "preserved_drafts": 0,
-            "changes": []
-        }
+        stats = self._empty_stats("total_files")
 
         # Scan for Python implementation files
         py_files = self._collect_coder_files()
@@ -1736,15 +1733,7 @@ class RegistryBuilder:
 
         if self.supabase_dir is None:
             print("  ⚠️  No supabase container declared under .atdd/config.yaml")
-            return {
-                "total_dirs": 0,
-                "processed": 0,
-                "updated": 0,
-                "new": 0,
-                "errors": 0,
-                "preserved_drafts": 0,
-                "changes": [],
-            }
+            return self._empty_stats("total_dirs")
 
         # Load existing registry
         registry_path = self.supabase_dir / "_functions.yaml"
@@ -1754,15 +1743,7 @@ class RegistryBuilder:
                 registry_data = yaml.safe_load(f)
                 existing_funcs = {fn.get("id"): fn for fn in registry_data.get("functions", [])}
 
-        stats = {
-            "total_dirs": 0,
-            "processed": 0,
-            "updated": 0,
-            "new": 0,
-            "errors": 0,
-            "preserved_drafts": 0,
-            "changes": []
-        }
+        stats = self._empty_stats("total_dirs")
 
         # Scan for function directories
         functions_dir = self.supabase_dir / "functions"
