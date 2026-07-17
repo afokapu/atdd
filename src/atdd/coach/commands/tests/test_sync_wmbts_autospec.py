@@ -38,28 +38,38 @@ def _write_atdd_config(atdd_dir: Path) -> None:
     )
 
 
-def _write_manifest_with_feature(
-    atdd_dir: Path,
+def _seed_store_with_feature(
+    repo_root: Path,
     issue_number: int,
     wagon: str,
     feature: str,
 ) -> None:
-    (atdd_dir / "manifest.yaml").write_text(
-        "version: '2.0'\n"
-        "created: '2026-04-17'\n"
-        "sessions:\n"
-        f"  - id: '{issue_number}'\n"
-        f"    slug: {feature}\n"
-        "    file: null\n"
-        f"    issue_number: {issue_number}\n"
-        "    type: implementation\n"
-        "    status: PLANNED\n"
-        "    created: '2026-04-17'\n"
-        "    archived: null\n"
-        f"    wagon: {wagon}\n"
-        f"    feature: 'feature:{wagon}:{feature}'\n",
-        encoding="utf-8",
-    )
+    """Register the work item in the State Store, carrying its wagon and feature.
+
+    #1400 CORE-034 (Y002): ``sync_wmbts`` reads these from the store. The manifest session this
+    replaces was a read-fallback, and it is retired.
+    """
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    conn = connect(init_state_store(start=repo_root))
+    try:
+        store = StateStore(conn)
+        store.objects.upsert(
+            feature, WORK_ITEM_KIND, state="PLANNED",
+            data={
+                "id": str(issue_number),
+                "type": "implementation",
+                "wagon": wagon,
+                "feature": f"feature:{wagon}:{feature}",
+            },
+        )
+        store.external_refs.link(
+            feature, GITHUB_PROVIDER, "issue", str(issue_number), data={"source": "test-fixture"},
+        )
+    finally:
+        conn.close()
 
 
 def _write_feature_yaml(
@@ -110,8 +120,8 @@ def _build_fixture_repo(tmp_path: Path, issue_number: int = 304) -> Path:
     atdd_dir = tmp_path / ".atdd"
     atdd_dir.mkdir()
     _write_atdd_config(atdd_dir)
-    _write_manifest_with_feature(
-        atdd_dir,
+    _seed_store_with_feature(
+        tmp_path,
         issue_number=issue_number,
         wagon="govern-lifecycle",
         feature="fix-github-client-mock-drift",

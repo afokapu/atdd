@@ -1,0 +1,26 @@
+#!/bin/sh
+# ATDD pre-rebase hook — dirty-store protection before a rebase (#1400 CORE-014).
+# Installed by `atdd init`. Always exits 0.
+#
+# A rebase is the operation most likely to move HEAD out from under a store that is
+# holding uncommitted local authoring. This hook runs the dirty-store check FIRST, so
+# the operator knows before the rewrite whether they have private overlay at stake.
+#
+# It reports; it does not block. Reconcile is not overwrite (I5): the overlay is
+# replayed onto the incoming projection after the rebase (via post-rewrite), and the
+# store is backed up before any mutation. So a dirty store is safe to rebase over —
+# the operator just deserves to know it is there.
+#
+# Convenience, never authority (spec §9).
+
+set -u
+
+if [ "${CI:-}" = "true" ]; then
+    exit 0
+fi
+
+command -v atdd >/dev/null 2>&1 || exit 0
+
+atdd state reconcile --check-dirty >&2 || true
+
+exit 0

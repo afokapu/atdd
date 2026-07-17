@@ -119,8 +119,10 @@ def scan_parse_errors(repo_root) -> List[dict]:
         try:
             yaml.safe_load(p.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
-            errs.append({"source_file": str(p.relative_to(root)),
-                         "parse_error": str(exc).splitlines()[0][:120]})
+            errs.append({
+                "source_file": str(p.relative_to(root)),
+                "parse_error": str(exc).splitlines()[0][:120],
+            })
     return errs
 
 
@@ -140,87 +142,130 @@ def find_train_file(repo_root, anchor: str) -> str:
     raise AssertionError(f"no train file under plan/_trains carries anchor {anchor!r}")
 
 
-def load_composed_graph(repo_root) -> ConventionGraph:
-    root = Path(repo_root)
-    g = ConventionGraph(root=root)
-    plan = root / "plan"
+def _add_wagon_manifest(g, root: Path, wdir: Path, slug: str) -> None:
+    man = wdir / f"_{slug}.yaml"
+    if not man.exists():
+        return
+    d = _safe_yaml(man)
+    g._add(Node(
+        id=d.get("urn") or f"wagon:{d.get('wagon', slug)}",
+        kind="wagon",
+        location=str(man.relative_to(root)),
+        package=slug,
+        theme=d.get("theme"),
+        refs=[f.get("urn") for f in (d.get("features") or []) if f.get("urn")],
+        fields=d,
+    ))
 
-    # wagons / features / wmbts
-    if plan.is_dir():
-        for wdir in sorted(p for p in plan.iterdir() if p.is_dir()):
-            slug = wdir.name
-            man = wdir / f"_{slug}.yaml"
-            if man.exists():
-                d = _safe_yaml(man)
-                g._add(Node(id=d.get("urn") or f"wagon:{d.get('wagon', slug)}",
-                            kind="wagon", location=str(man.relative_to(root)),
-                            package=slug, theme=d.get("theme"),
-                            refs=[f.get("urn") for f in (d.get("features") or []) if f.get("urn")],
-                            fields=d))
-            fdir = wdir / "features"
-            if fdir.is_dir():
-                for f in sorted(fdir.glob("*.yaml")):
-                    d = _safe_yaml(f)
-                    g._add(Node(id=d.get("urn") or str(f), kind="feature",
-                                location=str(f.relative_to(root)), package=slug,
-                                refs=list(d.get("wmbts") or []), fields=d))
-            for w in sorted(wdir.glob("[A-Z]*.yaml")):
-                d = _safe_yaml(w)
-                g._add(Node(id=d.get("urn") or str(w), kind="wmbt",
-                            location=str(w.relative_to(root)), package=slug, fields=d))
 
-    # trains: load the conformant DETAIL files (plan/_trains/*.yaml), not the
-    # _trains.yaml index. refs = wagon participants (system:* terminals excluded).
+def _add_wagon_features(g, root: Path, wdir: Path, slug: str) -> None:
+    fdir = wdir / "features"
+    if not fdir.is_dir():
+        return
+    for f in sorted(fdir.glob("*.yaml")):
+        d = _safe_yaml(f)
+        g._add(Node(
+            id=d.get("urn") or str(f),
+            kind="feature",
+            location=str(f.relative_to(root)),
+            package=slug,
+            refs=list(d.get("wmbts") or []),
+            fields=d,
+        ))
+
+
+def _add_wagon_wmbts(g, root: Path, wdir: Path, slug: str) -> None:
+    for w in sorted(wdir.glob("[A-Z]*.yaml")):
+        d = _safe_yaml(w)
+        g._add(Node(
+            id=d.get("urn") or str(w),
+            kind="wmbt",
+            location=str(w.relative_to(root)),
+            package=slug,
+            fields=d,
+        ))
+
+
+def _load_wagon_nodes(g, root: Path, plan: Path) -> None:
+    """wagons / features / wmbts."""
+    if not plan.is_dir():
+        return
+    for wdir in sorted(p for p in plan.iterdir() if p.is_dir()):
+        slug = wdir.name
+        _add_wagon_manifest(g, root, wdir, slug)
+        _add_wagon_features(g, root, wdir, slug)
+        _add_wagon_wmbts(g, root, wdir, slug)
+
+
+def _load_train_nodes(g, root: Path, plan: Path) -> None:
+    """The conformant train DETAIL files (plan/_trains/*.yaml), not the
+    _trains.yaml index. refs = wagon participants (system:* terminals excluded).
+
+    rglob: typed trains (issue #1421) live under plan/_trains/<subject>/<slug>.yaml;
+    legacy flat trains under plan/_trains/*.yaml. Non-train files (_aliases.yaml,
+    _interlockings/*) carry no train_id and are skipped below.
+    """
     tdir = plan / "_trains"
-    if tdir.is_dir():
-        # rglob: typed trains (issue #1421) live under plan/_trains/<subject>/<slug>.yaml;
-        # legacy flat trains under plan/_trains/*.yaml. Non-train files (_aliases.yaml,
-        # _interlockings/*) carry no train_id and are skipped below.
-        for tf in sorted(tdir.rglob("*.yaml")):
-            d = _safe_yaml(tf)
-            if not d.get("train_id"):
-                continue
-            # train_id may already be a typed urn (train:<subject>:<slug>, #1421) or a
-            # legacy NNNN-slug; prefix only the legacy form.
-            _tid = str(d["train_id"])
-            _node_id = _tid if _tid.startswith("train:") else f"train:{_tid}"
-            g._add(Node(id=_node_id, kind="train",
-                        location=str(tf.relative_to(root)),
-                        refs=[p for p in (d.get("participants") or [])
-                              if isinstance(p, str) and p.startswith("wagon:")],
-                        fields=d))
+    if not tdir.is_dir():
+        return
+    for tf in sorted(tdir.rglob("*.yaml")):
+        d = _safe_yaml(tf)
+        if not d.get("train_id"):
+            continue
+        # train_id may already be a typed urn (train:<subject>:<slug>, #1421) or a
+        # legacy NNNN-slug; prefix only the legacy form.
+        tid = str(d["train_id"])
+        node_id = tid if tid.startswith("train:") else f"train:{tid}"
+        g._add(Node(
+            id=node_id,
+            kind="train",
+            location=str(tf.relative_to(root)),
+            refs=[p for p in (d.get("participants") or [])
+                  if isinstance(p, str) and p.startswith("wagon:")],
+            fields=d,
+        ))
 
-    # train ids as declared in the INDEX (plan/_trains.yaml) — the representation
-    # legacy uniqueness reads, kept separate from the detail-file train nodes.
+
+def _load_index_train_ids(g, plan: Path) -> None:
+    """train ids as declared in the INDEX (plan/_trains.yaml) — the representation
+    legacy uniqueness reads, kept separate from the detail-file train nodes."""
     idx = plan / "_trains.yaml"
-    if idx.is_file():
-        d = _safe_yaml(idx)
+    if not idx.is_file():
+        return
+    d = _safe_yaml(idx)
 
-        def _walk(o):
-            if isinstance(o, dict):
-                tid = o.get("train_id")
-                if isinstance(tid, str):
-                    g._index_train_ids.append((tid, "plan/_trains.yaml"))
-                for v in o.values():
-                    _walk(v)
-            elif isinstance(o, list):
-                for v in o:
-                    _walk(v)
+    def _walk(o):
+        if isinstance(o, dict):
+            tid = o.get("train_id")
+            if isinstance(tid, str):
+                g._index_train_ids.append((tid, "plan/_trains.yaml"))
+            for v in o.values():
+                _walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                _walk(v)
 
-        _walk(d.get("trains"))
+    _walk(d.get("trains"))
 
-    # rules from convention sources — TWO-PASS (#1212 a-fix).
-    # Pass 1: rules declared in `rules:[]` blocks (the legacy representation).
+
+def _load_rule_nodes(g, root: Path) -> None:
+    """Rules from convention sources — TWO-PASS (#1212 a-fix)."""
     convs = sorted((root / "src" / "atdd").rglob("*.convention.yaml"))
     loaded_rule_ids: Set[str] = set()
+
+    # Pass 1: rules declared in `rules:[]` blocks (the legacy representation).
     for conv in convs:
         d = _safe_yaml(conv)
         for rule in (d.get("rules") or []):
             if not isinstance(rule, dict) or not rule.get("id"):
                 continue
-            g._add(Node(id=rule["id"], kind="rule",
-                        location=str(conv.relative_to(root)),
-                        validator=rule.get("validator"), fields=rule))
+            g._add(Node(
+                id=rule["id"],
+                kind="rule",
+                location=str(conv.relative_to(root)),
+                validator=rule.get("validator"),
+                fields=rule,
+            ))
             loaded_rule_ids.add(rule["id"])
 
     # Pass 2: single-node convention files emitted by `atdd author`
@@ -236,13 +281,27 @@ def load_composed_graph(repo_root) -> ConventionGraph:
         loaded_rule_ids.add(rid)
         impl = d.get("implementation")
         validator = impl.get("ref") if isinstance(impl, dict) else None
-        g._add(Node(id=rid, kind="rule",
-                    location=str(conv.relative_to(root)),
-                    validator=validator, fields=d))
+        g._add(Node(
+            id=rid,
+            kind="rule",
+            location=str(conv.relative_to(root)),
+            validator=validator,
+            fields=d,
+        ))
 
-    # emitted rule_ids: bind_rule(<id>) across ALL src/atdd sources (binders can live
-    # in guards/commands/tests, not only under /validators/). Resolve string literals
-    # AND module-level string constants so bind_rule(_RULE_ID) is captured.
+
+def _resolve_bind_arg(arg: str, consts: dict) -> "str | None":
+    """The rule_id a ``bind_rule()`` argument names: a string literal, or a
+    module-level string constant. ``None`` when computed/imported (unresolvable)."""
+    if arg[:1] in ("'", '"'):
+        return arg.strip("'\"")
+    return consts.get(arg)
+
+
+def _load_bind_rule_emissions(g, root: Path) -> None:
+    """emitted rule_ids: bind_rule(<id>) across ALL src/atdd sources (binders can live
+    in guards/commands/tests, not only under /validators/). Resolve string literals
+    AND module-level string constants so bind_rule(_RULE_ID) is captured."""
     vroot = root / "src" / "atdd"
     for py in vroot.rglob("*.py"):
         try:
@@ -255,13 +314,19 @@ def load_composed_graph(repo_root) -> ConventionGraph:
                 g._validator_functions.setdefault(fn, set()).add(py.stem)
         consts = dict(_CONST_RE.findall(txt))
         for arg in _BIND_RULE_RE.findall(txt):
-            arg = arg.strip()
-            if arg[:1] in ("'", '"'):
-                rid = arg.strip("'\"")
-            elif arg in consts:
-                rid = consts[arg]
-            else:
+            rid = _resolve_bind_arg(arg.strip(), consts)
+            if rid is None:
                 continue  # unresolvable (computed/imported) — skip
             g._emits.setdefault(rid, set()).add(str(py.relative_to(root)))
 
+
+def load_composed_graph(repo_root) -> ConventionGraph:
+    root = Path(repo_root)
+    g = ConventionGraph(root=root)
+    plan = root / "plan"
+    _load_wagon_nodes(g, root, plan)
+    _load_train_nodes(g, root, plan)
+    _load_index_train_ids(g, plan)
+    _load_rule_nodes(g, root)
+    _load_bind_rule_emissions(g, root)
     return g

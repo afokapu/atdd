@@ -1,0 +1,70 @@
+schema_version: 1.1.0
+rule_id: planner.interface.api-mapping
+kind: rule
+status: active
+name: 'Interface: Api Mapping'
+statement: Artifact names map to REST API endpoints of the form /{domain}s/{id}/{resource}[/{category}],
+  with the resource term selecting the HTTP verb (POST/GET/PUT/DELETE) and category
+  facets adding path segments.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+  legacy_section: api-mapping
+content:
+  summary: A deterministic artifact-to-REST mapping lets external consumers address
+    wagon artifacts over HTTP, and choosing the verb from the resource keyword keeps
+    the API surface consistent with the artifact's lifecycle semantics.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: endpoint_pattern
+  label: REST endpoint pattern
+  text: Artifact names map to REST API endpoints for external consumption following
+    /{domain}s/{id}/{resource}[/{category}]. Category facets add path segments.
+  values:
+    pattern: /{domain}s/{id}/{resource}[/{category}]
+    description: Artifact names map to REST API endpoints for external consumption.
+      Category facets add path segments.
+  examples:
+    positive:
+    - ux:foundations -> GET /uxs/{id}/foundations
+    - ux:foundations.colors -> GET /uxs/{id}/foundations/colors
+    - match:result -> GET /matches/{id}/result
+    - session:new -> POST /sessions
+    - player:identity -> GET /players/{id}
+- term_id: verb_mapping
+  label: Resource-keyword to HTTP verb table
+  text: The resource keyword selects the HTTP method. Creation keywords map to POST,
+    read keywords to GET, mutation keywords to PUT, and removal keywords to DELETE.
+  values:
+    POST:
+    - new
+    - created
+    - registered
+    - started
+    GET:
+    - result
+    - active
+    - config
+    - events
+    - foundations
+    PUT:
+    - updated
+    - closed
+    - completed
+    DELETE:
+    - terminated
+    - deleted
+  examples:
+    positive:
+    - 'session:new -> POST /sessions  # new -> POST'
+    - 'match:result -> GET /matches/{id}/result  # result -> GET'
+    negative:
+    - 'session:closed mapped to POST  # closed -> PUT, not POST'

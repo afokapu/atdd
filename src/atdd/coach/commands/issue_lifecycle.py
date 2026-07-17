@@ -604,18 +604,11 @@ class IssueLifecycle:
         from atdd.coach.commands.issue import IssueManager as _IM
         slugified = _IM(self.target_dir)._slugify(slug)
 
-        # #1270 slice B: resolve slug → issue_number store-first (authoritative
-        # since #1203), falling back to the .atdd/manifest.yaml mirror (last
-        # match wins there, in case of duplicate slugs).
+        # #1400 CORE-034 (Y002): the store is the only source. The manifest fallback that
+        # followed this line is retired — it resolved a slug by scanning `sessions` in reverse
+        # and taking the last duplicate, which is a coin toss dressed as a lookup. The store
+        # links exactly one GitHub issue ref per work item, so it either knows or it does not.
         issue_number = _store_issue_number_for_slug(self.target_dir, slugified)
-        if issue_number is None:
-            manifest_path = self.atdd_config_dir / "manifest.yaml"
-            if manifest_path.exists():
-                manifest = yaml.safe_load(manifest_path.read_text()) or {}
-                for entry in reversed(manifest.get("sessions", [])):
-                    if entry.get("slug") == slugified:
-                        issue_number = entry.get("issue_number")
-                        break
 
         if not issue_number:
             print(f"Error: Could not find issue number for slug '{slug}'.")

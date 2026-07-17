@@ -133,6 +133,27 @@ def contract_satisfies(version: str, spec: str) -> bool:
     return cur == base  # exact
 
 
+def _validate_discovers(data: dict) -> None:
+    """``discovers`` is optional; only its shape is validated here."""
+    discovers = data.get("discovers") or {}
+    if discovers.get("requires_contract") is not None:
+        _parse_range(discovers["requires_contract"], field="requires_contract")
+
+
+def _legacy_execution_capability(data: dict) -> list:
+    """Legacy back-compat: a top-level ``runtime`` is one implicit execution
+    capability. Its ``contract_version`` stays required."""
+    capability = {
+        "capability_id": "execution.legacy",
+        "domain": "execution",
+        "type": "command-runner",
+        "contract": "atdd.workspace.capability.execution.command-runner.v1",
+        "runtime": data["runtime"],
+    }
+    _parse_version(data.get("contract_version"))
+    return [capability]
+
+
 def validate_workspace_manifest(data: dict) -> None:
     """Validate an ``atdd.workspace.yaml`` provider manifest.
 
@@ -150,15 +171,7 @@ def validate_workspace_manifest(data: dict) -> None:
 
     capabilities = data.get("capabilities")
     if not capabilities and data.get("runtime"):
-        # legacy back-compat: a top-level runtime is one implicit execution capability
-        capabilities = [{
-            "capability_id": "execution.legacy",
-            "domain": "execution",
-            "type": "command-runner",
-            "contract": "atdd.workspace.capability.execution.command-runner.v1",
-            "runtime": data["runtime"],
-        }]
-        _parse_version(data.get("contract_version"))  # legacy contract_version stays required
+        capabilities = _legacy_execution_capability(data)
 
     if not capabilities:
         raise AuthorInputError("capabilities", "workspace must declare at least one capability")
@@ -167,26 +180,22 @@ def validate_workspace_manifest(data: dict) -> None:
     for cap in capabilities:
         _validate_capability(cap)
 
-    discovers = data.get("discovers") or {}  # optional; validated only for shape
-    if discovers.get("requires_contract") is not None:
-        _parse_range(discovers["requires_contract"], field="requires_contract")
+    _validate_discovers(data)
 
 
-def validate_extension_manifest(data: dict) -> None:
-    """Validate an ``atdd.extension.yaml`` use-case manifest."""
-    if (data or {}).get("kind") != "extension":
-        raise AuthorInputError("kind", "extension manifest must have kind: extension")
-    validate_extension_id(data.get("extension_id", ""), allow_reserved=True)
-    if not isinstance(data.get("owns"), dict):
-        raise AuthorInputError("owns", "extension manifest must have an owns mapping")
-    # realizes (#1133): optional cross-package linkage — each entry maps an
-    # extension node onto the core node it realizes. Shape-only here; resolution +
-    # ownership are checked at composition time (compose.validate_realizes).
+def _validate_realizes(data: dict) -> None:
+    """realizes (#1133): optional cross-package linkage — each entry maps an
+    extension node onto the core node it realizes. Shape-only here; resolution +
+    ownership are checked at composition time (compose.validate_realizes)."""
     for entry in (data.get("realizes") or []):
         if not isinstance(entry, dict) or not entry.get("extension_node") or not entry.get("core_node"):
             raise AuthorInputError(
                 "realizes", "each realizes entry must be a mapping {extension_node, core_node}"
             )
+
+
+def _validate_workspace_deps(data: dict) -> None:
+    """Each ``depends_on.workspaces`` entry names a workspace + a contract range."""
     for entry in ((data.get("depends_on") or {}).get("workspaces") or []):
         if not isinstance(entry, dict):
             raise AuthorInputError(
@@ -196,18 +205,19 @@ def validate_extension_manifest(data: dict) -> None:
         _parse_range(entry.get("contract"), field="depends_on")
 
 
-def validate_implementation_manifest(data: dict) -> None:
-    """Validate an ``atdd.implementation.yaml`` manifest — the VALIDATOR/FAMILY contract.
+def validate_extension_manifest(data: dict) -> None:
+    """Validate an ``atdd.extension.yaml`` use-case manifest."""
+    if (data or {}).get("kind") != "extension":
+        raise AuthorInputError("kind", "extension manifest must have kind: extension")
+    validate_extension_id(data.get("extension_id", ""), allow_reserved=True)
+    if not isinstance(data.get("owns"), dict):
+        raise AuthorInputError("owns", "extension manifest must have an owns mapping")
+    _validate_realizes(data)
+    _validate_workspace_deps(data)
 
-    Beyond identity (kind/id/targets/contract), enforces the executable-validator
-    shape so a validator is compliant *by construction* rather than by copying an
-    example: a runnable ``entrypoint``, a v1.1 ``report`` emitter, and a non-empty
-    ``emits_rule_ids`` list (the rule_ids this one detector realizes — a FAMILY
-    detector emits >1, a singleton emits 1). ``realizes_convention`` (the primary
-    node) and ``subtype`` are validated for consistency when present. This is the
-    ``atdd.core.implementation-schema`` every extension declares in ``depends_on``.
-    """
-    data = data or {}
+
+def _validate_impl_identity(data: dict) -> None:
+    """kind / implementation_id / targets_workspace / contract_version."""
     if data.get("kind") != "implementation":
         raise AuthorInputError("kind", "implementation manifest must have kind: implementation")
     if not data.get("implementation_id"):
@@ -215,6 +225,9 @@ def validate_implementation_manifest(data: dict) -> None:
     validate_workspace_id(data.get("targets_workspace", ""), allow_reserved=True)
     _parse_version(data.get("contract_version"))
 
+
+def _validate_impl_entrypoint(data: dict) -> None:
+    """A runnable ``entrypoint``, and — when declared — a v1.1 ``report`` emitter."""
     if not (isinstance(data.get("entrypoint"), str) and data["entrypoint"].strip()):
         raise AuthorInputError("entrypoint", "implementation must declare an entrypoint (the detector module)")
     report = data.get("report")
@@ -223,23 +236,75 @@ def validate_implementation_manifest(data: dict) -> None:
             "report",
             "report, when declared, must be a non-empty path (the runnable v1.1 report-emitter "
             "the provider CLI collects; may equal entrypoint)")
-    # The impl must declare the rule_id(s) it realizes — via a non-empty
-    # ``emits_rule_ids`` list (v1.1; a FAMILY detector emits >1 from one run) OR a
-    # single ``realizes_convention`` (v1.0 exit-code mapping). At least one required.
-    emits = data.get("emits_rule_ids")
-    rc = data.get("realizes_convention")
-    has_emits = isinstance(emits, list) and bool(emits)
-    if has_emits and not all(isinstance(r, str) and r.strip() for r in emits):
+
+
+def _owned_conventions(rc) -> list:
+    """The convention(s) a detector OWNS: a single convention, the LIST a family
+    owns, or none. ``realizes_convention`` in any other shape is rejected."""
+    if isinstance(rc, list):
+        if not rc or not all(isinstance(c, str) and c.strip() for c in rc):
+            raise AuthorInputError(
+                "realizes_convention",
+                "realizes_convention, when a list, must be non-empty convention_id strings")
+        return list(rc)
+    if isinstance(rc, str) and rc.strip():
+        return [rc]
+    if rc is None:
+        return []
+    raise AuthorInputError(
+        "realizes_convention", "realizes_convention must be a convention_id or a list of them")
+
+
+def _declares_emits(emits) -> bool:
+    """True when a non-empty ``emits_rule_ids`` list is declared; raises when it is
+    declared but its entries are not non-empty rule_id strings."""
+    if not (isinstance(emits, list) and bool(emits)):
+        return False
+    if not all(isinstance(r, str) and r.strip() for r in emits):
         raise AuthorInputError("emits_rule_ids", "emits_rule_ids entries must be non-empty rule_id strings")
-    has_rc = isinstance(rc, str) and bool(rc.strip())
-    if not has_emits and not has_rc:
+    return True
+
+
+def _validate_impl_rule_ids(data: dict) -> None:
+    """The impl must declare the rule_id(s) it realizes — via a non-empty
+    ``emits_rule_ids`` list (v1.1; a FAMILY detector emits >1 from one run) OR
+    ``realizes_convention`` (v1.0 exit-code mapping). At least one required.
+    A detector cannot OWN a convention it never EMITS.
+    """
+    emits = data.get("emits_rule_ids")
+    has_emits = _declares_emits(emits)
+    owned = _owned_conventions(data.get("realizes_convention"))
+    if not has_emits and not owned:
         raise AuthorInputError(
             "emits_rule_ids",
             "implementation must declare the rule_id(s) it realizes — a non-empty emits_rule_ids "
             "list (v1.1; a FAMILY emits more than one) or realizes_convention (v1.0 single-rule)")
-    if has_emits and has_rc and rc not in emits:
+    if not (has_emits and owned):
+        return
+    unemitted = [c for c in owned if c not in emits]
+    if unemitted:
         raise AuthorInputError(
-            "realizes_convention", f"realizes_convention {rc!r} must be one of emits_rule_ids {emits!r}")
+            "realizes_convention",
+            f"realizes_convention {unemitted!r} must be among emits_rule_ids {emits!r}")
+
+
+def validate_implementation_manifest(data: dict) -> None:
+    """Validate an ``atdd.implementation.yaml`` manifest — the VALIDATOR/FAMILY contract.
+
+    Beyond identity (kind/id/targets/contract), enforces the executable-validator
+    shape so a validator is compliant *by construction* rather than by copying an
+    example: a runnable ``entrypoint``, a v1.1 ``report`` emitter, and a non-empty
+    ``emits_rule_ids`` list (the rule_ids this one detector EMITS — a FAMILY
+    detector emits >1, a singleton emits 1). ``realizes_convention`` names the
+    convention(s) the detector OWNS — one, or the list a family owns — and every
+    owned convention must be one it emits. ``subtype`` is validated when present.
+    This is the ``atdd.core.implementation-schema`` every extension declares in
+    ``depends_on``.
+    """
+    data = data or {}
+    _validate_impl_identity(data)
+    _validate_impl_entrypoint(data)
+    _validate_impl_rule_ids(data)
     sub = data.get("subtype")
     if sub is not None and sub != "validator":
         raise AuthorInputError("subtype", f"implementation subtype must be 'validator' (got {sub!r})")

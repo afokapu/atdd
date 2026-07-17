@@ -1,0 +1,112 @@
+schema_version: 1.1.0
+rule_id: planner.interface.structure-rules
+kind: rule
+status: active
+name: 'Interface: Structure Rules'
+statement: An artifact's contract directory layout follows one of three structures
+  - FLAT, FACETED, or COLLECTION - determined by whether the name has a dot facet
+  and whether the resource holds multiple schema files.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+  legacy_section: structure-rules
+content:
+  summary: A deterministic mapping from artifact name to physical layout lets the
+    contract path be derived from the logical name and keeps simple resources flat
+    while supporting faceted and multi-schema resources without ambiguity.
+  examples:
+  - 'ux:foundations.color -> contracts/commons/ux/foundations/color.schema.json  #
+    faceted, alternative to collection'
+  counter_examples:
+  - 'fragment:pool -> contracts/fragment/pool/pool.schema.json  # over-nested; single
+    resource must be flat'
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: structure_determination
+  label: How structure is determined
+  text: 'Structure is determined by: (1) a dot (.) indicates faceted, (2) multiple
+    schema files indicate collection, (3) otherwise flat.'
+  values:
+    flat: 'Simple resources use FLAT structure: contracts/{domain}/{resource}.schema.json'
+    faceted: 'Resources with category facet use NESTED structure: contracts/{domain}/{resource}/{category}.schema.json'
+    collection: 'Resources containing MULTIPLE schemas use COLLECTION structure: contracts/{domain}/{resource}/*.schema.json'
+    determination: 'Structure determined by: (1) dot (.) indicates faceted, (2) multiple
+      schema files indicate collection, (3) otherwise flat'
+- term_id: flat_pattern
+  label: FLAT structure
+  text: A single schema file for a single resource. Artifact name {domain}:{resource}
+    maps to contracts/{domain}/{resource}.schema.json with tests at contracts/{domain}/tests/{resource}_schema_test.*.
+  values:
+    description: Single schema file for single resource
+    structure: contracts/{domain}/{resource}.schema.json
+    tests: contracts/{domain}/tests/{resource}_schema_test.*
+    artifact_name: '{domain}:{resource}'
+  examples:
+    positive:
+    - 'match:dilemma.current -> contracts/dilemma/current.schema.json  # singular
+      noun -> flat (NOT dilemma/current/current.schema.json)'
+    - 'fragment:pool -> contracts/fragment/pool.schema.json  # single resource ->
+      flat (NOT fragment/pool/pool.schema.json)'
+    - 'mechanic:decision.choice -> contracts/decision/choice.schema.json  # single
+      resource -> flat'
+- term_id: faceted_pattern
+  label: FACETED structure
+  text: A nested schema using dot notation for a category facet. Artifact name {domain}:{resource}.{category}
+    maps to contracts/{domain}/{resource}/{category}.schema.json; the category is
+    expressed as a dot facet in the artifact name.
+  values:
+    description: Nested schema using dot notation for category facet
+    structure: contracts/{domain}/{resource}/{category}.schema.json
+    tests: contracts/{domain}/{resource}/tests/{category}_schema_test.*
+    artifact_name: '{domain}:{resource}.{category}'
+    note: Category expressed as dot facet in artifact name
+  examples:
+    positive:
+    - 'ux:foundations.color -> contracts/commons/ux/foundations/color.schema.json  #
+      has dot facet -> nested'
+    - ux:primitives.icon
+- term_id: collection_pattern
+  label: COLLECTION structure
+  text: A directory containing multiple related schemas for a single resource. Artifact
+    name {domain}:{resource} maps to contracts/{domain}/{resource}/*.schema.json;
+    a single wagon artifact maps to MULTIPLE schema files and may include an optional
+    catalog.schema.json master index. Each schema carries metadata distinguishing
+    its member from the shared resource.
+  values:
+    description: Directory containing multiple related schemas for a single resource
+    structure: contracts/{domain}/{resource}/*.schema.json
+    tests: contracts/{domain}/{resource}/tests/*_schema_test.*
+    artifact_name: '{domain}:{resource}'
+    note: Single wagon artifact maps to MULTIPLE schema files; may include optional
+      catalog.schema.json as master index
+    metadata_collection: true
+    metadata_member: Identifies specific schema (e.g., 'color', 'spacing')
+    metadata_resource: Same for all schemas in collection (e.g., 'foundations')
+    metadata_example: '{"domain": "ux", "resource": "foundations", "collection": true,
+      "member": "color"}'
+  examples:
+    positive:
+    - 'ux:foundations -> contracts/commons/ux/foundations/*.schema.json  # plural
+      noun -> collection (color, spacing, typography)'
+    - 'ux:primitives -> contracts/commons/ux/primitives/*.schema.json  # plural noun
+      -> collection (icon, shape, mask)'
+- term_id: logical_physical_naming
+  label: Logical and physical naming patterns
+  text: The logical pattern is {domain}:{resource}[.{category}] and the physical pattern
+    is contracts/{domain}/{resource}[/{category}].json. Domain-based organization
+    enables REST API mapping and clear ownership; the colon separator denotes hierarchy
+    and the dot separator denotes a facet; optional category supports nested resources.
+  values:
+    logical_pattern: '{domain}:{resource}[.{category}]'
+    physical_pattern: contracts/{domain}/{resource}[/{category}].json
+    rationale: Domain-based organization enables REST API mapping and clear ownership.
+      Colon separator denotes hierarchy, dot separator denotes facet. Optional category
+      supports nested resources.

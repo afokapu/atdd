@@ -31,6 +31,9 @@ from atdd.coach.validators.test_rule_id_uniqueness import (
     validate_severity,
 )
 
+# Toolkit dogfood: asserts on toolkit-only repo content (#1475).
+pytestmark = [pytest.mark.platform]
+
 
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 

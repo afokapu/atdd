@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -38,7 +39,7 @@ _RULE_ORPHAN_UI = bind_rule("coder.design.orphan-ui")
 
 # Path constants
 REPO_ROOT = find_repo_root()
-WEB_SRC = REPO_ROOT / "web" / "src"
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
 MAINTAIN_UX = WEB_SRC / "maintain-ux"
 PRIMITIVES_DIR = MAINTAIN_UX / "primitives"
 COMPONENTS_DIR = MAINTAIN_UX / "components"
@@ -64,7 +65,7 @@ DESIGN_SYSTEM_IMPORTS = [
 
 def get_presentation_files() -> List[Path]:
     """Find all presentation layer TypeScript files"""
-    if not WEB_SRC.exists():
+    if WEB_SRC is None or not WEB_SRC.exists():
         return []
 
     files = []
@@ -84,7 +85,7 @@ def get_presentation_files() -> List[Path]:
 
 def get_all_ui_files() -> List[Path]:
     """Find all UI component files (presentation + pages)"""
-    if not WEB_SRC.exists():
+    if WEB_SRC is None or not WEB_SRC.exists():
         return []
 
     files = []
@@ -264,8 +265,8 @@ def _v(rule, location: str, detail: str) -> Violation:
 
 def scan_ds_presentation_primitives(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for presentation files missing DS imports. Used by ratchet baseline."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
     violations: List[Violation] = []
     for f in get_presentation_files():

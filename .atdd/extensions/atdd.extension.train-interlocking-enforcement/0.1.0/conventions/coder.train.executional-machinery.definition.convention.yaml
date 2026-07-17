@@ -1,0 +1,37 @@
+schema_version: 1.1.0
+rule_id: coder.train.executional-machinery.definition
+kind: family
+status: active
+name: Executional Machinery — coder-layer runtime realizing planner artifacts as executable components (advisory semantic anchor, umbrella)
+statement: >-
+  Executional machinery is the coder-layer runtime that realizes the planner's domain artifacts as
+  executable components — TrainRunner (runs a train's wagons and carries Cargo between them),
+  InterlockingRunner (the route-control layer that resolves one admissible train and delegates to
+  TrainRunner), Cargo (the artifact data plane carried between wagons), and the Station Master (the
+  entrypoint that routes direct and interlocking journeys to TrainRunner) — taken together. This node is
+  an advisory semantic anchor — it enforces nothing directly; the enforceable parts of this meaning are
+  decomposed into the constraint/rule nodes that require it.
+content:
+  summary: >-
+    The umbrella advisory definition over the four runtime-machinery anchors. It is the coder-layer
+    counterpart to the planner's domain decomposition: the same four executable components, defined at the
+    runtime/executional layer.
+  note: >-
+    Advisory anchor: it ships no validator. Within this extension it connects (relationships.yaml,
+    `type: relates-to`) to the four component definition anchors it composes —
+    coder.train.train-runner.definition, coder.train.interlocking-runner.definition,
+    coder.train.cargo.definition, and coder.train.station-master.definition. Each of those, in turn,
+    connects to the enforcing coder.train.* rules that operationalize it. Enforcement is thus fully
+    decomposed into the leaf rule nodes; this umbrella asserts only the composition.
+metadata:
+  aliases:
+    - EXECUTIONAL-MACHINERY-DEFINITION
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: executional_machinery
+    text: >-
+      the coder-layer runtime that realizes planner domain artifacts as executable components —
+      TrainRunner, InterlockingRunner, Cargo, and Station Master — taken together.

@@ -1,0 +1,24 @@
+components:
+  backend:
+    domain:
+    - count: 1
+      rationale: 'the branch-protection policy: required contexts, no bypass on the
+        protected branch, up to date before merge'
+      type: policies
+    presentation:
+    - count: 1
+      rationale: drift check asserting the policy's required contexts equal the contexts
+        the merge-authority workflow emits
+      type: validators
+description: 'The provider-free required-check manifest: core NAMES the checks that
+  must pass and emits them machine-readably. Core never calls a provider API. Applying
+  GitHub branch protection is EXT-011, in the extension repo (section 8.1 boundary
+  law).'
+sizing:
+  footprint_score: 5
+  footprint_size: XS
+  wmbts: 1
+urn: feature:enforce-merge-authority:define-required-checks
+wagon: wagon:enforce-merge-authority
+wmbts:
+- wmbt:enforce-merge-authority:D002

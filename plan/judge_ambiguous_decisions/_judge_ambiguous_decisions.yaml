@@ -62,10 +62,9 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 6
+  total: 5
   D001: "minimize quantity of unstructured-coach-decisions-bypassing-deterministic-routing"
   D002: "minimize likelihood of judge-call-site-misfire-on-tier1-retry-or-regression"
   D003: "minimize likelihood of issue-review-aggregate-judgment-without-audit-trail"
   D004: "minimize likelihood of legacy-rule-alias-violation-without-consolidated-migration-guidance"
   D005: "minimize likelihood of single-llm-bias-in-pre-coach-issue-review"
-  D006: "minimize likelihood of review-pass-llm-starved-of-issue-and-architecture-context"

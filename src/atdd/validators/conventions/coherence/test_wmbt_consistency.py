@@ -21,6 +21,10 @@ from atdd.validators.conventions.coherence.fixtures import (
     INVALID_FRAGMENTS,
     VALID_FRAGMENTS,
 )
+from atdd.validators.conventions._support.graph_mutations import (
+    clone_graph,
+    set_node_field,
+)
 
 FAMILY = "coherence"
 TEMPLATE = "resolved_fact_agreement"
@@ -41,28 +45,38 @@ def test_wmbt_consistency_variant_contract() -> None:
 
 
 # --- executable graph-question tests ---------------------------------------
-# PARITY: full subprocess differential. Clean baseline is 0 (every wagon's manifest
-# WMBT declarations agree with its on-disk WMBT files). The fault (declare a phantom
-# WMBT code Z999 in a manifest with no matching file) is caught by the convention
-# evaluator.
-_MANIFEST = "plan/validate_conventions/_validate_conventions.yaml"
+# Clean baseline is 0 (every wagon's manifest WMBT declarations agree with its on-disk
+# WMBT files). The fault (declare a phantom WMBT code Z999 in a manifest with no matching
+# file) is caught by the convention evaluator.
+_FAULT_WAGON = "validate-conventions"
+_PHANTOM_CODE = "Z999"
 
 
 def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
-def test_fault_injection() -> None:
-    """Declare a phantom WMBT code with no file in a real manifest; assert the
-    convention evaluator catches it; revert."""
+def test_fault_injection(clean_convention_graph) -> None:
+    """Declare a phantom WMBT code with no file in a real wagon manifest; assert the
+    convention evaluator catches it. Injected into a deep clone of the session graph
+    (#1416): the ``wmbt`` mapping of the wagon node gains a phantom code in memory, so the
+    manifest-vs-filesystem disagreement fires — nothing is written to disk."""
     # Legacy parity (verdict 'both') was proven against the legacy validator before
     # it was decommissioned (#1207); the convention fault-injection is the live coverage.
-    root = _parity.repo_root()
-    with _parity.patch_file(root, _MANIFEST,
-                            "  E001:", "  Z999: phantom wmbt with no file\n  E001:"):
-        conv = _parity.conv_violations(VARIANT, root)
-    assert conv, "convention evaluator did not catch the phantom WMBT declaration"
-    assert _parity.conv_violations(VARIANT, root) == [], "fault did not revert cleanly"
+    wagon_id = next(
+        w.id for w in clean_convention_graph.by_kind("wagon")
+        if w.fields.get("wagon") == _FAULT_WAGON
+    )
+    faulted = clone_graph(clean_convention_graph)
+    set_node_field(faulted, wagon_id, ("wmbt", _PHANTOM_CODE), "phantom wmbt with no file")
+
+    conv = resolved_fact_agreement(faulted, {"variant": VARIANT})
+    assert any(
+        v["source_node"] == wagon_id and _PHANTOM_CODE in v["actual_values"]["declared_only"]
+        for v in conv
+    ), "convention evaluator did not catch the phantom WMBT declaration"
+    # the shared clean graph's manifest still agrees with its files
+    assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
 def test_invalid_fragment_is_caught() -> None:

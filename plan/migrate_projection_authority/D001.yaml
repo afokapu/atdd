@@ -1,0 +1,73 @@
+urn: wmbt:migrate-projection-authority:D001
+step: define
+direction: maximize
+dimension: likelihood
+object_of_control: migration-runbook
+context_clarifier: 'when CORE-035 documents the cutover for core developers: the runbook must name each
+  migration step in order, the developer-facing command changes, and the invariant each step preserves,
+  so a developer can follow it without reading the delivery plan'
+lens: functional.adaptability
+statement: maximize likelihood of a migration-runbook that names the cutover steps in order, the developer-facing
+  command changes, and the numbered invariant each step preserves
+acceptances:
+- given:
+    abstract:
+    - The authored core migration runbook document
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the runbook has a section for every migration step this wagon ships
+    urn: acc:migrate-projection-authority:D001-UNIT-001-runbook-covers-every-migration-step
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Each step has a named section stating its command, its precondition, and its preserved invariant
+    - 'RED: no core migration runbook exists today'
+  when:
+    abstract: the runbook is checked against the migration steps this wagon delivers
+- given:
+    abstract:
+    - The core migration runbook with one section per migration step
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: every runbook step cites the numbered invariant it preserves
+    urn: acc:migrate-projection-authority:D001-UNIT-002-runbook-cites-preserved-invariants
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Every section cites at least one numbered invariant from the architecture spec
+    - No section cites an invariant that does not exist
+  when:
+    abstract: each section is checked for an invariant citation
+- identity:
+    urn: acc:migrate-projection-authority:D001-SMOKE-001-migration-runbook
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: migration-runbook holds against a real repo checkout, the installed atdd CLI,
+      and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising migration-runbook
+  when:
+    abstract: the D001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - migration-runbook is observed to hold end-to-end against real infrastructure, with no mocks or manual
+      patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

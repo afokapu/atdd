@@ -1,0 +1,70 @@
+urn: "wmbt:govern-registry:E002"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "duplicate-rule-detection"
+context_clarifier: "DuplicateRuleError names the failure of one rule_id being declared in two registries, but it is raised nowhere, so a core+extension rule_id collision could pass silently if the two registries were ever merged; the precedence guard raises DuplicateRuleError on any rule_id present in BOTH the core registry and the extension mirror set, and states the resolution — CORE precedes extension, the core declaration is authoritative — so the two registries stay separate on purpose instead of one silently shadowing the other"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of duplicate-rule-detection by raising DuplicateRuleError on any rule_id declared in both the core registry and the extension mirror set, stating the CORE-precedes-extension precedence, so a cross-registry collision fails loudly instead of silently shadowing the core rule"
+acceptances:
+  - identity:
+      urn: "acc:govern-registry:E002-UNIT-001-cross-registry-collision-raises-with-precedence"
+      id: "AC-UNIT-001"
+      purpose: "a rule_id present in both the core and the extension set raises DuplicateRuleError whose message names the colliding id and states CORE precedes extension; disjoint sets do not raise"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a core rule_id set and an extension rule_id set that share one rule_id"
+    when:
+      abstract: "the precedence guard asserts the core and extension registries carry no shared rule_id"
+    then:
+      abstract:
+        - "it raises DuplicateRuleError (the previously-unraised error), and the message names the shared rule_id"
+        - "the message states the precedence — CORE precedes extension — as the resolution"
+        - "over two disjoint sets the same guard does not raise"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-registry:E002-UNIT-002-precedence-resolves-core-wins"
+      id: "AC-UNIT-002"
+      purpose: "when a unified view is unavoidable the stated precedence resolves it — the core declaration of a colliding rule_id wins over the extension mirror — and DuplicateRuleError is a genuine raisable exception"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a core registry mapping and an extension registry mapping that both declare the same rule_id with different bodies"
+    when:
+      abstract: "the two mappings are merged under the stated precedence"
+    then:
+      abstract:
+        - "the merged registry's entry for the colliding rule_id is the CORE body, not the extension body (core precedes extension)"
+        - "DuplicateRuleError is importable from the rule-binding module and is a subclass of Exception, so the precedence failure is genuinely raisable"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-registry:E002-SMOKE-001-real-merge-would-duplicate-every-mirror"
+      id: "AC-SMOKE-001"
+      purpose: "over the real substrate, merging the extension mirror set into the core registry would collide on every extension rule_id and raise DuplicateRuleError — the concrete evidence behind the core-only decision"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real core rule_id set and its real extension rule_id set"
+    when:
+      abstract: "the precedence guard is driven over the real core and extension registries"
+    then:
+      abstract:
+        - "it raises DuplicateRuleError over the real registries (a merge is not silently tolerated)"
+        - "the set of colliding rule_ids equals the full real extension rule_id set — admitting the mirrors would add only duplicates"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

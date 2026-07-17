@@ -1,0 +1,28 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: pair each commit's parsed trailer group with the projection object
+        diff it carries and compare object, transition, and digest
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: CrossCheck specification, including the squash-merge ATDD-Summary
+        artifact and summary-digest rule
+      type: specifications
+    presentation:
+    - count: 1
+      rationale: the trailer/projection cross-check validator invoked as a required
+        CI check over each commit in the range
+      type: validators
+description: 'Bind the git event log to the projection it claims to record: every
+  projection object diff must carry agreeing ATDD-Object, ATDD-Transition, and projection
+  digest trailers (CORE-018).'
+sizing:
+  footprint_score: 8
+  footprint_size: S
+  wmbts: 1
+urn: feature:enforce-merge-authority:verify-trailer-diff
+wagon: wagon:enforce-merge-authority
+wmbts:
+- wmbt:enforce-merge-authority:C002

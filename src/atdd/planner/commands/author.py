@@ -26,6 +26,8 @@ import yaml
 # (planner.theme.commons-coach-boundary, #970).
 from atdd.planner.commands.author_issue import (  # noqa: F401
     create_issue_body,
+    extract_issue_type,
+    issue_type_enum,
     validate_issue_body,
 )
 
@@ -107,6 +109,29 @@ def validate_author_input(
         )
 
 
+def _validate_term_ids(terms) -> None:
+    """Every ``term_id`` must be semantic snake_case, never numbered (§D005)."""
+    for term in terms:
+        tid = term.get("term_id", "")
+        if _NUMBERED_TERM_RE.match(tid) or not _TERM_ID_RE.match(tid):
+            raise AuthorInputError(
+                "terms",
+                f"invalid term_id {tid!r}; must be semantic snake_case, not "
+                f"numbered (T1/T2/T3 forbidden — §D005)",
+            )
+
+
+def _warn_term_count(n: int) -> None:
+    """§D006 term-count heuristic — warn, never block."""
+    if 8 <= n <= 10:
+        print(f"atdd author: warning — {n} terms; review for splitting (§D006)", file=sys.stderr)
+    elif n > 10:
+        print(
+            f"atdd author: warning — {n} terms; likely too large unless justified (§D006)",
+            file=sys.stderr,
+        )
+
+
 def validate_convention_node(node: dict, path: Path) -> None:
     """Validate a convention-node dict + its target path against the schema (§5).
 
@@ -133,29 +158,14 @@ def validate_convention_node(node: dict, path: Path) -> None:
     if node["status"] not in STATUSES:
         raise AuthorInputError("status", f"invalid status {node['status']!r}; one of {STATUSES}")
 
-    for term in node["terms"]:
-        tid = term.get("term_id", "")
-        if _NUMBERED_TERM_RE.match(tid) or not _TERM_ID_RE.match(tid):
-            raise AuthorInputError(
-                "terms",
-                f"invalid term_id {tid!r}; must be semantic snake_case, not "
-                f"numbered (T1/T2/T3 forbidden — §D005)",
-            )
+    _validate_term_ids(node["terms"])
 
     # Optional `validation` metadata (#1247): when present it must be a JSON
     # object with a registry-resolvable family/template and no runtime state.
     if "validation" in node and node["validation"] is not None:
         validate_validation_metadata(node["validation"])
 
-    # §D006 term-count heuristic — warn, never block.
-    n = len(node["terms"])
-    if 8 <= n <= 10:
-        print(f"atdd author: warning — {n} terms; review for splitting (§D006)", file=sys.stderr)
-    elif n > 10:
-        print(
-            f"atdd author: warning — {n} terms; likely too large unless justified (§D006)",
-            file=sys.stderr,
-        )
+    _warn_term_count(len(node["terms"]))
 
 
 def _reject_runtime_state(obj, *, _path: str = "validation") -> None:
@@ -164,22 +174,24 @@ def _reject_runtime_state(obj, *, _path: str = "validation") -> None:
     Walks the ``validation`` block recursively; raises ``AuthorInputError`` (field
     ``"validation"``) when a key name matches a forbidden runtime token (#1247).
     """
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            norm = str(key).lower().replace("-", "_")
-            if any(tok in norm for tok in _FORBIDDEN_VALIDATION_KEY_TOKENS):
-                raise AuthorInputError(
-                    "validation",
-                    f"validation must not carry concrete runtime state (forbidden "
-                    f"key {key!r} at {_path}); a concrete train_id, route-selection "
-                    f"state, Cargo contents, rendered digest, or TrainResult value "
-                    f"belongs in generated artifacts, traces, or validator evidence "
-                    f"— not convention metadata (#1247)",
-                )
-            _reject_runtime_state(value, _path=f"{_path}.{key}")
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         for i, item in enumerate(obj):
             _reject_runtime_state(item, _path=f"{_path}[{i}]")
+        return
+    if not isinstance(obj, dict):
+        return
+    for key, value in obj.items():
+        norm = str(key).lower().replace("-", "_")
+        if any(tok in norm for tok in _FORBIDDEN_VALIDATION_KEY_TOKENS):
+            raise AuthorInputError(
+                "validation",
+                f"validation must not carry concrete runtime state (forbidden "
+                f"key {key!r} at {_path}); a concrete train_id, route-selection "
+                f"state, Cargo contents, rendered digest, or TrainResult value "
+                f"belongs in generated artifacts, traces, or validator evidence "
+                f"— not convention metadata (#1247)",
+            )
+        _reject_runtime_state(value, _path=f"{_path}.{key}")
 
 
 def validate_validation_metadata(validation) -> None:
@@ -516,31 +528,36 @@ def validate_train(spec: dict) -> None:
         )
 
 
-def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
-    """Author a train: dedup-insert into _trains.yaml + write plan/_trains/<id>.yaml (WMBT E004)."""
-    validate_train(spec)
-    tid = spec["train_id"]
-    plan = _plan_root(root)
-    registry_path = plan / "_trains.yaml"
+def _train_home(tid: str, spec: dict, plan: Path) -> tuple:
+    """The registry bucket + on-disk home for a train id, as
+    ``(group, sub, rel_path, per_train)``.
 
-    # Bucket + on-disk home derivation. Typed ids (issue #1421) nest under
-    # plan/_trains/<subject>/<slug>.yaml and bucket by subject/category — the
-    # legacy `{tid[0]}-trains` derivation would place a `train:...` id under a
-    # nonsense `t-trains` bucket at a colon-named file. The legacy NNNN-slug
-    # form keeps its flat home + digit buckets during the transition.
+    Typed ids (issue #1421) nest under plan/_trains/<subject>/<slug>.yaml and
+    bucket by subject/category — the legacy ``{tid[0]}-trains`` derivation would
+    place a ``train:...`` id under a nonsense ``t-trains`` bucket at a colon-named
+    file. The legacy NNNN-slug form keeps its flat home + digit buckets during
+    the transition.
+    """
     if _TYPED_TRAIN_ID_RE.match(tid):
         subject, slug = tid[len("train:"):].split(":", 1)
         category = spec.get("category", "nominal")
-        group = subject
-        sub = category
-        rel_path = f"plan/_trains/{subject}/{slug}.yaml"
-        per_train = plan / "_trains" / subject / f"{slug}.yaml"
-    else:
-        group = f"{tid[0]}-trains"
-        sub = f"{tid[0]}0-nominal"
-        rel_path = f"plan/_trains/{tid}.yaml"
-        per_train = plan / "_trains" / f"{tid}.yaml"
+        return (
+            subject,
+            category,
+            f"plan/_trains/{subject}/{slug}.yaml",
+            plan / "_trains" / subject / f"{slug}.yaml",
+        )
+    return (
+        f"{tid[0]}-trains",
+        f"{tid[0]}0-nominal",
+        f"plan/_trains/{tid}.yaml",
+        plan / "_trains" / f"{tid}.yaml",
+    )
 
+
+def _upsert_train_registry(registry_path: Path, tid: str, spec: dict, home: tuple) -> None:
+    """Dedup-insert the train's entry into its bucket in plan/_trains.yaml."""
+    group, sub, rel_path, _per_train = home
     registry = {}
     if registry_path.exists():
         registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
@@ -559,47 +576,69 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
         bucket.sort(key=lambda e: e.get("train_id", ""))
     _write_yaml(registry_path, registry)
 
+
+def _build_train_doc(tid: str, spec: dict) -> dict:
+    """The per-train document written to plan/_trains/<...>.yaml."""
+    train_doc: dict = {
+        "train_id": tid,
+        "title": spec.get("title", tid),
+        "description": spec.get("description", ""),
+    }
+    # `themes` and `sequence` are schema-REQUIRED; `family`, `primary_wagon`,
+    # `dependencies` and `acceptances` are optional. All six are copied verbatim
+    # and only when supplied — inventing a default would write a schema-invalid
+    # value (`themes: []` fails minItems, `family: ""` fails the enum). `wagons`
+    # is deliberately absent: train.schema sets additionalProperties=false and
+    # defines no such property; it belongs to the _trains.yaml registry entry,
+    # and expresses itself here as the `participants` fallback (#1401).
+    for key in ("category", "themes", "family", "primary_wagon", "dependencies",
+                "sequence", "acceptances"):
+        if key in spec:
+            train_doc[key] = spec[key]
+
+    # Preserve caller-supplied participants verbatim: train.schema admits
+    # wagon:/user:/system: principals, so deriving from `wagons` unconditionally
+    # would silently discard every non-wagon participant. Derive only as a
+    # fallback, which is what every pre-#1401 caller relied on.
+    participants = spec.get("participants")
+    if not participants:
+        participants = [f"wagon:{w}" for w in spec.get("wagons", [])]
+    train_doc["participants"] = list(participants)
+    train_doc["status"] = "planned"
+
+    # Adjacent seam (#1265): carry the optional #1248 interlocking back-ref so a
+    # train authored as a route's target self-describes its owning interlocking.
+    # Pure traceability — it never alters train linearity (train.schema
+    # `source_interlocking`). The Confirm gate (#1249) reads the same shape off
+    # the kept unit's spec to bind the interlocking it must validate.
+    src_il = spec.get("source_interlocking")
+    if isinstance(src_il, dict) and src_il.get("interlocking_id") and src_il.get("route_id"):
+        train_doc["source_interlocking"] = {
+            "interlocking_id": src_il["interlocking_id"],
+            "route_id": src_il["route_id"],
+        }
+    return train_doc
+
+
+def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
+    """Author a train: dedup-insert into _trains.yaml + write plan/_trains/<id>.yaml (WMBT E004)."""
+    validate_train(spec)
+    tid = spec["train_id"]
+    plan = _plan_root(root)
+    registry_path = plan / "_trains.yaml"
+
+    # Bucket + on-disk home derivation. Typed ids (issue #1421) nest under
+    # plan/_trains/<subject>/<slug>.yaml and bucket by subject/category — the
+    # legacy `{tid[0]}-trains` derivation would place a `train:...` id under a
+    # nonsense `t-trains` bucket at a colon-named file. The legacy NNNN-slug
+    # form keeps its flat home + digit buckets during the transition.
+    home = _train_home(tid, spec, plan)
+    per_train = home[3]
+    _upsert_train_registry(registry_path, tid, spec, home)
+
     per_train.parent.mkdir(parents=True, exist_ok=True)
     if not per_train.exists():
-        train_doc: dict = {
-            "train_id": tid,
-            "title": spec.get("title", tid),
-            "description": spec.get("description", ""),
-        }
-        # `themes` and `sequence` are schema-REQUIRED; `family`, `primary_wagon`,
-        # `dependencies` and `acceptances` are optional. All six are copied verbatim
-        # and only when supplied — inventing a default would write a schema-invalid
-        # value (`themes: []` fails minItems, `family: ""` fails the enum). `wagons`
-        # is deliberately absent: train.schema sets additionalProperties=false and
-        # defines no such property; it belongs to the _trains.yaml registry entry
-        # above, and expresses itself here as the `participants` fallback (#1401).
-        for key in ("category", "themes", "family", "primary_wagon", "dependencies",
-                    "sequence", "acceptances"):
-            if key in spec:
-                train_doc[key] = spec[key]
-
-        # Preserve caller-supplied participants verbatim: train.schema admits
-        # wagon:/user:/system: principals, so deriving from `wagons` unconditionally
-        # would silently discard every non-wagon participant. Derive only as a
-        # fallback, which is what every pre-#1401 caller relied on.
-        participants = spec.get("participants")
-        if not participants:
-            participants = [f"wagon:{w}" for w in spec.get("wagons", [])]
-        train_doc["participants"] = list(participants)
-        train_doc["status"] = "planned"
-
-        # Adjacent seam (#1265): carry the optional #1248 interlocking back-ref so a
-        # train authored as a route's target self-describes its owning interlocking.
-        # Pure traceability — it never alters train linearity (train.schema
-        # `source_interlocking`). The Confirm gate (#1249) reads the same shape off
-        # the kept unit's spec to bind the interlocking it must validate.
-        src_il = spec.get("source_interlocking")
-        if isinstance(src_il, dict) and src_il.get("interlocking_id") and src_il.get("route_id"):
-            train_doc["source_interlocking"] = {
-                "interlocking_id": src_il["interlocking_id"],
-                "route_id": src_il["route_id"],
-            }
-        _write_yaml(per_train, train_doc)
+        _write_yaml(per_train, _build_train_doc(tid, spec))
     return per_train
 
 
@@ -644,8 +683,10 @@ def _canonical_theme_set(root: Path | str | None) -> set[str]:
 
         config = load_atdd_config(base)
     except Exception as exc:
-        logger.debug("contract theme config load failed; using defaults",
-                     extra={"error": str(exc)})
+        logger.debug(
+            "contract theme config load failed; using defaults",
+            extra={"error": str(exc)},
+        )
         config = {}
     return set(get_theme_map(config).values())
 
@@ -1016,11 +1057,11 @@ def build_parser() -> argparse.ArgumentParser:
     # `issue` — author / validate a GitHub issue BODY from issue.schema.json
     # (#1223). Peer of the other authored kinds; schema-driven generation +
     # the schema-driven compliance gate (--check). Planner-side + coach-free.
-    iss = sub.add_parser("issue", help="author a schema-valid issue body and publish it store-first (or --check a body)")
+    iss = sub.add_parser("issue", help="author a schema-valid issue body, publish it store-first, or revise an existing issue")
     iss.add_argument("--title", default=None, help="issue title (the H1 + Problem Statement subject)")
     iss.add_argument("--slug", default=None,
                      help="work_item slug (the store uid); derived from --title when omitted (#1272)")
-    iss.add_argument("--type", default="implementation", dest="issue_type",
+    iss.add_argument("--type", default=None, dest="issue_type",
                      help="issue Type (e.g. implementation, bug, refactor)")
     iss.add_argument("--status", default="INIT",
                      help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...)")
@@ -1029,6 +1070,10 @@ def build_parser() -> argparse.ArgumentParser:
     iss.add_argument("--feature", default=None, help="feature urn the issue lands")
     iss.add_argument("--check", default=None, metavar="PATH",
                      help="validate an existing body file against issue.schema.json (no generation)")
+    iss.add_argument("--revise", type=int, metavar="ISSUE",
+                     help="revise an existing store-registered GitHub issue number")
+    iss.add_argument("--body-file", default=None, metavar="PATH",
+                     help="replacement issue body markdown for --revise")
     # #1309: the one capability the removed `atdd issue <slug> --dry-run` had and
     # nothing else covered — render + validate + print, writing NOTHING. `--check`
     # only validates an existing FILE, and a bare `atdd author issue` publishes
@@ -1136,178 +1181,480 @@ def _config_extensions(root: Path) -> list[str]:
         return []
 
 
+def _json_arg(field: str, raw):
+    """Parse a ``--flag`` whose value is a JSON document."""
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise AuthorInputError(field, f"--{field} must be valid JSON: {exc}")
+
+
+def _print_violations(headline: str, violations: list) -> int:
+    """Report schema violations on stderr; returns the schema-invalid exit code."""
+    print(headline, file=sys.stderr)
+    for v in violations:
+        print(f"  - {v}", file=sys.stderr)
+    return 1
+
+
+def _run_merge_driver(args) -> int:
+    from atdd.planner.commands.author_registry import merge_registries
+
+    def _read(p: str) -> str:
+        try:
+            with open(p, encoding="utf-8") as fh:
+                return fh.read()
+        except FileNotFoundError:
+            logger.debug("merge-driver input absent", extra={"path": p})
+            return ""
+
+    merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
+    with open(args.ours, "w", encoding="utf-8") as fh:
+        fh.write(merged)
+    return 0
+
+
+def _run_init_package(args) -> int:
+    """`init` scaffolds a NEW package boundary, so it needs no authoring context
+    (it creates the package the other kinds then write into) — P002."""
+    from atdd.planner.commands.author_init import (
+        init_extension_package, init_implementation_package, init_workspace_package,
+    )
+
+    root = Path(args.root) if getattr(args, "root", None) else Path(os.getcwd())
+    try:
+        if args.cmd == "extension":
+            pkg = init_extension_package(
+                args.extension_id, role=args.role,
+                flow_wagon=args.flow_wagon, feature=args.feature, root=root,
+            )
+        elif args.cmd == "implementation":
+            pkg = init_implementation_package(
+                args.implementation_id, targets_workspace=args.targets_workspace,
+                emits_rule_ids=args.emits_rule_ids, root=root, dest=args.dest,
+            )
+        else:
+            pkg = init_workspace_package(
+                args.workspace_id, language=args.language,
+                runner=args.runner, command=args.command, root=root,
+            )
+    except AuthorInputError as exc:
+        logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+    print(str(pkg))
+    return 0
+
+
+def _run_issue_check(args) -> int:
+    try:
+        body = Path(args.check).read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning("atdd author issue cannot read --check", extra={"path": args.check, "error": str(exc)})
+        print(f"atdd author issue: cannot read {args.check}: {exc}", file=sys.stderr)
+        return 2
+    violations = validate_issue_body(body)
+    if violations:
+        return _print_violations(
+            f"atdd author issue: {args.check} is not schema-valid:", violations
+        )
+    print(f"atdd author issue: {args.check} is schema-valid")
+    return 0
+
+
+def _revision_violations(body, issue_type) -> list:
+    """Schema + type-agreement violations for a `--revise` request."""
+    violations: list[str] = []
+    if body is not None:
+        violations.extend(validate_issue_body(body))
+        body_type = extract_issue_type(body)
+        if issue_type is not None and body_type is not None and body_type != issue_type:
+            violations.append(
+                f"body Type {body_type!r} does not match explicit --type "
+                f"{issue_type!r}"
+            )
+    if issue_type is not None and issue_type not in issue_type_enum():
+        violations.append(
+            f"invalid --type {issue_type!r}: not in the issue type "
+            f"vocabulary ({', '.join(issue_type_enum())})"
+        )
+    return violations
+
+
+def _print_revise_outcome(result) -> None:
+    if result.projection_deferred:
+        print(
+            f"atdd author issue: revised work_item {result.slug!r} "
+            f"(state={result.state}) for github #{result.issue_number}; "
+            "github projection deferred to the outbox",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"atdd author issue: revised work_item {result.slug!r} "
+            f"(state={result.state}) for github #{result.issue_number}",
+            file=sys.stderr,
+        )
+
+
+def _read_issue_body_file(path: str):
+    """``(body, None)`` for the text at ``path``; ``(None, 2)`` when it cannot be
+    read (the caller returns that exit code)."""
+    try:
+        return Path(path).read_text(encoding="utf-8"), None
+    except OSError as exc:
+        logger.warning(
+            "atdd author issue cannot read --body-file",
+            extra={"path": path, "error": str(exc)},
+        )
+        print(
+            f"atdd author issue: cannot read {path}: {exc}",
+            file=sys.stderr,
+        )
+        return None, 2
+
+
+def _publish_revision(args, body) -> int:
+    from atdd.planner.commands.author_publish import PublishError, revise_issue
+
+    try:
+        result = revise_issue(
+            args.revise,
+            body=body,
+            issue_type=args.issue_type,
+        )
+    except PublishError as exc:
+        logger.warning(
+            "atdd author issue revision failed",
+            extra={"issue_number": args.revise, "error": str(exc)},
+        )
+        print(f"atdd author issue: {exc}", file=sys.stderr)
+        return 2
+
+    if body is not None:
+        sys.stdout.write(body)
+    _print_revise_outcome(result)
+    return 0
+
+
+def _run_issue_revise(args) -> int:
+    if args.body_file is None and args.issue_type is None:
+        print(
+            "atdd author issue: --revise requires --body-file and/or explicit --type",
+            file=sys.stderr,
+        )
+        return 2
+
+    body = None
+    if args.body_file is not None:
+        body, err = _read_issue_body_file(args.body_file)
+        if err is not None:
+            return err
+
+    violations = _revision_violations(body, args.issue_type)
+    if violations:
+        return _print_violations(
+            "atdd author issue: revised issue body/type is not schema-valid:", violations
+        )
+
+    if getattr(args, "dry_run", False):
+        if body is not None:
+            sys.stdout.write(body)
+        else:
+            print(
+                f"atdd author issue: revision for github #{args.revise} "
+                "is schema-valid"
+            )
+        return 0
+
+    return _publish_revision(args, body)
+
+
+def _print_publish_outcome(slug: str, result) -> None:
+    if result.projection_deferred:
+        print(
+            f"atdd author issue: published work_item {slug!r} (state={result.state}); "
+            "github projection deferred to the outbox (durable retry)",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"atdd author issue: published work_item {slug!r} (state={result.state}) "
+            f"-> github #{result.github_number}",
+            file=sys.stderr,
+        )
+
+
+def _run_issue_create(args) -> int:
+    issue_type = args.issue_type or "implementation"
+    spec = {
+        "title": args.title,
+        "status": args.status,
+        "type": issue_type,
+        "branch": args.branch,
+        "train": args.train,
+        "feature": args.feature,
+    }
+    body = create_issue_body({k: v for k, v in spec.items() if v is not None})
+
+    # #1309: `--dry-run` returns BEFORE the publish import, so no store
+    # connection is opened and no gh call is made. Inherited from the removed
+    # `atdd issue <slug> --dry-run` (E019), whose smoke coverage retargets here.
+    if getattr(args, "dry_run", False):
+        violations = validate_issue_body(body)
+        if violations:
+            return _print_violations(
+                "atdd author issue: rendered body is not schema-valid:", violations
+            )
+        print(body)
+        return 0
+
+    # #1272: authoring PUBLISHES store-first by default (no extra flag). The
+    # store is authoritative — write it BEFORE emitting the body. Only if the
+    # store write succeeds do we print the body; a store failure fails loud
+    # (no body-only degrade — the exact gap that orphaned #1271).
+    from atdd.planner.commands.author_publish import (
+        PublishError, derive_slug, publish_issue,
+    )
+
+    slug = args.slug or derive_slug(args.title or "")
+    try:
+        result = publish_issue(
+            slug, body,
+            title=args.title or "Untitled ATDD issue",
+            status=args.status, issue_type=issue_type,
+            branch=args.branch, train=args.train, feature=args.feature,
+        )
+    except PublishError as exc:
+        logger.warning("atdd author issue publish failed", extra={"slug": slug, "error": str(exc)})
+        print(f"atdd author issue: {exc}", file=sys.stderr)
+        return 2
+
+    # Store write succeeded — the body is now authoritative in the store.
+    # Emit it on stdout (preserves the body-authoring contract), and report
+    # the publish outcome on stderr.
+    print(body)
+    _print_publish_outcome(slug, result)
+    return 0
+
+
+def _run_issue(args) -> int:
+    """`issue` authors/validates a body string (stdout); it writes no file and
+    needs no authoring-context resolution — dispatched before resolve_context."""
+    if args.check is not None:
+        return _run_issue_check(args)
+    if args.revise is not None:
+        return _run_issue_revise(args)
+    return _run_issue_create(args)
+
+
+def _create_plan_artifact(args, spec):
+    """Dispatch to the ``create_*`` owning the requested plan-layer kind."""
+    if args.cmd == "wagon":
+        return create_wagon(spec, root=args.root)
+    if args.cmd == "feature":
+        return create_feature(spec, root=args.root)
+    if args.cmd == "wmbt":
+        return create_wmbt(spec, root=args.root)
+    if args.cmd == "train":
+        return create_train(spec, root=args.root)
+    if args.cmd == "interlocking":
+        return create_interlocking(spec, root=args.root)
+    if args.cmd == "contract":
+        return create_contract(spec, root=args.root)
+    return create_acceptance(args.wmbt_urn, spec, root=args.root)  # acceptance
+
+
+def _run_plan_kind(args) -> int:
+    """Plan-layer kinds write under plan/ (not core/extension), so they need no
+    authoring-context resolution — dispatched before resolve_context."""
+    from atdd.planner.interlocking import InterlockingError
+    try:
+        spec = yaml.safe_load(Path(args.spec).read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        logger.warning("atdd author cannot read --spec", extra={"path": args.spec, "error": str(exc)})
+        print(f"atdd author: cannot read --spec: {exc}", file=sys.stderr)
+        return 2
+    try:
+        out = _create_plan_artifact(args, spec)
+    except AuthorInputError as exc:
+        logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+    except InterlockingError as exc:
+        logger.warning(
+            "atdd author interlocking precondition unmet",
+            extra={"error": str(exc)},
+        )
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+    print(str(out))
+    return 0
+
+
+def _scaffold_variant_if_requested(variant_req, rule_id: str, root):
+    """Scaffold the variant a convention-node requested, if it requested one."""
+    if variant_req is None:
+        return None
+    from atdd.planner.commands.author_variant import scaffold_variant
+
+    family, template, ref = variant_req
+    return scaffold_variant(
+        family=family, template=template, rule_id=rule_id,
+        implementation_ref=ref, root=root,
+    )
+
+
+def _convention_node_role(args, ctx):
+    """The role owning the node: explicit for core, derived from the rule_id for
+    an extension. Returns None when --core was given without --role."""
+    if not ctx.is_core:
+        return args.rule_id.split(".", 1)[0]  # extension: derive role from rule_id
+    return args.role or None
+
+
+def _run_convention_node(args, ctx, root) -> int:
+    from atdd.planner.commands.author_context import node_home
+
+    role = _convention_node_role(args, ctx)
+    if role is None:
+        print("atdd author: --core convention-node requires --role", file=sys.stderr)
+        return 2
+    path = node_home(ctx, role, args.rule_id, root)
+    try:
+        implementation = _json_arg("implementation", getattr(args, "implementation", None))
+        variant_req = _variant_request(args, implementation)  # validate before any write
+        create_convention_node(
+            role, args.rule_id, kind=args.kind, status=args.status,
+            statement=args.statement, name=getattr(args, "name", None),
+            rationale=args.rationale, notes=args.notes,
+            implementation=implementation,
+            source=_json_arg("node-source", getattr(args, "node_source", None)),
+            content=_json_arg("content", getattr(args, "content", None)),
+            bidirectional=_json_arg("bidirectional", getattr(args, "bidirectional", None)),
+            metadata=_json_arg("metadata", getattr(args, "metadata", None)),
+            parity=_json_arg("parity", getattr(args, "parity", None)),
+            validation=_json_arg("validation", getattr(args, "validation", None)),
+            terms=_parse_terms(args.terms), path=path,
+        )
+        variant_path = _scaffold_variant_if_requested(variant_req, args.rule_id, root)
+    except AuthorInputError as exc:
+        logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+    print(str(path))
+    if variant_path is not None:
+        print(str(variant_path))
+    return 0
+
+
+def _run_relationship(args, ctx, root) -> int:
+    from atdd.planner.commands.author_context import relationship_graph_id, relationship_home
+    from atdd.planner.commands.author_registry import insert_relationship
+
+    edge = {
+        "source_ref": args.source_ref,
+        "type": args.rel_type,
+        "target_ref": args.target_ref,
+        "reason": args.reason,
+        "confidence": args.confidence,
+    }
+    for key in ("foundation", "constraint", "control", "strength"):
+        val = getattr(args, key)
+        if val is not None:
+            edge[key] = val
+    path = Path(args.path) if args.path else relationship_home(ctx, root)
+    try:
+        insert_relationship(edge, path, graph_id=relationship_graph_id(ctx))
+    except AuthorInputError as exc:
+        logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+    print(str(path))
+    return 0
+
+
+def _run_scope(args, ctx, root) -> int:
+    from atdd.planner.commands.author_context import scope_home
+    from atdd.planner.commands.author_registry import insert_scope_selector
+
+    scope_meta = {"scope_id": args.scope_id}
+    for key in ("artifact_kind", "runtime", "platform"):
+        val = getattr(args, key)
+        if val is not None:
+            scope_meta[key] = val
+    selector = {"selector_id": args.selector_id, "type": args.selector_type, "include": args.include}
+    if args.exclude:
+        selector["exclude"] = args.exclude
+    path = Path(args.path) if args.path else scope_home(ctx, args.scope_id, root)
+    try:
+        insert_scope_selector(scope_meta, selector, path)
+    except AuthorInputError as exc:
+        logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+    print(str(path))
+    return 0
+
+
+def _run_gate(args, ctx, root) -> int:
+    from atdd.planner.commands.author_context import gate_home
+    from atdd.planner.commands.author_registry import insert_gate
+
+    path = Path(args.path) if args.path else gate_home(ctx, args.trigger_name, root)
+    gate = {
+        "gate_id": args.gate_id,
+        "kind": "gate",
+        "status": "active",
+        "trigger": {"type": args.trigger_type, "name": args.trigger_name},
+        "selection": {"strategy": args.selection_strategy},
+        "on_violation": {"action": args.violation_action},
+        "exit": {"success_code": args.success_code, "failure_code": args.failure_code},
+    }
+    try:
+        insert_gate(gate, path)
+    except AuthorInputError as exc:
+        logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
+        print(f"atdd author: {exc}", file=sys.stderr)
+        return 2
+    print(str(path))
+    return 0
+
+
+# Author kinds that write under plan/ rather than a core/extension package.
+_PLAN_KINDS = ("wagon", "feature", "wmbt", "train", "interlocking", "contract", "acceptance")
+# Author kinds that scaffold a new package boundary.
+_PACKAGE_KINDS = ("extension", "workspace", "implementation")
+# Kinds dispatched AFTER an authoring context is resolved (P001, spec §6).
+_CONTEXTUAL_RUNNERS = {
+    "convention-node": _run_convention_node,
+    "relationship": _run_relationship,
+    "scope": _run_scope,
+    "gate": _run_gate,
+}
+
+
 def run(argv: list[str]) -> int:
     args = build_parser().parse_args(argv)
 
+    # These kinds need no authoring-context resolution — dispatch before it.
     if args.cmd == "merge-driver":
-        from atdd.planner.commands.author_registry import merge_registries
-
-        def _read(p: str) -> str:
-            try:
-                with open(p, encoding="utf-8") as fh:
-                    return fh.read()
-            except FileNotFoundError:
-                logger.debug("merge-driver input absent", extra={"path": p})
-                return ""
-
-        merged = merge_registries(_read(args.base), _read(args.ours), _read(args.theirs))
-        with open(args.ours, "w", encoding="utf-8") as fh:
-            fh.write(merged)
-        return 0
-
-    # `init` scaffolds a NEW package boundary, so it needs no authoring context
-    # (it creates the package the other kinds then write into) — P002.
-    if args.cmd in ("extension", "workspace", "implementation"):
-        from atdd.planner.commands.author_init import (
-            init_extension_package, init_implementation_package, init_workspace_package,
-        )
-
-        root = Path(args.root) if getattr(args, "root", None) else Path(os.getcwd())
-        try:
-            if args.cmd == "extension":
-                pkg = init_extension_package(
-                    args.extension_id, role=args.role,
-                    flow_wagon=args.flow_wagon, feature=args.feature, root=root,
-                )
-            elif args.cmd == "implementation":
-                pkg = init_implementation_package(
-                    args.implementation_id, targets_workspace=args.targets_workspace,
-                    emits_rule_ids=args.emits_rule_ids, root=root, dest=args.dest,
-                )
-            else:
-                pkg = init_workspace_package(
-                    args.workspace_id, language=args.language,
-                    runner=args.runner, command=args.command, root=root,
-                )
-        except AuthorInputError as exc:
-            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
-            print(f"atdd author: {exc}", file=sys.stderr)
-            return 2
-        print(str(pkg))
-        return 0
-
-    # `issue` authors/validates a body string (stdout); it writes no file and
-    # needs no authoring-context resolution — dispatch before resolve_context.
+        return _run_merge_driver(args)
+    if args.cmd in _PACKAGE_KINDS:
+        return _run_init_package(args)
     if args.cmd == "issue":
-        if args.check is not None:
-            try:
-                body = Path(args.check).read_text(encoding="utf-8")
-            except OSError as exc:
-                logger.warning("atdd author issue cannot read --check", extra={"path": args.check, "error": str(exc)})
-                print(f"atdd author issue: cannot read {args.check}: {exc}", file=sys.stderr)
-                return 2
-            violations = validate_issue_body(body)
-            if violations:
-                print(f"atdd author issue: {args.check} is not schema-valid:", file=sys.stderr)
-                for v in violations:
-                    print(f"  - {v}", file=sys.stderr)
-                return 1
-            print(f"atdd author issue: {args.check} is schema-valid")
-            return 0
-        spec = {
-            "title": args.title,
-            "status": args.status,
-            "type": args.issue_type,
-            "branch": args.branch,
-            "train": args.train,
-            "feature": args.feature,
-        }
-        body = create_issue_body({k: v for k, v in spec.items() if v is not None})
+        return _run_issue(args)
+    if args.cmd in _PLAN_KINDS:
+        return _run_plan_kind(args)
 
-        # #1309: `--dry-run` returns BEFORE the publish import, so no store
-        # connection is opened and no gh call is made. Inherited from the removed
-        # `atdd issue <slug> --dry-run` (E019), whose smoke coverage retargets here.
-        if getattr(args, "dry_run", False):
-            violations = validate_issue_body(body)
-            if violations:
-                print("atdd author issue: rendered body is not schema-valid:", file=sys.stderr)
-                for v in violations:
-                    print(f"  - {v}", file=sys.stderr)
-                return 1
-            print(body)
-            return 0
-
-        # #1272: authoring PUBLISHES store-first by default (no extra flag). The
-        # store is authoritative — write it BEFORE emitting the body. Only if the
-        # store write succeeds do we print the body; a store failure fails loud
-        # (no body-only degrade — the exact gap that orphaned #1271).
-        from atdd.planner.commands.author_publish import (
-            PublishError, derive_slug, publish_issue,
-        )
-
-        slug = args.slug or derive_slug(args.title or "")
-        try:
-            result = publish_issue(
-                slug, body,
-                title=args.title or "Untitled ATDD issue",
-                status=args.status, issue_type=args.issue_type,
-                branch=args.branch, train=args.train, feature=args.feature,
-            )
-        except PublishError as exc:
-            logger.warning("atdd author issue publish failed", extra={"slug": slug, "error": str(exc)})
-            print(f"atdd author issue: {exc}", file=sys.stderr)
-            return 2
-
-        # Store write succeeded — the body is now authoritative in the store.
-        # Emit it on stdout (preserves the body-authoring contract), and report
-        # the publish outcome on stderr.
-        print(body)
-        if result.projection_deferred:
-            print(
-                f"atdd author issue: published work_item {slug!r} (state={result.state}); "
-                "github projection deferred to the outbox (durable retry)",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"atdd author issue: published work_item {slug!r} (state={result.state}) "
-                f"-> github #{result.github_number}",
-                file=sys.stderr,
-            )
-        return 0
-
-    # Plan-layer kinds write under plan/ (not core/extension), so they need no
-    # authoring-context resolution — dispatch before resolve_context.
-    if args.cmd in ("wagon", "feature", "wmbt", "train", "interlocking", "contract", "acceptance"):
-        from atdd.planner.interlocking import InterlockingError
-        try:
-            spec = yaml.safe_load(Path(args.spec).read_text(encoding="utf-8")) or {}
-        except (OSError, yaml.YAMLError) as exc:
-            logger.warning("atdd author cannot read --spec", extra={"path": args.spec, "error": str(exc)})
-            print(f"atdd author: cannot read --spec: {exc}", file=sys.stderr)
-            return 2
-        try:
-            if args.cmd == "wagon":
-                out = create_wagon(spec, root=args.root)
-            elif args.cmd == "feature":
-                out = create_feature(spec, root=args.root)
-            elif args.cmd == "wmbt":
-                out = create_wmbt(spec, root=args.root)
-            elif args.cmd == "train":
-                out = create_train(spec, root=args.root)
-            elif args.cmd == "interlocking":
-                out = create_interlocking(spec, root=args.root)
-            elif args.cmd == "contract":
-                out = create_contract(spec, root=args.root)
-            else:  # acceptance
-                out = create_acceptance(args.wmbt_urn, spec, root=args.root)
-        except AuthorInputError as exc:
-            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
-            print(f"atdd author: {exc}", file=sys.stderr)
-            return 2
-        except InterlockingError as exc:
-            logger.warning("atdd author interlocking precondition unmet",
-                           extra={"error": str(exc)})
-            print(f"atdd author: {exc}", file=sys.stderr)
-            return 2
-        print(str(out))
-        return 0
+    runner = _CONTEXTUAL_RUNNERS.get(args.cmd)
+    if runner is None:
+        return 2
 
     # every author kind resolves an authoring context first (P001, spec §6).
-    from atdd.planner.commands.author_context import (
-        gate_home, node_home, relationship_graph_id, relationship_home,
-        resolve_context, scope_home,
-    )
+    from atdd.planner.commands.author_context import resolve_context
 
     cwd = os.getcwd()
     root = Path(args.root) if getattr(args, "root", None) else Path(cwd)
@@ -1321,122 +1668,4 @@ def run(argv: list[str]) -> int:
         print(f"atdd author: {exc}", file=sys.stderr)
         return 2
 
-    if args.cmd == "convention-node":
-        if ctx.is_core:
-            role = args.role
-            if not role:
-                print("atdd author: --core convention-node requires --role", file=sys.stderr)
-                return 2
-        else:
-            role = args.rule_id.split(".", 1)[0]  # extension: derive role from rule_id
-        path = node_home(ctx, role, args.rule_id, root)
-        try:
-            def _json_arg(field: str, raw):
-                if raw is None:
-                    return None
-                try:
-                    return json.loads(raw)
-                except (ValueError, TypeError) as exc:
-                    raise AuthorInputError(field, f"--{field} must be valid JSON: {exc}")
-
-            implementation = _json_arg("implementation", getattr(args, "implementation", None))
-            variant_req = _variant_request(args, implementation)  # validate before any write
-            create_convention_node(
-                role, args.rule_id, kind=args.kind, status=args.status,
-                statement=args.statement, name=getattr(args, "name", None),
-                rationale=args.rationale, notes=args.notes,
-                implementation=implementation,
-                source=_json_arg("node-source", getattr(args, "node_source", None)),
-                content=_json_arg("content", getattr(args, "content", None)),
-                bidirectional=_json_arg("bidirectional", getattr(args, "bidirectional", None)),
-                metadata=_json_arg("metadata", getattr(args, "metadata", None)),
-                parity=_json_arg("parity", getattr(args, "parity", None)),
-                validation=_json_arg("validation", getattr(args, "validation", None)),
-                terms=_parse_terms(args.terms), path=path,
-            )
-            variant_path = None
-            if variant_req is not None:
-                from atdd.planner.commands.author_variant import scaffold_variant
-
-                family, template, ref = variant_req
-                variant_path = scaffold_variant(
-                    family=family, template=template, rule_id=args.rule_id,
-                    implementation_ref=ref, root=root,
-                )
-        except AuthorInputError as exc:
-            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
-            print(f"atdd author: {exc}", file=sys.stderr)
-            return 2
-        print(str(path))
-        if variant_path is not None:
-            print(str(variant_path))
-        return 0
-
-    if args.cmd == "relationship":
-        from atdd.planner.commands.author_registry import insert_relationship
-
-        edge = {
-            "source_ref": args.source_ref,
-            "type": args.rel_type,
-            "target_ref": args.target_ref,
-            "reason": args.reason,
-            "confidence": args.confidence,
-        }
-        for key in ("foundation", "constraint", "control", "strength"):
-            val = getattr(args, key)
-            if val is not None:
-                edge[key] = val
-        path = Path(args.path) if args.path else relationship_home(ctx, root)
-        try:
-            insert_relationship(edge, path, graph_id=relationship_graph_id(ctx))
-        except AuthorInputError as exc:
-            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
-            print(f"atdd author: {exc}", file=sys.stderr)
-            return 2
-        print(str(path))
-        return 0
-
-    if args.cmd == "scope":
-        from atdd.planner.commands.author_registry import insert_scope_selector
-
-        scope_meta = {"scope_id": args.scope_id}
-        for key in ("artifact_kind", "runtime", "platform"):
-            val = getattr(args, key)
-            if val is not None:
-                scope_meta[key] = val
-        selector = {"selector_id": args.selector_id, "type": args.selector_type, "include": args.include}
-        if args.exclude:
-            selector["exclude"] = args.exclude
-        path = Path(args.path) if args.path else scope_home(ctx, args.scope_id, root)
-        try:
-            insert_scope_selector(scope_meta, selector, path)
-        except AuthorInputError as exc:
-            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
-            print(f"atdd author: {exc}", file=sys.stderr)
-            return 2
-        print(str(path))
-        return 0
-
-    if args.cmd == "gate":
-        from atdd.planner.commands.author_registry import insert_gate
-
-        path = Path(args.path) if args.path else gate_home(ctx, args.trigger_name, root)
-        gate = {
-            "gate_id": args.gate_id,
-            "kind": "gate",
-            "status": "active",
-            "trigger": {"type": args.trigger_type, "name": args.trigger_name},
-            "selection": {"strategy": args.selection_strategy},
-            "on_violation": {"action": args.violation_action},
-            "exit": {"success_code": args.success_code, "failure_code": args.failure_code},
-        }
-        try:
-            insert_gate(gate, path)
-        except AuthorInputError as exc:
-            logger.warning("atdd author rejected input", extra={"field": getattr(exc, "field", None)})
-            print(f"atdd author: {exc}", file=sys.stderr)
-            return 2
-        print(str(path))
-        return 0
-
-    return 2
+    return runner(args, ctx, root)

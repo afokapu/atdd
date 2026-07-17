@@ -114,8 +114,12 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
+      # `build`/`setuptools`/`wheel` are needed by the #1474 packaging acceptances
+      # (E062-SMOKE-001, E062-UNIT-001, C009-SMOKE-001), which live under
+      # coach/validators/tests/ and build a real wheel into a real clean venv.
+      # They are the executable form of what `validate-consumer` does in shell.
       - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript build setuptools wheel
 
       - name: Run coach validators
         run: PYTHONPATH=src python3 -m pytest src/atdd/coach/validators/ -v --tb=short
@@ -152,6 +156,111 @@ jobs:
         run: PYTHONPATH=src python3 -m pytest src/atdd/validators/conventions/ -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The consumer oracle (#1474). Every other job runs `PYTHONPATH=src pytest
+  # src/atdd/<phase>/validators/`, which puts the working tree on the import path —
+  # so `atdd.__file__` resolves into the checkout, every data file exists by
+  # definition, and `[tool.setuptools.package-data]` is never consulted. The wheel
+  # was built only at publish time, AFTER merge. No PR could go red for a packaging
+  # defect, which is how #663 sat open from 3.47.0 until a downstream user hit it,
+  # and how #952/#1369 and the packaging half of #1341 all shipped.
+  #
+  # This job is the missing oracle: build the wheel, install it into a clean venv,
+  # and exercise the shipped validators from a synthetic consumer repo that has no
+  # `src/atdd/`. It gates on the two signals a packaging defect actually produces
+  # there:
+  #
+  #   * wheel-completeness — every non-.py source file is present in the package.
+  #   * ZERO pytest collection errors across all four phases. A missing data file
+  #     surfaces at IMPORT: `bind_rule()` runs at module scope, so an absent rule
+  #     node raises RuleNotInRegistryError while pytest is still collecting and the
+  #     whole sweep aborts before running a test. Pre-fix that is 15 errors in
+  #     tester and 15 in coder.
+  #
+  # It deliberately does NOT gate on a fully green consumer sweep. Some validators
+  # still fail in a consumer for an unrelated reason (#954: toolkit self-tests carry
+  # no `platform` marker, so they run in consumer mode and assert on `src/atdd/` and
+  # `docs/smoke-audit.md`, which no consumer has). That is a different mechanism with
+  # a different fix. Gating on it here would mean shipping a job that is red on
+  # arrival, which is worse than no job.
+  validate-consumer:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install build tooling
+        run: pip3 install build setuptools wheel
+
+      # `rm -rf build/` is not superstition: setuptools does not clean `build/lib`
+      # between runs and bdist_wheel packs it wholesale, so a file left there by an
+      # earlier build survives into every later wheel regardless of config. A fresh
+      # CI checkout has no `build/`, but the guard costs nothing and keeps this job
+      # honest if it ever runs after something that populated one.
+      - name: Build the wheel
+        run: |
+          rm -rf build/ dist/
+          python3 -m build --wheel --outdir dist/
+
+      # A clean venv: the wheel and its declared dependencies, nothing else. This is
+      # the step every other job is missing — `pip install` consults package-data,
+      # `PYTHONPATH=src` never does.
+      - name: Install the wheel into a clean venv
+        run: |
+          python3 -m venv /tmp/consumer-venv
+          /tmp/consumer-venv/bin/pip install --quiet pytest dist/*.whl
+          /tmp/consumer-venv/bin/python -c "import atdd, pathlib; print('installed:', pathlib.Path(atdd.__file__).parent)"
+
+      # No src/atdd/ here, so a data file that did not ship is genuinely absent
+      # rather than shadowed by the checkout.
+      - name: Create a synthetic consumer repo
+        run: |
+          mkdir -p /tmp/consumer-repo
+          cd /tmp/consumer-repo
+          git init -q .
+          test ! -e src/atdd || (echo "::error::consumer repo has a toolkit source tree" && exit 1)
+
+      # THE GATE. A missing data file surfaces at IMPORT — `bind_rule()` runs at
+      # module scope, so an absent rule node raises RuleNotInRegistryError while
+      # pytest is still collecting and the sweep dies before running a test.
+      # Pre-fix: 15 collection errors in tester, 15 in coder. Zero is the invariant.
+      - name: Consumer sweep — all four phases must COLLECT with zero errors
+        run: |
+          PKG=$(/tmp/consumer-venv/bin/python -c "import atdd, pathlib; print(pathlib.Path(atdd.__file__).resolve().parent)")
+          cd /tmp/consumer-repo
+          failed=0
+          for phase in planner tester coder coach; do
+            echo "::group::collect $phase"
+            if ! /tmp/consumer-venv/bin/python -m pytest "$PKG/$phase/validators" \
+                 -q -p no:cacheprovider --collect-only -m "not platform"; then
+              echo "::error::$phase does not COLLECT off the installed wheel — a file its validators read at import did not ship"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $failed
+
+      # The #451 gate, run the only way it has ever been able to run: package
+      # imported from the venv's site-packages, cwd at the toolkit checkout.
+      - name: Wheel-completeness gate against the installed package
+        run: |
+          PKG=$(/tmp/consumer-venv/bin/python -c "import atdd, pathlib; print(pathlib.Path(atdd.__file__).resolve().parent)")
+          /tmp/consumer-venv/bin/python -m pytest "$PKG/coach/validators/test_wheel_completeness.py" \
+            -v -rs -p no:cacheprovider --tb=short
 
   # SMOKE phase: opt-in via SMOKE_BASE_URL repo secret (issue #293).
   # When unset, the job ends with `success` via the early-skip step and the
@@ -293,6 +402,81 @@ jobs:
       - name: Run incident-defense suite (§9)
         run: PYTHONPATH=src python3 -m pytest tests/incident_defenses/ -v --tb=short
 
+  # Extension-convention enforcement (#1359 wired it; #1428 made it REQUIRED).
+  # Runs `atdd enforce` over the vendored, committed substrate
+  # (.atdd/{extensions,workspaces} + binding.lock).
+  #
+  # The convention VERDICT is now BLOCKING — this job's failure fails the
+  # validate-gate fan-in and blocks the merge. That is the point of train 0007:
+  # enforcement nobody is accountable to is not enforcement.
+  #
+  # It is blocking BUT BASELINED. The toolkit does not pass its own rules today
+  # (23 of 51 enforced rules carry violations), so the verdict is judged against
+  # `.atdd/enforce-ratchet.yaml` — a per-rule violation-count DEBT REGISTER
+  # (#1428 E003). A rule at or below its recorded count is held FLAT; a rule ABOVE
+  # it, or a clean rule that starts failing, FAILS the build. The register can only
+  # ever be TIGHTENED — to pay debt down, fix violations and re-record with
+  # `atdd enforce --paths src/atdd --record-ratchet .atdd/enforce-ratchet.yaml`.
+  # NEVER raise a count to green a red build: that is precisely what this gate exists
+  # to catch.
+  #
+  # Substrate digest coherence and the gate wiring are likewise blocking (real
+  # invariants). train-interlocking is no longer deferred: the #1426 fan-out
+  # composes its list-valued realizes_convention and the extension ships enabled,
+  # so its rules bind, verify, and enforce here like any other.
+  enforce-extensions:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+
+      # Blocking: the committed vendored substrate must be digest-coherent.
+      # PYTHONDONTWRITEBYTECODE keeps the tree clean — compute_digest hashes .pyc,
+      # so a compiled provider would otherwise drift the digest.
+      - name: Verify extension substrate (blocking)
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: PYTHONPATH=src python3 -m atdd enforce --verify-substrate --repo-root .
+
+      # BLOCKING (#1428 E001). No `continue-on-error`, no `|| true`: a strict
+      # convention FAIL exits non-zero, fails this job, and blocks the merge via the
+      # validate-gate fan-in.
+      #
+      # `--ratchet` is what makes that safe on day one (#1428 E003): the repository's
+      # pre-existing violations are held FLAT against the recorded baseline, so this
+      # goes green on the known debt — while any rule climbing ABOVE its baseline, or
+      # any clean rule that starts failing, reds the build.
+      - name: Enforce extension conventions (BLOCKING — ratcheted, #1428)
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          # Scope to the toolkit's product code (config `code.toolkit: src/atdd`);
+          # avoids scanning the vendored substrate's own intentional-dirty fixtures.
+          # The baseline was recorded over this exact scope — they must not diverge.
+          PYTHONPATH=src python3 -m atdd enforce --repo-root . --paths src/atdd \
+            --ratchet .atdd/enforce-ratchet.yaml
+
+      # Blocking: the gate wiring + substrate guards must hold (regression guard).
+      - name: Assert enforce gate wiring
+        run: PYTHONPATH=src python3 -m pytest tests/enforce/ -v --tb=short
+
   # Note: the pre-merge `version-bump` PR check was removed in #462 phase 2.
   # Version is now bumped automatically on main by the bump-on-merge step in
   # `.github/workflows/post-merge-lifecycle.yml` (branch-prefix → semver
@@ -301,7 +485,7 @@ jobs:
   # check that no longer reports.
 
   validate-gate:
-    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-smoke, import-discipline-test, parity-test, incident-defense-test]
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-consumer, validate-smoke, import-discipline-test, parity-test, incident-defense-test, enforce-extensions]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -314,10 +498,12 @@ jobs:
                         "coder:${{ needs.validate-coder.result }}" \
                         "coach:${{ needs.validate-coach.result }}" \
                         "conventions:${{ needs.validate-conventions.result }}" \
+                        "validate-consumer:${{ needs.validate-consumer.result }}" \
                         "smoke:${{ needs.validate-smoke.result }}" \
                         "import-discipline:${{ needs.import-discipline-test.result }}" \
                         "parity:${{ needs.parity-test.result }}" \
-                        "incident-defense:${{ needs.incident-defense-test.result }}"; do
+                        "incident-defense:${{ needs.incident-defense-test.result }}" \
+                        "enforce-extensions:${{ needs.enforce-extensions.result }}"; do
             phase="${result%%:*}"
             status="${result##*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then

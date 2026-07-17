@@ -25,14 +25,15 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.graph.urn import URNGrammar
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 DART_DIR = REPO_ROOT / "lib"
-TS_DIR = REPO_ROOT / "typescript"
+TS_DIR = resolve_code_root("typescript", REPO_ROOT)
 
 # Standard URN comment pattern (matches # URN: ... or // URN: ...)
 _URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
@@ -40,7 +41,7 @@ _URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
 
 def find_python_init_files() -> List[Path]:
     """Find all Python __init__.py files."""
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return []
 
     return list(PYTHON_DIR.rglob("__init__.py"))
@@ -56,7 +57,7 @@ def find_dart_index_files() -> List[Path]:
 
 def find_ts_index_files() -> List[Path]:
     """Find all TypeScript index.ts barrel files."""
-    if not TS_DIR.exists():
+    if TS_DIR is None or not TS_DIR.exists():
         return []
 
     index_files = []

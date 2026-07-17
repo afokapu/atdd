@@ -1,0 +1,32 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: diff the projection against the merge-base and evaluate each object's
+        phase change against the lifecycle evidence policy
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: 'the section-6 lifecycle evidence policy: required evidence per transition,
+        monotonicity, and tombstone rules'
+      type: policies
+    - count: 1
+      rationale: LegalTransition specification deciding whether one phase change is
+        admissible given its evidence
+      type: specifications
+    presentation:
+    - count: 1
+      rationale: the legal-transition validator invoked as a required CI check over
+        a merge-base/head projection pair
+      type: validators
+description: 'The load-bearing gate: diff the committed projection against the merge-base
+  and reject any phase change that is not lifecycle-legal or that skips a gate it
+  carries no evidence for (CORE-016).'
+sizing:
+  footprint_score: 11
+  footprint_size: M
+  wmbts: 1
+urn: feature:enforce-merge-authority:validate-transition-legality
+wagon: wagon:enforce-merge-authority
+wmbts:
+- wmbt:enforce-merge-authority:C001

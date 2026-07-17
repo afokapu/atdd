@@ -12,19 +12,14 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
-from atdd.validators.conventions.acyclicity import archetype, fixtures
+from atdd.validators.conventions.acyclicity import fixtures
 from atdd.validators.conventions.acyclicity.archetype import (
     TEMPLATE_IDS,
     TEMPLATES,
     build_consume_edges,
     forbidden_cycle_absence,
 )
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
-from atdd.validators.conventions.acyclicity import _parity
+from atdd.validators.conventions._support.graph_mutations import add_node, clone_graph
 
 FAMILY = "acyclicity"
 TEMPLATE = "forbidden_cycle_absence"
@@ -40,14 +35,11 @@ LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_no_cross_wagon_consum
 
 
 
-def _repo_root() -> Path:
-    p = Path(__file__).resolve()
-    for parent in p.parents:
-        if (parent / "pyproject.toml").exists() and (parent / ".atdd").exists():
-            return parent
-    raise RuntimeError("repo root not found")
-
-
+# A cross-wagon produce/consume cycle: alpha produces what beta consumes and vice
+# versa. Adding both as wagon nodes to the clone reproduces the strongly-connected
+# component the on-disk temp manifests used to compose, with no plan/ dir created.
+_ALPHA = "zztmp-acy-alpha"
+_BETA = "zztmp-acy-beta"
 
 
 
@@ -95,11 +87,25 @@ def test_clean_baseline_real_graph_is_zero(clean_convention_graph) -> None:
 
 
 # --- fault injection (convention path is the live coverage; oracle retired #1365) ---
-def test_fault_injection_convention_catches() -> None:
-    repo_root = _repo_root()
-    with _parity.injected_cross_wagon_cycle(repo_root) as members:
-        conv = forbidden_cycle_absence(load_composed_graph(repo_root))
-    conv_caught = any(set(members).issubset(set(v["cycle_path"])) for v in conv)
+def test_fault_injection_convention_catches(clean_convention_graph) -> None:
+    """Inject a cross-wagon produce/consume cycle into a deep clone of the session
+    graph (#1416): two wagon nodes each consume an artifact the other produces, so the
+    SCC search flags the pair — no plan/ manifests are written and the shared graph keeps
+    its DAG shape."""
+    faulted = clone_graph(clean_convention_graph)
+    add_node(faulted, id=f"wagon:{_ALPHA}", kind="wagon",
+             fields={"wagon": _ALPHA,
+                     "produce": [{"name": "x:zz:from-alpha"}],
+                     "consume": [{"name": "x:zz:from-beta"}]})
+    add_node(faulted, id=f"wagon:{_BETA}", kind="wagon",
+             fields={"wagon": _BETA,
+                     "produce": [{"name": "x:zz:from-beta"}],
+                     "consume": [{"name": "x:zz:from-alpha"}]})
+
+    conv = forbidden_cycle_absence(faulted)
+    conv_caught = any({_ALPHA, _BETA}.issubset(set(v["cycle_path"])) for v in conv)
     assert conv_caught, (
         "convention path did not catch the injected cross-wagon cycle"
     )
+    # the shared clean graph stays a DAG
+    assert forbidden_cycle_absence(clean_convention_graph) == []

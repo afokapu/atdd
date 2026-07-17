@@ -1,0 +1,93 @@
+schema_version: 1.1.0
+rule_id: tester.interlocking.route-coverage
+kind: rule
+status: active
+name: Every admissible interlocking route has an e2e test that exercises it
+statement: >-
+  Every admissible route declared in an interlocking's guarded route space (the `routes:` list of
+  `plan/_trains/_interlockings/**/*.yaml`, the authoritative route space locked by core afokapu/atdd#1248)
+  MUST have at least one end-to-end test that exercises it — a test that names the route so its resolution
+  to the expected `train_id` is proven through the production InterlockingRunner -> TrainRunner path
+  (core afokapu/atdd#1251), not asserted descriptively. This is the stack-bound tester obligation owned by
+  the train-interlocking-enforcement extension; its python-pytest realization (the
+  `tester.interlocking.route-coverage.impl` detector) scans the interlocking route space against the
+  consumer's `e2e/**/*.py` tests and flags any declared route with no covering test. An admissible route
+  with no e2e test is a SILENT-GREEN GAP: the branch of the interlocking that route represents is never
+  executed, so CI is green while a guarded route-control path is entirely unproven.
+implementation:
+  type: validator
+  ref: tester.interlocking.route-coverage
+content:
+  summary: >-
+    A "every declared interlocking route is exercised by an e2e test" obligation. The python realization
+    parses each interlocking artifact under the `interlocking_yaml` scope selector, extracts its declared
+    routes (each carrying `route_id`, `train_id`, `category`, `category_digit`, `guard_ref` per
+    afokapu/atdd#1248), then scans the `e2e_tests` selector (`e2e/**/*.py`) for tests that reference the
+    route by its `route_id` or its resolved `train_id`. Any declared route with no covering e2e test is
+    emitted as a RAW violation anchored at the route's declaration line in the source interlocking YAML.
+  normative_text: |
+    The interlocking YAML is authoritative for the guarded route space (afokapu/atdd#1248): every entry
+    under `routes:` is an admissible route the InterlockingRunner can resolve to exactly one `train_id`
+    (afokapu/atdd#1251). Coverage of that route space is a tester obligation — proving the runtime actually
+    selects the expected route is not optional, because an unexercised route is a branch of production
+    route control that no test ever drives.
+
+    A route is COVERED when at least one `e2e/**/*.py` test references it by its `route_id` or by the
+    `train_id` it resolves to, so the test plainly exercises that admissible route. The richer per-route
+    coverage shape the contract-level e2e tests should carry — guard-true case resolves the expected
+    route_id/train_id, the no-match case, the ambiguous-match case when the resolution strategy can produce
+    ambiguity, and the route's `category_digit` asserted in the resolution metadata — is documented in the
+    detector's fixtures and is the obligation the consuming repo satisfies; the detector's enforced minimum
+    is the existence of a covering e2e test for every declared route. WHICH per-stack discovery applies
+    (here: python `e2e/**/*.py` scanned for the route/train tokens) is delegated to this python-pytest
+    realization; other stacks would render the same obligation in their own e2e layout.
+  fix_hint: |
+    Add an end-to-end test that exercises the flagged route through the production runners. Place it under
+    `e2e/interlockings/<interlocking_slug>/test_<interlocking_slug>_routes.py` and have it drive
+    `InterlockingRunner.resolve_train(...)` (or the real action endpoint that reaches the Station Master)
+    so the route's guard-true case resolves to the route's expected `train_id`, then have `TrainRunner`
+    execute it. Reference the route by its `route_id` (e.g. `nominal-all-voted`) or its `train_id` so the
+    coverage is machine-discoverable. Do NOT satisfy this with a mock route resolver or a descriptive
+    assertion — the test must exercise the production route-control path. This rule is `strict`: an
+    admissible route with no covering e2e test blocks, because it is a guarded route-control branch proven
+    nowhere.
+  exceptions:
+    - YAML under the interlocking scope that declares no `routes:` (the `_interlockings.yaml` registry
+      index and the generated `coverage.yaml`/`sequence.*` projections) carries no admissible route space
+      and is out of scope.
+    - A route already referenced by its `route_id` or resolved `train_id` in any `e2e/**/*.py` test is
+      covered and is not flagged.
+    - Per-stack e2e renderings other than python (dart/ts/go/...) are owned by their own workspace
+      packages and are not checked by this python-pytest detector.
+metadata:
+  aliases:
+    - TESTER-INTERLOCKING-ROUTE-COVERAGE-001
+  severity: 1
+  disposition: strict
+  introduced_in: 0.1.0
+notes: >-
+  DISPOSITION JUSTIFICATION (strict, severity 1). Unlike advisory/documentation-only tester naming rules
+  (e.g. tester.filename.urn, where a mis-named file is recoverable and non-behavioral), an admissible
+  interlocking route with no e2e test is a behavioral coverage hole: the guarded route-control branch it
+  represents is never driven through the production InterlockingRunner -> TrainRunner path, so route
+  resolution could be broken and CI would stay green. The whole purpose of train-interlocking enforcement
+  (afokapu/atdd#1246) is that every guarded route is proven, so this obligation blocks rather than advises.
+  The gate `gates/interlocking-coverage.gate.yaml` accordingly runs this stage at mode: strict. Per
+  boundary spec §6.2, the core design nodes this realizes (afokapu/atdd#1248 route space, #1251 runtime
+  call model) are referenced NARRATIVELY here and in the implementation manifest, never as graph edges.
+terms:
+- term_id: admissible_route
+  text: >-
+    a single entry under the `routes:` list of an interlocking artifact (afokapu/atdd#1248); it carries a
+    `route_id`, the `train_id` it resolves to, a `category` + `category_digit`, and a `guard_ref`. Every
+    admissible route is a branch the InterlockingRunner can select and must therefore be exercised by an
+    e2e test.
+- term_id: route_coverage
+  text: >-
+    the property that a declared admissible route is referenced by at least one `e2e/**/*.py` test — by its
+    `route_id` or its resolved `train_id` — so the route's resolution through the production runners is
+    proven rather than merely declared. A route lacking such a test is an uncovered (silent-green) route.
+- term_id: silent_green_route_gap
+  text: >-
+    an admissible route with no covering e2e test; the interlocking branch it represents is never executed,
+    so CI passes while a guarded route-control path is entirely unproven.

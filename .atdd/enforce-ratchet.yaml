@@ -1,0 +1,39 @@
+# Enforcement ratchet baseline (#1428 E003) — a DEBT REGISTER, not an exemption.
+#
+# Each entry records the violation count a rule carried when the enforce job was
+# made BLOCKING (#1428 E001). A rule at or below its count is held FLAT; a rule
+# ABOVE it FAILS; a rule absent from this register is held to ZERO.
+#
+# The ratchet may only ever be TIGHTENED. To pay debt down, fix violations and
+# re-record:  atdd enforce --paths <scope> --record-ratchet .atdd/enforce-ratchet.yaml
+# NEVER raise a count to make a red build green — that is what the gate is for.
+
+version: 1
+# The scan scope these counts were recorded over (CI uses the same).
+scope:
+  - src/atdd
+
+rules:
+  coder.dead-code.reachability:                                   59
+  coder.dead-code.reachability-typescript:                        29
+  coder.design.orphan-ui:                                         7
+  coder.design.primitives:                                        5
+  coder.error-response.code-format:                               1
+  coder.logging.coach-silent-swallow:                             248
+  coder.logging.structured:                                       15
+  coder.refactor.complexity-cognitive:                            131
+  coder.refactor.complexity-cyclomatic:                           149
+  coder.refactor.complexity-length:                               76
+  coder.refactor.complexity-nesting:                              173
+  coder.refactor.composition-consumer:                            63
+  coder.refactor.composition-root:                                8
+  coder.refactor.quality-comments:                                20
+  coder.refactor.quality-comments-typescript:                     2
+  coder.refactor.quality-duplication:                             52
+  coder.refactor.quality-file-length:                             40
+  coder.refactor.quality-mi:                                      11
+  coder.refactor.quality-naming:                                  3
+  coder.security.sql-injection:                                   1
+  tester.acceptance-violation.live-smoke-acceptance-must-execute: 1
+  tester.acceptance-violation.metric-implementation-must-exist:   1
+  tester.smoke.no-collaborator-substitution:                      1

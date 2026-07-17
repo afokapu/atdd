@@ -27,7 +27,6 @@ REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 ARTIFACT_SCHEMA_PATH = REPO_ROOT / ".claude/schemas/tester/artifact.schema.json"
-MANIFEST_FILE = REPO_ROOT / "manifest.yaml"
 REGISTRY_FILE = REPO_ROOT / "plan/_wagons.yaml"
 
 

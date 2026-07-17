@@ -1,0 +1,47 @@
+urn: feature:govern-lifecycle:ship-package-data-and-consumer-ci
+wagon: wagon:govern-lifecycle
+description: "Ship the conventions, schemas and templates that the toolkit's own shipped\
+  \ code reads, and add the CI oracle that proves it. Three moves: (1) replace the\
+  \ hand-enumerated `[tool.setuptools.package-data]` globs \u2014 which silently omit\
+  \ 174 of 610 non-.py files, including the `coder/`+`tester/` `conventions/nodes/`\
+  \ trees `bind_rule()` reads AT IMPORT \u2014 with a broad-ship policy plus an explicit\
+  \ deny-list; (2) repair `test_wheel_completeness` (#451), a gate that has never\
+  \ executed a single assertion because it scans only `validators/fixtures/**` and\
+  \ skips on every environment it is ever run in, and flip its rule node off `advisory`;\
+  \ (3) add a required `validate-consumer` CI job that builds the wheel, installs\
+  \ it into a clean venv and runs the shipped validators from a synthetic consumer\
+  \ repo \u2014 the missing oracle, since no CI job today ever installs the package.\
+  \ Closes #663, #952, #1369 and the packaging half of #1341."
+sizing:
+  wmbts: 3
+  footprint_score: 5
+  footprint_size: M
+wmbts:
+- wmbt:govern-lifecycle:E062
+- wmbt:govern-lifecycle:C008
+- wmbt:govern-lifecycle:C009
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 1
+      rationale: "The `validate-consumer` CI job in `.github/workflows/atdd-validate.yml`\
+        \ \u2014 the operator-facing surface that turns a packaging regression into\
+        \ a red PR"
+    application:
+    - type: use_cases
+      count: 1
+      rationale: 'The broadened wheel-completeness scan: collect every non-.py source
+        file, resolve the source tree from the working directory when the imported
+        package is an installed wheel, diff against the package root'
+    domain:
+    - type: entities
+      count: 0
+      rationale: "No new domain concept \u2014 the shippable-data-file set and its\
+        \ deny-list are a policy expressed in `pyproject.toml` and mirrored by the\
+        \ scan, not a new entity"
+    integration:
+    - type: repositories
+      count: 0
+      rationale: "No new repository \u2014 the change is to the setuptools package-data\
+        \ declaration and to the filesystem scan the existing validator already performs"

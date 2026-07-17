@@ -1,0 +1,103 @@
+action: migrates the legacy manifest into uid-keyed committed projection files, runs
+  a non-blocking shadow projection CI to surface drift, strips GitHub reads out of
+  every core lifecycle decision, decommissions the manifest read-fallback, and publishes
+  the migration runbook and the cross-repo rollout and rollback plan
+context: post-cutover-staging, projection spine and merge authority already shipped;
+  the legacy manifest and GitHub hot-path reads are still live and must be retired
+  in order
+description: 'M8 of the state-projection collaboration model: move the shared source
+  of truth off the legacy manifest and the GitHub hot path onto the committed deterministic
+  projection. Ships the manifest-to-projection migration tool (CORE-031) with a refuse-before-write
+  guard, a non-blocking shadow-mode projection CI (CORE-032) that reports drift while
+  the cutover is staged, removal of GitHub reads from every core lifecycle decision
+  (CORE-033), decommission of the manifest read-fallback once projection blocks (CORE-034),
+  the core migration runbook (CORE-035), and the cross-repo rollout and rollback plan
+  (X-006).'
+features:
+- urn: feature:migrate-projection-authority:migrate-manifest-projection
+- urn: feature:migrate-projection-authority:compare-shadow-projection
+- urn: feature:migrate-projection-authority:remove-github-reads
+- urn: feature:migrate-projection-authority:decommission-manifest-fallback
+- urn: feature:migrate-projection-authority:describe-migration-runbook
+- urn: feature:migrate-projection-authority:plan-migration-rollout
+goal: make the committed projection the only shared source of truth, so lifecycle
+  decisions never depend on a provider API or on a hand-editable manifest
+name: Migrate Projection Authority
+outcome: projection is the shared committed state, GitHub is an optional mirror no
+  lifecycle decision reads, and the legacy manifest no longer acts as a fallback source
+  of truth
+subject: agent:coder
+theme: commons
+urn: wagon:migrate-projection-authority
+wagon: migrate-projection-authority
+produce:
+- name: commons:migrate:manifest-projection-migrator
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:migrate:shadow-projection-report
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:migrate:github-read-removal
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:migrate:manifest-fallback-decommission
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:migrate:migration-runbook
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:migrate:rollout-rollback-plan
+  contract: null
+  telemetry: null
+  to: internal
+consume:
+- contract: contract:commons:projection-object
+  from: wagon:project-shared-state
+  name: commons:project:projection-object
+  telemetry: null
+- contract: contract:commons:projection-evidence
+  from: wagon:enforce-merge-authority
+  name: commons:enforce:lifecycle-evidence
+  telemetry: null
+- contract: contract:commons:projection-trailer
+  from: wagon:enforce-merge-authority
+  name: commons:enforce:commit-trailer
+  telemetry: null
+- contract: contract:commons:provider-external-ref-update
+  from: wagon:isolate-provider-boundary
+  name: commons:isolate:external-ref-update
+  telemetry: null
+- contract: contract:commons:provider-extensions-lock
+  from: wagon:isolate-provider-boundary
+  name: commons:isolate:extensions-lock
+  telemetry: null
+wmbt:
+  C001: 'minimize likelihood of a lossy-migration-write: the migration tool refuses
+    before writing any projection file when a manifest entry carries no uid, a duplicate
+    uid, or a phase outside the lifecycle vocabulary'
+  D001: maximize likelihood of a migration-runbook that names the cutover steps in
+    order, the developer-facing command changes, and the numbered invariant each step
+    preserves
+  E001: maximize likelihood of a complete manifest-projection-migration that reads
+    the legacy manifest, hydrates the store, and emits one deterministic .atdd/state/projection/<uid>.yaml
+    per work item keyed by the immutable uid rather than the mutable slug
+  K001: maximize likelihood of a clean projection-authority-cutover in which the committed
+    projection is the shared source of truth, GitHub is an optional mirror, and the
+    legacy manifest no longer acts as a fallback source of truth
+  M001: maximize likelihood of a shadow-projection-report that recomputes the projection
+    on every push and surfaces drift against both the committed projection and the
+    manifest-derived projection while remaining non-blocking
+  P001: maximize likelihood of a rollout-rollback-plan that stages shadow mode ahead
+    of blocking mode, names its rollback trigger and restore procedure, and is agreed
+    across the core and extension repos before the first irreversible step
+  Y001: 'minimize likelihood of a github-hot-path-read: no core lifecycle decision,
+    validator, or gate calls the GitHub API, and every remaining provider access sits
+    behind the SyncProvider seam and the external-ref quarantine'
+  Y002: 'minimize likelihood of a manifest-read-fallback: once projection is in blocking
+    mode, no core reader consults .atdd/manifest.yaml for shared lifecycle state'
+  total: 8

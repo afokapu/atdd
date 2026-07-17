@@ -98,6 +98,91 @@ def slug_to_branch_name(slug: str) -> str:
     return slug
 
 
+_DEFAULT_WORKSPACE_BG = "#FFC107"
+
+
+def _workspace_folders(parent: Path) -> List[dict]:
+    """The git-worktree siblings to show as multi-root folders, ``main`` first."""
+    folders = []
+    for child in sorted(parent.iterdir()):
+        if not child.is_dir() or child.name.startswith("."):
+            continue
+
+        git_marker = child / ".git"
+        if not (git_marker.is_file() or git_marker.is_dir()):
+            continue
+
+        folders.append({
+            "path": child.name,
+            "name": slug_to_branch_name(child.name),
+        })
+
+    # Ensure main is listed first
+    main_entry = next((f for f in folders if f["path"] == "main"), None)
+    if main_entry:
+        folders.remove(main_entry)
+        folders.insert(0, main_entry)
+
+    return folders
+
+
+def _saved_workspace_color(config_path: Path) -> Optional[str]:
+    """The workspace color persisted in .atdd/config.yaml, if any."""
+    if not config_path.exists():
+        return None
+
+    try:
+        with open(config_path) as f:
+            config = yaml.safe_load(f) or {}
+        return config.get("workspace", {}).get("color")
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        return None
+
+
+def _existing_workspace_color(workspace_path: Path) -> Optional[str]:
+    """A user-set title-bar color already present in the workspace file."""
+    try:
+        existing = json.loads(workspace_path.read_text())
+        return (
+            existing.get("settings", {})
+            .get("workbench.colorCustomizations", {})
+            .get("titleBar.activeBackground")
+        )
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        return None
+
+
+def _persist_workspace_color(config_path: Path, bg: str) -> None:
+    """Persist a discovered color to config so future runs reuse it."""
+    if not config_path.exists():
+        return
+
+    try:
+        with open(config_path) as f:
+            cfg = yaml.safe_load(f) or {}
+        cfg.setdefault("workspace", {})["color"] = bg
+        with open(config_path, "w") as f:
+            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        pass
+
+
+def _resolve_workspace_color(config_path: Path, workspace_path: Path) -> str:
+    """Background color: config → existing workspace file → default yellow."""
+    bg = _saved_workspace_color(config_path) or _DEFAULT_WORKSPACE_BG
+
+    # Still default? An existing workspace file may carry a user-set color.
+    if bg != _DEFAULT_WORKSPACE_BG or not workspace_path.exists():
+        return bg
+
+    existing_bg = _existing_workspace_color(workspace_path)
+    if existing_bg and existing_bg != _DEFAULT_WORKSPACE_BG:
+        _persist_workspace_color(config_path, existing_bg)
+        return existing_bg
+
+    return bg
+
+
 def write_workspace(target_dir: Path) -> None:
     """Write a VS Code .code-workspace file in the parent directory.
 
@@ -111,62 +196,8 @@ def write_workspace(target_dir: Path) -> None:
     workspace_name = parent.name
     workspace_path = parent / f"{workspace_name}.code-workspace"
 
-    folders = []
-    for child in sorted(parent.iterdir()):
-        if not child.is_dir():
-            continue
-        if child.name.startswith("."):
-            continue
-        git_marker = child / ".git"
-        if not (git_marker.is_file() or git_marker.is_dir()):
-            continue
-        folders.append({
-            "path": child.name,
-            "name": slug_to_branch_name(child.name),
-        })
-
-    # Ensure main is listed first
-    main_entry = next((f for f in folders if f["path"] == "main"), None)
-    if main_entry:
-        folders.remove(main_entry)
-        folders.insert(0, main_entry)
-
-    # Resolve background color: config → existing workspace → default yellow
-    bg = "#FFC107"
-    config_path = target_dir / ".atdd" / "config.yaml"
-    if config_path.exists():
-        try:
-            with open(config_path) as f:
-                config = yaml.safe_load(f) or {}
-            saved = config.get("workspace", {}).get("color")
-            if saved:
-                bg = saved
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            pass
-
-    # If still default, check existing workspace file for user-set color
-    if bg == "#FFC107" and workspace_path.exists():
-        try:
-            existing = json.loads(workspace_path.read_text())
-            existing_bg = (
-                existing.get("settings", {})
-                .get("workbench.colorCustomizations", {})
-                .get("titleBar.activeBackground")
-            )
-            if existing_bg and existing_bg != "#FFC107":
-                bg = existing_bg
-                # Persist discovered color to config for future runs
-                if config_path.exists():
-                    try:
-                        with open(config_path) as f:
-                            cfg = yaml.safe_load(f) or {}
-                        cfg.setdefault("workspace", {})["color"] = bg
-                        with open(config_path, "w") as f:
-                            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
-                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                        pass
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            pass
+    folders = _workspace_folders(parent)
+    bg = _resolve_workspace_color(target_dir / ".atdd" / "config.yaml", workspace_path)
 
     # Compute foreground via WCAG relative luminance
     from atdd.coach.commands.color import ColorManager
@@ -210,7 +241,6 @@ class ProjectInitializer:
         """
         self.target_dir = target_dir or Path.cwd()
         self.atdd_config_dir = self.target_dir / ".atdd"
-        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
         # Package template location
@@ -420,8 +450,92 @@ class ProjectInitializer:
         """Repoint all paths to the new repo root after migration."""
         self.target_dir = new_root
         self.atdd_config_dir = new_root / ".atdd"
-        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
+
+    def _apply_worktree_layout(self, layout: str, force: bool) -> Optional[int]:
+        """Handle ``--worktree-layout`` for the detected layout.
+
+        Returns an exit code when init must stop, or None to carry on.
+        """
+        if layout == "worktree-ready":
+            print("Already in worktree-ready layout (repo root is main/).")
+            self._write_workspace()
+            return None
+
+        if layout == "worktree":
+            print("Error: You are inside a linked worktree.")
+            print("Run this command from the main checkout instead.")
+            return 1
+
+        if layout == "no-git":
+            print("Error: No git repository found.")
+            print("Initialize git first: git init")
+            return 1
+
+        if layout != "flat":
+            return None
+
+        if not self._worktree_migration_safe():
+            return 1
+        if not self._confirm_worktree_migration(force):
+            return 1
+
+        # Migrate
+        try:
+            new_root = self._migrate_to_worktree_layout()
+            self._update_target_dir(new_root)
+            print(f"Migrated to worktree layout: {new_root}")
+            self._write_workspace()
+            print(f"\n  ** After init completes, run: cd main **\n")
+        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            print(f"Error: {e}")
+            return 1
+
+        return None
+
+    def _worktree_migration_safe(self) -> bool:
+        """Refuse to migrate from a subdirectory, or while linked worktrees exist."""
+        from atdd.coach.utils.repo import find_repo_root
+
+        # Safety: must be at repo root, not a subdirectory
+        try:
+            repo_root = find_repo_root(self.target_dir)
+            if repo_root.resolve() != self.target_dir.resolve():
+                print("Error: Not at repository root.")
+                print(f"Run from: {repo_root}")
+                return False
+        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            pass
+
+        # Safety: no linked worktrees (their .git files would break)
+        linked = self._has_linked_worktrees()
+        if linked:
+            print("Error: Existing linked worktrees would break after migration.")
+            print("Remove them first:")
+            for wt in linked:
+                print(f"  git worktree remove {wt}")
+            return False
+
+        return True
+
+    def _confirm_worktree_migration(self, force: bool) -> bool:
+        """Show what the migration will move, and ask before doing it."""
+        items = [i.name for i in self.target_dir.iterdir()]
+        print(f"This will move all {len(items)} items into {self.target_dir / 'main'}:")
+        for name in sorted(items)[:10]:
+            print(f"  {name}")
+        if len(items) > 10:
+            print(f"  ... and {len(items) - 10} more")
+
+        if force:
+            return True
+
+        answer = input("\nProceed? [y/N] ").strip().lower()
+        if answer in ("y", "yes"):
+            return True
+
+        print("Aborted.")
+        return False
 
     def init(
         self,
@@ -448,69 +562,17 @@ class ProjectInitializer:
         if consumer_repo and toolkit:
             print("Error: --consumer-repo and --toolkit are mutually exclusive.")
             return 1
-        from atdd.coach.utils.repo import detect_worktree_layout, find_repo_root
+        from atdd.coach.utils.repo import detect_worktree_layout
 
         layout = detect_worktree_layout(self.target_dir)
 
         if worktree_layout:
-            if layout == "worktree-ready":
-                print("Already in worktree-ready layout (repo root is main/).")
-                self._write_workspace()
-            elif layout == "worktree":
-                print("Error: You are inside a linked worktree.")
-                print("Run this command from the main checkout instead.")
-                return 1
-            elif layout == "no-git":
-                print("Error: No git repository found.")
-                print("Initialize git first: git init")
-                return 1
-            elif layout == "flat":
-                # Safety: must be at repo root, not a subdirectory
-                try:
-                    repo_root = find_repo_root(self.target_dir)
-                    if repo_root.resolve() != self.target_dir.resolve():
-                        print("Error: Not at repository root.")
-                        print(f"Run from: {repo_root}")
-                        return 1
-                except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                    pass
-
-                # Safety: no linked worktrees (their .git files would break)
-                linked = self._has_linked_worktrees()
-                if linked:
-                    print("Error: Existing linked worktrees would break after migration.")
-                    print("Remove them first:")
-                    for wt in linked:
-                        print(f"  git worktree remove {wt}")
-                    return 1
-
-                # Confirm before migrating
-                items = [i.name for i in self.target_dir.iterdir()]
-                print(f"This will move all {len(items)} items into {self.target_dir / 'main'}:")
-                for name in sorted(items)[:10]:
-                    print(f"  {name}")
-                if len(items) > 10:
-                    print(f"  ... and {len(items) - 10} more")
-                if not force:
-                    answer = input("\nProceed? [y/N] ").strip().lower()
-                    if answer not in ("y", "yes"):
-                        print("Aborted.")
-                        return 1
-
-                # Migrate
-                try:
-                    new_root = self._migrate_to_worktree_layout()
-                    self._update_target_dir(new_root)
-                    print(f"Migrated to worktree layout: {new_root}")
-                    self._write_workspace()
-                    print(f"\n  ** After init completes, run: cd main **\n")
-                except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                    print(f"Error: {e}")
-                    return 1
-        else:
-            if layout == "flat":
-                print("Advisory: Repo uses flat layout (not worktree-ready).")
-                print("  Run: atdd init --worktree-layout\n")
+            stop_code = self._apply_worktree_layout(layout, force)
+            if stop_code is not None:
+                return stop_code
+        elif layout == "flat":
+            print("Advisory: Repo uses flat layout (not worktree-ready).")
+            print("  Run: atdd init --worktree-layout\n")
 
         # Check if already initialized
         if self.atdd_config_dir.exists() and not force:
@@ -1373,12 +1435,22 @@ class ProjectInitializer:
         with open(schema_path) as f:
             schema = json.load(f)
 
-        # ------------------------------------------------------------------
-        # Pass 1: Migrate — rename old-name fields, delete deprecated ones
-        # ------------------------------------------------------------------
+        # Pass 1: migrate — rename old-name fields, delete deprecated ones
         existing = self._query_project_field_names_and_ids(project_id)
-        migrated = 0
+        migrated = self._migrate_project_fields(project_id, existing)
 
+        # Pass 2: re-query after migration
+        if migrated:
+            existing = self._query_project_field_names_and_ids(project_id)
+
+        # Pass 3: create any still-missing fields from schema
+        created = self._create_missing_fields(project_id, schema, set(existing.keys()))
+
+        return migrated + created
+
+    def _migrate_project_fields(self, project_id: str, existing: Dict[str, str]) -> int:
+        """Rename renamed fields and delete deprecated ones. Returns count changed."""
+        migrated = 0
         for old_name, new_name in self._FIELD_MIGRATION.items():
             if old_name not in existing:
                 continue
@@ -1395,22 +1467,17 @@ class ProjectInitializer:
                     print(f"    Renamed field: {old_name} -> {new_name}")
                     migrated += 1
 
-        # ------------------------------------------------------------------
-        # Pass 2: Re-query after migration
-        # ------------------------------------------------------------------
-        if migrated:
-            existing = self._query_project_field_names_and_ids(project_id)
-        existing_names = set(existing.keys())
+        return migrated
 
-        # ------------------------------------------------------------------
-        # Pass 3: Create any still-missing fields from schema
-        # ------------------------------------------------------------------
+    def _create_missing_fields(
+        self, project_id: str, schema: dict, existing_names: set
+    ) -> int:
+        """Create every schema-declared field the project does not carry yet."""
         created = 0
         defs = schema.get("$defs", {})
 
         for scope in ["parent_fields", "sub_issue_fields"]:
-            scope_def = defs.get(scope, {})
-            for field_key, field_spec in scope_def.get("properties", {}).items():
+            for field_spec in defs.get(scope, {}).get("properties", {}).values():
                 field_props = field_spec.get("properties", {})
                 name = field_props.get("name", {}).get("const")
                 data_type = field_props.get("data_type", {}).get("const")
@@ -1418,41 +1485,53 @@ class ProjectInitializer:
                 if not name or not data_type or name in existing_names:
                     continue
 
-                if data_type == "SINGLE_SELECT":
-                    options = field_spec.get("properties", {}).get("options", {})
-                    option_items = options.get("prefixItems", [])
-                    options_str = ", ".join(
-                        f'{{name: "{item["properties"]["name"]["const"]}", '
-                        f'description: "{item["properties"]["description"]["const"]}", '
-                        f'color: {item["properties"]["color"]["const"]}}}'
-                        for item in option_items
-                        if "properties" in item
-                    )
-                    mutation = (
-                        f'mutation {{ createProjectV2Field(input: {{ '
-                        f'projectId: "{project_id}", dataType: {data_type}, '
-                        f'name: "{name}", singleSelectOptions: [{options_str}] '
-                        f'}}) {{ projectV2Field {{ ... on ProjectV2SingleSelectField {{ id }} }} }} }}'
-                    )
-                else:
-                    mutation = (
-                        f'mutation {{ createProjectV2Field(input: {{ '
-                        f'projectId: "{project_id}", dataType: {data_type}, '
-                        f'name: "{name}" '
-                        f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} }} }} }}'
-                    )
+                mutation = self._field_create_mutation(
+                    project_id, name, data_type, field_spec
+                )
+                if self._run_field_mutation(mutation):
+                    created += 1
 
-                try:
-                    result = subprocess.run(
-                        ["gh", "api", "graphql", "-f", f"query={mutation}"],
-                        capture_output=True, text=True, timeout=10,
-                    )
-                    if result.returncode == 0:
-                        created += 1
-                except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                    pass
+        return created
 
-        return migrated + created
+    @staticmethod
+    def _field_create_mutation(
+        project_id: str, name: str, data_type: str, field_spec: dict
+    ) -> str:
+        """The createProjectV2Field mutation for one field."""
+        if data_type != "SINGLE_SELECT":
+            return (
+                f'mutation {{ createProjectV2Field(input: {{ '
+                f'projectId: "{project_id}", dataType: {data_type}, '
+                f'name: "{name}" '
+                f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} }} }} }}'
+            )
+
+        options = field_spec.get("properties", {}).get("options", {})
+        options_str = ", ".join(
+            f'{{name: "{item["properties"]["name"]["const"]}", '
+            f'description: "{item["properties"]["description"]["const"]}", '
+            f'color: {item["properties"]["color"]["const"]}}}'
+            for item in options.get("prefixItems", [])
+            if "properties" in item
+        )
+        return (
+            f'mutation {{ createProjectV2Field(input: {{ '
+            f'projectId: "{project_id}", dataType: {data_type}, '
+            f'name: "{name}", singleSelectOptions: [{options_str}] '
+            f'}}) {{ projectV2Field {{ ... on ProjectV2SingleSelectField {{ id }} }} }} }}'
+        )
+
+    @staticmethod
+    def _run_field_mutation(mutation: str) -> bool:
+        """Run one field mutation via gh. False when gh is absent or times out."""
+        try:
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f", f"query={mutation}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            return False
 
     # Default path → phase mappings for path-scoped validation
     DEFAULT_PATH_FILTERS = {

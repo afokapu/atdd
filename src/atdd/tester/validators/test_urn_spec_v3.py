@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 import pytest
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
 from atdd.coach.utils.graph.resolver import TestResolver
 from atdd.coach.utils.graph.urn import URNGrammar
 
@@ -49,11 +50,19 @@ def _is_valid_train_ref(train_ref: str) -> bool:
 REPO_ROOT = find_repo_root()
 
 # Directories to scan for test files
+# Stack roots come from .atdd/config.yaml; an undeclared stack drops out of
+# the scan instead of crashing it (coach.graph.implementation-root-resolution).
+# e2e/ is core's own tree, not a stack, so it stays repo-anchored.
+_WEB_CONTAINER = resolve_stack_container("web", REPO_ROOT)
 TEST_SCAN_DIRS = [
-    REPO_ROOT / "python",
-    REPO_ROOT / "supabase",
-    REPO_ROOT / "web" / "tests",
-    REPO_ROOT / "e2e",
+    d
+    for d in (
+        resolve_code_root("python", REPO_ROOT),
+        resolve_stack_container("supabase", REPO_ROOT),
+        _WEB_CONTAINER / "tests" if _WEB_CONTAINER is not None else None,
+        REPO_ROOT / "e2e",
+    )
+    if d is not None
 ]
 
 # Test file patterns
@@ -75,9 +84,13 @@ _URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
 
 # Production code directories for Tested-By scanning (S10 R1 scope)
 _PROD_SCAN_DIRS = [
-    REPO_ROOT / "python",
-    REPO_ROOT / "web",
-    REPO_ROOT / "supabase" / "functions",
+    d
+    for d in (
+        resolve_code_root("python", REPO_ROOT),
+        _WEB_CONTAINER,
+        resolve_code_root("supabase", REPO_ROOT),
+    )
+    if d is not None
 ]
 
 _PROD_EXTENSIONS = {".py", ".dart", ".ts", ".tsx"}

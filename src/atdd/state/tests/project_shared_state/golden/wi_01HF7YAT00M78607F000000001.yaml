@@ -1,0 +1,11 @@
+body: alpha body
+owner_actor: dev-a
+phase: PLANNED
+slug: golden-alpha
+state: ACTIVE
+title: Golden Alpha
+train: train:commons:spine
+uid: wi_01HF7YAT00M78607F000000001
+wmbts:
+- wmbt:golden:C001
+- wmbt:golden:E001

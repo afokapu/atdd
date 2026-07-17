@@ -1,0 +1,91 @@
+urn: wmbt:reconcile-local-store:K001
+step: conclude
+direction: maximize
+dimension: likelihood
+object_of_control: collaboration-flow
+context_clarifier: when Dev A merges work to main and Dev B pulls or rebases with
+  uncommitted overlay, B's store becomes hydrate(new HEAD projection) + replay(B overlay)
+  through Git alone, with same-object divergence conflicting by design and no provider
+  API touched
+lens: emotional.trust
+statement: maximize likelihood of a proven collaboration-flow in which Dev B pulls
+  Dev A's merged projection through Git alone, keeps private uncommitted overlay intact,
+  and same-object divergence conflicts instead of resolving by blind max-phase
+acceptances:
+- given:
+    abstract:
+    - A bare git remote with main carrying projection files, and no provider configured
+    - Clones A and B, both hydrated from main projection
+    - A has authored, projected, committed and merged feature-x; B has authored feature-y
+      and left it uncommitted in the overlay
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-INTEGRATION-001
+    phase: GREEN
+    purpose: Dev B pulls Dev A's merged projection through Git alone and B's uncommitted
+      overlay survives intact
+    urn: acc:reconcile-local-store:K001-INTEGRATION-001-dev-b-keeps-private-work-across-dev-a-merge
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Git merges the disjoint per-uid projection files without conflict
+    - B's store equals hydrate(new HEAD projection) with B's overlay replayed on top
+    - B sees A's feature-x state and B's uncommitted feature-y is still present
+    - B's store_base_commit equals the new HEAD
+    - No GitHub API call is made at any point
+  when:
+    abstract: B pulls or rebases and the HEAD-change hook runs `atdd state reconcile`
+- given:
+    abstract:
+    - The A/B fixture where both developers transition the same uid to different phases
+    - A's transition is merged to main; B holds a conflicting overlay transition
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-INTEGRATION-002
+    phase: RED
+    purpose: when A and B diverge on the same object, reconcile conflicts with a report
+      instead of resolving by blind max-phase
+    urn: acc:reconcile-local-store:K001-INTEGRATION-002-same-object-divergence-conflicts-by-design
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Reconcile refuses to auto-merge the divergent phase
+    - A conflict report is emitted and the command exits non-zero
+    - B's backup is retained and B's store is unchanged
+    - No blind max-phase resolution occurs
+  when:
+    abstract: B pulls and reconcile replays B's overlay onto A's merged projection
+- given:
+    abstract:
+    - A real bare git remote on disk, two real clones, and the installed atdd CLI
+    - Zero sync providers registered
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify the full A/B collaboration flow end to end against a real bare
+      git remote using the installed atdd CLI, with no provider registered and no
+      manual patching
+    urn: acc:reconcile-local-store:K001-SMOKE-001-collaboration-flow-runs-against-bare-remote
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Every command is a real subprocess invocation of the installed atdd CLI
+    - B's private overlay survives A's merge and B's store_base_commit equals the
+      new HEAD
+    - The run completes with no GitHub API traffic and no committed SQLite store
+  when:
+    abstract: 'the scripted A/B flow is executed end-to-end: hydrate, author, project,
+      commit, push, merge, pull, reconcile'

@@ -1,0 +1,52 @@
+action: projects the local store to canonical per-uid YAML, hydrates the public store
+  back from that projection, stamps a digest over the canonical bytes, and mints immutable
+  uids that alone name the projection files
+context: core-repo, milestone-m1, projection schema v1 accepted, zero sync providers
+  registered, developer sqlite store gitignored
+description: 'Milestone M1 projection spine: deterministic project(store), hydrate(projection),
+  a projection digest pinned by golden files, the canonical CI identity project(hydrate(projection))
+  == projection, and immutable UID minting with slug-rename semantics. Makes the committed
+  per-uid projection the shared source of truth that CI can validate with no GitHub
+  API and no committed SQLite store (invariants I1, I2).'
+features:
+- urn: feature:project-shared-state:project-store
+- urn: feature:project-shared-state:hydrate-projection
+- urn: feature:project-shared-state:compute-projection-digest
+- urn: feature:project-shared-state:verify-projection-canonicality
+- urn: feature:project-shared-state:mint-object-identity
+goal: make the committed projection a deterministic, CI-verifiable shared source of
+  truth so lifecycle state travels through Git alone
+name: Project Shared State
+outcome: project(hydrate(projection)) == projection holds byte-for-byte in CI, golden
+  files pin the canonical bytes, and a slug rename leaves uid and projection filename
+  unchanged
+subject: agent:coder
+theme: commons
+urn: wagon:project-shared-state
+wagon: project-shared-state
+produce:
+- name: commons:project:projection-object
+  contract: contract:commons:projection-object
+  telemetry: null
+  to: internal
+consume: []
+wmbt:
+  C001: minimize likelihood of nondeterministic-projection-content (wall-clock timestamps,
+    absolute host paths, unstable set or dict iteration order) surviving into a committed
+    projection file
+  C002: minimize likelihood of a noncanonical-projection reaching main by failing
+    CI whenever project(hydrate(projection)) does not equal the committed projection
+    byte-for-byte
+  E001: maximize likelihood of a deterministic-projection-write that is byte-identical
+    for the same logical store, carrying no timestamps, host paths, or unstable ordering
+    (invariant I1)
+  E002: maximize likelihood of a lossless projection-hydration that rebuilds the public
+    store objects from the committed projection at HEAD with no provider registered
+    and no committed sqlite store
+  E003: maximize likelihood of a stable projection-digest computed over the canonical
+    bytes and pinned by golden-file tests that fail on any unintended byte change
+  E004: maximize likelihood of an immutable uid-mint that is globally unique, never
+    reused, and is the sole identity driving the projection filename
+  Y001: 'minimize likelihood of a slug-rename mutating object identity: renaming slug
+    or title must leave uid and the .atdd/state/projection/<uid>.yaml filename unchanged'
+  total: 7

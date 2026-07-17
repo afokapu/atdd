@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: "the SyncProvider Protocol itself \u2014 the outbound port core defines\
+        \ and providers implement"
+      type: ports
+    domain:
+    - count: 4
+      rationale: "ObjectSnapshot, ExternalRefUpdate, DriftAlarm, ExtensionDigest \u2014\
+        \ the seam's frozen payload types"
+      type: value_objects
+description: Core-owned SyncProvider Protocol (name, mirror, detect_drift, digest).
+  mirror() returns only bot-namespaced ExternalRefUpdate records; detect_drift() is
+  alarm-only (CORE-026).
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:isolate-provider-boundary:define-provider-interface
+wagon: wagon:isolate-provider-boundary
+wmbts:
+- wmbt:isolate-provider-boundary:D001

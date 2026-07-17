@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:projection-evidence",
+  "title": "Lifecycle Evidence Policy v1",
+  "description": "The evidence each lifecycle transition must carry (doc section 6). The legal-transition validator is the load-bearing gate: canonical YAML alone is formatting, not correctness (section 4). COMPLETE is DERIVED from merge-to-main for v1 (section 18 decision 1).",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "complete_is_derived": {
+      "description": "Always true for v1 (section 18 decision 1). A stored COMPLETE reintroduces post-merge mutation; the legal-transition validator MUST reject it.",
+      "enum": [
+        true
+      ],
+      "type": "boolean"
+    },
+    "transitions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "derived": {
+            "default": false,
+            "description": "True when the transition is derived, not stored (e.g. SMOKE -> COMPLETE).",
+            "type": "boolean"
+          },
+          "from": {
+            "enum": [
+              "INIT",
+              "PLANNED",
+              "RED",
+              "GREEN",
+              "SMOKE",
+              "REFACTOR",
+              "COMPLETE",
+              "BLOCKED",
+              "OBSOLETE",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requires": {
+            "items": {
+              "enum": [
+                "uid_generated",
+                "body_initialized",
+                "projection_digest",
+                "plan_complete",
+                "acceptance_or_wmbt_refs",
+                "operator_token_digest",
+                "gate_id",
+                "failing_test_evidence",
+                "passing_test_evidence",
+                "implementation_diff",
+                "smoke_evidence_artifact",
+                "derived_from_merge_to_main",
+                "reason_digest",
+                "tombstone_metadata"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "to": {
+            "enum": [
+              "INIT",
+              "PLANNED",
+              "RED",
+              "GREEN",
+              "SMOKE",
+              "REFACTOR",
+              "COMPLETE",
+              "BLOCKED",
+              "OBSOLETE",
+              "TOMBSTONED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "requires"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "transitions",
+    "complete_is_derived"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "projection_evidence",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:enforce-merge-authority",
+    "consumers": [
+      "wagon:govern-projection-fields",
+      "wagon:migrate-projection-authority"
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the projection_evidence projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A projection_evidence conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/enforce_merge_authority/_enforce_merge_authority.yaml",
+      "feature_refs": [
+        "feature:enforce-merge-authority:define-required-checks"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+schema_version: 1.1.0
+rule_id: planner.appendix.storage
+kind: rule
+status: active
+name: 'Appendix: Storage'
+statement: Appendices are stored in an appendices/ subdirectory of the artifact they
+  describe, at the location matching the artifact level (wagon, wmbt, feature, or
+  component).
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/appendix.convention.yaml
+  legacy_section: storage
+  extraction_mode: high_fidelity
+content:
+  summary: Co-locating appendices with what they describe keeps artifacts self-contained
+    and makes the supplementary content discoverable relative to the artifact.
+  examples:
+  - demo/wagons/checkout-flow/appendices/checkout-flow_mockup_overview.png
+  - demo/wagons/checkout-flow/plan/E023/appendices/E023_mockup_payment-error.png
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: storage_location
+  text: Appendices live in an appendices/ subdirectory of the artifact, with a level-specific
+    path for wagon, wmbt, feature, and component.
+  values:
+    rule: Appendices stored in appendices/ subdirectory of artifact
+    locations:
+      wagon: '{output_dir}/wagons/{wagon-name}/appendices/'
+      wmbt: '{output_dir}/wagons/{wagon-name}/plan/{wmbt-id}/appendices/'
+      feature: '{output_dir}/wagons/{wagon-name}/features/{feature-name}/appendices/'
+      component: '{output_dir}/wagons/{wagon-name}/features/{feature-name}/components/{component-name}/appendices/'
+  examples:
+    positive:
+    - demo/wagons/checkout-flow/appendices/checkout-flow_mockup_overview.png
+    - demo/wagons/checkout-flow/plan/E023/appendices/E023_mockup_payment-error.png
+    negative:
+    - 'demo/wagons/checkout-flow/checkout-flow_mockup_overview.png  # not in an appendices/
+      subdirectory'

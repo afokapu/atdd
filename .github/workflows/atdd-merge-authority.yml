@@ -1,0 +1,137 @@
+# The merge-authority run (#1400 enforce-merge-authority, E002).
+#
+# Invariant I6: local hooks are convenience; CI/branch protection is authority. Every gate
+# a local hook runs has its equivalent here, on push AND on pull request, and a failure in
+# any single job fails the run — no job is continue-on-error, none is advisory.
+#
+# Each job's `name:` is the status-check context branch protection makes required. Those
+# names are pinned in `.github/atdd-merge-authority-policy.yaml` and cross-checked against
+# this file by `atdd state policy-check`, so a rename here cannot silently open a hole.
+#
+# The whole run reads git and the working tree. It reads NO GitHub API and no developer
+# SQLite store — which is why it is equally green against a bare git remote (spec §4).
+name: ATDD Merge Authority
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+env:
+  # The merge base the projection diff is taken against.
+  ATDD_BASE_REF: origin/main
+
+jobs:
+  projection-canonicality:
+    name: projection-canonicality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip3 install -e .
+      - name: project(hydrate(projection)) == projection
+        run: atdd state merge-authority --check projection-canonicality --base "$ATDD_BASE_REF"
+
+  projection-schema:
+    name: projection-schema
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip3 install -e .
+      - name: Every <uid>.yaml conforms to commons:projection-object
+        run: atdd state merge-authority --check projection-schema --base "$ATDD_BASE_REF"
+
+  legal-transition:
+    name: legal-transition
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip3 install -e .
+      # The load-bearing gate. Canonical YAML alone is only well-formatted text.
+      - name: Reject canonical but lifecycle-illegal projection changes
+        run: atdd state merge-authority --check legal-transition --base "$ATDD_BASE_REF"
+
+  trailer-cross-check:
+    name: trailer-cross-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip3 install -e .
+      - name: The git event log matches the projection diff it claims
+        run: atdd state merge-authority --check trailer-cross-check --base "$ATDD_BASE_REF"
+
+  field-writer:
+    name: field-writer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip3 install -e .
+      - name: No writer touched a field it does not own
+        run: atdd state merge-authority --check field-writer --base "$ATDD_BASE_REF"
+
+  no-secrets:
+    name: no-secrets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip3 install -e .
+      # History is immutable: this is the last place a raw token can still be stopped.
+      - name: No raw credential reaches git history (I8)
+        run: atdd state merge-authority --check no-secrets --base "$ATDD_BASE_REF"
+
+  core-no-provider:
+    name: core-no-provider
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip3 install -e .
+      - name: Core's lifecycle path imports no provider
+        run: atdd state merge-authority --check core-no-provider --base "$ATDD_BASE_REF"

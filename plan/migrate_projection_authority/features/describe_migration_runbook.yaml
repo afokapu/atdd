@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: the runbook coverage check asserting a section per migration step
+        with a cited invariant
+      type: use_cases
+    integration:
+    - count: 1
+      rationale: renders the migration step table from the wagon's own step list so
+        the docs cannot drift
+      type: formatters
+description: 'CORE-035: core migration and developer docs. A runbook naming each cutover
+  step in order, the developer-facing command changes, and the numbered invariant
+  each step preserves.'
+sizing:
+  footprint_score: 3
+  footprint_size: XS
+  wmbts: 1
+urn: feature:migrate-projection-authority:describe-migration-runbook
+wagon: wagon:migrate-projection-authority
+wmbts:
+- wmbt:migrate-projection-authority:D001

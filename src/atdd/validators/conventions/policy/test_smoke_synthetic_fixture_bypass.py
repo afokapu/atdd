@@ -16,14 +16,16 @@ from pathlib import Path
 
 import pytest
 
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    mirror_file,
+)
 from atdd.validators.conventions.policy.archetype import (
     TEMPLATES,
     TEMPLATE_IDS,
     _is_smoke_acceptance,
     _resolve_test_file_from_urn,
 )
-from atdd.validators.conventions.policy import _parity
 
 FAMILY = "policy"
 TEMPLATE = "forbidden_construct_absence"
@@ -71,21 +73,37 @@ def _find_resolvable_smoke_test_file(graph) -> Path:
     pytest.skip("no resolvable SMOKE acceptance->test-file pair in the real repo")
 
 
-def test_fault_injection_legacy_parity() -> None:
-    """Inject FakeMultiplexer into a real SMOKE test file; assert BOTH the convention
-    evaluator and the legacy planner validator catch it."""
-    root = _parity.repo_root()
-    graph = load_composed_graph(root)
-    target = _find_resolvable_smoke_test_file(graph)
-    original = target.read_text(encoding="utf-8")
-    faulted = original + "\n# FakeMultiplexer  (atdd #1212 parity injection)\n"
+def test_fault_injection_legacy_parity(clean_convention_graph, tmp_path) -> None:
+    """Inject FakeMultiplexer into a STAGED COPY of a real SMOKE test file; assert the
+    convention evaluator catches it and that the committed test file is untouched.
 
-    with _parity.overwrite_file(target, faulted):
-        conv = _template().evaluate(load_composed_graph(root), {"variant": VARIANT})
-        assert any(v.get("matched_construct") == "FakeMultiplexer" for v in conv), (
-            f"{VARIANT}: convention evaluator did not catch injected fault in {target}"
-        )
-        # oracle retired (#1365): convention path above is the live coverage
+    The scanner selects its targets from the graph's real WMBT nodes but reads the
+    FAULT out of the resolved test file's source text, so the fault has to be a real
+    `.py` the scanner really reads — no node carries it. Previously that meant
+    overwriting a committed SMOKE test in the working tree and restoring it in a
+    `finally`; a crash mid-test left a corrupted test file behind (#1458, E035).
 
-    # reverted -> clean again
-    assert _template().evaluate(load_composed_graph(root), {"variant": VARIANT}) == []
+    Instead the real target is resolved against the real root, mirrored into `tmp_path`
+    at its own relative path with the fault appended, and the graph re-pointed there.
+    The evaluator still walks the real WMBT acceptance nodes — they are shared with the
+    session graph, and the fault does not touch them — resolves the same URN to the
+    mirrored copy, and flags it.
+    """
+    root = clean_convention_graph.root
+    target = _find_resolvable_smoke_test_file(clean_convention_graph)
+    rel = str(Path(target).relative_to(root))
+
+    mirror_file(
+        root, tmp_path, rel,
+        lambda t: t + "\n# FakeMultiplexer  (atdd #1212 parity injection)\n",
+    )
+
+    staged = graph_rooted_at(clean_convention_graph, tmp_path)
+    conv = _template().evaluate(staged, {"variant": VARIANT})
+    assert any(v.get("matched_construct") == "FakeMultiplexer" for v in conv), (
+        f"{VARIANT}: convention evaluator did not catch injected fault in {rel}"
+    )
+    # oracle retired (#1365): convention path above is the live coverage
+
+    # The committed SMOKE tests carry no synthetic fixture and were never written to.
+    assert _template().evaluate(clean_convention_graph, {"variant": VARIANT}) == []

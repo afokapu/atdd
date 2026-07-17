@@ -8,3 +8,6 @@ aliases:
   0003-author-substrate: substrate/author-artifacts
   0004-admit-substrate: substrate/admit-packages
   0005-bind-substrate: substrate/bind-runtime
+  0006-state-projection: object-conflict-resolution/project-state
+  0206-reconcile-dirty-store: object-conflict-resolution/reconcile-dirty-store
+  0306-resolve-object-conflict: object-conflict-resolution/resolve-object-conflict

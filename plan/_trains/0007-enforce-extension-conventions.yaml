@@ -1,0 +1,49 @@
+train_id: 0007-enforce-extension-conventions
+title: 0007-enforce-extension-conventions
+description: 'Enforce extension conventions as a CI gate: every gating node is realized by a detector,
+  bound, and reports no strict violation.'
+themes:
+- commons
+sequence:
+- step: 1
+  intent: project the core rule registry
+  from: wagon:govern-registry
+  to: wagon:bind-extension-conventions
+  artifact: commons:rule-registry
+- step: 2
+  intent: index each implementation to the conventions it realizes
+  from: wagon:govern-providers
+  to: wagon:bind-extension-conventions
+  artifact: commons:provider-capability
+- step: 3
+  intent: reconcile the binding lock
+  from: wagon:bind-extension-conventions
+  to: wagon:reconcile-dispositions
+  artifact: commons:binding-lock
+- step: 4
+  intent: publish the disposition policy
+  from: wagon:reconcile-dispositions
+  to: wagon:enforce-conventions-ci
+  artifact: commons:disposition-policy
+- step: 5
+  intent: emit the enforcement verdict
+  from: wagon:enforce-conventions-ci
+  to: wagon:verify-enforcement
+  artifact: commons:enforce-verdict
+- step: 6
+  intent: feed succession coverage to the deletion guard
+  from: wagon:verify-enforcement
+  to: wagon:guard-succession
+  artifact: commons:succession-coverage
+participants:
+- wagon:bind-extension-conventions
+- wagon:enforce-conventions-ci
+- wagon:govern-providers
+- wagon:govern-registry
+- wagon:reconcile-dispositions
+- wagon:verify-enforcement
+status: planned
+category: nominal
+source_interlocking:
+  interlocking_id: interlocking:enforce-extension-conventions
+  route_id: clean-gate-passes

@@ -2,10 +2,10 @@ schema_version: 1.1.0
 rule_id: coach.wheel-completeness.fixture-missing-from-wheel
 kind: rule
 status: active
-name: Validator fixtures ship in the wheel
-statement: Every file under src/atdd/**/validators/fixtures/** must exist at the corresponding path under
-  Path(atdd.__file__).parent in the installed package; a source-tree inverse scan asserts each ships (editable
-  installs short-circuit).
+name: Package data ships in the wheel
+statement: Every non-.py file under src/atdd/ must exist at the corresponding path under Path(atdd.__file__).parent
+  in the installed package; a source-tree inverse scan asserts each ships. The deny-list mirrors [tool.setuptools.exclude-package-data]
+  - .py (shipped as a module, not as data) and build/OS cruft. Editable installs short-circuit.
 implementation:
   type: validator
   ref: test_wheel_completeness::test_validator_fixtures_present_in_wheel
@@ -17,30 +17,43 @@ source:
   legacy_rule_id: coach.wheel-completeness.fixture-missing-from-wheel
 content:
   exceptions:
-  - Editable install (``pip install -e``) — source is the wheel root.
-  - Cache-cruft files (``__pycache__/``, ``*.pyc``, ``*.pyo``, ``.pytest_cache``, ``.DS_Store``) — those
-    must NOT ship; the scan walks past them.
+  - Editable install (pip install -e / PYTHONPATH=src) - source IS the wheel root, so every assertion
+    compares a file to itself.
+  - .py - setuptools installs it as a MODULE, not as package data; exclude-package-data suppresses only
+    the redundant data copy.
+  - Cache/OS cruft (__pycache__/, *.pyc, *.pyo, .pytest_cache, .DS_Store) - those must NOT ship; the scan
+    walks past them.
   operational_guidance: 'bad:
 
-    # pyproject.toml — narrow glob misses non-coder phase fixtures
+    # pyproject.toml - one glob per directory. A new data dir ships only if someone
+
+    # remembers to add it, and nobody remembered nodes/ for coder+tester (#1369).
 
     [tool.setuptools.package-data]
 
-    "atdd" = ["coder/validators/fixtures/**"]
+    "atdd.coder.conventions" = ["*.yaml"]
+
+    "atdd" = ["**/validators/fixtures/**"]
 
 
     good:
 
-    # pyproject.toml — recursive glob covers every phase''s fixtures
+    # broad-ship + explicit deny-list: a new data dir ships by construction, and
+
+    # omitting one takes a deliberate, reviewable entry (#1474).
 
     [tool.setuptools.package-data]
 
-    "atdd" = ["**/validators/fixtures/**"]'
+    "atdd" = ["**/*"]
+
+    [tool.setuptools.exclude-package-data]
+
+    "atdd" = ["**/*.py", "**/*.pyc", "**/*.pyo", "**/__pycache__/**", "**/.DS_Store"]'
 metadata:
   aliases:
   - COACH-WHEEL-COMPLETENESS-001
   severity: 3
-  disposition: advisory
+  disposition: strict
   introduced_in: 3.7.1
   core_surface: toolkit_self
   not_generalized_to_workspace: true
@@ -52,6 +65,7 @@ parity:
   reviewed_at: '2026-06-17'
 terms:
 - term_id: inverse_scan
-  text: walk source-tree fixtures, compute expected install path, assert .exists() — false-negative-resistant,
-    no code parsing.
-notes: 'Incident refs: #449, #451'
+  text: walk every non-.py file in the source tree, compute its expected install path, assert .exists()
+    - false-negative-resistant, no code parsing. The inverse of asking the code what it reads.
+notes: 'Incident refs: #449, #451, #1474 (scan broadened beyond validators/fixtures; disposition advisory
+  -> strict; closes #663/#952/#1369)'

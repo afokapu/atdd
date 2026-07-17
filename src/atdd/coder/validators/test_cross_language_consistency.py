@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root, find_python_dir
+from atdd.coach.utils.config import resolve_stack_container
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
@@ -38,7 +39,7 @@ _RULE_CONTRACT = bind_rule("coder.boundaries.xlang-contract")
 REPO_ROOT = find_repo_root()
 PYTHON_DIR = find_python_dir(REPO_ROOT)
 LIB_DIR = REPO_ROOT / "lib"
-SUPABASE_DIR = REPO_ROOT / "supabase"
+SUPABASE_DIR = resolve_stack_container("supabase", REPO_ROOT)
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 
 

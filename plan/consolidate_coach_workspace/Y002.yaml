@@ -8,49 +8,6 @@ lens: "functional.sustainability"
 statement: "minimize quantity of surfaces-spawned-per-worker when the coach spawns a persona agent by launching the per-worker observer (`atdd observer run`) as a headless background process with no multiplexer surface — keeping its `corrections.jsonl` writes unchanged — so each worker is one tab instead of two (persona + `…:obs`)"
 acceptances:
   - identity:
-      urn: "acc:consolidate-coach-workspace:Y002-UNIT-001-persona-spawn-creates-no-obs-surface"
-      id: "AC-UNIT-001"
-      purpose: "spawning a persona creates exactly one surface and no co-spawned `…:obs` observer surface"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A mock multiplexer that records every surface/tab creation"
-        - "A coach spawn request for a single persona agent"
-    when:
-      abstract: "the persona is spawned (cmd_spawn / the observer-launch path runs)"
-    then:
-      abstract:
-        - "Exactly one surface is created"
-        - "No created surface has a name ending in `:obs`"
-        - "The observer is started via a detached/background subprocess rather than a multiplexer surface"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-17"
-  - identity:
-      urn: "acc:consolidate-coach-workspace:Y002-INTEGRATION-001-headless-observer-still-writes-corrections"
-      id: "AC-INTEGRATION-001"
-      purpose: "the headless observer process still appends to its agent's corrections.jsonl with no UI surface"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A spawned persona agent with an agent runtime directory"
-        - "A headless observer process launched for that agent"
-    when:
-      abstract: "the headless observer runs against the agent and detects a correctable condition"
-    then:
-      abstract:
-        - "`agents/<id>/corrections.jsonl` is created and appended by the observer"
-        - "No observer surface/tab exists in the multiplexer's recorded surface list"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-17"
-  - identity:
       urn: "acc:consolidate-coach-workspace:Y002-SMOKE-001-real-spawn-yields-one-tab"
       id: "AC-SMOKE-001"
       purpose: "against a real multiplexer, spawning a worker yields exactly one tab and a live headless observer writing corrections"

@@ -1,0 +1,101 @@
+contracts:
+- identity: commons:binding-lock
+  path: contracts/commons/binding-lock.schema.json
+  theme: commons
+  producers:
+  - wagon:bind-extension-conventions
+  consumers:
+  - wagon:reconcile-dispositions
+- identity: commons:disposition-policy
+  path: contracts/commons/disposition-policy.schema.json
+  theme: commons
+  producers:
+  - wagon:reconcile-dispositions
+  consumers:
+  - wagon:enforce-conventions-ci
+- identity: commons:enforce-verdict
+  path: contracts/commons/enforce-verdict.schema.json
+  theme: commons
+  producers:
+  - wagon:enforce-conventions-ci
+  consumers:
+  - wagon:verify-enforcement
+- identity: commons:projection-evidence
+  path: contracts/commons/projection-evidence.schema.json
+  theme: commons
+  producers:
+  - wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
+- identity: commons:projection-field-ownership
+  path: contracts/commons/projection-field-ownership.schema.json
+  theme: commons
+  producers:
+  - wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:isolate-provider-boundary
+- identity: commons:projection-merge-event
+  path: contracts/commons/projection-merge-event.schema.json
+  theme: commons
+  producers:
+  - wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+- identity: commons:projection-object
+  path: contracts/commons/projection-object.schema.json
+  theme: commons
+  producers:
+  - wagon:project-shared-state
+  consumers:
+  - wagon:reconcile-local-store
+  - wagon:enforce-merge-authority
+  - wagon:govern-projection-fields
+  - wagon:isolate-provider-boundary
+  - wagon:migrate-projection-authority
+- identity: commons:projection-trailer
+  path: contracts/commons/projection-trailer.schema.json
+  theme: commons
+  producers:
+  - wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
+- identity: commons:provider-capability
+  path: contracts/commons/provider-capability.schema.json
+  theme: commons
+  producers:
+  - wagon:govern-providers
+  consumers:
+  - wagon:bind-extension-conventions
+- identity: commons:provider-extensions-lock
+  path: contracts/commons/provider-extensions-lock.schema.json
+  theme: commons
+  producers:
+  - wagon:isolate-provider-boundary
+  consumers:
+  - wagon:enforce-merge-authority
+  - wagon:migrate-projection-authority
+- identity: commons:provider-external-ref-update
+  path: contracts/commons/provider-external-ref-update.schema.json
+  theme: commons
+  producers:
+  - wagon:isolate-provider-boundary
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
+- identity: commons:rule-registry
+  path: contracts/commons/rule-registry.schema.json
+  theme: commons
+  producers:
+  - wagon:govern-registry
+  consumers:
+  - wagon:bind-extension-conventions
+- identity: commons:succession-coverage
+  path: contracts/commons/succession-coverage.schema.json
+  theme: commons
+  producers:
+  - wagon:verify-enforcement
+  consumers:
+  - wagon:govern-registry

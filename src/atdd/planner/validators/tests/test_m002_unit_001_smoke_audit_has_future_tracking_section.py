@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 from atdd.coach.utils.repo import find_repo_root
 
-pytestmark = [pytest.mark.planner]
+pytestmark = [pytest.mark.planner, pytest.mark.platform]
 
 _AUDIT_PATH = find_repo_root() / "docs" / "smoke-audit.md"
 _REQUIRED_SECTION_TERMS = ["release-wave", "post-SMOKE-bugs", "expectation"]

@@ -1,0 +1,48 @@
+train_id: train:object-conflict-resolution:reconcile-dirty-store
+title: Reconcile A Dirty Store With Local Overlay
+description: "Alternate-path train (category: alternate): the HEAD-change reconcile flow when\
+  \ the local store is DIRTY \u2014 uncommitted overlay events exist. Instead of a\
+  \ plain hydrate-overwrite, the store is backed up, the incoming projection is hydrated\
+  \ into a public baseline, the explicit overlay events are replayed on top, affected\
+  \ objects are re-projected, and store_base_commit advances. An invalid replay stops\
+  \ with a conflict report and keeps the backup. This is invariant I5: reconcile is\
+  \ not overwrite."
+themes:
+- commons
+family: behavior
+primary_wagon: reconcile-local-store
+sequence:
+- artifact: commons:reconcile-dirty-gate
+  from: wagon:reconcile-local-store
+  intent: 'Detect the dirty marker: overlay_events exist that are not yet committed
+    into projection'
+  step: 1
+  to: system:atdd-cli
+- artifact: commons:reconcile-store-backup
+  from: wagon:reconcile-local-store
+  intent: Back up the current SQLite store before any mutation
+  step: 2
+  to: system:atdd-cli
+- artifact: commons:project-hydrator
+  from: wagon:reconcile-local-store
+  intent: Hydrate the incoming projection at the new HEAD into a public baseline
+  step: 3
+  to: system:git
+- artifact: commons:reconcile-overlay-log
+  from: wagon:reconcile-local-store
+  intent: Replay the explicit overlay events onto the public baseline and re-project
+    affected objects
+  step: 4
+  to: system:atdd-cli
+- artifact: commons:reconcile-reconciler
+  from: wagon:reconcile-local-store
+  intent: On invalid replay stop with a conflict report and keep the backup; otherwise
+    advance store_base_commit
+  step: 5
+  to: system:atdd-cli
+participants:
+- wagon:reconcile-local-store
+- system:atdd-cli
+- system:git
+status: planned
+category: alternate

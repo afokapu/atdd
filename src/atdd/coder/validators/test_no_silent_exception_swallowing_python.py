@@ -30,6 +30,7 @@ import yaml
 import atdd
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
@@ -38,7 +39,7 @@ from atdd.coach.validators._violation import Violation
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 LOGGING_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "logging.convention.yaml"
 
@@ -269,8 +270,8 @@ def _format_except_clause(node: ast.AST) -> str:
 def scan_silent_swallows_python(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Aggregate silent-swallow violations across consumer + toolkit Python."""
     scan_dirs: List[Path] = []
-    consumer = repo_root / "python"
-    if consumer.exists():
+    consumer = resolve_code_root("python", repo_root)
+    if consumer is not None and consumer.exists():
         scan_dirs.append(consumer)
     if ATDD_PKG_DIR is not None:
         scan_dirs.append(ATDD_PKG_DIR)
