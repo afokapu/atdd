@@ -1,6 +1,6 @@
 urn: "feature:govern-lifecycle:issue-author-validate-locally-publish-once"
 wagon: "wagon:govern-lifecycle"
-description: "Make atdd issue <slug> validate the full body locally (--check gate) before any GitHub call and publish via a single gh issue create — eliminating the redundant create+edit two-mutation pattern and preventing non-compliant bodies from ever reaching GitHub (#792)"
+description: "Make issue authoring validate the full body locally against issue.schema.json before any GitHub call and publish store-first via a single create — preventing non-compliant bodies from ever reaching GitHub (#792). Realized by `atdd author issue`; the IssueManager mint path that first carried this was retired in #1477."
 sizing:
   wmbts: 1
   footprint_score: 2
@@ -12,15 +12,15 @@ components:
     presentation:
       - type: "controllers"
         count: 1
-        rationale: "IssueManager.create_issue() and .edit_issue_body() updated to route through --check gate and collapse create+edit into single gh issue create call"
+        rationale: "`atdd author issue` (create + --revise) routes through the schema gate and publishes store-first via a single create"
     application:
       - type: "use_cases"
         count: 1
-        rationale: "IssueBodyChecker use case: validates a local body file against all required-section rules before any GitHub mutation"
+        rationale: "validate_issue_body use case: validates a body against issue.schema.json before any GitHub mutation"
     domain:
       - type: "entities"
         count: 1
-        rationale: "IssueBodyComplianceError domain exception: raised when --check gate fails, carries structured field-level feedback"
+        rationale: "schema-validation errors: raised when the body fails issue.schema.json, carrying field-level feedback"
     integration:
       - type: "repositories"
         count: 0

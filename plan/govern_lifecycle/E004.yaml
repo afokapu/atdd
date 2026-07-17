@@ -97,30 +97,6 @@ acceptances:
       created: "2026-05-14"
 
   - identity:
-      urn: "acc:govern-lifecycle:E004-INTEGRATION-001-issue-creation-injects-graph"
-      id: "AC-INTEGRATION-001"
-      purpose: "`IssueManager._inject_graph_context(body, slug, train)` replaces the literal placeholder with graph content (happy path) or the fallback string (no wagon manifest)"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "tmp_path with plan/graph-demo/_graph-demo.yaml (happy path)"
-        - "tmp_path with no plan/ artifacts (fallback path)"
-        - "A body containing the literal graph-context placeholder"
-    when:
-      abstract: "`IssueManager(target_dir=tmp_path)._inject_graph_context(body, slug, train=None)` is called"
-    then:
-      abstract:
-        - "Happy path: returned body does NOT contain the placeholder; contains the wagon URN"
-        - "Fallback path: returned body does NOT contain the placeholder; contains the GRAPH_CONTEXT_UNAVAILABLE string"
-        - "Idempotent: a body whose placeholder is already replaced is returned unchanged"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-14"
-
-  - identity:
       urn: "acc:govern-lifecycle:E004-INTEGRATION-002-planner-rule-binding"
       id: "AC-INTEGRATION-002"
       purpose: "`planner.issue-body.graph-context-required` rule binds via bind_rule and the validator emits Violations against the rule"

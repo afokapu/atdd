@@ -244,7 +244,6 @@ github_issue_tracking:
     issue_close_wmbt: "atdd coach close-wmbt <NN> <ID> — closes WMBT sub-issue"
     issue_open: "atdd coach issues open — lists open issues"
     issue_check: "atdd coach check <NN> — template compliance check"
-    issue_sync_wmbts: "atdd coach sync-wmbts <NN> — backfills WMBT sub-issues from plan YAMLs"
     issue_sync_labels: "atdd coach sync-labels [<NN>|--all] — re-derives labels from body metadata"
     issue_reconcile: "atdd coach reconcile — backfills missing issues from GitHub"
     issue_is_registered: "atdd coach is-registered <branch> — store-backed branch-registration check"
@@ -253,7 +252,6 @@ github_issue_tracking:
     branch: "atdd worktree create <NN> — creates worktree branch from issue metadata"
     validate: "atdd validate coach — validates Project fields + sub-issue state"
     # Deprecated aliases (still work, print warning):
-    # atdd new <slug>               → atdd author issue --title <t> --slug <s>
     # atdd update <NN> --status <S> → atdd coach transition <NN> <S>
     # atdd close-wmbt <NN> <ID>     → atdd coach close-wmbt <NN> <ID>
     # atdd archive <NN>             → atdd coach transition <NN> COMPLETE

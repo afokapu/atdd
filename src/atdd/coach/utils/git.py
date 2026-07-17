@@ -7,8 +7,8 @@ Issue: #344
 Manifest-mutating CLI verbs (`atdd issue <slug>`, `atdd update --status`,
 `atdd archive`) write `.atdd/manifest.yaml` and must commit that write
 atomically with the verb. Otherwise a worktree branched from main HEAD
-cannot see issues created after that HEAD — breaking `--sync-wmbts` and
-any other manifest-reading flow.
+cannot see issues created after that HEAD — breaking any manifest-reading
+flow.
 
 The single entry point is `git_commit_manifest_update`. Every call site
 funnels through it so the contract is auditable.
