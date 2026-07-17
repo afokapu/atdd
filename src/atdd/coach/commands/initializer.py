@@ -576,6 +576,13 @@ class ProjectInitializer:
 
         # Check if already initialized
         if self.atdd_config_dir.exists() and not force:
+            # #1492: refresh the hooks BEFORE bailing out. This early return is
+            # why a hook fix reached nobody — plain `atdd init` never reached
+            # _install_hooks at all, so the skip-if-exists inside it was only
+            # the *second* gate. Refreshing here keeps re-init gated behind
+            # --force while making plain `init` a sanctioned way to pick up
+            # hooks, which `atdd init --force` (forbidden, #793) used to be.
+            self._install_hooks(force=False)
             print(f"ATDD already initialized at {self.target_dir}")
             print("Use --force to reinitialize")
             return 1
@@ -947,16 +954,44 @@ class ProjectInitializer:
             yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
         print(f"  Removed substrate fields from {self.config_file}")
 
-    def _install_hooks(self, force: bool = False) -> None:
-        """Install git hooks from package templates into .atdd/hooks/.
+    #: Marker identifying a file we wrote, so a refresh can tell an installed
+    #: dispatcher apart from something the operator put there.
+    _DISPATCHER_MARKER = "ATDD managed hook dispatcher"
 
-        Copies all hook templates (pre-commit, pre-push, pre-merge-commit,
-        etc.), makes them executable, and sets ``git config core.hooksPath``
-        to the absolute path so that all worktrees sharing this repository
-        inherit the hooks automatically.
+    def _dispatcher_body(self, hook_name: str) -> Optional[str]:
+        """Render the dispatcher that will be installed for *hook_name*."""
+        tpl = self.package_root / "templates" / "hook-dispatcher.sh"
+        if not tpl.is_file():
+            logger.warning(
+                "Hook dispatcher template not found: %s",
+                tpl, extra={"path": str(tpl)},
+            )
+            return None
+        return tpl.read_text().replace("__ATDD_HOOK_NAME__", hook_name)
+
+    def _install_hooks(self, force: bool = False) -> None:
+        """Install/refresh the git hook dispatchers in .atdd/hooks/ (#1492).
+
+        Each installed hook is a FIXED-CONTENT dispatcher that execs the hook
+        shipped inside the installed atdd package. That makes drift structurally
+        impossible rather than merely detectable: there is no copied logic left
+        to go stale, so `pipx upgrade atdd` propagates a hook fix on its own.
+
+        This used to `shutil.copy2` the template and skip any hook that already
+        existed unless ``force``. The installed hook was therefore a point-in-time
+        fork, refreshable only by ``atdd init --force`` — the flag that caused
+        #793 and is forbidden. Every hook fix reached only repos initialised
+        after it landed, and 6 of 11 hooks were never installed at all.
+
+        A refresh is authoritative: it always wins. A hook whose content we do
+        not recognise (hand-edited, or stale from a much older version) is
+        preserved as ``<hook>.local.bak`` before being replaced, so the refresh
+        is non-destructive without ever declining to update.
 
         Args:
-            force: If True, overwrite existing hooks.
+            force: Unused for content decisions — a refresh always rewrites a
+                stale hook. Retained for signature compatibility with the
+                surrounding init flow.
         """
         hooks_dir = self.atdd_config_dir / "hooks"
         hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -966,21 +1001,44 @@ class ProjectInitializer:
             logger.warning("Hook template directory not found: %s", template_dir, extra={"path": str(template_dir)})
             return
 
-        installed = 0
+        refreshed = 0
+        preserved = 0
         for hook_src in sorted(template_dir.iterdir()):
             if hook_src.name.startswith(("__", ".")) or hook_src.is_dir():
                 continue
-            hook_dst = hooks_dir / hook_src.name
-            if hook_dst.exists() and not force:
-                print(f"Hook exists (skip): {hook_dst}")
-            else:
-                shutil.copy2(hook_src, hook_dst)
-                os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
-                print(f"Installed: {hook_dst}")
-                installed += 1
 
-        if installed == 0 and not force:
-            print("All hooks already installed.")
+            hook_dst = hooks_dir / hook_src.name
+            desired = self._dispatcher_body(hook_src.name)
+            if desired is None:
+                return
+
+            if hook_dst.is_file():
+                current = hook_dst.read_text(errors="replace")
+                if current == desired:
+                    continue  # already the current dispatcher — nothing to say
+                # Recognised content is ours to replace silently: either an
+                # older dispatcher, or a pristine copy of the packaged template
+                # from the pre-#1492 copy-install.
+                recognised = (
+                    self._DISPATCHER_MARKER in current
+                    or current == hook_src.read_text(errors="replace")
+                )
+                if not recognised:
+                    backup = hook_dst.with_name(hook_dst.name + ".local.bak")
+                    shutil.copy2(hook_dst, backup)
+                    preserved += 1
+                    print(f"  ! {hook_dst.name}: unrecognised content preserved → {backup.name}")
+
+            hook_dst.write_text(desired)
+            os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
+            refreshed += 1
+
+        if refreshed:
+            print(f"Hooks: {refreshed} installed/refreshed → {hooks_dir}")
+        else:
+            print("Hooks: all current.")
+        if preserved:
+            print(f"Hooks: {preserved} pre-existing file(s) preserved as *.local.bak")
 
         # Point git to the hooks directory.
         # Wave 12 contamination fix (#793): when running inside a linked (non-main)

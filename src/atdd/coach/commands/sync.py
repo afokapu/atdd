@@ -160,6 +160,24 @@ class AgentConfigSync:
             schema_initializer = ProjectInitializer(self.target_dir)
             schema_initializer.export_schemas()
 
+        # Refresh the installed git hooks (#1492).
+        #
+        # `atdd sync` is the verb the upgrade banner tells operators to run
+        # ("Run: atdd sync && atdd init"), and it is the verb that stamps
+        # toolkit.last_version to clear that banner — but it did not touch
+        # hooks at all. Combined with `atdd init` bailing out on an already
+        # initialised repo, NO sanctioned path refreshed a hook: the only one
+        # was `atdd init --force`, which is forbidden (#793). So every hook fix
+        # ever made reached only repos initialised after it landed.
+        #
+        # Only refresh a repo that already has hooks installed — sync is not
+        # an installer, and must not create .atdd/hooks/ in a repo that never
+        # ran `atdd init`.
+        if (self.atdd_config_dir / "hooks").is_dir():
+            from atdd.coach.commands.initializer import ProjectInitializer
+            hook_initializer = ProjectInitializer(self.target_dir)
+            hook_initializer._install_hooks(force=False)
+
         # Apply branch protection if upgrading
         self._apply_branch_protection_on_upgrade()
 
