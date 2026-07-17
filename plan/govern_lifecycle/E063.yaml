@@ -32,3 +32,26 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-17"
+  - identity:
+      urn: "acc:govern-lifecycle:E063-SMOKE-001-real-commit-runs-changed-packaged-hook"
+      id: "AC-SMOKE-001"
+      purpose: "A real `git commit` in a real repo runs the CHANGED packaged hook through the installed dispatcher with no refresh command run — driving the actual git hook invocation path via core.hooksPath, not a direct hook call"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real tmp_path git repo (git init) whose core.hooksPath points at .atdd/hooks/"
+        - "The real dispatcher installed at .atdd/hooks/commit-msg, as `atdd init` installs it"
+        - "An `atdd` on PATH resolving the packaged hook, and a packaged commit-msg that initially exits 0"
+    when:
+      abstract: "the packaged commit-msg is changed to reject the commit, and `git commit` is then invoked for real — with no `atdd init`, no `atdd sync` and no `--force` in between"
+    then:
+      abstract:
+        - "git aborts the commit because the dispatcher exec'd the NEW packaged logic"
+        - "no commit object is created (git log is unchanged)"
+        - "the same commit succeeded moments earlier against the unchanged packaged hook, proving the block came from the change and not from a broken dispatcher"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-17"
