@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -35,7 +36,7 @@ _RULE_FILE_LEN = bind_rule("coder.refactor.quality-file-length")
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 
 # Quality thresholds
@@ -52,7 +53,7 @@ MIN_DUPLICATE_STATEMENTS = 5
 
 def find_python_files() -> List[Path]:
     """Find all Python source files (excluding tests)."""
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return []
 
     files = []
@@ -258,8 +259,8 @@ def scan_file_line_count(repo_root: Path) -> Tuple[int, List[str]]:
     FILE_LINE_REPORT_THRESHOLD (500) are tracked so that their line count
     cannot increase without an explicit baseline update.
     """
-    python_dir = repo_root / "python"
-    if not python_dir.exists():
+    python_dir = resolve_code_root("python", repo_root)
+    if python_dir is None or not python_dir.exists():
         return 0, []
     files = []
     for py_file in python_dir.rglob("*.py"):

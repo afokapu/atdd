@@ -42,15 +42,30 @@ from atdd.coach.utils.train_spec_phase import (
     should_enforce,
     emit_phase_warning
 )
-from atdd.coach.utils.config import get_train_config
+from atdd.coach.utils.config import (
+    get_train_config,
+    resolve_code_root,
+    resolve_stack_container,
+    resolve_stack_entrypoint,
+)
+
+
+def _under(root, *parts):
+    """Join *parts* under a resolved stack root, or None when it is undeclared."""
+    return None if root is None else root.joinpath(*parts)
 
 
 # Path constants
-# Consumer repo artifacts
+# Consumer repo artifacts. Stack roots and the station-master entrypoint are
+# declared in .atdd/config.yaml, not frozen here — a consumer laid out as
+# python/<wagon>/ with no app.py is a legitimate layout, not a failure (#689).
 REPO_ROOT = find_repo_root()
-TRAINS_DIR = REPO_ROOT / "python" / "trains"
-WAGONS_DIR = REPO_ROOT / "python"
-APP_PY = REPO_ROOT / "python" / "app.py"
+PYTHON_ROOT = resolve_code_root("python", REPO_ROOT)
+WEB_CONTAINER = resolve_stack_container("web", REPO_ROOT)
+
+TRAINS_DIR = _under(PYTHON_ROOT, "trains")
+WAGONS_DIR = PYTHON_ROOT
+APP_PY = resolve_stack_entrypoint("python", REPO_ROOT)
 E2E_CONFTEST = REPO_ROOT / "e2e" / "conftest.py"
 CONTRACT_VALIDATOR = REPO_ROOT / "e2e" / "shared" / "fixtures" / "contract_validator.py"
 
@@ -58,10 +73,22 @@ CONTRACT_VALIDATOR = REPO_ROOT / "e2e" / "shared" / "fixtures" / "contract_valid
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 TRAIN_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "train.convention.yaml"
 
-_skip_no_trains = not TRAINS_DIR.exists()
-_skip_no_python = not (REPO_ROOT / "python").exists()
+
+def _absent(path: Optional[Path]) -> bool:
+    """True when a path is undeclared (None) or simply not there."""
+    return path is None or not path.exists()
+
+
+# Each flag guards exactly what the tests behind it dereference. Before #1476,
+# the station-master tests were gated on _skip_no_python — the python *directory*
+# — while their skip reason claimed "python/app.py not found". A consumer with a
+# python tier but no app.py therefore ran them and failed four tests it had no
+# way to satisfy (#689). _skip_no_app is the flag those tests actually needed.
+_skip_no_trains = _absent(TRAINS_DIR)
+_skip_no_python = _absent(PYTHON_ROOT)
+_skip_no_app = _absent(APP_PY)
 _skip_no_e2e = not E2E_CONFTEST.exists()
-_skip_no_web = not (REPO_ROOT / "web").exists()
+_skip_no_web = _absent(WEB_CONTAINER)
 
 
 def find_wagons() -> List[Path]:
@@ -120,8 +147,8 @@ def extract_imports_from_file(file_path: Path) -> Set[str]:
     return imports
 
 
-def resolve_server_file() -> Path:
-    """Resolve station master entrypoint (app.py)."""
+def resolve_server_file() -> Optional[Path]:
+    """The declared station-master entrypoint, or None when there is none."""
     return APP_PY
 
 
@@ -147,7 +174,7 @@ def _find_train_file(feature_subdir: str, filename: str) -> Optional[Path]:
 # TRAIN INFRASTRUCTURE TESTS
 # ============================================================================
 
-@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
+@pytest.mark.skipif(_skip_no_trains, reason="no python trains/ tree present")
 def test_trains_directory_exists():
     """Train infrastructure must exist at python/trains/."""
     assert TRAINS_DIR.exists(), (
@@ -159,7 +186,7 @@ def test_trains_directory_exists():
     assert TRAINS_DIR.is_dir(), f"{TRAINS_DIR} exists but is not a directory"
 
 
-@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
+@pytest.mark.skipif(_skip_no_trains, reason="no python trains/ tree present")
 def test_train_infrastructure_files_exist():
     """
     Train infrastructure files must exist.
@@ -199,7 +226,7 @@ def test_train_infrastructure_files_exist():
         )
 
 
-@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
+@pytest.mark.skipif(_skip_no_trains, reason="no python trains/ tree present")
 def test_train_runner_class_exists():
     """TrainRunner class must exist in python/trains/runner.py or python/trains/runner/runner.py."""
     runner_file = _find_train_file("runner", "runner.py")
@@ -300,7 +327,7 @@ def test_train_runner_class_exists():
         )
 
 
-@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
+@pytest.mark.skipif(_skip_no_trains, reason="no python trains/ tree present")
 def test_train_models_exist():
     """Train data models must exist in python/trains/models.py or python/trains/models/models.py."""
     models_file = _find_train_file("models", "models.py")
@@ -332,7 +359,7 @@ def test_train_models_exist():
 # WAGON TRAIN MODE TESTS
 # ============================================================================
 
-@pytest.mark.skipif(_skip_no_python, reason="python/ not found")
+@pytest.mark.skipif(_skip_no_python, reason="no python code root present")
 def test_wagons_implement_run_train():
     """
     Wagons must implement run_train() to participate in train orchestration.
@@ -374,7 +401,7 @@ def test_wagons_implement_run_train():
 # STATION MASTER TESTS (app.py)
 # ============================================================================
 
-@pytest.mark.skipif(_skip_no_python, reason="python/app.py not found")
+@pytest.mark.skipif(_skip_no_app, reason="no station-master entrypoint present")
 def test_game_py_imports_train_runner():
     """app.py must import TrainRunner (Station Master pattern)."""
     server_file = resolve_server_file()
@@ -391,7 +418,7 @@ def test_game_py_imports_train_runner():
     )
 
 
-@pytest.mark.skipif(_skip_no_python, reason="python/app.py not found")
+@pytest.mark.skipif(_skip_no_app, reason="no station-master entrypoint present")
 def test_game_py_has_journey_map():
     """app.py must have JOURNEY_MAP routing actions to trains."""
     server_file = resolve_server_file()
@@ -405,7 +432,7 @@ def test_game_py_has_journey_map():
     )
 
 
-@pytest.mark.skipif(_skip_no_python, reason="python/app.py not found")
+@pytest.mark.skipif(_skip_no_app, reason="no station-master entrypoint present")
 def test_game_py_has_train_execution_endpoint():
     """app.py must have /trains/execute endpoint."""
     server_file = resolve_server_file()
@@ -569,7 +596,7 @@ def test_train_convention_documents_key_patterns():
 # BOUNDARY ENFORCEMENT TESTS
 # ============================================================================
 
-@pytest.mark.skipif(_skip_no_python, reason="python/ not found")
+@pytest.mark.skipif(_skip_no_python, reason="no python code root present")
 def test_no_wagon_to_wagon_imports():
     """
     Wagons must NOT import from other wagons.
@@ -633,7 +660,7 @@ def _get_all_train_ids() -> List[str]:
     return train_ids
 
 
-@pytest.mark.skipif(_skip_no_trains, reason="python/trains/ not found")
+@pytest.mark.skipif(_skip_no_trains, reason="no python trains/ tree present")
 def test_backend_runner_paths():
     """
     SPEC-TRAIN-VAL-0031: Backend runner paths validation.
@@ -696,7 +723,7 @@ def test_backend_runner_paths():
                 )
 
 
-@pytest.mark.skipif(_skip_no_web, reason="web/ not found")
+@pytest.mark.skipif(_skip_no_web, reason="no web project present")
 def test_frontend_code_allowed_roots():
     """
     SPEC-TRAIN-VAL-0032: Frontend code in allowed root directories.
@@ -714,8 +741,8 @@ def test_frontend_code_allowed_roots():
         "web/pages/"
     ])
 
-    web_dir = REPO_ROOT / "web"
-    if not web_dir.exists():
+    web_dir = resolve_stack_container("web", REPO_ROOT)
+    if web_dir is None or not web_dir.exists():
         pytest.skip("No web/ directory found")
 
     # Find all TypeScript/JavaScript files in web/
@@ -764,7 +791,7 @@ def test_frontend_code_allowed_roots():
             )
 
 
-@pytest.mark.skipif(_skip_no_python, reason="python/ not found")
+@pytest.mark.skipif(_skip_no_python, reason="no python code root present")
 def test_fastapi_template_enforcement():
     """
     SPEC-TRAIN-VAL-0033: FastAPI template enforcement when configured.
@@ -781,8 +808,8 @@ def test_fastapi_template_enforcement():
         pytest.skip("FastAPI template enforcement not enabled in config")
 
     # Look for FastAPI app files
-    python_dir = REPO_ROOT / "python"
-    if not python_dir.exists():
+    python_dir = resolve_code_root("python", REPO_ROOT)
+    if python_dir is None or not python_dir.exists():
         pytest.skip("No python/ directory found")
 
     # Find files that define FastAPI apps

@@ -28,6 +28,7 @@ import yaml
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
@@ -36,7 +37,7 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-WEB_SRC = REPO_ROOT / "web" / "src"
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 LOGGING_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "logging.convention.yaml"
 
@@ -266,7 +267,7 @@ def detect_silent_swallows_ts(file_path: Path) -> List[Violation]:
 # ---------------------------------------------------------------------------
 def scan_silent_swallows_typescript(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Aggregate silent-swallow violations across web/src/."""
-    web_src = repo_root / "web" / "src"
+    web_src = resolve_code_root("web", repo_root)
     files = _collect_files(web_src)
     violations: List[Violation] = []
     for f in files:
@@ -352,7 +353,7 @@ def test_no_silent_exception_swallowing_typescript():
                 (rule COACH-SILENT-SWALLOW-001)
     BE parity:  test_no_silent_exception_swallowing_python.py
     """
-    if not WEB_SRC.exists():
+    if WEB_SRC is None or not WEB_SRC.exists():
         pytest.skip("No web/src/ directory found")
 
     count, violations = scan_silent_swallows_typescript(REPO_ROOT)

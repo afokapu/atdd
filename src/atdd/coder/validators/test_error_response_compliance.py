@@ -30,6 +30,7 @@ import yaml
 import atdd
 import pytest
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -44,7 +45,7 @@ _RULE_CODE_FORMAT = bind_rule("coder.error-response.code-format")
 
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 # Package resources (conventions, schemas, contracts)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
@@ -277,8 +278,8 @@ def test_error_response_convention_exists():
 
 def scan_bare_string_errors(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for bare string HTTPException details. Used by ratchet baseline."""
-    python_dir = repo_root / "python"
-    if not python_dir.exists():
+    python_dir = resolve_code_root("python", repo_root)
+    if python_dir is None or not python_dir.exists():
         return 0, []
     py_files = list(python_dir.rglob("*.py"))
     violations: List[Violation] = []
@@ -303,8 +304,8 @@ def scan_bare_string_errors(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 def scan_error_code_format(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for non-UPPER_SNAKE_CASE error codes. Used by ratchet baseline."""
-    python_dir = repo_root / "python"
-    if not python_dir.exists():
+    python_dir = resolve_code_root("python", repo_root)
+    if python_dir is None or not python_dir.exists():
         return 0, []
     py_files = list(python_dir.rglob("*.py"))
     violations: List[Violation] = []
@@ -338,7 +339,7 @@ def test_python_endpoints_use_structured_error_responses():
 
     Validates: acc:verify-contracts:E001-UNIT-001, E001-UNIT-002
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         pytest.skip("python/ directory not found — no endpoints to validate")
 
     py_files = list(PYTHON_DIR.rglob("*.py"))
@@ -368,7 +369,7 @@ def test_error_codes_follow_enum_convention():
 
     Validates: acc:verify-contracts:E001-UNIT-001 (error code format)
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         pytest.skip("python/ directory not found — no error codes to validate")
 
     py_files = list(PYTHON_DIR.rglob("*.py"))

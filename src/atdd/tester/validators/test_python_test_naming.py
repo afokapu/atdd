@@ -22,11 +22,14 @@ from atdd.coach.utils.diagnostics import (
     fail_with_diagnostic,
 )
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+# Declared in .atdd/config.yaml, not frozen here
+# (coach.graph.implementation-root-resolution). None == no python stack.
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 
 def find_test_files() -> list:
@@ -36,7 +39,7 @@ def find_test_files() -> list:
     Returns:
         List of Path objects pointing to test files
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return []
 
     test_files = []
