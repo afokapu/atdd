@@ -1010,34 +1010,19 @@ class ProjectInitializer:
             if hook_src.name.startswith(("__", ".")) or hook_src.is_dir():
                 continue
 
-            hook_dst = hooks_dir / hook_src.name
             desired = self._dispatcher_body(hook_src.name)
             if desired is None:
                 # Missing dispatcher template: install no content, but still
-                # wire core.hooksPath below — that wiring is independent of hook
-                # content, and skipping it would leave git pointed at nothing.
+                # wire core.hooksPath in the caller — that wiring is independent
+                # of hook content, and skipping it would leave git pointed at
+                # nothing.
                 break
 
-            if hook_dst.is_file():
-                current = hook_dst.read_text(errors="replace")
-                if current == desired:
-                    continue  # already the current dispatcher — nothing to say
-                # Recognised content is ours to replace silently: either an
-                # older dispatcher, or a pristine copy of the packaged template
-                # from the pre-#1492 copy-install.
-                recognised = (
-                    self._DISPATCHER_MARKER in current
-                    or current == hook_src.read_text(errors="replace")
-                )
-                if not recognised:
-                    backup = hook_dst.with_name(hook_dst.name + ".local.bak")
-                    shutil.copy2(hook_dst, backup)
-                    preserved += 1
-                    print(f"  ! {hook_dst.name}: unrecognised content preserved → {backup.name}")
-
-            hook_dst.write_text(desired)
-            os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
-            refreshed += 1
+            did_refresh, did_preserve = self._refresh_one_hook(
+                hook_src, hooks_dir / hook_src.name, desired
+            )
+            refreshed += int(did_refresh)
+            preserved += int(did_preserve)
 
         if refreshed:
             print(f"Hooks: {refreshed} installed/refreshed → {hooks_dir}")
@@ -1046,6 +1031,40 @@ class ProjectInitializer:
         if preserved:
             print(f"Hooks: {preserved} pre-existing file(s) preserved as *.local.bak")
         return refreshed
+
+    def _refresh_one_hook(
+        self, hook_src: Path, hook_dst: Path, desired: str
+    ) -> Tuple[bool, bool]:
+        """Bring a single installed hook to *desired*, preserving the unknown.
+
+        Returns:
+            (refreshed, preserved) — whether the file was written, and whether
+            unrecognised prior content was saved as ``<hook>.local.bak`` first.
+        """
+        preserved = False
+        if hook_dst.is_file():
+            current = hook_dst.read_text(errors="replace")
+            if current == desired:
+                return False, False  # already current — nothing to say
+
+            # Recognised content is ours to replace silently: either an older
+            # dispatcher, or a pristine copy of the packaged template left by
+            # the pre-#1492 copy-install. Anything else is the operator's, and
+            # is preserved before being overwritten — the refresh always wins,
+            # but never destroys (#1492 Decision #2).
+            recognised = (
+                self._DISPATCHER_MARKER in current
+                or current == hook_src.read_text(errors="replace")
+            )
+            if not recognised:
+                backup = hook_dst.with_name(hook_dst.name + ".local.bak")
+                shutil.copy2(hook_dst, backup)
+                preserved = True
+                print(f"  ! {hook_dst.name}: unrecognised content preserved → {backup.name}")
+
+        hook_dst.write_text(desired)
+        os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
+        return True, preserved
 
     def refresh_hook_files(self) -> int:
         """Refresh installed hook CONTENT only. Writes no git config (#1492).
