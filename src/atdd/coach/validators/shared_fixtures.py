@@ -19,7 +19,11 @@ import pytest
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.utils.config import load_atdd_config, get_train_config
+from atdd.coach.utils.config import (
+    load_atdd_config,
+    get_train_config,
+    resolve_stack_container,
+)
 
 
 # Path constants
@@ -28,7 +32,11 @@ REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 TELEMETRY_DIR = REPO_ROOT / "telemetry"
-WEB_DIR = REPO_ROOT / "web"
+
+# Stack roots come from .atdd/config.yaml, never from this module
+# (coach.graph.implementation-root-resolution). None == stack not declared.
+WEB_DIR = resolve_stack_container("web", REPO_ROOT)
+SUPABASE_DIR = resolve_stack_container("supabase", REPO_ROOT)
 
 # Package resources - use atdd.__file__ to locate installed package
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
@@ -323,10 +331,9 @@ def typescript_test_files() -> List[Path]:
     """
     ts_tests = []
 
-    # Search in supabase/functions/*/test/
-    supabase_dir = REPO_ROOT / "supabase"
-    if supabase_dir.exists():
-        ts_tests.extend(supabase_dir.rglob("*.test.ts"))
+    # Search the supabase project tree
+    if SUPABASE_DIR is not None and SUPABASE_DIR.exists():
+        ts_tests.extend(SUPABASE_DIR.rglob("*.test.ts"))
 
     # Search in e2e/
     e2e_dir = REPO_ROOT / "e2e"
@@ -344,7 +351,9 @@ def web_typescript_test_files() -> List[Path]:
     Returns:
         List of Path objects pointing to *.test.ts and *.test.tsx files
     """
-    web_tests_dir = REPO_ROOT / "web" / "tests"
+    if WEB_DIR is None:
+        return []
+    web_tests_dir = WEB_DIR / "tests"
     if not web_tests_dir.exists():
         return []
 

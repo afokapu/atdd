@@ -83,14 +83,18 @@ def find_python_dir(repo_root: Optional[Path] = None) -> Path:
     Consumer repos use python/, the toolkit uses src/.
     Returns the first that exists, or python/ as default.
     """
+    from atdd.coach.utils.config import resolve_code_root
+
     root = repo_root or find_repo_root()
-    python_dir = root / "python"
-    if python_dir.exists():
+    python_dir = resolve_code_root("python", root)
+    if python_dir is not None and python_dir.exists():
         return python_dir
     src_dir = root / "src"
     if src_dir.exists():
         return src_dir
-    return python_dir  # default for consumer repos (may not exist yet)
+    # Consumer repo that has not created its backend tree yet: hand back the
+    # declared root so the caller reports the path the config actually names.
+    return python_dir if python_dir is not None else src_dir
 
 
 def _git_common_dir(root: Path) -> Optional[Path]:

@@ -27,6 +27,7 @@ from typing import Dict, List, Optional
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
@@ -35,10 +36,16 @@ from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-WEB_DIR = REPO_ROOT / "web"
+WEB_DIR = resolve_stack_container("web", REPO_ROOT)
+# Undeclared stacks (no `code:` entry) resolve to None and drop out of the
+# scan — the convention's skip-unknown contract, not a crash.
 FRONTEND_DIRS = [
-    REPO_ROOT / "web",
-    REPO_ROOT / "frontend",
+    d
+    for d in (
+        resolve_stack_container("web", REPO_ROOT),
+        resolve_code_root("frontend", REPO_ROOT),
+    )
+    if d is not None
 ]
 
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent

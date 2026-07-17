@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -38,7 +39,7 @@ _RULE_COGNITIVE = bind_rule("coder.refactor.complexity-cognitive")
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 
 # Complexity thresholds
@@ -51,7 +52,7 @@ MAX_COGNITIVE_COMPLEXITY = 15
 
 def find_python_files() -> List[Path]:
     """Find all Python source files (excluding tests)."""
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return []
 
     files = []
@@ -387,8 +388,8 @@ def _function_cognitive_complexity(func_node: ast.AST) -> int:
 
 
 def _collect_python_source_files(repo_root: Path) -> List[Path]:
-    python_dir = repo_root / "python"
-    if not python_dir.exists():
+    python_dir = resolve_code_root("python", repo_root)
+    if python_dir is None or not python_dir.exists():
         return []
     files: List[Path] = []
     for py_file in python_dir.rglob("*.py"):

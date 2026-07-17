@@ -18,10 +18,13 @@ from pathlib import Path
 from typing import Dict, List, Any
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+# Declared in .atdd/config.yaml, not frozen here
+# (coach.graph.implementation-root-resolution). None == no python stack.
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 CONTRACTS_DIR = REPO_ROOT / "contracts"
 
 
@@ -60,7 +63,7 @@ def find_test_fixtures() -> Dict[str, List[Any]]:
     Returns:
         Dict mapping fixture file to list of fixture data
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return {}
 
     fixtures = {}

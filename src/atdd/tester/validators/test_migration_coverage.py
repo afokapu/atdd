@@ -8,11 +8,16 @@ import pytest
 from pathlib import Path
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_stack_container
 
 # Path constants
 REPO_ROOT = find_repo_root()
 CONTRACTS_DIR = REPO_ROOT / "contracts"
-MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
+# Declared, not hardcoded (coach.graph.implementation-root-resolution).
+SUPABASE_DIR = resolve_stack_container("supabase", REPO_ROOT)
+MIGRATIONS_DIR = (
+    SUPABASE_DIR / "migrations" if SUPABASE_DIR is not None else None
+)
 
 
 def contract_needs_migration(contract_path: Path) -> bool:
@@ -100,6 +105,8 @@ def test_all_contracts_have_migrations():
         pytest.skip("contracts/ directory does not exist")
         return
 
+    if MIGRATIONS_DIR is None:
+        return
     if not MIGRATIONS_DIR.exists():
         MIGRATIONS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -130,7 +137,7 @@ def test_all_contracts_have_migrations():
 
         # Check if migration exists mentioning this table
         has_migration = False
-        if MIGRATIONS_DIR.exists():
+        if MIGRATIONS_DIR is not None and MIGRATIONS_DIR.exists():
             for migration_file in MIGRATIONS_DIR.glob("*.sql"):
                 content = migration_file.read_text()
                 if f"CREATE TABLE {table_name}" in content or f"CREATE TABLE IF NOT EXISTS {table_name}" in content:
@@ -162,8 +169,8 @@ def test_migration_templates_reviewed():
     Then: No unresolved TODO markers (⚠️ TODO:) remain
           Forces human review of foreign keys, indexes, RLS
     """
-    if not MIGRATIONS_DIR.exists():
-        pytest.skip("supabase/migrations/ directory does not exist")
+    if MIGRATIONS_DIR is None or not MIGRATIONS_DIR.exists():
+        pytest.skip("no supabase migrations tree declared or present")
         return
 
     migrations_with_todos = []
