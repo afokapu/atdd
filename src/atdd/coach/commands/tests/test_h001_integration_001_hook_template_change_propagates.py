@@ -226,6 +226,35 @@ def test_pristine_copy_is_replaced_without_a_backup(tmp_path: Path) -> None:
     assert "ATDD managed hook dispatcher" in pristine.read_text()
 
 
+def test_refresh_hook_files_never_writes_git_config(tmp_path: Path) -> None:
+    """A content refresh must not touch git config — that is the #793 mechanism.
+
+    Refreshing now runs from plain `atdd init` and `atdd sync`, i.e. far more
+    often than a first install ever did. core.hooksPath is a single shared
+    setting governing every worktree, and an unscoped write to it contaminated
+    sibling worktrees in #793. Content and wiring are therefore separate:
+    refresh_hook_files() installs files and nothing else.
+    """
+    from unittest.mock import patch
+
+    (tmp_path / ".atdd" / "hooks").mkdir(parents=True)
+    initializer = ProjectInitializer(tmp_path)
+
+    captured: list = []
+
+    def _capture(cmd, **kwargs):
+        captured.append(cmd)
+        raise AssertionError(f"refresh_hook_files ran a subprocess: {cmd}")
+
+    with patch("subprocess.run", side_effect=_capture):
+        initializer.refresh_hook_files()
+
+    assert not captured, f"refresh must not shell out to git: {captured}"
+    assert (tmp_path / ".atdd" / "hooks" / "commit-msg").is_file(), (
+        "refresh should still have installed the hooks"
+    )
+
+
 def test_hooks_path_stdout_is_not_polluted_by_banners() -> None:
     """`atdd hooks path` stdout must be JUST the path.
 

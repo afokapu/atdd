@@ -173,10 +173,13 @@ class AgentConfigSync:
         # Only refresh a repo that already has hooks installed — sync is not
         # an installer, and must not create .atdd/hooks/ in a repo that never
         # ran `atdd init`.
+        # Content only — sync must never write core.hooksPath. That setting is
+        # shared by every worktree of the repo, and an unscoped write to it is
+        # what caused #793; `sync` runs far too often to be touching it.
         if (self.atdd_config_dir / "hooks").is_dir():
             from atdd.coach.commands.initializer import ProjectInitializer
             hook_initializer = ProjectInitializer(self.target_dir)
-            hook_initializer._install_hooks(force=False)
+            hook_initializer.refresh_hook_files()
 
         # Apply branch protection if upgrading
         self._apply_branch_protection_on_upgrade()

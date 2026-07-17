@@ -575,14 +575,17 @@ class ProjectInitializer:
             print("  Run: atdd init --worktree-layout\n")
 
         # Check if already initialized
+        #
+        # #1492: this early return is why the skip-if-exists inside
+        # _install_hooks was only the SECOND gate — plain `atdd init` never
+        # reached it. The hook refresh deliberately does NOT live here: `init`
+        # on an initialised repo is contractually a no-op (R004/#720 asserts a
+        # zero-change snapshot for `--worktree-layout` on an already-flat repo),
+        # and quietly turning it into a writer would redefine that contract.
+        # `atdd sync` is the sanctioned refresh instead — it is the verb the
+        # upgrade banner names ("Run: atdd sync && atdd init") and the verb that
+        # stamps toolkit.last_version.
         if self.atdd_config_dir.exists() and not force:
-            # #1492: refresh the hooks BEFORE bailing out. This early return is
-            # why a hook fix reached nobody — plain `atdd init` never reached
-            # _install_hooks at all, so the skip-if-exists inside it was only
-            # the *second* gate. Refreshing here keeps re-init gated behind
-            # --force while making plain `init` a sanctioned way to pick up
-            # hooks, which `atdd init --force` (forbidden, #793) used to be.
-            self._install_hooks(force=False)
             print(f"ATDD already initialized at {self.target_dir}")
             print("Use --force to reinitialize")
             return 1
@@ -969,8 +972,8 @@ class ProjectInitializer:
             return None
         return tpl.read_text().replace("__ATDD_HOOK_NAME__", hook_name)
 
-    def _install_hooks(self, force: bool = False) -> None:
-        """Install/refresh the git hook dispatchers in .atdd/hooks/ (#1492).
+    def _refresh_hook_files(self, force: bool = False) -> int:
+        """Install/refresh the git hook dispatcher FILES in .atdd/hooks/ (#1492).
 
         Each installed hook is a FIXED-CONTENT dispatcher that execs the hook
         shipped inside the installed atdd package. That makes drift structurally
@@ -1010,7 +1013,10 @@ class ProjectInitializer:
             hook_dst = hooks_dir / hook_src.name
             desired = self._dispatcher_body(hook_src.name)
             if desired is None:
-                return
+                # Missing dispatcher template: install no content, but still
+                # wire core.hooksPath below — that wiring is independent of hook
+                # content, and skipping it would leave git pointed at nothing.
+                break
 
             if hook_dst.is_file():
                 current = hook_dst.read_text(errors="replace")
@@ -1039,6 +1045,33 @@ class ProjectInitializer:
             print("Hooks: all current.")
         if preserved:
             print(f"Hooks: {preserved} pre-existing file(s) preserved as *.local.bak")
+        return refreshed
+
+    def refresh_hook_files(self) -> int:
+        """Refresh installed hook CONTENT only. Writes no git config (#1492).
+
+        Deliberately separate from ``_install_hooks``: refreshing hook content
+        and wiring ``core.hooksPath`` are different concerns with very different
+        blast radii. core.hooksPath is a single shared setting governing every
+        worktree of the repository, and an unscoped write to it is what caused
+        #793. A refresh — which now runs from plain `atdd init` and `atdd sync`,
+        i.e. far more often than a first install ever did — must therefore never
+        touch git config: it only replaces the files in .atdd/hooks/.
+
+        Returns:
+            The number of hooks installed or refreshed.
+        """
+        return self._refresh_hook_files()
+
+    def _install_hooks(self, force: bool = False) -> None:
+        """Install the hook dispatchers AND point git at them.
+
+        First-install path: refreshes the hook files, then wires core.hooksPath.
+        Callers that only want current hook content must use
+        :meth:`refresh_hook_files` instead — see #793.
+        """
+        hooks_dir = self.atdd_config_dir / "hooks"
+        self._refresh_hook_files(force)
 
         # Point git to the hooks directory.
         # Wave 12 contamination fix (#793): when running inside a linked (non-main)
