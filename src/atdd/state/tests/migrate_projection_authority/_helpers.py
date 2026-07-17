@@ -19,34 +19,16 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import yaml
 
-from atdd.state.db import apply_migrations
-from atdd.state.store import StateStore
+from .._fixtures import (  # re-exported: the acceptances import these from this module
+    control_root,
+    memory_store,
+)
 
 #: Literal uids, not minted ones. A test that asserts "the file is named by the uid" must know the
 #: uid before it runs, or it is asserting that the tool agrees with itself.
 UID_A = "wi_01HF7YAT00M78607F000000001"
 UID_B = "wi_01HF7YAT00M78607F000000002"
 UID_C = "wi_01HF7YAT00M78607F000000003"
-
-
-@contextmanager
-def memory_store() -> Iterator[Tuple[sqlite3.Connection, StateStore]]:
-    """An ephemeral, migrated State Store held entirely in RAM."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    apply_migrations(conn)
-    try:
-        yield conn, StateStore(conn)
-    finally:
-        conn.close()
-
-
-def control_root(path: Path) -> Path:
-    """A directory the store resolver will accept as a Control Root."""
-    path.mkdir(parents=True, exist_ok=True)
-    (path / ".atdd").mkdir(exist_ok=True)
-    (path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    return path
 
 
 def entry(
@@ -72,8 +54,10 @@ def write_manifest(root: Path, sessions: Sequence[Dict[str, Any]]) -> Path:
     path = Path(root) / ".atdd" / "manifest.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        yaml.safe_dump({"version": "2.0", "sessions": list(sessions)},
-                       default_flow_style=False, sort_keys=False),
+        yaml.safe_dump(
+            {"version": "2.0", "sessions": list(sessions)},
+            default_flow_style=False, sort_keys=False,
+        ),
         encoding="utf-8",
     )
     return path

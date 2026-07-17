@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 
 # Path constants
@@ -942,7 +943,7 @@ class WagonTechStackDetector:
 
     def __init__(self, repo_root: Path = REPO_ROOT):
         self.repo_root = repo_root
-        self.python_dir = repo_root / "python"
+        self.python_dir = resolve_code_root("python", repo_root)
         self.dart_dir = repo_root / "lib"
         self.ts_dir = repo_root / "src"
 
@@ -955,8 +956,8 @@ class WagonTechStackDetector:
         """
         stacks = {}
 
-        # Detect Python wagons
-        if self.python_dir.exists():
+        # Detect Python wagons (skipped when no python root is declared)
+        if self.python_dir is not None and self.python_dir.exists():
             for wagon_dir in self.python_dir.iterdir():
                 if wagon_dir.is_dir() and not wagon_dir.name.startswith(('_', '.')):
                     wagon_slug = wagon_dir.name
@@ -1035,13 +1036,16 @@ class PythonDTOFinder:
 
     def __init__(self, repo_root: Path = REPO_ROOT):
         self.repo_root = repo_root
-        self.contracts_dir = repo_root / "python" / "contracts"
+        python_root = resolve_code_root("python", repo_root)
+        self.contracts_dir = (
+            python_root / "contracts" if python_root is not None else None
+        )
 
     def find_all_dtos(self) -> List[ContractImplementation]:
-        """Scan python/contracts/ for DTO classes."""
+        """Scan the python root's contracts/ tree for DTO classes."""
         implementations = []
 
-        if not self.contracts_dir.exists():
+        if self.contracts_dir is None or not self.contracts_dir.exists():
             return implementations
 
         for py_file in self.contracts_dir.rglob("*.py"):
@@ -4146,7 +4150,10 @@ def validate_train_urns(verbose: bool = False) -> Dict[str, any]:
     """
     import re
     
-    orchestrators_dir = REPO_ROOT / "python" / "trains" / "orchestrators"
+    python_root = resolve_code_root("python", REPO_ROOT)
+    orchestrators_dir = (
+        python_root / "trains" / "orchestrators" if python_root is not None else None
+    )
     trains_dir = REPO_ROOT / "plan" / "_trains"
     
     results = {
@@ -4157,7 +4164,7 @@ def validate_train_urns(verbose: bool = False) -> Dict[str, any]:
         'valid_urns': []
     }
     
-    if not orchestrators_dir.exists():
+    if orchestrators_dir is None or not orchestrators_dir.exists():
         return results
     
     # Find all train specs

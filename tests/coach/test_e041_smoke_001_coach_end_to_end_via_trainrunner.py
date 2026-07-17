@@ -16,7 +16,6 @@ import pytest
 
 import atdd
 from atdd.coach.commands import coach
-from atdd.coach.commands import observer as observer_mod
 from atdd.train import issue_runner as issue_runner_mod
 
 from tests.coach._e040_helpers import build_temp_repo
@@ -26,21 +25,13 @@ pytestmark = [pytest.mark.platform]
 _SRC = Path(atdd.__file__).resolve().parent
 
 
-class _NullObserver:
-    def __init__(self, *a, **k):
-        pass
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
-
 def test_coach_run_drives_via_trainrunner_and_writes_real_run(tmp_path, monkeypatch):
     build_temp_repo(tmp_path, issue_number=895, status="INIT")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(observer_mod, "MultiAgentObserver", _NullObserver)
+    # #1486: the observer was decommissioned and train.wave_runner now defaults its
+    # _observer_factory seam to a no-op, so the old
+    # `monkeypatch.setattr(observer_mod, "MultiAgentObserver", _NullObserver)` stub is
+    # no longer needed. The TrainRunner path under test is unchanged.
     monkeypatch.setattr(coach, "_read_current_github_phase", lambda n: None)
 
     drove: list[int] = []

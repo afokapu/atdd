@@ -5,50 +5,23 @@
 # Layer: smoke
 # Runtime: python
 # Assertion: behavioral
-"""E008-SMOKE-001 — the interactive prompt resolves correctly under conditions
-that mirror a real terminal session: ADAPTER_REGISTRY reflects reality and
-all PERSONAS are covered exactly once.
+"""E008-SMOKE-001 — the interactive model prompt resolves correctly under
+conditions that mirror a real terminal session.
 
-SMOKE: validates prompt_persona_models against the real ADAPTER_REGISTRY and
-PERSONAS from spawn.py, ensuring production constants are used and no persona
-is skipped or duplicated.
+SMOKE: exercises the real `should_prompt_for_models` / `parse_cli` surface in
+coach.py, so a non-TTY session and an explicit `--no-prompt` both suppress the
+prompt rather than blocking on stdin.
+
+#1486: this file also asserted that `prompt_persona_models` covered spawn's real
+ADAPTER_REGISTRY / PERSONAS. Spawning left core and those production constants no
+longer exist, so that assertion is retired; the prompt-suppression contract below
+is unchanged and still runs against the live coach code.
 """
 from __future__ import annotations
-
-import io
 
 import pytest
 
 pytestmark = [pytest.mark.smoke]
-
-
-def test_prompt_covers_all_real_personas():
-    """prompt_persona_models accepts exactly one input per real PERSONAS entry."""
-    from atdd.coach.commands.coach import prompt_persona_models
-    from atdd.coach.commands.spawn import ADAPTER_REGISTRY, PERSONAS
-
-    known = sorted(ADAPTER_REGISTRY)
-    # Must have at least 'claude-code' in the real registry.
-    assert "claude-code" in known, (
-        f"ADAPTER_REGISTRY missing 'claude-code': {known}"
-    )
-
-    # Operator types 'claude-code' for every persona.
-    stdin_text = "\n".join(["claude-code"] * len(PERSONAS)) + "\n"
-    fake_stdin = io.StringIO(stdin_text)
-    fake_stdout = io.StringIO()
-
-    result = prompt_persona_models(
-        PERSONAS, known, stdin=fake_stdin, stdout=fake_stdout
-    )
-
-    assert set(result.keys()) == set(PERSONAS), (
-        f"prompt result covers {sorted(result)} but PERSONAS is {sorted(PERSONAS)}"
-    )
-    for persona, model in result.items():
-        assert model in known, (
-            f"persona {persona!r} resolved to unknown model {model!r}"
-        )
 
 
 def test_should_prompt_false_when_no_stdin_isatty():

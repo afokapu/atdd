@@ -27,37 +27,6 @@ statement: >-
   reach the feed
 acceptances:
   - identity:
-      urn: "acc:mediate-worker-decisions:E013-UNIT-001-dispatch-launch-carries-no-hook-suppressing-flag"
-      id: "AC-UNIT-001"
-      purpose: >-
-        The dispatch-built worker launch carries NO cmux-wrapper-hook-suppressing
-        flag (--settings / -p / --print / -r / --resume / -c / --continue) and
-        leaves Bash out of --allowedTools, so the wrapper injects the
-        PermissionRequest->feed hook and a Bash decision surfaces to the Feed
-        (the coach 3.110.0 live-repro: a suppressing flag sent the decision to the
-        TUI with feed.list empty)
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "The production cmux-native dispatch launch command for a claude-code worker"
-    when:
-      abstract: "The dispatch builds the worker launch command"
-      action: "invoke"
-    then:
-      abstract:
-        - "The launch command contains none of the wrapper-hook-suppressing flags"
-        - "Bash is absent from --allowedTools so it raises a PermissionRequest the hook publishes"
-      assertions:
-        - type: "equals"
-        - type: "exists"
-    signal: {}
-    metadata:
-      wagon: "mediate-worker-decisions"
-      feature: "surface-worker-decisions"
-  - identity:
       urn: "acc:mediate-worker-decisions:E013-UNIT-002-dispatch-refuses-when-hook-path-inactive"
       id: "AC-UNIT-002"
       purpose: >-

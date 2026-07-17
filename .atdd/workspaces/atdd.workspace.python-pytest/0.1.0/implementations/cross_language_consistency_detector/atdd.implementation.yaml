@@ -5,7 +5,11 @@ targets_workspace: atdd.workspace.python-pytest
 contract_version: "1.1.0"
 
 # Back-reference to the agnostic obligation this detector primarily realizes.
-realizes_convention: coder.boundaries.xlang-entity
+realizes_convention:
+  - coder.boundaries.xlang-entity
+  - coder.boundaries.xlang-enum
+  - coder.boundaries.xlang-naming
+  - coder.boundaries.xlang-contract
 
 # One run surfaces FOUR rule_ids with MIXED disposition — exercising the v1.1
 # multi-rule output channel AND a mixed downstream verdict (advisory + strict).

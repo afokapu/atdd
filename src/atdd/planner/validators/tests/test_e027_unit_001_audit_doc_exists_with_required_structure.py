@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from atdd.coach.utils.repo import find_repo_root
 
-pytestmark = [pytest.mark.planner]
+pytestmark = [pytest.mark.planner, pytest.mark.platform]
 
 _REQUIRED_COLUMNS = [
     "acceptance-URN",

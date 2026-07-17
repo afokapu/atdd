@@ -32,6 +32,9 @@ import pytest
 
 from atdd.coach.utils.repo import find_repo_root
 
+# Toolkit dogfood: asserts on toolkit-only repo content (#1475).
+pytestmark = [pytest.mark.platform]
+
 REPO_ROOT = find_repo_root()
 TESTS_ROOT = REPO_ROOT / "src" / "atdd" / "coach" / "commands" / "tests"
 CLIENT_NAME = "GitHubClient"

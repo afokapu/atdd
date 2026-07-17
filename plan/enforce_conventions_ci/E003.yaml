@@ -1,0 +1,72 @@
+urn: "wmbt:enforce-conventions-ci:E003"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "enforcement-debt-regression"
+context_clarifier: "flipping the enforce job to blocking (E001) over a repository that TODAY fails 23 of its 51 enforced rules would red CI on the first build and the gate would be reverted within the hour — the honest move is neither to pretend the debt is absent nor to stay advisory forever, but to RATCHET: record the current per-rule failing-violation counts as a baseline, hold every pre-existing violation flat so the first blocking build is green, and fail the moment any rule climbs ABOVE its recorded count or a rule that was clean starts failing; the baseline is the precondition that makes the blocking flip safe, so it must land BEFORE the job stops swallowing failure, and it is a debt REGISTER — not an exemption — because it can only ever be tightened"
+lens: "functional.sustainability"
+statement: "minimize likelihood of enforcement-debt-regression by recording the current per-rule failing-violation counts as a ratchet baseline that holds pre-existing violations flat, so turning the enforce job blocking does not red the first build, while any rule whose violation count climbs above its baseline — or any rule that was clean and starts failing — still fails the gate"
+acceptances:
+  - identity:
+      urn: "acc:enforce-conventions-ci:E003-UNIT-001-baseline-holds-pre-existing-violations-flat"
+      id: "AC-UNIT-001"
+      purpose: "a rule failing at or below its recorded baseline count is held FLAT — its verdict is neutralized so the aggregate result passes and the blocking job stays green over the known debt"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "an enforce result in which a strict rule failed with exactly its recorded baseline violation count, and one in which a rule failed with FEWER violations than its baseline"
+    when:
+      abstract: "the ratchet is applied to the result against the recorded baseline"
+    then:
+      abstract:
+        - "the rule failing at exactly its baseline is held flat — it no longer fails, and the aggregate result passes with exit code 0"
+        - "the rule failing below its baseline is likewise held flat, so paying debt down never breaks the build"
+        - "the held-flat rule is still NAMED in the report with its baselined count, so the debt stays visible rather than being silently forgiven"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E003-UNIT-002-new-violation-over-the-baseline-fails"
+      id: "AC-UNIT-002"
+      purpose: "the ratchet only ever tightens — a rule climbing even one violation above its baseline fails, and a rule absent from the baseline that starts failing is treated as a baseline of zero and fails, so no new debt can be smuggled in under the register"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "an enforce result in which a baselined rule reports one MORE violation than its recorded count, and one in which a rule that carries no baseline entry at all reports a violation"
+    when:
+      abstract: "the ratchet is applied to each result against the recorded baseline"
+    then:
+      abstract:
+        - "the rule one violation above its baseline still FAILS, and the aggregate result reports exit code 1"
+        - "the failure names the rule, its baseline count, and its current count, so the regression is diagnosable"
+        - "the rule with no baseline entry is held to a baseline of zero and FAILS, so an unregistered rule cannot start failing for free"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E003-SMOKE-001-real-baseline-neutralizes-the-live-debt"
+      id: "AC-SMOKE-001"
+      purpose: "the REAL committed ratchet baseline is a faithful register of the repository's live enforcement debt — it neutralizes exactly the rules that fail today (so the blocking job is green on the first build) and nothing more (so it grants no rule a free pass it has not already earned)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the repository's real committed .atdd/enforce-ratchet.yaml baseline and the real binding lock it is recorded against"
+    when:
+      abstract: "the real baseline is loaded and applied to the enforce result it was recorded from, and to that same result with one rule regressed by a single violation"
+    then:
+      abstract:
+        - "applying the real baseline to the recorded verdicts yields a PASS with exit code 0 — the blocking job is green over the live debt"
+        - "regressing any single baselined rule by one violation flips the same run to FAIL with exit code 1 — the ratchet is live, not a blanket exemption"
+        - "every rule the real baseline registers is a rule the real binding lock actually binds, so the register cannot drift into naming rules that are not enforced"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

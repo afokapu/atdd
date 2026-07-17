@@ -17,6 +17,7 @@ from typing import List, Tuple, Optional
 import re
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_entrypoint
 
 # Project root constant (pytest pythonpath handles imports)
 REPO_ROOT = find_repo_root()
@@ -180,14 +181,18 @@ class PresentationValidator:
 
 
     def validate_game_server_registration(self):
-        """Validate python/app.py includes all wagons with presentation."""
-        server_file = self.python_root / "app.py"
+        """Validate the station-master entrypoint includes all wagons with presentation."""
+        # Entrypoint filename is declared (::stack_entrypoints), not assumed to
+        # be app.py — see #689.
+        server_file = resolve_stack_entrypoint("python", REPO_ROOT)
 
-        if not server_file.exists():
-            self.violations.append("❌ python/app.py not found - unified server missing")
+        if server_file is None or not server_file.exists():
+            self.violations.append(
+                f"❌ station-master entrypoint not found ({server_file}) - unified server missing"
+            )
             return
 
-        print("\nValidating unified server: python/app.py")
+        print(f"\nValidating unified server: {server_file}")
 
         content = server_file.read_text()
 
@@ -239,9 +244,9 @@ def main():
                        help="Validate python/app.py is up to date")
     args = parser.parse_args()
 
-    python_root = REPO_ROOT / "python"
+    python_root = resolve_code_root("python", REPO_ROOT)
 
-    if not python_root.exists():
+    if python_root is None or not python_root.exists():
         print(f"❌ Python directory not found: {python_root}")
         sys.exit(1)
 

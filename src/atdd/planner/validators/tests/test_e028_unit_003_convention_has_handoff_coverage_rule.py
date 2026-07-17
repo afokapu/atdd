@@ -14,7 +14,7 @@ from __future__ import annotations
 import pytest
 from atdd.coach.utils.repo import find_repo_root
 
-pytestmark = [pytest.mark.planner]
+pytestmark = [pytest.mark.planner, pytest.mark.platform]
 
 _CONVENTION_PATH = (
     find_repo_root() / "src" / "atdd" / "tester" / "conventions" / "smoke.convention.yaml"

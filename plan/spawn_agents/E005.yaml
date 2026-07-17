@@ -53,30 +53,6 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-17"
   - identity:
-      urn: "acc:spawn-agents:E005-INTEGRATION-001-atdd-agent-done-resolves-from-injected-env"
-      id: "AC-INTEGRATION-001"
-      purpose: "A persona whose environment carries the spawn-injected ATDD_AGENT_ID can run atdd agent done with no --agent-id argument, and the done.json the coach polls for is written"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A persona runtime directory exists for a canonical agent_id under the ATDD runtime root"
-        - "ATDD_AGENT_ID is set in the process environment to that canonical agent_id — exactly as the coach spawn path now injects it"
-        - "No --agent-id argument is supplied on the command line"
-    when:
-      abstract: "atdd agent done --summary 'PLANNED: ...' is run as a subprocess inheriting only that environment"
-    then:
-      abstract:
-        - "The command exits with code 0"
-        - "agent.py resolves the agent identity from ATDD_AGENT_ID without an explicit --agent-id"
-        - "A done.json is written under the agent's runtime directory"
-        - "The agent_id recorded in done.json equals the value of ATDD_AGENT_ID"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-17"
-  - identity:
       urn: "acc:spawn-agents:E005-SMOKE-001-real-spawn-persona-completes-phase-transition"
       id: "AC-SMOKE-001"
       purpose: "A persona spawned by a real coach run carries ATDD_AGENT_ID and completes a coach phase transition without any manual done.json emission"

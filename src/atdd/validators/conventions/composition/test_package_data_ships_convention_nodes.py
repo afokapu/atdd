@@ -18,7 +18,12 @@ from atdd.validators.conventions._support.graph_mutations import (
     graph_rooted_at,
     mirror_file,
 )
-from atdd.validators.conventions.composition.archetype import TEMPLATE_IDS, TEMPLATES
+from atdd.validators.conventions.composition.archetype import (
+    PACKAGE_DATA_FAULT_ANCHOR,
+    PACKAGE_DATA_FAULT_REPLACEMENT,
+    TEMPLATE_IDS,
+    TEMPLATES,
+)
 
 FAMILY = "composition"
 TEMPLATE = "composed_graph_loads"
@@ -34,9 +39,12 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_composition_data_shippe
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _CONFIG = {"variant": VARIANT}
-# The exact package-data glob fragment the fault removes (first occurrence is the
-# coach.conventions nodes glob; must be present on the clean repo).
-_FAULT_GLOB = ', "nodes/*.yaml"'
+# Imported, not re-typed. The E035 staged-root guard injects the same fault, and when
+# each site wrote the anchor out by hand the copies drifted from the pyproject they
+# point at — which is how a fault keyed to one declaration STYLE stops being injectable
+# the moment the style changes. A fault that cannot be injected proves nothing.
+_FAULT_GLOB = PACKAGE_DATA_FAULT_ANCHOR
+_FAULT_REPLACEMENT = PACKAGE_DATA_FAULT_REPLACEMENT
 
 
 def _template():
@@ -64,7 +72,7 @@ def _drop_package_data_glob(clean_graph, tmp_path):
     """
     mirror_file(
         _REPO_ROOT, tmp_path, "pyproject.toml",
-        lambda t: t.replace(_FAULT_GLOB, "", 1),
+        lambda t: t.replace(_FAULT_GLOB, _FAULT_REPLACEMENT, 1),
     )
     return graph_rooted_at(clean_graph, tmp_path)
 

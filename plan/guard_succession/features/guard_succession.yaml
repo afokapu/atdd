@@ -1,0 +1,15 @@
+urn: feature:guard-succession:guard-succession
+wagon: wagon:guard-succession
+description: The guard-succession lane of train 0007-enforce-extension-conventions.
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: S
+wmbts:
+- wmbt:guard-succession:E003
+components:
+  backend:
+    application:
+    - type: use_cases
+      count: 1
+      rationale: one use case for the succession/deletion guard

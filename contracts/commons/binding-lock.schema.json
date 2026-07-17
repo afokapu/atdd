@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:binding-lock",
+  "title": "Extension convention binding lock",
+  "description": "Extension convention binding lock exchanged inside train 0007-enforce-extension-conventions.",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "rule_id": {
+      "type": "string"
+    },
+    "disposition": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule_id"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "binding_lock",
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/contracts/commons/binding-lock.schema.json",
+          "description": "Read the Extension convention binding lock payload contract.",
+          "responses": {
+            "200": {
+              "description": "The payload contract schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "producer": "wagon:bind-extension-conventions",
+    "consumers": [
+      "wagon:reconcile-dispositions"
+    ],
+    "dependencies": [],
+    "traceability": {
+      "wagon_ref": "plan/bind_extension_conventions/_bind_extension_conventions.yaml",
+      "feature_refs": [
+        "feature:bind-extension-conventions:bind-extension-conventions"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  }
+}

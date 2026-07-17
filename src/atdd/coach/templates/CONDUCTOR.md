@@ -117,13 +117,7 @@ issues:
   deprecated_commands:
     - "atdd archive <N>   → use: atdd coach transition <N> COMPLETE"
     - "atdd branch <N>    → use: atdd worktree create <N>"
-  # Prohibited commands are NOT listed here — that would be a second copy that
-  # drifts. Canonical registry (single source of truth; drives the classifier):
-  #   src/atdd/coach/conventions/forbidden_commands.convention.yaml
-  # These are ENFORCED, not advisory: `atdd init` / `atdd sync` wire
-  # .atdd/hooks/claude-pre-tool-use.sh into .claude/settings.json as a
-  # PreToolUse hook (#1454), which blocks the call before it runs and names the
-  # atdd-native replacement (e.g. gh issue create → atdd author issue).
-  # Add a new prohibition to the registry — and nowhere else.
-  prohibited_commands: "see src/atdd/coach/conventions/forbidden_commands.convention.yaml (PreToolUse-enforced)"
+  prohibited_commands:
+    - "gh issue create    → use: atdd author issue --title <title> --slug <slug>"
+    - "gh pr create       → use: atdd pr <N>"
 ---

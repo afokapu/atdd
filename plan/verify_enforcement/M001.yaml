@@ -1,0 +1,70 @@
+urn: "wmbt:verify-enforcement:M001"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "enforcement-coverage-blindness"
+context_clarifier: "no CI job runs Path B (atdd enforce over the extensions) as a BLOCKING gate — the enforce-extensions job surfaces the convention verdict advisory-only (continue-on-error), so a bound extension node produces a verdict that is REPORTED, not enforced; advisory and documentation-only nodes carry no gating verdict at all; the bound set is therefore NOT the enforced set, and reading the binding lock alone gives a falsely optimistic picture of what CI actually enforces; the coverage report classifies every extension rule as ENFORCED-in-CI (bound AND gating AND Path B blocking) versus REPORTED-only, so the coverage truth is named rather than assumed"
+lens: "functional.sustainability"
+statement: "minimize likelihood of enforcement-coverage-blindness by producing a report that classifies every extension rule as ENFORCED-in-CI or REPORTED-only, so the bound set is never mistaken for the enforced set"
+acceptances:
+  - identity:
+      urn: "acc:verify-enforcement:M001-UNIT-001-classification-separates-enforced-from-reported"
+      id: "AC-UNIT-001"
+      purpose: "the per-rule classification is total and honest — a bound gating rule counts as ENFORCED only under a blocking Path B; a bound advisory or documentation-only rule is REPORTED; a bound gating rule under an advisory Path B is REPORTED; an unbound rule is UNBOUND — so the bound set is demonstrably not the enforced set"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a declared-with-disposition map naming a strict, an advisory, a documentation-only, and a suppress-and-clean node, and a bound set that omits at least one gating node"
+    when:
+      abstract: "the coverage report classifies every declared node under an advisory Path B, and again under a blocking Path B"
+    then:
+      abstract:
+        - "under a blocking Path B the bound gating nodes (strict, suppress-and-clean) are ENFORCED while the bound advisory and documentation-only nodes are REPORTED"
+        - "under an advisory Path B no node is ENFORCED — every bound node is REPORTED — so the enforced set is a strict subset of the bound set"
+        - "a node absent from the bound set is UNBOUND under either Path B"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:verify-enforcement:M001-UNIT-002-report-names-enforced-and-reported-sets-distinctly"
+      id: "AC-UNIT-002"
+      purpose: "the rendered report is the coverage truth a reader can audit — it names the ENFORCED set and the REPORTED-only set as distinct groups and lists each rule's status, so which rules actually gate CI is stated, not left to inference from the lock"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a coverage report built over a mix of bound gating, bound advisory, and unbound nodes under an advisory Path B"
+    when:
+      abstract: "the report is rendered to its human-readable form"
+    then:
+      abstract:
+        - "it names the ENFORCED-in-CI set and the REPORTED-only set as separate groups, and states that the bound set is not the enforced set when they differ"
+        - "every declared rule appears exactly once with its enforcement status"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:verify-enforcement:M001-SMOKE-001-real-substrate-enforces-zero-extension-rules"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real substrate and real CI wiring the extension-enforced set is empty while the bound set is not — proving that every bound extension rule is REPORTED-only today, enforced solely by its blocking core twin (the latent hole, named by the report)"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real .atdd extension nodes and binding.lock, and the real .github CI workflow that decides whether Path B is a blocking gate"
+    when:
+      abstract: "the live coverage report is built over the real substrate and the real Path-B-blocking verdict"
+    then:
+      abstract:
+        - "Path B is found non-blocking, so the ENFORCED-in-CI set is empty"
+        - "the bound set is non-empty, so the report demonstrates the bound set is not the enforced set over the real toolkit"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

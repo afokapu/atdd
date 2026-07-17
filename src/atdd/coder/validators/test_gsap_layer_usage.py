@@ -23,9 +23,15 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+
+
+def _under(root, *parts):
+    """Join *parts* under a resolved stack root, or None when it is undeclared."""
+    return None if root is None else root.joinpath(*parts)
 
 
 # Rule bindings — fail at import if conventions drift (issue #394).
@@ -34,7 +40,7 @@ _RULE_GSAP_COMMONS = bind_rule("coder.presentation.gsap-commons")
 
 
 REPO_ROOT = find_repo_root()
-WEB_SRC = REPO_ROOT / "web" / "src"
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
 
 # GSAP import detection patterns per Section 6 of the spec
 GSAP_IMPORT_PATTERNS = [
@@ -139,8 +145,8 @@ def _scan_files_for_gsap(directory: Path) -> List[Tuple[Path, str]]:
 
 def scan_gsap_layer_usage(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for GSAP imports outside presentation layer. Used by ratchet baseline."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
     raw_violations = _scan_files_for_gsap(web_src)
     structured: List[Violation] = []
@@ -161,8 +167,8 @@ def scan_gsap_layer_usage(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 def scan_gsap_commons(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for GSAP imports in commons. Used by ratchet baseline."""
-    commons_dir = repo_root / "web" / "src" / "commons"
-    if not commons_dir.exists():
+    commons_dir = _under(resolve_code_root("web", repo_root), "commons")
+    if commons_dir is None or not commons_dir.exists():
         return 0, []
     violations: List[Violation] = []
     for ext in ["*.ts", "*.tsx"]:
@@ -198,7 +204,7 @@ def test_gsap_only_in_presentation_layer():
 
     Validates: GSAP is UI-only and constrained to presentation code
     """
-    if not WEB_SRC.exists():
+    if WEB_SRC is None or not WEB_SRC.exists():
         pytest.skip("web/src does not exist")
 
     count, violations = scan_gsap_layer_usage(REPO_ROOT)
@@ -220,7 +226,7 @@ def test_gsap_not_in_commons():
     Validates: Domain purity in commons module
     """
     commons_dir = WEB_SRC / "commons"
-    if not commons_dir.exists():
+    if commons_dir is None or not commons_dir.exists():
         pytest.skip("web/src/commons does not exist")
 
     count, violations = scan_gsap_commons(REPO_ROOT)

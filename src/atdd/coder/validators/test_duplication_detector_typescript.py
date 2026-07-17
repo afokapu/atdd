@@ -31,6 +31,7 @@ from typing import Dict, List, Optional, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -44,7 +45,7 @@ _RULE_DUP_TS = bind_rule("coder.duplication.no-intra-layer-code-typescript")
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-WEB_SRC = REPO_ROOT / "web" / "src"
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
 
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 DUPLICATION_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "duplication.convention.yaml"
@@ -287,7 +288,7 @@ def scan_typescript_duplications(repo_root: Path) -> Tuple[int, List[str]]:
     min_lines = ts_rule.get("min_fragment_lines", 7)
     exclusions = ts_rule.get("exclusions", [])
 
-    web_src = repo_root / "web" / "src"
+    web_src = resolve_code_root("web", repo_root)
     ts_files = _collect_ts_files(web_src, exclusions)
     if not ts_files:
         return 0, []

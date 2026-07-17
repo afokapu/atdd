@@ -26,15 +26,15 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 LIB_DIR = REPO_ROOT / "lib"
 TEST_DIR = REPO_ROOT / "test"
-SUPABASE_DIR = REPO_ROOT / "supabase"
 
 
 # Coverage thresholds
@@ -176,13 +176,14 @@ class CoverageFinder:
     Scans test directories for test files and extracts test functions.
     """
 
-    def __init__(self, python_dir: Path, lib_dir: Path):
+    def __init__(self, python_dir: Optional[Path], lib_dir: Path):
+        # python_dir is None when the repo declares no python stack.
         self.python_dir = python_dir
         self.lib_dir = lib_dir
 
     def find_python_tests(self) -> List[CoverageCase]:
         """Find all Python test cases."""
-        if not self.python_dir.exists():
+        if self.python_dir is None or not self.python_dir.exists():
             return []
 
         tests = []
@@ -269,10 +270,10 @@ class CoverageFinder:
         """
         tests = []
 
-        supabase_functions = REPO_ROOT / "supabase" / "functions"
+        supabase_functions = resolve_code_root("supabase", REPO_ROOT)
 
-        # Scan preferred structure: supabase/functions/{wagon}/{feature}/test/
-        if supabase_functions.exists():
+        # Scan preferred structure: <supabase code root>/{wagon}/{feature}/test/
+        if supabase_functions is not None and supabase_functions.exists():
             for wagon_dir in supabase_functions.iterdir():
                 if wagon_dir.is_dir():
                     # Check for {wagon}/{feature}/test/ pattern (preferred)
