@@ -1,0 +1,34 @@
+urn: "wmbt:govern-lifecycle:E063"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "installed-hooks-that-drift-from-their-packaged-template"
+context_clarifier: "when a hook fix lands in src/atdd/coach/templates/hooks/ and the operator runs the sanctioned refresh, because .atdd/hooks/* (what git actually runs, shared by every worktree via core.hooksPath) was a snapshot COPY and NO sanctioned path refreshed it — `atdd sync` never mentioned hooks and `atdd init` early-returned before _install_hooks, leaving only the forbidden `atdd init --force` (#793), so every hook fix reached only repos initialised after it landed and 6 of 11 hooks were never installed at all (#1492)"
+lens: "functional.effectiveness"
+statement: "minimize quantity of installed-hooks-that-drift-from-their-packaged-template by installing each hook as a fixed-content dispatcher that execs the hook shipped inside the installed atdd package, so hook logic ships with the wheel and `pipx upgrade atdd` propagates a fix with no refresh command at all — removing the drift class rather than detecting instances of it (#1492)"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E063-INTEGRATION-001-hook-template-change-propagates"
+      id: "AC-INTEGRATION-001"
+      purpose: "A hook fix landing in the installed atdd package executes on the next git operation with NO refresh command run, and the dispatcher blocks rather than silently allowing when the packaged hook cannot be resolved"
+      phase: "RED"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A fixed-content dispatcher for a hook is installed at .atdd/hooks/<name>, as `atdd init` installs it"
+        - "An `atdd` on PATH that resolves the packaged hook via `atdd hooks path <name>`"
+        - "A packaged hook that initially exits 0"
+    when:
+      abstract: "the packaged hook is changed to emit a canary and exit 1, and the installed dispatcher is then invoked as git would invoke it — with no `atdd init`, no `atdd sync` and no `--force` in between"
+    then:
+      abstract:
+        - "the canary appears on stderr: the NEW packaged logic executed"
+        - "the new logic's non-zero exit status is honoured, so the operation is blocked"
+        - "the hook's arguments survive the dispatcher (commit-msg still receives $1)"
+        - "with no resolvable atdd on PATH the dispatcher exits non-zero and names the repair, rather than failing open"
+        - "the dispatcher declares no bypass env var, since E030 retired that class"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-17"

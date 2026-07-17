@@ -1,6 +1,6 @@
-# URN: test:govern-lifecycle:hooks-must-not-drift-from-template:H001-INTEGRATION-001-hook-template-change-propagates
-# Acceptance: acc:govern-lifecycle:H001-INTEGRATION-001-hook-template-change-propagates
-# WMBT: wmbt:govern-lifecycle:H001
+# URN: test:govern-lifecycle:hooks-must-not-drift-from-template:E063-INTEGRATION-001-hook-template-change-propagates
+# Acceptance: acc:govern-lifecycle:E063-INTEGRATION-001-hook-template-change-propagates
+# WMBT: wmbt:govern-lifecycle:E063
 # Phase: RED
 # Layer: backend.integration
 """AC-INTEGRATION-001: a hook template change reaches the installed hook (#1492).
@@ -33,7 +33,7 @@ from atdd.coach.commands.initializer import ProjectInitializer
 
 pytestmark = [pytest.mark.coach]
 
-_CANARY = "H001-CANARY-new-logic-executed"
+_CANARY = "E063-CANARY-new-logic-executed"
 
 
 def _fake_atdd_bin(bin_dir: Path, hooks_dir: Path) -> None:
