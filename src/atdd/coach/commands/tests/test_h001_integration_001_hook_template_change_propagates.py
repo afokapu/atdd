@@ -160,6 +160,86 @@ def test_dispatcher_declares_no_bypass_env_var() -> None:
     assert not offenders, f"dispatcher re-introduced a retired bypass class: {offenders}"
 
 
+def test_every_declared_hook_is_installed(tmp_path: Path) -> None:
+    """GT-002: every declared template gets an installed hook.
+
+    6 of 11 were absent on main — including pre-commit-gh-issue-create.sh, the
+    subject of consumer report #952 — because the installer skipped anything
+    already present and nothing ever noticed the gap.
+
+    Hermetic on purpose: it installs into tmp_path rather than judging the
+    repo's own .atdd/hooks/. core.hooksPath is one shared file governing every
+    worktree, so a validator that judged the live directory could only be made
+    green by refreshing the whole fleet mid-flight.
+    """
+    initializer = ProjectInitializer(tmp_path)
+    (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
+    initializer._install_hooks(force=False)
+
+    installed = {
+        p.name for p in (tmp_path / ".atdd" / "hooks").iterdir()
+        if p.is_file() and not p.name.endswith(".local.bak")
+    }
+    missing = set(declared_hook_names()) - installed
+    assert not missing, f"declared hooks were never installed: {sorted(missing)}"
+
+
+def test_refresh_preserves_unrecognised_content_then_overwrites(tmp_path: Path) -> None:
+    """A refresh always wins, but never destroys: unknown content → *.local.bak.
+
+    Operator ruling on issue #1492 Decision #2. Skipping the update is the bug
+    being fixed, so the refresh may not decline; the backup is what makes an
+    unconditional overwrite non-destructive.
+    """
+    hooks_dir = tmp_path / ".atdd" / "hooks"
+    hooks_dir.mkdir(parents=True)
+    hand_edited = hooks_dir / "commit-msg"
+    hand_edited.write_text("#!/bin/sh\n# operator's own guard\nexit 0\n")
+
+    ProjectInitializer(tmp_path)._install_hooks(force=False)
+
+    backup = hooks_dir / "commit-msg.local.bak"
+    assert backup.is_file(), "hand-edited hook was destroyed without a backup"
+    assert "operator's own guard" in backup.read_text()
+    assert "ATDD managed hook dispatcher" in hand_edited.read_text(), (
+        "refresh declined to update a hand-edited hook — that is the #1492 bug"
+    )
+
+
+def test_pristine_copy_is_replaced_without_a_backup(tmp_path: Path) -> None:
+    """A pre-#1492 pristine copy is ours, so migration leaves no .bak litter.
+
+    Every hook installed on the live fleet is byte-identical to its template
+    (measured), so the migration to dispatchers should be silent for all of them.
+    """
+    hooks_dir = tmp_path / ".atdd" / "hooks"
+    hooks_dir.mkdir(parents=True)
+    pristine = hooks_dir / "commit-msg"
+    pristine.write_text((packaged_hooks_dir() / "commit-msg").read_text())
+
+    ProjectInitializer(tmp_path)._install_hooks(force=False)
+
+    assert not (hooks_dir / "commit-msg.local.bak").exists(), (
+        "a pristine pre-#1492 copy was needlessly backed up — every machine "
+        "would get .bak litter on migration"
+    )
+    assert "ATDD managed hook dispatcher" in pristine.read_text()
+
+
+def test_hooks_path_stdout_is_not_polluted_by_banners() -> None:
+    """`atdd hooks path` stdout must be JUST the path.
+
+    The dispatcher does `_HOOK_PATH=$(atdd hooks path ...)`. atdd prints an
+    upgrade banner on some invocations; if that reached stdout the captured
+    path would be garbage and every hook would block spuriously — enforcement
+    that cries wolf, which is how #1442 taught operators to bypass guards.
+    """
+    from atdd.coach.commands.hooks import resolve_hook_path
+    resolved = resolve_hook_path("commit-msg")
+    assert resolved is not None and resolved.is_file()
+    assert "\n" not in str(resolved), "resolved path must be a single line"
+
+
 def test_every_packaged_hook_is_posix_sh() -> None:
     """The dispatcher execs via `sh`, which is only safe if every hook is sh.
 
