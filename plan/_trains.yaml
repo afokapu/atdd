@@ -12,13 +12,24 @@ trains:
       - govern-registry
       - reconcile-dispositions
       - verify-enforcement
+    - train_id: train:coach:place-worktrees
+      description: 'Worktree-placement train: turn seven independent worktree-path
+        derivations into one config-backed resolver, so an operator chooses the repo
+        layout once via worktree_root and both creation paths, the spawned-agent launch
+        prompt, and the orphan scanner agree on it. Default is the current flat-sibling
+        layout, so an upgraded repo that configures nothing sees no change. Carries
+        the transactional self-relocation offer. Standalone by design: it shares no
+        wagon with another train, so its validation blast radius is this wagon alone.'
+      path: plan/_trains/coach/place-worktrees.yaml
+      wagons: []
+      category: nominal
     - train_id: train:issue-lifecycle:drive-state-machine
       category: nominal
-      description: "Replace polling-and-trust with an event-driven, observer-augmented\
-        \ coach that drives the issue \u2192 merged-PR lifecycle (per atdd-coach-spec-v9.md).\
-        \ Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces\
-        \ durable state, two-tier verification, six judge call sites, and pre-coach\
-        \ issue review."
+      description: Replace polling-and-trust with an event-driven, observer-augmented
+        coach that drives the issue → merged-PR lifecycle (per atdd-coach-spec-v9.md).
+        Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces
+        durable state, two-tier verification, six judge call sites, and pre-coach
+        issue review.
       path: plan/_trains/issue-lifecycle/drive-state-machine.yaml
       wagons:
       - freeze-runtime-contracts
@@ -57,26 +68,26 @@ trains:
       - migrate-projection-authority
     - train_id: train:object-conflict-resolution:reconcile-dirty-store
       category: alternate
-      description: "Alternate-path train (category: alternate): the HEAD-change reconcile\
-        \ flow when the local store is DIRTY \u2014 uncommitted overlay events exist.\
-        \ Instead of a plain hydrate-overwrite, the store is backed up, the incoming\
-        \ projection is hydrated into a public baseline, the explicit overlay events\
-        \ are replayed on top, affected objects are re-projected, and store_base_commit\
-        \ advances. An invalid replay stops with a conflict report and keeps the backup.\
-        \ This is invariant I5: reconcile is not overwrite."
+      description: 'Alternate-path train (category: alternate): the HEAD-change reconcile
+        flow when the local store is DIRTY — uncommitted overlay events exist. Instead
+        of a plain hydrate-overwrite, the store is backed up, the incoming projection
+        is hydrated into a public baseline, the explicit overlay events are replayed
+        on top, affected objects are re-projected, and store_base_commit advances.
+        An invalid replay stops with a conflict report and keeps the backup. This
+        is invariant I5: reconcile is not overwrite.'
       path: plan/_trains/object-conflict-resolution/reconcile-dirty-store.yaml
       wagons:
       - reconcile-local-store
     - train_id: train:object-conflict-resolution:resolve-object-conflict
       category: exception
-      description: "Exception-path train (category: exception): two branches change\
-        \ the SAME projection object. Disjoint objects merge cleanly by UID sharding;\
-        \ a same-object divergence is an EXPECTED failure handled gracefully \u2014\
-        \ validity-gated, never resolved by blind max-phase. Auto-merge only when\
-        \ the transitions are identical, one side is a strict no-op, or the further\
-        \ phase carries verifiable evidence for every skipped gate. Otherwise the\
-        \ merge driver conflicts by design and emits an actionable report (section\
-        \ 7.2, section 11 'unsafe merges conflict by design')."
+      description: 'Exception-path train (category: exception): two branches change
+        the SAME projection object. Disjoint objects merge cleanly by UID sharding;
+        a same-object divergence is an EXPECTED failure handled gracefully — validity-gated,
+        never resolved by blind max-phase. Auto-merge only when the transitions are
+        identical, one side is a strict no-op, or the further phase carries verifiable
+        evidence for every skipped gate. Otherwise the merge driver conflicts by design
+        and emits an actionable report (section 7.2, section 11 ''unsafe merges conflict
+        by design'').'
       path: plan/_trains/object-conflict-resolution/resolve-object-conflict.yaml
       wagons:
       - govern-projection-fields
@@ -97,12 +108,12 @@ trains:
       - enforce-binding-plan
     - train_id: train:substrate:admit-packages
       category: nominal
-      description: "Admission substrate train: the front door that admits external\
-        \ extension/workspace packages into a project \u2014 define the substrate/lock/registry\
-        \ schemas, read registries, resolve+validate+compose an artifact against core,\
-        \ then install it into a versioned home with a sha256 digest and a lockfile,\
-        \ all without executing any runtime implementation. Sibling to the author-substrate\
-        \ train; runtime binding is a later train."
+      description: 'Admission substrate train: the front door that admits external
+        extension/workspace packages into a project — define the substrate/lock/registry
+        schemas, read registries, resolve+validate+compose an artifact against core,
+        then install it into a versioned home with a sha256 digest and a lockfile,
+        all without executing any runtime implementation. Sibling to the author-substrate
+        train; runtime binding is a later train.'
       path: plan/_trains/substrate/admit-packages.yaml
       wagons:
       - admit-substrate
@@ -118,17 +129,16 @@ trains:
       - author-plan-substrate
     - train_id: train:substrate:bind-runtime
       category: nominal
-      description: "Binding substrate train: the runtime back end that turns a locked,\
-        \ inert .atdd/substrate.lock.yaml into running, gating capabilities. Define\
-        \ a binding-plan schema, load enabled packages from the lock by installed_path,\
-        \ re-verify each package's sha256 digest before loading, compose the capability\
-        \ graph and index implementations by realizes_convention, refuse contract-incompatible\
-        \ bindings, then provider-spawn the implementation as an isolated subprocess\
-        \ and route its Violations into the disposition gate \u2014 shadowing legacy\
-        \ on success and failing safe to legacy on any failure. The third and final\
-        \ substrate stage, downstream of the author-substrate and admit-substrate\
-        \ trains; this is the binding train the admit-substrate train explicitly defers\
-        \ to."
+      description: 'Binding substrate train: the runtime back end that turns a locked,
+        inert .atdd/substrate.lock.yaml into running, gating capabilities. Define
+        a binding-plan schema, load enabled packages from the lock by installed_path,
+        re-verify each package''s sha256 digest before loading, compose the capability
+        graph and index implementations by realizes_convention, refuse contract-incompatible
+        bindings, then provider-spawn the implementation as an isolated subprocess
+        and route its Violations into the disposition gate — shadowing legacy on success
+        and failing safe to legacy on any failure. The third and final substrate stage,
+        downstream of the author-substrate and admit-substrate trains; this is the
+        binding train the admit-substrate train explicitly defers to.'
       path: plan/_trains/substrate/bind-runtime.yaml
       wagons:
       - bind-substrate-runtime
@@ -175,16 +185,3 @@ trains:
       wagons:
       - bind-extension-conventions
       - govern-providers
-  coach:
-    nominal:
-    - train_id: train:coach:place-worktrees
-      description: 'Worktree-placement train: turn seven independent worktree-path
-        derivations into one config-backed resolver, so an operator chooses the repo
-        layout once via worktree_root and both creation paths, the spawned-agent launch
-        prompt, and the orphan scanner agree on it. Default is the current flat-sibling
-        layout, so an upgraded repo that configures nothing sees no change. Carries
-        the transactional self-relocation offer. Standalone by design: it shares no
-        wagon with another train, so its validation blast radius is this wagon alone.'
-      path: plan/_trains/coach/place-worktrees.yaml
-      wagons: []
-      category: nominal
