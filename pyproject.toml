@@ -134,4 +134,13 @@ markers = [
     "coder: marks tests as coder phase validators",
     "smoke: marks SMOKE-phase tests that verify against real infrastructure",
     "parity: marks the lifecycle parity gate (required-CI; docs/coach-decomposition.md §10.1)",
+    # #1418/#1417 — the convention suite's mutation classes. The classes partition
+    # src/atdd/validators/conventions/ so the non-mutating majority can run under
+    # `pytest-xdist -n auto` against one shared checkout. `convention_readonly` is the
+    # residue class and is applied by the suite's conftest, so a new test is
+    # parallel-by-default; the other two are authored, and the runtime guard in
+    # _support/mutation_guard.py is what stops the classification from rotting.
+    "convention_readonly: convention test that only reads the repo or the clean graph — safe under -n auto",
+    "convention_inmemory_fault: convention test that injects its fault into a cloned graph — writes nothing, safe under -n auto",
+    "convention_filesystem_mutation: convention test that writes the checkout (or spawns a subprocess over it) — MUST run serially",
 ]
