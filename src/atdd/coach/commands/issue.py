@@ -1598,6 +1598,46 @@ class IssueManager:
         self._update_manifest_fields(issue_number, manifest_text)
         return [f"{key}: {value}" for key, value in manifest_text.items()]
 
+    def reproject_phase_label(self, issue_number: int) -> Optional[str]:
+        """Re-render the ``atdd:<PHASE>`` label from ``objects.state`` (#1338).
+
+        The repair counterpart of :meth:`update`. ``update`` *advances* the
+        lifecycle — store first, label projected from it. This method advances
+        nothing: it re-derives the projection from the store the record already
+        has, for a record whose label drifted away from it.
+
+        It is deliberately NOT a transition. ``update(status=<store phase>)``
+        cannot express "make the label agree again" — the phase machine refuses
+        a self-transition, which is precisely why the 236 drifted records were
+        unrepairable (see #1338: ``Cannot transition from COMPLETE to COMPLETE``).
+
+        It lives here, on ``IssueManager``, because ``issue.py`` is the sole
+        path allowed to author an ``atdd:*`` label — enforced by
+        ``coach.phase-label.projection-only`` (#1452). The direction of truth is
+        never inverted: the store is read, never written.
+
+        Returns the phase projected, or ``None`` when the store does not know
+        this issue (which the caller must treat as "cannot decide", never as
+        "no phase").
+        """
+        from atdd.coach.commands.auto_phase import read_store_phase
+
+        store_phase = read_store_phase(issue_number, self.target_dir)
+        if not store_phase:
+            return None
+
+        resolved = self._resolve_issue(str(issue_number))
+        if resolved is None:
+            return None
+        _, issue, client = resolved
+
+        current_labels, current_phase = self._read_phase_labels(issue)
+        if current_phase == store_phase:
+            return store_phase
+
+        self._write_phase_label(client, issue_number, current_labels, store_phase)
+        return store_phase
+
     # -------------------------------------------------------------------------
     # Transition gates (each prints its own diagnosis; False blocks the write)
     # -------------------------------------------------------------------------
