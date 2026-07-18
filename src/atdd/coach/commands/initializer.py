@@ -595,12 +595,8 @@ class ProjectInitializer:
             self.atdd_config_dir.mkdir(parents=True, exist_ok=True)
             print(f"Created: {self.atdd_config_dir}")
 
-            # Ensure .atdd/cache/ is gitignored
-            self._ensure_gitignore_entry(".atdd/cache/")
-            # Issue #449: validation diagnostics artifact directory.
-            # Written by `atdd validate` on every run — local artifact,
-            # not git history.
-            self._ensure_gitignore_entry(".atdd/diagnostics/")
+            # Gitignore the per-checkout operational artifacts atdd writes.
+            self._seed_gitignore_entries()
 
             # #1270 Slice G: the ``.atdd/manifest.yaml`` mirror was deleted — the
             # State Store is the sole operational registry. Genesis no longer
@@ -659,6 +655,25 @@ class ProjectInitializer:
         except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
             return 1
+
+    def _seed_gitignore_entries(self) -> None:
+        """Gitignore the per-checkout operational artifacts `atdd` writes.
+
+        These are local, never-committed artifacts; committing them pushes one
+        developer's private state at another. Mirrors the toolkit's own
+        ``.gitignore``. Each entry is written idempotently.
+
+        - ``.atdd/cache/``                 CLI caches.
+        - ``.atdd/diagnostics/``           `atdd validate` run artifacts (#449).
+        - ``.atdd/state/``                 the State Store (`state.sqlite*`), now
+          the sole operational registry — written on every run (#1325 item 6).
+        - ``.atdd/manifest.migrated.yaml`` the one-shot manifest→store migration
+          backup (``manifest_import._BACKUP_NAME``) (#1325 item 6).
+        """
+        self._ensure_gitignore_entry(".atdd/cache/")
+        self._ensure_gitignore_entry(".atdd/diagnostics/")
+        self._ensure_gitignore_entry(".atdd/state/")
+        self._ensure_gitignore_entry(".atdd/manifest.migrated.yaml")
 
     def _ensure_gitignore_entry(self, entry: str) -> None:
         """Append *entry* to the repo .gitignore if not already present."""
