@@ -13,12 +13,12 @@ description: |
 # agent session. No sub-agent delegation, no shared workspaces. Waves are
 # computed by a topological sort over the issue dependency DAG
 # (commands/wave_planning.py) and worktrees are created two-phase with rollback
-# (commands/two_phase_commit.py).
+# (handlers/two_phase_commit.py).
 
 core_principle:
   unit: "one issue → one worktree → one cmux session unit → one agent"
   wave_planning: "src/atdd/coach/commands/wave_planning.py (build_plan + compute_waves)"
-  two_phase_commit: "src/atdd/coach/commands/two_phase_commit.py (Phase A worktrees, Phase B launch)"
+  two_phase_commit: "src/atdd/coach/handlers/two_phase_commit.py (Phase A worktrees, Phase B launch)"
   anti_pattern: "Reusing a worktree across issues, or sub-agent delegation that shares one agent's context."
 
 # =============================================================================
