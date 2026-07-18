@@ -23,8 +23,9 @@ description: "Config-driven resolution of implementation roots for hierarchy-cov
 #
 #   src/atdd/coach/validators/test_code_roots_agnosticity.py
 #
-# Disposition is `suppress-and-clean`, with the 16 pre-existing violations
-# suppressed at their sites. THE DESTINATION IS `strict` AT ZERO. Unlike the
+# `no-source-depth-walk` is already AT its destination: `strict`, zero
+# suppressions. The other two are `suppress-and-clean` with 10 pre-existing
+# violations suppressed at their sites; THEIR DESTINATION IS `strict` AT ZERO. Unlike the
 # coder debt family (complexity, dead-code, duplication — which may sit
 # baselined indefinitely), this is a correctness invariant: atdd dogfoods
 # itself, so a toolkit-layout hardcode breaks the toolkit for every consumer.
@@ -33,7 +34,7 @@ enforcement:
   rules_home: "src/atdd/coach/conventions/nodes/coach.code-roots.*.convention.yaml"
   validator: "src/atdd/coach/validators/test_code_roots_agnosticity.py"
   scope: "the entire src/atdd tree — coach, coder, planner, tester, state, cli"
-  disposition: "suppress-and-clean; destination is strict at zero"
+  disposition: "no-source-depth-walk: strict at zero. Others: suppress-and-clean, 10 held, destination strict at zero"
   activated_in: "4.7.0 (#1499)"
 
 purpose: |

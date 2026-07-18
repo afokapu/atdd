@@ -3,10 +3,11 @@ rule_id: coach.code-roots.no-source-depth-walk
 kind: rule
 status: active
 name: No source-depth walk
-statement: 'Core must not derive a root by chaining Path(__file__).parent three or more levels: the
-  chain encodes the depth of the source tree, and the package sits at a different depth once
-  installed, so the walk lands somewhere else entirely. Anchor package resources package-relatively
-  or resolve the repo root with find_repo_root().'
+statement: 'Core must not derive a root by chaining Path(__file__).parent ABOVE the atdd package
+  root: such a chain encodes the depth of the source tree, and there is no `src/` once atdd is
+  installed, so the walk lands somewhere else entirely. The boundary is per-file — a chain that stops
+  at or inside the package is package-relative and correct. Anchor package resources
+  package-relatively or resolve the repo root with find_repo_root().'
 implementation:
   type: validator
   ref: test_code_roots_agnosticity::test_no_source_depth_walk
@@ -17,25 +18,28 @@ source:
 content:
   fix_hint: 'Replace `Path(__file__).resolve().parent.parent.parent...` with the resolution that does
     not count directories: `Path(atdd.__file__).resolve().parent` for anything inside the atdd
-    package, or `find_repo_root()` for the consumer repository root. One level of .parent (the
-    package directory) and two levels (module -> package) are legitimate and are not flagged.'
+    package, or `find_repo_root()` for the consumer repository root. A chain that stops at or inside
+    the package root is legitimate and is not flagged — only one that climbs above it.'
   exceptions:
   - 'tests/ and fixtures/ directories — synthetic trees, not shipped resolution paths.'
-  - 'Chains shorter than three levels — package-relative resolution, the CORRECT pattern.'
+  - 'Any chain that stops at or inside the atdd package root — package-relative resolution, the
+    CORRECT pattern. A 3-chain in atdd/coach/validators/x.py lands on the package root and is fine;
+    the same 3-chain in atdd/cli.py escapes and is not.'
   - 'Inline suppression: # atdd:suppress(coach.code-roots.no-source-depth-walk) on the offending line.'
 metadata:
   severity: 4
-  disposition: suppress-and-clean
+  disposition: strict
   introduced_in: 4.7.0
   core_surface: toolkit_self
   not_generalized_to_workspace: true
-  ratchet: 'Landed suppress-and-clean in #1499 with the pre-existing violations suppressed at their
-    sites. DESTINATION IS `disposition: strict` AT ZERO. Suppressions may only be removed, never
-    added to green a build.'
+  ratchet: 'AT ZERO AND STRICT. Landed strict in #1499 with no suppressions at all: once the rule
+    measured escape-from-the-package-root per file (rather than a flat chain length), every apparent
+    violation in the tree turned out to be legitimate package-relative resolution. This rule is at
+    its destination — it may never regress to a ratchet.'
 terms:
-- term_id: depth_threshold
-  text: three or more chained .parent links from a __file__ anchor; below that the expression is
-    package-relative and correct.
+- term_id: escape_boundary
+  text: a __file__-anchored .parent chain longer than the module's own depth inside the package —
+    that is the point at which it leaves the package and starts encoding source-tree layout.
 notes: 'Activation of the code-roots convention (#1499). The rule requires a __file__ anchor so it
   fires on source-tree depth walks, not on arbitrary path arithmetic over a path the caller was
   handed.'

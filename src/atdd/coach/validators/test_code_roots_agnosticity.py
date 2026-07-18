@@ -48,9 +48,12 @@ Discrimination — why this is not the next ``dead-code.reachability``:
     only when the literal segments hang off a known repo-root vocabulary.
     ``tmp_path / "src" / "atdd"`` (a synthetic tree) is structurally
     unflaggable because ``tmp_path`` is not repo-root-ish.
-  * Package-relative resolution is the CORRECT pattern and is never flagged:
-    ``Path(atdd.__file__).parent`` is one level, below the depth threshold,
-    and ``importlib.resources`` is not a path-arithmetic shape at all.
+  * Package-relative resolution is the CORRECT pattern and is never flagged.
+    The depth rule's boundary is computed PER FILE — a chain is a defect only
+    when it climbs above the atdd package root, which is what actually breaks
+    in site-packages. A 3-chain in ``atdd/coach/validators/x.py`` lands on the
+    package root and is fine; the same 3-chain in ``atdd/cli.py`` escapes.
+    ``importlib.resources`` is not a path-arithmetic shape at all.
 """
 
 from __future__ import annotations
@@ -111,12 +114,26 @@ _REPO_ROOT_CALLS = {"find_repo_root", "get_repo_root"}
 # precisely what does NOT exist once atdd is installed as a package.
 _TOOLKIT_SEGMENTS = ("src", "atdd")
 
-# A `Path(__file__).parent` chain of this many links or more is climbing out
-# of the package toward a repo root, which encodes source-tree depth. One
-# level (`Path(atdd.__file__).parent` — the package dir) and two levels
-# (module -> package) are legitimate package-relative resolution and are not
-# flagged. See the module docstring.
-_DEPTH_THRESHOLD = 3
+# A `.parent` chain is only a defect when it climbs ABOVE the package root —
+# that is what encodes SOURCE-TREE depth and lands somewhere else once
+# installed. A chain that stops at or inside the package is package-relative
+# and is correct in a checkout AND in site-packages.
+#
+# The boundary is per-file, not a flat number. For a module `atdd/a/b/c.py`
+# (relative parts = 3), `Path(__file__).parent` is `atdd/a/b`, so:
+#
+#     chain 3  -> atdd/          the package root — CORRECT, equivalent to
+#                                Path(atdd.__file__).parent
+#     chain 4  -> src/           ABOVE the package — breaks in site-packages,
+#                                where there is no `src/`
+#
+# So the chain escapes exactly when `chain > len(relative.parts)`. A flat
+# threshold gets this wrong in both directions: it clears a 2-chain in
+# `atdd/cli.py` (which already escapes) and flags a 3-chain in
+# `atdd/coach/validators/x.py` (which is just the package root).
+def _max_package_relative_chain(location: str) -> int:
+    """Longest ``.parent`` chain from *location* that stays inside the package."""
+    return len(Path(location).parts)
 
 
 # ---------------------------------------------------------------------------
@@ -467,11 +484,12 @@ def find_source_depth_walks(
     """Flag every ``__file__``-anchored parent chain at or past the threshold."""
     violations: List[Violation] = []
     seen: Set[int] = set()
+    escapes_at = _max_package_relative_chain(location)
     for node in ast.walk(tree):
         if not (isinstance(node, ast.Attribute) and node.attr == "parent"):
             continue
         depth, base = _parent_chain_depth(node)
-        if depth < _DEPTH_THRESHOLD or not _is_file_anchored(base):
+        if depth <= escapes_at or not _is_file_anchored(base):
             continue
         # Only the longest chain is a site: `a.parent.parent.parent` contains
         # shorter Attribute nodes that are links of the same walk.
@@ -486,10 +504,11 @@ def find_source_depth_walks(
                 severity=_RULE_DEPTH_WALK.severity,
                 location=f"{location}:{node.lineno}",
                 detail=(
-                    f"{_expr(node)} climbs {depth} levels from __file__, which "
-                    f"encodes source-tree depth. The package sits at a "
-                    f"different depth once installed, so the chain lands "
-                    f"somewhere else entirely. Anchor package resources "
+                    f"{_expr(node)} climbs {depth} levels from __file__, escaping "
+                    f"the atdd package (this module tops out at {escapes_at}). "
+                    f"That encodes source-tree depth: there is no `src/` once "
+                    f"atdd is installed, so the chain lands somewhere else "
+                    f"entirely. Anchor package resources "
                     f"package-relatively (Path(atdd.__file__).resolve().parent) "
                     f"or resolve the repo root with find_repo_root()."
                 ),
@@ -670,6 +689,10 @@ def degrading(repo_root):
     return list(src.rglob("*.py"))
 '''
 
+# Evaluated as if it lived at `coach/validators/sample.py` (3 parts), so a
+# chain of 3 reaches the package root and a chain of 5 escapes to the repo.
+_SAMPLE_LOCATION = "coach/validators/sample.py"
+
 _FAULT_DEPTH_WALK = '''
 from pathlib import Path
 
@@ -683,6 +706,8 @@ import atdd
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 PACKAGE_DIR = Path(__file__).resolve().parent
 PARENT_PKG = Path(__file__).resolve().parent.parent
+# Exactly the package root — the package-relative equivalent, NOT a defect.
+PKG_ROOT = Path(__file__).resolve().parent.parent.parent
 '''
 
 _FAULT_DEGRADES = '''
@@ -714,9 +739,9 @@ def validate(path):
 '''
 
 
-def _detect(source: str, finder) -> List[Violation]:
+def _detect(source: str, finder, location: str = _SAMPLE_LOCATION) -> List[Violation]:
     tree = ast.parse(source)
-    return finder(tree, source.splitlines(), "<injected>")
+    return finder(tree, source.splitlines(), location)
 
 
 @pytest.mark.parametrize(

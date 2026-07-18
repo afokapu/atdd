@@ -34,7 +34,7 @@ import pytest
 
 pytestmark = [pytest.mark.coach]
 
-_SRC_ATDD = Path(__file__).resolve().parent.parent.parent  # src/atdd  # atdd:suppress(coach.code-roots.no-source-depth-walk) — #1499 ratchet: pre-existing source-depth walk; destination is zero
+_SRC_ATDD = Path(__file__).resolve().parent.parent.parent  # src/atdd
 _ROOT_CONFTEST = _SRC_ATDD / "conftest.py"
 
 
