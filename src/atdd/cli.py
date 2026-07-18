@@ -961,6 +961,29 @@ Phase descriptions:
         help="Color preset name (yellow, blue, green, red, orange, purple) or hex (#RRGGBB)",
     )
 
+    # ----- atdd hooks -----
+    # The resolution seam the installed hook dispatchers call on every git
+    # operation (#1492). Keep it fast and side-effect free.
+    hooks_parser = subparsers.add_parser(
+        "hooks",
+        help="Inspect the git hooks shipped by the installed atdd package",
+        description=(
+            "Resolve the packaged git hooks that .atdd/hooks/* dispatchers exec. "
+            "Installed hooks are fixed-content dispatchers, so hook logic ships "
+            "with the package and cannot drift from it."
+        ),
+    )
+    hooks_sub = hooks_parser.add_subparsers(dest="hooks_command")
+    hooks_path_parser = hooks_sub.add_parser(
+        "path",
+        help="Print the absolute path of a packaged hook (exit 1 if unresolvable)",
+    )
+    hooks_path_parser.add_argument("name", type=str, help="Hook name, e.g. commit-msg")
+    hooks_sub.add_parser(
+        "list",
+        help="List every hook name the installed package ships",
+    )
+
     # ----- atdd sync -----
     sync_parser = subparsers.add_parser(
         "sync",
@@ -2366,6 +2389,16 @@ Phase descriptions:
         # Default: export (same as atdd init --export-schemas)
         initializer = ProjectInitializer()
         return initializer.export_schemas()
+
+    # atdd hooks
+    elif args.command == "hooks":
+        from atdd.coach.commands.hooks import run_hooks_list, run_hooks_path
+        if args.hooks_command == "path":
+            return run_hooks_path(args.name)
+        if args.hooks_command == "list":
+            return run_hooks_list()
+        print("Usage: atdd hooks {path <name>|list}")
+        return 1
 
     # atdd sync
     elif args.command == "sync":
