@@ -27,6 +27,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 CONVENTION_GLOB = "src/atdd/**/*.convention.yaml"
 FAULT_SELECTOR = "convention_fault"
 MIN_FAULT_TESTS = 4

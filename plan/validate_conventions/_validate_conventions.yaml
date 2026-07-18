@@ -42,7 +42,11 @@ produce:
   to: external
 consume: []
 wmbt:
-  total: 21
+  total: 22
+  E036: minimize likelihood of parallel-checkout-corruption — every convention test that
+    mutates the shared checkout carries the convention_filesystem_mutation marker and runs
+    in a serial CI subset, while everything else runs under pytest-xdist -n auto, and the
+    two subsets together collect exactly the un-split suite
   E032: minimize time of clean-convention-graph-construction — the composed convention
     graph is built once per pytest session and reused by every read-only baseline and
     contract test
