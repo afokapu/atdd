@@ -1,0 +1,80 @@
+action: defines the SyncProvider seam and its registration surface, statically enforces the core-never-imports-provider
+  law, drives the full workflow against a bare remote with no providers, pins core and provider digests
+  into .atdd/extensions.lock, and proves an attached extension mirrors through external_refs.* only
+context: core-provider-boundary, milestone-m5, zero providers registered against a bare git remote
+description: 'Milestone M5: prove ATDD core is provider-free. Core defines the SyncProvider seam (mirror/detect_drift/digest)
+  and a registration/discovery surface that is empty by default; a static import-boundary test enforces
+  the §8.1 boundary law (provider code imports core, core never imports provider code); a non-GitHub remote
+  conformance suite drives the full workflow against a bare git remote with zero providers; .atdd/extensions.lock
+  pins the core schema, lifecycle-policy and merge-policy digests alongside every provider digest; and
+  a cross-repo smoke test proves a registered extension is presentation-only — its failure never blocks
+  merge and it writes back only through the constrained external_refs.* path.'
+features:
+- urn: feature:isolate-provider-boundary:define-provider-interface
+- urn: feature:isolate-provider-boundary:register-sync-providers
+- urn: feature:isolate-provider-boundary:enforce-import-boundary
+- urn: feature:isolate-provider-boundary:verify-remote-conformance
+- urn: feature:isolate-provider-boundary:lock-extension-digests
+- urn: feature:isolate-provider-boundary:validate-extension-integration
+goal: make it impossible for a lifecycle decision to depend on GitHub, so an extension can be attached
+  or removed without changing what core decides
+name: Isolate Provider Boundary
+outcome: core completes its full workflow with zero providers against a bare git remote, the import-boundary
+  test is green, .atdd/extensions.lock pins every core and provider digest, and a registered extension
+  provider mirrors without ever blocking merge
+subject: agent:coder
+theme: commons
+urn: wagon:isolate-provider-boundary
+wagon: isolate-provider-boundary
+produce:
+- name: commons:isolate:external-ref-update
+  contract: contract:commons:provider-external-ref-update
+  telemetry: null
+  to: internal
+- name: commons:isolate:extensions-lock
+  contract: contract:commons:provider-extensions-lock
+  telemetry: null
+  to: internal
+- name: commons:isolate:sync-provider-interface
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:isolate:provider-registry
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:isolate:import-boundary-guard
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:isolate:remote-conformance-suite
+  contract: null
+  telemetry: null
+  to: internal
+consume:
+- contract: contract:commons:projection-object
+  from: wagon:project-shared-state
+  name: commons:project:projection-object
+  telemetry: null
+- contract: contract:commons:projection-field-ownership
+  from: wagon:enforce-merge-authority
+  name: commons:enforce:field-ownership
+  telemetry: null
+wmbt:
+  C001: minimize likelihood of a core-provider-import surviving into main, by statically walking the core
+    import graph and failing on any provider, gh, or GitHub-API dependency reachable from a lifecycle
+    module
+  C002: maximize likelihood of a provider-free-workflow completing end to end against a bare git remote
+    with zero providers registered, proving no lifecycle decision depends on GitHub
+  D001: maximize likelihood of a sync-provider-interface that core owns and providers implement, where
+    mirror() yields only bot-namespaced ExternalRefUpdate records, detect_drift() is alarm-only, and no
+    authoritative state ever crosses back into core
+  E001: maximize likelihood of a provider-registration and discovery seam that is empty by default, deterministic
+    in ordering, and never consulted by a lifecycle decision
+  E002: maximize likelihood of a deterministic extensions-lock that pins the core schema, lifecycle policy
+    and merge policy digests alongside every registered provider digest, so a drifting extension is detected
+    before it mirrors
+  K001: maximize likelihood of a core-extension-smoke proving the mirror is presentation-only, where a
+    failing provider never blocks merge and the only projection write-back is through the constrained
+    external_refs path
+  total: 6

@@ -1,0 +1,245 @@
+schema_version: 1.0.0
+interlocking_id: interlocking:enforce-extension-conventions
+title: Enforce extension conventions as a CI gate
+theme: commons
+status: draft
+source:
+  path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
+  content_digest: 2efc581afcd87707444648cb5ff6d1df4109d5f3bc8da2cec43c68bf08ca948a
+entrypoint:
+  exposed: true
+  actions:
+  - run_enforce_gate
+  reason: null
+route_resolution:
+  strategy: first_priority
+lifelines:
+- ref: wagon:govern-registry
+- ref: wagon:govern-providers
+- ref: wagon:bind-extension-conventions
+- ref: wagon:reconcile-dispositions
+- ref: wagon:enforce-conventions-ci
+- ref: wagon:verify-enforcement
+- ref: wagon:guard-succession
+messages:
+- id: msg:project-registry
+  kind: boundary
+  from: wagon:govern-registry
+  to: wagon:bind-extension-conventions
+  intent: project the core rule registry
+  payload:
+    contract: commons:rule-registry
+- id: msg:index-realization
+  kind: boundary
+  from: wagon:govern-providers
+  to: wagon:bind-extension-conventions
+  intent: index each implementation to the conventions it realizes
+  payload:
+    contract: commons:provider-capability
+- id: msg:reconcile-lock
+  kind: boundary
+  from: wagon:bind-extension-conventions
+  to: wagon:reconcile-dispositions
+  intent: reconcile the binding lock
+  payload:
+    contract: commons:binding-lock
+- id: msg:publish-policy
+  kind: boundary
+  from: wagon:reconcile-dispositions
+  to: wagon:enforce-conventions-ci
+  intent: publish the disposition policy
+  payload:
+    contract: commons:disposition-policy
+- id: msg:emit-verdict
+  kind: boundary
+  from: wagon:enforce-conventions-ci
+  to: wagon:verify-enforcement
+  intent: emit the enforcement verdict
+  payload:
+    contract: commons:enforce-verdict
+- id: msg:feed-succession
+  kind: boundary
+  from: wagon:verify-enforcement
+  to: wagon:guard-succession
+  intent: feed succession coverage to the deletion guard
+  payload:
+    contract: commons:succession-coverage
+fragments:
+- id: frag:clean-gate-passes
+  kind: alt
+  acceptance_refs:
+  - acceptance:clean-gate-passes
+  guards:
+  - id: guard:clean-gate
+    expression: bound == true and violations == 0
+- id: frag:strict-violation-fails
+  kind: alt
+  acceptance_refs:
+  - acceptance:strict-violation-fails
+  guards:
+  - id: guard:strict-violation
+    expression: bound == true and disposition == 'strict' and violations > 0
+- id: frag:advisory-violation-reports
+  kind: alt
+  acceptance_refs:
+  - acceptance:advisory-violation-reports
+  guards:
+  - id: guard:advisory-violation
+    expression: bound == true and disposition == 'advisory' and violations > 0
+- id: frag:unbound-declaration-detected
+  kind: alt
+  acceptance_refs:
+  - acceptance:unbound-declaration-detected
+  guards:
+  - id: guard:unbound-declaration
+    expression: declared == true and gating == true and realized == true and bound == false and core_backed
+      == true
+- id: frag:succession-loss-blocked
+  kind: alt
+  acceptance_refs:
+  - acceptance:succession-loss-blocked
+  guards:
+  - id: guard:succession-loss
+    expression: declared == true and gating == true and realized == true and bound == false and core_backed
+      == false
+- id: frag:unrealized-obligation-detected
+  kind: alt
+  acceptance_refs:
+  - acceptance:unrealized-obligation-detected
+  guards:
+  - id: guard:unrealized-obligation
+    expression: declared == true and gating == true and realized == false
+- id: frag:orphan-detector-decommissioned
+  kind: alt
+  acceptance_refs:
+  - acceptance:orphan-detector-decommissioned
+  guards:
+  - id: guard:orphan-detector
+    expression: declared == false and realized == true
+invariants:
+- id: inv:gating-node-is-bound
+  expression: gating == true and bound == true
+- id: inv:no-orphan-detector
+  expression: realized == true and declared == true
+- id: inv:strict-fails-closed
+  expression: disposition == 'strict' and violations > 0
+- id: inv:no-silent-succession-loss
+  expression: declared == true and core_backed == false and bound == true
+residuals:
+- id: residual:ratchet-baseline
+  kind: structural
+  acceptance_ref: acceptance:enforcement-ratchet-baseline
+  validator_ref: src/atdd/enforce/validators/test_ratchet_baseline.py
+  reason: the pre-existing 13 failing rules are held flat by a recorded baseline rather than by a guarded
+    route, because the baseline is a stored artifact and not a decision branch
+- id: residual:mirror-coherence
+  kind: structural
+  acceptance_ref: acceptance:mirror-coherence-validation
+  validator_ref: src/atdd/planner/validators/test_extension_mirror_coherence.py
+  reason: extension nodes mirror core rules as data read by a validator, not as a route the enforcement
+    entrypoint can take
+- id: residual:duplicate-precedence
+  kind: structural
+  acceptance_ref: acceptance:duplicate-rule-precedence
+  validator_ref: src/atdd/coach/validators/test_rule_id_uniqueness.py
+  reason: a duplicate rule_id is detected while building the registry at import time, before any enforcement
+    entrypoint runs, so it cannot be expressed as a guarded route
+routes:
+- route_id: clean-gate-passes
+  category: nominal
+  priority: 10
+  guard_ref: guard:clean-gate
+  train_id: 0007-enforce-extension-conventions
+  train_path: plan/_trains/0007-enforce-extension-conventions.yaml
+  projection:
+    expected_sequence_digest: af58d0c4dadcdc5b3bbe388d9a382823433ba32aff4907eccbb450ede02af565
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+- route_id: strict-violation-fails
+  category: alternate
+  priority: 20
+  guard_ref: guard:strict-violation
+  train_id: 0201-enforce-strict-failure
+  train_path: plan/_trains/0201-enforce-strict-failure.yaml
+  projection:
+    expected_sequence_digest: 0666b04d1ce681d40b07551861056516a94a449ff1f34f68ce15bcbb0fc18908
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+- route_id: advisory-violation-reports
+  category: alternate
+  priority: 30
+  guard_ref: guard:advisory-violation
+  train_id: 0202-report-advisory-violation
+  train_path: plan/_trains/0202-report-advisory-violation.yaml
+  projection:
+    expected_sequence_digest: a6227753c88a399f85ad3982b25fae63357cff56e9753666588340daeb304e38
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+- route_id: unbound-declaration-detected
+  category: alternate
+  priority: 40
+  guard_ref: guard:unbound-declaration
+  train_id: 0203-detect-unbound-declaration
+  train_path: plan/_trains/0203-detect-unbound-declaration.yaml
+  projection:
+    expected_sequence_digest: 580a6ebc6c35b01ae15b34329bb09a6bd4412e15747b45d915b1677c2d21eb55
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+- route_id: succession-loss-blocked
+  category: alternate
+  priority: 50
+  guard_ref: guard:succession-loss
+  train_id: 0204-detect-succession-loss
+  train_path: plan/_trains/0204-detect-succession-loss.yaml
+  projection:
+    expected_sequence_digest: 8fa061f4e6bd88f664f9bda669b759dc422d9efd03dcab98d9c123d4499ea61e
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+- route_id: unrealized-obligation-detected
+  category: alternate
+  priority: 60
+  guard_ref: guard:unrealized-obligation
+  train_id: 0205-detect-unrealized-obligation
+  train_path: plan/_trains/0205-detect-unrealized-obligation.yaml
+  projection:
+    expected_sequence_digest: 1cddbd41a741724e55a3a68a0dbeec093f37fed7b450b6ade9cfb00a52a16555
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+- route_id: orphan-detector-decommissioned
+  category: alternate
+  priority: 70
+  guard_ref: guard:orphan-detector
+  train_id: 0206-decommission-orphan-detector
+  train_path: plan/_trains/0206-decommission-orphan-detector.yaml
+  projection:
+    expected_sequence_digest: 81f224922d69e426809368d1b988badf0f910312abc06be892ca808c123039ae
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact

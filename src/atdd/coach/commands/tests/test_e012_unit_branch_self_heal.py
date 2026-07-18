@@ -1,17 +1,24 @@
 # Acceptance: acc:govern-lifecycle:E012-UNIT-004-branch-self-heals-missing-manifest-entry
 # Acceptance: acc:govern-lifecycle:Y005-UNIT-001-issue-reconcile-backfills-unregistered
-"""Unit tests for self-healing manifest backfill in atdd branch and atdd issue reconcile (#775).
+"""Unit tests for the self-healing backfill in atdd branch and atdd issue reconcile (#775).
 
-Problem: when issue #N exists on GitHub but is absent from .atdd/manifest.yaml,
-`atdd branch <N>` printed "not found in manifest" and exited 1 — blocking
-worktree creation.
+Problem: when issue #N exists on GitHub but core has never seen it, `atdd branch <N>`
+printed "not found" and exited 1 — blocking worktree creation.
 
 Fix:
-  - BranchManager._backfill_from_github() synthesises the sessions entry from
-    gh issue view output and appends it to the manifest.
+  - BranchManager._backfill_from_github() synthesises the work item from
+    gh issue view output and seeds it.
   - BranchManager.branch() calls _backfill_from_github() before erroring.
   - IssueManager.reconcile() fetches all open atdd-issues and backfills any
-    missing from the manifest in one pass.
+    missing ones in one pass.
+
+RETARGETED at the store (#1400 CORE-034 / Y002-UNIT-002, "the removed readers' tests are
+deleted or retargeted at the projection reader"). The self-heal used to append a session to
+`.atdd/manifest.yaml`; that mirror is retired, and the seed now lands in the State Store — the
+place every reader actually looks. The behaviour under test is unchanged (issue on GitHub, core
+blind to it, gh supplies it, `atdd branch <N>` proceeds); only the destination moved, and these
+tests now assert against the destination that exists. The reconcile half below was retargeted at
+the store already, by #1270 Slice G — this is the same move, one wagon later.
 """
 from __future__ import annotations
 
@@ -29,13 +36,28 @@ import yaml
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_manifest(sessions: list[dict]) -> dict:
-    return {"sessions": sessions}
+def _make_control_root(path: Path) -> Path:
+    """A real Control Root — the thing the store resolves from, and the manifest never was."""
+    (path / ".atdd").mkdir(parents=True, exist_ok=True)
+    (path / ".atdd" / "config.yaml").write_text("version: '1.0'\n")
+    return path
 
 
-def _write_manifest(path: Path, sessions: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.dump({"sessions": sessions}, default_flow_style=False))
+def _store_registered_slugs(control_root: Path) -> list[str]:
+    """Every work-item slug the store holds."""
+    from atdd.state.work_item_reader import WorkItemReader
+
+    with WorkItemReader(control_root=control_root) as reader:
+        return [e["slug"] for e in reader.all_work_items()]
+
+
+def _store_registered_issue_numbers(control_root: Path) -> list[int]:
+    """Every GitHub issue number registered as a store work item (#1270 Slice G)."""
+    from atdd.state.work_item_reader import WorkItemReader
+
+    with WorkItemReader(control_root=control_root) as reader:
+        return [e["issue_number"] for e in reader.all_work_items()
+                if e.get("issue_number") is not None]
 
 
 def _make_gh_issue_json(number: int, slug: str, status: str = "INIT") -> dict:
@@ -66,11 +88,11 @@ class TestBranchManagerSelfHeal:
         )
 
     def test_backfill_synthesises_entry_from_gh(self, tmp_path: Path) -> None:
-        """E012-UNIT-004: _backfill_from_github() appends a sessions entry synthesised from gh output."""
-        manifest_path = tmp_path / ".atdd" / "manifest.yaml"
-        _write_manifest(manifest_path, sessions=[])
+        """E012-UNIT-004: _backfill_from_github() seeds a work item synthesised from gh output."""
+        _make_control_root(tmp_path)
+        slug = "on-main-guard-rejects-manifest-registration-commit"
 
-        gh_json = _make_gh_issue_json(number=775, slug="on-main-guard-rejects-manifest-registration-commit")
+        gh_json = _make_gh_issue_json(number=775, slug=slug)
 
         from atdd.coach.commands.branch import BranchManager
         manager = BranchManager(tmp_path)
@@ -85,19 +107,21 @@ class TestBranchManagerSelfHeal:
 
         assert entry is not None, "_backfill_from_github must return the new entry"
         assert entry["issue_number"] == 775
-        assert entry["slug"] == "on-main-guard-rejects-manifest-registration-commit"
+        assert entry["slug"] == slug
 
-        # Manifest must now contain the entry
-        updated = yaml.safe_load(manifest_path.read_text()) or {}
-        slugs = [s.get("slug") for s in updated.get("sessions", [])]
-        assert "on-main-guard-rejects-manifest-registration-commit" in slugs, (
-            "manifest must contain the backfilled entry after _backfill_from_github"
+        # The STORE must now hold the work item, linked to its GitHub issue — and the retired
+        # manifest must NOT have been resurrected on the way past (Y002).
+        assert slug in _store_registered_slugs(tmp_path), (
+            "the store must hold the backfilled work item after _backfill_from_github"
+        )
+        assert 775 in _store_registered_issue_numbers(tmp_path)
+        assert not (tmp_path / ".atdd" / "manifest.yaml").exists(), (
+            "the self-heal must not write the retired manifest mirror (#1400 CORE-034)"
         )
 
     def test_backfill_returns_none_when_gh_fails(self, tmp_path: Path) -> None:
         """E012-UNIT-004: _backfill_from_github() returns None when gh CLI fails."""
-        manifest_path = tmp_path / ".atdd" / "manifest.yaml"
-        _write_manifest(manifest_path, sessions=[])
+        _make_control_root(tmp_path)
 
         from atdd.coach.commands.branch import BranchManager
         manager = BranchManager(tmp_path)
@@ -117,8 +141,7 @@ class TestBranchManagerSelfHeal:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """E012-UNIT-004: branch() must NOT return 1 with 'not found' when gh can supply the issue."""
-        manifest_path = tmp_path / ".atdd" / "manifest.yaml"
-        _write_manifest(manifest_path, sessions=[])
+        _make_control_root(tmp_path)
 
         gh_json = _make_gh_issue_json(775, "on-main-guard-rejects-manifest-registration-commit")
 
@@ -190,18 +213,13 @@ class TestIssueManagerReconcile:
         )
 
     def test_reconcile_adds_missing_issues(self, tmp_path: Path) -> None:
-        """Y005-UNIT-001: reconcile() backfills issues found on GitHub but absent from manifest."""
-        manifest_path = tmp_path / ".atdd" / "manifest.yaml"
-        # Manifest has issue 100 but NOT 101
-        _write_manifest(manifest_path, sessions=[
-            {"id": "100", "slug": "existing-issue", "issue_number": 100,
-             "type": "implementation", "status": "INIT", "created": "2026-01-01"},
-        ])
+        """Y005-UNIT-001: reconcile() backfills GitHub atdd-issues absent from the
+        State Store (#1270 Slice G: the manifest mirror is deleted — the store is
+        the sole registry)."""
+        config_path = tmp_path / ".atdd"
+        config_path.mkdir(parents=True, exist_ok=True)
+        (config_path / "config.yaml").write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
 
-        config_path = tmp_path / ".atdd" / "config.yaml"
-        config_path.write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
-
-        # Simulate two open atdd-issues on GitHub: #100 (already in manifest) and #101 (missing)
         open_issues = [
             {"number": 100, "title": "existing issue", "createdAt": "2026-01-01T00:00:00Z",
              "labels": [{"name": "atdd-issue"}, {"name": "atdd:INIT"}]},
@@ -222,25 +240,17 @@ class TestIssueManagerReconcile:
 
         assert rc == 0, f"reconcile() must return 0 on success; got {rc}"
 
-        updated = yaml.safe_load(manifest_path.read_text()) or {}
-        numbers = [s.get("issue_number") for s in updated.get("sessions", [])]
-        assert 101 in numbers, (
-            f"reconcile() must add issue #101 to the manifest; sessions={updated['sessions']}"
+        numbers = _store_registered_issue_numbers(tmp_path)
+        assert 100 in numbers and 101 in numbers, (
+            f"reconcile() must register #100 and #101 in the store; got {numbers}"
         )
-        assert 100 in numbers, (
-            f"reconcile() must keep existing issue #100; sessions={updated['sessions']}"
-        )
+        assert not (tmp_path / ".atdd" / "manifest.yaml").exists()
 
     def test_reconcile_is_idempotent(self, tmp_path: Path) -> None:
-        """Y005-UNIT-001: reconcile() running twice must not duplicate entries."""
-        manifest_path = tmp_path / ".atdd" / "manifest.yaml"
-        _write_manifest(manifest_path, sessions=[
-            {"id": "100", "slug": "existing-issue", "issue_number": 100,
-             "type": "implementation", "status": "INIT", "created": "2026-01-01"},
-        ])
-
-        config_path = tmp_path / ".atdd" / "config.yaml"
-        config_path.write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
+        """Y005-UNIT-001: reconcile() running twice must not duplicate store entries."""
+        config_path = tmp_path / ".atdd"
+        config_path.mkdir(parents=True, exist_ok=True)
+        (config_path / "config.yaml").write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
 
         open_issues = [
             {"number": 100, "title": "existing issue", "createdAt": "2026-01-01T00:00:00Z",
@@ -259,8 +269,7 @@ class TestIssueManagerReconcile:
             manager.reconcile()
             manager.reconcile()
 
-        updated = yaml.safe_load(manifest_path.read_text()) or {}
-        numbers = [s.get("issue_number") for s in updated.get("sessions", [])]
+        numbers = _store_registered_issue_numbers(tmp_path)
         assert numbers.count(100) == 1, (
-            f"reconcile() must not duplicate entries; numbers={numbers}"
+            f"reconcile() must not duplicate store entries; numbers={numbers}"
         )

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.coach.utils.config import load_atdd_config
+from atdd.coach.utils.config import load_atdd_config, resolve_code_root
 
 
 # ---------------------------------------------------------------------------
@@ -122,8 +122,8 @@ def _detect_wagon_dirs(scan_dirs: List[str]) -> Set[str]:
     Wagons are top-level directories under web/src/ that contain
     domain/application/integration/presentation sub-layers.
     """
-    web_src = REPO_ROOT / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", REPO_ROOT)
+    if web_src is None or not web_src.exists():
         return set()
 
     wagon_dirs: Set[str] = set()

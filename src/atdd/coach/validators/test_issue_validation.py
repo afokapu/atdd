@@ -129,8 +129,8 @@ def test_issues_have_train_field(github_issues, github_project_fields, github_pr
 
     assert not violations, (
         f"\nIssues past PLANNED must have a valid Train field (not TBD, not blank).\n"
-        f"Fix: Run `atdd issue <issue_number> --train <train_id>` "
-        f'(e.g. "atdd issue 467 --train 0001-self-compliance-validate"; '
+        f"Fix: Run `atdd update <issue_number> --train <train_id>` "
+        f'(e.g. "atdd update 467 --train 0001-self-compliance-validate"; '
         f"see plan/_trains.yaml::trains[].id for valid train ids).\n\n"
         f"Violations ({len(violations)}):\n  " + "\n  ".join(violations)
     )
@@ -250,7 +250,7 @@ def test_issue_body_has_required_sections(github_issues):
         w.warn(
             f"Issues with incomplete body sections ({len(incomplete)}):\n  "
             + "\n  ".join(incomplete)
-            + "\n\nHint: Re-create with `atdd new` (E010+) for full-structure body.",
+            + "\n\nHint: Re-author the body with `atdd author issue --revise <N>` for a full-structure body.",
             category=UserWarning,
             stacklevel=1,
         )

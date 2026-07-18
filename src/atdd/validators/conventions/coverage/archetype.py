@@ -212,9 +212,9 @@ def _no_orphan_nodes(graph) -> List[dict]:
     if graph.root is None:
         return []
     root = graph.root
-    nodes = _convention_rule_nodes(root / 'src' / 'atdd')
+    nodes = _convention_rule_nodes(root / 'src' / 'atdd')  # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) — #1499 ratchet: pre-existing toolkit-layout hardcode; destination is zero
     referenced = _relationship_endpoints(
-        root / 'src' / 'atdd' / 'coach' / 'graph' / 'relationships.yaml')
+        root / 'src' / 'atdd' / 'coach' / 'graph' / 'relationships.yaml')  # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) — #1499 ratchet: pre-existing toolkit-layout hardcode; destination is zero
     out: List[dict] = []
     for rid, path in sorted(nodes.items()):
         if rid not in referenced:

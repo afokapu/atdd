@@ -46,7 +46,7 @@ case "$BRANCH" in
         if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
             exit 0
         fi
-        # Allow: manifest-only registration commit (atdd issue <slug> runs on main)
+        # Allow: manifest-only registration commit (atdd author issue runs on main)
         # A commit whose staged set is exactly .atdd/manifest.yaml cannot cause the
         # harm this guard exists to prevent (mass code edits, bare-mode contamination).
         _STAGED=$(git diff --cached --name-only 2>/dev/null || echo "")
@@ -94,7 +94,7 @@ Self-heal:
   atdd coach reconcile
 
 Every branch must be created through the ATDD workflow:
-  1. atdd issue <slug>            # Create issue first
+  1. atdd author issue --title <t> --slug <s>   # Create issue first
   2. atdd worktree create <N>     # Create the worktree from the issue
 
 For genuine emergencies: atdd emergency --reason "<reason>"

@@ -10,7 +10,7 @@ Composition:
     compute_next_phase(current)         pure state-machine lookup
     resolve_pr_to_transition(pr)        PR → AutoPhaseResult (no side effects)
     run(pr_number, dry_run=False)       CLI entrypoint; calls
-                                        `atdd issue <N> --status <NEXT>` unless dry-run
+                                        `atdd coach transition <N> <NEXT>` unless dry-run
 """
 from __future__ import annotations
 
@@ -125,6 +125,9 @@ def run(
         return 0
 
     print(msg)
-    cmd = ["atdd", "issue", str(result.issue_number), "--status", result.next_phase]
+    # #1309: `atdd issue <N> --status <TO>` was removed in 4.0.0. This is a REAL
+    # invocation driven by .github/workflows/atdd-auto-phase.yml on PR merge, so
+    # it must name the live command or auto-phase-on-merge breaks in CI.
+    cmd = ["atdd", "coach", "transition", str(result.issue_number), result.next_phase]
     proc = subprocess.run(cmd, cwd=target_dir)
     return proc.returncode

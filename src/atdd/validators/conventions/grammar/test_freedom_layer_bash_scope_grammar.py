@@ -25,12 +25,12 @@ the semantic origin only.
 """
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    mirror_file,
+)
 from atdd.validators.conventions.grammar import archetype
 from atdd.validators.conventions.grammar.archetype import TEMPLATE_IDS, TEMPLATES
 
@@ -62,18 +62,10 @@ def _template():
     return next(t for t in TEMPLATES if t.template_id == TEMPLATE)
 
 
-def _evaluate(repo_root):
-    graph = load_composed_graph(repo_root)
+def _evaluate(graph):
     return _template().evaluate(graph, config={"variant": VARIANT})
 
 
-def _legacy_caught(repo_root, nodeid) -> bool:
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=repo_root, env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True, text=True,
-    ).returncode
-    return rc != 0
 
 
 # --- contract --------------------------------------------------------------
@@ -100,41 +92,41 @@ def test_evidence_keys_are_subset_of_template_failure_evidence() -> None:
 
 
 # --- clean baseline --------------------------------------------------------
-def test_clean_baseline_zero_on_real_repo() -> None:
+def test_clean_baseline_zero_on_real_repo(clean_convention_graph) -> None:
     """On the real composed graph the deployed freedom_layer is fully scoped, so
     the variant returns no evidence (non-vacuous: allowed_bash is non-empty)."""
-    fl = archetype._freedom_layer(load_composed_graph(_REPO_ROOT))
+    fl = archetype._freedom_layer(clean_convention_graph)
     assert fl.get("allowed_bash"), "selector vacuous: freedom_layer declares no allowed_bash"
-    assert _evaluate(_REPO_ROOT) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 # --- fault injection + legacy parity ---------------------------------------
-def test_fault_injection_convention_and_legacy_both_catch(tmp_path) -> None:
-    """Inject an unscoped Bash allow-list entry into the real convention source;
-    BOTH the convention path (real composed graph) and the legacy real-data
-    validator (E032 live smoke) must catch it. Revert afterwards."""
-    conv = _REPO_ROOT / _SESSION_CONVENTION_REL
-    original = conv.read_text(encoding="utf-8")
-    # A bare, unscoped Bash entry — the canonical E032 fault.
-    faulted = original.replace(
+def _add_unscoped_entry(text: str) -> str:
+    """A bare, unscoped `Bash` allow-list entry — the canonical E032 fault."""
+    return text.replace(
         '      - "Bash(pytest:*)"', '      - "Bash(pytest:*)"\n      - "Bash"', 1
     )
-    assert faulted != original, "fault-injection anchor not found in convention source"
-    try:
-        conv.write_text(faulted, encoding="utf-8")
 
-        conv_evidence = _evaluate(_REPO_ROOT)
-        assert conv_evidence, "convention path missed the unscoped Bash entry"
-        assert any(e["value"] == "Bash" for e in conv_evidence), conv_evidence
-        assert all(set(e) <= set(FAILURE_EVIDENCE) for e in conv_evidence)
 
-        legacy_caught = _legacy_caught(_REPO_ROOT, LEGACY_PARITY_SOURCES[0])
-        assert legacy_caught, (
-            "legacy E032 live smoke did not catch the injected unscoped entry"
-        )
-    finally:
-        conv.write_text(original, encoding="utf-8")
+def test_fault_injection_convention_catches(clean_convention_graph, tmp_path) -> None:
+    """Inject an unscoped Bash allow-list entry into a STAGED COPY of the convention
+    source; the convention path catches it and the real source is never rewritten.
 
-    # Parity proven only if the clean tree is silent for BOTH afterwards.
-    assert _evaluate(_REPO_ROOT) == []
-    assert not _legacy_caught(_REPO_ROOT, LEGACY_PARITY_SOURCES[0])
+    `archetype._freedom_layer` reads the session convention off `graph.root` — its own
+    docstring notes it is "data, not a wagon/rule node" — so there is no node to mutate
+    and the fault must be a real YAML the evaluator really parses. Staging it under
+    `tmp_path` from the real file's own bytes gives that without putting a faulted
+    `session.convention.yaml` in the working tree (#1458, E035). `mirror_file` raises
+    if the anchor has drifted, so the fault can never go vacuous.
+
+    Oracle retired (#1365): the convention path below is the live coverage.
+    """
+    mirror_file(_REPO_ROOT, tmp_path, _SESSION_CONVENTION_REL, _add_unscoped_entry)
+
+    conv_evidence = _evaluate(graph_rooted_at(clean_convention_graph, tmp_path))
+    assert conv_evidence, "convention path missed the unscoped Bash entry"
+    assert any(e["value"] == "Bash" for e in conv_evidence), conv_evidence
+    assert all(set(e) <= set(FAILURE_EVIDENCE) for e in conv_evidence)
+
+    # The real convention source is fully scoped and was never written to.
+    assert _evaluate(clean_convention_graph) == []

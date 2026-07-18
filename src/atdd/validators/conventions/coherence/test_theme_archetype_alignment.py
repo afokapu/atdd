@@ -44,32 +44,26 @@ def test_theme_archetype_alignment_variant_contract() -> None:
 # `commons`, which carries no archetype-root constraint -> vacuously aligned). The
 # fault (a `code`-themed wagon whose source lives under the planner root) is caught
 # by BOTH the convention evaluator and the legacy pytest target on identical input.
-_LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_theme_archetype_alignment.py"
-    "::test_archetype_themes_align_with_source_roots"
-)
 
 
-def test_clean_baseline_is_zero() -> None:
-    assert _parity.conv_violations(VARIANT) == []
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
+    assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
-def test_fault_injection_legacy_parity() -> None:
-    """Inject a misaligned `code` wagon into the real tree; assert the convention
-    evaluator AND the legacy validator both catch it; revert."""
+def test_fault_injection_convention_catches() -> None:
+    """Inject a misaligned `code` wagon into the real tree; the convention evaluator
+    catches it; revert. Oracle retired (#1365)."""
     root = _parity.repo_root()
     pkg = "zz_archetype_probe"
     manifest = root / "plan" / pkg / f"_{pkg}.yaml"
-    wrong_src = root / "src" / "atdd" / "planner" / pkg / "__init__.py"
+    wrong_src = root / "src" / "atdd" / "planner" / pkg / "__init__.py"  # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) — #1499 ratchet: pre-existing toolkit-layout hardcode; destination is zero
     entries = [
         (manifest, 'wagon: zz-archetype-probe\nurn: "wagon:zz-archetype-probe"\ntheme: code\n'),
         (wrong_src, ""),
     ]
     with _parity.temp_paths(entries):
         conv = _parity.conv_violations(VARIANT, root)
-        legacy = _parity.legacy_caught(_LEGACY_NODEID, root)
     assert conv, "convention evaluator did not catch the archetype misalignment"
-    assert legacy, "legacy validator did not catch the archetype misalignment"
     assert _parity.conv_violations(VARIANT, root) == [], "fault did not revert cleanly"
 
 

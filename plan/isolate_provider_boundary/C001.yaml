@@ -1,0 +1,78 @@
+urn: wmbt:isolate-provider-boundary:C001
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: core-provider-import
+context_clarifier: when a static import-graph test walks every core module and asserts the boundary law
+  of §8.1 — provider code imports core, core never imports provider code, gh/github API/issue labels/issue
+  numbers are absent from lifecycle modules
+lens: functional.effectiveness
+statement: minimize likelihood of a core-provider-import surviving into main, by statically walking the
+  core import graph and failing on any provider, gh, or GitHub-API dependency reachable from a lifecycle
+  module
+acceptances:
+- given:
+    abstract:
+    - A synthetic core module that imports a provider package (or shells out to gh)
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the static boundary test fails when a core module imports a provider package or the gh/GitHub
+      API surface
+    urn: acc:isolate-provider-boundary:C001-UNIT-001-detects-core-importing-provider
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The test fails and names the offending core module and the forbidden import
+    - The failure message cites the §8.1 boundary law
+    - The test does not pass merely because the provider package is absent from the environment
+  when:
+    abstract: the import-boundary static test is run over the core import graph
+- given:
+    abstract:
+    - The real core package as checked out
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: the real core import graph carries no provider, gh, or GitHub-API import from any lifecycle
+      module
+    urn: acc:isolate-provider-boundary:C001-UNIT-002-core-import-graph-provider-free
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - No core module imports a provider package
+    - No lifecycle module imports the GitHub API, the gh CLI, issue labels, or issue numbers
+    - The test is deterministic and requires no network
+  when:
+    abstract: the import-boundary static test walks every core module's transitive imports
+- identity:
+    urn: acc:isolate-provider-boundary:C001-SMOKE-001-core-provider-import
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: core-provider-import holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising core-provider-import
+  when:
+    abstract: the C001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - core-provider-import is observed to hold end-to-end against real infrastructure, with no mocks or
+      manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

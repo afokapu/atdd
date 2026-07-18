@@ -1,4 +1,6 @@
 # URN: test:validate-conventions:coherence-variants:theme_urn_namespace_matches
+# Acceptance: acc:govern-lifecycle:C004-UNIT-001-urn-prefix-mismatch-is-flagged
+# Acceptance: acc:govern-lifecycle:C004-SMOKE-001-plan-tree-urn-prefixes-align
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration

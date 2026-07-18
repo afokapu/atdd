@@ -1,0 +1,30 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'append_overlay_event(): record a typed authoring event in the same
+        txn as the object write'
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: 'OverlayEvent taxonomy: the seven authoring event kinds and their
+        payload shape'
+      type: events
+    - count: 1
+      rationale: OverlayEventLog (ordered, uncommitted, drained on projection commit)
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: overlay_events table schema migration plus ordered append and drain
+      type: stores
+description: 'CORE-011. An explicit overlay_events table: every uncommitted local
+  authoring command appends a typed, replayable event, replacing fragile SQLite-diff
+  inference of user intent.'
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 1
+urn: feature:reconcile-local-store:record-overlay-events
+wagon: wagon:reconcile-local-store
+wmbts:
+- wmbt:reconcile-local-store:E001

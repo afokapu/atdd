@@ -214,7 +214,7 @@ rule_schema:
         enforces this contract.
       completeness_contract:
         # Machine-readable form of the C1-C4 narrative above. Consumed by
-        # ``test_fix_hint_completeness::test_every_fix_hint_satisfies_completeness_contract``.
+        # ``conventions/presence/test_rule_has_fix_hint::test_rule_has_fix_hint_convention_fault``.
         introduced_in: "3.8.0"
         clauses:
           - id: C1
@@ -330,7 +330,7 @@ rules:
 # =============================================================================
 # Positive + negative exemplars for the C1-C4 contract declared in
 # rule_schema.fields.fix_hint.description. Validator
-# test_fix_hint_completeness consumes the contract; this block documents
+# _fix_hint_audit consumes the contract; this block documents
 # canonical good/bad shapes so authors have a quick visual reference.
 fix_hint_exemplars:
   positive:

@@ -24,11 +24,18 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import ClassVar, Optional, Sequence
 
 import yaml
 
+from atdd.enforce.dispositions import STRICT, TREATMENT_DISPOSITIONS
+
 _log = logging.getLogger(__name__)
+
+
+class UnknownDispositionError(ValueError):
+    """A convention node declares a ``metadata.disposition`` outside the treatment
+    vocabulary (#1424 E002) — a wiring/authoring error, not a verdict."""
 
 # Rules that exempt the toolkit's own CLI source tree. Mirrors the legacy
 # in-core ``coder.logging.print`` exemption of ``src/atdd`` (V4 / scan_policy
@@ -96,7 +103,13 @@ _ENTRY_POINT_ROOT_RULES = frozenset({"coder.dead-code.reachability"})
 class RuleMetadata:
     rule_id: str
     severity: Optional[int]
-    disposition: str  # strict | suppress-and-clean | advisory
+    disposition: str  # a member of VOCABULARY (the TREATMENT namespace)
+
+    #: The treatment disposition vocabulary (E002). A node whose
+    #: ``metadata.disposition`` is outside this set is rejected by
+    #: :func:`rule_metadata`. Sourced from the shared disposition model so the
+    #: treatment namespace is named in exactly one place.
+    VOCABULARY: ClassVar[frozenset] = TREATMENT_DISPOSITIONS
 
 
 def _convention_node_path(substrate_home: Path, rule_id: str) -> Optional[Path]:
@@ -129,11 +142,19 @@ def rule_metadata(substrate_home: Path, rule_id: str) -> RuleMetadata:
     meta = data.get("metadata") if isinstance(data, dict) else None
     meta = meta if isinstance(meta, dict) else {}
     sev = meta.get("severity")
-    disp = meta.get("disposition") or "strict"
+    # A missing disposition defaults to strict (in-vocabulary); an explicitly
+    # declared out-of-vocabulary value is REJECTED (#1424 E002) — a typo or a
+    # stray wiring value must not fall through to the verdict mapping.
+    disp = str(meta.get("disposition") or STRICT)
+    if disp not in RuleMetadata.VOCABULARY:
+        raise UnknownDispositionError(
+            f"convention node {node} declares metadata.disposition {disp!r}, "
+            f"outside the treatment vocabulary {sorted(RuleMetadata.VOCABULARY)}"
+        )
     return RuleMetadata(
         rule_id=rule_id,
         severity=int(sev) if isinstance(sev, int) else None,
-        disposition=str(disp),
+        disposition=disp,
     )
 
 

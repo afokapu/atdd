@@ -1,0 +1,57 @@
+urn: wmbt:validate-conventions:Y003
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: coverage-loss-on-legacy-validator-sweep-retirement
+context_clarifier: when the executing Tier-1/Tier-2 legacy persona-validators are
+  swept-retired (#1207) and the parity oracle is removed, no rule may be left pointing
+  at a deleted persona-folder validator and every repointed rule's convention variant
+  must still execute on the real graph, so coverage moves to the convention layer
+  instead of silently dropping
+lens: functional.effectiveness
+statement: minimize likelihood of coverage-loss-on-legacy-validator-sweep-retirement
+  by asserting no rule implementation.ref/validator resolves to a deleted
+  src/atdd/*/validators/test_*.py and every repointed rule binds to an executing
+  convention variant rather than an xfail/stub
+acceptances:
+- identity:
+    urn: acc:validate-conventions:Y003-SMOKE-001-no-dangling-legacy-reference
+    id: AC-SMOKE-001
+    purpose: No rule implementation.ref/validator resolves to a deleted persona-folder
+      legacy validator file (the no-dangling-legacy-reference guard). The permanent
+      successor to the retired Y001 map-safety guard, at rule-ref level.
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout with the composed convention graph loaded
+    - the swept Tier-1/Tier-2 legacy validators retired and their rules repointed
+  when:
+    abstract: every rule's implementation.ref/validator is resolved against the filesystem
+  then:
+    abstract:
+    - no resolved ref points at a non-existent src/atdd/*/validators/test_*.py path
+    - re-introducing a dangling ref to a deleted persona-folder validator fails the guard
+- identity:
+    urn: acc:validate-conventions:Y003-SMOKE-002-coverage-preserved
+    id: AC-SMOKE-002
+    purpose: Every rule repointed off a retired legacy validator binds to a convention
+      variant test that executes on the real graph, not an xfail/stub (the
+      coverage-preserved guard). The permanent successor to the retired Y002
+      preflight-classification guard, asserting the replacement coverage actually runs.
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout with the swept convention variants present
+    - each retired rule repointed to its convention variant nodeid
+  when:
+    abstract: each repointed rule's convention variant is loaded and its executing test discovered
+  then:
+    abstract:
+    - the variant file is Phase GREEN and exposes a real fault/parity/convention_fault test
+    - a variant reduced to an xfail/stub fails the guard

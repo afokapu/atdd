@@ -1,4 +1,13 @@
 artifacts:
+- id: commons:binding-lock
+  urn: contract:commons:binding-lock
+  version: 1.0.0
+  title: Extension convention binding lock
+  description: Extension convention binding lock exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/binding-lock.schema.json
+  producer: wagon:bind-extension-conventions
+  consumers:
+  - wagon:reconcile-dispositions
 - id: commons:coach:canonical-surface-name
   urn: contract:commons:coach:canonical-surface-name
   version: 1.0.0
@@ -83,6 +92,24 @@ artifacts:
   producer: wagon:mediate-worker-decisions
   consumers:
   - wagon:mediate-worker-decisions
+- id: commons:disposition-policy
+  urn: contract:commons:disposition-policy
+  version: 1.0.0
+  title: Disposition to verdict policy
+  description: Disposition to verdict policy exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/disposition-policy.schema.json
+  producer: wagon:reconcile-dispositions
+  consumers:
+  - wagon:enforce-conventions-ci
+- id: commons:enforce-verdict
+  urn: contract:commons:enforce-verdict
+  version: 1.0.0
+  title: Per-rule enforcement verdict
+  description: Per-rule enforcement verdict exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/enforce-verdict.schema.json
+  producer: wagon:enforce-conventions-ci
+  consumers:
+  - wagon:verify-enforcement
 - id: commons:error:response
   urn: contract:commons:error:response
   version: 1.0.0
@@ -108,6 +135,123 @@ artifacts:
   producer: wagon:mediate-worker-decisions
   consumers:
   - wagon:mediate-worker-decisions
+- id: commons:projection-evidence
+  urn: contract:commons:projection-evidence
+  version: 1.0.0
+  title: Lifecycle Evidence Policy v1
+  description: 'The evidence each lifecycle transition must carry (doc section 6).
+    The legal-transition validator is the load-bearing gate: canonical YAML alone
+    is formatting, not correctness (section 4). COMPLETE is DERIVED from merge-to-main
+    for v1 (section 18 decision 1).'
+  path: contracts/commons/projection-evidence.schema.json
+  producer: wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
+- id: commons:projection-field-ownership
+  urn: contract:commons:projection-field-ownership
+  version: 1.0.0
+  title: Projection Field Ownership Policy
+  description: Which writer may write each projection field (doc section 7.1). Prevents
+    same-object and wrong-writer corruption. Humans may not write external_refs; extensions
+    may not write lifecycle fields (section 4).
+  path: contracts/commons/projection-field-ownership.schema.json
+  producer: wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:isolate-provider-boundary
+- id: commons:projection-merge-event
+  urn: contract:commons:projection-merge-event
+  version: 1.0.0
+  title: Merge And Squash Event Policy
+  description: Allowed merge methods and the ATDD-Summary artifact format (doc section
+    5), plus the phase-merge admissibility rule (section 7.2). Same-object phase divergence
+    auto-merges ONLY on identical transitions, a strict no-op side, or verifiable
+    evidence for every skipped gate. NEVER blind max-phase.
+  path: contracts/commons/projection-merge-event.schema.json
+  producer: wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+- id: commons:projection-object
+  urn: contract:commons:projection-object
+  version: 1.0.0
+  title: Projection Object v1
+  description: The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`.
+    Authoritative for shared project state (doc section 2.1). Identity is the immutable
+    uid, never the slug; the filename is derived from the uid. Deletion is a tombstone,
+    never file removal (section 10).
+  path: contracts/commons/projection-object.schema.json
+  producer: wagon:project-shared-state
+  consumers:
+  - wagon:reconcile-local-store
+  - wagon:enforce-merge-authority
+  - wagon:govern-projection-fields
+  - wagon:isolate-provider-boundary
+  - wagon:migrate-projection-authority
+- id: commons:projection-trailer
+  urn: contract:commons:projection-trailer
+  version: 1.0.0
+  title: ATDD Commit Trailer Group
+  description: The structured trailer group that makes git history a reliable event
+    log (doc section 5). Free prose is insufficient. Raw tokens, bearer tokens, secrets
+    or credentials are INVALID (rule 5, I8).
+  path: contracts/commons/projection-trailer.schema.json
+  producer: wagon:enforce-merge-authority
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
+- id: commons:provider-capability
+  urn: contract:commons:provider-capability
+  version: 1.0.0
+  title: Provider implementation realization index
+  description: Provider implementation realization index exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/provider-capability.schema.json
+  producer: wagon:govern-providers
+  consumers:
+  - wagon:bind-extension-conventions
+- id: commons:provider-extensions-lock
+  urn: contract:commons:provider-extensions-lock
+  version: 1.0.0
+  title: Extensions Lock Scope
+  description: '`.atdd/extensions.lock` must lock core schema, lifecycle policy, merge
+    policy and provider digests (doc section 10 rule 5). Locking these is what lets
+    a provider failure be non-blocking (section 12 rule 6).'
+  path: contracts/commons/provider-extensions-lock.schema.json
+  producer: wagon:isolate-provider-boundary
+  consumers:
+  - wagon:enforce-merge-authority
+  - wagon:migrate-projection-authority
+- id: commons:provider-external-ref-update
+  urn: contract:commons:provider-external-ref-update
+  version: 1.0.0
+  title: External Ref Update Contract
+  description: The ONLY record a SyncProvider.mirror() may return (doc section 8.2).
+    Bot-namespaced. Core applies provider metadata only through a constrained external_refs.*
+    update path. The extension never edits projection directly, and detect_drift()
+    is alarm-only.
+  path: contracts/commons/provider-external-ref-update.schema.json
+  producer: wagon:isolate-provider-boundary
+  consumers:
+  - wagon:govern-projection-fields
+  - wagon:migrate-projection-authority
+- id: commons:rule-registry
+  urn: contract:commons:rule-registry
+  version: 1.0.0
+  title: Core convention rule registry projection
+  description: Core convention rule registry projection exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/rule-registry.schema.json
+  producer: wagon:govern-registry
+  consumers:
+  - wagon:bind-extension-conventions
+- id: commons:succession-coverage
+  urn: contract:commons:succession-coverage
+  version: 1.0.0
+  title: Core-to-extension succession coverage
+  description: Core-to-extension succession coverage exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/succession-coverage.schema.json
+  producer: wagon:verify-enforcement
+  consumers:
+  - wagon:govern-registry
 - id: frontend:train:render-metadata
   urn: contract:frontend:train:render-metadata
   version: 1.0.0

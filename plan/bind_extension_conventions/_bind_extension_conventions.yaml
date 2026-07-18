@@ -1,0 +1,35 @@
+wagon: bind-extension-conventions
+urn: wagon:bind-extension-conventions
+name: Bind Extension Conventions
+theme: commons
+description: Make the binding lock a faithful projection of the obligations that must
+  gate, closing 26 of the 28 unbound rules through implementation fan-out with zero
+  new detectors
+subject: agent:coder
+context: closing the gap between declared extension convention nodes and the binding
+  lock
+action: separates obligations lacking a mechanism from mechanisms lacking an obligation,
+  binds each implementation to every convention it realizes, and asserts that every
+  GATING node is bound while documentation-only nodes stay unbound
+goal: make the binding lock a faithful projection of the obligations that must gate,
+  closing 26 of the 28 unbound rules through implementation fan-out with zero new
+  detectors
+outcome: a lock in which every gating node is bound, no entry is orphaned, and documentation-only
+  nodes are correctly absent
+features:
+- urn: feature:bind-extension-conventions:bind-extension-conventions
+produce:
+- name: commons:binding-lock
+  contract: contract:commons:binding-lock
+  telemetry: null
+  to: internal
+consume:
+- name: commons:rule-registry
+  from: wagon:govern-registry
+- name: commons:provider-capability
+  from: wagon:govern-providers
+wmbt:
+  total: 3
+  L001: "minimize likelihood of an unbound gating obligation or a phantom binding going unnamed by the binding-gap inventory"
+  E001: "maximize quantity of gating obligations bound by fanning each multi-rule implementation out to every convention it realizes, without shipping a single new detector"
+  E002: "minimize likelihood of a gating extension node shipping with no bound mechanism, or a mechanism binding an obligation nobody declared, slipping past the gate"

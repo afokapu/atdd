@@ -166,36 +166,3 @@ class TestCoachTransitionEnforcesOperatorToken:
 # ---------------------------------------------------------------------------
 # 4. Deprecated shim: `atdd issue --status` warns on stderr + delegates
 # ---------------------------------------------------------------------------
-class TestDeprecatedIssueStatusShim:
-    def test_issue_status_warns_and_delegates(self, hermetic, capsys, monkeypatch):
-        import atdd.cli as cli
-        import atdd.coach.commands.issue_transition as it
-
-        monkeypatch.setattr(
-            "sys.argv", ["atdd", "issue", str(_FAKE_ISSUE), "--status", "PLANNED"]
-        )
-        # Patch the delegate so NO real transition can occur even if wiring drifts.
-        delegate_spy = MagicMock(return_value=0)
-        with patch.object(it, "run", delegate_spy):
-            rc = cli.main()
-
-        assert rc == 0
-        delegate_spy.assert_called_once_with([str(_FAKE_ISSUE), "PLANNED"])
-        err = capsys.readouterr().err
-        assert "deprecated" in err.lower()
-        assert "atdd coach transition" in err
-
-    def test_issue_status_force_is_forwarded(self, hermetic, monkeypatch):
-        import atdd.cli as cli
-        import atdd.coach.commands.issue_transition as it
-
-        monkeypatch.setattr(
-            "sys.argv",
-            ["atdd", "issue", str(_FAKE_ISSUE), "--status", "RED", "--force"],
-        )
-        delegate_spy = MagicMock(return_value=0)
-        with patch.object(it, "run", delegate_spy):
-            rc = cli.main()
-
-        assert rc == 0
-        delegate_spy.assert_called_once_with([str(_FAKE_ISSUE), "RED", "--force"])

@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import pickle
+import re
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -31,7 +32,7 @@ from atdd.coach.utils.graph.resolver import (
     URNDeclaration,
     URNResolution,
 )
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
 
 
 class EdgeType(Enum):
@@ -45,6 +46,35 @@ class EdgeType(Enum):
     INCLUDES = "includes"  # Train includes wagons (many-to-many)
     TRAIN_STEP = "train_step"  # Ordered wagon→wagon handoff inside a train's sequence[] (#287)
     TESTED_BY = "tested_by"  # Verification relationship (acc/component tested by test)
+
+
+# Graphviz rendering (to_dot). Intentionally closed enumerations: visualization
+# only, with a "#FAFAFA" / "" fallback. A new URN family or edge type renders
+# with the fallback and needs no edits here.
+# Audit reference: docs/urn-prefix-audit-2026.md (finding #3).
+_FAMILY_COLORS = {
+    "wagon": "#E3F2FD",  # Light blue
+    "feature": "#E8F5E9",  # Light green
+    "wmbt": "#FFF3E0",  # Light orange
+    "acc": "#FCE4EC",  # Light pink
+    "contract": "#F3E5F5",  # Light purple
+    "telemetry": "#E0F7FA",  # Light cyan
+    "train": "#FFEBEE",  # Light red
+    "component": "#FFF8E1",  # Light amber
+    "table": "#ECEFF1",  # Light blue-grey
+    "migration": "#EFEBE9",  # Light brown
+    "test": "#FCE4EC",  # Light pink
+}
+
+_EDGE_STYLES = {
+    EdgeType.CONTAINS: 'style=solid, color="#2196F3"',
+    EdgeType.PRODUCES: 'style=dashed, color="#4CAF50"',
+    EdgeType.CONSUMES: 'style=dashed, color="#FF9800"',
+    EdgeType.IMPLEMENTS: 'style=dotted, color="#9C27B0"',
+    EdgeType.REFERENCES: 'style=dotted, color="#607D8B"',
+    EdgeType.INCLUDES: 'style=bold, color="#F44336"',
+    EdgeType.TESTED_BY: 'style=dashed, color="#E91E63"',
+}
 
 
 @dataclass
@@ -166,35 +196,26 @@ class TraceabilityGraph:
         target_family = self._infer_family(edge.target_urn)
 
         # Skip edges if families are filtered and source/target not in allowed list
-        if self._allowed_families:
-            if source_family not in self._allowed_families:
-                return False
-            if target_family not in self._allowed_families:
-                return False
+        if self._allowed_families and not (
+            source_family in self._allowed_families
+            and target_family in self._allowed_families
+        ):
+            return False
 
         # Ensure source and target nodes exist
-        if edge.source_urn not in self._nodes:
-            self._nodes[edge.source_urn] = URNNode(
-                urn=edge.source_urn, family=source_family
-            )
-        if edge.target_urn not in self._nodes:
-            self._nodes[edge.target_urn] = URNNode(
-                urn=edge.target_urn, family=target_family
-            )
+        self._ensure_node(edge.source_urn, source_family)
+        self._ensure_node(edge.target_urn, target_family)
 
         self._edges.append(edge)
-
-        # Index by source
-        if edge.source_urn not in self._edges_by_source:
-            self._edges_by_source[edge.source_urn] = []
-        self._edges_by_source[edge.source_urn].append(edge)
-
-        # Index by target
-        if edge.target_urn not in self._edges_by_target:
-            self._edges_by_target[edge.target_urn] = []
-        self._edges_by_target[edge.target_urn].append(edge)
+        self._edges_by_source.setdefault(edge.source_urn, []).append(edge)
+        self._edges_by_target.setdefault(edge.target_urn, []).append(edge)
 
         return True
+
+    def _ensure_node(self, urn: str, family: str) -> None:
+        """Synthesize a bare node for a URN the graph has not seen yet."""
+        if urn not in self._nodes:
+            self._nodes[urn] = URNNode(urn=urn, family=family)
 
     def _infer_family(self, urn: str) -> str:
         """Infer family from URN prefix."""
@@ -262,9 +283,7 @@ class TraceabilityGraph:
 
         while queue:
             urn, depth = queue.pop(0)
-            if urn in visited:
-                continue
-            if max_depth >= 0 and depth > max_depth:
+            if urn in visited or (max_depth >= 0 and depth > max_depth):
                 continue
 
             visited.add(urn)
@@ -273,14 +292,28 @@ class TraceabilityGraph:
             if node:
                 subgraph.add_node(node)
 
-            for edge in self.get_outgoing_edges(urn):
-                if edge.edge_type in excluded:
-                    continue
-                subgraph.add_edge(edge)
-                if edge.target_urn not in visited:
-                    queue.append((edge.target_urn, depth + 1))
+            queue.extend(self._follow_edges(subgraph, urn, depth, visited, excluded))
 
         return subgraph
+
+    def _follow_edges(
+        self,
+        subgraph: "TraceabilityGraph",
+        urn: str,
+        depth: int,
+        visited: Set[str],
+        excluded: Set[EdgeType],
+    ) -> List[Tuple[str, int]]:
+        """Copy this node's outgoing edges into the subgraph; return targets to visit."""
+        next_up: List[Tuple[str, int]] = []
+        for edge in self.get_outgoing_edges(urn):
+            if edge.edge_type in excluded:
+                continue
+
+            subgraph.add_edge(edge)
+            if edge.target_urn not in visited:
+                next_up.append((edge.target_urn, depth + 1))
+        return next_up
 
     def filter_by_family(self, families: List[str]) -> "TraceabilityGraph":
         """
@@ -318,200 +351,189 @@ class TraceabilityGraph:
         - gaps: orphans, unconsumed contracts, untested components/accs
         """
 
-        # ── stats ──────────────────────────────────────────────
+        tested_by_targets = {
+            e.source_urn for e in self._edges if e.edge_type == EdgeType.TESTED_BY
+        }
+        contract_producer, contract_consumers = self._contract_flow()
+
+        return {
+            "stats": self._summary_stats(),
+            "tree": self._summary_tree(tested_by_targets),
+            "dataflow": self._summary_dataflow(contract_producer, contract_consumers),
+            "gaps": self._summary_gaps(
+                tested_by_targets, contract_producer, contract_consumers
+            ),
+        }
+
+    def _contained_urns(self, source_urn: str, family: str) -> List[str]:
+        """Targets of CONTAINS edges leaving source_urn whose node has this family."""
+        return [
+            e.target_urn
+            for e in self._edges_by_source.get(source_urn, [])
+            if e.edge_type == EdgeType.CONTAINS
+            and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == family
+        ]
+
+    def _targets_of(self, source_urn: str, edge_type: EdgeType) -> List[str]:
+        """Targets of edges of this type leaving source_urn."""
+        return [
+            e.target_urn
+            for e in self._edges_by_source.get(source_urn, [])
+            if e.edge_type == edge_type
+        ]
+
+    def _summary_stats(self) -> Dict:
+        """Node and edge counts, by family and by edge type."""
         families = Counter(n.family for n in self._nodes.values())
         edge_types = Counter(e.edge_type.value for e in self._edges)
 
-        stats = {
+        return {
             "nodes": len(self._nodes),
             "edges": len(self._edges),
             "families": dict(families.most_common()),
             "edge_types": dict(edge_types.most_common()),
         }
 
-        # ── pre-compute sets for tested-by look-ups ────────────
-        tested_by_targets: Set[str] = set()
-        for e in self._edges:
-            if e.edge_type == EdgeType.TESTED_BY:
-                tested_by_targets.add(e.source_urn)
-
-        # ── tree: per-wagon breakdown ──────────────────────────
+    def _summary_tree(self, tested_by_targets: Set[str]) -> Dict[str, Dict]:
+        """Per-wagon breakdown, then one entry per train."""
         tree: Dict[str, Dict] = {}
 
         for urn, node in self._nodes.items():
-            if node.family != "wagon":
-                continue
+            if node.family == "wagon":
+                tree[urn] = self._wagon_summary(urn, node, tested_by_targets)
 
-            wagon_slug = urn  # key by full URN
-
-            # features under this wagon (via CONTAINS)
-            features = [
-                e.target_urn.split(":", 2)[-1]  # strip "feature:wagon:" prefix
-                for e in self._edges_by_source.get(urn, [])
-                if e.edge_type == EdgeType.CONTAINS
-                and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "feature"
-            ]
-
-            # wmbts under this wagon (via CONTAINS)
-            wmbts = [
-                e.target_urn.split(":", 2)[-1]
-                for e in self._edges_by_source.get(urn, [])
-                if e.edge_type == EdgeType.CONTAINS
-                and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "wmbt"
-            ]
-
-            # components reachable: wagon -> feature -> component (CONTAINS chain)
-            feature_urns = [
-                e.target_urn
-                for e in self._edges_by_source.get(urn, [])
-                if e.edge_type == EdgeType.CONTAINS
-                and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "feature"
-            ]
-            all_components: List[URNNode] = []
-            for f_urn in feature_urns:
-                all_components.extend(
-                    self._nodes[e.target_urn]
-                    for e in self._edges_by_source.get(f_urn, [])
-                    if e.edge_type == EdgeType.CONTAINS
-                    and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "component"
-                )
-
-            planned = len(all_components)
-            implemented = sum(1 for c in all_components if c.artifact_path is not None)
-            tested_components = sum(1 for c in all_components if c.urn in tested_by_targets)
-
-            # accs reachable: wagon -> wmbt -> acc (CONTAINS chain)
-            wmbt_urns = [
-                e.target_urn
-                for e in self._edges_by_source.get(urn, [])
-                if e.edge_type == EdgeType.CONTAINS
-                and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "wmbt"
-            ]
-            all_accs: List[URNNode] = []
-            for w_urn in wmbt_urns:
-                all_accs.extend(
-                    self._nodes[e.target_urn]
-                    for e in self._edges_by_source.get(w_urn, [])
-                    if e.edge_type == EdgeType.CONTAINS
-                    and self._nodes.get(e.target_urn, URNNode(urn="", family="")).family == "acc"
-                )
-            total_accs = len(all_accs)
-            tested_accs = sum(1 for a in all_accs if a.urn in tested_by_targets)
-
-            # produces / consumes
-            produces = [
-                e.target_urn
-                for e in self._edges_by_source.get(urn, [])
-                if e.edge_type == EdgeType.PRODUCES
-            ]
-            consumes = [
-                e.target_urn
-                for e in self._edges_by_source.get(urn, [])
-                if e.edge_type == EdgeType.CONSUMES
-            ]
-
-            tree[wagon_slug] = {
-                "description": node.metadata.get("description", ""),
-                "features": sorted(features),
-                "wmbts": sorted(wmbts),
-                "coverage": {
-                    "components": {"planned": planned, "implemented": implemented, "tested": tested_components},
-                    "accs": {"total": total_accs, "tested": tested_accs},
-                },
-                "produces": sorted(produces),
-                "consumes": sorted(consumes),
-            }
-
-        # ── tree: train entries ──────────────────────────────
         for urn, node in self._nodes.items():
             if node.family != "train":
                 continue
             tree[urn] = {
                 "description": node.metadata.get("description", ""),
-                "wagons": [
-                    e.target_urn
-                    for e in self._edges_by_source.get(urn, [])
-                    if e.edge_type == EdgeType.INCLUDES
-                ],
+                "wagons": self._targets_of(urn, EdgeType.INCLUDES),
             }
 
-        # ── dataflow: wagon → wagon via shared contracts ───────
-        # contract_urn → producing wagon URN
-        contract_producer: Dict[str, str] = {}
-        # contract_urn → set of consuming wagon URNs
-        contract_consumers: Dict[str, Set[str]] = {}
+        return tree
+
+    def _wagon_summary(
+        self, urn: str, node: URNNode, tested_by_targets: Set[str]
+    ) -> Dict:
+        """One wagon's features, wmbts, coverage and contract flow."""
+        feature_urns = self._contained_urns(urn, "feature")
+        wmbt_urns = self._contained_urns(urn, "wmbt")
+
+        # components reachable: wagon -> feature -> component (CONTAINS chain)
+        components = [
+            self._nodes[c_urn]
+            for f_urn in feature_urns
+            for c_urn in self._contained_urns(f_urn, "component")
+        ]
+        # accs reachable: wagon -> wmbt -> acc (CONTAINS chain)
+        accs = [
+            self._nodes[a_urn]
+            for w_urn in wmbt_urns
+            for a_urn in self._contained_urns(w_urn, "acc")
+        ]
+
+        return {
+            "description": node.metadata.get("description", ""),
+            # strip the "feature:wagon:" / "wmbt:wagon:" prefix
+            "features": sorted(u.split(":", 2)[-1] for u in feature_urns),
+            "wmbts": sorted(u.split(":", 2)[-1] for u in wmbt_urns),
+            "coverage": {
+                "components": {
+                    "planned": len(components),
+                    "implemented": sum(1 for c in components if c.artifact_path is not None),
+                    "tested": sum(1 for c in components if c.urn in tested_by_targets),
+                },
+                "accs": {
+                    "total": len(accs),
+                    "tested": sum(1 for a in accs if a.urn in tested_by_targets),
+                },
+            },
+            "produces": sorted(self._targets_of(urn, EdgeType.PRODUCES)),
+            "consumes": sorted(self._targets_of(urn, EdgeType.CONSUMES)),
+        }
+
+    def _contract_flow(self) -> Tuple[Dict[str, str], Dict[str, Set[str]]]:
+        """(contract -> producing wagon, contract -> consuming wagons)."""
+        producer: Dict[str, str] = {}
+        consumers: Dict[str, Set[str]] = {}
 
         for e in self._edges:
             src_node = self._nodes.get(e.source_urn)
             if not src_node or src_node.family != "wagon":
                 continue
             if e.edge_type == EdgeType.PRODUCES:
-                contract_producer[e.target_urn] = e.source_urn
+                producer[e.target_urn] = e.source_urn
             elif e.edge_type == EdgeType.CONSUMES:
-                contract_consumers.setdefault(e.target_urn, set()).add(e.source_urn)
+                consumers.setdefault(e.target_urn, set()).add(e.source_urn)
 
-        dataflow: Dict[str, Dict] = {}
+        return producer, consumers
+
+    @staticmethod
+    def _contracts_match(produced_urn: str, consumed_urn: str) -> bool:
+        """Exact URNs or colon-boundary prefixes: contract:a:b matches contract:a:b:c."""
+        return (
+            produced_urn == consumed_urn
+            or produced_urn.startswith(consumed_urn + ":")
+            or consumed_urn.startswith(produced_urn + ":")
+        )
+
+    def _summary_dataflow(
+        self, contract_producer: Dict[str, str], contract_consumers: Dict[str, Set[str]]
+    ) -> Dict[str, Dict]:
+        """Wagon -> wagon data flow via shared contracts."""
         wagon_feeds: Dict[str, Set[str]] = {}
         for produced_urn, producer in contract_producer.items():
             for consumed_urn, consumers in contract_consumers.items():
-                # Match exact URNs or colon-boundary prefixes so that
-                # contract:a:b matches contract:a:b:c (and vice-versa).
-                if (produced_urn == consumed_urn
-                        or produced_urn.startswith(consumed_urn + ":")
-                        or consumed_urn.startswith(produced_urn + ":")):
-                    for consumer in consumers:
-                        if consumer != producer:
-                            wagon_feeds.setdefault(producer, set()).add(consumer)
+                if not self._contracts_match(produced_urn, consumed_urn):
+                    continue
+                for consumer in consumers:
+                    if consumer != producer:
+                        wagon_feeds.setdefault(producer, set()).add(consumer)
 
         # Include all wagons (even those that feed nobody)
-        for urn, node in self._nodes.items():
-            if node.family == "wagon":
-                dataflow[urn] = {"feeds": sorted(wagon_feeds.get(urn, set()))}
+        return {
+            urn: {"feeds": sorted(wagon_feeds.get(urn, set()))}
+            for urn, node in self._nodes.items()
+            if node.family == "wagon"
+        }
 
-        # ── gaps ───────────────────────────────────────────────
+    def _summary_gaps(
+        self,
+        tested_by_targets: Set[str],
+        contract_producer: Dict[str, str],
+        contract_consumers: Dict[str, Set[str]],
+    ) -> Dict:
+        """Orphans, unconsumed contracts, and untested components/accs."""
         # Nodes with zero incoming edges (excluding root families).
-        # Root families derived from URNBuilder.SEGMENT_COUNTS (parent-it-belongs-to,
+        # Root families derived from URNGrammar.SEGMENT_COUNTS (parent-it-belongs-to,
         # spec v12 §3.2): a family is a root when its segment count after the
         # prefix is 1 (no parent coordinates). Adding a new top-level family in
         # PATTERNS + SEGMENT_COUNTS automatically extends this set.
         # Audit reference: docs/urn-prefix-audit-2026.md (finding #2).
         root_families = {
             family
-            for family, count in URNBuilder.SEGMENT_COUNTS.items()
+            for family, count in URNGrammar.SEGMENT_COUNTS.items()
             if count == 1
         }
-        all_targets = set()
-        for e in self._edges:
-            all_targets.add(e.target_urn)
-        orphan_count = sum(
-            1 for urn, node in self._nodes.items()
-            if node.family not in root_families and urn not in all_targets
-        )
-
-        # Unconsumed contracts: produced but never consumed
-        produced_contracts = set(contract_producer.keys())
-        consumed_contracts = set(contract_consumers.keys())
-        unconsumed = sorted(produced_contracts - consumed_contracts)
-
-        # Untested components and accs
-        all_component_urns = [u for u, n in self._nodes.items() if n.family == "component"]
-        untested_components = sum(1 for u in all_component_urns if u not in tested_by_targets)
-
-        all_acc_urns = [u for u, n in self._nodes.items() if n.family == "acc"]
-        untested_accs = sum(1 for u in all_acc_urns if u not in tested_by_targets)
-
-        gaps = {
-            "orphan_count": orphan_count,
-            "unconsumed_contracts": unconsumed,
-            "untested_components": untested_components,
-            "untested_accs": untested_accs,
-        }
+        all_targets = {e.target_urn for e in self._edges}
 
         return {
-            "stats": stats,
-            "tree": tree,
-            "dataflow": dataflow,
-            "gaps": gaps,
+            "orphan_count": sum(
+                1 for urn, node in self._nodes.items()
+                if node.family not in root_families and urn not in all_targets
+            ),
+            # produced but never consumed
+            "unconsumed_contracts": sorted(
+                set(contract_producer.keys()) - set(contract_consumers.keys())
+            ),
+            "untested_components": sum(
+                1 for u, n in self._nodes.items()
+                if n.family == "component" and u not in tested_by_targets
+            ),
+            "untested_accs": sum(
+                1 for u, n in self._nodes.items()
+                if n.family == "acc" and u not in tested_by_targets
+            ),
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -558,27 +580,9 @@ class TraceabilityGraph:
             "",
         ]
 
-        # Define node colors by family. Intentionally closed enumeration:
-        # visualization-only mapping with a "#FAFAFA" fallback for unknown
-        # families. New URN families render with the fallback color and need
-        # no edits here. Audit reference: docs/urn-prefix-audit-2026.md (#3).
-        family_colors = {
-            "wagon": "#E3F2FD",  # Light blue
-            "feature": "#E8F5E9",  # Light green
-            "wmbt": "#FFF3E0",  # Light orange
-            "acc": "#FCE4EC",  # Light pink
-            "contract": "#F3E5F5",  # Light purple
-            "telemetry": "#E0F7FA",  # Light cyan
-            "train": "#FFEBEE",  # Light red
-            "component": "#FFF8E1",  # Light amber
-            "table": "#ECEFF1",  # Light blue-grey
-            "migration": "#EFEBE9",  # Light brown
-            "test": "#FCE4EC",  # Light pink
-        }
-
         # Add nodes
         for urn, node in self._nodes.items():
-            color = family_colors.get(node.family, "#FAFAFA")
+            color = _FAMILY_COLORS.get(node.family, "#FAFAFA")
             safe_urn = urn.replace('"', '\\"')
             safe_label = node.display_label.replace('"', '\\"')
             lines.append(
@@ -587,20 +591,9 @@ class TraceabilityGraph:
 
         lines.append("")
 
-        # Define edge styles by type
-        edge_styles = {
-            EdgeType.CONTAINS: 'style=solid, color="#2196F3"',
-            EdgeType.PRODUCES: 'style=dashed, color="#4CAF50"',
-            EdgeType.CONSUMES: 'style=dashed, color="#FF9800"',
-            EdgeType.IMPLEMENTS: 'style=dotted, color="#9C27B0"',
-            EdgeType.REFERENCES: 'style=dotted, color="#607D8B"',
-            EdgeType.INCLUDES: 'style=bold, color="#F44336"',
-            EdgeType.TESTED_BY: 'style=dashed, color="#E91E63"',
-        }
-
         # Add edges
         for edge in self._edges:
-            style = edge_styles.get(edge.edge_type, "")
+            style = _EDGE_STYLES.get(edge.edge_type, "")
             safe_source = edge.source_urn.replace('"', '\\"')
             safe_target = edge.target_urn.replace('"', '\\"')
             lines.append(
@@ -626,6 +619,14 @@ class GraphBuilder:
 
     _logger = logging.getLogger(__name__)
 
+    # Test-header scanning: legacy "# URN: acc:...", V3 "# Acceptance: acc:...",
+    # and "# Tested-By:" list items. _REGEX_META_RE rejects regex patterns that
+    # look like URNs.
+    _URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
+    _ACCEPTANCE_RE = re.compile(r"(?:#|//)\s*[Aa]cceptance:\s*([^\s]+)")
+    _TESTED_BY_RE = re.compile(r"(?:#|//)\s*-\s*(test:[^\s]+)")
+    _REGEX_META_RE = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
+
     def __init__(self, repo_root: Optional[Path] = None, *, use_cache: bool = True):
         self.repo_root = repo_root or find_repo_root()
         self.registry = ResolverRegistry(self.repo_root)
@@ -643,55 +644,61 @@ class GraphBuilder:
         """Hash sorted mtimes of all graph-input files + atdd version."""
         import atdd
 
-        entries: list[str] = []
+        entries: List[str] = []
 
-        # 1. plan/**/*.yaml
-        plan_dir = self.repo_root / "plan"
-        if plan_dir.is_dir():
-            for p in sorted(plan_dir.rglob("*.yaml")):
-                entries.append(f"{p.relative_to(self.repo_root)}:{p.stat().st_mtime_ns}")
-
-        # 2. contracts/**/*.json
-        contracts_dir = self.repo_root / "contracts"
-        if contracts_dir.is_dir():
-            for p in sorted(contracts_dir.rglob("*.json")):
-                entries.append(f"{p.relative_to(self.repo_root)}:{p.stat().st_mtime_ns}")
-
-        # 3. telemetry/**/*.yaml
-        telemetry_dir = self.repo_root / "telemetry"
-        if telemetry_dir.is_dir():
-            for p in sorted(telemetry_dir.rglob("*.yaml")):
-                entries.append(f"{p.relative_to(self.repo_root)}:{p.stat().st_mtime_ns}")
+        # 1-3. Declaration sources
+        for subdir, pattern in (
+            ("plan", "*.yaml"),
+            ("contracts", "*.json"),
+            ("telemetry", "*.yaml"),
+        ):
+            entries.extend(self._mtime_entries(self.repo_root / subdir, pattern))
 
         # 4. Code files with URN headers (.py, .ts, .tsx, .dart)
+        entries.extend(self._urn_code_mtime_entries())
+
+        # 5. atdd toolkit version
+        entries.append(f"__version__:{atdd.__version__}")
+
+        return hashlib.sha256("\n".join(entries).encode()).hexdigest()
+
+    def _mtime_entries(self, directory: Path, pattern: str) -> List[str]:
+        """``<relpath>:<mtime_ns>`` for each file matching pattern under directory."""
+        if not directory.is_dir():
+            return []
+
+        return [
+            f"{p.relative_to(self.repo_root)}:{p.stat().st_mtime_ns}"
+            for p in sorted(directory.rglob(pattern))
+        ]
+
+    def _urn_code_mtime_entries(self) -> List[str]:
+        """``<relpath>:<mtime_ns>`` for code files whose head carries a URN header."""
         skip_dirs = {
             ".git", "__pycache__", "node_modules", ".dart_tool",
             "build", ".pub-cache", "dist", ".next", ".nuxt", "coverage",
             ".venv", "venv", "env", ".tox", ".mypy_cache", ".pytest_cache",
         }
         extensions = {".py", ".dart", ".ts", ".tsx"}
-        urn_prefix = b"# URN:" if True else b""  # scan for URN header lines
+
+        entries: List[str] = []
         for dirpath, dirnames, filenames in os.walk(self.repo_root):
             dirnames[:] = [d for d in dirnames if d not in skip_dirs]
             for fname in sorted(filenames):
                 if not any(fname.endswith(ext) for ext in extensions):
                     continue
+
                 fpath = Path(dirpath) / fname
                 try:
                     head = fpath.read_bytes()[:512]
-                except OSError:
+                except OSError as e:
+                    self._logger.debug("Skipping unreadable source %s: %s", fpath, e)
                     continue
-                if b"URN:" not in head:
-                    continue
-                entries.append(
-                    f"{fpath.relative_to(self.repo_root)}:{fpath.stat().st_mtime_ns}"
-                )
 
-        # 5. atdd toolkit version
-        entries.append(f"__version__:{atdd.__version__}")
-
-        digest = hashlib.sha256("\n".join(entries).encode()).hexdigest()
-        return digest
+                if b"URN:" in head:
+                    rel = fpath.relative_to(self.repo_root)
+                    entries.append(f"{rel}:{fpath.stat().st_mtime_ns}")
+        return entries
 
     def _load_cached_graph(
         self, cache_key: str
@@ -762,37 +769,16 @@ class GraphBuilder:
             for decl in decls:
                 if decl.urn not in resolve_cache:
                     resolve_cache[decl.urn] = self.registry.resolve(decl.urn)
-                resolution = resolve_cache[decl.urn]
-                artifact_path = (
-                    resolution.resolved_paths[0] if resolution.resolved_paths else None
+
+                graph.add_node(
+                    self._node_for(decl, family, resolve_cache[decl.urn])
                 )
-                node_metadata = {
-                    "source_path": str(decl.source_path),
-                    "is_broken": resolution.is_broken,
-                    "resolution_error": resolution.error,
-                    "is_deterministic": resolution.is_deterministic,
-                    "is_resolved": resolution.is_resolved,
-                    "resolved_paths": [str(p) for p in resolution.resolved_paths],
-                }
-                # Surface declaration- and resolution-level metadata onto the
-                # graph node so downstream consumers (validators, viz) can
-                # read e.g. abuse_case fields without re-parsing YAMLs.
-                if getattr(decl, "metadata", None):
-                    node_metadata["declaration"] = dict(decl.metadata)
-                if getattr(resolution, "metadata", None):
-                    node_metadata["resolution"] = dict(resolution.metadata)
-                node = URNNode(
-                    urn=decl.urn,
-                    family=family,
-                    artifact_path=artifact_path,
-                    metadata=node_metadata,
-                )
-                graph.add_node(node)
 
         # 2. Build edges from manifest relationships
         self._build_containment_edges(graph)
         self._build_produce_consume_edges(graph)
         self._build_train_edges(graph)
+        self._build_subject_edges(graph)
         self._build_component_edges(graph)
         self._build_security_edges(graph)
         # Phase 3: pass content cache to edge builders that read files
@@ -807,48 +793,43 @@ class GraphBuilder:
 
         return graph
 
+    @staticmethod
+    def _node_for(decl, family: str, resolution: URNResolution) -> URNNode:
+        """The graph node for one URN declaration and its resolution."""
+        metadata = {
+            "source_path": str(decl.source_path),
+            "is_broken": resolution.is_broken,
+            "resolution_error": resolution.error,
+            "is_deterministic": resolution.is_deterministic,
+            "is_resolved": resolution.is_resolved,
+            "resolved_paths": [str(p) for p in resolution.resolved_paths],
+        }
+        # Surface declaration- and resolution-level metadata onto the graph node
+        # so downstream consumers (validators, viz) can read e.g. abuse_case
+        # fields without re-parsing YAMLs.
+        if getattr(decl, "metadata", None):
+            metadata["declaration"] = dict(decl.metadata)
+        if getattr(resolution, "metadata", None):
+            metadata["resolution"] = dict(resolution.metadata)
+
+        return URNNode(
+            urn=decl.urn,
+            family=family,
+            artifact_path=(
+                resolution.resolved_paths[0] if resolution.resolved_paths else None
+            ),
+            metadata=metadata,
+        )
+
     def _build_containment_edges(self, graph: TraceabilityGraph) -> None:
         """Build containment edges (wagon -> feature -> wmbt -> acceptance)."""
-        import yaml
-
         if not self.plan_dir.exists():
             return
 
-        # Wagon contains features
-        for feature_decl in graph.nodes.values():
-            if feature_decl.family != "feature":
-                continue
-
-            # Parse wagon from feature URN: feature:wagon:feature-name
-            parts = feature_decl.urn.replace("feature:", "").split(":")
-            if len(parts) >= 2:
-                wagon_urn = f"wagon:{parts[0]}"
-                graph.add_edge(
-                    URNEdge(
-                        source_urn=wagon_urn,
-                        target_urn=feature_decl.urn,
-                        edge_type=EdgeType.CONTAINS,
-                        metadata={"source": "urn-structure"},
-                    )
-                )
-
-        # Wagon contains WMBTs
-        for wmbt_decl in graph.nodes.values():
-            if wmbt_decl.family != "wmbt":
-                continue
-
-            # Parse wagon from WMBT URN: wmbt:wagon:STEP001
-            parts = wmbt_decl.urn.replace("wmbt:", "").split(":")
-            if len(parts) >= 2:
-                wagon_urn = f"wagon:{parts[0]}"
-                graph.add_edge(
-                    URNEdge(
-                        source_urn=wagon_urn,
-                        target_urn=wmbt_decl.urn,
-                        edge_type=EdgeType.CONTAINS,
-                        metadata={"source": "urn-structure"},
-                    )
-                )
+        # Wagon contains features (feature:wagon:feature-name) and
+        # WMBTs (wmbt:wagon:STEP001) — the wagon is the URN's first coordinate.
+        self._link_wagon_children(graph, "feature")
+        self._link_wagon_children(graph, "wmbt")
 
         # WMBT contains acceptances
         for acc_decl in graph.nodes.values():
@@ -857,20 +838,34 @@ class GraphBuilder:
 
             # Parse wagon and wmbt from acc URN: acc:wagon:WMBT-HARNESS-SEQ
             parts = acc_decl.urn.replace("acc:", "").split(":")
-            if len(parts) >= 2:
-                wagon_id = parts[0]
-                facets = parts[1].split("-")
-                if len(facets) >= 1:
-                    wmbt_id = facets[0]
-                    wmbt_urn = f"wmbt:{wagon_id}:{wmbt_id}"
-                    graph.add_edge(
-                        URNEdge(
-                            source_urn=wmbt_urn,
-                            target_urn=acc_decl.urn,
-                            edge_type=EdgeType.CONTAINS,
-                            metadata={"source": "urn-structure"},
-                        )
-                    )
+            if len(parts) < 2:
+                continue
+
+            wmbt_id = parts[1].split("-")[0]
+            graph.add_edge(URNEdge(
+                source_urn=f"wmbt:{parts[0]}:{wmbt_id}",
+                target_urn=acc_decl.urn,
+                edge_type=EdgeType.CONTAINS,
+                metadata={"source": "urn-structure"},
+            ))
+
+    @staticmethod
+    def _link_wagon_children(graph: TraceabilityGraph, family: str) -> None:
+        """Wagon CONTAINS every node of this family, per the node's URN structure."""
+        for node in graph.nodes.values():
+            if node.family != family:
+                continue
+
+            parts = node.urn.replace(f"{family}:", "").split(":")
+            if len(parts) < 2:
+                continue
+
+            graph.add_edge(URNEdge(
+                source_urn=f"wagon:{parts[0]}",
+                target_urn=node.urn,
+                edge_type=EdgeType.CONTAINS,
+                metadata={"source": "urn-structure"},
+            ))
 
     def _resolve_contract_ref(self, contract_ref: str) -> Optional[str]:
         """
@@ -881,8 +876,6 @@ class GraphBuilder:
         - File path (contracts/...) - reads $id from schema
         - Schema ID (theme:domain...) - prefixed with contract:
         """
-        import json
-
         if not contract_ref:
             return None
 
@@ -892,21 +885,30 @@ class GraphBuilder:
 
         # File path - resolve via $id
         if contract_ref.startswith("contracts/") or contract_ref.endswith(".schema.json"):
-            contract_path = self.repo_root / contract_ref
-            if contract_path.exists():
-                try:
-                    with open(contract_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    schema_id = data.get("$id")
-                    # Skip urn:jel:* IDs
-                    if schema_id and not schema_id.startswith("urn:jel:"):
-                        return f"contract:{schema_id}"
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                    pass
-            return None
+            return self._contract_urn_from_schema(self.repo_root / contract_ref)
 
         # Schema ID - prefix with contract:
         return f"contract:{contract_ref}"
+
+    def _contract_urn_from_schema(self, contract_path: Path) -> Optional[str]:
+        """The contract URN a schema file's ``$id`` names. None when it names none."""
+        import json
+
+        if not contract_path.exists():
+            return None
+
+        try:
+            with open(contract_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            self._logger.debug("Skipping unreadable contract schema %s: %s", contract_path, e)
+            return None
+
+        schema_id = data.get("$id") if isinstance(data, dict) else None
+        # Skip urn:jel:* IDs
+        if schema_id and not schema_id.startswith("urn:jel:"):
+            return f"contract:{schema_id}"
+        return None
 
     def _resolve_telemetry_ref(self, telemetry_ref: str) -> Optional[str]:
         """Resolve a telemetry reference to a URN."""
@@ -922,17 +924,13 @@ class GraphBuilder:
 
     def _build_produce_consume_edges(self, graph: TraceabilityGraph) -> None:
         """Build produce/consume edges from wagon manifests."""
-        import yaml
-
         if not self.plan_dir.exists():
             return
 
         for manifest_path in self.plan_dir.rglob("_*.yaml"):
             try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-
-                if not data or not isinstance(data, dict):
+                data = self._load_yaml_mapping(manifest_path)
+                if not data:
                     continue
 
                 wagon_slug = data.get("wagon")
@@ -940,215 +938,288 @@ class GraphBuilder:
                     continue
 
                 wagon_urn = f"wagon:{wagon_slug}"
-
-                # Store wagon description in node metadata
-                description = data.get("description")
-                wagon_node = graph.get_node(wagon_urn)
-                if wagon_node and description:
-                    wagon_node.metadata["description"] = description
-
-                # Process produce items
-                for produce in data.get("produce", []):
-                    contract_ref = produce.get("contract")
-                    telemetry_ref = produce.get("telemetry")
-                    produce_urn = produce.get("urn")
-
-                    # Use explicit URN if provided, otherwise resolve contract ref
-                    if produce_urn and produce_urn.startswith("contract:"):
-                        contract_urn = produce_urn
-                    else:
-                        contract_urn = self._resolve_contract_ref(contract_ref)
-
-                    # Wagon produces contract
-                    if contract_urn:
-                        graph.add_edge(
-                            URNEdge(
-                                source_urn=wagon_urn,
-                                target_urn=contract_urn,
-                                edge_type=EdgeType.PRODUCES,
-                            )
-                        )
-
-                    # Wagon produces telemetry
-                    if telemetry_ref:
-                        refs = telemetry_ref if isinstance(telemetry_ref, list) else [telemetry_ref]
-                        for ref in refs:
-                            telemetry_urn = self._resolve_telemetry_ref(ref)
-                            if telemetry_urn:
-                                graph.add_edge(
-                                    URNEdge(
-                                        source_urn=wagon_urn,
-                                        target_urn=telemetry_urn,
-                                        edge_type=EdgeType.PRODUCES,
-                                    )
-                                )
-
-                # Process consume items
-                for consume in data.get("consume", []):
-                    contract_ref = consume.get("contract")
-                    telemetry_ref = consume.get("telemetry")
-
-                    # Wagon consumes contract
-                    contract_urn = self._resolve_contract_ref(contract_ref)
-                    if contract_urn:
-                        graph.add_edge(
-                            URNEdge(
-                                source_urn=wagon_urn,
-                                target_urn=contract_urn,
-                                edge_type=EdgeType.CONSUMES,
-                            )
-                        )
-
-                    # Wagon consumes telemetry
-                    if telemetry_ref:
-                        refs = telemetry_ref if isinstance(telemetry_ref, list) else [telemetry_ref]
-                        for ref in refs:
-                            telemetry_urn = self._resolve_telemetry_ref(ref)
-                            if telemetry_urn:
-                                graph.add_edge(
-                                    URNEdge(
-                                        source_urn=wagon_urn,
-                                        target_urn=telemetry_urn,
-                                        edge_type=EdgeType.CONSUMES,
-                                    )
-                                )
-
-            except Exception:
+                self._annotate_description(graph, wagon_urn, data)
+                self._add_flow_edges(graph, wagon_urn, data, EdgeType.PRODUCES)
+                self._add_flow_edges(graph, wagon_urn, data, EdgeType.CONSUMES)
+            except Exception as e:
+                self._logger.debug(
+                    "Skipping malformed wagon manifest %s: %s", manifest_path, e
+                )
                 continue
+
+    def _add_flow_edges(
+        self,
+        graph: TraceabilityGraph,
+        wagon_urn: str,
+        data: dict,
+        edge_type: EdgeType,
+    ) -> None:
+        """Edges for every contract/telemetry item in the produce[] or consume[] block."""
+        block = "produce" if edge_type == EdgeType.PRODUCES else "consume"
+
+        for item in data.get(block, []):
+            contract_urn = self._flow_contract_urn(item, edge_type)
+            if contract_urn:
+                graph.add_edge(URNEdge(
+                    source_urn=wagon_urn,
+                    target_urn=contract_urn,
+                    edge_type=edge_type,
+                ))
+
+            self._add_telemetry_edges(graph, wagon_urn, item.get("telemetry"), edge_type)
+
+    def _flow_contract_urn(self, item: dict, edge_type: EdgeType) -> Optional[str]:
+        """The contract a produce/consume item names.
+
+        On produce an explicit ``urn:`` wins over the contract ref; consume has
+        no such override.
+        """
+        if edge_type == EdgeType.PRODUCES:
+            declared = item.get("urn")
+            if declared and declared.startswith("contract:"):
+                return declared
+
+        return self._resolve_contract_ref(item.get("contract"))
+
+    def _add_telemetry_edges(
+        self,
+        graph: TraceabilityGraph,
+        wagon_urn: str,
+        telemetry_ref,
+        edge_type: EdgeType,
+    ) -> None:
+        """One edge per telemetry signal a produce/consume item names."""
+        if not telemetry_ref:
+            return
+
+        refs = telemetry_ref if isinstance(telemetry_ref, list) else [telemetry_ref]
+        for ref in refs:
+            telemetry_urn = self._resolve_telemetry_ref(ref)
+            if telemetry_urn:
+                graph.add_edge(URNEdge(
+                    source_urn=wagon_urn,
+                    target_urn=telemetry_urn,
+                    edge_type=edge_type,
+                ))
+
+    def _iter_train_files(self, trains_dir: Path) -> "list[tuple[str, Path]]":
+        """Yield ``(train_urn, path)`` for every real train under ``trains_dir``.
+
+        Typed trains (#1421) live at ``plan/_trains/<subject>/<slug>.yaml`` and
+        their URN is reconstructed from the nested path, so a flat glob misses
+        them entirely. Legacy flat files are still enumerated during the
+        migration window.
+
+        Underscore-prefixed entries are registry/alias artifacts —
+        ``_aliases.yaml``, ``_interlockings/`` — NOT trains. They declare no
+        ``train_id``, so treating one as a train detail file would mint a bogus
+        URN from its stem. This mirrors the same skip in ``TrainResolver``.
+        """
+        found: "list[tuple[str, Path]]" = []
+
+        for subject_dir in sorted(trains_dir.iterdir()):
+            if not subject_dir.is_dir() or subject_dir.name.startswith("_"):
+                continue
+            for train_file in sorted(subject_dir.glob("*.yaml")):
+                if train_file.name.startswith("_"):
+                    continue
+                found.append(
+                    (f"train:{subject_dir.name}:{train_file.stem}", train_file)
+                )
+
+        for train_file in sorted(trains_dir.glob("*.yaml")):
+            if train_file.name.startswith("_"):
+                continue
+            found.append((f"train:{train_file.stem}", train_file))
+
+        return found
 
     def _build_train_edges(self, graph: TraceabilityGraph) -> None:
         """Build train -> wagon containment edges."""
-        import yaml
-
         trains_dir = self.plan_dir / "_trains"
         if not trains_dir.exists():
             return
 
-        for train_file in trains_dir.glob("*.yaml"):
+        for path_urn, train_file in self._iter_train_files(trains_dir):
             try:
-                with open(train_file, "r", encoding="utf-8") as f:
-                    data = yaml.safe_load(f)
-
-                if not data or not isinstance(data, dict):
+                data = self._load_yaml_mapping(train_file)
+                if not data:
                     continue
 
-                train_id = data.get("id") or train_file.stem
-                train_urn = f"train:{train_id}"
-
-                # Store train description in node metadata
-                description = data.get("description")
-                train_node = graph.get_node(train_urn)
-                if train_node and description:
-                    train_node.metadata["description"] = description
-
-                # Train contains wagons.
-                #
-                # Issue #285: train.schema.json requires `participants` (a list
-                # of wagon:* / user:* / system:* URNs) with
-                # additionalProperties:false. The legacy `wagons` field is kept
-                # as a deprecated read-only fallback so pre-1.56 plan/ trees
-                # keep building correct graphs without migration.
-                #
-                # Rules:
-                #   - Merge `participants` + `wagons` into one stream.
-                #   - Filter to wagon-like entries (wagon:* URNs or plain slugs
-                #     from the legacy `wagons` field). user:* / system:* are
-                #     dropped here — they need a different edge type and are
-                #     tracked as a follow-up to #285.
-                #   - Dedupe target wagon URNs so mixed-field YAMLs emit
-                #     exactly one INCLUDES edge per wagon.
-                wagon_targets: list[str] = []
-                seen_targets: set[str] = set()
-
-                def _emit_wagon_target(slug: str) -> None:
-                    urn = slug if slug.startswith("wagon:") else f"wagon:{slug}"
-                    if urn in seen_targets:
-                        return
-                    seen_targets.add(urn)
-                    wagon_targets.append(urn)
-
-                for participant in data.get("participants", []) or []:
-                    if isinstance(participant, str):
-                        if participant.startswith("wagon:"):
-                            _emit_wagon_target(participant)
-                        # user:* / system:* participants are intentionally
-                        # ignored here — they are not INCLUDES targets.
-                        continue
-                    if isinstance(participant, dict):
-                        wagon_slug = participant.get("wagon") or participant.get("slug")
-                        if wagon_slug and isinstance(wagon_slug, str):
-                            _emit_wagon_target(wagon_slug)
-
-                for wagon_ref in data.get("wagons", []) or []:
-                    if isinstance(wagon_ref, str):
-                        _emit_wagon_target(wagon_ref)
-                    elif isinstance(wagon_ref, dict):
-                        wagon_slug = wagon_ref.get("wagon") or wagon_ref.get("slug")
-                        if wagon_slug and isinstance(wagon_slug, str):
-                            _emit_wagon_target(wagon_slug)
-
-                for wagon_urn in wagon_targets:
-                    graph.add_edge(
-                        URNEdge(
-                            source_urn=train_urn,
-                            target_urn=wagon_urn,
-                            edge_type=EdgeType.INCLUDES,
-                        )
-                    )
-
-                # TRAIN_STEP edges (#287): one directed wagon→wagon edge per
-                # handoff in the train's sequence[]. A "handoff" is a
-                # sequence[] entry where `from != to` and both are `wagon:*`
-                # URNs. Internal-phase steps (from == to) are skipped — they
-                # don't advance the pipeline and would clutter journey mode.
-                # Non-wagon participants (user:*, system:*) on either side
-                # are ignored — TRAIN_STEP is strictly wagon-to-wagon.
-                #
-                # Category is derived from train_id[1] per the naming
-                # convention `{theme}{category}{variation}-slug`:
-                #   0 = nominal, 1 = error, 2 = alternate, 3 = exception.
-                _TRAIN_CATEGORY_BY_DIGIT = {
-                    "0": "nominal",
-                    "1": "error",
-                    "2": "alternate",
-                    "3": "exception",
-                }
-                category = "nominal"
-                if isinstance(train_id, str) and len(train_id) > 1:
-                    category = _TRAIN_CATEGORY_BY_DIGIT.get(train_id[1], "nominal")
-
-                sequence = data.get("sequence") or []
-                if isinstance(sequence, list):
-                    ordered_steps = sorted(
-                        (s for s in sequence if isinstance(s, dict)),
-                        key=lambda s: s.get("step", 0),
-                    )
-                    for item in ordered_steps:
-                        frm = item.get("from") or ""
-                        to = item.get("to") or ""
-                        if not isinstance(frm, str) or not isinstance(to, str):
-                            continue
-                        if not frm.startswith("wagon:") or not to.startswith("wagon:"):
-                            continue
-                        if frm == to:
-                            continue  # internal-phase step
-                        graph.add_edge(
-                            URNEdge(
-                                source_urn=frm,
-                                target_urn=to,
-                                edge_type=EdgeType.TRAIN_STEP,
-                                metadata={
-                                    "train": train_urn,
-                                    "step": item.get("step", 0),
-                                    "intent": item.get("intent", ""),
-                                    "category": category,
-                                    "source": "train-sequence",
-                                },
-                            )
-                        )
-
-            except Exception:
+                train_urn = self._train_urn_for(data, path_urn)
+                self._annotate_description(graph, train_urn, data)
+                self._add_train_wagon_edges(graph, train_urn, data)
+                self._add_train_step_edges(graph, train_urn, data)
+            except Exception as e:
+                self._logger.debug("Skipping malformed train manifest %s: %s", train_file, e)
                 continue
+
+    def _load_yaml_mapping(self, path: Path) -> Optional[dict]:
+        """Parse a YAML file. None when it is empty or not a mapping."""
+        import yaml
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return data if isinstance(data, dict) else None
+
+    @staticmethod
+    def _train_urn_for(data: dict, path_urn: str) -> str:
+        """A declared train identity wins; the path-derived URN is the fallback.
+
+        The path-derived URN is already typed for a train under a subject dir.
+        """
+        declared = data.get("train_id") or data.get("id")
+        if isinstance(declared, str) and declared.startswith("train:"):
+            return declared
+        return path_urn
+
+    @staticmethod
+    def _annotate_description(graph: TraceabilityGraph, urn: str, data: dict) -> None:
+        """Store a manifest's description on its node metadata."""
+        description = data.get("description")
+        node = graph.get_node(urn)
+        if node and description:
+            node.metadata["description"] = description
+
+    @staticmethod
+    def _wagon_slug_in(entry) -> Optional[str]:
+        """The wagon slug a dict participant/wagon entry names, if it names one."""
+        if not isinstance(entry, dict):
+            return None
+        slug = entry.get("wagon") or entry.get("slug")
+        return slug if isinstance(slug, str) and slug else None
+
+    def _train_wagon_targets(self, data: dict) -> List[str]:
+        """Deduped wagon URNs a train includes.
+
+        Issue #285: train.schema.json requires `participants` (a list of
+        wagon:* / user:* / system:* URNs) with additionalProperties:false. The
+        legacy `wagons` field is kept as a deprecated read-only fallback so
+        pre-1.56 plan/ trees keep building correct graphs without migration.
+        Both streams merge here; user:* / system:* are dropped (they need a
+        different edge type — follow-up to #285), and targets are deduped so a
+        mixed-field YAML emits exactly one INCLUDES edge per wagon.
+        """
+        targets: List[str] = []
+        seen: Set[str] = set()
+
+        for participant in data.get("participants", []) or []:
+            if isinstance(participant, str):
+                if participant.startswith("wagon:"):
+                    self._append_wagon_target(targets, seen, participant)
+                continue
+
+            slug = self._wagon_slug_in(participant)
+            if slug:
+                self._append_wagon_target(targets, seen, slug)
+
+        for wagon_ref in data.get("wagons", []) or []:
+            if isinstance(wagon_ref, str):
+                self._append_wagon_target(targets, seen, wagon_ref)
+                continue
+
+            slug = self._wagon_slug_in(wagon_ref)
+            if slug:
+                self._append_wagon_target(targets, seen, slug)
+
+        return targets
+
+    @staticmethod
+    def _append_wagon_target(targets: List[str], seen: Set[str], slug: str) -> None:
+        """Append the wagon URN for a slug (or pass a wagon: URN through), deduped."""
+        urn = slug if slug.startswith("wagon:") else f"wagon:{slug}"
+        if urn not in seen:
+            seen.add(urn)
+            targets.append(urn)
+
+    def _add_train_wagon_edges(
+        self, graph: TraceabilityGraph, train_urn: str, data: dict
+    ) -> None:
+        """A train INCLUDES every wagon it lists."""
+        for wagon_urn in self._train_wagon_targets(data):
+            graph.add_edge(URNEdge(
+                source_urn=train_urn,
+                target_urn=wagon_urn,
+                edge_type=EdgeType.INCLUDES,
+            ))
+
+    def _add_train_step_edges(
+        self, graph: TraceabilityGraph, train_urn: str, data: dict
+    ) -> None:
+        """One directed wagon->wagon TRAIN_STEP edge per handoff in sequence[] (#287).
+
+        A handoff is a sequence[] entry where ``from != to`` and both are
+        ``wagon:*`` URNs. Internal-phase steps (from == to) are skipped — they
+        don't advance the pipeline and would clutter journey mode. Non-wagon
+        participants (user:*, system:*) are ignored: TRAIN_STEP is strictly
+        wagon-to-wagon.
+        """
+        sequence = data.get("sequence") or []
+        if not isinstance(sequence, list):
+            return
+
+        # Category is a validated FIELD on the train (#1421/#1440), never a digit
+        # in its identity — a typed train:<subject>:<slug> has no digit to index.
+        # A train that declares none is nominal.
+        category = data.get("category")
+        if not isinstance(category, str) or not category:
+            category = "nominal"
+
+        ordered_steps = sorted(
+            (s for s in sequence if isinstance(s, dict)),
+            key=lambda s: s.get("step", 0),
+        )
+        for item in ordered_steps:
+            frm = item.get("from") or ""
+            to = item.get("to") or ""
+            if not isinstance(frm, str) or not isinstance(to, str):
+                continue
+            if not frm.startswith("wagon:") or not to.startswith("wagon:"):
+                continue
+            if frm == to:
+                continue  # internal-phase step
+
+            graph.add_edge(URNEdge(
+                source_urn=frm,
+                target_urn=to,
+                edge_type=EdgeType.TRAIN_STEP,
+                metadata={
+                    "train": train_urn,
+                    "step": item.get("step", 0),
+                    "intent": item.get("intent", ""),
+                    "category": category,
+                    "source": "train-sequence",
+                },
+            ))
+
+    def _build_subject_edges(self, graph: TraceabilityGraph) -> None:
+        """Build subject -> train (CONTAINS) edges for typed trains (#1421).
+
+        A typed ``train:<subject>:<slug>`` is a 2-token URN parented by its
+        ``subject:<subject>`` root (grammar: ``train.parent == subject``). This
+        edge makes the subject a real parent node so the typed train is not a
+        topological orphan. The subject node is auto-synthesized by ``add_edge``
+        if the registry has not declared it yet.
+
+        Legacy ``train:NNNN-slug`` (a single token) has no subject parent and is
+        skipped — dual-resolution keeps it resolving during the migration
+        window (see ``TrainResolver``).
+        """
+        for urn, node in graph.nodes.items():
+            if node.family != "train":
+                continue
+            tokens = urn[len("train:"):].split(":")
+            if len(tokens) != 2 or not all(tokens):
+                continue
+            subject_urn = f"subject:{tokens[0]}"
+            graph.add_edge(
+                URNEdge(
+                    source_urn=subject_urn,
+                    target_urn=urn,
+                    edge_type=EdgeType.CONTAINS,
+                    metadata={"source": "urn-structure"},
+                )
+            )
 
     def _build_security_edges(self, graph: TraceabilityGraph) -> None:
         """
@@ -1192,38 +1263,36 @@ class GraphBuilder:
             # If the target acc URN was not declared elsewhere, synthesize a
             # broken target node so EdgeValidator.find_broken flags it.
             if acceptance_ref not in graph.nodes:
-                target_resolution = self.registry.resolve(acceptance_ref)
-                graph.add_node(
-                    URNNode(
-                        urn=acceptance_ref,
-                        family=self.registry.get_family(acceptance_ref) or "unknown",
-                        artifact_path=(
-                            target_resolution.resolved_paths[0]
-                            if target_resolution.resolved_paths
-                            else None
-                        ),
-                        metadata={
-                            "source_path": str(node.metadata.get("source_path", "")),
-                            "is_broken": target_resolution.is_broken,
-                            "resolution_error": target_resolution.error,
-                            "is_deterministic": target_resolution.is_deterministic,
-                            "is_resolved": target_resolution.is_resolved,
-                            "resolved_paths": [
-                                str(p) for p in target_resolution.resolved_paths
-                            ],
-                            "synthesized_by": "abuse_case.acceptance_ref",
-                        },
-                    )
-                )
+                self._synthesize_acceptance_ref_node(graph, acceptance_ref, node)
 
-            graph.add_edge(
-                URNEdge(
-                    source_urn=node.urn,
-                    target_urn=acceptance_ref,
-                    edge_type=EdgeType.REFERENCES,
-                    metadata={"source": "abuse-case-acceptance-ref"},
-                )
-            )
+            graph.add_edge(URNEdge(
+                source_urn=node.urn,
+                target_urn=acceptance_ref,
+                edge_type=EdgeType.REFERENCES,
+                metadata={"source": "abuse-case-acceptance-ref"},
+            ))
+
+    def _synthesize_acceptance_ref_node(
+        self, graph: TraceabilityGraph, acceptance_ref: str, node: URNNode
+    ) -> None:
+        """Add a node for an undeclared acceptance_ref target so find_broken flags it."""
+        resolution = self.registry.resolve(acceptance_ref)
+        graph.add_node(URNNode(
+            urn=acceptance_ref,
+            family=self.registry.get_family(acceptance_ref) or "unknown",
+            artifact_path=(
+                resolution.resolved_paths[0] if resolution.resolved_paths else None
+            ),
+            metadata={
+                "source_path": str(node.metadata.get("source_path", "")),
+                "is_broken": resolution.is_broken,
+                "resolution_error": resolution.error,
+                "is_deterministic": resolution.is_deterministic,
+                "is_resolved": resolution.is_resolved,
+                "resolved_paths": [str(p) for p in resolution.resolved_paths],
+                "synthesized_by": "abuse_case.acceptance_ref",
+            },
+        ))
 
     def _build_component_edges(self, graph: TraceabilityGraph) -> None:
         """Build feature -> component (CONTAINS) edges from component URN structure."""
@@ -1233,31 +1302,28 @@ class GraphBuilder:
 
             # component:{wagon}:{feature}:{name}:{side}:{layer}
             parts = node.urn.replace("component:", "").split(":")
-            if len(parts) >= 2:
-                wagon_id, feature_id = parts[0], parts[1]
-                feature_urn = f"feature:{wagon_id}:{feature_id}"
-                wagon_urn = f"wagon:{wagon_id}"
+            if len(parts) < 2:
+                continue
 
-                # feature -> component (CONTAINS); add_edge auto-synthesizes missing feature node
-                graph.add_edge(
-                    URNEdge(
-                        source_urn=feature_urn,
-                        target_urn=node.urn,
-                        edge_type=EdgeType.CONTAINS,
-                        metadata={"source": "urn-structure"},
-                    )
-                )
+            wagon_id, feature_id = parts[0], parts[1]
+            feature_urn = f"feature:{wagon_id}:{feature_id}"
 
-                # wagon -> feature fallback if feature has no wagon parent yet
-                if not graph.get_parents(feature_urn, EdgeType.CONTAINS):
-                    graph.add_edge(
-                        URNEdge(
-                            source_urn=wagon_urn,
-                            target_urn=feature_urn,
-                            edge_type=EdgeType.CONTAINS,
-                            metadata={"source": "urn-structure"},
-                        )
-                    )
+            # feature -> component (CONTAINS); add_edge auto-synthesizes a missing feature
+            graph.add_edge(URNEdge(
+                source_urn=feature_urn,
+                target_urn=node.urn,
+                edge_type=EdgeType.CONTAINS,
+                metadata={"source": "urn-structure"},
+            ))
+
+            # wagon -> feature fallback if feature has no wagon parent yet
+            if not graph.get_parents(feature_urn, EdgeType.CONTAINS):
+                graph.add_edge(URNEdge(
+                    source_urn=f"wagon:{wagon_id}",
+                    target_urn=feature_urn,
+                    edge_type=EdgeType.CONTAINS,
+                    metadata={"source": "urn-structure"},
+                ))
 
     def _build_test_edges(
         self,
@@ -1270,85 +1336,99 @@ class GraphBuilder:
         Component→test edges built here are derived (advisory); authoritative
         edges come from ``_build_tested_by_edges``.
         """
-        import re
-
-        urn_comment_re = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
-        acceptance_re = re.compile(r"(?:#|//)\s*[Aa]cceptance:\s*([^\s]+)")
-        regex_meta_re = re.compile(r"[\[\]\(\)\*\+\?\{\}\^\$\\]")
-
         # Collect components that have authoritative Tested-By edges
-        components_with_tested_by: set[str] = set()
-        for edge in graph.edges:
-            if (edge.edge_type == EdgeType.TESTED_BY
-                    and edge.metadata.get("source") == "tested-by-header"):
-                components_with_tested_by.add(edge.source_urn)
+        components_with_tested_by = {
+            edge.source_urn
+            for edge in graph.edges
+            if edge.edge_type == EdgeType.TESTED_BY
+            and edge.metadata.get("source") == "tested-by-header"
+        }
 
         for node in list(graph.nodes.values()):
             if node.family != "test":
                 continue
 
-            # Find the test file from artifact_path or source_path metadata
-            test_path = node.artifact_path
-            if not test_path:
-                source_path = node.metadata.get("source_path")
-                if source_path:
-                    test_path = Path(source_path)
-
-            if not test_path or not Path(test_path).exists():
+            content = self._node_content(node, content_cache)
+            if content is None:
                 continue
 
-            cache_key = str(test_path)
-            content = content_cache.get(cache_key) if content_cache else None
-            if content is None:
-                try:
-                    content = Path(test_path).read_text(encoding="utf-8")
-                except Exception:
-                    continue
+            self._add_test_reference_edges(
+                graph, node, content, components_with_tested_by
+            )
 
-            for line in content.split("\n"):
-                # V3: # Acceptance: acc:...
-                acc_match = acceptance_re.search(line)
-                if acc_match:
-                    ref_urn = acc_match.group(1)
-                    if ref_urn.startswith("acc:") and ref_urn in graph.nodes:
-                        graph.add_edge(
-                            URNEdge(
-                                source_urn=ref_urn,
-                                target_urn=node.urn,
-                                edge_type=EdgeType.TESTED_BY,
-                            )
-                        )
-                    continue
+    def _node_content(
+        self, node: URNNode, content_cache: Optional[Dict[str, str]]
+    ) -> Optional[str]:
+        """Source of the file a node points at; None when it cannot be read."""
+        # The file comes from artifact_path, else the source_path metadata
+        file_path = node.artifact_path
+        if not file_path:
+            source_path = node.metadata.get("source_path")
+            if source_path:
+                file_path = Path(source_path)
 
-                match = urn_comment_re.search(line)
-                if not match:
-                    continue
-                ref_urn = match.group(1)
-                if regex_meta_re.search(ref_urn):
-                    continue
+        if not file_path or not Path(file_path).exists():
+            return None
 
-                # acc -> test (TESTED_BY): legacy # URN: acc:...
-                if ref_urn.startswith("acc:") and ref_urn in graph.nodes:
-                    graph.add_edge(
-                        URNEdge(
-                            source_urn=ref_urn,
-                            target_urn=node.urn,
-                            edge_type=EdgeType.TESTED_BY,
-                        )
-                    )
-                # component -> test (TESTED_BY): derived (advisory only)
-                # Skip if component has authoritative Tested-By edges
-                elif (ref_urn.startswith("component:")
-                      and ref_urn in graph.nodes
-                      and ref_urn not in components_with_tested_by):
-                    graph.add_edge(
-                        URNEdge(
-                            source_urn=ref_urn,
-                            target_urn=node.urn,
-                            edge_type=EdgeType.TESTED_BY,
-                            metadata={"source": "derived"},
-                        )
-                    )
+        cached = content_cache.get(str(file_path)) if content_cache else None
+        if cached is not None:
+            return cached
+
+        try:
+            return Path(file_path).read_text(encoding="utf-8")
+        except Exception as e:
+            self._logger.debug("Skipping unreadable file %s: %s", file_path, e)
+            return None
+
+    def _add_test_reference_edges(
+        self,
+        graph: TraceabilityGraph,
+        node: URNNode,
+        content: str,
+        components_with_tested_by: Set[str],
+    ) -> None:
+        """TESTED_BY edges for every acc:/component: URN a test file references."""
+        for line in content.split("\n"):
+            # V3: # Acceptance: acc:...
+            acc_match = self._ACCEPTANCE_RE.search(line)
+            if acc_match:
+                self._add_acc_tested_by(graph, acc_match.group(1), node)
+                continue
+
+            match = self._URN_COMMENT_RE.search(line)
+            if not match:
+                continue
+
+            ref_urn = match.group(1)
+            if self._REGEX_META_RE.search(ref_urn):
+                continue
+
+            # acc -> test (TESTED_BY): legacy # URN: acc:...
+            if ref_urn.startswith("acc:"):
+                self._add_acc_tested_by(graph, ref_urn, node)
+            # component -> test (TESTED_BY): derived (advisory only). Skipped
+            # when the component already has authoritative Tested-By edges.
+            elif (ref_urn.startswith("component:")
+                  and ref_urn in graph.nodes
+                  and ref_urn not in components_with_tested_by):
+                graph.add_edge(URNEdge(
+                    source_urn=ref_urn,
+                    target_urn=node.urn,
+                    edge_type=EdgeType.TESTED_BY,
+                    metadata={"source": "derived"},
+                ))
+
+    @staticmethod
+    def _add_acc_tested_by(
+        graph: TraceabilityGraph, ref_urn: str, node: URNNode
+    ) -> None:
+        """acc -> test TESTED_BY edge, when ref_urn names an acc node in the graph."""
+        if ref_urn.startswith("acc:") and ref_urn in graph.nodes:
+            graph.add_edge(URNEdge(
+                source_urn=ref_urn,
+                target_urn=node.urn,
+                edge_type=EdgeType.TESTED_BY,
+            ))
 
     def _build_tested_by_edges(
         self,
@@ -1365,48 +1445,27 @@ class GraphBuilder:
 
         These are authoritative — they override any derived mappings (S9.5).
         """
-        import re
-
-        tested_by_re = re.compile(r"(?:#|//)\s*-\s*(test:[^\s]+)")
-
         for node in list(graph.nodes.values()):
             if node.family != "component":
                 continue
 
-            # Find the component source file
-            comp_path = node.artifact_path
-            if not comp_path:
-                source_path = node.metadata.get("source_path")
-                if source_path:
-                    comp_path = Path(source_path)
-
-            if not comp_path or not Path(comp_path).exists():
+            content = self._node_content(node, content_cache)
+            if content is None:
                 continue
 
-            cache_key = str(comp_path)
-            content = content_cache.get(cache_key) if content_cache else None
-            if content is None:
-                try:
-                    content = Path(comp_path).read_text(encoding="utf-8")
-                except Exception:
-                    continue
-
-            # Parse Tested-By test URN references
+            # Parse Tested-By test URN references. add_edge synthesizes the
+            # test node when the graph has not seen it yet.
             for line in content.split("\n"):
-                match = tested_by_re.search(line)
+                match = self._TESTED_BY_RE.search(line)
                 if not match:
                     continue
-                test_urn = match.group(1)
 
-                # Ensure the test node exists in graph (create if needed)
-                graph.add_edge(
-                    URNEdge(
-                        source_urn=node.urn,
-                        target_urn=test_urn,
-                        edge_type=EdgeType.TESTED_BY,
-                        metadata={"source": "tested-by-header"},
-                    )
-                )
+                graph.add_edge(URNEdge(
+                    source_urn=node.urn,
+                    target_urn=match.group(1),
+                    edge_type=EdgeType.TESTED_BY,
+                    metadata={"source": "tested-by-header"},
+                ))
 
     def _build_journey_test_edges(
         self,
@@ -1427,34 +1486,18 @@ class GraphBuilder:
             if node.family != "test":
                 continue
 
-            test_path = node.artifact_path
-            if not test_path:
-                source_path = node.metadata.get("source_path")
-                if source_path:
-                    test_path = Path(source_path)
-
-            if not test_path or not Path(test_path).exists():
+            content = self._node_content(node, content_cache)
+            if content is None:
                 continue
 
-            cache_key = str(test_path)
-            content = content_cache.get(cache_key) if content_cache else None
-            if content is None:
-                try:
-                    content = Path(test_path).read_text(encoding="utf-8")
-                except Exception:
-                    continue
-
-            header = TestResolver.parse_test_header(content)
-            train_ref = header.get("train")
+            train_ref = TestResolver.parse_test_header(content).get("train")
             if train_ref and train_ref.startswith("train:"):
-                graph.add_edge(
-                    URNEdge(
-                        source_urn=train_ref,
-                        target_urn=node.urn,
-                        edge_type=EdgeType.TESTED_BY,
-                        metadata={"source": "train-header"},
-                    )
-                )
+                graph.add_edge(URNEdge(
+                    source_urn=train_ref,
+                    target_urn=node.urn,
+                    edge_type=EdgeType.TESTED_BY,
+                    metadata={"source": "train-header"},
+                ))
 
     def _build_jel_contract_nodes(self, graph: TraceabilityGraph) -> None:
         """
@@ -1463,41 +1506,50 @@ class GraphBuilder:
         These nodes carry ``is_jel`` metadata so that EdgeValidator can detect
         non-ATDD contract IDs without any file I/O of its own.
         """
-        import json
-
         contracts_dir = self.repo_root / "contracts"
         if not contracts_dir.exists():
             return
 
         for contract_file in contracts_dir.rglob("*.schema.json"):
             try:
-                with open(contract_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                schema_id = data.get("$id", "")
-                if not schema_id.startswith("urn:jel:"):
-                    continue
-
-                # Derive correct ATDD-style ID from file path
-                relative_path = contract_file.relative_to(contracts_dir)
-                path_without_ext = str(relative_path).replace(".schema.json", "")
-                correct_id = path_without_ext.replace("/", ":").replace("\\", ":")
-
-                synthetic_urn = f"contract:{schema_id}"
-                node = URNNode(
-                    urn=synthetic_urn,
-                    family="contract",
-                    artifact_path=contract_file,
-                    metadata={
-                        "is_jel": True,
-                        "schema_id": schema_id,
-                        "correct_id": correct_id,
-                    },
+                node = self._jel_contract_node(contract_file, contracts_dir)
+                if node:
+                    graph.add_node(node)
+            except Exception as e:
+                self._logger.debug(
+                    "Skipping unreadable contract schema %s: %s", contract_file, e
                 )
-                graph.add_node(node)
-
-            except Exception:
                 continue
+
+    def _jel_contract_node(
+        self, contract_file: Path, contracts_dir: Path
+    ) -> Optional[URNNode]:
+        """Node for a urn:jel:* schema, carrying the ATDD-style ID it should have."""
+        import json
+
+        with open(contract_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        schema_id = data.get("$id", "")
+        if not schema_id.startswith("urn:jel:"):
+            return None
+
+        # Derive the correct ATDD-style ID from the file path
+        path_without_ext = str(contract_file.relative_to(contracts_dir)).replace(
+            ".schema.json", ""
+        )
+        correct_id = path_without_ext.replace("/", ":").replace("\\", ":")
+
+        return URNNode(
+            urn=f"contract:{schema_id}",
+            family="contract",
+            artifact_path=contract_file,
+            metadata={
+                "is_jel": True,
+                "schema_id": schema_id,
+                "correct_id": correct_id,
+            },
+        )
 
     def build_from_root(
         self,

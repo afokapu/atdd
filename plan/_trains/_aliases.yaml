@@ -1,0 +1,13 @@
+version: '1.0'
+name: Train URN alias map
+description: 'Migration alias map (#1421): legacy NNNN-slug -> typed train:<subject>:<slug>.
+  Consumed by TrainResolver for legacy dual-resolution; inverse (rollback) is train_urn_migration.rollback().'
+aliases:
+  0001-self-compliance-validate: self-compliance/validate-lifecycle
+  0002-coach-drives-lifecycle: issue-lifecycle/drive-state-machine
+  0003-author-substrate: substrate/author-artifacts
+  0004-admit-substrate: substrate/admit-packages
+  0005-bind-substrate: substrate/bind-runtime
+  0006-state-projection: object-conflict-resolution/project-state
+  0206-reconcile-dirty-store: object-conflict-resolution/reconcile-dirty-store
+  0306-resolve-object-conflict: object-conflict-resolution/resolve-object-conflict

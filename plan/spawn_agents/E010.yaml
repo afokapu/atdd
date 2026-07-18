@@ -1,4 +1,7 @@
-urn: "wmbt:spawn-agents:E010"
+urn: "wmbt:spawn-agents:E010"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E010-SMOKE-001 'readiness-gate-with-real-multiplexer' exercised the readiness gate
+# inside `commands/spawn.py`, decommissioned with the coach's sub-worker orchestration.
+# The surviving unit behaviour is still bound to a live test.
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -7,100 +10,6 @@ context_clarifier: "when the coach creates a multiplexer surface it immediately 
 lens: "functional.effectiveness"
 statement: "minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate when the coach creates a surface and pastes the launch prompt — by pre-trusting the worktree in ~/.claude.json, polling _wait_for_claude_ready() before paste to confirm a live session .jsonl, asserting _assert_worker_processing() after paste by polling the session jsonl byte size until it grows (≥1 byte added proves Claude accepted the prompt), and emitting 'transitioned:true' in decisions.jsonl only after that assertion passes, with loud escalation on timeout"
 acceptances:
-  - identity:
-      urn: "acc:spawn-agents:E010-UNIT-001-pre-trust-writes-worktree-entry"
-      id: "AC-UNIT-001"
-      purpose: "_pre_trust_worktree writes a projects entry for the worktree into ~/.claude.json with hasTrustDialogAccepted:true before any surface is created, so the workspace-trust modal is never shown"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _pre_trust_worktree(worktree_path: Path, claude_json_path: Path)"
-        - "A tmp_path is used as claude_json_path so no real ~/.claude.json is touched"
-        - "The worktree_path has no existing entry in the projects dict of the file"
-    when:
-      abstract: "_pre_trust_worktree(worktree_path, claude_json_path) is called"
-    then:
-      abstract:
-        - "claude_json_path exists after the call"
-        - "json.loads(claude_json_path.read_text())['projects'][str(worktree_path)]['hasTrustDialogAccepted'] is True"
-        - "Calling _pre_trust_worktree a second time with the same path does not lose the existing entry — the merge is non-destructive"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E010-UNIT-002-wait-for-claude-ready-polls-session-file"
-      id: "AC-UNIT-002"
-      purpose: "_wait_for_claude_ready returns only after a .jsonl session file newer than spawn_time appears in the project directory, within the bounded timeout"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _wait_for_claude_ready(surface_ref, project_key: str, spawn_time: float, claude_projects_dir: Path, timeout_s: float, poll_interval_s: float)"
-        - "A FakeMultiplexer whose capture_surface_text() returns a stable TUI marker string ('⏵⏵ accept edits')"
-        - "claude_projects_dir / project_key / is initially empty (no .jsonl files)"
-        - "A background thread creates a fresh .jsonl file with mtime > spawn_time after 0.05s"
-    when:
-      abstract: "_wait_for_claude_ready is called with timeout_s=2.0 and poll_interval_s=0.01"
-    then:
-      abstract:
-        - "The call returns without raising WorkerReadinessTimeout"
-        - "The elapsed wall-clock time is less than 1.0s (the file appeared promptly)"
-        - "No WorkerReadinessTimeout is raised when both the .jsonl file and TUI marker are present"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E010-UNIT-003-wait-for-claude-ready-raises-timeout"
-      id: "AC-UNIT-003"
-      purpose: "_wait_for_claude_ready raises WorkerReadinessTimeout with full diagnostics when the session file never appears within the bounded wait"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _wait_for_claude_ready and WorkerReadinessTimeout"
-        - "claude_projects_dir / project_key / is empty and no .jsonl file is created during the wait"
-        - "FakeMultiplexer.capture_surface_text() returns an empty string"
-    when:
-      abstract: "_wait_for_claude_ready is called with timeout_s=0.05 and poll_interval_s=0.01"
-    then:
-      abstract:
-        - "WorkerReadinessTimeout is raised"
-        - "The exception message contains the surface_ref identifier"
-        - "The exception message contains the elapsed time and project_key so an operator can diagnose the stall"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E010-UNIT-004-assert-worker-processing-passes-on-thinking-marker"
-      id: "AC-UNIT-004"
-      purpose: "_assert_worker_processing returns without raising when the session jsonl byte size grows (Claude appended ≥1 new message after the launch prompt was pasted)"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/coach/commands/spawn.py exposes _assert_worker_processing(surface_ref, project_key, *, claude_projects_dir, timeout_s, poll_interval_s)"
-        - "A tmp_path / project_key / session.jsonl is pre-created with some initial bytes"
-        - "A background thread appends ≥1 byte to the jsonl after 0.02s"
-    when:
-      abstract: "_assert_worker_processing is called with timeout_s=2.0, poll_interval_s=0.01"
-    then:
-      abstract:
-        - "The call returns without raising"
-        - "No WorkerReadinessTimeout is raised"
-        - "The function returns as soon as the file size exceeds the initial sample"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"
-      updated: "2026-05-20"
   - identity:
       urn: "acc:spawn-agents:E010-UNIT-005-decision-log-gated-on-assertion"
       id: "AC-UNIT-005"
@@ -125,54 +34,3 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-20"
       updated: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E010-INTEGRATION-001-full-spawn-path-with-readiness-gate"
-      id: "AC-INTEGRATION-001"
-      purpose: "The full cmd_spawn path exercises pre-trust → surface creation → _wait_for_claude_ready → paste → _assert_worker_processing in sequence, with a static-then-growing session jsonl that simulates a worker that boots and then processes the prompt"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A FakeMultiplexer with no capture_surface_text (confirms the new approach needs no multiplexer capture)"
-        - "A tmp claude_projects_dir with a pre-existing session.jsonl file (for _wait_for_claude_ready to pass immediately)"
-        - "A background thread appends bytes to the session.jsonl after 0.05s (for _assert_worker_processing to pass)"
-        - "A tmp claude_json_path (no real ~/.claude.json touched)"
-        - "A dummy launch prompt file exists on disk"
-    when:
-      abstract: "cmd_spawn is invoked end-to-end with the FakeMultiplexer and tmp paths injected"
-    then:
-      abstract:
-        - "The pre-trust entry is present in claude_json_path for the worktree"
-        - "_wait_for_claude_ready completes without raising (session file existed immediately)"
-        - "_assert_worker_processing completes without raising (jsonl grew within timeout)"
-        - "The agent_spawned event is written to runtime/agents/"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"
-      updated: "2026-05-20"
-  - identity:
-      urn: "acc:spawn-agents:E010-SMOKE-001-readiness-gate-with-real-multiplexer"
-      id: "AC-SMOKE-001"
-      purpose: "Against a real cmux session, the readiness gate correctly waits for a session .jsonl to appear before pasting, and the post-paste assertion confirms the worker is processing — no phantom 'transitioned:true' is logged"
-      phase: "SMOKE"
-    harness:
-      type: "smoke"
-      category: "backend"
-    given:
-      abstract:
-        - "A real cmux session is available (CMUX_SOCKET set or default socket found)"
-        - "A real worktree path is supplied; pre-trust writes to a tmp claude_json_path (not the real ~/.claude.json)"
-        - "The launch command is a fast-exiting shell command (e.g. 'sleep 0.1') rather than a real Claude Code invocation, so the test is hermetic"
-        - "The test writes a .jsonl file after 0.1s to simulate the session file appearing"
-    when:
-      abstract: "The full spawn path runs against the real cmux backend with the hermetic launch command"
-    then:
-      abstract:
-        - "_wait_for_claude_ready completes (session file appeared)"
-        - "The decisions.jsonl entry records 'transitioned': true only because the assertion passed"
-        - "No WorkerReadinessTimeout is raised during the test run"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-20"

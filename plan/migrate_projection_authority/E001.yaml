@@ -1,0 +1,86 @@
+urn: wmbt:migrate-projection-authority:E001
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: manifest-projection-migration
+context_clarifier: 'when CORE-031''s migration tool converts a legacy .atdd/manifest.yaml
+  into the committed projection: it hydrates the store, then emits one deterministic
+  .atdd/state/projection/<uid>.yaml per work item, keyed by immutable uid and never
+  by slug'
+lens: functional.effectiveness
+statement: maximize likelihood of a complete manifest-projection-migration that reads
+  the legacy manifest, hydrates the store, and emits one deterministic .atdd/state/projection/<uid>.yaml
+  per work item keyed by the immutable uid rather than the mutable slug
+acceptances:
+- given:
+    abstract:
+    - A legacy .atdd/manifest.yaml carrying N work items, each with a uid, slug, and
+      phase
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: GREEN
+    purpose: the migration tool emits exactly one projection file per manifest work
+      item, byte-identical across two runs
+    urn: acc:migrate-projection-authority:E001-UNIT-001-emits-one-projection-per-work-item
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - N files exist under .atdd/state/projection/, one per work item
+    - Every file is named <uid>.yaml, never <slug>.yaml
+    - The second run reproduces byte-identical content (invariant I1)
+  when:
+    abstract: the manifest-to-projection migration tool is run twice against the same
+      manifest
+- given:
+    abstract:
+    - A manifest work item migrated once, then renamed so the slug changes and the
+      uid does not
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: RED
+    purpose: a manifest work item whose slug changed between runs still migrates to
+      the same uid-keyed projection path
+    urn: acc:migrate-projection-authority:E001-UNIT-002-uid-keyed-projection-survives-rename
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The projection path is unchanged because it derives from uid, not slug
+    - No second, slug-named projection file is created
+    - 'RED: no migration tool exists today, so the run fails with a missing-command
+      error'
+  when:
+    abstract: the migration tool is run again on the renamed manifest
+- given:
+    abstract:
+    - A real repo checkout with a populated .atdd/manifest.yaml and the installed
+      atdd CLI
+  harness:
+    category: integration
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify the migration tool converts a real repo's manifest into a committed
+      projection tree through the installed CLI
+    urn: acc:migrate-projection-authority:E001-SMOKE-001-cli-migrates-real-manifest
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - A .atdd/state/projection/ tree is produced with one <uid>.yaml per manifest
+      work item
+    - 'Re-running the command is a no-op: git reports no diff'
+    - The projection canonicality check passes over the produced tree
+  when:
+    abstract: the migration command is run end-to-end in that checkout

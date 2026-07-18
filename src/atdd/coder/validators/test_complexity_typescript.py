@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -34,7 +35,7 @@ _RULE_LEN_TS = bind_rule("coder.refactor.complexity-length-typescript")
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-WEB_SRC = REPO_ROOT / "web" / "src"
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
 
 # ---------------------------------------------------------------------------
 # Complexity thresholds (parity with test_complexity.py)
@@ -379,8 +380,8 @@ def count_function_lines_ts(function_body: str) -> int:
 # ---------------------------------------------------------------------------
 def scan_cyclomatic_complexity_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for cyclomatic complexity violations in TS/TSX files."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)
@@ -406,8 +407,8 @@ def scan_cyclomatic_complexity_ts(repo_root: Path) -> Tuple[int, List[Violation]
 
 def scan_nesting_depth_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for nesting depth violations in TS/TSX files."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)
@@ -431,8 +432,8 @@ def scan_nesting_depth_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 def scan_function_length_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for function length violations in TS/TSX files."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)

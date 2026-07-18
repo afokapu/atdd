@@ -1,0 +1,29 @@
+#!/bin/sh
+# ATDD post-rewrite hook — reconcile the local store after a rebase or amend (#1400 CORE-014).
+# Installed by `atdd init`. Always exits 0.
+#
+# A rebase or an amend rewrites history and moves HEAD, so the commit the local store
+# was hydrated from may no longer even exist. `atdd state reconcile` re-anchors the
+# store to the new HEAD and replays any uncommitted local overlay on top of it.
+#
+# git passes the rewrite reason as $1 (`rebase` or `amend`); both move HEAD, so both
+# reconcile.
+#
+# Convenience, never authority (spec §9): bypassing this hook leaves store_base_commit
+# behind HEAD — or naming a commit the rewrite discarded — and `atdd state freshness`
+# detects both.
+
+set -u
+
+if [ "${CI:-}" = "true" ]; then
+    exit 0
+fi
+
+command -v atdd >/dev/null 2>&1 || exit 0
+
+if ! atdd state reconcile >&2; then
+    echo "ATDD post-rewrite: reconcile did not complete. Your store is unchanged and any" >&2
+    echo "  backup is retained. Run 'atdd state reconcile' to see the report." >&2
+fi
+
+exit 0

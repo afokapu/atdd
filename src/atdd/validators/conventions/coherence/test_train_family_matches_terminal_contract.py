@@ -21,6 +21,10 @@ from atdd.validators.conventions.coherence.fixtures import (
     INVALID_FRAGMENTS,
     VALID_FRAGMENTS,
 )
+from atdd.validators.conventions._support.graph_mutations import (
+    clone_graph,
+    set_node_field,
+)
 
 FAMILY = "coherence"
 TEMPLATE = "resolved_fact_agreement"
@@ -41,30 +45,42 @@ def test_train_family_matches_terminal_contract_variant_contract() -> None:
 
 
 # --- executable graph-question tests ---------------------------------------
-# Clean baseline is 0 (only train 0002 declares a family, `behavior`, with a
-# non-receipt terminal -> agrees). The fault (flip 0002 to family=delivery while its
-# terminal is NOT a commit-receipt) is caught by the convention evaluator.
-_TRAIN_FILE = "plan/_trains/0002-coach-drives-lifecycle.yaml"
+# Clean baseline is 0 (the one train that declares a family declares `behavior`,
+# with a non-receipt terminal -> agrees). The fault (flip it to family=delivery
+# while its terminal is NOT a commit-receipt) is caught by the convention evaluator.
+# The train is addressed by the family it declares, never by id or path: typed
+# trains (#1421) live at plan/_trains/<subject>/<slug>.yaml and relocate when a
+# subject is reassigned.
+_FAMILY_ANCHOR = "behavior"
 
 
-def test_clean_baseline_is_zero() -> None:
-    assert _parity.conv_violations(VARIANT) == []
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
+    assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
-def test_fault_injection() -> None:
+def test_fault_injection(clean_convention_graph) -> None:
     """Flip a real train's family to disagree with its terminal artifact; the
-    convention evaluator catches it; then it reverts cleanly.
+    convention evaluator catches it. Injected into a deep clone of the session graph
+    (#1416) — the train YAML is never rewritten and the shared graph is untouched.
 
     Legacy parity (verdict `both`) was proven against
     test_train_family_matches_terminal_contract.py::test_real_trains_family_matches_terminal_contract
     before that legacy validator was decommissioned (#1207);
     planner.train.family-matches-terminal-contract now binds its implementation.ref
     to this variant. The convention fault-injection is the live coverage."""
-    root = _parity.repo_root()
-    with _parity.patch_file(root, _TRAIN_FILE, "family: behavior", "family: delivery"):
-        conv = _parity.conv_violations(VARIANT, root)
-    assert conv, "convention evaluator did not catch the family/terminal disagreement"
-    assert _parity.conv_violations(VARIANT, root) == [], "fault did not revert cleanly"
+    train_id = next(
+        t.id for t in clean_convention_graph.by_kind("train")
+        if t.fields.get("family") == _FAMILY_ANCHOR
+    )
+    faulted = clone_graph(clean_convention_graph)
+    set_node_field(faulted, train_id, "family", "delivery")
+
+    conv = resolved_fact_agreement(faulted, {"variant": VARIANT})
+    assert any(v["source_node"] == train_id for v in conv), (
+        "convention evaluator did not catch the family/terminal disagreement"
+    )
+    # the shared clean graph still agrees (injection stayed on the clone)
+    assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
 def test_invalid_fragment_is_caught() -> None:

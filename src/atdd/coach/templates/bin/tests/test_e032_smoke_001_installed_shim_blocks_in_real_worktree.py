@@ -61,5 +61,5 @@ def test_real_worktree_shim_blocks_issue_create(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 1, f"shim did not hard-block: exit {result.returncode}\n{result.stderr}"
-    assert "atdd issue" in result.stderr, f"alternative missing: {result.stderr!r}"
+    assert "atdd author issue" in result.stderr, f"alternative missing: {result.stderr!r}"
     assert "DOWNSTREAM GH REACHED" not in result.stderr, "downstream gh was reached despite the block"

@@ -46,6 +46,9 @@ def test_archetype_themes_align_with_source_roots() -> None:
     )
 
 
+@pytest.mark.platform  # toolkit dogfood: asserts the repo's OWN plan/ declares wagons;
+# a consumer with no wagons yet is not in violation. Not path-shaped, so the
+# platform-marker detector cannot see it — marked by hand (#1475).
 def test_scanner_surfaces_existing_themes() -> None:
     """L001: the theme scanner returns distinct themes declared under plan/."""
     found = scan_wagon_themes(REPO_ROOT)

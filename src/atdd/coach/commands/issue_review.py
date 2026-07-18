@@ -53,7 +53,7 @@ from typing import Any, Callable, List, Literal, Optional
 
 import jsonschema
 
-from atdd.coach.commands import judge as judge_mod
+from atdd.coach.commands.llm_clients import registry as llm_registry
 from atdd.coach.commands.issue_graph import build_issue_architecture_context
 from atdd.coach.utils.coach_config import load_coach_config
 from atdd.coach.utils.rule_binding import bind_rule, RuleNotInRegistryError
@@ -133,7 +133,7 @@ def _csv(value: str) -> List[str]:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="atdd issue review",
+        prog="atdd coach issue-review",
         description=(
             "Multi-pass cross-LLM review of an ATDD parent issue body. "
             "Runs N independent passes (default 3, min 2) by distinct LLMs, "
@@ -601,11 +601,11 @@ def run(
             pass_records.append(record)
             continue
 
-        factory = judge_mod.LLM_REGISTRY.get(llm_id)
+        factory = llm_registry.LLM_REGISTRY.get(llm_id)
         if factory is None:
             _print_error(
                 f"unknown LLM id {llm_id!r}; not in registry "
-                f"(known: {sorted(judge_mod.LLM_REGISTRY)})."
+                f"(known: {sorted(llm_registry.LLM_REGISTRY)})."
             )
             return 3
 
@@ -618,7 +618,7 @@ def run(
                 issue_body=issue_body,
                 graph_context=graph_context,
             ))
-        except judge_mod.LLMUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except llm_registry.LLMUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
             _print_error(f"LLM unavailable ({llm_id!r}): {exc}")
             return 5
 

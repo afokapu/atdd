@@ -4,7 +4,7 @@
   "description": "Schema for train definitions orchestrating multi-wagon workflows with theme-based numbering",
   "type": "object",
   "additionalProperties": false,
-  "$comment": "Trains use hierarchical numbering [Theme][Category][Variation] (0001-0099: commons nominal, 0101-0199: commons error, etc.) where first digit = theme (0-9), second digit = category (0=nominal, 1=error, 2=alternate, 3=exception), third-fourth digits = variation (01-99)",
+  "$comment": "Trains carry a typed identity `train:<subject>:<slug>` (issue #1421). The classification the legacy [Theme][Category][Variation] numbering encoded now rides as FIELDS — `themes`, `category` (nominal|error|alternate|exception) and `sort_key` — so reclassifying a train edits metadata instead of renaming it. The category digit is retired (issues #1421, #1440); nothing may derive a category by parsing an identity.",
   "required": [
     "train_id",
     "title",
@@ -16,8 +16,18 @@
   "properties": {
     "train_id": {
       "type": "string",
-      "pattern": "^\\d{4}-[a-z0-9-]+$",
-      "description": "Train identifier with hierarchical numbering: {theme}{category}{variation}-{kebab-case-name} (e.g., 0001-auth-session-standard, 2301-empty-input-file)"
+      "pattern": "^(train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*|\\d{4}-[a-z0-9-]+)$",
+      "description": "Typed train identity (issue #1421): train:<subject>:<slug> (e.g. train:artifact-identity:migrate-with-alias). `category` is a validated field, not an identity digit. The legacy hierarchical form `NNNN-slug` is still accepted DURING the migration transition (schema-first, data-follows) and is retired once worker C4 relocates every train."
+    },
+    "category": {
+      "type": "string",
+      "enum": ["nominal", "error", "alternate", "exception"],
+      "description": "Train variant category (issue #1421): a validated FIELD, never an identity digit. Replaces the second digit of the legacy NNNN identity — a reclassification now changes metadata, not the identity. Optional during the migration transition; to become required once C4's data migration lands."
+    },
+    "sort_key": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Optional ordinal used to order trains within a subject/category bucket, replacing the ordering the legacy variation digits carried in the identity (issue #1421)."
     },
     "title": {
       "type": "string",
@@ -63,8 +73,8 @@
       "description": "Other trains that must run before this train",
       "items": {
         "type": "string",
-        "pattern": "^train:\\d{4}-[a-z0-9-]+$",
-        "description": "Train reference in format: train:{train_id}"
+        "pattern": "^train:([a-z][a-z0-9-]*:[a-z][a-z0-9-]*|\\d{4}-[a-z0-9-]+)$",
+        "description": "Train reference: typed train:<subject>:<slug> (issue #1421), or the legacy train:NNNN-slug form accepted during the migration transition."
       }
     },
     "source_interlocking": {

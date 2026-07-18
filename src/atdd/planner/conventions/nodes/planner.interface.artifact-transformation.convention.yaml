@@ -1,0 +1,103 @@
+schema_version: 1.1.0
+rule_id: planner.interface.artifact-transformation
+kind: rule
+status: active
+name: 'Interface: Artifact Transformation'
+statement: Produce/consume artifacts (WHAT) seed feature names (HOW) by combining
+  a verb with the domain or resource - {verb}-{domain} when the domain is the focus,
+  {verb}-{resource} when the resource is the focus - with verb choice driven by the
+  artifact type (event, state, data, or config).
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+  legacy_section: artifact-transformation
+content:
+  summary: Artifacts describe WHAT is produced/consumed (entities, states, events)
+    while features describe HOW to work with them (actions, capabilities). A consistent
+    transformation makes feature names derivable from artifacts so the plan stays
+    coherent.
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: object_rules
+  label: Domain-as-object vs resource-as-object
+  text: 'Two transformation rules: {verb}-{domain} when the domain is the primary
+    focus (feature acts on the entire domain), and {verb}-{resource} when the resource
+    is the primary focus (feature acts on a specific resource within the domain).'
+  values:
+    domain_as_object_pattern: '{verb}-{domain}'
+    domain_as_object_when: Domain is the primary focus of the feature
+    domain_as_object_rationale: Feature acts on the entire domain
+    resource_as_object_pattern: '{verb}-{resource}'
+    resource_as_object_when: Resource is the primary focus of the feature
+    resource_as_object_rationale: Feature acts on specific resource within domain
+- term_id: events_transformation
+  label: Events -> features
+  text: Past-tense artifacts (ended, started, closed) use verbs like publish, emit,
+    start, close, trigger.
+  values:
+    description: Past tense artifacts (ended, started, closed)
+    typical_verbs:
+    - publish
+    - emit
+    - start
+    - close
+    - trigger
+  examples:
+    positive:
+    - match:started (domain match, resource started) -> start-match
+    - session:closed (domain session, resource closed) -> close-session
+- term_id: states_transformation
+  label: States -> features
+  text: Adjective artifacts (remaining, active, current) use verbs like track, monitor,
+    maintain, update.
+  values:
+    description: Adjective artifacts (remaining, active, current)
+    typical_verbs:
+    - track
+    - monitor
+    - maintain
+    - update
+  examples:
+    positive:
+    - mechanic:timebank.remaining (domain timebank, resource remaining) -> track-timebank
+    - session:active (domain session, resource active) -> maintain-session
+- term_id: data_transformation
+  label: Data -> features
+  text: Noun artifacts (choice, identity, profile) use verbs like create, manage,
+    process, handle, make.
+  values:
+    description: Noun artifacts (choice, identity, profile)
+    typical_verbs:
+    - create
+    - manage
+    - process
+    - handle
+    - make
+  examples:
+    positive:
+    - 'mechanic:decision.choice (domain decision, resource choice) -> make-choice  #
+      verb make + resource choice'
+    - player:identity (domain player, resource identity) -> identify-player
+- term_id: configs_transformation
+  label: Configs -> features
+  text: Configuration artifacts (config, settings, agreement) use verbs like configure,
+    setup, initialize, define.
+  values:
+    description: Configuration artifacts (config, settings, agreement)
+    typical_verbs:
+    - configure
+    - setup
+    - initialize
+    - define
+  examples:
+    positive:
+    - match:config (domain match, resource config) -> configure-match
+    - league:config (domain league, resource config) -> define-league

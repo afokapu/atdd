@@ -27,9 +27,18 @@ def _tables(conn) -> set:
     return {r["name"] for r in rows}
 
 
-def test_latest_version_is_2():
-    assert latest_version() == 2
-    assert [m.version for m in CORE_MIGRATIONS] == [1, 2]
+#: v1 and v2 — the staged upgrade this module is about. Scoped explicitly rather than
+#: taken as "everything", so a later migration (v3 overlay_events, #1400) extends the
+#: schema without rewriting v2's own tests.
+_UP_TO_V2 = [m for m in CORE_MIGRATIONS if m.version <= 2]
+
+
+def test_release_kind_is_migration_v2():
+    versions = [m.version for m in CORE_MIGRATIONS]
+    assert versions == sorted(set(versions))     # ordered, append-only, no duplicates
+    assert latest_version() >= 2
+    v2 = next(m for m in CORE_MIGRATIONS if m.version == 2)
+    assert v2.name == "release_kind"
 
 
 def test_v2_applies_cleanly_over_v1(tmp_path):
@@ -42,8 +51,8 @@ def test_v2_applies_cleanly_over_v1(tmp_path):
         assert current_version(conn) == 1
         assert ObjectStore(conn).get("release") is None  # not seeded yet
 
-        # Stage 2: the rest (v2) applies on top.
-        assert apply_migrations(conn) == [2]
+        # Stage 2: v2 applies on top.
+        assert apply_migrations(conn, _UP_TO_V2) == [2]
         assert current_version(conn) == 2
         release = ObjectStore(conn).get("release")
         assert release is not None
@@ -73,7 +82,7 @@ def test_v2_reuses_objects_table_no_new_table(tmp_path):
     try:
         apply_migrations(conn, [m for m in CORE_MIGRATIONS if m.version == 1])
         before = _tables(conn)
-        apply_migrations(conn)
+        apply_migrations(conn, _UP_TO_V2)
         after = _tables(conn)
         assert after == before                      # no schema-shape change in v2
     finally:

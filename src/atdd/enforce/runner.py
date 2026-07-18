@@ -45,6 +45,7 @@ from typing import List, Optional
 import yaml
 
 from atdd.enforce.conventions import RuleMetadata, compute_scan_policy, rule_metadata
+from atdd.enforce.dispositions import fails_on_violation
 from atdd.enforce.resolution import (
     ProviderResolutionError,
     ResolvedProvider,
@@ -149,30 +150,44 @@ def _candidate_roots(substrate_home: Path) -> list[Path]:
 # --------------------------------------------------------------------------- #
 # Provider invocation (the subprocess boundary — V5)
 # --------------------------------------------------------------------------- #
-def _impl_has_report_channel(substrate_home: Path, implementation_id: str) -> bool:
-    """True iff the vendored impl ships a v1.1 report-test channel.
+def _resolve_impls_root(substrate_home: Path, implementation_id: str) -> Optional[Path]:
+    """The impls-root owning ``implementation_id``, iff it ships a v1.1 report channel.
 
     Reads the impl manifest's ``report:`` field and checks the named test file is
     present next to the manifest — the exact runnable-detection the vendored
     ``cli/scan.py`` performs (``_report_test_name`` + ``test_path.is_file()``).
-    Replacing the prior hardcoded ``test_logging_print_report.py`` lets all 26
-    bound detectors run, not just ``coder.logging.print`` (#1238 V1).
+    Replacing the prior hardcoded ``test_logging_print_report.py`` lets all bound
+    detectors run, not just ``coder.logging.print`` (#1238 V1).
+
+    Searches BOTH vendored trees. A workspace package ships the detectors for its
+    own runtime; an EXTENSION may ship its own detectors targeting that workspace's
+    provider contract (the train-interlocking extension does). Searching only
+    ``.atdd/workspaces`` made every extension-shipped detector ``unrunnable`` while
+    enforce still reported PASS — a false green (#1359).
+
+    Returns the root the owning manifest sits under (``…/implementations``), which
+    the caller forwards to the provider CLI as ``--impls-root``; ``None`` when the
+    impl is absent or ships no report channel.
     """
-    ws_root = substrate_home / ".atdd" / "workspaces"
-    if not ws_root.is_dir():
-        return False
-    for manifest in ws_root.rglob("atdd.implementation.yaml"):
-        try:
-            data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
-        except (OSError, yaml.YAMLError):
+    roots = (substrate_home / ".atdd" / "workspaces", substrate_home / ".atdd" / "extensions")
+    for root in roots:
+        if not root.is_dir():
             continue
-        if data.get("implementation_id") != implementation_id:
-            continue
-        report = data.get(_PROVIDER_REPORT_FIELD)
-        if not report:
-            return False
-        return (manifest.parent / str(report)).is_file()
-    return False
+        for manifest in sorted(root.rglob("atdd.implementation.yaml")):
+            try:
+                data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+            except (OSError, yaml.YAMLError):
+                continue
+            if data.get("implementation_id") != implementation_id:
+                continue
+            report = data.get(_PROVIDER_REPORT_FIELD)
+            if not report:
+                return None
+            if not (manifest.parent / str(report)).is_file():
+                return None
+            # cli/scan.py discovers impls as children of the root it is given.
+            return manifest.parent.parent
+    return None
 
 
 def _invoke_provider(
@@ -181,6 +196,7 @@ def _invoke_provider(
     scan_roots: list[str],
     scan_excludes: list[str],
     graph_roots: Optional[list[str]] = None,
+    impls_root: Optional[Path] = None,
 ) -> list[dict]:
     """Subprocess the provider CLI over ``scan_roots``; parse RAW v1.1 JSON.
 
@@ -207,8 +223,13 @@ def _invoke_provider(
         env["ATDD_SCAN_EXCLUDES"] = json.dumps([str(e) for e in scan_excludes])
     if graph_roots:
         env["ATDD_GRAPH_ROOTS"] = json.dumps([str(r) for r in graph_roots])
+    argv = [sys.executable, str(provider.provider_cli_path)]
+    if impls_root is not None:
+        # Without this the provider CLI defaults to its OWN implementations/ dir and
+        # cannot discover a detector shipped by an extension package.
+        argv += ["--impls-root", str(impls_root)]
     proc = subprocess.run(
-        [sys.executable, str(provider.provider_cli_path)],
+        argv,
         env=env,
         capture_output=True,
         text=True,
@@ -257,11 +278,18 @@ def _records_for_rule(raw: list[dict], rule_id: str) -> list[dict]:
 
 
 def _verdict_for_rule(meta: RuleMetadata, raw: list[dict]) -> str:
-    """Non-raising disposition verdict (D-2): strict/suppress-and-clean fail on
-    any violation; advisory always passes."""
-    if meta.disposition == "advisory":
+    """Non-raising disposition verdict (D-2), TOTAL over the treatment vocabulary
+    (#1424 E001).
+
+    strict / suppress-and-clean fail on any violation; advisory /
+    documentation-only never fail. The mapping is delegated to the disposition
+    model's :func:`fails_on_violation` so the treatment namespace is named in
+    exactly one place. Previously ONLY ``advisory`` was special-cased, so
+    ``documentation-only`` fell through to fail-on-any and failed builds it must
+    not have (e.g. the bound documentation-only rule ``tester.filename.urn``)."""
+    if not raw:
         return "pass"
-    return "fail" if raw else "pass"
+    return "fail" if fails_on_violation(meta.disposition) else "pass"
 
 
 # --------------------------------------------------------------------------- #
@@ -310,7 +338,8 @@ def enforce(
 
         # Honest gate: a rule whose vendored impl ships no v1.1 report channel
         # cannot enforce over consumer code yet (workspace generalization, D-1).
-        if not _impl_has_report_channel(substrate_home, impl_id):
+        impls_root = _resolve_impls_root(substrate_home, impl_id)
+        if impls_root is None:
             verdicts.append(
                 RuleVerdict(
                     rule_id,
@@ -340,6 +369,7 @@ def enforce(
             policy.scan_roots,
             policy.scan_excludes,
             policy.graph_roots,
+            impls_root=impls_root,
         )
         # A multi-rule detector emits several rule_ids in one run; judge this
         # bound convention only on its own rule_id's records.
@@ -381,7 +411,7 @@ def conformance(repo_root: Path) -> tuple[bool, str]:
     for conv in bound:
         rule_id = str(conv.get("convention_id"))
         impl_id = str(conv.get("implementation_id") or rule_id)
-        if _impl_has_report_channel(substrate_home, impl_id):
+        if _resolve_impls_root(substrate_home, impl_id) is not None:
             runnable.append(rule_id)
         else:
             unrunnable.append(rule_id)

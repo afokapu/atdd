@@ -1,0 +1,28 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'on_head_change(): resolve new HEAD, invoke reconcile, never block
+        the git operation'
+      type: handlers
+    integration:
+    - count: 1
+      rationale: detect a stale store_base_commit relative to HEAD and warn when a
+        hook was bypassed
+      type: monitors
+    presentation:
+    - count: 1
+      rationale: hook script templates emitted for post-merge, post-checkout, post-rewrite,
+        pre-rebase
+      type: views
+description: CORE-014. Any operation that moves HEAD reconciles the local store, via
+  post-merge, post-checkout, post-rewrite and pre-rebase client hooks. Convenience
+  only, never authority.
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 1
+urn: feature:reconcile-local-store:trigger-head-hooks
+wagon: wagon:reconcile-local-store
+wmbts:
+- wmbt:reconcile-local-store:M001

@@ -1,0 +1,33 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: project(store, out_dir) reads the object store and writes one canonical
+        document per uid
+      type: use_cases
+    domain:
+    - count: 2
+      rationale: ProjectionDocument (canonical field order) and CanonicalBytes (the
+        determinism-checked payload)
+      type: value_objects
+    - count: 1
+      rationale: determinism specification refusing timestamps, host paths, and unstable
+        iteration order
+      type: specifications
+    integration:
+    - count: 1
+      rationale: canonical YAML emitter with fixed key order and content-derived sequence
+        order
+      type: serializers
+description: 'Deterministic project(store): serialize each work item to canonical
+  .atdd/state/projection/<uid>.yaml bytes with no timestamps, host paths, or unstable
+  ordering (CORE-005, invariant I1).'
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 2
+urn: feature:project-shared-state:project-store
+wagon: wagon:project-shared-state
+wmbts:
+- wmbt:project-shared-state:E001
+- wmbt:project-shared-state:C001

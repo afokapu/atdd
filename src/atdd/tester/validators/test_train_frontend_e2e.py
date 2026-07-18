@@ -21,6 +21,8 @@ from typing import Dict, List, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_stack_container
+from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
     should_enforce,
@@ -28,9 +30,30 @@ from atdd.coach.utils.train_spec_phase import (
 )
 
 
+def _is_train_id(token: str) -> bool:
+    """Is ``token`` a train identity? Delegates to ``URNGrammar`` (#1421,
+    Decision 8) — no local four-digit literal. Typed ``train:<subject>:<slug>``
+    validates directly; a bare legacy ``NNNN-slug`` is recognised via the
+    engine's still-live journey facet (a probe journey URN)."""
+    if not isinstance(token, str) or not token:
+        return False
+    try:
+        if URNGrammar.validate_grammar(token):
+            return True
+    except ValueError:
+        pass
+    try:
+        return bool(URNGrammar.validate_grammar(f"test:train:{token}:E2E-001-probe"))
+    except ValueError:
+        return False
+
+
 # Path constants
 REPO_ROOT = find_repo_root()
-WEB_E2E_DIR = REPO_ROOT / "web" / "e2e"
+_WEB_CONTAINER = resolve_stack_container("web", REPO_ROOT)
+WEB_E2E_DIR = (
+    _WEB_CONTAINER / "e2e" if _WEB_CONTAINER is not None else None
+)
 TRAINS_DIR = REPO_ROOT / "plan" / "_trains"
 
 # Package resources
@@ -74,7 +97,7 @@ def _find_frontend_e2e_tests() -> List[Tuple[Path, str]]:
     """
     tests = []
 
-    if not WEB_E2E_DIR.exists():
+    if WEB_E2E_DIR is None or not WEB_E2E_DIR.exists():
         return tests
 
     # Pattern: web/e2e/<train_id>/*.spec.ts
@@ -83,8 +106,8 @@ def _find_frontend_e2e_tests() -> List[Tuple[Path, str]]:
         parent_dir = spec_file.parent
         if parent_dir != WEB_E2E_DIR:
             train_id = parent_dir.name
-            # Validate train_id pattern
-            if re.match(r"^\d{4}-[a-z0-9-]+$", train_id):
+            # Delegate train-id recognition to URNGrammar (#1421); dir glob wraps.
+            if _is_train_id(train_id):
                 tests.append((spec_file, train_id))
 
     return tests
@@ -159,8 +182,8 @@ def test_frontend_e2e_path_convention():
     if not all_train_ids:
         pytest.skip("No trains found in registry")
 
-    if not WEB_E2E_DIR.exists():
-        pytest.skip("No web/e2e/ directory found")
+    if WEB_E2E_DIR is None or not WEB_E2E_DIR.exists():
+        pytest.skip("no web e2e tree declared or present")
 
     violations = []
     e2e_tests = _find_frontend_e2e_tests()

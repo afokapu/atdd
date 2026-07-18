@@ -259,9 +259,12 @@ wagons:
   - name: commons:author:author-spine
     from: wagon:author-atdd-substrate
   wmbt:
-    total: 14
+    total: 15
     C001: minimize likelihood of the plan-artifact author guard accepting a malformed
       slug, URN, step-code, or a path escaping plan/
+    C008: minimize likelihood of non-object-author-spec by having the plan-author
+      spine reject any spec that is not a JSON object before a unit is admitted or
+      a per-kind writer runs
     E001: maximize likelihood of schema-valid wagon-manifest creation under the canonical
       plan/<slug>/_<slug>.yaml home
     C002: minimize likelihood of accepting a structurally invalid wagon manifest
@@ -291,6 +294,44 @@ wagons:
   total: 0
   manifest: plan/author_plan_substrate/_author_plan_substrate.yaml
   path: plan/author_plan_substrate/
+- wagon: bind-extension-conventions
+  description: Make the binding lock a faithful projection of the obligations that
+    must gate, closing 26 of the 28 unbound rules through implementation fan-out with
+    zero new detectors
+  theme: commons
+  subject: agent:coder
+  context: closing the gap between declared extension convention nodes and the binding
+    lock
+  action: separates obligations lacking a mechanism from mechanisms lacking an obligation,
+    binds each implementation to every convention it realizes, and asserts that every
+    GATING node is bound while documentation-only nodes stay unbound
+  goal: make the binding lock a faithful projection of the obligations that must gate,
+    closing 26 of the 28 unbound rules through implementation fan-out with zero new
+    detectors
+  outcome: a lock in which every gating node is bound, no entry is orphaned, and documentation-only
+    nodes are correctly absent
+  produce:
+  - name: commons:binding-lock
+    contract: contract:commons:binding-lock
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:rule-registry
+    from: wagon:govern-registry
+  - name: commons:provider-capability
+    from: wagon:govern-providers
+  wmbt:
+    total: 3
+    L001: minimize likelihood of an unbound gating obligation or a phantom binding
+      going unnamed by the binding-gap inventory
+    E001: maximize quantity of gating obligations bound by fanning each multi-rule
+      implementation out to every convention it realizes, without shipping a single
+      new detector
+    E002: minimize likelihood of a gating extension node shipping with no bound mechanism,
+      or a mechanism binding an obligation nobody declared, slipping past the gate
+  total: 0
+  manifest: plan/bind_extension_conventions/_bind_extension_conventions.yaml
+  path: plan/bind_extension_conventions/
 - wagon: bind-substrate-runtime
   description: 'The ATDD substrate runtime back end: the binder that turns a locked,
     inert `.atdd/substrate.lock.yaml` into running, gating capabilities. Admission
@@ -472,7 +513,7 @@ wagons:
     E002: minimize likelihood of behavior-drift-between-atdd-issue-reconcile-and-atdd-coach-reconcile
     E003: minimize likelihood of behavior-drift-between-atdd-issue-read-forms-and-atdd-coach-issues
     E004: minimize likelihood of behavior-drift-between-atdd-issue-sync-labels-and-atdd-coach-sync-labels
-    E005: minimize likelihood of behavior-drift-between-the-six-remaining-atdd-issue-verbs-and-their-atdd-coach-homes
+    E006: minimize likelihood of orphaned-references-to-the-removed-atdd-issue-command
   total: 0
   manifest: plan/coach_verb_split/_coach_verb_split.yaml
   path: plan/coach_verb_split/
@@ -560,7 +601,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 9
+    total: 8
     Y001: minimize quantity of coach-orchestration-tabs so N issues / N invocations
       resolve to one canonical tab
     E001: increase likelihood of multi-issue-orchestration-state-visibility via a
@@ -569,8 +610,6 @@ wagons:
       50/50 split and workers-as-surfaces
     Y002: minimize quantity of surfaces-spawned-per-worker by running the observer
       headless
-    E002: minimize quantity of obs-surfaces-co-spawned-by-cmd-spawn by running the
-      observer headless in the live cmd_spawn path
     C001: maximize likelihood of each per-workspace worker keeping its own single-identity
       daemon scope after a layout pass
     E003: minimize likelihood of logging a layout target without invoking a backend
@@ -1052,6 +1091,127 @@ wagons:
   total: 0
   manifest: plan/enforce_binding_plan/_enforce_binding_plan.yaml
   path: plan/enforce_binding_plan/
+- wagon: enforce-conventions-ci
+  description: Turn enforcement from a command nobody runs into a required check that
+    blocks a regression without blocking the first build
+  theme: commons
+  subject: agent:coach
+  context: atdd enforce runs correctly but no CI job invokes it
+  action: adds a required workflow job that runs atdd enforce over the repository,
+    propagates a strict FAIL as a non-zero exit, and holds pre-existing violations
+    flat behind a ratchet baseline
+  goal: turn enforcement from a command nobody runs into a required check that blocks
+    a regression without blocking the first build
+  outcome: a required enforce job whose failure blocks the merge, with a recorded
+    baseline for the existing violations
+  produce:
+  - name: commons:enforce-verdict
+    contract: contract:commons:enforce-verdict
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:disposition-policy
+    from: wagon:reconcile-dispositions
+  wmbt:
+    total: 3
+    E001: minimize likelihood of advisory-enforcement-bypass by promoting the enforce-extensions
+      CI job from an advisory stage to a required blocking check — dropping continue-on-error
+      and the || true guard so a strict FAIL exits the job non-zero — and keeping
+      it in the validate-gate fan-in, so a convention regression blocks the merge
+      instead of only printing a notice
+    E002: maximize likelihood of strict-failure-propagation by pinning that a strict
+      convention node reporting at least one violation drives EnforceResult.exit_code
+      to 1 and makes the atdd enforce CLI exit non-zero, so a regression that lets
+      a strict FAIL report success is caught before it can green a blocking gate
+    E003: minimize likelihood of enforcement-debt-regression by recording the current
+      per-rule failing-violation counts as a ratchet baseline that holds pre-existing
+      violations flat, so turning the enforce job blocking does not red the first
+      build, while any rule whose violation count climbs above its baseline — or any
+      rule that was clean and starts failing — still fails the gate
+  total: 0
+  manifest: plan/enforce_conventions_ci/_enforce_conventions_ci.yaml
+  path: plan/enforce_conventions_ci/
+- wagon: enforce-merge-authority
+  description: 'Make CI the real lifecycle authority rather than a formatting check
+    (M3). Canonical, schema-valid projection YAML is only well-formatted text; this
+    wagon adds the gates that make it correct: a legal-transition validator that diffs
+    the committed projection against the merge-base and checks it against the section-6
+    lifecycle evidence model, a schema and parser for the ATDD commit-trailer group
+    that turns git history into a reliable event log, a cross-check binding those
+    trailers to the projection diff they accompany, a no-secrets-in-history validator
+    enforcing invariant I8, a push/PR workflow that executes the whole required-check
+    set, and the branch-protection policy that makes those checks required rather
+    than advisory (I6).'
+  theme: commons
+  subject: agent:coder
+  context: on push and pull request against the protected branch, after the committed
+    projection has been produced and before a merge is admitted
+  action: parses the ATDD commit-trailer group out of git history, diffs the committed
+    projection against the merge-base, and runs the required-check set (legal transition,
+    trailer/projection cross-check, no-secrets) as branch-protected CI jobs
+  goal: make CI the merge authority so that a canonical but lifecycle-illegal, untrailered,
+    or secret-bearing projection change cannot reach the shared source of truth
+  outcome: canonical but illegal projection changes are rejected in CI, and every
+    admitted merge carries a trailer group that provably matches its projection diff
+  produce:
+  - name: commons:enforce:lifecycle-evidence
+    contract: contract:commons:projection-evidence
+    telemetry: null
+    to: internal
+  - name: commons:enforce:commit-trailer
+    contract: contract:commons:projection-trailer
+    telemetry: null
+    to: internal
+  - name: commons:enforce:merge-event
+    contract: contract:commons:projection-merge-event
+    telemetry: null
+    to: internal
+  - name: commons:enforce:field-ownership
+    contract: contract:commons:projection-field-ownership
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  wmbt:
+    C001: minimize likelihood of an illegal-transition-merge, in which a canonical
+      and schema-valid projection diff whose phase change is not lifecycle-legal relative
+      to the merge-base, or which carries no evidence for a gate it skips, is admitted
+      to the protected branch
+    C002: minimize likelihood of a trailer-projection-mismatch, in which a commit's
+      ATDD trailers and the projection object diff it carries disagree on the object,
+      the phase transition, or the projection digest, or in which a projection object
+      changes with no ATDD-Object trailer at all
+    C003: minimize likelihood of a history-secret-leak, in which a raw token, bearer
+      token, credential, or private key reaches git history through an ATDD trailer
+      value or a committed projection object, where only digests are ever admissible
+    C004: 'minimize likelihood of advisory-disposition-on-a-new-rule by requiring
+      every convention node this program authors to ship disposition: strict, and
+      permitting advisory only with a written precondition and a named issue that
+      discharges it'
+    D001: maximize likelihood of a commit-trailer-schema that pins the canonical ATDD
+      trailer group (ATDD-Object, ATDD-Transition, ATDD-Token-Digest, ATDD-Gate, ATDD-Projection-Digest,
+      ATDD-Summary, ATDD-Summary-Digest), the value grammar of each trailer, and which
+      trailers a given projection diff class is required to carry
+    D002: maximize likelihood of a required-check-policy that names, for the protected
+      branch, the exact required status-check contexts emitted by the merge-authority
+      run plus the branch-protection settings (no bypass, up-to-date before merge)
+      that make CI the merge authority rather than an advisory signal
+    E001: maximize likelihood of a deterministic commit-trailer-parse that lifts a
+      raw commit message into the schema-typed ATDD trailer group, handles grouped
+      trailers for a multi-object commit and the ATDD-Summary form for a squash merge,
+      and refuses a trailer block that violates the schema instead of silently dropping
+      it
+    E002: maximize likelihood of a merge-authority-run on push and pull request that
+      executes the full section-4 required-check set (projection canonicality, projection
+      schema, legal transition, trailer/diff cross-check, field-writer, no-secrets,
+      core no-provider) and fails the run when any one of them fails
+    total: 8
+  total: 0
+  manifest: plan/enforce_merge_authority/_enforce_merge_authority.yaml
+  path: plan/enforce_merge_authority/
 - wagon: enforce-structured-logging
   description: Enforce structured logging and prohibit print() in non-CLI production
     Python code
@@ -1163,7 +1323,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 94
+    total: 96
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
@@ -1239,10 +1399,6 @@ wagons:
       the current branch slug is absent from the manifest
     Y005: minimize atdd issue reconcile missing from the CLI when bulk backfill of
       unregistered open issues is needed
-    E013: minimize issues-filed-without-duplicate-search when an operator runs atdd
-      issue <slug> by running gh issue list --search before GitHub issue creation
-      and aborting with a warning listing matches unless --no-dup-check is passed
-      (#657)
     E014: minimize agent-spawn-commands-containing-dangerously-skip-permissions by
       detecting the forbidden flag in the adapter command string and raising SpawnPermissionViolation
       before the multiplexer dispatches (#657)
@@ -1259,10 +1415,10 @@ wagons:
     E018: minimize pr-registry-gate-absorbs-unrelated-repo-wide-drift when a PR runs
       GT-002 by adding --scope changed-files to atdd registry update --check that
       limits drift detection to wagon sources in git diff main..HEAD (#582)
-    E019: minimize issue-author-submits-non-compliant-body-or-triggers-redundant-create-edit-graphql-pair
-      when an operator runs atdd issue <slug> by validating the full body locally
-      (--check gate) before any GitHub call and publishing via a single gh issue create
-      with no follow-up gh issue edit for body (#792)
+    E019: 'minimize issue-author-submits-non-compliant-body when an operator authors
+      an issue by validating the body against issue.schema.json before any GitHub
+      call and publishing store-first via a single create (#792; the mint-path create+edit
+      acceptances retired with the mint path in #1477)'
     E020: minimize codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md
       by renaming the persona template to CONDUCTOR.md.tmpl, updating AgentConfigSync.AGENT_FILES['codex']
       to 'CONDUCTOR.md', and emitting a migration notice when a stale AGENTS.md with
@@ -1506,9 +1662,241 @@ wagons:
       operator docs (CLAUDE.md issues.commands + the gh issue create redirect + the
       atdd issue CLI help) to name the canonical command (part of the atdd issue decommission
       #1349; prerequisite #1272)'
+    E062: 'minimize likelihood of a-non-py-file-that-shipped-code-reads-at-runtime-being-omitted-from-the-built-wheel-because-a-hand-enumerated-package-data-glob-was-never-added-for-it
+      by replacing the per-directory package-data enumeration (which drops 174 of
+      610 non-.py files, including the coder+tester conventions/nodes trees bind_rule
+      reads at import) with a broad-ship policy plus an exclude-package-data deny-list
+      naming ONLY build/OS cruft, so the invariant is the installed package is the
+      source tree minus cruft and a new data directory ships by default (#663, #952,
+      #1369)'
+    E063: minimize quantity of installed-hooks-that-drift-from-their-packaged-template
+      because .atdd-hooks-was-a-snapshot-copy-that-no-sanctioned-path-ever-refreshed
+      by installing each hook as a fixed-content dispatcher that execs the hook shipped
+      inside the installed atdd package, so hook logic ships with the wheel and pipx
+      upgrade atdd propagates a fix with no refresh command at all, removing the drift
+      class instead of detecting instances of it (atdd sync never mentioned hooks,
+      atdd init early-returned before _install_hooks, and only the forbidden atdd
+      init --force refreshed anything, so every hook fix reached only repos initialised
+      after it landed and 6 of 11 hooks were never installed at all) (#1492)
+    C008: 'minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
+      by broadening the #451 scan to every non-.py source file, resolving the source
+      tree from the working directory so it EXECUTES against a real installed wheel
+      instead of skipping, and flipping its rule node off advisory to a gating disposition
+      (#451)'
+    C009: 'minimize likelihood of a-packaging-regression-reaching-a-consumer-repo-undetected-because-no-ci-job-ever-installs-the-wheel-and-every-job-runs-the-toolkit-from-its-own-source-tree
+      by adding a required validate-consumer job that builds the wheel, pip-installs
+      it into a clean venv and runs the shipped validators from a synthetic consumer
+      repo, gating on wheel-completeness plus zero pytest collection errors across
+      all four phases (30 today: 15 tester + 15 coder)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
+- wagon: govern-projection-fields
+  description: Field ownership and safe conflicts for the committed projection (M4).
+    Declares, as machine-readable data, the single legal writer and merge rule of
+    every projection field; enforces that declaration in CI with a field-writer validator;
+    implements a projection merge driver that auto-merges disjoint objects and the
+    three safe same-object cases while conflicting with an actionable report on everything
+    else; proves the driver with an ownership-class by divergence-case test matrix;
+    and makes retirement a tombstone record that no later merge can resurrect. Prevents
+    same-object and wrong-writer corruption of the shared source of truth.
+  theme: commons
+  subject: agent:coder
+  context: merging-two-branches-that-touched-the-same-per-uid-projection-object, and
+    validating a pushed projection diff against the writer identity carried by its
+    commit trailers
+  action: resolves every touched projection field to its single declared writer and
+    merge rule, rejects a diff whose committing writer does not own a touched field,
+    auto-merges only identical, no-op, or evidence-backed same-object divergence,
+    and records retirement as a non-deletable tombstone
+  goal: prevent same-object and wrong-writer corruption of the committed projection,
+    so the shared source of truth stays trustworthy without an operator adjudicating
+    every merge
+  outcome: disjoint objects merge cleanly; unsafe same-object conflicts block with
+    a report naming the field, both writers, and the failing rule; wrong-writer field
+    changes fail CI; tombstoned objects never resurrect
+  produce:
+  - name: commons:govern:field-writer-validator
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:projection-merge-driver
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:merge-driver-matrix
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:tombstone-record
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  - contract: contract:commons:projection-evidence
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:lifecycle-evidence
+    telemetry: null
+  - contract: contract:commons:projection-trailer
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:commit-trailer
+    telemetry: null
+  - contract: contract:commons:projection-merge-event
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:merge-event
+    telemetry: null
+  - name: commons:enforce:field-ownership
+    contract: contract:commons:projection-field-ownership
+    telemetry: null
+    from: wagon:enforce-merge-authority
+  wmbt:
+    C001: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting
+      a field-ownership policy that omits any projection schema field or names a writer
+      outside the declared writer set
+    C002: minimize likelihood of a merge-matrix-blind-spot, by exercising every ownership
+      merge rule against every divergence case (identical, no-op, evidence-backed,
+      unsafe) in the merge-driver test matrix
+    D001: maximize likelihood of a machine-readable field-ownership-policy that names,
+      for every projection field, its single legal writer and its merge rule, so the
+      field-writer validator and the merge driver read one declared source instead
+      of prose
+    D002: maximize likelihood of single-owner-body-rule-computability by carrying
+      owner_actor and last_lifecycle_actor on the projection object, so the field-writer
+      validator can accept or reject a body edit and the merge driver can explain
+      a conflict
+    E001: minimize likelihood of a wrong-writer-field-change reaching main, by failing
+      CI when a human commit mutates external_refs or an extension bot commit mutates
+      a lifecycle field owned by core
+    E002: maximize likelihood of a safe-projection-merge completing without operator
+      intervention when the two sides are identical, one side is a strict no-op, or
+      the further phase carries verifiable evidence for every skipped gate
+    K001: minimize likelihood of a tombstoned-object-resurrection, by recording retirement
+      as state TOMBSTONED with a reason digest, never deleting the projection file,
+      and refusing any later merge that revives the uid
+    R001: maximize likelihood of an unsafe-merge-conflict being raised with an actionable
+      report naming the field, both sides' writers, and the failing ownership or evidence
+      rule, never resolved by blind max phase
+    total: 8
+  total: 0
+  manifest: plan/govern_projection_fields/_govern_projection_fields.yaml
+  path: plan/govern_projection_fields/
+- wagon: govern-providers
+  description: Make the mechanism layer explicit so an obligation without a detector
+    and a detector without an obligation are both caught, instead of one silently
+    defaulting to strict
+  theme: commons
+  subject: agent:coder
+  context: a convention node is an agnostic obligation; a workspace provider is the
+    stack-specific mechanism that checks it
+  action: states the subprocess-not-import boundary and the contract_version SemVer
+    refusal, resolves detectors shipped by extension packages as well as workspaces,
+    and fails loudly on an implementation bound to a convention nobody declares
+  goal: make the mechanism layer explicit so an obligation without a detector and
+    a detector without an obligation are both caught, instead of one silently defaulting
+    to strict
+  outcome: an explicit provider boundary, extension-shipped detector resolution, and
+    loud orphan-detector detection
+  produce:
+  - name: commons:provider-capability
+    contract: contract:commons:provider-capability
+    telemetry: null
+    to: internal
+  consume: []
+  wmbt:
+    total: 4
+    D001: minimize likelihood of provider-boundary-erosion by resolving a workspace
+      provider to a subprocess CLI handle that core never imports, requiring the provider
+      to declare a contract_version, and refusing resolution when no installed contract
+      version satisfies the requested caret range
+    E001: maximize likelihood of extension-shipped-detector-resolution by discovering
+      an implementation shipped under .atdd/extensions and forwarding its impls-root
+      to the subprocessed provider CLI just as for a workspace-shipped detector, so
+      its violations surface as a real verdict rather than a false-green skip
+    E002: minimize quantity of orphan-detector-bindings by scanning binding.lock.yaml
+      for every bound convention_id that no convention node under .atdd/extensions
+      declares and reporting each by name, so an implementation bound to a convention
+      nobody declared is caught instead of silently defaulting to strict
+    E003: minimize quantity of extension-identity-leak by generating binding.lock.yaml
+      from convention, implementation, workspace and contract fields alone and never
+      emitting the extension package identity, so a package rename is a lock regeneration
+      rather than a rule migration
+  total: 0
+  manifest: plan/govern_providers/_govern_providers.yaml
+  path: plan/govern_providers/
+- wagon: govern-registry
+  description: Settle the Path A scope question with evidence rather than assumption,
+    keeping the convention rule registry core-only with a mirror-coherence and a duplicate-precedence
+    rule over the extension nodes read as data
+  theme: commons
+  subject: agent:coach
+  context: deciding whether atdd validate's convention registry admits extension nodes
+  action: measures the core and extension rule_id sets, keeps the registry core-only,
+    and binds a mirror-coherence plus duplicate-precedence rule over the extension
+    nodes read as data
+  goal: settle the Path A scope question with evidence rather than assumption, keeping
+    the rule registry rooted at the core tree with the extension nodes read only as
+    data
+  outcome: a core-only rule registry, a mirror-coherence validator, and a loud failure
+    on any duplicate rule_id
+  produce:
+  - name: commons:rule-registry
+    contract: contract:commons:rule-registry
+    telemetry: null
+    to: internal
+  consume: []
+  wmbt:
+    total: 3
+    D001: minimize likelihood of registry-scope-ambiguity by keeping the atdd validate
+      rule registry rooted at the core src/atdd tree alone, recording the core-only
+      decision with its evidence, and proving that admitting the extension mirror
+      nodes would add no new rule and only duplicate ids
+    E001: minimize likelihood of convention-mirror-drift by resolving every extension
+      node's source.legacy_rule_id against the live core rule registry and failing
+      loudly on any node whose named core rule no longer exists, so a renamed or deleted
+      core rule cannot leave an extension mirror pointing at nothing
+    E002: maximize likelihood of duplicate-rule-detection by raising DuplicateRuleError
+      on any rule_id declared in both the core registry and the extension mirror set,
+      stating the CORE-precedes-extension precedence, so a cross-registry collision
+      fails loudly instead of silently shadowing the core rule
+  total: 0
+  manifest: plan/govern_registry/_govern_registry.yaml
+  path: plan/govern_registry/
+- wagon: guard-succession
+  description: Refuse any core-node deletion whose extension twin is not both bound
+    and blockingly enforced in CI, consuming the succession-coverage proof produced
+    by verify-enforcement
+  theme: commons
+  subject: agent:coach
+  context: deciding whether a core convention node may be deleted without silently
+    stripping the only blocking enforcement of an obligation an extension still mirrors
+  action: reads the succession-coverage proof and refuses any core-node deletion whose
+    extension twin is not both bound and blockingly enforced, so a rule cannot lose
+    its enforcement unnoticed
+  goal: refuse any core-node deletion whose extension twin is not both bound and running
+    in CI, so removing a core rule cannot silently strip its sole enforcement
+  outcome: a guard that blocks a silent loss of enforcement, driven by the succession-coverage
+    proof handed off from verify-enforcement
+  produce:
+  - name: commons:succession-verdict
+    contract: null
+    telemetry: null
+    to: external
+  consume:
+  - name: commons:succession-coverage
+    from: wagon:verify-enforcement
+  wmbt:
+    total: 1
+    E003: minimize likelihood of silent-enforcement-loss by refusing to delete any
+      core convention node whose extension twin is not both bound and blockingly enforced
+      in CI, so removing a core rule cannot silently strip the only enforcement of
+      an obligation an extension still mirrors
+  total: 0
+  manifest: plan/guard_succession/_guard_succession.yaml
+  path: plan/guard_succession/
 - wagon: implement-code
   description: Implements code that makes RED tests GREEN, then refactors to clean
     4-layer architecture
@@ -1717,22 +2105,15 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 31
+    total: 26
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
     E001: minimize quantity of imperatively-polled-state-transitions-bypassing-watcher-events
-    E002: minimize quantity of cold-start-driver-invocations-that-exit-without-dispatching-lifecycle-handlers
     E003: minimize time of agent-ramp-up-time-spent-discovering-architectural-context
-    E005: minimize quantity of review-gate-failures-caused-by-missing-in-process-execution-mode-on-ci-runners
     M001: minimize quantity of unvalidated-phase-exit-transitions-in-atdd-coach
     M002: minimize likelihood of plan-directory-changes-that-bypass-planner-validator-suite-at-hook-time
     L001: minimize quantity of uncorrected-agent-violations-during-phase-execution
-    L002: minimize quantity of persona-spawns-without-co-spawned-observer-surface
-      when atdd coach <N> spawns the planner persona at INIT→PLANNED, requiring the
-      spawn handler to call multiplexer.new_surface a second time with the observer
-      command so that every phase agent has an observer sidecar from the moment it
-      starts
     R001: minimize quantity of unreviewed-phase-boundary-transitions-in-atdd-coach
     P001: minimize likelihood of incomplete-merge-lifecycle-at-atdd-coach-complete-state
     C001: minimize quantity of unregistered-production-llm-clients-at-coach-startup
@@ -1740,7 +2121,6 @@ wagons:
     C003: minimize likelihood of validator-failures-reaching-ci-that-could-have-been-caught-at-pre-push
     C004: minimize likelihood of mass-delete-prs-bypassing-ci-guard-and-reaching-merge
     E004: minimize quantity of coach-sessions-with-unsubmitted-rename-or-missing-uuid-persistence
-    Y001: minimize quantity of undetected-seam-integration-failures-in-atdd-coach-lifecycle
     L003: minimize quantity of persona-spawns-via-entry-points-that-lack-observer-cospawn-due-to-handler-only-wiring
     Y002: minimize quantity of validator-tests-that-mutate-the-active-worktree
     L004: minimize quantity of observer-spawns-that-consume-a-separate-pane-slot-in-pane-mode
@@ -1754,10 +2134,6 @@ wagons:
       commits using only per-issue dependency labels, ignoring the wagon-to-wagon
       consume graph and train order that atdd repo graph already exposes (#656, symmetric
       mirror of #651)'
-    E008: 'minimize quantity of review-gate-failures-caused-by-pr-resolution-errors-bypassing-the-in-process-broken-sentinel
-      when run() step 1 catches a _resolve_pr_commit RuntimeError and, in in-process
-      mode, routes through _write_broken_sentinel instead of returning 2 (#732, residual
-      gap from #672/#673)'
     Y003: minimize quantity of test-sessions-that-leave-core-bare-mutated-in-the-live-worktree
       when pytest runs any src/atdd test
     E009: minimize quantity of resume-driver-phase-transitions-recorded-without-dispatching-orchestration
@@ -1778,6 +2154,88 @@ wagons:
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/
+- wagon: isolate-provider-boundary
+  description: 'Milestone M5: prove ATDD core is provider-free. Core defines the SyncProvider
+    seam (mirror/detect_drift/digest) and a registration/discovery surface that is
+    empty by default; a static import-boundary test enforces the §8.1 boundary law
+    (provider code imports core, core never imports provider code); a non-GitHub remote
+    conformance suite drives the full workflow against a bare git remote with zero
+    providers; .atdd/extensions.lock pins the core schema, lifecycle-policy and merge-policy
+    digests alongside every provider digest; and a cross-repo smoke test proves a
+    registered extension is presentation-only — its failure never blocks merge and
+    it writes back only through the constrained external_refs.* path.'
+  theme: commons
+  subject: agent:coder
+  context: core-provider-boundary, milestone-m5, zero providers registered against
+    a bare git remote
+  action: defines the SyncProvider seam and its registration surface, statically enforces
+    the core-never-imports-provider law, drives the full workflow against a bare remote
+    with no providers, pins core and provider digests into .atdd/extensions.lock,
+    and proves an attached extension mirrors through external_refs.* only
+  goal: make it impossible for a lifecycle decision to depend on GitHub, so an extension
+    can be attached or removed without changing what core decides
+  outcome: core completes its full workflow with zero providers against a bare git
+    remote, the import-boundary test is green, .atdd/extensions.lock pins every core
+    and provider digest, and a registered extension provider mirrors without ever
+    blocking merge
+  produce:
+  - name: commons:isolate:external-ref-update
+    contract: contract:commons:provider-external-ref-update
+    telemetry: null
+    to: internal
+  - name: commons:isolate:extensions-lock
+    contract: contract:commons:provider-extensions-lock
+    telemetry: null
+    to: internal
+  - name: commons:isolate:sync-provider-interface
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:isolate:provider-registry
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:isolate:import-boundary-guard
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:isolate:remote-conformance-suite
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  - contract: contract:commons:projection-field-ownership
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:field-ownership
+    telemetry: null
+  wmbt:
+    C001: minimize likelihood of a core-provider-import surviving into main, by statically
+      walking the core import graph and failing on any provider, gh, or GitHub-API
+      dependency reachable from a lifecycle module
+    C002: maximize likelihood of a provider-free-workflow completing end to end against
+      a bare git remote with zero providers registered, proving no lifecycle decision
+      depends on GitHub
+    D001: maximize likelihood of a sync-provider-interface that core owns and providers
+      implement, where mirror() yields only bot-namespaced ExternalRefUpdate records,
+      detect_drift() is alarm-only, and no authoritative state ever crosses back into
+      core
+    E001: maximize likelihood of a provider-registration and discovery seam that is
+      empty by default, deterministic in ordering, and never consulted by a lifecycle
+      decision
+    E002: maximize likelihood of a deterministic extensions-lock that pins the core
+      schema, lifecycle policy and merge policy digests alongside every registered
+      provider digest, so a drifting extension is detected before it mirrors
+    K001: maximize likelihood of a core-extension-smoke proving the mirror is presentation-only,
+      where a failing provider never blocks merge and the only projection write-back
+      is through the constrained external_refs path
+    total: 6
+  total: 0
+  manifest: plan/isolate_provider_boundary/_isolate_provider_boundary.yaml
+  path: plan/isolate_provider_boundary/
 - wagon: judge-ambiguous-decisions
   description: 'Coach v9 LLM-judgment surface and pre-coach issue review: atdd judge
     core (§5.5) with six v1 call sites (§6.9: borderline tier-1, reviewer concern,
@@ -1845,13 +2303,12 @@ wagons:
   - name: commons:coach:validator-result-schema
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 6
+    total: 5
     D001: minimize quantity of unstructured-coach-decisions-bypassing-deterministic-routing
     D002: minimize likelihood of judge-call-site-misfire-on-tier1-retry-or-regression
     D003: minimize likelihood of issue-review-aggregate-judgment-without-audit-trail
     D004: minimize likelihood of legacy-rule-alias-violation-without-consolidated-migration-guidance
     D005: minimize likelihood of single-llm-bias-in-pre-coach-issue-review
-    D006: minimize likelihood of review-pass-llm-starved-of-issue-and-architecture-context
   total: 0
   manifest: plan/judge_ambiguous_decisions/_judge_ambiguous_decisions.yaml
   path: plan/judge_ambiguous_decisions/
@@ -1986,6 +2443,104 @@ wagons:
   total: 0
   manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
   path: plan/mediate_worker_decisions/
+- wagon: migrate-projection-authority
+  description: 'M8 of the state-projection collaboration model: move the shared source
+    of truth off the legacy manifest and the GitHub hot path onto the committed deterministic
+    projection. Ships the manifest-to-projection migration tool (CORE-031) with a
+    refuse-before-write guard, a non-blocking shadow-mode projection CI (CORE-032)
+    that reports drift while the cutover is staged, removal of GitHub reads from every
+    core lifecycle decision (CORE-033), decommission of the manifest read-fallback
+    once projection blocks (CORE-034), the core migration runbook (CORE-035), and
+    the cross-repo rollout and rollback plan (X-006).'
+  theme: commons
+  subject: agent:coder
+  context: post-cutover-staging, projection spine and merge authority already shipped;
+    the legacy manifest and GitHub hot-path reads are still live and must be retired
+    in order
+  action: migrates the legacy manifest into uid-keyed committed projection files,
+    runs a non-blocking shadow projection CI to surface drift, strips GitHub reads
+    out of every core lifecycle decision, decommissions the manifest read-fallback,
+    and publishes the migration runbook and the cross-repo rollout and rollback plan
+  goal: make the committed projection the only shared source of truth, so lifecycle
+    decisions never depend on a provider API or on a hand-editable manifest
+  outcome: projection is the shared committed state, GitHub is an optional mirror
+    no lifecycle decision reads, and the legacy manifest no longer acts as a fallback
+    source of truth
+  produce:
+  - name: commons:migrate:manifest-projection-migrator
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:shadow-projection-report
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:github-read-removal
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:manifest-fallback-decommission
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:migration-runbook
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:migrate:rollout-rollback-plan
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  - contract: contract:commons:projection-evidence
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:lifecycle-evidence
+    telemetry: null
+  - contract: contract:commons:projection-trailer
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:commit-trailer
+    telemetry: null
+  - contract: contract:commons:provider-external-ref-update
+    from: wagon:isolate-provider-boundary
+    name: commons:isolate:external-ref-update
+    telemetry: null
+  - contract: contract:commons:provider-extensions-lock
+    from: wagon:isolate-provider-boundary
+    name: commons:isolate:extensions-lock
+    telemetry: null
+  wmbt:
+    C001: 'minimize likelihood of a lossy-migration-write: the migration tool refuses
+      before writing any projection file when a manifest entry carries no uid, a duplicate
+      uid, or a phase outside the lifecycle vocabulary'
+    D001: maximize likelihood of a migration-runbook that names the cutover steps
+      in order, the developer-facing command changes, and the numbered invariant each
+      step preserves
+    E001: maximize likelihood of a complete manifest-projection-migration that reads
+      the legacy manifest, hydrates the store, and emits one deterministic .atdd/state/projection/<uid>.yaml
+      per work item keyed by the immutable uid rather than the mutable slug
+    K001: maximize likelihood of a clean projection-authority-cutover in which the
+      committed projection is the shared source of truth, GitHub is an optional mirror,
+      and the legacy manifest no longer acts as a fallback source of truth
+    M001: maximize likelihood of a shadow-projection-report that recomputes the projection
+      on every push and surfaces drift against both the committed projection and the
+      manifest-derived projection while remaining non-blocking
+    P001: maximize likelihood of a rollout-rollback-plan that stages shadow mode ahead
+      of blocking mode, names its rollback trigger and restore procedure, and is agreed
+      across the core and extension repos before the first irreversible step
+    Y001: 'minimize likelihood of a github-hot-path-read: no core lifecycle decision,
+      validator, or gate calls the GitHub API, and every remaining provider access
+      sits behind the SyncProvider seam and the external-ref quarantine'
+    Y002: 'minimize likelihood of a manifest-read-fallback: once projection is in
+      blocking mode, no core reader consults .atdd/manifest.yaml for shared lifecycle
+      state'
+    total: 8
+  total: 0
+  manifest: plan/migrate_projection_authority/_migrate_projection_authority.yaml
+  path: plan/migrate_projection_authority/
 - wagon: observe-and-correct
   description: 'Detect-and-correct observer sidecar for coach v9: implements `atdd
     observer` (run/attach/status/aggregate-approve), event-driven runtime watcher,
@@ -2068,26 +2623,177 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 16
-    P001: minimize quantity of observer-runtime-skeleton-gaps
-    P002: minimize quantity of observer-input-acquisition-gaps
-    M001: minimize likelihood of undetected-basic-protocol-violations
-    M002: minimize likelihood of unflagged-context-window-exhaustion
-    M003: minimize likelihood of undetected-multiplexer-and-bash-protocol-drift
-    M004: minimize likelihood of undetected-substrate-rule-id-and-suppression-violations
-    M005: minimize likelihood of live-workers-whose-liveness-never-reaches-the-coach
-    M006: minimize likelihood of blocked-workers-whose-need-for-a-decision-never-reaches-the-coach
-    R001: minimize likelihood of ask-events-whose-answer-never-reaches-the-waiting-worker
+    total: 5
     L001: minimize effort of locating-active-coach-surface-state
     E001: minimize effort of approving-known-safe-cross-surface-prompts
-    E002: minimize quantity of per-worker-observer-processes-spawned-by-coach
     E003: minimize quantity of observer-correction-loop-activation-gaps
-    E004: minimize quantity of persona-shim-spawn-dispatch-wiring-gaps
     C001: minimize likelihood of behavioral-regression-against-babysit-baseline
     C002: minimize likelihood of smoke-tests-that-pass-ci-while-substituting-their-declared-boundary
   total: 0
   manifest: plan/observe_and_correct/_observe_and_correct.yaml
   path: plan/observe_and_correct/
+- wagon: project-shared-state
+  description: 'Milestone M1 projection spine: deterministic project(store), hydrate(projection),
+    a projection digest pinned by golden files, the canonical CI identity project(hydrate(projection))
+    == projection, and immutable UID minting with slug-rename semantics. Makes the
+    committed per-uid projection the shared source of truth that CI can validate with
+    no GitHub API and no committed SQLite store (invariants I1, I2).'
+  theme: commons
+  subject: agent:coder
+  context: core-repo, milestone-m1, projection schema v1 accepted, zero sync providers
+    registered, developer sqlite store gitignored
+  action: projects the local store to canonical per-uid YAML, hydrates the public
+    store back from that projection, stamps a digest over the canonical bytes, and
+    mints immutable uids that alone name the projection files
+  goal: make the committed projection a deterministic, CI-verifiable shared source
+    of truth so lifecycle state travels through Git alone
+  outcome: project(hydrate(projection)) == projection holds byte-for-byte in CI, golden
+    files pin the canonical bytes, and a slug rename leaves uid and projection filename
+    unchanged
+  produce:
+  - name: commons:project:projection-object
+    contract: contract:commons:projection-object
+    telemetry: null
+    to: internal
+  consume: []
+  wmbt:
+    C001: minimize likelihood of nondeterministic-projection-content (wall-clock timestamps,
+      absolute host paths, unstable set or dict iteration order) surviving into a
+      committed projection file
+    C002: minimize likelihood of a noncanonical-projection reaching main by failing
+      CI whenever project(hydrate(projection)) does not equal the committed projection
+      byte-for-byte
+    E001: maximize likelihood of a deterministic-projection-write that is byte-identical
+      for the same logical store, carrying no timestamps, host paths, or unstable
+      ordering (invariant I1)
+    E002: maximize likelihood of a lossless projection-hydration that rebuilds the
+      public store objects from the committed projection at HEAD with no provider
+      registered and no committed sqlite store
+    E003: maximize likelihood of a stable projection-digest computed over the canonical
+      bytes and pinned by golden-file tests that fail on any unintended byte change
+    E004: maximize likelihood of an immutable uid-mint that is globally unique, never
+      reused, and is the sole identity driving the projection filename
+    Y001: 'minimize likelihood of a slug-rename mutating object identity: renaming
+      slug or title must leave uid and the .atdd/state/projection/<uid>.yaml filename
+      unchanged'
+    total: 7
+  total: 0
+  manifest: plan/project_shared_state/_project_shared_state.yaml
+  path: plan/project_shared_state/
+- wagon: reconcile-dispositions
+  description: Remove the ambiguity that lets a documentation-only node fail a build
+    and lets bound be mistaken for strict
+  theme: commons
+  subject: agent:planner
+  context: three different namespaces all spelled disposition
+  action: names each namespace separately, makes the disposition-to-verdict mapping
+    total across the declared vocabulary, and rejects any node outside it
+  goal: remove the ambiguity that lets a documentation-only node fail a build and
+    lets bound be mistaken for strict
+  outcome: one coherent disposition model, a total verdict mapping, and a vocabulary
+    validator
+  produce:
+  - name: commons:disposition-policy
+    contract: contract:commons:disposition-policy
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:binding-lock
+    from: wagon:bind-extension-conventions
+  wmbt:
+    total: 3
+    D001: minimize likelihood of the three distinct things spelled disposition being
+      conflated into one namespace
+    E001: minimize likelihood of a documentation-only node failing a build through
+      an incomplete disposition-to-verdict mapping
+    E002: minimize likelihood of a convention node declaring a disposition outside
+      the known treatment vocabulary slipping through unnoticed
+  total: 0
+  manifest: plan/reconcile_dispositions/_reconcile_dispositions.yaml
+  path: plan/reconcile_dispositions/
+- wagon: reconcile-local-store
+  description: 'The M2 reconcile spine. The local SQLite store is the private authoring
+    workspace; the committed per-UID projection is the shared source of truth. This
+    wagon makes the relation store = hydrate(projection @ store_base_commit) + replay(local_overlay)
+    explicit and mechanical: it stamps store_base_commit metadata on every hydrate,
+    records an explicit overlay event for every local authoring command instead of
+    inferring intent from SQLite diffs, gates any reconcile that would overwrite a
+    dirty store, implements `atdd state reconcile` as backup -> hydrate incoming ->
+    replay overlay -> re-project -> advance base (or stop with a conflict report and
+    keep the backup), fires reconcile from every HEAD-moving git hook, and proves
+    the whole thing with a Dev A / Dev B collaboration test in which B pulls A''s
+    merged work through Git alone and keeps B''s uncommitted private work intact.
+    Covers CORE-010 through CORE-015; satisfies invariants I3 and I5.'
+  theme: commons
+  subject: agent:coder
+  context: local-developer-checkout, after HEAD moves (pull, merge, rebase, checkout,
+    amend) while the local store may hold uncommitted overlay events
+  action: stamps store_base_commit on hydrate, appends an explicit overlay event for
+    every local authoring command, refuses to clobber a dirty store, and reconciles
+    by hydrating the incoming projection and replaying the overlay on top of it, re-projecting
+    affected objects and advancing store_base_commit, or halting with a conflict report
+    and a retained backup
+  goal: solve the Dev A / Dev B local-store update problem so a developer can pull
+    or rebase merged peer work through Git projection alone and never silently lose
+    private uncommitted authoring
+  outcome: 'reconcile is deterministic and non-destructive: no-overlay stores hydrate
+    cleanly, dirty stores replay their overlay or conflict loudly with a backup, and
+    the A/B collaboration test passes with no provider API in the hot path'
+  produce:
+  - name: commons:reconcile:store-base-commit
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:overlay-event-log
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:dirty-store-gate
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:reconcile-command
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:head-change-hooks
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:reconcile:collaboration-suite
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: contract:commons:projection-object
+    from: wagon:project-shared-state
+    name: commons:project:projection-object
+    telemetry: null
+  wmbt:
+    C001: minimize likelihood of a dirty-store-overwrite during reconcile
+    E001: maximize likelihood of a complete overlay-event-log recording every uncommitted
+      local authoring command
+    K001: maximize likelihood of a proven collaboration-flow in which Dev B keeps
+      private work across Dev A's merge
+    M001: maximize likelihood of a head-change-reconcile firing on every operation
+      that moves HEAD
+    P001: maximize likelihood of a durable store-base-commit stamped on the local
+      store at every hydrate
+    P002: maximize likelihood of cold-start-hydrate succeeding when no store or no
+      base commit exists and no overlay is present, while refusing and emitting remediation
+      when a store is missing its base commit but carries overlay events
+    R001: maximize likelihood of a correct overlay-replay onto the freshly hydrated
+      incoming projection
+    R002: maximize likelihood of an actionable conflict-report with a retained backup
+      when replay is invalid
+    Y001: minimize likelihood of overlay-event-replayed-twice by giving each event
+      a stable event_id and a status (pending/projected/committed/discarded/conflicted),
+      recording which events a projection represents, and replaying only pending or
+      projected-but-uncommitted events
+    total: 9
+  total: 0
+  manifest: plan/reconcile_local_store/_reconcile_local_store.yaml
+  path: plan/reconcile_local_store/
 - wagon: review-phase-boundaries
   description: 'Stands up the coach v9 adversarial reviewer surface that gates every
     meaningful phase boundary (PLANNED/RED/GREEN/SMOKE/optional REFACTOR): a no-write
@@ -2153,14 +2859,11 @@ wagons:
   - name: commons:coach:tier1-validator-dispatch
     from: wagon:dispatch-validators
   wmbt:
-    total: 9
+    total: 6
     D001: minimize likelihood of write-permission-leak-from-reviewer-agent
     D002: minimize likelihood of false-pass-verdict-on-uncovered-or-strict-findings
     D003: minimize likelihood of phase-mismatched-reviewer-focus
-    D004: minimize likelihood of unaudited-concern-to-routing-decisions
     E001: minimize likelihood of unrecorded-or-unvalidated-review-outcomes
-    E002: minimize likelihood of reviewer-pipeline-inaccessible-outside-full-coach-lifecycle
-    E003: minimize likelihood of reviewer-verdict-not-enforced-at-pr-boundary
     E004: minimize likelihood of coach-integration-tests-spawn-unreaped-cmux-workspaces
     E005: minimize likelihood of reviewer-not-invoked-at-pre-complete-boundary-by-default
   total: 0
@@ -2367,7 +3070,7 @@ wagons:
   - name: commons:coach:decisions-jsonl-writer
     from: wagon:drive-state-machine
   wmbt:
-    total: 38
+    total: 27
     E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
     D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
     E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
@@ -2376,22 +3079,14 @@ wagons:
     E003: minimize quantity of orphan-multiplexer-panes-leaked-by-failed-or-partial-coach-spawns
     E004: minimize likelihood of raw-cmux-claude-launches-bypassing-atdd-spawn
     E005: minimize likelihood of coach-spawned-personas-without-atdd-agent-id-in-their-environment
-    E006: minimize likelihood of green-to-smoke-spawns-that-create-an-observer-without-a-persona
     E007: minimize quantity of phase-transitions-that-reuse-the-prior-phase-worker-process
     E008: minimize likelihood of coach-runs-where-the-operator-cannot-choose-the-per-persona-model-at-spawn-time
-    E009: minimize likelihood of atdd-spawn-llm-ids-that-resolve-to-no-registered-adapter-or-fail-silently-on-missing-credentials
     E010: minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate
     E011: minimize likelihood of coach-spawn-pipeline-stages-that-silently-fail-without-raising-a-stage-specific-exception
     E012: minimize likelihood of coach-spawned-workers-blocked-by-rename-race-false-positive-accepted-gate-and-orphan-pane-on-timeout
-    E013: minimize likelihood of coach-spawn-adapters-lacking-declared-permission-flags-and-allowed-tools-allowlist
-    E014: minimize likelihood of bash-auto-approve-rule-referencing-stale-multiplexer-modal-typing-path
     M001: minimize quantity of coach-spawn-pipelines-that-inject-slash-rename-into-the-running-agent-session
-    M002: minimize quantity of observer-correction-code-and-adapter-configs-violating-the-non-interactive-spawn-contract
-    L001: minimize likelihood of coach-spawned-agents-that-present-interactive-permission-modals-under-standard-workloads
     D002: minimize likelihood of undocumented-freedom-with-a-leash-spawn-policy
-    R001: minimize likelihood of deny-pattern-bash-invocations-handled-via-in-band-modal-or-unrouted-escalation
     E015: minimize likelihood of planner-agent-commits-planned-without-verifying-smoke-acceptance-coverage
-    E016: minimize likelihood of shell-style-env-prefix-injected-into-shim-argv-causing-popen-exec-failure
     E022: minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents
     E023: minimize quantity of claude-md-lines-exceeding-worker-context-budget
     E024: minimize likelihood of operator-emergency-bypass-mechanism-documented-as-copy-pasteable-env-var-in-agent-readable-context
@@ -2401,9 +3096,6 @@ wagons:
     E025: minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode
     E026: minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section
     E027: minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section
-    E028: minimize likelihood of adapter-specific-hardcoded-session-jsonl-boot-wait-deadlocking-coach-on-lazy-session-creation
-    E029: minimize likelihood of launch-prompt-paste-gated-behind-session-jsonl-that-appears-only-after-first-user-message
-    L004: minimize likelihood of spawn-pipeline-regression-to-jsonl-boot-wait-deadlock-on-lazy-session-creation
     E031: minimize likelihood of spawned-worker-bash-allowlist-hardcoded-in-adapter-code-instead-of-sourced-from-the-session-convention-freedom-layer-data
     E032: minimize likelihood of destructive-or-unscoped-bash-entry-admitted-into-the-declared-freedom-set-allowlist
   total: 0
@@ -2439,7 +3131,22 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 33
+    total: 21
+    E032: minimize time of clean-convention-graph-construction — the composed convention
+      graph is built once per pytest session and reused by every read-only baseline
+      and contract test
+    E033: minimize likelihood of binding-fault-filesystem-mutation — binding-family
+      faults are injected by renaming a rule id in a cloned graph while the emitted
+      bind_rule index is left unchanged, so no convention YAML is ever rewritten
+    E034: minimize likelihood of evaluator-fault-filesystem-mutation — the remaining
+      template-evaluator fault families (coherence, presence, resolution, coverage,
+      acyclicity) inject faults into a cloned convention graph via graph_mutations
+      instead of rewriting plan or convention YAML on disk
+    E035: minimize likelihood of root-reader-fault-filesystem-mutation — the last
+      seven fault families (policy, schema, grammar, composition, boundary, sizing,
+      uniqueness) inject faults into a cloned graph or into a temp tree the graph
+      is re-pointed at, so no fault family rewrites the real checkout and none re-composes
+      the clean graph
     E001: minimize likelihood of registry-family-template-mismatch — registry.yaml
       declares exactly the 13 canonical families and 22 templates
     E002: minimize likelihood of registry-archetype-divergence — each family archetype.py
@@ -2450,69 +3157,34 @@ wagons:
       README.md, archetype.py and fixtures.py
     E005: minimize likelihood of legacy-validator-regression — legacy persona validator
       folders are unmoved and atdd validate behaviour is unchanged
-    E006: minimize likelihood of unaccounted-legacy-validator — every file under the
-      four legacy validator roots appears in the parity map entries or the exclusion
-      table
-    E007: minimize likelihood of invented-family-template — every mapped entry uses
-      a canonical family and template from the
-    E008: minimize likelihood of invalid-parity-classification — every entry carries
-      a parity_status from the seven-value enum and a priority of P0, P1 or P2
-    E009: minimize likelihood of unexplained-exclusion — every file in the exclusion
-      table carries an explicit reason
     E010: minimize likelihood of unbuilt-p0-variant — every P0 direct/split/merged/superseded
       entry has a target implementation or explicit superseded evidence
     E011: minimize likelihood of variant-metadata-noncompliance — every variant references
       a registry family/template and declares the nine metadata fields including a
       legacy_parity_source
-    E012: minimize likelihood of unbuilt-p1-variant — every P1 parity entry is implemented
-      or explicitly deferred with a recorded reason
     E013: minimize likelihood of legacy-import-coupling — no target convention validator
       imports a legacy persona validator module as its source of truth
     E014: minimize likelihood of parallel-run-collision — target convention validators
       and legacy persona validators run in parallel without collision
     E015: minimize likelihood of persona-folder-convention-validator — CI rejects
       any new convention-graph validator added under a legacy persona validator folder
-    E016: minimize likelihood of unresolved-p0-shadow-gap — the shadow-run report
-      shows zero unresolved P0 parity gaps before promotion
-    E017: minimize likelihood of unaccounted-decommission-outcome — the decommission
-      report records an outcome for every legacy validator, one-to-one with the parity
-      audit
     E018: minimize likelihood of non-authoritative-convention-path — after promotion
       the convention validators run as the authoritative convention-graph enforcement
       path
-    Y001: minimize likelihood of unsafe-legacy-deletion — no legacy validator is deleted
-      unless its parity status is direct/merged/split/superseded and its target implementation
-      exists
     E019: minimize likelihood of unnormalized-graph-node — composed graph exposes
       id/kind/refs/theme/package/location on real nodes
     E020: minimize likelihood of vacuous-variant-selection — every variant selects
       >0 real nodes or declares an allowed-empty selection
     E021: minimize likelihood of untemplated-failure-evidence — variant evidence keys
       are a subset of its template failure_evidence
-    E022: minimize likelihood of unpaired-sentinel — every ported P0 variant has a
-      fault-injection parity test vs its legacy validator
-    E023: minimize likelihood of unverified-parity-claim — no P0 pair is parity-verified
-      without a passing legacy-vs-convention diff
-    E024: minimize likelihood of unadjudicated-stricter-finding — each convention-only
-      finding is classified real-gap/schema-bug/loader-bug
     E025: minimize likelihood of train-representation-mismatch — train nodes loaded
       from detail files conform to the train schema
     E026: minimize likelihood of incomplete-harness-enum — the acceptance harness
       enum includes smoke so SMOKE accs are not false-flagged
-    E027: minimize likelihood of missing-fault-corpus — a seeded fault exists per
-      legacy rule plus a clean baseline
-    E028: minimize likelihood of single-suite-run — each fault is run through both
-      legacy and convention suites on identical input
-    E029: minimize likelihood of unclassified-catch-outcome — each fault yields a
-      catch-matrix cell (both/convention-only/legacy-only/neither)
-    E030: minimize likelihood of clean-repo-false-positive — neither suite flags the
-      clean baseline
-    E031: minimize likelihood of unmeasured-parity-delta — a gap report quantifies
-      parity/improvements/regressions/false-positives from the matrix
-    Y002: maximize likelihood of decommission-preflight-visibility — every decommission-ready
-      legacy validator is classified PLATFORM/RULE-BOUND/ACCEPTANCE-ANCHORED with
-      its legacy-validator-map status and required retirement steps, naming the two
-      CI catches, before any deletion
+    Y003: minimize likelihood of coverage-loss-on-legacy-validator-sweep-retirement
+      — no rule implementation.ref/validator resolves to a deleted persona-folder
+      validator and every repointed rule binds to an executing convention variant
+      (not an xfail/stub)
   total: 0
   manifest: plan/validate_conventions/_validate_conventions.yaml
   path: plan/validate_conventions/
@@ -2547,3 +3219,36 @@ wagons:
   total: 0
   manifest: plan/verify_contracts/_verify_contracts.yaml
   path: plan/verify_contracts/
+- wagon: verify-enforcement
+  description: Guarantee that deleting a core convention node can never silently remove
+    enforcement of the rule its extension twin was meant to inherit
+  theme: commons
+  subject: agent:tester
+  context: in CI today all 50 extension rules are enforced solely by their core twin,
+    because no job runs the enforcement path
+  action: reports which rules are enforced in CI versus merely reported, and proves
+    that every core node with an extension twin has that twin bound and running before
+    the core node may be retired
+  goal: guarantee that deleting a core convention node can never silently remove enforcement
+    of the rule its extension twin was meant to inherit
+  outcome: a coverage report and a succession proof that the core-deletion guard consumes
+  produce:
+  - name: commons:succession-coverage
+    contract: contract:commons:succession-coverage
+    telemetry: null
+    to: internal
+  consume:
+  - name: commons:enforce-verdict
+    from: wagon:enforce-conventions-ci
+  wmbt:
+    total: 2
+    M001: minimize likelihood of enforcement-coverage-blindness by producing a report
+      that classifies every extension rule as ENFORCED-in-CI or REPORTED-only, so
+      the bound set is never mistaken for the enforced set
+    E001: minimize likelihood of unsafe-core-retirement by proving that every core
+      convention node with an extension twin has that twin bound and blockingly running
+      in CI before the core node may be retired, so retiring a core node can never
+      silently drop the rule its twin mirrors
+  total: 0
+  manifest: plan/verify_enforcement/_verify_enforcement.yaml
+  path: plan/verify_enforcement/

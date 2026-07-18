@@ -6,7 +6,7 @@ name: Wagon separability (advisory)
 statement: A wagon should be separable — its internal cohesion (intra-wagon shared-token WMBT edges) at least its tightest coupling to any single neighbor wagon. A wagon more bound to a neighbor than to itself emits a [MERGE] signal. Advisory and non-blocking.
 implementation:
   type: validator
-  ref: test_wagon_separability::test_wagon_separability_reported
+  ref: conventions/sizing/test_wagon_separability::test_live_corpus_legacy_parity
 source:
   legacy_path: docs/recompose
   legacy_section: complexity-sizing

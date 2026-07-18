@@ -18,6 +18,7 @@ Severity levels:
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -28,7 +29,9 @@ from atdd.coach.utils.graph.graph_builder import (
     EdgeType,
     URNNode,
 )
-from atdd.coach.utils.graph.urn import URNBuilder
+from atdd.coach.utils.graph.urn import URNGrammar
+
+_logger = logging.getLogger(__name__)
 
 
 class IssueSeverity(Enum):
@@ -172,13 +175,13 @@ class EdgeValidator:
     def __init__(self, graph: TraceabilityGraph):
         self.graph = graph
 
-        # Root families: derived from URNBuilder.SEGMENT_COUNTS (parent-it-belongs-to,
+        # Root families: derived from URNGrammar.SEGMENT_COUNTS (parent-it-belongs-to,
         # spec v12 §3.2). A family is a root when its segment count after the prefix
         # is 1 (no parent coordinates). Adding a new top-level family in PATTERNS +
         # SEGMENT_COUNTS automatically extends this set — no edits here required.
         self._root_families = {
             family
-            for family, count in URNBuilder.SEGMENT_COUNTS.items()
+            for family, count in URNGrammar.SEGMENT_COUNTS.items()
             if count == 1
         }
 
@@ -368,149 +371,133 @@ class EdgeValidator:
         Returns:
             List of missing edge issues
         """
+        checks = {
+            "feature": self._check_feature_edges,
+            "wmbt": self._check_wmbt_edges,
+            "acc": self._check_acc_edges,
+            "contract": self._check_contract_edges,
+            "telemetry": self._check_telemetry_edges,
+            "train": self._check_train_edges,
+            "component": self._check_component_edges,
+        }
+
         issues = []
-
-        # Check that features have parent wagons
         for urn, node in self.graph.nodes.items():
-            if node.family == "feature":
-                parents = self.graph.get_parents(urn, EdgeType.CONTAINS)
-                wagon_parents = [p for p in parents if p.family == "wagon"]
-                if not wagon_parents:
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.MISSING_EDGE,
-                            severity=IssueSeverity.WARNING,
-                            urn=urn,
-                            message="Feature has no parent wagon",
-                            location=node.artifact_path,
-                            suggestion="Add feature reference to wagon manifest",
-                        )
-                    )
-
-                # Check feature has at least one component child
-                component_children = [
-                    c for c in self.graph.get_children(urn, EdgeType.CONTAINS)
-                    if c.family == "component"
-                ]
-                if not component_children:
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.MISSING_EDGE,
-                            severity=IssueSeverity.WARNING,
-                            urn=urn,
-                            message="Feature has no component children — chain dead-ends at feature level",
-                            suggestion="Add at least one component:{wagon}:{feature}:* URN declaration",
-                        )
-                    )
-
-            # Check that WMBTs have parent wagons
-            elif node.family == "wmbt":
-                parents = self.graph.get_parents(urn, EdgeType.CONTAINS)
-                wagon_parents = [p for p in parents if p.family == "wagon"]
-                if not wagon_parents:
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.MISSING_EDGE,
-                            severity=IssueSeverity.WARNING,
-                            urn=urn,
-                            message="WMBT has no parent wagon",
-                            location=node.artifact_path,
-                            suggestion="Ensure WMBT is in correct wagon directory",
-                        )
-                    )
-
-            # Check that acceptances have parent WMBTs
-            elif node.family == "acc":
-                parents = self.graph.get_parents(urn, EdgeType.CONTAINS)
-                wmbt_parents = [p for p in parents if p.family == "wmbt"]
-                if not wmbt_parents:
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.MISSING_EDGE,
-                            severity=IssueSeverity.WARNING,
-                            urn=urn,
-                            message="Acceptance has no parent WMBT",
-                            location=node.artifact_path,
-                            suggestion="Ensure acceptance is declared in WMBT file",
-                        )
-                    )
-
-            # Check that contracts have producing wagons
-            elif node.family == "contract":
-                incoming = self.graph.get_incoming_edges(urn)
-                producer_edges = [
-                    e for e in incoming
-                    if e.edge_type == EdgeType.PRODUCES
-                ]
-                if not producer_edges:
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.MISSING_EDGE,
-                            severity=IssueSeverity.WARNING,
-                            urn=urn,
-                            message="Contract has no producing wagon",
-                            location=node.artifact_path,
-                            suggestion="Add contract to wagon's produce[] section",
-                        )
-                    )
-
-            # Check that telemetry has producing wagons
-            elif node.family == "telemetry":
-                incoming = self.graph.get_incoming_edges(urn)
-                producer_edges = [
-                    e for e in incoming
-                    if e.edge_type == EdgeType.PRODUCES
-                ]
-                if not producer_edges:
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.MISSING_EDGE,
-                            severity=IssueSeverity.WARNING,
-                            urn=urn,
-                            message="Telemetry has no producing wagon",
-                            location=node.artifact_path,
-                            suggestion="Add telemetry to wagon's produce[] section",
-                        )
-                    )
-
-            # Check that trains have wagon references
-            elif node.family == "train":
-                outgoing = self.graph.get_outgoing_edges(urn)
-                wagon_edges = [
-                    e for e in outgoing
-                    if e.edge_type == EdgeType.INCLUDES
-                ]
-                if not wagon_edges:
-                    issues.append(
-                        ValidationIssue(
-                            issue_type=IssueType.MISSING_EDGE,
-                            severity=IssueSeverity.WARNING,
-                            urn=urn,
-                            message="Train has no wagon references",
-                            location=node.artifact_path,
-                            suggestion="Add wagons[] to train definition",
-                        )
-                    )
-
-            elif node.family == "component":
-                # Check component's wagon slug has a matching wagon node
-                parts = urn.replace("component:", "").split(":")
-                if len(parts) >= 2:
-                    wagon_slug = parts[0]
-                    expected_wagon = f"wagon:{wagon_slug}"
-                    if not self.graph.get_node(expected_wagon):
-                        issues.append(
-                            ValidationIssue(
-                                issue_type=IssueType.MISSING_EDGE,
-                                severity=IssueSeverity.WARNING,
-                                urn=urn,
-                                message=f"Component wagon slug '{wagon_slug}' has no matching wagon:{wagon_slug} in graph",
-                                location=node.artifact_path,
-                                suggestion=f"Ensure wagon:{wagon_slug} exists, or use a valid wagon slug",
-                            )
-                        )
+            check = checks.get(node.family)
+            if check:
+                issues.extend(check(urn, node))
 
         return issues
+
+    @staticmethod
+    def _missing_edge(urn, node, message: str, suggestion: str) -> ValidationIssue:
+        """A MISSING_EDGE warning for one node."""
+        return ValidationIssue(
+            issue_type=IssueType.MISSING_EDGE,
+            severity=IssueSeverity.WARNING,
+            urn=urn,
+            message=message,
+            location=node.artifact_path,
+            suggestion=suggestion,
+        )
+
+    def _has_parent_of(self, urn: str, family: str) -> bool:
+        """The node has at least one CONTAINS parent of this family."""
+        parents = self.graph.get_parents(urn, EdgeType.CONTAINS)
+        return any(p.family == family for p in parents)
+
+    def _check_feature_edges(self, urn, node) -> List[ValidationIssue]:
+        """A feature is contained by a wagon and contains at least one component."""
+        issues = []
+        if not self._has_parent_of(urn, "wagon"):
+            issues.append(self._missing_edge(
+                urn, node,
+                "Feature has no parent wagon",
+                "Add feature reference to wagon manifest",
+            ))
+
+        children = self.graph.get_children(urn, EdgeType.CONTAINS)
+        if not any(c.family == "component" for c in children):
+            issues.append(ValidationIssue(
+                issue_type=IssueType.MISSING_EDGE,
+                severity=IssueSeverity.WARNING,
+                urn=urn,
+                message="Feature has no component children — chain dead-ends at feature level",
+                suggestion="Add at least one component:{wagon}:{feature}:* URN declaration",
+            ))
+        return issues
+
+    def _check_wmbt_edges(self, urn, node) -> List[ValidationIssue]:
+        """A WMBT is contained by a wagon."""
+        if self._has_parent_of(urn, "wagon"):
+            return []
+        return [self._missing_edge(
+            urn, node,
+            "WMBT has no parent wagon",
+            "Ensure WMBT is in correct wagon directory",
+        )]
+
+    def _check_acc_edges(self, urn, node) -> List[ValidationIssue]:
+        """An acceptance is contained by a WMBT."""
+        if self._has_parent_of(urn, "wmbt"):
+            return []
+        return [self._missing_edge(
+            urn, node,
+            "Acceptance has no parent WMBT",
+            "Ensure acceptance is declared in WMBT file",
+        )]
+
+    def _has_producer(self, urn: str) -> bool:
+        """Some wagon PRODUCES this node."""
+        incoming = self.graph.get_incoming_edges(urn)
+        return any(e.edge_type == EdgeType.PRODUCES for e in incoming)
+
+    def _check_contract_edges(self, urn, node) -> List[ValidationIssue]:
+        """A contract is produced by a wagon."""
+        if self._has_producer(urn):
+            return []
+        return [self._missing_edge(
+            urn, node,
+            "Contract has no producing wagon",
+            "Add contract to wagon's produce[] section",
+        )]
+
+    def _check_telemetry_edges(self, urn, node) -> List[ValidationIssue]:
+        """A telemetry signal is produced by a wagon."""
+        if self._has_producer(urn):
+            return []
+        return [self._missing_edge(
+            urn, node,
+            "Telemetry has no producing wagon",
+            "Add telemetry to wagon's produce[] section",
+        )]
+
+    def _check_train_edges(self, urn, node) -> List[ValidationIssue]:
+        """A train includes at least one wagon."""
+        outgoing = self.graph.get_outgoing_edges(urn)
+        if any(e.edge_type == EdgeType.INCLUDES for e in outgoing):
+            return []
+        return [self._missing_edge(
+            urn, node,
+            "Train has no wagon references",
+            "Add wagons[] to train definition",
+        )]
+
+    def _check_component_edges(self, urn, node) -> List[ValidationIssue]:
+        """A component's wagon slug names a wagon that exists in the graph."""
+        parts = urn.replace("component:", "").split(":")
+        if len(parts) < 2:
+            return []
+
+        wagon_slug = parts[0]
+        if self.graph.get_node(f"wagon:{wagon_slug}"):
+            return []
+
+        return [self._missing_edge(
+            urn, node,
+            f"Component wagon slug '{wagon_slug}' has no matching wagon:{wagon_slug} in graph",
+            f"Ensure wagon:{wagon_slug} exists, or use a valid wagon slug",
+        )]
 
     def validate_all(
         self, families: Optional[List[str]] = None, phase: str = "warn"
@@ -573,41 +560,39 @@ class EdgeValidator:
             if node.metadata.get("is_jel"):
                 continue
 
-            # Check if broken (from resolution metadata)
-            if node.metadata.get("is_broken"):
-                error = node.metadata.get("resolution_error") or "not resolvable"
-                source_path = node.metadata.get("source_path")
-                result.issues.append(
-                    ValidationIssue(
-                        issue_type=IssueType.BROKEN,
-                        severity=IssueSeverity.ERROR,
-                        urn=node.urn,
-                        message=f"Contract URN broken: {error}",
-                        location=Path(source_path) if source_path else None,
-                    )
-                )
-                continue
-
-            # Check for producer reference
-            incoming = self.graph.get_incoming_edges(node.urn)
-            producer_edges = [
-                e for e in incoming if e.edge_type == EdgeType.PRODUCES
-            ]
-
-            if not producer_edges:
-                source_path = node.metadata.get("source_path")
-                result.issues.append(
-                    ValidationIssue(
-                        issue_type=IssueType.ORPHAN,
-                        severity=IssueSeverity.WARNING,
-                        urn=node.urn,
-                        message="Contract has no producing wagon",
-                        location=Path(source_path) if source_path else None,
-                        suggestion="Add contract to wagon's produce[] section",
-                    )
-                )
+            issue = self._contract_issue(node)
+            if issue:
+                result.issues.append(issue)
 
         return result
+
+    def _contract_issue(self, node) -> Optional[ValidationIssue]:
+        """The problem with one contract node: broken URN, or no producer. Else None."""
+        source_path = node.metadata.get("source_path")
+        location = Path(source_path) if source_path else None
+
+        # Broken (from resolution metadata)
+        if node.metadata.get("is_broken"):
+            error = node.metadata.get("resolution_error") or "not resolvable"
+            return ValidationIssue(
+                issue_type=IssueType.BROKEN,
+                severity=IssueSeverity.ERROR,
+                urn=node.urn,
+                message=f"Contract URN broken: {error}",
+                location=location,
+            )
+
+        if self._has_producer(node.urn):
+            return None
+
+        return ValidationIssue(
+            issue_type=IssueType.ORPHAN,
+            severity=IssueSeverity.WARNING,
+            urn=node.urn,
+            message="Contract has no producing wagon",
+            location=location,
+            suggestion="Add contract to wagon's produce[] section",
+        )
 
     def find_jel_contracts(self) -> List[ValidationIssue]:
         """
@@ -655,9 +640,6 @@ class EdgeValidator:
         Returns:
             List of fix results with old_id, new_id, file_path, and status
         """
-        import json
-        import shutil
-
         fixes = []
 
         for node in self.graph.nodes_by_family("contract"):
@@ -665,53 +647,66 @@ class EdgeValidator:
                 continue
 
             contract_file = node.artifact_path
-            schema_id = node.metadata.get("schema_id", "")
-            new_id = node.metadata.get("correct_id", "")
-
             if not contract_file or not Path(contract_file).exists():
                 continue
 
-            contract_file = Path(contract_file)
+            fixes.append(self._fix_jel_contract(Path(contract_file), node, dry_run))
 
-            fix_result = {
+        return fixes
+
+    @staticmethod
+    def _fix_jel_contract(contract_file: Path, node, dry_run: bool) -> Dict:
+        """Rewrite one JEL contract's $id, backing the file up first.
+
+        A failure is reported in the returned record (status ``error``) rather
+        than raised, so one bad schema does not abort the whole fix run.
+        """
+        import json
+        import shutil
+
+        schema_id = node.metadata.get("schema_id", "")
+        new_id = node.metadata.get("correct_id", "")
+
+        fix_result = {
+            "file_path": str(contract_file),
+            "old_id": schema_id,
+            "new_id": new_id,
+            "status": "pending",
+        }
+
+        if dry_run:
+            fix_result["status"] = "dry_run"
+            return fix_result
+
+        try:
+            with open(contract_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Create backup
+            backup_path = contract_file.with_suffix(".schema.json.bak")
+            shutil.copy2(contract_file, backup_path)
+
+            # Update the $id in the schema
+            data["$id"] = new_id
+
+            # Write back with preserved formatting (2-space indent)
+            with open(contract_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                f.write("\n")  # Trailing newline
+
+            fix_result["status"] = "fixed"
+            fix_result["backup"] = str(backup_path)
+            return fix_result
+
+        except Exception as e:
+            _logger.warning(
+                "Failed to rewrite JEL contract $id in %s: %s", contract_file, e,
+                extra={"path": str(contract_file), "error": str(e)},
+            )
+            return {
                 "file_path": str(contract_file),
                 "old_id": schema_id,
                 "new_id": new_id,
-                "status": "pending",
+                "status": "error",
+                "error": str(e),
             }
-
-            if dry_run:
-                fix_result["status"] = "dry_run"
-                fixes.append(fix_result)
-                continue
-
-            try:
-                with open(contract_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                # Create backup
-                backup_path = contract_file.with_suffix(".schema.json.bak")
-                shutil.copy2(contract_file, backup_path)
-
-                # Update the $id in the schema
-                data["$id"] = new_id
-
-                # Write back with preserved formatting (2-space indent)
-                with open(contract_file, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
-                    f.write("\n")  # Trailing newline
-
-                fix_result["status"] = "fixed"
-                fix_result["backup"] = str(backup_path)
-                fixes.append(fix_result)
-
-            except Exception as e:
-                fixes.append({
-                    "file_path": str(contract_file),
-                    "old_id": schema_id,
-                    "new_id": new_id,
-                    "status": "error",
-                    "error": str(e),
-                })
-
-        return fixes

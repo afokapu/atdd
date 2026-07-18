@@ -1,0 +1,33 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: migrate_manifest (hydrate then project per work item); validate_manifest_entries
+        (refuse before write)
+      type: use_cases
+    domain:
+    - count: 2
+      rationale: WorkItemUid (immutable identity driving the projection filename);
+        MigrationDefect (offending entry plus reason)
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: deterministic projection-file writer under .atdd/state/projection/
+      type: stores
+    presentation:
+    - count: 1
+      rationale: the migration subcommand that reads the manifest and writes the projection
+        tree
+      type: controllers
+description: 'CORE-031: the manifest-to-projection migration tool. Emits one deterministic
+  uid-keyed projection per manifest work item, refusing before any write on an unmigratable
+  entry.'
+sizing:
+  footprint_score: 13
+  footprint_size: M
+  wmbts: 2
+urn: feature:migrate-projection-authority:migrate-manifest-projection
+wagon: wagon:migrate-projection-authority
+wmbts:
+- wmbt:migrate-projection-authority:E001
+- wmbt:migrate-projection-authority:C001

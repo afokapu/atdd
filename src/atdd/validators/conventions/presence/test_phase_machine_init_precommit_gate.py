@@ -48,9 +48,9 @@ def test_phase_machine_init_precommit_gate_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_phase_machine_init_gate_clean_baseline(repo_root: Path) -> None:
+def test_phase_machine_init_gate_clean_baseline(clean_convention_graph) -> None:
     """INIT declares a pre_commit_gate invoking the planner validator -> 0 violations."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
 def test_phase_machine_init_gate_catches_injected_fault(repo_root: Path) -> None:

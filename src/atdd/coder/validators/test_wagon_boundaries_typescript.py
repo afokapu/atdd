@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import List, Optional, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 import atdd
 
@@ -40,7 +41,7 @@ import atdd
 # ============================================================================
 
 REPO_ROOT = find_repo_root()
-WEB_SRC = REPO_ROOT / "web" / "src"
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 BOUNDARIES_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "boundaries.convention.yaml"
 
@@ -79,7 +80,7 @@ def find_implementation_files() -> List[Path]:
     - Composition roots (composition.ts, wagon.ts, app entry points)
     - Files in test/tests/__tests__ directories
     """
-    if not WEB_SRC.exists():
+    if WEB_SRC is None or not WEB_SRC.exists():
         return []
 
     files: List[Path] = []
@@ -230,8 +231,8 @@ def is_cross_wagon_internal_import(
 
 def scan_wagon_boundaries_typescript(repo_root: Path) -> Tuple[int, List[str]]:
     """Scan for cross-wagon internal imports. Used by ratchet baseline."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
 
     # Collect implementation files (reuse logic but with custom root)

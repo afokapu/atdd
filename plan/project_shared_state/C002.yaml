@@ -1,0 +1,82 @@
+urn: wmbt:project-shared-state:C002
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: noncanonical-projection
+context_clarifier: when CI validates a pushed branch it cannot read a gitignored developer
+  sqlite store, so the only honest guarantee is the round-trip identity taken over
+  the committed projection alone
+lens: functional.effectiveness
+statement: minimize likelihood of a noncanonical-projection reaching main by failing
+  CI whenever project(hydrate(projection)) does not equal the committed projection
+  byte-for-byte
+acceptances:
+- given:
+    abstract:
+    - A committed projection directory with one file hand-edited into non-canonical
+      key order
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: a hand-edited projection whose bytes are not the canonical output of
+      project(hydrate(...)) fails the canonicality check
+    urn: acc:project-shared-state:C002-UNIT-001-roundtrip-mismatch-fails
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The check fails with a non-zero exit code
+    - The report names the offending <uid>.yaml and shows the canonical-versus-committed
+      diff
+  when:
+    abstract: the canonicality check project(hydrate(projection)) == projection is
+      run over that directory
+- given:
+    abstract:
+    - A projection directory produced by project(store) over a fixture store
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: a projection produced by project(store) passes the canonicality check
+      unchanged
+    urn: acc:project-shared-state:C002-UNIT-002-roundtrip-identity-holds
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The check exits zero and reports the projection as canonical
+    - The check reads neither GitHub nor any developer sqlite store
+  when:
+    abstract: the canonicality check project(hydrate(projection)) == projection is
+      run over that directory
+- given:
+    abstract:
+    - A real repo checkout pushed to a bare git remote, with the canonical projection
+      CI job wired and no GitHub API reachable
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify the canonical projection CI job runs on a real checkout with a
+      bare git remote and blocks a non-canonical projection
+    urn: acc:project-shared-state:C002-SMOKE-001-ci-job-blocks-noncanonical-push
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The job exits non-zero and names the non-canonical file
+    - The same job exits zero on a branch whose projection was produced by project(store)
+  when:
+    abstract: the CI job is executed against a branch whose committed projection was
+      hand-edited

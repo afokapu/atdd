@@ -1,0 +1,139 @@
+schema_version: 1.1.0
+rule_id: planner.component.artifact-derivation
+kind: rule
+status: active
+name: 'Component: Artifact Derivation'
+statement: Component names are derived from artifact resources by converting the resource
+  to PascalCase and adding a capability suffix chosen by the artifact type (events,
+  states, data, configs).
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+  legacy_section: artifact-derivation
+content:
+  summary: Deriving a component name mechanically from its artifact resource keeps
+    names predictable and traceable back to the artifact they handle, while the type-driven
+    suffix encodes the component's capability.
+  operational_guidance: Component names come from artifact resources (the part after
+    the colon). Components describe the CAPABILITY to handle artifacts.
+  examples:
+  - Resource 'started' (event) → MatchStartedPublisher
+  - Resource 'remaining' (state) → TimebankTracker
+  counter_examples:
+  - Naming a component 'choiceHandler' (not PascalCase) or with a suffix unrelated
+    to the artifact type
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: pascalcase_conversion
+  label: PascalCase conversion
+  text: Convert the artifact resource to PascalCase before adding a suffix.
+  values:
+    rule: Convert artifact resource to PascalCase
+    examples:
+    - from: choice
+      to: Choice
+    - from: player-wallet
+      to: PlayerWallet
+    - from: domain-impacts
+      to: DomainImpacts
+    - from: remaining
+      to: Remaining
+- term_id: capability_suffix
+  label: Capability suffix by artifact type
+  text: Add a capability suffix based on artifact type and component responsibility,
+    drawn from per-type suffix catalogs for events, states, data, and configs.
+  values:
+    events:
+      description: Past tense resources (started, closed, credited)
+      suffixes:
+      - Publisher
+      - Emitter
+      - Broadcaster
+      examples:
+      - artifact: match:started
+        resource: started
+        component: MatchStartedPublisher
+        urn: component:resolve-dilemmas:make-choice.MatchStartedPublisher.backend.integration
+      - artifact: wallet:credited
+        resource: credited
+        component: WalletCreditedEmitter
+        urn: component:manage-wallets:credit-wallet.WalletCreditedEmitter.backend.integration
+    states:
+      description: Adjective resources (remaining, active, current)
+      suffixes:
+      - Tracker
+      - Monitor
+      - Manager
+      examples:
+      - artifact: mechanic:timebank.remaining
+        resource: remaining
+        component: TimebankTracker
+        urn: component:burn-timebank:track-timebank.TimebankTracker.backend.domain
+      - artifact: session:active
+        resource: active
+        component: SessionManager
+        urn: component:init-session:maintain-session.SessionManager.backend.application
+    data:
+      description: Noun resources (choice, identity, profile)
+      suffixes:
+      - Provider
+      - Handler
+      - Processor
+      - Maker
+      examples:
+      - artifact: mechanic:decision.choice
+        resource: choice
+        component: ChoiceMaker
+        urn: component:resolve-dilemmas:make-choice.ChoiceMaker.backend.domain
+      - artifact: player:identity
+        resource: identity
+        component: IdentityProvider
+        urn: component:contextualize-identity:identify-player.IdentityProvider.backend.application
+    configs:
+      description: Configuration resources (config, settings, agreement)
+      suffixes:
+      - Configurator
+      - Builder
+      - Initializer
+      examples:
+      - artifact: match:config
+        resource: config
+        component: MatchConfigurator
+        urn: component:setup-match:configure-match.MatchConfigurator.backend.application
+      - artifact: league:config
+        resource: config
+        component: LeagueBuilder
+        urn: component:define-league:configure-league.LeagueBuilder.backend.application
+- term_id: complete_example
+  label: Worked artifact-to-components example
+  text: One artifact can fan out to multiple components across sides and layers, each
+    a PascalCase resource plus capability suffix.
+  values:
+    artifact: mechanic:decision.choice
+    wagon: resolve-dilemmas
+    feature: make-choice
+    components:
+    - name: ChoiceDisplay
+      urn: component:resolve-dilemmas:make-choice.ChoiceDisplay.frontend.presentation
+      purpose: Renders choice options to user
+      derivation: Resource 'choice' → ChoiceDisplay (presentation UI)
+    - name: ChoiceValidator
+      urn: component:resolve-dilemmas:make-choice.ChoiceValidator.frontend.application
+      purpose: Validates user selection before submission
+      derivation: Resource 'choice' → ChoiceValidator (validation logic)
+    - name: ChoiceMaker
+      urn: component:resolve-dilemmas:make-choice.ChoiceMaker.backend.domain
+      purpose: Applies business rules to make the choice
+      derivation: Resource 'choice' → ChoiceMaker (core business logic)
+    - name: ChoicePersister
+      urn: component:resolve-dilemmas:make-choice.ChoicePersister.backend.integration
+      purpose: Persists choice to database
+      derivation: Resource 'choice' → ChoicePersister (persistence)

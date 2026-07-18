@@ -26,55 +26,9 @@ _BRANCH_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "BLOCKED"}
 _TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE"}
 
 
-def _check_on_main_branch(repo_root: Path) -> tuple:
-    """Return (True, None) if current branch is main, else (False, error_message).
-
-    Checks via `git rev-parse --abbrev-ref HEAD`. Returns (True, None) when git
-    is unavailable so the check never blocks non-git test fixtures.
-    """
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=10,
-            cwd=repo_root,
-        )
-    except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-        return True, None
-
-    if result.returncode != 0:
-        return True, None
-
-    branch = result.stdout.strip()
-    if not branch or branch == "HEAD":
-        return True, None
-
-    if branch == "main":
-        return True, None
-
-    msg = (
-        f"Error: `atdd issue` must be run from the 'main' branch.\n"
-        f"  Current branch: {branch}\n"
-        f"  The manifest commit will land on '{branch}', not main.\n"
-        f"  Fix:\n"
-        f"    git checkout main\n"
-        f'    atdd author issue --title "My Feature" --slug my-feature   # canonical store-first create (#1272)\n'
-        f"  Override: atdd issue my-feature --force   # re-run with your slug"
-    )
-    return False, msg
-
 # Statuses from PLANNED onward require a template-compliant issue body.
 _COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
 
-
-def _store_issue_number_for_slug(root, slug: str):
-    """GitHub issue number linked to *slug* from the State Store, or None."""
-    try:
-        from atdd.state.work_item_reader import WorkItemReader
-
-        with WorkItemReader(control_root=root) as reader:
-            return reader.issue_number_for_slug(slug)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-        return None
 
 
 class IssueLifecycle:
@@ -338,22 +292,22 @@ class IssueLifecycle:
         print()
         if status == "INIT":
             print("  Next: Fill issue scope, then transition:")
-            print(f"         atdd issue {number} --status PLANNED")
+            print(f"         atdd coach transition {number} PLANNED")
         elif status == "PLANNED":
             print("  Next: Write failing tests (RED phase), then transition:")
-            print(f"         atdd issue {number} --status RED")
+            print(f"         atdd coach transition {number} RED")
         elif status == "RED":
             print("  Next: Implement to make tests pass (GREEN), then transition:")
-            print(f"         atdd issue {number} --status GREEN")
+            print(f"         atdd coach transition {number} GREEN")
         elif status == "GREEN":
             print("  Next: Run tester SMOKE verification, then transition:")
-            print(f"         atdd issue {number} --status SMOKE")
+            print(f"         atdd coach transition {number} SMOKE")
         elif status == "SMOKE":
             print("  Next: Refactor to clean architecture, then transition:")
-            print(f"         atdd issue {number} --status REFACTOR")
+            print(f"         atdd coach transition {number} REFACTOR")
         elif status == "REFACTOR":
             print("  Next: Complete and close:")
-            print(f"         atdd issue {number} --status COMPLETE")
+            print(f"         atdd coach transition {number} COMPLETE")
         elif status in _TERMINAL_STATUSES:
             print(f"  This issue is {status}. No further action needed.")
         elif status == "BLOCKED":
@@ -470,7 +424,7 @@ class IssueLifecycle:
         )
         for f in outcome.failures:
             print(f"  ✗ [{f.gate_id} / {f.rule_id}] {f.message}")
-        print(f"  Bypass: atdd issue {issue_number} --status {target_status.upper()} --force")
+        print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
         return 1
 
     def transition(self, issue_number: int, status: str, force: bool = False) -> int:
@@ -555,91 +509,6 @@ class IssueLifecycle:
         # Re-enter to show updated state
         return self.enter(issue_number)
 
-    def create(self, slug: str, issue_type: str = "implementation",
-               train: Optional[str] = None, archetypes: Optional[str] = None,
-               no_branch: bool = False, force: bool = False,
-               no_dup_check: bool = False) -> int:
-        """Create a new issue, optionally chain to worktree creation, and enter at INIT.
-
-        Delegates to IssueManager.new() for creation (slugify, template rendering,
-        WMBT sub-issues, Project v2 fields, manifest update), then reads manifest
-        to discover the created issue number and enters it.
-
-        Args:
-            slug: Issue name in kebab-case.
-            issue_type: Issue type (implementation, migration, refactor, etc.).
-            train: Optional train ID to assign.
-            archetypes: Optional comma-separated archetypes.
-            no_branch: When True, skip worktree creation (bare issue-only mode).
-            force: When True, bypass the main-branch check.
-
-        Returns:
-            0 on success, 1 on failure.
-        """
-        import yaml
-        from atdd.coach.commands.issue import IssueManager
-
-        # Phase 1: guard — manifest commit must land on main.
-        on_main, branch_error = _check_on_main_branch(self.target_dir)
-        if not on_main:
-            if not force:
-                print(branch_error)
-                return 1
-            print(f"Warning: proceeding off main (--force). {branch_error.splitlines()[0]}")
-
-        manager = IssueManager(self.target_dir)
-        rc = manager.new(
-            slug=slug,
-            issue_type=issue_type,
-            train=train,
-            archetypes=archetypes,
-            allow_main_commit=True,
-            no_dup_check=no_dup_check,
-        )
-        if rc != 0:
-            return rc
-
-        # Find the created issue number by slug.
-        from atdd.coach.commands.issue import IssueManager as _IM
-        slugified = _IM(self.target_dir)._slugify(slug)
-
-        # #1270 slice B: resolve slug → issue_number store-first (authoritative
-        # since #1203), falling back to the .atdd/manifest.yaml mirror (last
-        # match wins there, in case of duplicate slugs).
-        issue_number = _store_issue_number_for_slug(self.target_dir, slugified)
-        if issue_number is None:
-            manifest_path = self.atdd_config_dir / "manifest.yaml"
-            if manifest_path.exists():
-                manifest = yaml.safe_load(manifest_path.read_text()) or {}
-                for entry in reversed(manifest.get("sessions", [])):
-                    if entry.get("slug") == slugified:
-                        issue_number = entry.get("issue_number")
-                        break
-
-        if not issue_number:
-            print(f"Error: Could not find issue number for slug '{slug}'.")
-            return 1
-
-        # Phase 2: chain to worktree creation (default) or print intent (--no-branch).
-        from atdd.coach.commands.issue_prefixes import TYPE_TO_PREFIX
-        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
-
-        if not no_branch:
-            worktree_path = self._create_branch(issue_number, slugified, prefix)
-            if worktree_path:
-                print(f"  ✓ created at {worktree_path}")
-            else:
-                print(
-                    f"  (worktree creation failed — run `atdd branch {issue_number}` when ready)"
-                )
-        else:
-            print(
-                f"  (not created — run `atdd branch {issue_number}` when ready)"
-            )
-
-        # Enter the newly created issue at INIT
-        return self.enter(issue_number)
-
     def enter(self, issue_number: int) -> int:
         """Enter an existing issue with state-driven behavior.
 
@@ -698,7 +567,7 @@ class IssueLifecycle:
             print()
             print(f"ATDD: Issue #{issue_number} requires worktree: {prefix}/{slug}")
             print(f"  cd {worktree_path}")
-            print(f"  atdd issue {issue_number}")
+            print(f"  atdd coach enter {issue_number}")
             print()
             return 0
 

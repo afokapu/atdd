@@ -1,0 +1,89 @@
+urn: wmbt:govern-projection-fields:E001
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: wrong-writer-field-change
+context_clarifier: 'when CI validates a pushed projection diff against the commit
+  trailers that identify its writer, in both directions: humans must not write external
+  refs and extension bots must not write lifecycle fields'
+lens: functional.effectiveness
+statement: minimize likelihood of a wrong-writer-field-change reaching main, by failing
+  CI when a human commit mutates external_refs or an extension bot commit mutates
+  a lifecycle field owned by core
+acceptances:
+- given:
+    abstract:
+    - A projection diff mutating external_refs.github.issue_number
+    - Commit trailers identifying a human author, with no bot identity
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: A human-authored commit that mutates external_refs is currently merged,
+      violating the extension-bot-only ownership of that subtree
+    urn: acc:govern-projection-fields:E001-UNIT-001-red-human-writes-external-refs
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The validator reports a wrong-writer violation on external_refs.github.issue_number
+    - The validator exits non-zero
+  when:
+    abstract: the field-writer validator is invoked on the diff
+- given:
+    abstract:
+    - The committed field-ownership policy
+    - 'Three projection diffs: human touching external_refs, extension bot touching
+      phase, and core lifecycle touching phase'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: The field-writer validator blocks a human writing external_refs and an
+      extension bot writing a lifecycle field, and passes a diff whose writer owns
+      every touched field
+    urn: acc:govern-projection-fields:E001-UNIT-002-green-blocks-both-directions
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The human diff touching external_refs is rejected, naming the field and the
+      legal writer extension-bot
+    - The extension bot diff touching phase is rejected, naming the field and the
+      legal writer core-lifecycle
+    - The core lifecycle diff touching phase is accepted and the validator exits zero
+  when:
+    abstract: the field-writer validator is invoked on each diff
+- given:
+    abstract:
+    - A real repo checkout with a committed field-ownership policy and the installed
+      atdd CLI
+    - A real commit whose projection diff mutates external_refs under a human author
+      identity
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify the field-writer validator blocks a wrong-writer projection diff
+      end-to-end in a real checkout, driven through the installed CLI with no manual
+      patching
+    urn: acc:govern-projection-fields:E001-SMOKE-001-cli-blocks-wrong-writer-diff
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The command exits non-zero
+    - Its stderr names the offending field external_refs and the legal writer extension-bot
+    - The same command over a core-lifecycle phase commit exits zero
+  when:
+    abstract: the field-writer validator is run over the real commit range through
+      the installed CLI

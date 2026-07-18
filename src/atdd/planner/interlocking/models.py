@@ -4,8 +4,8 @@
 """Typed, side-effect-free value types for the train interlocking artifact.
 
 The interlocking is the train-domain *route-control* model: it is authoritative
-for the guarded route space, while each route maps to exactly one numbered linear
-train variant (the runtime-executable path consumed by ``TrainRunner``). These
+for the guarded route space, while each route maps to exactly one linear train
+variant (the runtime-executable path consumed by ``TrainRunner``). These
 dataclasses are the mechanical substrate only — no IO, no business logic — so the
 domain layer never imports from other layers (boundaries §3.3). Stdlib-only.
 """
@@ -14,15 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
-
-# Category digit -> category name (parent #1246: 0 nominal, 1 error, 2 alternate,
-# 3 exception). Used by both schema cross-checks and projection labelling.
-CATEGORY_BY_DIGIT = {
-    "0": "nominal",
-    "1": "error",
-    "2": "alternate",
-    "3": "exception",
-}
 
 
 @dataclass(frozen=True)
@@ -101,9 +92,15 @@ class Projection:
 
 @dataclass(frozen=True)
 class Route:
+    """One guarded route selecting exactly one target train.
+
+    ``category`` is the route's declared variant classification. It is judged by
+    comparing it against the ``category`` FIELD of the target train (issue #1421)
+    — never by parsing the identity, which carries no classification digit.
+    """
+
     route_id: str
     category: str
-    category_digit: str
     priority: int
     guard_ref: str
     train_id: str
@@ -183,7 +180,6 @@ class TrainInterlocking:
 
 
 __all__ = [
-    "CATEGORY_BY_DIGIT",
     "Entrypoint",
     "RouteResolution",
     "Lifeline",

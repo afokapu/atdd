@@ -1,0 +1,73 @@
+urn: "wmbt:guard-succession:E003"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "silent-enforcement-loss"
+context_clarifier: "no CI job runs Path B (atdd enforce) as a BLOCKING gate — the enforce-extensions job surfaces the convention verdict advisory-only (continue-on-error), so all 50 extension rules are enforced solely by their blocking core twin under Path A; deleting a core convention node whose extension twin is not independently bound AND blockingly enforced therefore silently removes the only enforcement of that rule; the succession guard refuses any such core-node deletion, so a rule cannot lose its enforcement unnoticed"
+lens: "functional.sustainability"
+statement: "minimize likelihood of silent-enforcement-loss by refusing to delete any core convention node whose extension twin is not both bound and blockingly enforced in CI, so removing a core rule cannot silently strip the only enforcement of an obligation an extension still mirrors"
+acceptances:
+  - identity:
+      urn: "acc:guard-succession:E003-UNIT-001-advisory-twin-blocks-core-node-deletion"
+      id: "AC-UNIT-001"
+      purpose: "deleting a core rule whose extension twin is bound but enforced only advisorily (Path B not blocking) is refused — the latent hole where deletion silently removes the sole blocking enforcement"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a substrate whose extension node mirrors a core rule and whose binding.lock binds that convention_id, with Path B declared non-blocking (advisory)"
+    when:
+      abstract: "the succession guard is asked to permit deleting that core rule while Path B is not a blocking gate"
+    then:
+      abstract:
+        - "it refuses (raises), naming the core rule whose enforcement would silently vanish"
+        - "the refusal reason states the extension twin is enforced only advisorily, so deletion strips the sole blocking enforcement"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:guard-succession:E003-UNIT-002-safe-succession-and-untwinned-deletion-allowed"
+      id: "AC-UNIT-002"
+      purpose: "deletion is permitted only when succession is genuinely safe — the twin is bound AND Path B is blocking — or when no extension twin mirrors the rule at all; a twin that is not bound never makes deletion safe"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a substrate binding a mirrored convention_id, plus a core rule that no extension node mirrors"
+    when:
+      abstract: "the succession guard evaluates deletion under a blocking Path B, and separately for the untwinned rule, and separately for a twin present but not bound"
+    then:
+      abstract:
+        - "deleting the bound-and-blockingly-enforced rule is permitted (succession is safe)"
+        - "deleting the rule that no extension node mirrors is permitted (no twin enforcement to lose)"
+        - "deleting a rule whose twin exists but is not bound is refused even under a blocking Path B (both bound and blocking are required)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:guard-succession:E003-SMOKE-001-real-blocking-path-b-permits-real-core-succession"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real CI wiring Path B is now a BLOCKING gate (#1428 E001), so succession for a real bound-and-mirrored core rule is genuinely safe and the guard permits deleting it — while an UNBOUND twin is still refused, proving the guard was not hollowed out by the flip"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real enforce-extensions CI job and its real binding.lock + vendored extension nodes"
+    when:
+      abstract: "whether Path B is a blocking gate is read from the real CI workflow, and the succession guard is driven for a real core rule whose extension twin is bound, and again for one whose twin is not bound"
+    then:
+      abstract:
+        - "Path B is found to be BLOCKING (the enforce-extensions convention verdict carries neither continue-on-error nor || true) — the latent enforcement hole this WMBT recorded is closed"
+        - "the guard PERMITS deleting the real bound-and-mirrored core rule: its twin is bound and blockingly enforced, so enforcement genuinely survives the deletion"
+        - "the guard still REFUSES deleting a core rule whose extension twin is not bound, naming it — a blocking gate that enforces nothing enforces nothing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+      updated: "2026-07-13"
+      updated_by: "#1428 (enforce-conventions-ci): the guard and its WMBT are unchanged; the LIVE EVIDENCE flipped when E001 made Path B blocking. The 'bound AND blockingly enforced' conjunct that was false at authoring time is now true."

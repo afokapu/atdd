@@ -1,0 +1,59 @@
+schema_version: 1.1.0
+rule_id: coder.train.interlocking-resolution-model-exists
+kind: rule
+status: active
+name: Interlocking route resolution returns structured metadata, not a bare train_id
+statement: >-
+  An `InterlockingRunner.resolve_train(...)` MUST resolve a structured `InterlockingResolution` model
+  carrying the route metadata — not a bare `train_id` string. The model MUST define the fields
+  `interlocking_id`, `route_id`, `train_id`, `train_path`, `category`, `category_digit`, `guard_id`,
+  and `reason`. This is the agnostic obligation; the python-pytest AST detector that enforces it is the
+  implementation referenced below.
+implementation:
+  type: validator
+  ref: coder.train.interlocking-resolution-model-exists
+content:
+  summary: >-
+    An agnostic "structured route resolution" obligation. The python realization parses
+    `python/trains/**/*.py` with `ast`: when an `InterlockingRunner` exposes `resolve_train`, an
+    `InterlockingResolution` class (dataclass) defining the eight required fields MUST exist; otherwise
+    the route is resolved as a bare train_id. Maps to validator check
+    `test_interlocking_resolution_model_exists`.
+  normative_text: |
+    Core runtime spec afokapu/atdd#1251 suggests the resolution model:
+
+        @dataclass(frozen=True)
+        class InterlockingResolution:
+            interlocking_id: str; route_id: str; train_id: str; train_path: str
+            category: str; category_digit: str; guard_id: str; reason: str
+
+    A bare train_id string loses the route_id, guard_id, category/category_digit, train_path, and the
+    human-readable reason needed for trace, projection equivalence, and category-vs-train-digit
+    validation. WHICH runtime files are inspected and HOW the model fields are recognized is delegated
+    to the per-stack detector (python: an `ast` walk collecting the InterlockingResolution annotations).
+  fix_hint: |
+    Define the structured model and return it from resolve_train:
+
+      return InterlockingResolution(
+          interlocking_id=..., route_id=..., train_id=..., train_path=...,
+          category=..., category_digit=..., guard_id=..., reason=...,
+      )
+
+    This rule is `strict`: a resolve_train backed only by a bare train_id is not suppressible and fails CI.
+  exceptions:
+    - Applies only when an `InterlockingRunner` with a `resolve_train` method is present (a missing
+      runner/method is the separate `coder.train.interlocking-runner-exists` concern).
+metadata:
+  aliases:
+    - INTERLOCKING-RESOLUTION-MODEL-001
+  severity: 4
+  disposition: strict
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: interlocking_resolution_model
+    text: >-
+      the `InterlockingResolution` structure returned by resolve_train, carrying interlocking_id,
+      route_id, train_id, train_path, category, category_digit, guard_id, reason.
