@@ -1,13 +1,14 @@
 urn: "feature:govern-lifecycle:fix-issue-transition-side-effects"
 wagon: "wagon:govern-lifecycle"
-description: "Resolves two side effects of atdd issue <N> --status <X>: stale local manifest status after a successful GitHub transition, and a misleading layout error emitted by the post-transition re-enter path"
+description: "Resolves side effects of the phase-transition path: stale local manifest status after a successful GitHub transition, a misleading layout error emitted by the post-transition re-enter path, and phase labels authored independently of the store write they are supposed to project (#1452)"
 sizing:
-  wmbts: 2
-  footprint_score: 2
+  wmbts: 3
+  footprint_score: 3
   footprint_size: "XS"
 wmbts:
   - "wmbt:govern-lifecycle:R001"
   - "wmbt:govern-lifecycle:R002"
+  - "wmbt:govern-lifecycle:R005"
 components:
   backend:
     presentation:
