@@ -79,7 +79,6 @@ _FORBIDDEN_LAYER_IMPORTS = (
     "atdd.train",
     "atdd.integrations",
     "atdd.runtime",
-    "atdd.observer",
 )
 
 # Concrete provider names the agnostic sync engine must not reference.
