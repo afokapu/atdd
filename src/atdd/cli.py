@@ -111,11 +111,22 @@ REMOVED_COMMANDS = {
         "  atdd issue <N> --status <TO>      -> atdd coach transition <N> <TO>\n"
         "  atdd issue <N> --check            -> atdd coach check <N>\n"
         "  atdd issue <N> --close-wmbt <ID>  -> atdd coach close-wmbt <N> <ID>\n"
-        "  atdd issue <N> --sync-wmbts       -> atdd coach sync-wmbts <N>\n"
         "  atdd issue reconcile              -> atdd coach reconcile\n"
         "  atdd issue sync-labels [...]      -> atdd coach sync-labels [<N>|--all]\n"
         "  atdd issue is-registered <branch> -> atdd coach is-registered <branch>\n"
         "  atdd issue review <N>             -> atdd coach issue-review <N>\n"
+    ),
+    "new": (
+        "`atdd new` has been REMOVED (#1477).\n"
+        "It was the last entry point into the orphaned `IssueManager` mint path,\n"
+        "which predates the schema substrate. Creation is store-first and\n"
+        "schema-driven:\n"
+        "\n"
+        "  atdd new <slug>                   -> atdd author issue --title <t> --slug <s>\n"
+        "\n"
+        "The WMBT sub-issue backfill that rode on it (`atdd coach sync-wmbts`) is\n"
+        "removed with it: it resolved plan artifacts through a `wagon` field that\n"
+        "the store no longer carries (Wagon -> Train + Feature).\n"
     ),
 }
 
@@ -743,34 +754,9 @@ Phase descriptions:
         help="Compare .atdd/schemas/.version against installed atdd version"
     )
 
-    # ----- atdd new <slug> -----
-    new_parser = subparsers.add_parser(
-        "new",
-        help="[DEPRECATED] Use 'atdd author issue --title <t> --slug <s>' instead",
-        description="DEPRECATED: Use 'atdd author issue --title <t> --slug <s>' instead.\n\nCreate a new GitHub Issue with Project v2 fields and WMBT sub-issues"
-    )
-    new_parser.add_argument(
-        "slug",
-        type=str,
-        help="Issue name (kebab-case)"
-    )
-    new_parser.add_argument(
-        "--type", "-t",
-        type=str,
-        default="implementation",
-        choices=["implementation", "migration", "refactor", "analysis", "planning", "cleanup", "tracking"],
-        help="Issue type (default: implementation)"
-    )
-    new_parser.add_argument(
-        "--train",
-        type=str,
-        help="Train ID to assign (e.g., 0001-auth-session-standard)"
-    )
-    new_parser.add_argument(
-        "--archetypes", "-a",
-        type=str,
-        help="Comma-separated archetypes (e.g., be,contracts,wmbt)"
-    )
+    # NOTE: 'atdd new' was REMOVED by #1477 — it was the only live entry point
+    # into the orphaned IssueManager mint path. See REMOVED_COMMANDS["new"];
+    # creation is `atdd author issue` (store-first, schema-driven — #1272).
 
     # NOTE: 'session' subcommand removed in E009; replaced by top-level issue commands.
 
@@ -975,6 +961,29 @@ Phase descriptions:
         help="Color preset name (yellow, blue, green, red, orange, purple) or hex (#RRGGBB)",
     )
 
+    # ----- atdd hooks -----
+    # The resolution seam the installed hook dispatchers call on every git
+    # operation (#1492). Keep it fast and side-effect free.
+    hooks_parser = subparsers.add_parser(
+        "hooks",
+        help="Inspect the git hooks shipped by the installed atdd package",
+        description=(
+            "Resolve the packaged git hooks that .atdd/hooks/* dispatchers exec. "
+            "Installed hooks are fixed-content dispatchers, so hook logic ships "
+            "with the package and cannot drift from it."
+        ),
+    )
+    hooks_sub = hooks_parser.add_subparsers(dest="hooks_command")
+    hooks_path_parser = hooks_sub.add_parser(
+        "path",
+        help="Print the absolute path of a packaged hook (exit 1 if unresolvable)",
+    )
+    hooks_path_parser.add_argument("name", type=str, help="Hook name, e.g. commit-msg")
+    hooks_sub.add_parser(
+        "list",
+        help="List every hook name the installed package ships",
+    )
+
     # ----- atdd sync -----
     sync_parser = subparsers.add_parser(
         "sync",
@@ -1126,63 +1135,9 @@ Phase descriptions:
         help="Repo root holding .atdd/runtime/runs/ (defaults to the cwd).",
     )
 
-    # ----- atdd agent <subcommand> ... (J2 — #497) -----
-    # The persona-agent runtime CLI; argparse for sub-subcommands lives in
-    # `atdd.coach.commands.agent._build_parser`. We register a single
-    # `agent` token here and forward the remaining argv to that parser so
-    # the sub-subcommand surface stays in one place.
-    agent_parser = subparsers.add_parser(
-        "agent",
-        help=(
-            "Persona-agent runtime CLI: heartbeat / event / commit / ask / "
-            "escalate / done / context / review (writes to "
-            ".atdd/runtime/agents/<id>/)"
-        ),
-        add_help=False,
-    )
-    agent_parser.add_argument(
-        "agent_argv",
-        nargs=argparse.REMAINDER,
-        help="Forwarded to atdd.coach.commands.agent",
-    )
-
-    # ----- atdd observer <subcommand> ... (L1 — #500) -----
-    # Coach v9 detect-and-correct sidecar; argparse for sub-subcommands
-    # lives in `atdd.coach.commands.observer._build_parser`. Single
-    # `observer` token registered here forwards the remainder of argv.
-    observer_parser = subparsers.add_parser(
-        "observer",
-        help=(
-            "Coach v9 detect-and-correct sidecar: run / attach / status / "
-            "aggregate-approve (writes to .atdd/runtime/agents/<id>/"
-            "corrections.jsonl)"
-        ),
-        add_help=False,
-    )
-    observer_parser.add_argument(
-        "observer_argv",
-        nargs=argparse.REMAINDER,
-        help="Forwarded to atdd.coach.commands.observer",
-    )
-
-    # ----- atdd spawn ... (K1 — #499) -----
-    # Single rule-IDed entry point for every coach v9 persona launch.
-    # Sub-arg surface lives in `atdd.coach.commands.spawn._build_parser`;
-    # we register `spawn` here and forward argv so the surface stays in
-    # one place.
-    spawn_parser = subparsers.add_parser(
-        "spawn",
-        help=(
-            "Coach v9 persona launch: render launch prompt, dispatch "
-            "multiplexer, run per-LLM adapter, emit agent_spawned event."
-        ),
-        add_help=False,
-    )
-    spawn_parser.add_argument(
-        "spawn_argv",
-        nargs=argparse.REMAINDER,
-        help="Forwarded to atdd.coach.commands.spawn",
-    )
+    # NOTE (#1486): `atdd agent`, `atdd observer` and `atdd spawn` were the coach's
+    # sub-worker orchestration verbs (spawn/observe a persona agent). Orchestration
+    # left core, so those verbs and their backing modules are gone.
 
     # ----- atdd author ... (author-atdd-substrate wagon, #1097) -----
     # Author schema-valid substrate artifacts by construction. The sub-arg
@@ -1232,42 +1187,10 @@ Phase descriptions:
         help="Forwarded to atdd.enforce.cli",
     )
 
-    # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
-    # O1 (#501): single boundary for ambiguous coach v9 routing decisions.
-    # Renders a prompt template, calls a structured-output LLM via the
-    # registry, validates the response against the caller's JSON Schema,
-    # and appends one record to .atdd/runtime/coach/judgments.jsonl.
-    judge_parser = subparsers.add_parser(
-        "judge",
-        help="Single boundary for ambiguous coach v9 routing decisions (#501)",
-        description=(
-            "Render a prompt template, call a structured-output LLM, "
-            "validate the response against the supplied JSON Schema, and "
-            "append a record to .atdd/runtime/coach/judgments.jsonl. "
-            "Behavior on LLM-unavailable follows coach.judge.fail_open."
-        ),
-    )
-    judge_parser.add_argument(
-        "--prompt-template", type=str, required=True, dest="prompt_template",
-        help="YAML file with a top-level `prompt` string field; placeholders use {key}.",
-    )
-    judge_parser.add_argument(
-        "--schema", type=str, required=True,
-        help="JSON Schema describing the expected LLM response shape.",
-    )
-    judge_parser.add_argument(
-        "--inputs", type=str, nargs="*", default=[],
-        help="key=value or key=@file pairs substituted into the prompt template.",
-    )
-    judge_parser.add_argument(
-        "--call-site", type=str, required=True, dest="call_site",
-        help="One of: phase-advance, violation-suppression, correction-injection, "
-             "review-disposition, escalation, merge-readiness.",
-    )
-    judge_parser.add_argument(
-        "--llm", type=str, default=None,
-        help="LLM client id from the registry (defaults to coach.judge_llm).",
-    )
+    # NOTE (#1486): `atdd judge` (the coach's structured-output routing boundary for
+    # sub-worker decisions) was decommissioned with the rest of the orchestration
+    # verbs. Its generic LLM registry/protocol survives at
+    # `atdd.coach.commands.llm_clients.registry`.
 
     # ----- atdd checkpoint <issue-number> -----
     checkpoint_parser = subparsers.add_parser(
@@ -2097,6 +2020,22 @@ Phase descriptions:
         from atdd.enforce.cli import run as _run_enforce
         return _run_enforce(_sys.argv[2:])
 
+    # `atdd author ...` / `atdd coach ...` forward argv to their own sub-CLIs via
+    # a REMAINDER positional, which cannot capture a *leading* `-h`/`--help` — it
+    # bubbles back to the top parser as `unrecognized arguments: -h` (#1325 item
+    # 1). Intercept before parse_args, the same way `plan`/`enforce` do, so bare
+    # `atdd author -h` / `atdd coach -h` reach the sub-CLI's own help. The stub
+    # subparsers above keep both listed in `atdd --help`. (The `command ==`
+    # dispatch branches below still serve the `atdd --repo PATH author ...` form,
+    # where the global flag precedes the subcommand and this intercept does not
+    # fire.)
+    if _sys.argv[1:2] == ["author"]:
+        from atdd.planner.commands.author import run as _run_author
+        return _run_author(_sys.argv[2:])
+    if _sys.argv[1:2] == ["coach"]:
+        from atdd.coach.commands.coach import run_cli as _run_coach
+        return _run_coach(_sys.argv[2:])
+
     # #1309: `atdd issue` was removed. Intercept before parse_args so the
     # operator gets the replacement map instead of argparse's `invalid choice`.
     _removed_rc = _removed_command_guard(_sys.argv[1:])
@@ -2293,20 +2232,6 @@ Phase descriptions:
             toolkit=getattr(args, "toolkit", False),
         )
 
-    # atdd new <slug> — DEPRECATED, delegates to the shared create path.
-    # #1349: point operators at the store-first canonical `atdd author issue`
-    # (#1272) rather than the also-deprecated `atdd issue <slug>` alias.
-    elif args.command == "new":
-        _deprecation_warning("atdd new <slug>", "atdd author issue", stream=sys.stderr)
-        from atdd.coach.commands.issue_lifecycle import IssueLifecycle
-        lifecycle = IssueLifecycle()
-        return lifecycle.create(
-            slug=args.slug,
-            issue_type=getattr(args, 'type', 'implementation'),
-            train=getattr(args, 'train', None),
-            archetypes=getattr(args, 'archetypes', None),
-        )
-
     # atdd list (top-level shorthand)
     elif args.command == "list":
         if getattr(args, "substrate", False):
@@ -2481,6 +2406,16 @@ Phase descriptions:
         initializer = ProjectInitializer()
         return initializer.export_schemas()
 
+    # atdd hooks
+    elif args.command == "hooks":
+        from atdd.coach.commands.hooks import run_hooks_list, run_hooks_path
+        if args.hooks_command == "path":
+            return run_hooks_path(args.name)
+        if args.hooks_command == "list":
+            return run_hooks_list()
+        print("Usage: atdd hooks {path <name>|list}")
+        return 1
+
     # atdd sync
     elif args.command == "sync":
         syncer = AgentConfigSync()
@@ -2514,21 +2449,6 @@ Phase descriptions:
             repo_root=getattr(args, "resume_repo_root", None),
         )
 
-    # atdd agent <subcommand> ... (J2 — #497)
-    elif args.command == "agent":
-        from atdd.coach.commands.agent import run as run_agent
-        return run_agent(list(getattr(args, "agent_argv", []) or []))
-
-    # atdd observer <subcommand> ... (L1 — #500)
-    elif args.command == "observer":
-        from atdd.coach.commands.observer import run as run_observer
-        return run_observer(list(getattr(args, "observer_argv", []) or []))
-
-    # atdd spawn ... (K1 — #499)
-    elif args.command == "spawn":
-        from atdd.coach.commands.spawn import run as run_spawn
-        return run_spawn(list(getattr(args, "spawn_argv", []) or []))
-
     # atdd author ... (author-atdd-substrate wagon — #1097)
     elif args.command == "author":
         from atdd.planner.commands.author import run as run_author
@@ -2554,17 +2474,11 @@ Phase descriptions:
     # routed to atdd.enforce.cli — there is no `command == "enforce"` branch here
     # (its leading-dash flags cannot ride argparse REMAINDER).
 
-    # atdd judge ...  (O1 — #501)
-    elif args.command == "judge":
-        import atdd.coach.commands.llm_clients  # noqa: F401 — side-effect: registers production clients
-        from atdd.coach.commands.judge import run as run_judge
-        return run_judge(
-            prompt_template=args.prompt_template,
-            schema=args.schema,
-            inputs=list(getattr(args, "inputs", []) or []),
-            call_site=args.call_site,
-            llm=getattr(args, "llm", None),
-        )
+    # NOTE (#1486): `atdd judge` was the coach's structured-output routing boundary
+    # for sub-worker decisions — orchestration, so it left core with the rest. Its
+    # generic LLM plumbing (registry/protocol) was rehomed to
+    # `atdd.coach.commands.llm_clients.registry`, which `atdd coach issue-review`
+    # still uses (it imports llm_clients for the side-effect registration itself).
 
     # atdd checkpoint <issue-number>
     elif args.command == "checkpoint":

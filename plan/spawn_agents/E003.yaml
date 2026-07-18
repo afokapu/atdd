@@ -73,24 +73,3 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-16"
-  - identity:
-      urn: "acc:spawn-agents:E003-UNIT-001-close-on-rename-failure"
-      id: "AC-UNIT-001"
-      purpose: "A failure raised inside apply_canonical_name_and_layout drives the transactional spawn pipeline to close the surface created earlier in the attempt"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A FakeMultiplexer that records new_surface and close calls with their surface refs"
-        - "The FakeMultiplexer is configured to raise inside apply_canonical_name_and_layout (the rename/layout step that runs after pane creation and seeding)"
-    when:
-      abstract: "The transactional spawn pipeline runs new_surface followed by apply_canonical_name_and_layout against the FakeMultiplexer"
-    then:
-      abstract:
-        - "The FakeMultiplexer records a close(surface_ref) call for the exact surface ref returned by new_surface"
-        - "The exception raised inside apply_canonical_name_and_layout is re-raised after the close call"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-16"

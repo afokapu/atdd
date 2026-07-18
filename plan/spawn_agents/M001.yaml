@@ -51,27 +51,6 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-21"
   - identity:
-      urn: "acc:spawn-agents:M001-UNIT-003-verify-after-send-no-longer-checks-rename-accepted"
-      id: "AC-UNIT-003"
-      purpose: "When verify_after_send=True, apply_canonical_name_and_layout does NOT call _verify_stage with stage_name='rename-accepted'; the rename-accepted gate is removed along with the injection that triggered it"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "apply_canonical_name_and_layout with M001 changes"
-        - "A spy on atdd.coach.commands.spawn._verify_stage"
-    when:
-      abstract: "apply_canonical_name_and_layout(backend, ref, 'ATDD829', surface_count=1, verify_after_send=True) is called"
-    then:
-      abstract:
-        - "_verify_stage is NOT called with stage_name='rename-accepted'"
-        - "The function completes without raising RenameNotAccepted"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-21"
-  - identity:
       urn: "acc:spawn-agents:M001-SMOKE-001-live-session-naming-apply-has-no-slash-rename"
       id: "AC-SMOKE-001"
       purpose: "The deployed session_naming_apply.py source contains no paste_text or send call with a '/rename' argument; AST scan of the live file returns no slash-command injection nodes"

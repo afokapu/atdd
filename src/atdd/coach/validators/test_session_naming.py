@@ -243,6 +243,7 @@ def _build_layout_violations() -> List[Violation]:
 # ---------------------------------------------------------------------------
 # Public test entry points (referenced by session.convention.yaml)
 # ---------------------------------------------------------------------------
+@pytest.mark.platform  # toolkit dogfood: reads toolkit-only repo state (#1475)
 def test_active_session_names_canonical():
     """Canonical session names match <REPO><N>[-phase<M>]-<slug>.
 
@@ -262,6 +263,7 @@ def test_active_session_names_canonical():
         )
 
 
+@pytest.mark.platform  # toolkit dogfood: reads toolkit-only repo state (#1475)
 def test_workspace_layout_conforms():
     """Workspace surfaces follow the grid policy.
 
@@ -280,6 +282,7 @@ def test_workspace_layout_conforms():
 # ---------------------------------------------------------------------------
 # Self-coherence: helper regex matches the convention regex
 # ---------------------------------------------------------------------------
+@pytest.mark.platform  # toolkit dogfood: reads toolkit-only repo state (#1475)
 def test_helper_regex_matches_convention_regex():
     """``CANONICAL_NAME_REGEX`` (helper) must agree with the convention's regex."""
     block = _session_naming_block()
@@ -315,6 +318,7 @@ def test_round_trip_canonical_name():
     assert parsed_phase.slug == "bump-on-merge"
 
 
+@pytest.mark.platform  # toolkit dogfood: reads toolkit-only repo state (#1475)
 def test_exemplars_round_trip():
     """Every exemplar in the convention parses cleanly via the helper."""
     exemplars = _session_naming_block().get("exemplars") or []

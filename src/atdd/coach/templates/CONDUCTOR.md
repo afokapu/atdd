@@ -103,23 +103,21 @@ issues:
     - "atdd issue <N> --status <S>    → use: atdd coach transition <N> <S>"
     - "atdd issue <N> --close-wmbt <ID> → use: atdd coach close-wmbt <N> <ID>"
     - "atdd issue <N> --check         → use: atdd coach check <N>"
-    - "atdd issue <N> --sync-wmbts    → use: atdd coach sync-wmbts <N>"
     - "atdd issue reconcile           → use: atdd coach reconcile"
     - "atdd issue sync-labels         → use: atdd coach sync-labels [<N>|--all]"
     - "atdd issue is-registered <br>  → use: atdd coach is-registered <branch>"
     - "atdd issue review <N>          → use: atdd coach issue-review <N>"
     - "atdd issue <slug> --dry-run    → use: atdd author issue --slug <slug> --dry-run"
+    # #1477 (BREAKING): `atdd new` — the last live entry into the orphaned
+    # IssueManager mint path — is GONE, and the WMBT sub-issue backfill that
+    # rode on it (`atdd coach sync-wmbts`) goes with it: it resolved plan
+    # artifacts through a `wagon` field the store no longer carries.
+    - "atdd new <slug>                → use: atdd author issue --title <title> --slug <slug>"
+    - "atdd coach sync-wmbts <N>      → removed; no replacement (wagon → train + feature)"
   deprecated_commands:
-    - "atdd new <slug>    → use: atdd author issue --title <title> --slug <slug>"
     - "atdd archive <N>   → use: atdd coach transition <N> COMPLETE"
     - "atdd branch <N>    → use: atdd worktree create <N>"
-  # Prohibited commands are NOT listed here — that would be a second copy that
-  # drifts. Canonical registry (single source of truth; drives the classifier):
-  #   src/atdd/coach/conventions/forbidden_commands.convention.yaml
-  # These are ENFORCED, not advisory: `atdd init` / `atdd sync` wire
-  # .atdd/hooks/claude-pre-tool-use.sh into .claude/settings.json as a
-  # PreToolUse hook (#1454), which blocks the call before it runs and names the
-  # atdd-native replacement (e.g. gh issue create → atdd author issue).
-  # Add a new prohibition to the registry — and nowhere else.
-  prohibited_commands: "see src/atdd/coach/conventions/forbidden_commands.convention.yaml (PreToolUse-enforced)"
+  prohibited_commands:
+    - "gh issue create    → use: atdd author issue --title <title> --slug <slug>"
+    - "gh pr create       → use: atdd pr <N>"
 ---

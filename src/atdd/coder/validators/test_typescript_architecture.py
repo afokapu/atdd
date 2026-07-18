@@ -25,16 +25,23 @@ from typing import Dict, List, Set, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
 
 
 # Path constants
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
+# Undeclared stacks (no `code:` entry) resolve to None and drop out of the
+# scan — the convention's skip-unknown contract, not a crash.
 TS_DIRS = [
-    REPO_ROOT / "supabase" / "functions",
-    REPO_ROOT / "typescript",
-    REPO_ROOT / "frontend",
-    REPO_ROOT / "web",
+    d
+    for d in (
+        resolve_code_root("supabase", REPO_ROOT),
+        resolve_code_root("typescript", REPO_ROOT),
+        resolve_code_root("frontend", REPO_ROOT),
+        resolve_stack_container("web", REPO_ROOT),
+    )
+    if d is not None
 ]
 
 # Package resources (conventions, schemas)

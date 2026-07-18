@@ -19,17 +19,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .._fixtures import make_checkout  # re-exported: the acceptances import it from here
+
 #: The in-tree ``src/`` root, so the subprocess drives THIS working copy's CLI.
 _SRC = Path(__file__).resolve().parents[4]
-
-
-def make_checkout(path: Path) -> Path:
-    """A real git worktree carrying a real Control Root marker (#1179)."""
-    path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init", "--quiet", str(path)], check=True, capture_output=True)
-    (path / ".atdd").mkdir(exist_ok=True)
-    (path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    return path
 
 
 def atdd_state(root: Path, *args: str) -> subprocess.CompletedProcess:

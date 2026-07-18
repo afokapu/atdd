@@ -9,8 +9,8 @@ Validates:
   check to a hard failure.
 
 This is the "read-time enforcement" half of the orchestrate-ready-lifecycle
-feature (#280). The write-time half is D001 (template seed on create) and
-D002 (sync-wmbts backfill).
+feature (#280). The write-time half is D001 (template seed on create); the
+D002 WMBT backfill it paired with was removed by #1477 with the mint path.
 
 Convention: src/atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md
 """

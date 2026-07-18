@@ -1,0 +1,44 @@
+schema_version: 1.1.0
+rule_id: coach.code-roots.resolver-degrades-not-raises
+kind: rule
+status: active
+name: Resolver degrades, never raises
+statement: 'A root resolver must degrade when the root is absent — return None or an empty list — and
+  must never raise. Absence of a subject is a fact to skip on, not a reason to crash: a consumer with
+  no such tier must be able to run the validator, and a resolver that raises converts "this repo does
+  not have that" into a hard failure the consumer cannot fix.'
+implementation:
+  type: validator
+  ref: test_code_roots_agnosticity::test_resolver_degrades_not_raises
+source:
+  legacy_path: src/atdd/coach/conventions/code-roots.convention.yaml
+  legacy_section: resolver_contract
+  extraction_mode: high_fidelity
+  legacy_fragment: 'Resolver MUST return an empty list (not raise) when root does not exist.'
+content:
+  fix_hint: 'Return None (or an empty list) instead of raising, and have the caller skip the stack:
+    `root = resolve_code_root("<stack>", repo_root)` / `if root is None: return []`. This is the
+    skip-on-absence-of-SUBJECT shape. It is NOT the same as routing on identity-of-REPO
+    ("this repo is not the toolkit, bail") — that is a band-aid, not agnosticity.'
+  exceptions:
+  - 'tests/ and fixtures/ directories — helpers that deliberately fail loudly inside a fixture tree.'
+  - 'raise inside an except handler — error translation, not a resolution-failure policy.'
+  - 'Inline suppression: # atdd:suppress(coach.code-roots.resolver-degrades-not-raises) on the offending line.'
+metadata:
+  severity: 4
+  disposition: suppress-and-clean
+  introduced_in: 4.7.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+  ratchet: 'Landed suppress-and-clean in #1499 with the pre-existing violations suppressed at their
+    sites. DESTINATION IS `disposition: strict` AT ZERO. Suppressions may only be removed, never
+    added to green a build.'
+terms:
+- term_id: degrade
+  text: return None / an empty list so the caller can skip; the convention''s resolver_contract has
+    mandated this since #327.
+- term_id: skip_on_subject_not_repo
+  text: skip because the SUBJECT is absent ("no rule registry here"), never because of the REPO's
+    identity ("this is not the toolkit").
+notes: 'Activation of the code-roots convention (#1499). High-fidelity extraction of the existing
+  resolver_contract fragment, which stated the rule in prose and gated nothing.'

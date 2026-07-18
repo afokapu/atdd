@@ -16,11 +16,12 @@ from pathlib import Path
 from typing import Dict, List, Set
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 
 def extract_all_imports(file_path: Path) -> List[str]:
@@ -111,7 +112,7 @@ def find_python_modules() -> List[Path]:
     Returns:
         List of Path objects
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return []
 
     modules = []

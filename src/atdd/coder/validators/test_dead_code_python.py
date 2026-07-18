@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
@@ -42,7 +43,7 @@ _RULE_DEAD_CODE_PY = bind_rule("coder.dead-code.reachability")
 # ============================================================================
 
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 
 # Files that are always graph roots by convention
@@ -74,7 +75,7 @@ def find_python_files() -> List[Path]:
     Returns:
         Sorted list of .py file paths, excluding __pycache__.
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return []
 
     files = []

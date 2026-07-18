@@ -16,6 +16,7 @@ from __future__ import annotations
 from atdd.validators.conventions.presence import archetype, fixtures
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
 from atdd.validators.conventions._support.graph_mutations import (
+    add_node,
     clone_graph,
     set_node_field,
 )
@@ -33,18 +34,45 @@ LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_feedback_loop_smoke_c
 
 
 _TC = {t.template_id: t for t in archetype.TEMPLATES}
-# observe-and-correct:observer-runtime-and-rules is the live feedback-loop feature
-# whose only close_the_loop SMOKE acceptance lives in WMBT P001. Clearing that WMBT's
-# acceptances on the clone removes the feature's only close_the_loop SMOKE, so the
-# conditional-requirement evaluator flags the feature — the same outcome the on-disk
-# ``close_the_loop:`` rename produced, with nothing written to disk.
-_P001 = "wmbt:observe-and-correct:P001"
-_TARGET_FEATURE = "feature:observe-and-correct:observer-runtime-and-rules"
+# #1486: the real-graph exemplar used here was
+# feature:observe-and-correct:observer-runtime-and-rules (its only close_the_loop
+# SMOKE lived in WMBT P001). That feature was decommissioned with the observer, and
+# the sole remaining on-disk feedback-loop feature is inline-suppressed — so there is
+# no live on-disk feature to inject into. Instead we ADD a synthetic feedback-loop
+# feature + WMBT to the clone (the same node shape the loader builds and the fixtures
+# use), give it a close_the_loop SMOKE, then clear that WMBT's acceptances so the
+# feature's only close_the_loop SMOKE disappears. This keeps the fault-injection
+# self-test independent of which real feature happens to be a feedback loop.
+_TARGET_FEATURE = "feature:demo:injected-loop"
+_TARGET_WMBT = "wmbt:demo:E001"
+_CTL_ACC = {
+    "identity": {"phase": "SMOKE", "urn": "acc:demo:E001-SMOKE-001-close-the-loop"},
+    "close_the_loop": {"consumer_reacted": "asserted", "drift_resolved": "asserted"},
+}
 
 
 def _fault(clean):
     faulted = clone_graph(clean)
-    set_node_field(faulted, _P001, "acceptances", [])
+    # Inject a well-formed feedback-loop feature whose only close_the_loop SMOKE we
+    # then remove — the evaluator must flag the feature for the missing requirement.
+    add_node(
+        faulted,
+        id=_TARGET_FEATURE,
+        kind="feature",
+        location="plan/demo/features/injected_loop.yaml",
+        package="demo",
+        refs=[_TARGET_WMBT],
+        fields={"kind": "feedback-loop", "wmbts": [_TARGET_WMBT]},
+    )
+    add_node(
+        faulted,
+        id=_TARGET_WMBT,
+        kind="wmbt",
+        location="plan/demo/E001.yaml",
+        package="demo",
+        fields={"acceptances": [dict(_CTL_ACC)]},
+    )
+    set_node_field(faulted, _TARGET_WMBT, "acceptances", [])
     return faulted
 
 

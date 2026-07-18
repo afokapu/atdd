@@ -44,6 +44,10 @@ from atdd.validators.conventions._support.graph_mutations import (
     node_at,
     stage_file,
 )
+from atdd.validators.conventions.composition.archetype import (
+    PACKAGE_DATA_FAULT_ANCHOR,
+    PACKAGE_DATA_FAULT_REPLACEMENT,
+)
 from atdd.validators.conventions.policy import _parity as policy_parity
 from atdd.validators.conventions.policy.archetype import (
     TEMPLATES as POLICY_TEMPLATES,
@@ -242,7 +246,10 @@ def test_migrated_families_write_nothing_to_the_tracked_tree(clean_convention_gr
     root = _repo_root()
     before = _tracked_hashes(root)
 
-    mirror_file(root, tmp_path, "pyproject.toml", lambda t: t.replace(', "nodes/*.yaml"', "", 1))
+    mirror_file(
+        root, tmp_path, "pyproject.toml",
+        lambda t: t.replace(PACKAGE_DATA_FAULT_ANCHOR, PACKAGE_DATA_FAULT_REPLACEMENT, 1),
+    )
     mirror_file(root, tmp_path, _TRACKED_TARGET, lambda t: t + "\n# injected\n")
     stage_file(tmp_path, "src/atdd/_probe.py", "x = 1\n")
 

@@ -37,6 +37,7 @@ from typing import Optional
 
 from atdd.state import cutover, hot_path, manifest_fallback, rollout, runbook, shadow
 from atdd.state import manifest_migration as migration
+from atdd.state.cli_support import add_verb, opt
 
 _log = logging.getLogger(__name__)
 
@@ -49,58 +50,59 @@ OPS = (
 
 def add_parsers(sub) -> None:
     """Register the migration verbs on the ``atdd state`` sub-parser."""
-    mu = sub.add_parser(
-        "mint-uids",
-        help="Backfill an immutable uid into every legacy manifest entry (its own recorded step).")
-    mu.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "mint-uids",
+        "Backfill an immutable uid into every legacy manifest entry (its own recorded step).",
+    )
 
-    mm = sub.add_parser(
-        "migrate-manifest",
-        help="Migrate .atdd/manifest.yaml into the uid-keyed committed projection. "
-             "Refuses before writing anything if an entry cannot be projected.")
-    mm.add_argument("--mint-uids", dest="mint", action="store_true",
-                    help="Backfill missing uids into the manifest first (a recorded write).")
-    mm.add_argument("--owner-actor", default=migration.UNATTRIBUTED_OWNER,
-                    help="The owner a legacy entry does not record "
-                         f"(default: {migration.UNATTRIBUTED_OWNER}).")
-    mm.add_argument("--out", default=None, help="Projection directory (default: the repo's).")
-    mm.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "migrate-manifest",
+        "Migrate .atdd/manifest.yaml into the uid-keyed committed projection. "
+        "Refuses before writing anything if an entry cannot be projected.",
+        opt("--mint-uids", dest="mint", action="store_true",
+            help="Backfill missing uids into the manifest first (a recorded write)."),
+        opt("--owner-actor", default=migration.UNATTRIBUTED_OWNER,
+            help="The owner a legacy entry does not record "
+                 f"(default: {migration.UNATTRIBUTED_OWNER})."),
+        opt("--out", default=None, help="Projection directory (default: the repo's)."),
+    )
 
-    sh = sub.add_parser(
-        "shadow",
-        help="Report projection drift against the committed AND manifest-derived projections. "
-             "NON-BLOCKING: exits 0 even when it finds drift (M001).")
-    sh.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "shadow",
+        "Report projection drift against the committed AND manifest-derived projections. "
+        "NON-BLOCKING: exits 0 even when it finds drift (M001).",
+    )
 
-    hp = sub.add_parser(
-        "hot-path",
-        help="Prove no core lifecycle decision, validator, or gate calls the GitHub API (I7).")
-    hp.add_argument("--package", default=None,
-                    help="The atdd package directory to walk (default: the running one).")
-    hp.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "hot-path",
+        "Prove no core lifecycle decision, validator, or gate calls the GitHub API (I7).",
+        opt("--package", default=None,
+            help="The atdd package directory to walk (default: the running one)."),
+    )
 
-    mf = sub.add_parser(
-        "manifest-fallback",
-        help="Prove no core reader opens, globs, or parses .atdd/manifest.yaml (Y002).")
-    mf.add_argument("--package", default=None,
-                    help="The atdd package directory to scan (default: the running one).")
-    mf.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "manifest-fallback",
+        "Prove no core reader opens, globs, or parses .atdd/manifest.yaml (Y002).",
+        opt("--package", default=None,
+            help="The atdd package directory to scan (default: the running one)."),
+    )
 
-    co = sub.add_parser(
-        "cutover", help="Evaluate the three M8 exit criteria. Non-zero while any one is unmet.")
-    co.add_argument("--package", default=None, help="The atdd package directory to scan.")
-    co.add_argument("--from", dest="from_dir", default=None, help="Projection directory.")
-    co.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "cutover",
+        "Evaluate the three M8 exit criteria. Non-zero while any one is unmet.",
+        opt("--package", default=None, help="The atdd package directory to scan."),
+        opt("--from", dest="from_dir", default=None, help="Projection directory."),
+    )
 
-    rb = sub.add_parser(
-        "runbook-check",
-        help="The migration runbook covers every step the code ships and cites real invariants.")
-    rb.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "runbook-check",
+        "The migration runbook covers every step the code ships and cites real invariants.",
+    )
 
-    rc = sub.add_parser(
-        "rollout-check",
-        help="The rollout plan stages shadow before blocking and every one-way door has a rollback.")
-    rc.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "rollout-check",
+        "The rollout plan stages shadow before blocking and every one-way door has a rollback.",
+    )
 
 
 def _root(args) -> Path:
@@ -121,8 +123,10 @@ def _cmd_mint_uids(args) -> int:
     try:
         minted, path = migration.mint_uids(migration.manifest_path(_root(args)))
     except migration.MigrationError as exc:
-        _log.warning("uids could not be minted into the legacy manifest",
-                     extra={"command": "mint-uids", "error": str(exc)})
+        _log.warning(
+            "uids could not be minted into the legacy manifest",
+            extra={"command": "mint-uids", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     print(
         f"minted {minted} uid(s) into {path}" if minted
@@ -144,13 +148,17 @@ def _cmd_migrate_manifest(args) -> int:
         )
     except migration.LossyMigrationError as exc:
         # The refusal is the feature: nothing was written, and every offending entry is named.
-        _log.warning("refused a lossy migration; the projection directory is untouched",
-                     extra={"command": "migrate-manifest", "root": str(root),
-                            "defects": len(exc.defects)})
+        _log.warning(
+            "refused a lossy migration; the projection directory is untouched",
+            extra={"command": "migrate-manifest", "root": str(root),
+                "defects": len(exc.defects)},
+        )
         return _fail(str(exc))
     except migration.MigrationError as exc:
-        _log.warning("the manifest could not be migrated",
-                     extra={"command": "migrate-manifest", "error": str(exc)})
+        _log.warning(
+            "the manifest could not be migrated",
+            extra={"command": "migrate-manifest", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     print(report.render())
     return 0
@@ -167,8 +175,10 @@ def _cmd_hot_path(args) -> int:
     try:
         report = hot_path.check(_package(args))
     except hot_path.ImportBoundaryError as exc:
-        _log.warning("the hot-path guard could not run",
-                     extra={"command": "hot-path", "error": str(exc)})
+        _log.warning(
+            "the hot-path guard could not run",
+            extra={"command": "hot-path", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -180,8 +190,10 @@ def _cmd_manifest_fallback(args) -> int:
     try:
         report = manifest_fallback.check(_package(args))
     except manifest_fallback.ManifestScanError as exc:
-        _log.warning("the manifest-fallback scan could not run",
-                     extra={"command": "manifest-fallback", "error": str(exc)})
+        _log.warning(
+            "the manifest-fallback scan could not run",
+            extra={"command": "manifest-fallback", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -205,8 +217,10 @@ def _cmd_runbook_check(args) -> int:
     try:
         report = runbook.check(_root(args))
     except FileNotFoundError as exc:
-        _log.warning("the runbook check could not run",
-                     extra={"command": "runbook-check", "error": str(exc)})
+        _log.warning(
+            "the runbook check could not run",
+            extra={"command": "runbook-check", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -218,8 +232,10 @@ def _cmd_rollout_check(args) -> int:
     try:
         report = rollout.check(_root(args))
     except rollout.RolloutError as exc:
-        _log.warning("the rollout check could not run",
-                     extra={"command": "rollout-check", "error": str(exc)})
+        _log.warning(
+            "the rollout check could not run",
+            extra={"command": "rollout-check", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())

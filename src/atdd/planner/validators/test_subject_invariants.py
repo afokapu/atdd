@@ -73,12 +73,14 @@ def test_non_nouns_rejected(name: str) -> None:
     assert reason, "a violation must carry a human-readable reason"
 
 
+@pytest.mark.platform  # toolkit dogfood: reads toolkit-only repo state (#1475)
 def test_repo_subject_registry_satisfies_invariants() -> None:
     """The shipped ``plan/_subjects.yaml`` has no invariant violations."""
     violations = subj.subject_registry_violations(_REPO_ROOT)
     assert violations == [], "registry violations:\n  " + "\n  ".join(violations)
 
 
+@pytest.mark.platform  # toolkit dogfood: reads toolkit-only repo state (#1475)
 def test_artifact_identity_is_registered() -> None:
     registered = subj.registered_subjects(_REPO_ROOT)
     assert "artifact-identity" in registered

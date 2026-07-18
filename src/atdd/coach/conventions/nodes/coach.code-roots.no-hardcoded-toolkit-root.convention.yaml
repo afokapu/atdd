@@ -1,0 +1,48 @@
+schema_version: 1.1.0
+rule_id: coach.code-roots.no-hardcoded-toolkit-root
+kind: rule
+status: active
+name: No hardcoded toolkit root
+statement: 'Core must not join the literal toolkit-layout segments ''src/atdd'' onto a repository root:
+  that path exists only in a source checkout and is absent wherever atdd is installed as a package,
+  so the hardcode breaks every consumer. Resolve the toolkit root package-relatively
+  (Path(atdd.__file__).resolve().parent) or declare it under .atdd/config.yaml::code.'
+implementation:
+  type: validator
+  ref: test_code_roots_agnosticity::test_no_hardcoded_toolkit_root
+source:
+  legacy_path: src/atdd/coach/conventions/code-roots.convention.yaml
+  legacy_section: config_surface
+  extraction_mode: activation
+content:
+  fix_hint: 'Replace `<repo_root> / "src" / "atdd" / ...` with package-relative resolution:
+    `ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent` then `ATDD_PKG_DIR / "coach" / ...`.
+    Package-relative resolution is correct in a source checkout AND in site-packages.
+    If the path is a stack root rather than a package resource, declare it under
+    .atdd/config.yaml::code and resolve it with resolve_code_root() — skipping the
+    stack when the resolver returns None.'
+  exceptions:
+  - 'src/atdd/coach/utils/config.py — the declaration surface; it owns DEFAULT_CODE_ROOTS.'
+  - 'src/atdd/coder/validators/_toolkit_roots.py — the sanctioned toolkit-root resolver (#1476/#1485).'
+  - 'tests/ and fixtures/ directories — synthetic trees rooted at a temp dir, not this repo.'
+  - 'Inline suppression: # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) on the offending line.'
+metadata:
+  severity: 4
+  disposition: suppress-and-clean
+  introduced_in: 4.7.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
+  ratchet: 'Landed suppress-and-clean in #1499 with the pre-existing violations suppressed at their
+    sites. DESTINATION IS `disposition: strict` AT ZERO — unlike the coder debt family, this is a
+    correctness invariant (a hardcode breaks the toolkit for every consumer), not debt that may sit
+    baselined indefinitely. Suppressions may only be removed, never added to green a build.'
+terms:
+- term_id: toolkit_layout
+  text: the 'src/atdd' source-checkout shape; absent once atdd is installed as a package.
+- term_id: package_relative
+  text: Path(atdd.__file__).parent / importlib.resources — correct in BOTH a checkout and site-packages,
+    and never flagged by this rule.
+notes: 'Activation of the code-roots convention (#1499). Complements
+  coach.source-layout.no-toolkit-self-layout-assumption, which covers only the direct
+  find_repo_root() call shape and documents variable indirection as out of scope — this rule closes
+  that gap.'

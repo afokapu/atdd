@@ -250,7 +250,7 @@ def test_issue_body_has_required_sections(github_issues):
         w.warn(
             f"Issues with incomplete body sections ({len(incomplete)}):\n  "
             + "\n  ".join(incomplete)
-            + "\n\nHint: Re-create with `atdd new` (E010+) for full-structure body.",
+            + "\n\nHint: Re-author the body with `atdd author issue --revise <N>` for a full-structure body.",
             category=UserWarning,
             stacklevel=1,
         )

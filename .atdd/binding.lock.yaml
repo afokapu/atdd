@@ -1,12 +1,27 @@
 schema_version: 1.0.0
-substrate_lock_digest: sha256:f8b9bacaf506dbbb9fad0d10508d82e9e39fca716a89c0f23ade2ec871fbce59
+substrate_lock_digest: sha256:b02d642b9e2503f631953665ab68e3d27291eb40acf952307cb5bfe243458ef5
 conventions:
 - convention_id: coder.boundaries.http-client
   disposition: bound
   implementation_id: coder.boundaries.http-client
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
+- convention_id: coder.boundaries.xlang-contract
+  disposition: bound
+  implementation_id: coder.boundaries.xlang-entity
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
 - convention_id: coder.boundaries.xlang-entity
+  disposition: bound
+  implementation_id: coder.boundaries.xlang-entity
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.boundaries.xlang-enum
+  disposition: bound
+  implementation_id: coder.boundaries.xlang-entity
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.boundaries.xlang-naming
   disposition: bound
   implementation_id: coder.boundaries.xlang-entity
   workspace_id: atdd.workspace.python-pytest
@@ -21,7 +36,37 @@ conventions:
   implementation_id: coder.dead-code.reachability-typescript
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
+- convention_id: coder.design.foundations
+  disposition: bound
+  implementation_id: coder.design.primitives
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.design.hierarchy-import
+  disposition: bound
+  implementation_id: coder.design.primitives
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.design.orphan-export
+  disposition: bound
+  implementation_id: coder.design.primitives
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.design.orphan-ui
+  disposition: bound
+  implementation_id: coder.design.primitives
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
 - convention_id: coder.design.primitives
+  disposition: bound
+  implementation_id: coder.design.primitives
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.design.token-color
+  disposition: bound
+  implementation_id: coder.design.primitives
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.design.token-hardcoded
   disposition: bound
   implementation_id: coder.design.primitives
   workspace_id: atdd.workspace.python-pytest
@@ -41,6 +86,11 @@ conventions:
   implementation_id: coder.error-response.bare-string
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
+- convention_id: coder.error-response.code-format
+  disposition: bound
+  implementation_id: coder.error-response.bare-string
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
 - convention_id: coder.logging.coach-silent-swallow
   disposition: bound
   implementation_id: coder.logging.coach-silent-swallow
@@ -56,6 +106,11 @@ conventions:
   implementation_id: coder.logging.structured
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
+- convention_id: coder.presentation.gsap-commons
+  disposition: bound
+  implementation_id: coder.presentation.gsap-layer
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
 - convention_id: coder.presentation.gsap-layer
   disposition: bound
   implementation_id: coder.presentation.gsap-layer
@@ -66,9 +121,19 @@ conventions:
   implementation_id: coder.presentation.i18n-config
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
+- convention_id: coder.presentation.i18n-switcher
+  disposition: bound
+  implementation_id: coder.presentation.i18n-config
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
 - convention_id: coder.refactor.coach-ratchet-pres
   disposition: bound
   implementation_id: coder.refactor.coach-ratchet-pres
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.complexity-cognitive
+  disposition: bound
+  implementation_id: coder.refactor.complexity-cyclomatic
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.complexity-cyclomatic
@@ -81,7 +146,37 @@ conventions:
   implementation_id: coder.refactor.complexity-cyclomatic-typescript
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
+- convention_id: coder.refactor.complexity-length
+  disposition: bound
+  implementation_id: coder.refactor.complexity-cyclomatic
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.complexity-length-typescript
+  disposition: bound
+  implementation_id: coder.refactor.complexity-cyclomatic-typescript
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.complexity-nesting
+  disposition: bound
+  implementation_id: coder.refactor.complexity-cyclomatic
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.complexity-nesting-typescript
+  disposition: bound
+  implementation_id: coder.refactor.complexity-cyclomatic-typescript
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.complexity-params
+  disposition: bound
+  implementation_id: coder.refactor.complexity-cyclomatic
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
 - convention_id: coder.refactor.composition-consumer
+  disposition: bound
+  implementation_id: coder.refactor.composition-consumer
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.composition-root
   disposition: bound
   implementation_id: coder.refactor.composition-consumer
   workspace_id: atdd.workspace.python-pytest
@@ -89,6 +184,26 @@ conventions:
 - convention_id: coder.refactor.nplus1
   disposition: bound
   implementation_id: coder.refactor.nplus1
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.quality-comments
+  disposition: bound
+  implementation_id: coder.refactor.quality-mi
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.quality-comments-typescript
+  disposition: bound
+  implementation_id: coder.refactor.quality-mi-typescript
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.quality-duplication
+  disposition: bound
+  implementation_id: coder.refactor.quality-mi
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.quality-file-length
+  disposition: bound
+  implementation_id: coder.refactor.quality-mi
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.quality-mi
@@ -99,6 +214,21 @@ conventions:
 - convention_id: coder.refactor.quality-mi-typescript
   disposition: bound
   implementation_id: coder.refactor.quality-mi-typescript
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.refactor.quality-naming
+  disposition: bound
+  implementation_id: coder.refactor.quality-mi
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.security.hardcoded-secret
+  disposition: bound
+  implementation_id: coder.security.sql-injection
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.security.missing-auth
+  disposition: bound
+  implementation_id: coder.security.sql-injection
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.security.sql-injection

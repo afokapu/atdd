@@ -12,7 +12,7 @@ contains ``GitHubClient``. Any such class must either:
 Hand-rolled plain classes are rejected because they silently accept any
 method name the caller happens to invoke, letting production call sites
 drift away from the real client surface without any test catching it. The
-originating bug (issue #304) had ``IssueManager.sync_wmbts`` calling
+originating bug (issue #304) had the since-removed ``IssueManager.sync_wmbts`` calling
 ``client.list_sub_issues(...)``, a method that does not exist on the real
 ``GitHubClient``; every test passed because the fakes also defined
 ``list_sub_issues``.
@@ -31,6 +31,9 @@ from typing import List, NamedTuple, Set
 import pytest
 
 from atdd.coach.utils.repo import find_repo_root
+
+# Toolkit dogfood: asserts on toolkit-only repo content (#1475).
+pytestmark = [pytest.mark.platform]
 
 REPO_ROOT = find_repo_root()
 TESTS_ROOT = REPO_ROOT / "src" / "atdd" / "coach" / "commands" / "tests"

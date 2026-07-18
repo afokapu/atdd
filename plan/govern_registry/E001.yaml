@@ -1,0 +1,69 @@
+urn: "wmbt:govern-registry:E001"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "convention-mirror-drift"
+context_clarifier: "every extension convention node claims to be a high_fidelity mirror of a live core rule named by its source.legacy_rule_id; if that core rule is renamed or deleted the mirror is left pointing at a rule that no longer exists — the mirror has DRIFTED and the extension node silently no longer reflects any live obligation; the coherence validator resolves each extension node's legacy_rule_id against the live core registry and fails loudly on any node whose twin has vanished, so mirror drift is caught instead of accumulating"
+lens: "functional.sustainability"
+statement: "minimize likelihood of convention-mirror-drift by resolving every extension node's source.legacy_rule_id against the live core rule registry and failing loudly on any node whose named core rule no longer exists, so a renamed or deleted core rule cannot leave an extension mirror pointing at nothing"
+acceptances:
+  - identity:
+      urn: "acc:govern-registry:E001-UNIT-001-drifted-mirror-is-detected"
+      id: "AC-UNIT-001"
+      purpose: "an extension node whose legacy_rule_id names a core rule that is absent from the registry is reported as a drifted mirror, while a node whose legacy_rule_id resolves to a live core rule is not"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a substrate with two extension convention nodes — one whose source.legacy_rule_id names a rule present in the injected core registry, one whose legacy_rule_id names a rule absent from it"
+    when:
+      abstract: "find_mirror_incoherences scans the extension nodes against the injected core rule_id set"
+    then:
+      abstract:
+        - "the node whose legacy_rule_id is absent from core is returned as an incoherence, naming both the extension rule_id and the missing legacy_rule_id"
+        - "the node whose legacy_rule_id resolves to a live core rule is not returned"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-registry:E001-UNIT-002-coherence-guard-fails-loudly-else-passes"
+      id: "AC-UNIT-002"
+      purpose: "when a mirror has drifted the guard raises loudly naming the drifted node; when every mirror resolves to a live core rule it passes"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a substrate with one extension node whose legacy_rule_id names no core rule in the injected registry"
+    when:
+      abstract: "the coherence guard is asked to assert every extension mirror resolves to a live core rule"
+    then:
+      abstract:
+        - "it signals failure (raises) rather than passing, and its message names the drifted extension rule_id and its missing legacy_rule_id"
+        - "over a substrate whose extension nodes all name live core rules, the same guard passes and returns an empty incoherence list"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-registry:E001-SMOKE-001-real-mirrors-all-resolve-to-live-core-rules"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real substrate every vendored extension node's legacy_rule_id resolves to a rule that still exists in the live core registry — no mirror has drifted"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real src/atdd core convention tree and its vendored .atdd/extensions convention nodes"
+    when:
+      abstract: "find_mirror_incoherences is driven over the real extension nodes against the real core rule registry"
+    then:
+      abstract:
+        - "it returns an empty list — every extension mirror still names a live core rule"
+        - "each extension node genuinely declares a source.legacy_rule_id that is a member of the core rule_id set"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

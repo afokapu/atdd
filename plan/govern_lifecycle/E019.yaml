@@ -29,126 +29,39 @@ statement: minimize likelihood of issue-author-submits-non-compliant-body-or-tri
   equals 1 for create and a test asserts a non-compliant body never reaches GitHub
 acceptances:
 - identity:
-    urn: acc:govern-lifecycle:E019-UNIT-001-single-graphql-call-on-create
-    id: AC-UNIT-001
-    purpose: atdd issue <slug> invokes gh exactly once for issue creation (no second
-      edit call for body replacement)
-    phase: GREEN
-  harness:
-    type: unit
-    category: backend
-  given:
-    abstract:
-    - IssueManager is constructed with a stub subprocess runner that records gh invocations
-    - A fully compliant issue body template is available (all required sections populated)
-    - The --check gate is patched to return 'pass' for the body
-  when:
-    abstract: IssueManager.create_issue(slug='test-feature') is called
-  then:
-    abstract:
-    - The stub records exactly one gh subprocess call
-    - That call contains 'issue create' (not 'issue edit')
-    - The call's --body or --body-file argument contains the fully rendered body
-  metadata:
-    author: atdd:self-compliance
-    created: '2026-05-20'
-- identity:
-    urn: acc:govern-lifecycle:E019-UNIT-002-non-compliant-body-refused-before-publish
-    id: AC-UNIT-002
-    purpose: A body that fails --check is refused before any GitHub call is made
-    phase: GREEN
-  harness:
-    type: unit
-    category: backend
-  given:
-    abstract:
-    - IssueManager is constructed with a stub subprocess runner
-    - The local body template is missing the required '### Graph Context' section
-  when:
-    abstract: IssueManager.create_issue(slug='bad-feature') is called
-  then:
-    abstract:
-    - The method raises IssueBodyComplianceError (or returns a non-zero result)
-    - The stub records zero gh subprocess calls
-    - The error message names the missing section ('Graph Context' or equivalent)
-  metadata:
-    author: atdd:self-compliance
-    created: '2026-05-20'
-- identity:
-    urn: acc:govern-lifecycle:E019-UNIT-003-edit-reruns-check-gate
-    id: AC-UNIT-003
-    purpose: A subsequent body edit via atdd issue <N> --body-file re-runs --check
-      before sending to GitHub
-    phase: GREEN
-  harness:
-    type: unit
-    category: backend
-  given:
-    abstract:
-    - IssueManager is constructed with a stub subprocess runner
-    - An existing issue number N is provided
-    - The replacement body file is missing '### Mirror Across Agents'
-  when:
-    abstract: IssueManager.edit_issue_body(issue_number=N, body_file=path_to_bad_body)
-      is called
-  then:
-    abstract:
-    - The method raises IssueBodyComplianceError before calling gh issue edit
-    - The stub records zero gh subprocess calls
-    - The error output names the failing section
-  metadata:
-    author: atdd:self-compliance
-    created: '2026-05-20'
-- identity:
-    urn: acc:govern-lifecycle:E019-INTEGRATION-001-published-issue-passes-body-validators
-    id: AC-INTEGRATION-001
-    purpose: An issue body produced by atdd issue <slug> passes test_issue_body_has_graph_context
-      and sibling body validators
-    phase: SMOKE
-  harness:
-    type: integration
-    category: backend
-  given:
-    abstract:
-    - The atdd CLI is installed and importable
-    - IssueBodyChecker (the --check implementation) is importable
-    - A valid issue body is rendered for slug='integration-test-slug'
-  when:
-    abstract: IssueBodyChecker.check(body_text) is called on the rendered body
-  then:
-    abstract:
-    - check() returns a passing result (no errors)
-    - The rendered body contains '### Graph Context' with non-placeholder content
-    - The rendered body contains '### Mirror Across Agents' with non-placeholder content
-  metadata:
-    author: atdd:self-compliance
-    created: '2026-05-20'
-- identity:
-    urn: acc:govern-lifecycle:E019-SMOKE-001-live-create-zero-edit-calls
+    urn: acc:govern-lifecycle:E019-SMOKE-001-revise-publishes-to-live-store
     id: AC-SMOKE-001
-    purpose: 'On the live #792 branch, atdd issue create path results in zero gh issue
-      edit calls for body replacement (audit via gh audit-log or subprocess mock at
-      the CLI boundary)'
+    purpose: Against a live State Store and a real gh subprocess, atdd author issue
+      --revise writes the authoritative store revision and then projects the body;
+      when the provider is unreachable the revision still stands and the projection
+      defers to the outbox
     phase: SMOKE
   harness:
     type: integration
     category: backend
   given:
     abstract:
-    - The atdd CLI is installed from local source (PYTHONPATH=src)
-    - ATDD_DRY_RUN=1 or equivalent is set so no real GitHub issue is filed
-    - A fully compliant body template is rendered for a dummy slug
+    - A real repo checkout, an initialized ATDD Control Root (State Store), and the
+      installed atdd author CLI
+    - An issue-backed work_item seeded in the live store and linked to a github issue
+      number
+    - A stubbed `gh` on PATH (so the projection runs as a real subprocess without
+      touching production GitHub), selectable to exit 0 or non-zero
   when:
-    abstract: atdd issue dummy-smoke-slug --dry-run (or equivalent DRY_RUN env) is
-      invoked
+    abstract: atdd author issue --revise <N> --body-file <path> --type refactor is
+      run against the Control Root, once with a reachable provider and once with a
+      provider that exits non-zero
   then:
     abstract:
-    - Output confirms a single issue-create action was prepared
-    - No 'issue edit' or 'edit body' action appears in the output
-    - The dry-run output contains the full validated body (not a scaffold placeholder)
+    - The live State Store carries the revised body and type, and the lifecycle state
+      is unchanged by the revision
+    - An issue_revised event is recorded against the work item
+    - With a reachable provider the outbox is empty — nothing was deferred
+    - With an unreachable provider the command still succeeds, the store revision
+      stands, and the body update is deferred to the outbox rather than lost
   metadata:
     author: atdd:self-compliance
-    created: '2026-05-20'
+    created: '2026-07-14'
 - identity:
     urn: acc:govern-lifecycle:E019-UNIT-003-author-issue-revise-store-first
     id: AC-UNIT-003
