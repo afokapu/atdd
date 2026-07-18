@@ -167,7 +167,7 @@ registry:
             path: plan/_trains/2001-story-to-graph-perfect.yaml
             wagons: [curate-scenario, prepare-materials, model-scenario, construct-graph]
 
-  path_structure: "plan/_trains/{train_id}.yaml"
+  path_structure: "plan/_trains/{subject}/{slug}.yaml (legacy NNXX ids: plan/_trains/{train_id}.yaml)"
 
   benefits:
     - "Identity names the journey; theme, category and ordering ride as FIELDS (#1421)"
@@ -195,14 +195,19 @@ naming:
       - "Auth Session Handshake"
 
   file_naming:
-    pattern: "{train_id}.yaml"
+    pattern: "{subject}/{slug}.yaml"
     location: "plan/_trains/"
-    structure: "flat (no subdirectories)"
+    structure: "nested one level by subject; legacy NNXX ids stay flat during the transition"
+    note: >-
+      A typed id carries colons, so the pre-#1421 flat "{train_id}.yaml" pattern
+      would name the file plan/_trains/train:subject:slug.yaml. Typed trains nest
+      under their subject instead. Underscore-prefixed subdirectories such as
+      plan/_trains/_interlockings/ are NOT trains and are never globbed as
+      manifests (#1504).
     examples:
-      - "plan/_trains/0001-auth-session-standard.yaml"
-      - "plan/_trains/2001-story-to-graph-perfect.yaml"
-      - "plan/_trains/3001-solo-match-complete.yaml"
-      - "plan/_trains/4301-ambiguous-gesture-detected.yaml"
+      - "plan/_trains/issue-lifecycle/drive-state-machine.yaml"
+      - "plan/_trains/substrate/author-artifacts.yaml"
+      - "plan/_trains/0001-auth-session-standard.yaml  # legacy, flat"
 
 # Theme alignment
 theme_alignment:
