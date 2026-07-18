@@ -6,7 +6,8 @@
 > that scope now belongs to #1520.** This revision restates the manifest against the
 > reframed issue.
 >
-> **Nothing has been deleted.** One blocker requires an operator ruling before Phase 2; see §5.
+> **Phase 2 has landed** — the 9 files at §1 are deleted. The §5 blocker was ruled on:
+> #1480 sequences behind #1520 and does not widen. See §5.1 and §6.
 
 ## 0. The reframing
 
@@ -148,13 +149,65 @@ Both live in `wagon:mediate-worker-decisions`, which is owned by **open issue #1
 The worker brief for #1480 asserted *"there is no surviving functional importer outside its
 own tests."* **That assertion is false.**
 
-**Two dispositions are available and the choice is the operator's** — see §5 of the issue
+**Two dispositions were available and the choice was the operator's** — see §5 of the issue
 thread. Either #1520 lands first and #1480 follows unblocked, or #1480 widens to absorb the
 two consumer sites, which would reach across a train boundary rather than within one.
+
+### 5.1 Ruling — sequence behind #1520
+
+**The operator ruled for the first disposition: #1480 sequences behind #1520 and does not
+widen.** #1480 deletes nothing under `src/atdd/mediate_worker_decisions/`; the two consumer
+sites at §2.1 are #1520's to remove, on its own train. This keeps the cut inside
+`train:self-compliance:validate-lifecycle` rather than reaching across a train boundary.
+
+The consequence is that **this branch does not stand alone on `main`.** Merged before #1520,
+the two consumer sites would import `atdd.runtime.agent_control`, which no longer exists —
+and the production one
+(`apply_decision/composition.py:67`) is a lazy import inside a `# pragma: no cover` factory,
+so it fails at *call* time, not import time. Merge order is a correctness constraint here,
+not a preference.
 
 ---
 
 ## 6. Status
 
-Phase 1 (inventory) complete against the reframed scope. **No files deleted.** Phase 2
-(deletion) is gated on the §5 ruling.
+Phase 1 (inventory) complete against the reframed scope. **Phase 2 (deletion) landed** in
+`refactor: prune the relocated cmux runtime from core` — the 9 files at §1, plus the plan
+chain at §3, the boundary-policing tests at §2.4, and the architectural naming at §2.3.
+
+### 6.1 Plan-chain note — two WMBTs are named E031
+
+`wmbt:spawn-agents:E031` is removed (its sole surviving acceptance `AC-UNIT-003` bound
+`runtime/agent_control/cmux_launch.py::build_agent_seed_argv`).
+`wmbt:govern-lifecycle:E031` is the **emergency-bypass** WMBT, is unrelated, and is
+**untouched**. The bare string `E031` is ambiguous in this repo; always qualify it by wagon.
+
+### 6.2 Enforce ratchet
+
+Re-recorded, tightened only — no count raised:
+
+| rule | before | after |
+|---|---:|---:|
+| `coder.dead-code.reachability` | 59 | 58 |
+| `coder.logging.coach-silent-swallow` | 248 | 240 |
+| `coder.refactor.complexity-cognitive` | 131 | 129 |
+| `coder.refactor.complexity-cyclomatic` | 149 | 147 |
+| `coder.refactor.complexity-length` | 76 | 74 |
+| `coder.refactor.complexity-nesting` | 173 | 171 |
+| **total** | **1096** | **1079** |
+
+### 6.3 Verification method — throwaway scratch branch
+
+Because §5.1 leaves this branch unable to stand alone on `main` until #1520 lands, it cannot
+be validated in place: the two surviving consumer sites would fail against the deleted
+modules, and that red is an artefact of merge order rather than a defect in this cut.
+
+Verification therefore runs on a **throwaway branch that simulates #1520 having landed**
+(`scratch/verify-1480-with-1520-simulated`), which deletes the whole
+`src/atdd/mediate_worker_decisions/` tree and its plan chain. That is a *superset* of the two
+consumer sites at §2.1 — it models #1520 in full rather than the minimal cut, which is the
+stricter and more honest simulation.
+
+**That branch is never pushed and is discarded after the run.** It exists only to answer
+"does this cut come out green once its blocker has landed?" Nothing red is pushed against
+`main`.
