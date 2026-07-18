@@ -81,6 +81,26 @@ class _RecordingElicit:
         raise AssertionError("decide() consulted the operator on a LOCKED session")
 
 
+def test_upserting_an_existing_unit_is_refused_while_locked(tmp_path):
+    """The #1507 upsert path is a mutation too, and must be behind the same lock.
+
+    ``add_unit`` no longer only appends: re-stating an existing ``ref`` with a
+    changed spec REWRITES that unit and resets its verdict to PENDING. On a locked
+    session that rewrites a decomposition the operator already signed off, wearing
+    the shape of an edit rather than an addition — the same bypass, different door.
+
+    Without this test the guard could be moved below the ref scan and every other
+    test here would still pass, leaving the upsert path unguarded.
+    """
+    s = _confirmed_session(tmp_path)
+    with pytest.raises(SessionGateError) as exc:
+        s.add_unit(Unit(kind="wmbt", ref="wmbt-one", spec={"changed": True}))
+    assert "reopen" in str(exc.value)
+    assert s.units[0]["spec"] == {}                       # not rewritten
+    assert s.units[0]["verdict"] == Verdict.KEEP.value    # verdict not reset
+    assert len(s.units) == 1
+
+
 def test_decide_is_refused_while_locked(tmp_path):
     """Re-deciding a verdict post-Confirm is as much a mutation as adding a unit."""
     s = _confirmed_session(tmp_path)

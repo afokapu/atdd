@@ -36,9 +36,12 @@ def _state(s: PlanSession) -> dict:
         "issue_ref": s.issue_ref,
         "locked": s.locked,
         "sources": s.sources,
+        # `spec` is projected too: it is what the unit actually carries into the
+        # atdd author writers, so omitting it left the operator unable to see
+        # what they had attached without reading session.json by hand.
         "units": [
             {"kind": u["kind"], "ref": u["ref"], "verdict": u["verdict"],
-             "modification": u.get("modification")}
+             "modification": u.get("modification"), "spec": u.get("spec", {})}
             for u in s.units
         ],
     }

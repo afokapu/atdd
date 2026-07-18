@@ -137,8 +137,46 @@ class PlanSession:
 
     # ---- units -------------------------------------------------------------
     def add_unit(self, unit: Unit) -> None:
+        """Add a candidate unit, or update the one already carrying this ``ref``.
+
+        ``ref`` identifies a unit within a session — ``_unit()`` has always
+        resolved by ``ref`` alone, so two units sharing one ``ref`` made the
+        session ambiguous: ``decide()`` reached only the first while ``author()``
+        wrote both. Re-stating a unit is the normal Prepare loop (draft, look,
+        re-draft), so it upserts rather than appending a duplicate.
+
+        Changing a decided unit's ``spec`` resets its verdict to PENDING: the
+        thing the operator decided on is no longer the thing in the session, and
+        ``confirm()`` requires a terminal verdict, so the change must be
+        re-decided. Re-stating an identical spec keeps the verdict.
+
+        Re-using a ``ref`` under a different ``kind`` is refused — that is an
+        operator mistake, not an update, and silently changing a unit's kind
+        would send it to a different ``atdd author`` writer.
+
+        Refused outright while the session is locked (#1505). The upsert path
+        makes this stricter than it looks: re-stating an existing unit with a
+        changed spec *rewrites* that unit and resets its verdict, so an upsert on
+        a confirmed session would mutate a decomposition the operator had already
+        signed off — the same bypass as appending a new unit, wearing the shape of
+        an edit. The guard runs before the ref scan so both paths are covered.
+        """
         self.assert_mutable(f"add the {unit.kind} unit {unit.ref!r}")
-        self.units.append(asdict(unit))
+        incoming = asdict(unit)
+        for i, existing in enumerate(self.units):
+            if existing["ref"] != incoming["ref"]:
+                continue
+            if existing["kind"] != incoming["kind"]:
+                raise SessionGateError(
+                    f"unit {incoming['ref']!r} already exists as kind "
+                    f"{existing['kind']!r}; refusing to redefine it as "
+                    f"{incoming['kind']!r} — use a distinct ref")
+            if existing["spec"] != incoming["spec"]:
+                self.units[i] = incoming  # spec changed -> verdict resets to PENDING
+            # identical spec: a no-op, so a replay never discards a verdict or
+            # the modification a pivot recorded.
+            return
+        self.units.append(incoming)
 
     def _unit(self, ref: str) -> dict:
         for u in self.units:
