@@ -58,9 +58,10 @@ JS_TS_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
 #       import. Its TypeScript and Python halves share `stack`-parameterized helpers,
 #       so separating them is a port rather than a prune and was left out of #1518.
 #
-# Both are tracked for relocation into `frontend.extension.vite-{coder,tester}`.
-# When that lands, delete the entries — and once this set is empty, delete
-# `test_carveout_covers_only_the_two_sanctioned_locations` along with it.
+# Both are tracked in #1526 for relocation into `frontend.extension.vite-{coder,tester}`
+# — note the harness needs a convention node + implementation AUTHORED there first,
+# since nothing owns it yet. When #1526 lands, delete the entries — and once this set
+# is empty, delete `test_carveout_covers_only_the_two_sanctioned_locations` with it.
 PENDING_RELOCATION = frozenset({
     "atdd/coach/templates/harness/mount-train.mjs",
     "atdd/coach/templates/harness/vitest.config.mjs",
