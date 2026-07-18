@@ -24,9 +24,18 @@ dependencies = [
     "jsonschema",
     "pytest-html",
     "radon>=5.0",
-    "tree-sitter>=0.23",
-    "tree-sitter-typescript>=0.23",
 ]
+
+# NOT dependencies, deliberately (#1518): `tree-sitter` and `tree-sitter-typescript`.
+#
+# They were runtime deps, so EVERY consumer — including pure-Python ones — installed a
+# TypeScript grammar in order to use a stack-agnostic engine. The only importer in core
+# was `coder/validators/_ast_tsx.py`, which loaded `language_tsx()` for the TSX validators;
+# both it and they now live in `frontend.extension.vite-coder` / `atdd.extension.coder`.
+#
+# Nothing in core parses Python with tree-sitter — that is `radon` plus the stdlib `ast`
+# module — so dropping the base `tree-sitter` package alongside the grammar is safe. If a
+# future core validator wants a non-TS grammar, add it back then, with the importer.
 
 [project.urls]
 Homepage = "https://github.com/afokapu/atdd"
