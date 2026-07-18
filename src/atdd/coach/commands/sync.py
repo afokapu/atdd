@@ -181,6 +181,25 @@ class AgentConfigSync:
             hook_initializer = ProjectInitializer(self.target_dir)
             hook_initializer.refresh_hook_files()
 
+        # Re-seed the .gitignore entries for atdd's operational artifacts (#1325
+        # item 6), for the same reason the hooks above are refreshed (#1492).
+        #
+        # Seeding only at `atdd init` reaches brand-new repos and nobody else:
+        # init bails out on an already-initialised repo before it seeds, and
+        # `atdd init --force` is forbidden (#793). The case actually reported in
+        # #1325 was a manifest→State-Store MIGRATION inside a repo that had long
+        # since run init, which left `.atdd/state/state.sqlite` and
+        # `.atdd/manifest.migrated.yaml` untracked. `atdd sync` is the sanctioned
+        # refresh verb, so it is the path that reaches those repos.
+        #
+        # Guarded on `.atdd/` already existing: sync is a refresher, not an
+        # installer, and must not write atdd's ignore entries into a repo that
+        # never ran `atdd init`. Each entry is appended idempotently.
+        if self.atdd_config_dir.is_dir():
+            from atdd.coach.commands.initializer import ProjectInitializer
+            gitignore_initializer = ProjectInitializer(self.target_dir)
+            gitignore_initializer._seed_gitignore_entries()
+
         # Apply branch protection if upgrading
         self._apply_branch_protection_on_upgrade()
 
