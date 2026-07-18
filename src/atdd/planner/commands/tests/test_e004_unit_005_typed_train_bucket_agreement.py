@@ -111,6 +111,29 @@ def test_rebuild_discovers_a_nested_typed_per_train_file(tmp_path):
     assert [b for b, _ in _entries_for(_buckets(plan), TYPED_ID)] == [SUBJECT_BUCKET]
 
 
+def test_rebuild_preserves_a_non_nominal_category(tmp_path):
+    """category is a validated FIELD (#1421), and the bucket derivation reads it.
+
+    A rebuild that drops it both loses data and silently re-buckets an `exception`
+    train as `nominal` on the next pass.
+    """
+    plan = _seed(tmp_path)
+    spec = _spec("train:object-conflict:resolve")
+    spec["category"] = "exception"
+    create_train(spec, root=tmp_path)
+    assert [b for b, _ in _entries_for(_buckets(plan), spec["train_id"])] == [
+        ("object-conflict", "exception")
+    ]
+
+    RegistryBuilder(repo_root=tmp_path).build_trains(mode="apply")
+
+    placed = _entries_for(_buckets(plan), spec["train_id"])
+    assert [b for b, _ in placed] == [("object-conflict", "exception")], (
+        f"rebuild re-bucketed an exception train to {[b for b, _ in placed]}"
+    )
+    assert placed[0][1].get("category") == "exception", "rebuild dropped the category field"
+
+
 def test_rebuild_ignores_underscore_prefixed_subdirectories(tmp_path):
     """plan/_trains/_interlockings/*.yaml sits at nesting depth 2 and is not a train."""
     plan = _seed(tmp_path)

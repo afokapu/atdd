@@ -1335,6 +1335,12 @@ class RegistryBuilder:
             "wagons": self._resolve_train_wagons(manifest, train_id),
         }
 
+        # Category is a validated FIELD on a typed identity (#1421), not a digit in
+        # it — so the rebuild has to carry it across or it is silently lost, and the
+        # next pass re-buckets an `exception` train as `nominal` (#1504).
+        if is_typed_train_id(train_id):
+            entry["category"] = manifest.get("category") or "nominal"
+
         # Section 5: Normalize test/code fields, keeping them out when empty
         test_normalized = self._normalize_test_code_field(manifest.get("test"))
         code_normalized = self._normalize_test_code_field(manifest.get("code"))
