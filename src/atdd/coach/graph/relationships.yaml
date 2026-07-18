@@ -1,5 +1,37 @@
 edges:
 - confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'two halves of the toolkit-layout hardcode class: the source-layout rule catches
+    the direct find_repo_root() call shape and documents variable indirection as out of scope,
+    which is exactly the gap this rule closes'
+  source_ref: coach.code-roots.no-hardcoded-toolkit-root
+  strength: important
+  target_ref: coach.source-layout.no-toolkit-self-layout-assumption
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'two spellings of the same escape above the package root: literal src/atdd segments
+    and a counted .parent chain resolve to the same broken path in site-packages'
+  source_ref: coach.code-roots.no-source-depth-walk
+  strength: important
+  target_ref: coach.code-roots.no-hardcoded-toolkit-root
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'two halves of the resolver contract: config-driven root resolution presupposes
+    resolvers that return None on an absent root rather than raising, so a consumer lacking
+    a tier can still run'
+  source_ref: coach.code-roots.resolver-degrades-not-raises
+  strength: important
+  target_ref: coach.graph.implementation-root-resolution
+  type: runs_alongside
+- confidence: 1.0
   constraint: discretionary
   control: internal
   foundation: start_to_start
