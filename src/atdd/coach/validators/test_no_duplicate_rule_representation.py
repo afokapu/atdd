@@ -27,7 +27,7 @@ def _repo_root() -> Path:
     for anc in (here, *here.parents):
         if (anc / "plan").is_dir() and (anc / "src" / "atdd").is_dir():
             return anc
-    raise RuntimeError(f"could not locate repo root from {here}")
+    raise RuntimeError(f"could not locate repo root from {here}")  # atdd:suppress(coach.code-roots.resolver-degrades-not-raises) — #1499 ratchet: pre-existing raising resolver; destination is zero
 
 
 def _safe_yaml(path: Path) -> dict:
@@ -40,7 +40,7 @@ def _safe_yaml(path: Path) -> dict:
 
 def _monolith_rule_ids(root: Path) -> dict:
     ids: dict = {}
-    for f in glob.glob(str(root / "src/atdd/*/conventions/*.convention.yaml")):
+    for f in glob.glob(str(root / "src/atdd/*/conventions/*.convention.yaml")):  # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) — #1499 ratchet: pre-existing toolkit-layout hardcode; destination is zero
         rules = _safe_yaml(Path(f)).get("rules")
         items = rules if isinstance(rules, list) else (
             list(rules.values()) if isinstance(rules, dict) else []
@@ -55,7 +55,7 @@ def _monolith_rule_ids(root: Path) -> dict:
 def _nodes_ids_and_aliases(root: Path):
     ids: dict = {}
     aliases: dict = {}
-    for f in glob.glob(str(root / "src/atdd/*/conventions/nodes/*.convention.yaml")):
+    for f in glob.glob(str(root / "src/atdd/*/conventions/nodes/*.convention.yaml")):  # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) — #1499 ratchet: pre-existing toolkit-layout hardcode; destination is zero
         d = _safe_yaml(Path(f))
         rid = d.get("rule_id")
         if not rid:

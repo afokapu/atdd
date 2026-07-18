@@ -700,7 +700,7 @@ class ProjectInitializer:
         """
         from atdd import __version__
 
-        package_root = Path(__file__).parent.parent.parent  # src/atdd
+        package_root = Path(__file__).parent.parent.parent  # src/atdd  # atdd:suppress(coach.code-roots.no-source-depth-walk) — #1499 ratchet: pre-existing source-depth walk; destination is zero
         schemas_dir = self.atdd_config_dir / "schemas"
 
         # Roles and their sub-directories to export

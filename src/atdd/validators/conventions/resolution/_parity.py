@@ -22,7 +22,7 @@ def repo_root() -> Path:
     for anc in (here, *here.parents):
         if (anc / "plan").is_dir() and (anc / "src" / "atdd").is_dir():
             return anc
-    raise RuntimeError("could not locate repo root from %s" % here)
+    raise RuntimeError("could not locate repo root from %s" % here)  # atdd:suppress(coach.code-roots.resolver-degrades-not-raises) — #1499 ratchet: pre-existing raising resolver; destination is zero
 
 
 def evaluate_variant(template_id: str, variant: str, root=None, graph=None) -> List[dict]:

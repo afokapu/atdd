@@ -26,7 +26,7 @@ import pytest
 
 pytestmark = [pytest.mark.coach]
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent  # worktree root
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent  # worktree root  # atdd:suppress(coach.code-roots.no-source-depth-walk) — #1499 ratchet: pre-existing source-depth walk; destination is zero
 
 
 def _git_core_bare() -> str:

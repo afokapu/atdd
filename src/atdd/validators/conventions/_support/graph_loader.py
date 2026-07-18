@@ -250,7 +250,7 @@ def _load_index_train_ids(g, plan: Path) -> None:
 
 def _load_rule_nodes(g, root: Path) -> None:
     """Rules from convention sources — TWO-PASS (#1212 a-fix)."""
-    convs = sorted((root / "src" / "atdd").rglob("*.convention.yaml"))
+    convs = sorted((root / "src" / "atdd").rglob("*.convention.yaml"))  # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) — #1499 ratchet: pre-existing toolkit-layout hardcode; destination is zero
     loaded_rule_ids: Set[str] = set()
 
     # Pass 1: rules declared in `rules:[]` blocks (the legacy representation).
@@ -302,7 +302,7 @@ def _load_bind_rule_emissions(g, root: Path) -> None:
     """emitted rule_ids: bind_rule(<id>) across ALL src/atdd sources (binders can live
     in guards/commands/tests, not only under /validators/). Resolve string literals
     AND module-level string constants so bind_rule(_RULE_ID) is captured."""
-    vroot = root / "src" / "atdd"
+    vroot = root / "src" / "atdd"  # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) — #1499 ratchet: pre-existing toolkit-layout hardcode; destination is zero
     for py in vroot.rglob("*.py"):
         try:
             txt = py.read_text(encoding="utf-8")

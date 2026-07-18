@@ -330,7 +330,7 @@ def resolve_control_root(
             )
             return ControlRootResolution(directory, gwr, mode)
 
-    raise ControlRootNotFoundError(start)
+    raise ControlRootNotFoundError(start)  # atdd:suppress(coach.code-roots.resolver-degrades-not-raises) — #1499 ratchet: pre-existing raising resolver; destination is zero
 
 
 def resolve_operational_root(

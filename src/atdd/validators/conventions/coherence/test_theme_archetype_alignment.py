@@ -56,7 +56,7 @@ def test_fault_injection_convention_catches() -> None:
     root = _parity.repo_root()
     pkg = "zz_archetype_probe"
     manifest = root / "plan" / pkg / f"_{pkg}.yaml"
-    wrong_src = root / "src" / "atdd" / "planner" / pkg / "__init__.py"
+    wrong_src = root / "src" / "atdd" / "planner" / pkg / "__init__.py"  # atdd:suppress(coach.code-roots.no-hardcoded-toolkit-root) — #1499 ratchet: pre-existing toolkit-layout hardcode; destination is zero
     entries = [
         (manifest, 'wagon: zz-archetype-probe\nurn: "wagon:zz-archetype-probe"\ntheme: code\n'),
         (wrong_src, ""),
