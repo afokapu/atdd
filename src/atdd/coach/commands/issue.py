@@ -1490,11 +1490,19 @@ class IssueManager:
             ):
                 return 1
 
-            self._write_phase_label(client, issue_number, current_labels, status)
-
-            # R001: mirror the transition into the local manifest so readers of
-            # .atdd/manifest.yaml do not diverge from GitHub state.
+            # #1452: STORE FIRST, LABEL AS ITS PROJECTION. The order matters and
+            # is load-bearing, not cosmetic. `atdd:<PHASE>` is a *rendering* of
+            # `objects.state`, so the source of truth must move before the
+            # artifact derived from it. Writing the label first is how 236 issues
+            # (56%) ended up carrying a phase their store never earned: the
+            # projection landed, something failed after it, and the label was
+            # left asserting a transition that never happened.
             self._update_manifest_status(issue_number, status)
+
+            # Project the store's new state onto GitHub. This is the sole
+            # authoritative `atdd:*` label write in the codebase — enforced by
+            # coach.issue.phase-label-projection-only.
+            self._write_phase_label(client, issue_number, current_labels, status)
             updated.append(f"status: {status}")
 
         # Validate branch prefix (every branch = a worktree)
