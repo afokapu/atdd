@@ -466,26 +466,6 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer frontend presentation-quality gate (no-stub allowlist hygiene) evaluated
-    alongside frontend layer-architecture boundaries
-  source_ref: coder.frontend.boundaries-fe-layers
-  strength: minor
-  target_ref: coder.frontend.allowlist-entry-must-include
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer frontend import-direction check evaluated alongside frontend layer-architecture
-    boundaries
-  source_ref: coder.frontend.boundaries-fe-layers
-  strength: minor
-  target_ref: coder.frontend.boundaries-fe-imports
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
   reason: peer consumer-code static-analysis anti-pattern gate (N+1 DB calls in loops)
     evaluated alongside the security XSS-sink gate
   source_ref: coder.performance.perf
