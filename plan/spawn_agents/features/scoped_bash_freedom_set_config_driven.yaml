@@ -2,11 +2,10 @@ urn: "feature:spawn-agents:scoped-bash-freedom-set-config-driven"
 wagon: "wagon:spawn-agents"
 description: "Makes session.convention.yaml::spawn_time.freedom_layer the SOURCE OF TRUTH for the spawned-worker freedom set: it declares allowed_tools, allowed_bash (a curated, tightly-scoped Bash(cmd:*) safe allow-list — pytest / atdd validate / grep / read-only git, etc.) and forbidden_bash (destructive/outward commands — git push/commit/add, rm/mv/cp, gh, pip/pipx/sudo, atdd emergency/agent done/issue/pr/branch, bare python -c) as data. Both worker launch planes (coach/commands/spawn.py and runtime/agent_control/cmux_launch.py::build_agent_seed_argv) read the scoped allow-list from the convention instead of the hardcoded ADAPTER_REGISTRY.allowed_tools literal and emit --allowedTools from it, so safe read/test commands auto-run (cutting operator babysitting) while consequential commands stay gated. The E013-era freedom-set validator flips from 'asserts Bash absent' to 'asserts allowed_bash contains no forbidden command AND every Bash entry is scoped (Bash(cmd:*), never bare Bash or Bash(*))' — validating data, so it is language-agnostic and stack-portable (#1035). (E031 config-driven sourcing; E032 allow-list safety invariant)"
 sizing:
-  wmbts: 2
+  wmbts: 1
   footprint_score: 8
   footprint_size: "S"
 wmbts:
-  - "wmbt:spawn-agents:E031"
   - "wmbt:spawn-agents:E032"
 components:
   backend:

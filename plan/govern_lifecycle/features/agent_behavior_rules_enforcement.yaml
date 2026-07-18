@@ -2,11 +2,10 @@ urn: "feature:govern-lifecycle:agent-behavior-rules-enforcement"
 wagon: "wagon:govern-lifecycle"
 description: "Lifts enforceable agent behavioral rules from per-user memory into the repo as validators, CLI guards, and a portable rules file. Addresses 4 violation classes from the 2026-05-13 session: dup-filing, permission bypass, missing graph context (covered by #651), and rules not surviving across machines/agents."
 sizing:
-  wmbts: 2
+  wmbts: 1
   footprint_score: 4
   footprint_size: "S"
 wmbts:
-  - "wmbt:govern-lifecycle:E014"
   - "wmbt:govern-lifecycle:E015"
 components:
   backend:

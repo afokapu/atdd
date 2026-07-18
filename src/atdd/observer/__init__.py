@@ -4,7 +4,9 @@ The observer reads two single-writer artifacts and **never writes to either**:
 
 - ``events.jsonl`` — single writer is the train runner (``atdd.train.persistence``),
   one per run under ``.atdd/runtime/runs/<run_id>/`` (§5.1, §5.2).
-- per-agent ``output.log`` — single writer is ``atdd.runtime.agent_control``.
+- per-agent ``output.log`` — the single writer (``atdd.runtime.agent_control``)
+  was pruned from core by #1480; the log is now written by whatever external
+  worker runtime produces it.
 
 It surfaces a live stream in the CLI and aggregates across active runs.
 
