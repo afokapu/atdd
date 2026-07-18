@@ -2020,6 +2020,22 @@ Phase descriptions:
         from atdd.enforce.cli import run as _run_enforce
         return _run_enforce(_sys.argv[2:])
 
+    # `atdd author ...` / `atdd coach ...` forward argv to their own sub-CLIs via
+    # a REMAINDER positional, which cannot capture a *leading* `-h`/`--help` — it
+    # bubbles back to the top parser as `unrecognized arguments: -h` (#1325 item
+    # 1). Intercept before parse_args, the same way `plan`/`enforce` do, so bare
+    # `atdd author -h` / `atdd coach -h` reach the sub-CLI's own help. The stub
+    # subparsers above keep both listed in `atdd --help`. (The `command ==`
+    # dispatch branches below still serve the `atdd --repo PATH author ...` form,
+    # where the global flag precedes the subcommand and this intercept does not
+    # fire.)
+    if _sys.argv[1:2] == ["author"]:
+        from atdd.planner.commands.author import run as _run_author
+        return _run_author(_sys.argv[2:])
+    if _sys.argv[1:2] == ["coach"]:
+        from atdd.coach.commands.coach import run_cli as _run_coach
+        return _run_coach(_sys.argv[2:])
+
     # #1309: `atdd issue` was removed. Intercept before parse_args so the
     # operator gets the replacement map instead of argparse's `invalid choice`.
     _removed_rc = _removed_command_guard(_sys.argv[1:])
