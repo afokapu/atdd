@@ -12,8 +12,8 @@ Uses pytester to run a tiny inner pytest session that contains a test which
 deliberately sets core.bare=true on a freshly-initialised tmp_path repo (not
 the live repo), confirming the guard's restore+naming behaviour end-to-end.
 
-The guard in src/atdd/conftest.py uses git without an explicit repo path, so
-it resolves the repo from cwd (the real worktree). The inner session's polluter
+The guard in the atdd package's own conftest uses git without an explicit repo
+path, so it resolves the repo from cwd (the real worktree). The inner polluter
 must target the LIVE repo to trigger the guard. We verify this doesn't
 actually contaminate the live repo (because the guard restores it).
 """
@@ -24,9 +24,29 @@ from pathlib import Path
 
 import pytest
 
+from atdd.coach.utils.repo import find_repo_root
+
 pytestmark = [pytest.mark.coach]
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent  # worktree root  # atdd:suppress(coach.code-roots.no-source-depth-walk) — #1499 ratchet: pre-existing source-depth walk; destination is zero
+# The repo under test, resolved from ATDD's own markers rather than a
+# ``parent × N`` walk. Counting parents encodes the TOOLKIT's source-tree depth
+# (``src/atdd/coach/validators/`` → 5 up), which lands outside the package
+# entirely once atdd is installed into ``site-packages``.
+_REPO_ROOT = find_repo_root()
+
+
+def _package_conftest() -> Path:
+    """The atdd package's OWN root conftest, wherever atdd is installed.
+
+    The subject of this guard is the conftest that ships INSIDE the package, so
+    resolve it relative to the imported package. That is agnostic: it holds in a
+    source checkout (``src/atdd/conftest.py``) and in ``site-packages``
+    (``atdd/conftest.py``) alike, whereas a literal ``src/atdd`` only ever
+    described the toolkit checkout.
+    """
+    import atdd
+
+    return Path(atdd.__file__).resolve().parent / "conftest.py"
 
 
 def _git_core_bare() -> str:
@@ -50,7 +70,7 @@ def test_guard_is_active_and_core_bare_unchanged_after_validators_run():
     before = _git_core_bare()
 
     # Exercise the guard indirectly by reading and evaluating the conftest source
-    conftest = _REPO_ROOT / "src" / "atdd" / "conftest.py"
+    conftest = _package_conftest()
     assert conftest.is_file(), f"Root conftest not found: {conftest}"
     _ = conftest.read_text(encoding="utf-8")
 
@@ -80,6 +100,15 @@ def test_guard_catches_real_live_repo_contamination(pytester: pytest.Pytester):
         # `atdd validate --local` pre-push gate (env-sensitive, touches real git
         # config). CI is the authoritative home for it (#932).
         pytest.skip("Destructive live-repo git smoke; CI-only — skipped in local runs (#932)")
+
+    # Skip on ABSENCE OF SUBJECT, never on identity of repo: the guard under test
+    # protects a git checkout's shared config, so a working tree is the subject.
+    # Where there is no ``.git`` there is no config to contaminate or restore.
+    # This is layout-driven, not repo-driven — the assertions below run in ANY
+    # git repo, the toolkit's included, because the inner session brings its own
+    # conftest and polluter.
+    if not (_REPO_ROOT / ".git").exists():
+        pytest.skip(f"no git checkout at {_REPO_ROOT} — no core.bare to guard")
 
     bare_before = _git_core_bare()
 
