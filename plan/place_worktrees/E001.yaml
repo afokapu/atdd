@@ -1,0 +1,56 @@
+urn: wmbt:place-worktrees:E001
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: divergent-worktree-placement-between-the-two-creation-paths
+context_clarifier: branch.py:418 and issue_lifecycle.py:178 are two complete creation
+  paths, each deriving target_dir.parent independently, so configuring placement at
+  only one makes atdd worktree create and atdd coach enter disagree
+lens: functional.effectiveness
+statement: minimize likelihood of divergent-worktree-placement-between-the-two-creation-paths
+  by resolving the worktree directory once from worktree_root and routing both atdd
+  worktree create and atdd coach enter through that resolver
+acceptances:
+- identity:
+    urn: acc:place-worktrees:E001-UNIT-001-both-creation-paths-agree-under-configured-root
+    id: AC-UNIT-001
+    purpose: 'the defect the audit found: two independent creation paths must not
+      diverge once placement is configurable'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo whose config sets worktree_root to a non-default directory
+  when:
+    abstract: the worktree path for one branch is resolved via the atdd worktree create
+      path and via the atdd coach enter path
+  then:
+    abstract:
+    - both resolve to the identical absolute path, under the configured root
+    - neither derives the path from target_dir.parent directly
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'
+- identity:
+    urn: acc:place-worktrees:E001-UNIT-002-absent-config-is-bit-identical-to-today
+    id: AC-UNIT-002
+    purpose: 'the migration is forward-only: an upgraded repo that configures nothing
+      must see no change at all'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo with no worktree_root key in .atdd/config.yaml
+  when:
+    abstract: a worktree path is resolved for a branch
+  then:
+    abstract:
+    - the path equals the flat sibling of the checkout that the pre-change code produced
+    - the resolver reports the default root rather than raising on the missing key
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'
