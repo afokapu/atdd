@@ -5,13 +5,23 @@
 # Layer: application
 """Y002-UNIT-001 — _swap_phase_label exists and calls remove_label + add_label.
 
-Issue #712 Edge B. No label-swap helper exists in coach.py today. This test
-verifies: (1) the function is importable, (2) it removes all atdd:<phase>
-labels and adds atdd:<new_phase> for the issue via the GitHub client.
+Issue #712 Edge B. The coach state machine advances its internal phase but left
+the GitHub ``atdd:<phase>`` label stale; ``_swap_phase_label`` closes that gap.
+This test verifies: (1) the function is importable, (2) the issue ends up with
+its old ``atdd:<phase>`` labels removed and ``atdd:<new_phase>`` added.
 
-RED until _swap_phase_label is implemented in coach.py.
+#1452 moved the SEAM, not the acceptance. ``_swap_phase_label`` used to shell
+out through module-level ``_gh_remove_phase_labels`` / ``_gh_add_label`` shims,
+which made it a second independent author of the phase label — it stamped the
+projection while ``objects.state`` stood still. It now delegates to
+``IssueManager.update``, the store-first authoritative writer, so the assertions
+below observe ``client.remove_label`` / ``client.add_label`` (exactly the
+``remove_label``/``add_label`` calls the Y002 acceptance names) instead of the
+deleted gh shims.
 """
 from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -23,49 +33,73 @@ def test_swap_phase_label_is_importable():
     from atdd.coach.commands.coach import _swap_phase_label  # noqa: F401
 
 
-def test_swap_phase_label_removes_old_and_adds_new(monkeypatch):
-    """_swap_phase_label removes atdd:PLANNED and adds atdd:RED via gh CLI."""
+def _fake_manager(current_labels: list[str]):
+    """An IssueManager whose gates pass, exposing a recording GitHub client."""
+    client = MagicMock()
+    manager = MagicMock()
+    manager.update.side_effect = lambda issue_id, status: _apply(
+        manager, client, int(issue_id), current_labels, status
+    )
+    return manager, client
+
+
+def _apply(manager, client, issue_number, current_labels, status):
+    """Mimic IssueManager.update's store-then-project sequence."""
+    phase_labels = [
+        l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"
+    ]
+    if phase_labels:
+        client.remove_label(issue_number, phase_labels)
+    client.add_label(issue_number, [f"atdd:{status}"])
+    return 0
+
+
+def test_swap_phase_label_removes_old_and_adds_new():
+    """_swap_phase_label removes atdd:PLANNED and adds atdd:RED."""
     from atdd.coach.commands.coach import Phase, _swap_phase_label
 
-    removed: list[list[str]] = []
-    added: list[list[str]] = []
+    manager, client = _fake_manager(["atdd-issue", "atdd:PLANNED"])
+    with patch("atdd.coach.commands.issue.IssueManager", return_value=manager):
+        rc = _swap_phase_label(690, Phase.RED)
 
-    def fake_remove(issue_number, labels):
-        removed.append(list(labels))
+    assert rc == 0
+    removed = [list(c.args[1]) for c in client.remove_label.call_args_list]
+    added = [list(c.args[1]) for c in client.add_label.call_args_list]
 
-    def fake_add(issue_number, labels):
-        added.append(list(labels))
-
-    # Stub the gh-backed label operations at the module level
-    monkeypatch.setattr(
-        "atdd.coach.commands.coach._gh_remove_phase_labels",
-        fake_remove,
+    flat_removed = [item for sublist in removed for item in sublist]
+    assert "atdd:PLANNED" in flat_removed, (
+        f"Expected atdd:PLANNED to be removed; got {flat_removed}"
     )
-    monkeypatch.setattr(
-        "atdd.coach.commands.coach._gh_add_label",
-        fake_add,
-    )
-
-    _swap_phase_label(690, Phase.RED)
-
-    # Must have removed old phase labels
-    assert any("atdd:PLANNED" in r or len(r) > 0 for r in removed) or len(removed) >= 0
-    # Must have added the new label
     flat_added = [item for sublist in added for item in sublist]
-    assert "atdd:RED" in flat_added, f"Expected atdd:RED in added labels; got {flat_added}"
+    assert "atdd:RED" in flat_added, (
+        f"Expected atdd:RED in added labels; got {flat_added}"
+    )
+    # No other phase label survives the swap.
+    assert flat_added == ["atdd:RED"]
 
 
-def test_swap_phase_label_uses_gh_cli_not_exception(monkeypatch):
-    """_swap_phase_label does not raise even when gh CLI returns no labels."""
+def test_swap_phase_label_routes_through_the_authoritative_writer():
+    """#1452: the label must be written by IssueManager.update, never raw gh.
+
+    A second writer is the defect this issue removes. Asserting the delegation
+    directly is what stops the raw-gh shim being reintroduced "just here".
+    """
     from atdd.coach.commands.coach import Phase, _swap_phase_label
 
-    monkeypatch.setattr(
-        "atdd.coach.commands.coach._gh_remove_phase_labels",
-        lambda issue, labels: None,
-    )
-    monkeypatch.setattr(
-        "atdd.coach.commands.coach._gh_add_label",
-        lambda issue, labels: None,
-    )
+    manager, _ = _fake_manager(["atdd:PLANNED"])
+    with patch("atdd.coach.commands.issue.IssueManager", return_value=manager):
+        _swap_phase_label(690, Phase.RED)
 
-    _swap_phase_label(690, Phase.RED)  # must not raise
+    manager.update.assert_called_once_with(issue_id="690", status="RED")
+
+
+def test_swap_phase_label_does_not_raise_on_failure():
+    """A refused or failed transition surfaces as non-zero, never an exception."""
+    from atdd.coach.commands.coach import Phase, _swap_phase_label
+
+    manager = MagicMock()
+    manager.update.side_effect = RuntimeError("gh unavailable")
+    with patch("atdd.coach.commands.issue.IssueManager", return_value=manager):
+        rc = _swap_phase_label(690, Phase.RED)  # must not raise
+
+    assert rc == 1
