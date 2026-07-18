@@ -32,10 +32,6 @@ produce:
     contract: null
     telemetry: null
     to: external
-  - name: commons:coach:canonical-surface-name
-    contract: "contract:commons:coach:canonical-surface-name"
-    telemetry: null
-    to: external
 
 consume: []
 

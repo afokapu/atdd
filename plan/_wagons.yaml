@@ -595,10 +595,6 @@ wagons:
     contract: null
     telemetry: null
     to: external
-  - name: commons:coach:canonical-surface-name
-    contract: contract:commons:coach:canonical-surface-name
-    telemetry: null
-    to: external
   consume: []
   wmbt:
     total: 8
@@ -1285,6 +1281,10 @@ wagons:
     to: external
   - name: commons:coach:event-semantics-doc
     contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:canonical-surface-name
+    contract: contract:commons:coach:canonical-surface-name
     telemetry: null
     to: external
   consume: []

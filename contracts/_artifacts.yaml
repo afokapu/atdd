@@ -19,9 +19,9 @@ artifacts:
     validator and the dispatch conformance pass to detect and re-apply non-canonical
     names.'
   path: contracts/commons/coach/canonical-surface-name.schema.json
-  producer: wagon:consolidate-coach-workspace
+  producer: wagon:freeze-runtime-contracts
   consumers:
-  - wagon:consolidate-coach-workspace
+  - wagon:freeze-runtime-contracts
 - id: commons:coach:dashboard-card
   urn: contract:commons:coach:dashboard-card
   version: 1.0.0
