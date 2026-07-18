@@ -528,31 +528,55 @@ def validate_train(spec: dict) -> None:
         )
 
 
+def is_typed_train_id(tid: str) -> bool:
+    """True when ``tid`` is a #1421 typed train identity (``train:<subject>:<slug>``)."""
+    return bool(_TYPED_TRAIN_ID_RE.match(tid or ""))
+
+
+def train_bucket(tid: str, spec: dict | None = None) -> tuple[str, str]:
+    """The ``(group, sub)`` registry bucket a train entry nests under in _trains.yaml.
+
+    THE single bucket derivation (issue #1504). Both writers of plan/_trains.yaml
+    — ``create_train`` here and ``RegistryBuilder.build_trains`` in coach — must
+    call this, or the same train_id lands in two buckets and the bucket-local
+    dedup in ``_upsert_train_registry`` cannot see the twin.
+
+    Typed ids bucket by subject/category, which is #1421's grammar: identity names
+    the journey and category rides as a validated FIELD (train.convention.yaml
+    naming.train_id, registry "trains bucketed by subject"). The legacy NNNN-slug
+    form keeps its digit buckets during the transition.
+    """
+    if is_typed_train_id(tid):
+        subject = tid[len("train:"):].split(":", 1)[0]
+        category = (spec or {}).get("category") or "nominal"
+        return subject, category
+    return f"{tid[0]}-trains", f"{tid[0]}0-nominal"
+
+
+def train_relpath(tid: str) -> str:
+    """The repo-relative per-train manifest path for a train id.
+
+    Typed ids nest at plan/_trains/<subject>/<slug>.yaml — the legacy flat
+    ``plan/_trains/{tid}.yaml`` derivation would name the file after a colon-bearing
+    id, which is not a usable filename. Shared with coach for the same reason
+    ``train_bucket`` is (#1504).
+    """
+    if is_typed_train_id(tid):
+        subject, slug = tid[len("train:"):].split(":", 1)
+        return f"plan/_trains/{subject}/{slug}.yaml"
+    return f"plan/_trains/{tid}.yaml"
+
+
 def _train_home(tid: str, spec: dict, plan: Path) -> tuple:
     """The registry bucket + on-disk home for a train id, as
     ``(group, sub, rel_path, per_train)``.
 
-    Typed ids (issue #1421) nest under plan/_trains/<subject>/<slug>.yaml and
-    bucket by subject/category — the legacy ``{tid[0]}-trains`` derivation would
-    place a ``train:...`` id under a nonsense ``t-trains`` bucket at a colon-named
-    file. The legacy NNNN-slug form keeps its flat home + digit buckets during
-    the transition.
+    Thin composition over the shared ``train_bucket`` / ``train_relpath``
+    derivations so the planner and coach writers cannot drift apart (#1504).
     """
-    if _TYPED_TRAIN_ID_RE.match(tid):
-        subject, slug = tid[len("train:"):].split(":", 1)
-        category = spec.get("category", "nominal")
-        return (
-            subject,
-            category,
-            f"plan/_trains/{subject}/{slug}.yaml",
-            plan / "_trains" / subject / f"{slug}.yaml",
-        )
-    return (
-        f"{tid[0]}-trains",
-        f"{tid[0]}0-nominal",
-        f"plan/_trains/{tid}.yaml",
-        plan / "_trains" / f"{tid}.yaml",
-    )
+    group, sub = train_bucket(tid, spec)
+    rel_path = train_relpath(tid)
+    return group, sub, rel_path, plan / Path(rel_path).relative_to("plan")
 
 
 def _upsert_train_registry(registry_path: Path, tid: str, spec: dict, home: tuple) -> None:
