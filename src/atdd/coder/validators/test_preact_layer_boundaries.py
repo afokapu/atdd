@@ -19,17 +19,23 @@ from pathlib import Path
 from typing import List
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
+
+
+def _under(root, *parts):
+    """Join *parts* under a resolved stack root, or None when it is undeclared."""
+    return None if root is None else root.joinpath(*parts)
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
-WEB_SRC = REPO_ROOT / "web" / "src"
-WEB_TESTS = REPO_ROOT / "web" / "tests"
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
+WEB_TESTS = _under(resolve_stack_container("web", REPO_ROOT), "tests")
 
 
 def get_typescript_files() -> List[Path]:
     """Find all TypeScript files in web/src/"""
-    if not WEB_SRC.exists():
+    if WEB_SRC is None or not WEB_SRC.exists():
         return []
     return list(WEB_SRC.rglob("*.ts")) + list(WEB_SRC.rglob("*.tsx"))
 
@@ -66,7 +72,7 @@ def get_application_files() -> List[Path]:
 
 def get_test_files() -> List[Path]:
     """Find all test files in web/tests/"""
-    if not WEB_TESTS.exists():
+    if WEB_TESTS is None or not WEB_TESTS.exists():
         return []
     return list(WEB_TESTS.rglob("*.test.ts")) + list(WEB_TESTS.rglob("*.test.tsx"))
 

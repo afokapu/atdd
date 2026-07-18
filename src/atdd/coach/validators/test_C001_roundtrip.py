@@ -1,12 +1,16 @@
 """
-C001: Round-trip confirmation — atdd new -> close WMBTs -> progress -> validate -> archive.
+C001: Round-trip confirmation — close WMBTs -> progress -> validate -> archive.
 
-Validates the full lifecycle of GitHub Issue-based ATDD tracking:
-1. IssueManager.new() creates parent issue + WMBT sub-issues
-2. IssueManager.close_wmbt() closes a sub-issue and progress advances
-3. IssueManager.list() reflects updated progress
-4. IssueManager.archive() closes parent + all remaining sub-issues cleanly
-5. No orphaned sub-issues after archive
+Validates the lifecycle of GitHub Issue-based ATDD tracking:
+1. IssueManager.close_wmbt() closes a sub-issue and progress advances
+2. IssueManager.list() reflects updated progress
+3. IssueManager.archive() closes parent + all remaining sub-issues cleanly
+4. No orphaned sub-issues after archive
+
+Creation is NOT covered here: #1477 removed the `IssueManager` mint path
+(`new`/`_new_github_issue`), so `atdd author issue` — the store-first,
+schema-driven create path — owns it, and the planner's author validators
+cover it.
 
 These tests run against the LIVE GitHub API and require:
 - .atdd/config.yaml with github.repo and github.project_id
@@ -30,17 +34,25 @@ def test_issue_manager_methods_exist():
 
     Given: The IssueManager class
     When: Checking method availability
-    Then: new, list, archive, update, close_wmbt, sync methods exist
+    Then: list, archive, update, close_wmbt, sync methods exist
+
+    `new` is deliberately absent: #1477 removed the mint path. Creation is
+    `atdd author issue`.
     """
     from atdd.coach.commands.issue import IssueManager
 
     manager = IssueManager()
-    required_methods = ["new", "list", "archive", "update", "close_wmbt", "sync"]
+    required_methods = ["list", "archive", "update", "close_wmbt", "sync"]
     missing = [m for m in required_methods if not hasattr(manager, m)]
 
     assert not missing, (
         f"IssueManager missing lifecycle methods: {', '.join(missing)}"
     )
+
+
+# The mint-path removal guard lives in `test_mint_path_decommissioned.py`, not
+# here: this module is marked `platform`/`github_api`, so a guard placed here
+# would be deselected in offline runs — and a deselected guard is not a guard.
 
 
 def test_github_client_methods_exist():
@@ -78,14 +90,14 @@ def test_existing_issues_have_sub_issues(github_sub_issues):
     Given: Open issues in the GitHub Project (label: atdd-issue)
     When: Querying sub-issues
     Then: At least one issue has sub-issues (WMBTs)
-          confirming that atdd new creates the parent+sub-issue structure
+          confirming the create path lands the parent+sub-issue structure
     """
     has_subs = any(subs for subs in github_sub_issues.values())
 
     if not has_subs:
         pytest.skip(
             "No issue has sub-issues yet. "
-            "Create WMBTs via `atdd new <slug>`."
+            "Create via `atdd author issue --title <t> --slug <s>`."
         )
 
 

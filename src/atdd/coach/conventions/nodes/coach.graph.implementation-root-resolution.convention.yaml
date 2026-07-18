@@ -7,6 +7,14 @@ statement: 'Implementation-root discovery must be config-driven rather than hard
   so ATDD can resolve toolkit-self and consumer repository layouts without freezing a stack-specific path
   model into core: roots are declared in .atdd/config.yaml::code, resolvers accept root as an argument,
   and unknown stack keys are skipped (never crash).'
+implementation:
+  type: validator
+  ref: test_implementation_root_resolution::test_no_hardcoded_stack_roots
+content:
+  fix_hint: 'Resolve the root from config instead of anchoring it at the repo root:
+    `resolve_code_root("<stack>", REPO_ROOT)` for source scans, `resolve_stack_container("<stack>",
+    REPO_ROOT)` for manifests and sibling trees (tsconfig.json, tests/, migrations/).
+    Both return None for an undeclared stack — skip it, never crash.'
 source:
   legacy_path: src/atdd/coach/conventions/code-roots.convention.yaml
   legacy_section: config_surface + resolver_contract
@@ -14,14 +22,17 @@ source:
   extraction_mode: high_fidelity
 metadata:
   severity: 3
-  disposition: documentation-only
+  disposition: strict
   introduced_in: 3.85.0
+  enforced_in: 4.7.0
+  core_surface: toolkit_self
+  not_generalized_to_workspace: true
 parity:
   source_fragments_preserved: true
   examples_preserved: false
-  implementation_preserved: false
-  fix_hint_preserved: false
-  reviewed_at: '2026-06-17'
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-07-14'
 terms:
 - term_id: config_driven
   text: code roots are declared under `code:` in .atdd/config.yaml, not frozen as PYTHON_DIR/SUPABASE_DIR/WEB_DIR

@@ -32,6 +32,7 @@ import pytest
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root, is_atdd_source_repo
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coder.utils.python_file_walker import walk_consumer_python_files
@@ -174,7 +175,7 @@ def feature_dir_for_layer_dir(layer_dir: Path, stack: str) -> Optional[Path]:
 
 def find_feature_dirs(stack_root: Path, stack: str) -> Set[Path]:
     feature_dirs: Set[Path] = set()
-    if not stack_root.exists():
+    if stack_root is None or not stack_root.exists():
         return feature_dirs
 
     # Skip negative fixtures only when the scanned root is a real tree — the
@@ -261,7 +262,7 @@ def collect_python_files(
     fixtures under ``coder/validators/fixtures/`` are excluded so they cannot
     self-trigger (#958).
     """
-    root = discovery_root if discovery_root is not None else (repo_root / "python")
+    root = discovery_root if discovery_root is not None else (resolve_code_root("python", repo_root))
     if not root.exists():
         return []
     # Exclude the negative fixtures only when scanning a real tree — fixture-based
@@ -277,11 +278,11 @@ def collect_python_files(
 
 def collect_typescript_files(repo_root: Path, stack: str) -> List[Path]:
     if stack == "supabase":
-        stack_root = repo_root / "supabase" / "functions"
+        stack_root = resolve_code_root("supabase", repo_root)
     else:
-        stack_root = repo_root / "web"
+        stack_root = resolve_stack_container("web", repo_root)
 
-    if not stack_root.exists():
+    if stack_root is None or not stack_root.exists():
         return []
 
     files: List[Path] = []
@@ -337,7 +338,7 @@ def resolve_python_import(
     ``python`` base (the #955 false-violation fix — #958).
     """
     candidates: Set[Path] = set()
-    base_root = import_root if import_root is not None else (repo_root / "python")
+    base_root = import_root if import_root is not None else (resolve_code_root("python", repo_root))
 
     if import_ref.level > 0:
         base_dir = source_file.parent
@@ -853,7 +854,7 @@ def test_composition_completeness_python_live_repo():
     When: Analyzing Python composition completeness
     Then: Violation count does not exceed baseline (ratchet pattern)
     """
-    if not build_feature_contexts(REPO_ROOT, "python", REPO_ROOT / "python"):
+    if not build_feature_contexts(REPO_ROOT, "python", resolve_code_root("python", REPO_ROOT)):
         pytest.skip("No Python feature tree found in python/ to validate")
 
     violations = analyze_python_repo(REPO_ROOT)
@@ -872,7 +873,7 @@ def test_composition_completeness_typescript_live_repo():
     When: Analyzing TypeScript composition completeness
     Then: Violation count does not exceed baseline (ratchet pattern)
     """
-    if not build_feature_contexts(REPO_ROOT, "typescript", REPO_ROOT / "web" / "src"):
+    if not build_feature_contexts(REPO_ROOT, "typescript", resolve_code_root("web", REPO_ROOT)):
         pytest.skip("No web/src feature tree found to validate")
 
     violations = analyze_typescript_repo(REPO_ROOT)
@@ -891,7 +892,7 @@ def test_composition_completeness_supabase_live_repo():
     When: Analyzing Supabase composition completeness
     Then: Violation count does not exceed baseline (ratchet pattern)
     """
-    if not build_feature_contexts(REPO_ROOT, "supabase", REPO_ROOT / "supabase" / "functions"):
+    if not build_feature_contexts(REPO_ROOT, "supabase", resolve_code_root("supabase", REPO_ROOT)):
         pytest.skip("No supabase/functions feature tree found to validate")
 
     violations = analyze_typescript_repo(REPO_ROOT, stack="supabase")

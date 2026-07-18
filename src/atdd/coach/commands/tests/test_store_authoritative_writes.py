@@ -116,7 +116,12 @@ def test_update_fields_no_longer_mirrors_manifest(tmp_path):
 def test_register_issue_creates_store_work_item_and_ref(tmp_path):
     mgr = _init_repo(tmp_path)
 
-    mgr._register_issue_in_manifest(4242, "brand-new-thing", train="0009")
+    # #1477 removed `_register_issue_in_manifest` — a thin wrapper that only
+    # ever forwarded to `_store_create_work_item` with status="INIT". The
+    # registration seam it covered is live, so this drives it directly.
+    mgr._store_create_work_item(
+        4242, "brand-new-thing", status="INIT", data={"train": "0009"}
+    )
 
     store = _store(tmp_path)
     ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "4242")
