@@ -22,11 +22,14 @@ that produced a wrong shell census while investigating #1503.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+_log = logging.getLogger(__name__)
 
 #: Exit codes the hook honours: 0 allows the push, 1 blocks it.
 EXIT_ALLOW = 0
@@ -125,13 +128,20 @@ def _github_labels(issue_number: str) -> Optional[List[str]]:
             ["gh", "issue", "view", str(issue_number), "--json", "labels"],
             capture_output=True, text=True, timeout=15,
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        _log.warning("gh unavailable; label check skipped",
+                     extra={"issue": issue_number, "error": str(exc)})
         return None
     if proc.returncode != 0:
+        _log.warning("gh issue view failed; label check skipped",
+                     extra={"issue": issue_number, "rc": proc.returncode,
+                            "stderr": proc.stderr.strip()})
         return None
     try:
         payload = json.loads(proc.stdout)
-    except ValueError:
+    except ValueError as exc:
+        _log.warning("gh returned unparseable JSON; label check skipped",
+                     extra={"issue": issue_number, "error": str(exc)})
         return None
     return [lbl.get("name", "") for lbl in payload.get("labels", [])]
 
