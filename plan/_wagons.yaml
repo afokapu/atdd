@@ -1669,6 +1669,15 @@ wagons:
       naming ONLY build/OS cruft, so the invariant is the installed package is the
       source tree minus cruft and a new data directory ships by default (#663, #952,
       #1369)'
+    E063: minimize quantity of installed-hooks-that-drift-from-their-packaged-template
+      because .atdd-hooks-was-a-snapshot-copy-that-no-sanctioned-path-ever-refreshed
+      by installing each hook as a fixed-content dispatcher that execs the hook shipped
+      inside the installed atdd package, so hook logic ships with the wheel and pipx
+      upgrade atdd propagates a fix with no refresh command at all, removing the drift
+      class instead of detecting instances of it (atdd sync never mentioned hooks,
+      atdd init early-returned before _install_hooks, and only the forbidden atdd
+      init --force refreshed anything, so every hook fix reached only repos initialised
+      after it landed and 6 of 11 hooks were never installed at all) (#1492)
     C008: 'minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
       by broadening the #451 scan to every non-.py source file, resolving the source
       tree from the working directory so it EXECUTES against a real installed wheel
