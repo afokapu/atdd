@@ -10,9 +10,18 @@ description: "Presentation layer implementation patterns across Python, TypeScri
 # response-models-live-in) were atomized into single-node files under
 # conventions/nodes/coder.presentation.*.convention.yaml (mirrors the
 # tester.acceptance-violation.* atomization); the registry now reads them there.
-# The gsap-*/i18n-* rules below are stack/extension-bound and stay in this
-# monolith — they migrate later in Phase B.
-rules:
+# The gsap-*/i18n-* rules that stayed here as "stack/extension-bound, migrate in
+# Phase B" made that migration in #1518: they were TSX-only and are now owned by
+# coder.vite.presentation-gsap-{commons,layer} and
+# coder.vite.presentation-i18n-{config,switcher} in frontend.extension.vite-coder,
+# each backed by a detect.mjs in frontend.workspace.runtime.
+#
+# So this monolith carries NO `rules:` array at all now — every rule it once held
+# is either atomized into conventions/nodes/coder.presentation.*.convention.yaml
+# or lives in the extension. The remaining content is the stack-agnostic prose
+# (http_rest_api, cli_pattern, architecture, examples), which is why the file
+# stays rather than being deleted. It is correspondingly no longer in the #389
+# Phase 3a retrofit list — same disposition as technology/train.convention.yaml.
 
 purpose: |
   Defines how to implement presentation layer (HTTP REST, CLI, GraphQL) across runtimes.
