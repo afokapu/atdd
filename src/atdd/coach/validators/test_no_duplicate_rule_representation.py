@@ -38,7 +38,7 @@ def _convention_roots() -> List[Path]:
     """
     repo_root = find_repo_root()
     config = load_atdd_config(repo_root)
-    roots = []
+    roots: List[Path] = []
     for rel in get_code_roots(config).values():
         root = rel if rel.is_absolute() else (repo_root / rel)
         if root.is_dir():

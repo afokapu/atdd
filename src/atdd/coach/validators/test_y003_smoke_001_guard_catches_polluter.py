@@ -12,8 +12,8 @@ Uses pytester to run a tiny inner pytest session that contains a test which
 deliberately sets core.bare=true on a freshly-initialised tmp_path repo (not
 the live repo), confirming the guard's restore+naming behaviour end-to-end.
 
-The guard in src/atdd/conftest.py uses git without an explicit repo path, so
-it resolves the repo from cwd (the real worktree). The inner session's polluter
+The guard in the atdd package's own conftest uses git without an explicit repo
+path, so it resolves the repo from cwd (the real worktree). The inner polluter
 must target the LIVE repo to trigger the guard. We verify this doesn't
 actually contaminate the live repo (because the guard restores it).
 """
