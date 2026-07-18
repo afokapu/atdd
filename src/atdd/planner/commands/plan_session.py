@@ -95,7 +95,7 @@ class PlanSession:
         return cls(**data)
 
     # ---- the Confirm lock --------------------------------------------------
-    def _assert_mutable(self, what: str) -> None:
+    def assert_mutable(self, what: str) -> None:
         """Refuse a mutation while the decomposition is locked (#1505).
 
         ``locked`` is an invariant, not a marker: it is the operator's assertion
@@ -137,7 +137,7 @@ class PlanSession:
 
     # ---- units -------------------------------------------------------------
     def add_unit(self, unit: Unit) -> None:
-        self._assert_mutable(f"add the {unit.kind} unit {unit.ref!r}")
+        self.assert_mutable(f"add the {unit.kind} unit {unit.ref!r}")
         self.units.append(asdict(unit))
 
     def _unit(self, ref: str) -> dict:
@@ -154,7 +154,7 @@ class PlanSession:
         """Ask the operator keep/pivot/kill for one unit, via the elicit channel
         (a consumer of #1096a — never AskUserQuestion directly). Records the verdict."""
         unit = self._unit(ref)
-        self._assert_mutable(f"re-decide the {unit['kind']} {ref!r}")
+        self.assert_mutable(f"re-decide the {unit['kind']} {ref!r}")
         req = ElicitRequest(
             elicit_id=f"{self.session_id}:{ref}",
             origin=Participant(ElicitRole.CONDUCTOR, session_ref or f"atdd-plan-session:{self.session_id}", AtddRole.PLANNER),

@@ -124,6 +124,8 @@ def build_parser() -> argparse.ArgumentParser:
     de.add_argument("--ref", required=True); de.add_argument("--verdict", required=True, choices=["keep", "pivot", "kill"])
     de.add_argument("--mod", default=None, dest="modification")
     with_id(sub.add_parser("confirm", help="lock the decomposition (confirm-before-author boundary)"))
+    with_id(sub.add_parser("reopen", help="withdraw the confirmation and return to Prepare "
+                                          "(the sanctioned way to edit a locked session)"))
     with_id(sub.add_parser("author", help="author kept units via atdd author (post-confirm)"))
     return p
 
@@ -154,11 +156,16 @@ def run(argv: list[str]) -> int:
         if args.op == "show":
             return _emit(_state(s))
         if args.op == "bind-issue":
+            s.assert_mutable("re-bind the issue")  # #1505: the lock covers the whole session
             s.issue_ref = args.issue_ref
         elif args.op == "main-job":
+            s.assert_mutable("change the main job")
             s.main_job = args.text
         elif args.op == "source":
+            s.assert_mutable("capture another source")
             s.sources.append({"type": "text", "value": args.text})
+        elif args.op == "reopen":
+            s.reopen()
         elif args.op == "unit":
             s.add_unit(Unit(kind=args.kind, ref=args.ref, spec=_parse_spec(args.spec)))
         elif args.op == "advance":
