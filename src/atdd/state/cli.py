@@ -158,6 +158,17 @@ def _build_parser() -> argparse.ArgumentParser:
     add_verb(trace_sub, "promote", "Promote a session's trace to the outbox.",
              opt("--session", required=True), root=None)
 
+    sessions = sub.add_parser(
+        "sessions", help="Agent sessions that touched a work item (#1540).")
+    sessions_sub = sessions.add_subparsers(dest="sessions_op")
+    add_verb(sessions_sub, "list",
+             "List sessions for a work item, most recently seen first.",
+             opt("--work-item", required=True), root=None)
+    add_verb(sessions_sub, "capture",
+             "Record the ambient agent session as a participant "
+             "(the packaged post-commit hook's entry point).",
+             root=None)
+
     return parser
 
 
@@ -657,6 +668,52 @@ def _cmd_version(args) -> int:
         conn.close()
 
 
+def _cmd_sessions(args) -> int:
+    """Agent session identity: the read projection, and the capture entry point.
+
+    ``capture`` is what the packaged post-commit hook execs. It ALWAYS exits 0:
+    the commit already exists, and no observability is worth failing it for.
+    """
+    from atdd.state import agent_session
+    from atdd.state.store import StateStore
+
+    if args.sessions_op is None:
+        print("usage: atdd state sessions <list|capture>")
+        return 2
+
+    if args.sessions_op == "capture":
+        recorded = agent_session.capture_post_commit()
+        # Deliberately not reported as a failure: "no agent session here" is the
+        # ordinary case for a human commit, not an error the operator must act on.
+        if recorded:
+            _log.info(
+                "agent session participation recorded",
+                extra={"cwd": str(Path.cwd())},
+            )
+        return 0
+
+    resolution, conn_or_rc = _open_store(args.root)
+    if resolution is None:
+        return conn_or_rc
+    conn = conn_or_rc
+    try:
+        rows = agent_session.sessions_for_work_item(StateStore(conn), args.work_item)
+        if not rows:
+            print(f"(no agent sessions recorded for {args.work_item})")
+            return 0
+        for row in rows:
+            marks = "creator" if row.created else "participant"
+            print(f"{row.session.provider}:{row.session.session_id}  "
+                  f"last_seen={row.last_seen_at or '-'}  {marks}")
+            if row.worktree_path:
+                print(f"    cwd:    {row.worktree_path}")
+            if row.resume_command:
+                print(f"    resume: {row.resume_command}")
+        return 0
+    finally:
+        conn.close()
+
+
 def _cmd_trace(args) -> int:
     import json as _json
 
@@ -730,6 +787,8 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_version(args)
     if args.op == "trace":
         return _cmd_trace(args)
+    if args.op == "sessions":
+        return _cmd_sessions(args)
 
     from atdd.state.projection_cli import OPS as PROJECTION_OPS, dispatch as projection_dispatch
 

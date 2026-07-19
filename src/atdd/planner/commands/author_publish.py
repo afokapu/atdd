@@ -128,6 +128,24 @@ def publish_issue(
 
         store = StateStore(conn)
 
+        # Creator capture (#1540). The mint is a mandatory chokepoint, so this
+        # is where the creating agent session is recorded — read from ambient
+        # environment, never asked of the agent. Placed before every return so
+        # it covers the deferred-projection and re-author paths too.
+        #
+        # Wrapped: the operator's intent is the ISSUE. An unrecorded creator is
+        # a missing nice-to-have; a failed mint is a broken command. Resolved
+        # through the module so the recorder stays substitutable under test.
+        try:
+            from atdd.state import agent_session as _agent_session
+
+            _agent_session.record_creator(store, slug)
+        except Exception as exc:  # never fail the mint over telemetry
+            logger.warning(
+                "agent session capture failed; the mint stands",
+                extra={"slug": slug, "error": str(exc)},
+            )
+
         # Idempotent re-author: if this work_item already carries a github issue
         # ref, it is ALREADY published — reuse that number and NEVER create a
         # second GitHub issue (a duplicate is precisely the #1271 failure this
