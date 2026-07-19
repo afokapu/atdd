@@ -559,64 +559,6 @@ wagons:
   total: 0
   manifest: plan/coach_wave_orchestration/_coach_wave_orchestration.yaml
   path: plan/coach_wave_orchestration/
-- wagon: consolidate-coach-workspace
-  description: 'Coach workspace layout consolidation (issue #736): a fixed 50/50 two-pane
-    split (coach left, all workers right), one canonical coach orchestration tab regardless
-    of how many issues/invocations are in flight, a consolidated multi-issue status
-    view rendered in that tab, workers added as right-pane surfaces rather than tiled
-    panes, and the per-worker observer demoted from a co-spawned `:obs` surface to
-    a headless background process. Stops coach-tab count and per-worker tab count
-    from scaling linearly with the wave.'
-  theme: commons
-  subject: agent:coach
-  context: in-coach-v9-execution, n-coach-invocations-produce-n-tabs-and-each-worker-spawns-a-persona-plus-an-obs-surface
-  action: lays out the coach workspace as a fixed 50/50 split with one canonical coach
-    orchestration tab, renders a consolidated multi-issue status view in it, places
-    workers as right-pane surfaces, and runs the per-worker observer headless
-  goal: keep the coach workspace readable and singular regardless of how many issues
-    or workers are in flight
-  outcome: one canonical coach orchestration tab with a consolidated per-issue status
-    view, a fixed 50/50 coach/worker split, workers as right-pane surfaces, and a
-    headless observer so each worker is one tab
-  produce:
-  - name: commons:coach:canonical-coach-surface
-    contract: null
-    telemetry: null
-    to: external
-  - name: commons:coach:consolidated-coach-view
-    contract: null
-    telemetry: null
-    to: external
-  - name: commons:coach:coach-workspace-layout
-    contract: null
-    telemetry: null
-    to: external
-  - name: commons:coach:headless-observer
-    contract: null
-    telemetry: null
-    to: external
-  consume: []
-  wmbt:
-    total: 8
-    Y001: minimize quantity of coach-orchestration-tabs so N issues / N invocations
-      resolve to one canonical tab
-    E001: increase likelihood of multi-issue-orchestration-state-visibility via a
-      consolidated per-issue status view
-    D001: minimize quantity of coach-pane-shrinkage-when-workers-are-added via a fixed
-      50/50 split and workers-as-surfaces
-    Y002: minimize quantity of surfaces-spawned-per-worker by running the observer
-      headless
-    C001: maximize likelihood of each per-workspace worker keeping its own single-identity
-      daemon scope after a layout pass
-    E003: minimize likelihood of logging a layout target without invoking a backend
-      layout primitive
-    E004: minimize likelihood of emitting a managed surface name lacking the role-aware
-      canonical shape
-    E005: minimize likelihood of a decorated cmux workspace handle reaching cmux list
-      panes unsanitized
-  total: 0
-  manifest: plan/consolidate_coach_workspace/_consolidate_coach_workspace.yaml
-  path: plan/consolidate_coach_workspace/
 - wagon: define-plans
   description: Defines what must be built — wagons, features, acceptance criteria,
     and trains
@@ -745,10 +687,6 @@ wagons:
     from: wagon:freeze-runtime-contracts
   - name: commons:coach:risk-score-schema
     from: wagon:freeze-runtime-contracts
-  - name: spawn:per-llm-convention-templates
-    from: wagon:spawn-agents
-  - name: spawn:orchestrate-parity-suite
-    from: wagon:spawn-agents
   - name: observer:babysit-parity-suite
     from: wagon:observe-and-correct
   wmbt:
@@ -798,8 +736,6 @@ wagons:
     telemetry: null
     to: external
   consume:
-  - name: coach:spawn:canonical-naming-and-layout-pass
-    from: wagon:spawn-agents
   - name: commons:coach:runtime-event-schema
     from: wagon:freeze-runtime-contracts
   wmbt:
@@ -991,11 +927,10 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 20
+    total: 19
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
-    E001: minimize likelihood of leaked-worktrees-on-failed-multi-issue-launch
     M001: minimize likelihood of missed-agent-runtime-events-from-polling-only-observation
     R001: minimize likelihood of duplicate-state-transitions-on-coach-resume
     L001: minimize effort of locating-in-progress-coach-run-state via atdd coach status
@@ -1992,8 +1927,6 @@ wagons:
     from: wagon:freeze-runtime-contracts
   - name: commons:coach:state-machine-and-agent-cli
     from: wagon:drive-state-machine
-  - name: commons:coach:spawn-and-harness
-    from: wagon:spawn-agents
   - name: commons:coach:observer-and-corrections
     from: wagon:observe-and-correct
   - name: commons:coach:tier-1-validator-dispatch
@@ -2090,8 +2023,6 @@ wagons:
     from: wagon:drive-state-machine
   - name: commons:coach:resume-runner
     from: wagon:drive-state-machine
-  - name: commons:coach:spawn-harness
-    from: wagon:spawn-agents
   - name: commons:coach:observer-rules
     from: wagon:observe-and-correct
   - name: commons:coach:git-watcher
@@ -2105,7 +2036,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 26
+    total: 23
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2115,15 +2046,12 @@ wagons:
     M002: minimize likelihood of plan-directory-changes-that-bypass-planner-validator-suite-at-hook-time
     L001: minimize quantity of uncorrected-agent-violations-during-phase-execution
     R001: minimize quantity of unreviewed-phase-boundary-transitions-in-atdd-coach
-    P001: minimize likelihood of incomplete-merge-lifecycle-at-atdd-coach-complete-state
     C001: minimize quantity of unregistered-production-llm-clients-at-coach-startup
     C002: minimize likelihood of contaminated-worktree-commits-and-pushes-from-bare-mode-or-mass-delete-signature
     C003: minimize likelihood of validator-failures-reaching-ci-that-could-have-been-caught-at-pre-push
     C004: minimize likelihood of mass-delete-prs-bypassing-ci-guard-and-reaching-merge
     E004: minimize quantity of coach-sessions-with-unsubmitted-rename-or-missing-uuid-persistence
-    L003: minimize quantity of persona-spawns-via-entry-points-that-lack-observer-cospawn-due-to-handler-only-wiring
     Y002: minimize quantity of validator-tests-that-mutate-the-active-worktree
-    L004: minimize quantity of observer-spawns-that-consume-a-separate-pane-slot-in-pane-mode
     E006: minimize quantity of agent-operator-bypasses-of-atdd-native-wrappers-via-forbidden-upstream-commands
     C005: 'minimize quantity of coach-phase-advances-triggered-by-a-stale-done-json-from-a-prior-run
       when a fresh RuntimeWatcher treats a leftover done.json as new — binding agent_done
@@ -2852,8 +2780,6 @@ wagons:
     from: wagon:freeze-runtime-contracts
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
-  - name: commons:coach:spawn-adapter
-    from: wagon:spawn-agents
   - name: commons:coach:atdd-judge-core
     from: wagon:judge-ambiguous-decisions
   - name: commons:coach:tier1-validator-dispatch
@@ -2928,179 +2854,6 @@ wagons:
   total: 0
   manifest: plan/self_compliance_migration/_self_compliance_migration.yaml
   path: plan/self_compliance_migration/
-- wagon: spawn-agents
-  description: 'Centralizes coach v9 persona launch under one rule-IDed entry point:
-    atdd spawn skeleton wrapping session_template render with multiplexer dispatch
-    (per spec §5.2, §7.1), substrate spawn-harness block renderers (wmbt_rules / train_rules
-    / security_rules per spec §7.1 + substrate v12 §8.2), canonical-naming + layout
-    pass absorbed from atdd orchestrate (per spec §7.1.5), per-LLM convention file
-    generation (CLAUDE.md, AGENTS.md, GLM.md, GEMINI.md per spec §7.1), and a fixture-driven
-    orchestrate parity test suite that gates the eventual decommission of atdd orchestrate
-    (per spec §11.3)'
-  theme: commons
-  subject: agent:coach
-  context: in-coach-v9-execution, atdd-orchestrate-spawn-pipeline-absorbed
-  action: spawns persona agents (planner/tester/coder/reviewer) via atdd spawn with
-    substrate spawn-harness blocks
-  goal: centralize launch-prompt rendering, multiplexer dispatch, and naming/layout
-    under one rule-IDed entry point with CI-enforced parity to today's atdd orchestrate
-  outcome: atdd spawn command at parity with absorbed orchestrate machinery (CI-enforced
-    via K5 fixture suite), plus per-LLM convention files generated by atdd sync, ready
-    for the wave-w3 atdd orchestrate decommission gate
-  produce:
-  - name: coach:spawn:atdd-spawn-cli
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:launch-prompt-file
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:agent-spawned-event
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:wmbt-rules-block-renderer
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:train-rules-block-renderer
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:canonical-naming-and-layout-pass
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:per-llm-convention-files
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:orchestrate-parity-fixture-suite
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:transactional-spawn-pipeline
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:coach-gc-cli
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:atdd-cmux-send-shim
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:persona-agent-id-env-injection
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:smoke-persona-spawn-integrity
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:per-phase-respawn-primitive
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:worker-launch-prompt-readiness-gate
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:step-by-step-verify-each-stage
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:atomic-rename-injection-and-orphan-close-on-timeout
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:spawn-detector-process-alive-stage
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:shim-runtime-dir-absolute-path-fix
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:claude-md-sanitized-context-file
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:operator-emergency-bypass-doc
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:claude-md-size-budget-validator
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:claude-md-no-bypass-advertising-validator
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:wagon-scoped-graph-sub-mode
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:launch-prompt-wagon-graph-section
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:launch-prompt-wagon-graph-convention-rule
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:convention-sourced-scoped-bash-freedom-set
-    contract: null
-    telemetry: null
-    to: external
-  - name: coach:spawn:freedom-set-allowlist-safety-validator
-    contract: null
-    telemetry: null
-    to: external
-  consume:
-  - name: commons:coach:runtime-event-schema
-    from: wagon:freeze-runtime-contracts
-  - name: commons:coach:runtime-layout-doc
-    from: wagon:freeze-runtime-contracts
-  - name: commons:coach:event-semantics-doc
-    from: wagon:freeze-runtime-contracts
-  - name: commons:coach:decisions-jsonl-writer
-    from: wagon:drive-state-machine
-  wmbt:
-    total: 27
-    E001: minimize likelihood of unrouted-persona-launches-bypassing-the-spawn-rule-id
-    D001: minimize likelihood of ambiguity-in-substrate-spawn-harness-block-rendering
-    E002: minimize quantity of post-launch-sessions-with-non-canonical-name-or-layout
-    P001: minimize quantity of llm-personas-without-rule-id-aware-convention-file
-    C001: minimize likelihood of orchestrate-coach-spawn-divergence-shipping-undetected
-    E003: minimize quantity of orphan-multiplexer-panes-leaked-by-failed-or-partial-coach-spawns
-    E004: minimize likelihood of raw-cmux-claude-launches-bypassing-atdd-spawn
-    E005: minimize likelihood of coach-spawned-personas-without-atdd-agent-id-in-their-environment
-    E007: minimize quantity of phase-transitions-that-reuse-the-prior-phase-worker-process
-    E008: minimize likelihood of coach-runs-where-the-operator-cannot-choose-the-per-persona-model-at-spawn-time
-    E010: minimize likelihood of coach-spawned-workers-that-never-process-their-launch-prompt-due-to-a-missing-readiness-gate
-    E011: minimize likelihood of coach-spawn-pipeline-stages-that-silently-fail-without-raising-a-stage-specific-exception
-    E012: minimize likelihood of coach-spawned-workers-blocked-by-rename-race-false-positive-accepted-gate-and-orphan-pane-on-timeout
-    M001: minimize quantity of coach-spawn-pipelines-that-inject-slash-rename-into-the-running-agent-session
-    D002: minimize likelihood of undocumented-freedom-with-a-leash-spawn-policy
-    E015: minimize likelihood of planner-agent-commits-planned-without-verifying-smoke-acceptance-coverage
-    E022: minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-to-dispatched-agents
-    E023: minimize quantity of claude-md-lines-exceeding-worker-context-budget
-    E024: minimize likelihood of operator-emergency-bypass-mechanism-documented-as-copy-pasteable-env-var-in-agent-readable-context
-    L003: minimize likelihood of dispatched-workers-that-self-discover-and-apply-atdd-skip-bypass-env-vars
-    R002: minimize likelihood of claude-md-context-budget-violations-going-undetected-in-ci
-    R003: minimize likelihood of bypass-token-reintroduction-to-agent-context-going-undetected-in-ci
-    E025: minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode
-    E026: minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section
-    E027: minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section
-    E031: minimize likelihood of spawned-worker-bash-allowlist-hardcoded-in-adapter-code-instead-of-sourced-from-the-session-convention-freedom-layer-data
-    E032: minimize likelihood of destructive-or-unscoped-bash-entry-admitted-into-the-declared-freedom-set-allowlist
-  total: 0
-  manifest: plan/spawn_agents/_spawn_agents.yaml
-  path: plan/spawn_agents/
 - wagon: validate-conventions
   description: 'Convention-graph validator family/template suite under src/atdd/validators/conventions/:
     13 graph-question families and 22 reusable templates that ask executable questions

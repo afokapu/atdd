@@ -29,27 +29,3 @@ acceptances:
     metadata:
       author: "atdd:planner"
       created: "2026-05-21"
-  - identity:
-      urn: "acc:dispatch-ux-defaults-and-primer:E007-SMOKE-001-new-surface-in-pane-no-broken-pipe"
-      id: "AC-SMOKE-001"
-      purpose: "In a real cmux session, CmuxBackend.new_surface_in_pane() succeeds (no Broken pipe) and returns a surface ref"
-      phase: "SMOKE"
-    harness:
-      type: "smoke"
-      category: "backend"
-    given:
-      abstract:
-        - "A real cmux session is available (CMUX_WORKSPACE_ID set in env)"
-        - "ATDD_RUN_SMOKE=1 is set"
-        - "cmux binary is on PATH"
-        - "CmuxBackend is importable from atdd.coach.utils.multiplexer"
-    when:
-      abstract: "CmuxBackend.resolve_focused_pane() is called to get the current pane ref, then new_surface_in_pane() is called with that ref and a no-op command"
-    then:
-      abstract:
-        - "resolve_focused_pane() returns a string matching 'pane:N' without raising"
-        - "new_surface_in_pane() returns a surface ref without raising MultiplexerError or OSError"
-        - "No 'Broken pipe' error occurs (the deprecated RPC is not invoked)"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-22"

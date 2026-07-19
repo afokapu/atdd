@@ -48,8 +48,6 @@ consume:
     from: wagon:freeze-runtime-contracts
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
-  - name: commons:coach:spawn-adapter
-    from: wagon:spawn-agents
   - name: commons:coach:atdd-judge-core
     from: wagon:judge-ambiguous-decisions
   - name: commons:coach:tier1-validator-dispatch

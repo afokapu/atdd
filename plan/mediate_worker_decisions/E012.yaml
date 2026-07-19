@@ -78,35 +78,6 @@ acceptances:
       wagon: "mediate-worker-decisions"
       feature: "coach-runtime"
   - identity:
-      urn: "acc:mediate-worker-decisions:E012-INTEGRATION-001-spawn-handler-attaches-after-spawn"
-      id: "AC-INTEGRATION-001"
-      purpose: >-
-        Driving the spawn handler through a successful worker spawn invokes the
-        dispatch->daemon attach for the spawned worker's surface, so the dispatch
-        flow leaves a mediating daemon attached
-      phase: "RED"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A spawn handler context with a recording multiplexer and a recording attach"
-        - "A phase transition that spawns a worker persona successfully"
-    when:
-      abstract: "The spawn handler handles the transition"
-      action: "invoke"
-    then:
-      abstract:
-        - "The attach is invoked with the freshly-spawned worker's surface ref after the spawn succeeds"
-        - "A spawn that returns no surface ref does not invoke the attach"
-      assertions:
-        - type: "count"
-        - type: "exists"
-    signal: {}
-    metadata:
-      wagon: "mediate-worker-decisions"
-      feature: "coach-runtime"
-  - identity:
       urn: "acc:mediate-worker-decisions:E012-SMOKE-001-coach-dispatch-drives-fixture-through-one-mediated-decision"
       id: "AC-SMOKE-001"
       purpose: >-

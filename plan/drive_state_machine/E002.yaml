@@ -8,52 +8,6 @@ lens: "functional.availability"
 statement: "minimize likelihood of phase-advance-without-current-phase-completion-match when coach warm-resumes or processes an agent_done event by requiring a completion marker for the CURRENT phase before advancing: warm-resume re-spawns the current phase's persona (Transition(prev, current)) when no current-phase completion marker exists and advances only when the current phase completed; the agent_done branch advances only when the completing agent's phase matches sm.phase — mirroring the commit_observed guard so a stale/replayed or wrong-phase done.json can never skip a phase"
 acceptances:
   - identity:
-      urn: "acc:drive-state-machine:E002-UNIT-001-warm-resume-respawns-current-without-marker"
-      id: "AC-UNIT-001"
-      purpose: "Warm-resume re-spawns the CURRENT phase's persona when no completion marker exists for that phase, instead of advancing to the next phase"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "Issue is warm-resumed at Phase.RED (current_github_phase = RED)"
-        - "No completion marker (done.json tagged/recorded for RED) exists for the current phase — the RED tester never finished"
-        - "spawn_h is a stub recording the Transition it receives and returning HandlerResult.HANDLED"
-    when:
-      abstract: "The warm-resume branch of the issue runner is executed"
-    then:
-      abstract:
-        - "spawn_h is called with a Transition that re-attempts the current phase (src=prev, dst=RED), NOT Transition(RED, GREEN)"
-        - "sm.phase remains RED after the call (no advance to GREEN)"
-        - "_swap_phase_label is NOT called to set GREEN"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-11"
-  - identity:
-      urn: "acc:drive-state-machine:E002-UNIT-002-warm-resume-advances-when-current-completed"
-      id: "AC-UNIT-002"
-      purpose: "Warm-resume advances current→next and spawns the next persona only when a completion marker for the current phase is present"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "Issue is warm-resumed at Phase.RED (current_github_phase = RED)"
-        - "A completion marker for the current phase (RED) IS present — the RED tester finished"
-        - "spawn_h is a stub recording the Transition it receives and returning HandlerResult.HANDLED"
-    when:
-      abstract: "The warm-resume branch of the issue runner is executed"
-    then:
-      abstract:
-        - "spawn_h is called with Transition(RED, GREEN) — the next persona is spawned"
-        - "sm.phase advances to GREEN"
-        - "_swap_phase_label is called with Phase.GREEN exactly once"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-11"
-  - identity:
       urn: "acc:drive-state-machine:E002-UNIT-003-agent-done-advances-only-on-persona-phase-match"
       id: "AC-UNIT-003"
       purpose: "The agent_done branch of _cold_start_proposed_transition advances only when the completing agent's phase equals sm.phase; a stale/wrong-phase done.json returns None"
@@ -72,28 +26,6 @@ acceptances:
         - "For the planner-done event (completes PLANNED != RED): the function returns None — no advance"
         - "For the tester-done event (completes RED == sm.phase): the function returns Transition(RED, GREEN)"
         - "The guard derives the completed phase from the persona prefix (parts[0]), mirroring the commit_observed branch's `completed != sm.phase` return-None guard"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-11"
-  - identity:
-      urn: "acc:drive-state-machine:E002-SMOKE-001-rerun-after-no-marker-spawn-reattempts-current"
-      id: "AC-SMOKE-001"
-      purpose: "Verify against real coach runtime that re-running atdd coach <N> on a phase whose worker left no completion marker re-attempts the CURRENT phase rather than advancing — the live #1051 RED-skip defect does not reproduce"
-      phase: "SMOKE"
-    harness:
-      type: "smoke"
-      category: "backend"
-    given:
-      abstract:
-        - "A real issue warm-resumed at RED in a tmp runtime dir, with the RED persona's spawn rigged to fail before writing done.json (simulating the cmux Broken-pipe trigger) so no current-phase completion marker is recorded"
-        - "The GitHub phase label reads atdd:RED"
-    when:
-      abstract: "atdd coach <N> is invoked a second time against the same runtime dir"
-    then:
-      abstract:
-        - "The coach re-spawns the RED persona (tester) — it does NOT spawn a GREEN coder"
-        - "The GitHub phase label is still atdd:RED after the re-run (no RED→GREEN swap)"
-        - "No agent_done replay from an earlier persona advances the phase"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"

@@ -19,18 +19,18 @@ rules:
   coder.design.orphan-ui:                                         7
   coder.design.primitives:                                        5
   coder.error-response.code-format:                               1
-  coder.logging.coach-silent-swallow:                             248
+  coder.logging.coach-silent-swallow:                             230
   coder.logging.structured:                                       15
-  coder.refactor.complexity-cognitive:                            131
-  coder.refactor.complexity-cyclomatic:                           149
-  coder.refactor.complexity-length:                               76
-  coder.refactor.complexity-nesting:                              173
-  coder.refactor.composition-consumer:                            63
-  coder.refactor.composition-root:                                8
+  coder.refactor.complexity-cognitive:                            124
+  coder.refactor.complexity-cyclomatic:                           145
+  coder.refactor.complexity-length:                               71
+  coder.refactor.complexity-nesting:                              171
+  coder.refactor.composition-consumer:                            56
+  coder.refactor.composition-root:                                7
   coder.refactor.quality-comments:                                20
   coder.refactor.quality-comments-typescript:                     2
   coder.refactor.quality-duplication:                             52
-  coder.refactor.quality-file-length:                             40
+  coder.refactor.quality-file-length:                             38
   coder.refactor.quality-mi:                                      11
   coder.refactor.quality-naming:                                  3
   coder.security.sql-injection:                                   1
