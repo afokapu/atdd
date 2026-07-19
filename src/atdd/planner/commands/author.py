@@ -579,12 +579,39 @@ def _train_home(tid: str, spec: dict, plan: Path) -> tuple:
     return group, sub, rel_path, plan / Path(rel_path).relative_to("plan")
 
 
+def _reject_legacy_registry_shape(registry_path: Path, registry: object) -> None:
+    """Fail loudly on a pre-#1421 ``plan/_trains.yaml`` instead of crashing on it.
+
+    The canonical registry nests theme -> bucket -> entries. Repos initialised by
+    an older atdd carry ``trains:`` as a flat LIST, which the nested writes below
+    hit as a bare ``AttributeError: 'list' object has no attribute 'setdefault'``
+    (issue #1236). The list shape was retired by #1421's typed-URN grammar, so
+    this is a migration prompt, not a shape to support: ``atdd registry update
+    trains`` already rebuilds a list-shaped registry into the nested form.
+    """
+    if not isinstance(registry, dict):
+        raise AuthorInputError(
+            "registry",
+            f"{registry_path} is not a mapping (found {type(registry).__name__}); "
+            f"expected a 'trains:' mapping. Rebuild it with: atdd registry update trains",
+        )
+    trains = registry.get("trains")
+    if trains is not None and not isinstance(trains, dict):
+        raise AuthorInputError(
+            "registry",
+            f"{registry_path} uses the legacy list-shaped 'trains:' registry "
+            f"(retired by #1421's typed train URNs); expected theme -> bucket -> "
+            f"entries. Migrate it with: atdd registry update trains",
+        )
+
+
 def _upsert_train_registry(registry_path: Path, tid: str, spec: dict, home: tuple) -> None:
     """Dedup-insert the train's entry into its bucket in plan/_trains.yaml."""
     group, sub, rel_path, _per_train = home
     registry = {}
     if registry_path.exists():
         registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    _reject_legacy_registry_shape(registry_path, registry)
     registry.setdefault("trains", {})
     bucket = registry["trains"].setdefault(group, {}).setdefault(sub, [])
     if not any(isinstance(e, dict) and e.get("train_id") == tid for e in bucket):

@@ -79,6 +79,20 @@ def _absent(path: Optional[Path]) -> bool:
     return path is None or not path.exists()
 
 
+def _rel(path: Optional[Path]) -> str:
+    """Repo-relative rendering of a resolved root, for diagnostics.
+
+    Messages name the *resolved* root rather than a frozen "python/" so a
+    consumer that declares a different code root reads its own layout back.
+    """
+    if path is None:
+        return "<undeclared>"
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 # Each flag guards exactly what the tests behind it dereference. Before #1476,
 # the station-master tests were gated on _skip_no_python — the python *directory*
 # — while their skip reason claimed "python/app.py not found". A consumer with a
@@ -359,7 +373,7 @@ def test_train_models_exist():
 # WAGON TRAIN MODE TESTS
 # ============================================================================
 
-@pytest.mark.skipif(_skip_no_python, reason="no python code root present")
+@pytest.mark.skipif(_skip_no_trains, reason="no python trains/ tree present")
 def test_wagons_implement_run_train():
     """
     Wagons must implement run_train() to participate in train orchestration.
@@ -370,10 +384,18 @@ def test_wagons_implement_run_train():
     Can be either:
     - Module-level function: def run_train(...)
     - Class method: class XxxWagon: def run_train(self, ...)
+
+    Gated on the train runtime, not on the code root. A repo that merely has a
+    python tier is not thereby a train-runner repo: with no trains/ tree there
+    is no orchestration for a wagon to participate in, so there is nothing to
+    assert (#689). This is the guard the four sibling train tests already use.
     """
     wagons = find_wagons()
 
-    assert len(wagons) > 0, "No wagons found in python/ directory"
+    assert len(wagons) > 0, (
+        f"No wagons found under {_rel(WAGONS_DIR)}/ even though "
+        f"{_rel(TRAINS_DIR)}/ declares train infrastructure"
+    )
 
     missing_run_train = []
     for wagon_file in wagons:
