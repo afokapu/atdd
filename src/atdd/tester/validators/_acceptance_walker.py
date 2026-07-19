@@ -79,8 +79,16 @@ def iter_repo_acceptances(repo_root: Path) -> Iterator[RawAcceptance]:
     """Yield every ``acceptances[]`` entry under ``<repo>/plan/``.
 
     Reads:
-      - ``plan/<wagon>/[DLPCEMYRK]NNN.yaml`` (WMBT acceptances).
-      - ``plan/_trains/*.yaml``               (train acceptances).
+      - ``plan/<wagon>/[DLPCEMYRK]NNN.yaml``  (WMBT acceptances).
+      - ``plan/_trains/**/*.yaml``            (train acceptances).
+
+    The train walk RECURSES (#1548). Typed trains (#1421) live nested at
+    ``plan/_trains/<subject>/<slug>.yaml``; the original top-level-only glob
+    saw none of them, so every train acceptance in the repo was invisible to
+    the substrate validators — the forward pass never required a test, and the
+    reverse pass read any test anchored to one as an orphan. Underscore-
+    prefixed subdirectories (``_interlockings``) are registry/control
+    artifacts, not trains, and are skipped like the wagon loop skips them.
 
     Files that fail to parse, or whose top level is not a dict with an
     ``acceptances:`` list, are silently skipped — those are caught by
@@ -101,8 +109,23 @@ def iter_repo_acceptances(repo_root: Path) -> Iterator[RawAcceptance]:
 
     trains_dir = plan_dir / "_trains"
     if trains_dir.is_dir():
-        for train_file in sorted(trains_dir.glob("*.yaml")):
+        for train_file in sorted(_iter_train_files(trains_dir)):
             yield from _iter_acceptances_in_file(train_file, "train", repo_root)
+
+
+def _iter_train_files(trains_dir: Path) -> Iterator[Path]:
+    """Yield every train YAML under ``plan/_trains/``, flat or subject-nested.
+
+    Legacy trains sit flat (``0007-enforce-extension-conventions.yaml``); typed
+    trains (#1421) sit one level down under their subject
+    (``self-compliance/validate-lifecycle.yaml``). Underscore-prefixed names are
+    registries (``_trains.yaml``, ``_aliases.yaml``) or control artifacts
+    (``_interlockings/``), never trains.
+    """
+    for path in trains_dir.rglob("*.yaml"):
+        if any(part.startswith("_") for part in path.relative_to(trains_dir).parts):
+            continue
+        yield path
 
 
 def _iter_acceptances_in_file(
