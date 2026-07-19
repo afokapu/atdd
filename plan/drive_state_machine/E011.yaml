@@ -3,9 +3,9 @@ step: "execute"
 direction: "minimize"
 dimension: "likelihood"
 object_of_control: "session-folder-absent-for-a-creator-only-session"
-context_clarifier: "Core must answer four facts about any worker: its chat id, whether it created the issue, whether it participated, and the folder it is in. #1540 shipped the first three uniformly but answered the fourth only on the commit path, because the folder was modelled as a property of a participation rather than of the session: `record_creator` takes no folder, so a session that minted an issue and has not yet committed carries none, and `resume_command` coerces the absence with `cwd or \"\"` into `cd '' && claude --resume <id>` — syntactically valid, semantically broken, and observed on every creator-only row of a live store after 4.14.0. The folder belongs on the session `external_ref.data` beside `last_seen_at`, where `_upsert_session` — the single writer both chokepoints already call — can stamp it with no schema migration. NO THIRD CHOKEPOINT is added: `atdd author issue` and `post-commit` remain the only two, orchestration stays an extension concern, and no role is stored, derived, or inferred (#1540 Decision 5). The participation edge keeps its own `worktree_path` unchanged in meaning and value — at mint there is no worktree yet, so writing an incidental cwd into a field named for a worktree would misrepresent it to every reader. When the folder is genuinely unknown the projection emits NO command: an explicit refusal is legible, a malformed `cd ''` is not."
+context_clarifier: "Core must answer four facts about any worker: its chat id, whether it created the issue, whether it participated, and the folder it is in. #1540 shipped the first three uniformly but answered the fourth only on the commit path, because the folder was modelled as a property of a participation rather than of the session: `record_creator` takes no folder, so a session that minted an issue and has not yet committed carries none. The folder belongs on the session `external_ref.data` beside `last_seen_at`, where `_upsert_session` — the single writer both chokepoints already call — can stamp it with no schema migration. NO THIRD CHOKEPOINT is added: `atdd author issue` and `post-commit` remain the only two, orchestration stays an extension concern, and no role is stored, derived, or inferred (#1540 Decision 5). The participation edge keeps its own `worktree_path` unchanged in meaning and value — at mint there is no worktree yet, so writing an incidental cwd into a field named for a worktree would misrepresent it to every reader. This WMBT owns the CAPTURE half only; what the read projection does with the folder, and what it does when there is none, is L004."
 lens: "functional.effectiveness"
-statement: "minimize likelihood of session-folder-absent-for-a-creator-only-session by recording the session's working folder as a session-level attribute beside `last_seen_at` at BOTH existing chokepoints — the `atdd author issue` mint and the packaged `post-commit` hook — such that a session observed at either or both carries exactly one folder value, refreshed on the later observation with `created_at` untouched, the participation edge's `worktree_path` unchanged, no role stored and no third chokepoint added, and the read projection emits a runnable resume command when the folder is known and NO command at all when it is not"
+statement: "minimize likelihood of session-folder-absent-for-a-creator-only-session by recording the session's working folder as a session-level attribute beside `last_seen_at` at BOTH existing chokepoints — the `atdd author issue` mint and the packaged `post-commit` hook — such that a session observed at either or both carries exactly one folder value, refreshed on the later observation with `created_at` untouched, the participation edge's `worktree_path` unchanged, no role stored, and no third chokepoint added"
 acceptances:
   - identity:
       urn: "acc:drive-state-machine:E011-UNIT-001-mint-records-the-session-folder"
@@ -71,48 +71,8 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-19"
   - identity:
-      urn: "acc:drive-state-machine:E011-UNIT-004-creator-only-session-projects-a-runnable-command"
+      urn: "acc:drive-state-machine:E011-UNIT-004-no-agent-env-records-nothing-and-clears-no-folder"
       id: "AC-UNIT-004"
-      purpose: "The projection emits a runnable resume command for a session that created a work item and never committed"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A store in which a session created a work item and recorded no participation"
-    when:
-      abstract: "The session projection is rendered for that work item"
-    then:
-      abstract:
-        - "The emitted command names the recorded folder and the recorded session id"
-        - "It contains no empty `cd` argument and no unrendered placeholder"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-07-19"
-  - identity:
-      urn: "acc:drive-state-machine:E011-UNIT-005-unknown-folder-emits-no-command"
-      id: "AC-UNIT-005"
-      purpose: "When the folder is genuinely unknown the projection refuses rather than rendering a broken command"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A store in which a session touched a work item but no folder was ever observed for it"
-    when:
-      abstract: "The session projection is rendered for that work item"
-    then:
-      abstract:
-        - "The entry is still emitted, carrying the session id and recency"
-        - "No resume command is emitted for it — not a command with an empty folder"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-07-19"
-  - identity:
-      urn: "acc:drive-state-machine:E011-UNIT-006-no-agent-env-records-nothing-and-clears-no-folder"
-      id: "AC-UNIT-006"
       purpose: "A commit with no agent env var records nothing and does not clear an existing folder"
       phase: "RED"
     harness:
@@ -132,22 +92,22 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-19"
   - identity:
-      urn: "acc:drive-state-machine:E011-SMOKE-001-creator-only-resume-command-is-runnable-from-a-real-store"
+      urn: "acc:drive-state-machine:E011-SMOKE-001-folder-recorded-through-a-real-chokepoint-survives-a-store-reopen"
       id: "AC-SMOKE-001"
-      purpose: "A creator-only session recorded through the real mint chokepoint projects a command that runs as emitted"
+      purpose: "The folder written at a real chokepoint lands in a real on-disk store and reads back after a reopen"
       phase: "SMOKE"
     harness:
       type: "smoke"
       category: "backend"
     given:
       abstract:
-        - "A real on-disk control-root store in which a session minted a work item through the real capture path and never committed"
+        - "A real on-disk control-root store and an environment carrying an agent session id"
     when:
-      abstract: "The projection is rendered and the emitted command is inspected"
+      abstract: "A session is recorded through the real capture path and the store is closed and reopened"
     then:
       abstract:
-        - "The command names the recorded session id and the real mint-time folder, with a spaced path surviving as one token"
-        - "It is syntactically runnable as emitted, with no empty `cd` and no hand-editing required"
+        - "The session ref read back from disk carries the folder it was captured in"
+        - "Exactly one session ref row exists, with `created_at` preserved across the reopen"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-19"

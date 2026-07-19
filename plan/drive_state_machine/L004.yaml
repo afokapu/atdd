@@ -1,0 +1,69 @@
+urn: "wmbt:drive-state-machine:L004"
+step: "locate"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "non-runnable-resume-command-for-a-session-with-no-folder"
+context_clarifier: "L003 built the resume projection and proved it runnable for a session captured at a commit, where the worktree path always exists. It never exercised a session with no folder, so `resume_command` was written as `shlex.quote(cwd or \"\")` and absence renders as `cd '' && claude --resume <id>` — syntactically valid, semantically broken, and observed on every creator-only row of a live store after 4.14.0. Coercion is the defect: an empty string is not a folder, and quoting it produces a command that looks runnable to a reader and fails to a shell. E011 supplies the folder at both chokepoints; this WMBT governs what the projection emits once it has one and, more importantly, what it emits when it genuinely does not. The rule is explicit refusal — emit the entry, carrying session id and recency, and emit NO command at all. A missing command is legible; a malformed `cd ''` is not. Core still hardcodes no provider CLI: the command comes from the provider table's `resume_template`."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of non-runnable-resume-command-for-a-session-with-no-folder by rendering the resume command from the session's recorded folder rather than a coerced empty string — so a session that created a work item and never committed projects a command that runs as emitted with no empty `cd` and no unrendered placeholder, and a session whose folder was never observed projects NO command at all while still being listed with its session id and recency"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:L004-UNIT-001-creator-only-session-projects-a-runnable-command"
+      id: "AC-UNIT-001"
+      purpose: "The projection emits a runnable resume command for a session that created a work item and never committed"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store in which a session created a work item, recorded a folder, and recorded no participation"
+    when:
+      abstract: "The session projection is rendered for that work item"
+    then:
+      abstract:
+        - "The emitted command names the recorded folder and the recorded session id"
+        - "It contains no empty `cd` argument and no unrendered placeholder"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
+  - identity:
+      urn: "acc:drive-state-machine:L004-UNIT-002-unknown-folder-emits-no-command"
+      id: "AC-UNIT-002"
+      purpose: "When the folder is genuinely unknown the projection refuses rather than rendering a broken command"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store in which a session touched a work item but no folder was ever observed for it"
+    when:
+      abstract: "The session projection is rendered for that work item"
+    then:
+      abstract:
+        - "The entry is still emitted, carrying the session id and recency"
+        - "No resume command is emitted for it — not a command with an empty folder"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
+  - identity:
+      urn: "acc:drive-state-machine:L004-SMOKE-001-creator-only-resume-command-is-runnable-from-a-real-store"
+      id: "AC-SMOKE-001"
+      purpose: "A creator-only session recorded through the real mint chokepoint projects a command that runs as emitted"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real on-disk control-root store in which a session minted a work item through the real capture path and never committed"
+    when:
+      abstract: "The projection is rendered and the emitted command is inspected"
+    then:
+      abstract:
+        - "The command names the recorded session id and the real mint-time folder, with a spaced folder surviving as one token"
+        - "It is syntactically runnable as emitted, with no empty `cd` and no hand-editing required"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
