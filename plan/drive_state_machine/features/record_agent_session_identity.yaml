@@ -2,7 +2,7 @@ urn: "feature:drive-state-machine:record-agent-session-identity"
 wagon: "wagon:drive-state-machine"
 description: "Record which agent session worked which work_item at two mandatory chokepoints, by reading ambient environment rather than asking an agent (asking is a prompt: non-deterministic and confabulable). `atdd author issue` records the creator; the packaged `post-commit` hook records the participant plus the worktree path it was captured in. Identity is stored as a provider-tagged opaque string in `external_refs(provider, ref_kind='session', ref_value)` with recency in `data.last_seen_at` — the `data` blob already exists, so there is no schema migration. The agent-kind → session-env-var mapping lives in an `agent_session_env` convention YAML so core never learns a provider and no core path reads or invokes cmux (#1480/#1483 are pruning it out). No role is ever stored: a participant is not definitionally a worker, since the documented recovery procedure has orchestrators commit inside a worker's worktree — orchestrator vs worker is inferred at read time from the set of worktree paths a session participated in. A read projection emits a runnable resume command (session id + cwd) per session per work_item, so an orchestrator can re-enter the fleet from the store alone after a crash with no multiplexer installed."
 sizing:
-  wmbts: 5
+  wmbts: 6
   footprint_score: 16
   footprint_size: "M"
 wmbts:
@@ -11,6 +11,7 @@ wmbts:
   - "wmbt:drive-state-machine:E010"
   - "wmbt:drive-state-machine:M004"
   - "wmbt:drive-state-machine:L003"
+  - "wmbt:drive-state-machine:E011"
 components:
   backend:
     application:
