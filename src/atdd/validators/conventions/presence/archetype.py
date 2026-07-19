@@ -282,6 +282,33 @@ def _verifiable_outcome(lines: list) -> bool:
     )
 
 
+def _missing_prose(acc: dict, acc_id: str, wmbt) -> list:
+    """Sections of ONE acceptance whose Given/When/Then narrative is absent or empty."""
+    return [{"node_id": acc_id,
+             "missing_field": f"{section}.abstract",
+             "node_location": wmbt.location}
+            for section in ("given", "when", "then")
+            if not _abstract_prose(acc.get(section))]
+
+
+def _unverifiable_outcome(acc: dict, acc_id: str, wmbt) -> list:
+    """ONE acceptance whose ``then`` prose is present but states no assertable outcome."""
+    then_lines = _abstract_prose(acc.get("then"))
+    if not then_lines or _verifiable_outcome(then_lines):
+        return []
+    return [{"node_id": acc_id,
+             "missing_field": "then.abstract (no verifiable outcome)",
+             "node_location": wmbt.location}]
+
+
+def _acceptance_violations(acc: dict, wmbt) -> list:
+    """The well-formedness violations of ONE acceptance: a missing/empty
+    given/when/then narrative, and a ``then`` that states no verifiable outcome.
+    """
+    acc_id = (acc.get("identity") or {}).get("urn") or wmbt.id
+    return _missing_prose(acc, acc_id, wmbt) + _unverifiable_outcome(acc, acc_id, wmbt)
+
+
 def _check_acceptance_well_formed(graph) -> list:
     """Every acceptance declares Given/When/Then prose AND a verifiable outcome
     (``planner.acceptance.well-formed``, formerly ``planner.acceptance.complete``).
@@ -289,23 +316,11 @@ def _check_acceptance_well_formed(graph) -> list:
     Local shape only — this says nothing about whether the acceptance SET is
     complete for its WMBT, which is ``planner.coverage.every-wmbt-must-have``.
     """
-    out = []
-    for wmbt in graph.by_kind("wmbt"):
-        for acc in (wmbt.fields.get("acceptances") or []):
-            if not isinstance(acc, dict):
-                continue
-            acc_id = (acc.get("identity") or {}).get("urn") or wmbt.id
-            for section in ("given", "when", "then"):
-                if not _abstract_prose(acc.get(section)):
-                    out.append({"node_id": acc_id,
-                                "missing_field": f"{section}.abstract",
-                                "node_location": wmbt.location})
-            then_lines = _abstract_prose(acc.get("then"))
-            if then_lines and not _verifiable_outcome(then_lines):
-                out.append({"node_id": acc_id,
-                            "missing_field": "then.abstract (no verifiable outcome)",
-                            "node_location": wmbt.location})
-    return out
+    return [v
+            for wmbt in graph.by_kind("wmbt")
+            for acc in (wmbt.fields.get("acceptances") or [])
+            if isinstance(acc, dict)
+            for v in _acceptance_violations(acc, wmbt)]
 
 
 _REQUIRED_FIELD_VARIANTS = {
