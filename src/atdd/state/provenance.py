@@ -175,6 +175,59 @@ def _has_provenance(store: StateStore, uid: str) -> bool:
 # --------------------------------------------------------------------------- #
 # Reader — the detector
 # --------------------------------------------------------------------------- #
+def _classify(uid: str, events: List[Any]) -> Optional[ProvenanceFinding]:
+    """The verdict for one work item's event log, or ``None`` when sanctioned.
+
+    Split out of :func:`audit_work_items` so the audit loop stays flat: the
+    decision is per-record and reads better stated once than nested inside the
+    iteration that applies it.
+    """
+    if not events:
+        return ProvenanceFinding(
+            uid=uid,
+            clause=CLAUSE_NO_EVENTS,
+            detail=(
+                "work_item has no events at all — it was created outside "
+                "every sanctioned authoring command"
+            ),
+        )
+
+    first = events[0]
+    if first.event_type in SANCTIONED_AUTHORING_EVENTS:
+        return None
+
+    if first.event_type == RECONCILED:
+        via = first.payload.get("discovered_via", "unknown path")
+        return ProvenanceFinding(
+            uid=uid,
+            clause=CLAUSE_RECONCILED,
+            detail=(
+                "work_item carries reconciled provenance: it was backfilled by "
+                f"repair ({via}), not originated through a sanctioned authoring "
+                "command"
+            ),
+        )
+
+    return ProvenanceFinding(
+        uid=uid,
+        clause=CLAUSE_UNSANCTIONED_FIRST,
+        detail=(
+            f"first event is {first.event_type!r}, which is not a sanctioned "
+            f"authoring event ({sorted(SANCTIONED_AUTHORING_EVENTS)})"
+        ),
+    )
+
+
+def _events_for(store: StateStore, uid: str) -> List[Any]:
+    """This object's event log, or fail closed if it cannot be read."""
+    try:
+        return store.events.list(object_uid=uid)
+    except Exception as exc:  # noqa: BLE001 — an unreadable log is fail-closed
+        raise ProvenanceStoreUnreadable(
+            f"event log unreadable for work_item {uid!r}: {exc}"
+        ) from exc
+
+
 def audit_work_items(conn: sqlite3.Connection) -> List[ProvenanceFinding]:
     """Every ``work_item`` whose first event is not a sanctioned authoring event.
 
@@ -192,52 +245,5 @@ def audit_work_items(conn: sqlite3.Connection) -> List[ProvenanceFinding]:
             f"State Store could not be read for provenance audit: {exc}"
         ) from exc
 
-    findings: List[ProvenanceFinding] = []
-    for obj in work_items:
-        try:
-            events = store.events.list(object_uid=obj.uid)
-        except Exception as exc:  # noqa: BLE001
-            raise ProvenanceStoreUnreadable(
-                f"event log unreadable for work_item {obj.uid!r}: {exc}"
-            ) from exc
-
-        if not events:
-            findings.append(
-                ProvenanceFinding(
-                    uid=obj.uid,
-                    clause=CLAUSE_NO_EVENTS,
-                    detail=(
-                        "work_item has no events at all — it was created outside "
-                        "every sanctioned authoring command"
-                    ),
-                )
-            )
-            continue
-
-        first = events[0]
-        if first.event_type in SANCTIONED_AUTHORING_EVENTS:
-            continue
-        if first.event_type == RECONCILED:
-            findings.append(
-                ProvenanceFinding(
-                    uid=obj.uid,
-                    clause=CLAUSE_RECONCILED,
-                    detail=(
-                        "work_item carries reconciled provenance: it was backfilled by "
-                        f"repair ({first.payload.get('discovered_via', 'unknown path')}), "
-                        "not originated through a sanctioned authoring command"
-                    ),
-                )
-            )
-            continue
-        findings.append(
-            ProvenanceFinding(
-                uid=obj.uid,
-                clause=CLAUSE_UNSANCTIONED_FIRST,
-                detail=(
-                    f"first event is {first.event_type!r}, which is not a sanctioned "
-                    f"authoring event ({sorted(SANCTIONED_AUTHORING_EVENTS)})"
-                ),
-            )
-        )
-    return findings
+    verdicts = (_classify(obj.uid, _events_for(store, obj.uid)) for obj in work_items)
+    return [v for v in verdicts if v is not None]
