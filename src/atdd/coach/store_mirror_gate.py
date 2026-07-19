@@ -208,6 +208,20 @@ def evaluate(conn, branch: str, *, check_provider: bool = True) -> GateResult:
     return result
 
 
+def render(result: GateResult) -> List[str]:
+    """Operator-facing lines for ``result``, most-severe last.
+
+    Shared by the pre-push hook and ``atdd coach store-gate`` so the two cannot
+    drift into reporting the same Store differently — the failure mode this
+    whole issue is about.
+    """
+    lines = [f"ATDD store-mirror gate: {line}" for line in result.advisory]
+    if result.blocked:
+        lines.append("\nATDD: the Store is not the source of truth here.\n")
+        lines.extend(f"  {line}\n" for line in result.blocking)
+    return lines
+
+
 def _current_branch() -> str:
     proc = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -240,14 +254,10 @@ def _gate_main() -> None:
     check_provider = os.environ.get("CI") != "true"
     result = evaluate(conn, branch, check_provider=check_provider)
 
-    for line in result.advisory:
-        print(f"ATDD store-mirror gate: {line}", file=sys.stderr)
-
     if result.blocked:
-        print("\nATDD: Pre-push blocked — the Store is not the source of truth here.\n",
-              file=sys.stderr)
-        for line in result.blocking:
-            print(f"  {line}\n", file=sys.stderr)
+        print("\nATDD: Pre-push blocked.", file=sys.stderr)
+    for line in render(result):
+        print(line, file=sys.stderr)
 
     sys.exit(result.exit_code)
 
