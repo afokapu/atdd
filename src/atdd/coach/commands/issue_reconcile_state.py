@@ -53,15 +53,18 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, Optional, Sequence, TYPE_CHECKING
 
 from atdd.coach.commands.issue_reconcile_state_evidence import (
     fetch_labelled_issues,
     fetch_merged_closers,
     phase_from_labels,
 )
+
+if TYPE_CHECKING:  # pragma: no cover — typing only, no runtime cycle
+    from atdd.coach.commands.issue_reconcile_state_report import ReconcileReport
 
 # The linear lifecycle spine, from
 # ``src/atdd/coach/conventions/phase_machine.convention.yaml``. Only the
@@ -272,67 +275,6 @@ def classify(
 
 
 # ---------------------------------------------------------------------------
-# Report
-# ---------------------------------------------------------------------------
-
-@dataclass
-class ReconcileReport:
-    repairs: List[Repair] = field(default_factory=list)
-
-    def by_class(self) -> Dict[int, List[Repair]]:
-        buckets: Dict[int, List[Repair]] = {}
-        for repair in self.repairs:
-            buckets.setdefault(repair.repair_class, []).append(repair)
-        return buckets
-
-    def render(self, dry_run: bool = True) -> str:
-        """The classification table the operator approves before anything writes."""
-        lines: List[str] = []
-        header = "reconcile-state — what WOULD change" if dry_run else "reconcile-state — applied"
-        lines.append(header)
-        lines.append("=" * len(header))
-        lines.append("")
-
-        buckets = self.by_class()
-        drifted = [r for r in self.repairs if r.repair_class != CLASS_IN_SYNC]
-        lines.append(
-            f"{len(self.repairs)} record(s) examined — "
-            f"{len(self.repairs) - len(drifted)} in sync, {len(drifted)} drifted"
-        )
-        lines.append("")
-
-        for cls in sorted(buckets):
-            group = buckets[cls]
-            marker = "REFUSED" if any(r.refused for r in group) else (
-                "no-op" if all(r.is_noop for r in group) else "repairable"
-            )
-            lines.append(f"class {cls} — {CLASS_NAMES[cls]} [{marker}]: {len(group)}")
-            for repair in sorted(group, key=lambda r: r.issue_number):
-                if repair.repair_class == CLASS_IN_SYNC:
-                    continue
-                plan = (
-                    " -> ".join(repair.transitions) if repair.transitions
-                    else (f"re-project label := {repair.reproject_to}"
-                          if repair.reproject_to else "none")
-                )
-                lines.append(
-                    f"    #{repair.issue_number:<6} "
-                    f"label={repair.label_phase or 'none':<9} "
-                    f"store={repair.store_phase or 'none':<9} "
-                    f"merged={'yes' if repair.merged else 'no':<3} "
-                    f"action: {plan}"
-                )
-            lines.append("")
-
-        if dry_run:
-            lines.append(
-                "DRY RUN — nothing was written. Re-run with `--apply` on a single "
-                "issue number to repair it."
-            )
-        return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
 # Apply
 # ---------------------------------------------------------------------------
 
@@ -455,9 +397,16 @@ def build_report(
     issue_numbers: Optional[Sequence[int]] = None,
     *,
     target_dir: Optional[Path] = None,
-) -> Optional[ReconcileReport]:
-    """Classify ``issue_numbers`` (or every ``atdd-issue`` when None)."""
+) -> Optional["ReconcileReport"]:
+    """Classify ``issue_numbers`` (or every ``atdd-issue`` when None).
+
+    Lives here, not beside the renderer, so the evidence module stays on a
+    module-level import chain from this reachable core — the dead-code
+    reachability analyser only follows those, and a lazily-imported-only
+    module reads to it as unreferenced.
+    """
     from atdd.coach.commands.auto_phase import read_store_phase
+    from atdd.coach.commands.issue_reconcile_state_report import ReconcileReport
 
     issues = fetch_labelled_issues()
     if issues is None:
