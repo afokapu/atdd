@@ -995,7 +995,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 20
+    total: 25
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -1017,6 +1017,11 @@ wagons:
     E005: minimize likelihood of extension-installs-landing-in-a-per-worktree-atdd-instead-of-the-control-root
     E006: minimize likelihood of divergent-per-worktree-extension-installs-surviving-consolidation
     M003: minimize likelihood of a-per-worktree-operational-atdd-subtree-below-the-control-root-going-undetected
+    D003: minimize likelihood of provider-identity-hardcoded-in-core
+    E009: minimize likelihood of creating-session-absent-from-store-after-mint
+    E010: minimize likelihood of participating-session-absent-from-store-after-commit
+    M004: minimize likelihood of wrong-session-selected-when-resuming-a-work-item
+    L003: minimize effort-to-locate-the-session-to-resume-after-a-crash
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
@@ -1323,7 +1328,8 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 97
+    total: 98
+    R006: minimize drifted-lifecycle-records-that-no-verb-can-repair
     R005: minimize phase-labels-written-without-the-store-transition-behind-them
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
