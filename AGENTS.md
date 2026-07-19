@@ -336,9 +336,10 @@ git:
     purpose: "Advisory warnings to encourage smaller commits (all exit 0, never block)"
     pre_push: "Warns when >10 uncommitted/untracked files (override: ATDD_MAX_UNCOMMITTED)"
     pre_commit: "Warns when >20 staged files (override: ATDD_MAX_STAGED)"
-    # The per-agent pre-tool-use variant of this reminder was removed in #1556:
-    # command interception can only be implemented per-agent, and core names no
-    # agent. The git-hook reminders above are agent-agnostic and remain.
+    claude_code:
+      template: "src/atdd/coach/templates/hooks/claude-pre-tool-use.sh"
+      install: "cp src/atdd/coach/templates/hooks/claude-pre-tool-use.sh .claude/hooks/pre_tool_use.sh"
+      behavior: "Reminds agent to commit when >5 files modified since last commit"
 
   # Post-commit hook — blast-radius local validation (#611).
   # After every commit, derives which files were touched via `git show --name-only HEAD`,

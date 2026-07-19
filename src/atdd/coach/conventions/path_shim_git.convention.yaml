@@ -5,10 +5,10 @@ description: |
   agent-agnostic PATH shim (.atdd/bin/git, issue #884).
 
   This convention mirrors path_shim_gh.convention.yaml (#816) and reuses the
-  danger keys of the ATDD-FORBID-GIT-CONFIG-BARE-UNSCOPED entry in
-  forbidden_commands.convention.yaml, which since #1556 is an advisory record
-  only and enforces nothing. This shim is the sole enforcement site for those
-  keys, and it operates at the harness-agnostic PATH layer:
+  danger keys of the ATDD-FORBID-GIT-CONFIG-BARE-UNSCOPED rule from
+  forbidden_commands.convention.yaml (#668, the L1 PreToolUse hook). It targets
+  the harness-agnostic PATH layer instead of the Claude-Code-only PreToolUse
+  hook:
 
     shim  — .atdd/bin/git wraps the git binary at PATH precedence inside the
             worktree. Blocks unscoped WRITES to the danger keys for ANY shell

@@ -24,8 +24,7 @@ def packaged_hooks_dir() -> Path:
     Resolved from this module's own location, so it is correct for a wheel
     install, an editable install and a source checkout alike — never from a
     ``$REPO_ROOT/src/atdd/...`` guess, which is the #689/#1476 hardcoded-path
-    class that resolves to a path no consumer repo has, leaving the hook it
-    points at inert everywhere the toolkit is pip-installed.
+    class that leaves claude-pre-tool-use.sh inert in every consumer repo.
     """
     return Path(__file__).resolve().parent.parent / "templates" / "hooks"
 

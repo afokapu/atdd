@@ -129,9 +129,8 @@ def test_dispatcher_passes_arguments_through(tmp_path: Path) -> None:
 def test_dispatcher_fails_closed_when_atdd_is_unresolvable(tmp_path: Path) -> None:
     """A guard that cannot run must BLOCK, never silently allow.
 
-    Silently allowing is the defect that sank the pre-tool-use hook removed in
-    #1556: it fail-opened on a missing classifier and was therefore inert in
-    every consumer repo while still reading as protection.
+    Silently allowing is the claude-pre-tool-use.sh defect, which fail-opens on a
+    missing classifier and is therefore inert in every consumer repo.
     """
     hook = _install_dispatcher(tmp_path, "commit-msg")
     empty_bin = tmp_path / "emptybin"

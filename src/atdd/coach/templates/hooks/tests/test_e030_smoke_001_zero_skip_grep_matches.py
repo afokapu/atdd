@@ -33,6 +33,7 @@ _HOOK_FILES = [
     "post-commit",
     "commit-msg",
     "pre-merge-commit",
+    "claude-pre-tool-use.sh",
 ]
 
 

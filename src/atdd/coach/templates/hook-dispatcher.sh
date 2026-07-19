@@ -15,11 +15,9 @@
 # replaced on the next `atdd sync` (your copy is preserved as *.local.bak).
 #
 # FAILS CLOSED: if the packaged hook cannot be resolved, this BLOCKS rather
-# than silently allowing. A guard that allows on error is not a guard — the
-# decommissioned pre-tool-use hook (#1556) failed exactly that way: it resolved
-# its classifier by hardcoded path and exited 0 when the path was absent, so it
-# allowed everything in every consumer repo while reading as protection. There
-# is deliberately no bypass env var here: E030 retired that entire class.
+# than silently allowing. A guard that allows on error is not a guard — that is
+# the claude-pre-tool-use.sh defect (inert in every consumer repo). There is
+# deliberately no bypass env var here: E030 retired that entire class.
 
 _HOOK_NAME='__ATDD_HOOK_NAME__'
 
