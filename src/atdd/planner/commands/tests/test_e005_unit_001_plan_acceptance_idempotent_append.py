@@ -33,13 +33,16 @@ def _seed_wmbt(tmp_path):
 
 def test_create_acceptance_is_idempotent_on_urn(tmp_path):
     wmbt = _seed_wmbt(tmp_path)
+    # Field values are realistic, not placeholders: create_acceptance validates
+    # the block against acceptance.schema.json#/definitions/embedded_acceptance
+    # before writing (#1194), and that schema carries minLength floors.
     block = {
         "identity": {"urn": "acc:demo-wagon:E001-UNIT-001-x", "id": "AC-UNIT-001",
-                     "purpose": "x", "phase": "GREEN"},
+                     "purpose": "appending the same urn twice is a no-op", "phase": "GREEN"},
         "harness": {"type": "unit", "category": "backend"},
-        "given": {"abstract": ["a"]},
-        "when": {"abstract": "b"},
-        "then": {"abstract": ["c"]},
+        "given": {"abstract": ["a WMBT with an empty acceptances list"]},
+        "when": {"abstract": "create_acceptance is called twice with the same urn"},
+        "then": {"abstract": ["the file is written once and is byte-identical after"]},
     }
     create_acceptance("wmbt:demo-wagon:E001", block, root=tmp_path)
     first = wmbt.read_text()
