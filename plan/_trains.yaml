@@ -82,6 +82,22 @@ trains:
       - mediate-worker-decisions
       - coach-verb-split
       category: nominal
+    - train_id: train:issue-lifecycle:record-agent-session-identity
+      description: 'Record which agent session worked which work_item by reading ambient
+        environment at two mandatory chokepoints — `atdd author issue` (creator) and
+        the packaged `post-commit` hook (participant) — storing provider-tagged opaque
+        session refs in `external_refs` with recency in `data.last_seen_at` and the
+        worktree path per participation. The agent-kind → session-env-var mapping
+        lives in a convention YAML so core never learns a provider, and no role is
+        ever stored: orchestrator vs worker is inferred at read time from the worktree
+        paths a session participated in.'
+      path: plan/_trains/issue-lifecycle/record-agent-session-identity.yaml
+      wagons:
+      - isolate-provider-boundary
+      - author-atdd-substrate
+      - drive-state-machine
+      - project-shared-state
+      category: nominal
   object-conflict-resolution:
     nominal:
     - train_id: train:object-conflict-resolution:project-state
