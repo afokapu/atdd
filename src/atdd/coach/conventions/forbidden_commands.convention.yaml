@@ -1,47 +1,44 @@
-version: "1.0"
+version: "2.0"
 name: "Forbidden Commands Registry"
 description: |
-  YAML-backed registry of commands blocked or rate-limited by the
-  claude-pre-tool-use hook (issue #668, L1 enforcement).
+  Advisory registry of upstream commands that have historically bypassed
+  atdd-native wrappers, each paired with the incident that motivated it and
+  the atdd-native alternative.
 
-  match_type values:
-    hard_block  — always blocked, exits 2 with educational error
-    loop_block  — allowed once; blocked when the command string is itself
-                  a loop construct (contains while/until/for) OR when
-                  the same rule_id has been triggered more than
-                  loop_detection.threshold times within loop_detection.ttl_seconds
+  THIS REGISTRY ENFORCES NOTHING.
 
-  match spec fields (within each pattern's "match:" key):
-    contains       — substring that must appear in the command
-    contains_all   — list of substrings that must ALL appear
-    contains_any   — list of substrings where ANY one is sufficient
-    regex          — Python re.search pattern applied to the command
+  It carries no enforcement role, binds to no validator, and is read by no
+  interception mechanism. It is documentation: a durable record of what went
+  wrong and what to run instead. Enforcement, where it exists, lives in
+  mechanisms that name no agent and are bound by their own conventions
+  (see: path_shim_gh.convention.yaml, path_shim_git.convention.yaml).
 
-  Classifier decision 6 (issue #668): on registry load failure the classifier
-  fails OPEN — every tool call is allowed and a warning is printed to stderr.
+  History: this file previously backed a per-agent command-interception hook
+  (#668). That mechanism was decommissioned in #1556 because interception can
+  only be implemented per-agent — N agents means N couplings — and core must
+  name no agent. The machine-readable match specs and the fail-open behavior
+  declaration were removed with it; retaining them would assert an enforcement
+  contract that no longer exists. The incident record below is retained
+  because its value is independent of any enforcement mechanism.
 
-# Classifier behavior on registry load failure
-fail_behavior: fail_open
+  Provider-neutral by construction: no entry names an agent, and no consumer
+  is implied.
 
-patterns:
+commands:
   - id: ATDD-FORBID-GH-ISSUE-CREATE
-    match_type: hard_block
-    description: "gh issue create bypasses atdd manifest registration and WMBT sub-issue generation"
-    match:
-      contains: "gh issue create"
-    reason: >
+    command: "gh issue create"
+    description: "bypasses atdd manifest registration and WMBT sub-issue generation"
+    incident: >
       gh issue create bypasses atdd manifest registration, WMBT sub-issue
       generation, and Project v2 field setup. Any issue created this way will
       be missing from .atdd/manifest.yaml and flagged by atdd validate coach.
-      Incident: #659 was filed with gh issue create and lacked manifest entry.
+      Incident: #659 was filed with gh issue create and lacked a manifest entry.
     alternative: "atdd author issue --title <title> --slug <slug>"
 
   - id: ATDD-FORBID-GH-PR-CREATE
-    match_type: hard_block
-    description: "gh pr create bypasses --base validation against the repo default branch"
-    match:
-      contains: "gh pr create"
-    reason: >
+    command: "gh pr create"
+    description: "bypasses --base validation against the repo default branch"
+    incident: >
       gh pr create bypasses --base validation against the repo default branch.
       Incident: PR #475 was opened with a sibling branch as base; when the
       sibling merged and auto-deleted, the squash-merge commit landed on a
@@ -50,25 +47,19 @@ patterns:
     alternative: "atdd pr <N>"
 
   - id: ATDD-FORBID-CMUX-SEND-CLAUDE
-    match_type: hard_block
-    description: "raw cmux send with a claude payload bypasses worktree cwd enforcement"
-    match:
-      contains_all:
-        - "cmux send"
-        - "claude "
-    reason: >
-      raw cmux send bypasses worktree cwd enforcement. The launched Claude
+    command: "cmux send (with an agent payload)"
+    description: "bypasses worktree cwd enforcement"
+    incident: >
+      raw cmux send bypasses worktree cwd enforcement. The launched agent
       process inherits the caller's cwd rather than the target worktree,
       causing it to operate on the wrong branch. Incident: surface:355
       launched in wrong-cwd during the 2026-05-13 session.
     alternative: "atdd spawn --worktree <wt>"
 
   - id: ATDD-FORBID-GIT-CONFIG-BARE-UNSCOPED
-    match_type: hard_block
-    description: "git config core.bare or core.worktree without --worktree contaminates shared .git/config"
-    match:
-      regex: "git\\b.*\\bconfig(?!.*--worktree).*(core\\.bare|core\\.worktree)"
-    reason: >
+    command: "git config core.bare / core.worktree (without --worktree)"
+    description: "contaminates the shared .git/config across all worktrees"
+    incident: >
       git config core.bare (or core.worktree) without --worktree writes to
       the SHARED .git/config, contaminating all worktrees. Incident
       2026-05-12: an agent ran git config core.bare=true inside a worktree,
@@ -80,20 +71,11 @@ patterns:
     alternative: "git config --worktree core.bare <value>"
 
   - id: ATDD-LOOP-GH-PR-POLL
-    match_type: loop_block
-    description: "gh pr view/list/checks in a loop exhausts GitHub API rate limits"
-    match:
-      contains_any:
-        - "gh pr view"
-        - "gh pr list"
-        - "gh pr checks"
-    reason: >
+    command: "gh pr view / gh pr list / gh pr checks (in a loop)"
+    description: "loop-polling exhausts GitHub API rate limits"
+    incident: >
       Polling gh pr in a loop exhausts GitHub API rate limits. Incident
-      2026-05-13: hit GraphQL rate limit during PR monitoring; ATDD665
+      2026-05-13: hit the GraphQL rate limit during PR monitoring; ATDD665
       detected exhaustion only AFTER the quota was spent. One-off reads
-      are allowed; repeated polling (loop construct or threshold exceeded)
-      is blocked.
+      are unproblematic; repeated polling is what exhausts the quota.
     alternative: "atdd observer status  OR  atdd agent wait-ci"
-    loop_detection:
-      threshold: 1
-      ttl_seconds: 60
