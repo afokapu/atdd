@@ -117,11 +117,11 @@ def repo_wide_drift(conn) -> Tuple[int, int]:
     return int(row[0] or 0), int(row[1] or 0)
 
 
-def _github_labels(issue_number: str) -> Optional[List[str]]:
-    """Labels on ``issue_number``, or None when GitHub cannot be reached.
+def _gh_issue_json(issue_number: str) -> Optional[Dict[str, Any]]:
+    """``gh issue view --json labels`` as a dict, or None when it cannot be read.
 
-    None means *unknown*, never *empty* — conflating the two would let an
-    offline push silently pass a divergence check it never actually ran.
+    Every None path is logged with its reason: a silently-skipped provider read
+    is indistinguishable from agreement, which is how a gate becomes a stub.
     """
     try:
         proc = subprocess.run(
@@ -132,16 +132,29 @@ def _github_labels(issue_number: str) -> Optional[List[str]]:
         _log.warning("gh unavailable; label check skipped",
                      extra={"issue": issue_number, "error": str(exc)})
         return None
+
     if proc.returncode != 0:
         _log.warning("gh issue view failed; label check skipped",
                      extra={"issue": issue_number, "rc": proc.returncode,
                             "stderr": proc.stderr.strip()})
         return None
+
     try:
-        payload = json.loads(proc.stdout)
+        return json.loads(proc.stdout)
     except ValueError as exc:
         _log.warning("gh returned unparseable JSON; label check skipped",
                      extra={"issue": issue_number, "error": str(exc)})
+        return None
+
+
+def _github_labels(issue_number: str) -> Optional[List[str]]:
+    """Labels on ``issue_number``, or None when GitHub cannot be reached.
+
+    None means *unknown*, never *empty* — conflating the two would let an
+    offline push silently pass a divergence check it never actually ran.
+    """
+    payload = _gh_issue_json(issue_number)
+    if payload is None:
         return None
     return [lbl.get("name", "") for lbl in payload.get("labels", [])]
 
@@ -185,27 +198,40 @@ def evaluate(conn, branch: str, *, check_provider: bool = True) -> GateResult:
 
     # Blocking check 2 — needs the provider, so it is skipped (loudly) offline.
     if check_provider and issue:
-        labels = _github_labels(issue)
-        if labels is None:
-            result.advisory.append(
-                f"could not read GitHub labels for #{issue}; divergence check skipped"
-            )
-        else:
-            remote_phase = _phase_from_labels(labels)
-            if state and remote_phase and remote_phase != state:
-                result.blocking.append(
-                    f"Store/GitHub divergence on #{issue}: Store says {state}, "
-                    f"GitHub label says {remote_phase}.\n"
-                    f"  Fix: atdd coach transition {issue} {state}  (per-issue, additive)"
-                )
-            elif state and remote_phase is None:
-                result.blocking.append(
-                    f"Store/GitHub divergence on #{issue}: Store says {state}, "
-                    f"GitHub carries no atdd: label at all.\n"
-                    f"  Fix: atdd coach sync-labels {issue}  (per-issue — never --all)"
-                )
+        _check_divergence(result, issue, state)
 
     return result
+
+
+def _check_divergence(result: GateResult, issue: str, state: Optional[str]) -> None:
+    """Compare the Store phase against GitHub's ``atdd:`` label for ``issue``.
+
+    Appends to ``result`` in place. An unreadable provider is advisory, never a
+    silent pass — see :func:`_gh_issue_json`.
+    """
+    labels = _github_labels(issue)
+    if labels is None:
+        result.advisory.append(
+            f"could not read GitHub labels for #{issue}; divergence check skipped"
+        )
+        return
+
+    if not state:
+        return
+
+    remote_phase = _phase_from_labels(labels)
+    if remote_phase is None:
+        result.blocking.append(
+            f"Store/GitHub divergence on #{issue}: Store says {state}, "
+            f"GitHub carries no atdd: label at all.\n"
+            f"  Fix: atdd coach sync-labels {issue}  (per-issue — never --all)"
+        )
+    elif remote_phase != state:
+        result.blocking.append(
+            f"Store/GitHub divergence on #{issue}: Store says {state}, "
+            f"GitHub label says {remote_phase}.\n"
+            f"  Fix: atdd coach transition {issue} {state}  (per-issue, additive)"
+        )
 
 
 def render(result: GateResult) -> List[str]:
