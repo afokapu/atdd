@@ -1,0 +1,74 @@
+urn: "wmbt:drive-state-machine:E009"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "creating-session-absent-from-store-after-mint"
+context_clarifier: "`atdd author issue` is the store-first canonical create path (#1272) and therefore a mandatory chokepoint: every work_item passes through it exactly once. Identity is read from ambient environment via the D003 provider table — never asked of the agent, because asking is a prompt: non-deterministic and confabulable. The mint records a `session_created_work_item` relationship (subject-verb-object, following `state/hub.py`'s `session_uses_adapter`) plus a provider-tagged `external_refs` row of `ref_kind='session'`. Creation is a neutral fact, not a role: nothing about being a creator makes a session an orchestrator or a worker. A human running the command from a plain shell has no agent env var, so the capture is a no-op — and a no-op must never fail the mint, which is the operator's actual intent."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of creating-session-absent-from-store-after-mint by recording the creating agent session against the work_item during `atdd author issue` — resolving identity from ambient env via the provider table, writing a provider-tagged session external_ref and a `session_created_work_item` relationship, storing no role — such that a mint from a shell with no agent env var records nothing and still succeeds"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E009-UNIT-001-mint-records-creating-session"
+      id: "AC-UNIT-001"
+      purpose: "The mint path records the creating session against the new work item"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A control-root State Store"
+        - "An environment carrying an agent session id for a mapped provider"
+    when:
+      abstract: "`atdd author issue` mints a work item"
+    then:
+      abstract:
+        - "A session external_ref exists for that provider with ref_kind 'session' and the session id as ref_value"
+        - "A `session_created_work_item` relationship links that session to the work item"
+        - "No role field is written anywhere on the record"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:E009-UNIT-002-mint-without-agent-env-records-nothing-and-succeeds"
+      id: "AC-UNIT-002"
+      purpose: "Minting from a shell with no agent env var records no session and does not fail"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A control-root State Store"
+        - "An environment with no agent session env var set"
+    when:
+      abstract: "`atdd author issue` mints a work item"
+    then:
+      abstract:
+        - "The mint succeeds and the work item exists"
+        - "No session external_ref and no creator relationship are written"
+        - "No exception is raised"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:E009-UNIT-003-store-failure-does-not-fail-the-mint"
+      id: "AC-UNIT-003"
+      purpose: "A failing session write degrades to a no-op rather than failing the operator's mint"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An environment carrying an agent session id"
+        - "A store whose session-ref write raises"
+    when:
+      abstract: "`atdd author issue` mints a work item"
+    then:
+      abstract:
+        - "The mint still succeeds and the work item exists"
+        - "No exception propagates to the caller"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"

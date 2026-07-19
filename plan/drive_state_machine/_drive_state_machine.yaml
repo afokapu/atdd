@@ -15,6 +15,7 @@ features:
   - urn: "feature:drive-state-machine:phase-advance-requires-completion-match"
   - urn: "feature:drive-state-machine:consolidate-worktree-command"
   - urn: "feature:drive-state-machine:consolidate-store-writes"
+  - urn: "feature:drive-state-machine:record-agent-session-identity"
 
 produce:
   - name: commons:coach:coach-cli-skeleton

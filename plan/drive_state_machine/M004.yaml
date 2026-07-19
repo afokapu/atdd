@@ -1,0 +1,70 @@
+urn: "wmbt:drive-state-machine:M004"
+step: "monitor"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "wrong-session-selected-when-resuming-a-work-item"
+context_clarifier: "One work_item routinely carries many chats: 68 of 304 measured projects carry more than one, 25 carry five or more, one issue worktree carries 24. Creation order does not identify the session to resume — across those 68, created-order and last-activity-order diverge in 22 (32%), and 24 (35%) contain overlapping concurrent chats. Recency therefore has to be stored, and it lives in `external_refs.data.last_seen_at`: the `data` blob already exists, so there is no schema migration (Decision 6). The name is `last_seen_at`, not `last_active_at` (Decision 7) — core observes chokepoints and nothing else, and a blocked worker is not idle, so the name must not imply liveness it never measured. Exactly one recency value is kept per session; no activity history is retained. Touching recency must not disturb identity: an older session committing again updates `last_seen_at` while its `created_at` stands."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of wrong-session-selected-when-resuming-a-work-item by stamping `data.last_seen_at` on each session external_ref every time that session hits a chokepoint — one value per session, in the existing `data` blob with no schema migration — so that several sessions on one work_item order by last observation rather than creation order, and a re-committing older session updates its recency without altering its `created_at`"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:M004-UNIT-001-sessions-order-by-last-seen-at"
+      id: "AC-UNIT-001"
+      purpose: "Several sessions on one work item order by data.last_seen_at, not by creation order"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A work item with several participating sessions whose creation order differs from their chokepoint order"
+    when:
+      abstract: "The sessions for that work item are read back ordered by recency"
+    then:
+      abstract:
+        - "They are ordered by `data.last_seen_at`"
+        - "The ordering differs from creation order where the two diverge"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:M004-UNIT-002-recommit-updates-recency-not-created-at"
+      id: "AC-UNIT-002"
+      purpose: "An older session committing again updates its recency without altering its created_at"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A session that already participates in a work item with a known `created_at` and `last_seen_at`"
+    when:
+      abstract: "That session hits a chokepoint again"
+    then:
+      abstract:
+        - "`data.last_seen_at` advances"
+        - "`created_at` is unchanged"
+        - "Exactly one recency value is stored — no activity history accumulates"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:M004-UNIT-003-recency-needs-no-schema-migration"
+      id: "AC-UNIT-003"
+      purpose: "Recency is carried in the pre-existing data blob, requiring no schema migration"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store at the current schema version with no migration applied for this feature"
+    when:
+      abstract: "A session recency stamp is written and read back"
+    then:
+      abstract:
+        - "The value round-trips through `external_refs.data.last_seen_at`"
+        - "The store schema version is unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
