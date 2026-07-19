@@ -74,8 +74,9 @@ def test_a_subject_nested_train_is_actually_reached(tmp_path):
     vacuously — so one deliberately-broken acceptance must be caught at that
     nested path.
     """
-    _write_train(tmp_path, [{"identity": {"urn": "acc:nope", "phase": "SMOKE",
-                                          "purpose": "x"}}])
+    broken = {"identity": {"urn": "acc:nope", "phase": "SMOKE", "purpose": "x"}}
+    _write_train(tmp_path, [broken])
+
     violations = collect_violations(tmp_path)
     assert violations, "nested train file was not walked at all"
     assert "self-compliance/validate-lifecycle.yaml" in violations[0].location

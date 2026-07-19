@@ -200,23 +200,33 @@ def _smoke_files(train_dir) -> List[str]:
     return sorted(set(found))
 
 
+def _uncovered_route_evidence(graph, node, home) -> dict:
+    """Failure evidence for a train whose e2e home holds no smoke test.
+
+    Split out of the loop below to keep the evidence literal at a shallow indent
+    (coder.refactor.complexity-nesting measures depth in INDENT COLUMNS, so a
+    dict literal nested under for+if — and its ternary continuation line — reads
+    far deeper than the control flow actually is).
+    """
+    inside_repo = graph.root in home.parents
+    return {
+        'source_node': node.id,
+        'required_target_kind': 'test:SMOKE',
+        'required_path': str(home.relative_to(graph.root)) if inside_repo else str(home),
+        'actual_targets': [],
+    }
+
+
 def _train_route_smoke_coverage(graph) -> List[dict]:
     if graph.root is None:
         return []
     e2e_root = graph.root / 'e2e'
     out: List[dict] = []
     for t in graph.by_kind('train'):
-        train_id = t.fields.get('train_id') or t.id
-        home = _e2e_home(e2e_root, train_id)
-        files = _smoke_files(home)
-        if not files:
-            out.append({
-                'source_node': t.id,
-                'required_target_kind': 'test:SMOKE',
-                'required_path': str(home.relative_to(graph.root))
-                                 if graph.root in home.parents else str(home),
-                'actual_targets': [],
-            })
+        home = _e2e_home(e2e_root, t.fields.get('train_id') or t.id)
+        if _smoke_files(home):
+            continue
+        out.append(_uncovered_route_evidence(graph, t, home))
     return out
 
 
