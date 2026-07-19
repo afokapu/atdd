@@ -126,24 +126,35 @@ def _gh_issue_json(issue_number: str) -> Optional[Dict[str, Any]]:
     try:
         proc = subprocess.run(
             ["gh", "issue", "view", str(issue_number), "--json", "labels"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        _log.warning("gh unavailable; label check skipped",
-                     extra={"issue": issue_number, "error": str(exc)})
+        _log.warning(
+            "gh unavailable; label check skipped",
+            extra={"issue": issue_number, "error": str(exc)},
+        )
         return None
 
     if proc.returncode != 0:
-        _log.warning("gh issue view failed; label check skipped",
-                     extra={"issue": issue_number, "rc": proc.returncode,
-                            "stderr": proc.stderr.strip()})
+        _log.warning(
+            "gh issue view failed; label check skipped",
+            extra={
+                "issue": issue_number,
+                "rc": proc.returncode,
+                "stderr": proc.stderr.strip(),
+            },
+        )
         return None
 
     try:
         return json.loads(proc.stdout)
     except ValueError as exc:
-        _log.warning("gh returned unparseable JSON; label check skipped",
-                     extra={"issue": issue_number, "error": str(exc)})
+        _log.warning(
+            "gh returned unparseable JSON; label check skipped",
+            extra={"issue": issue_number, "error": str(exc)},
+        )
         return None
 
 
