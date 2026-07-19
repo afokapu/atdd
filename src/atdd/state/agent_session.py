@@ -34,14 +34,23 @@ chokepoints and nothing else, and a blocked worker is not idle.
 from __future__ import annotations
 
 import os
+import shlex
+import subprocess
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
 import yaml
 
+from .db import connect, init_state_store
 from .store import StateStore
+
+#: Kept as a literal rather than imported from ``manifest_import`` so this
+#: module's transitive import surface stays as small as the boundary check
+#: (``core-no-provider``) wants it. It is the kind named in the schema DDL.
+WORK_ITEM_KIND = "work_item"
 
 KIND_AGENT_SESSION = "agent_session"
 REF_KIND_SESSION = "session"
@@ -79,10 +88,63 @@ class SessionParticipation:
     resume_command: Optional[str]
 
 
-@lru_cache(maxsize=1)
+@dataclass(frozen=True)
+class ProviderRow:
+    """One row of the provider table. Every provider-specific string lives here."""
+
+    agent: str
+    provider: str
+    session_env: str
+    resume_template: Optional[str] = None
+
+
+@lru_cache(maxsize=4)
+def _load_table(path_str: str) -> tuple:
+    """Parse one provider table. Cached on the RESOLVED path, deliberately.
+
+    Caching on the *argument* instead would key every default call under
+    ``None``, so a table read once would be served forever even after
+    ``PROVIDER_TABLE_PATH`` changed — the shipped table silently replaced by
+    whichever one happened to be read first.
+    """
+    source = Path(path_str)
+    try:
+        raw = yaml.safe_load(source.read_text()) or {}
+    except (OSError, yaml.YAMLError):
+        # An unreadable table means we cannot identify anyone — which is the
+        # same situation as a human at a shell, and is handled the same way.
+        return ()
+    rows = []
+    for entry in raw.get("providers") or []:
+        if not entry.get("session_env") or not entry.get("provider"):
+            continue
+        rows.append(ProviderRow(
+            agent=entry.get("agent", ""),
+            provider=entry["provider"],
+            session_env=entry["session_env"],
+            resume_template=entry.get("resume_template"),
+        ))
+    return tuple(rows)
+
+
 def load_provider_table(path: Optional[str] = None) -> tuple:
     """The agent-runtime → session-env-var rows, read as plain data."""
-    raise NotImplementedError("GREEN: read agent_session_env.yaml")
+    return _load_table(str(Path(path) if path else PROVIDER_TABLE_PATH))
+
+
+#: The cache lives on the resolved-path helper; expose the usual handle.
+load_provider_table.cache_clear = _load_table.cache_clear
+
+
+def _row_for_provider(provider: str) -> Optional[ProviderRow]:
+    for row in load_provider_table():
+        if row.provider == provider:
+            return row
+    return None
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def resolve_session(env: Optional[Mapping[str, str]] = None) -> Optional[AgentSession]:
@@ -90,8 +152,16 @@ def resolve_session(env: Optional[Mapping[str, str]] = None) -> Optional[AgentSe
 
     Returns ``None`` — never raises, never invents an identity — when no mapped
     session env var is present. A human at a plain shell is not an agent.
+
+    First matching row wins, so the table's order is its precedence.
     """
-    raise NotImplementedError("GREEN: first provider row whose session_env is set")
+    environ = os.environ if env is None else env
+    for row in load_provider_table():
+        value = environ.get(row.session_env)
+        if value:
+            # carried through opaque: never parsed, never validated in shape
+            return AgentSession(provider=row.provider, session_id=value)
+    return None
 
 
 def record_creator(store: StateStore, work_item_uid: str,
@@ -102,7 +172,12 @@ def record_creator(store: StateStore, work_item_uid: str,
     A no-op returning ``False`` when there is no session. Never raises: the
     operator's intent is the mint, and a failed identity write must not fail it.
     """
-    raise NotImplementedError("GREEN: link session ref + creator relationship")
+    session = session or resolve_session()
+    if session is None:
+        return False
+    _upsert_session(store, session, now=now or _now())
+    store.relationships.add(session.uid, work_item_uid, REL_SESSION_CREATED_WORK_ITEM)
+    return True
 
 
 def record_participation(store: StateStore, work_item_uid: str,
@@ -116,7 +191,39 @@ def record_participation(store: StateStore, work_item_uid: str,
     ``False`` when there is no session — and a no-op must leave any existing
     binding intact, never nulling what it could not observe.
     """
-    raise NotImplementedError("GREEN: upsert session, stamp recency, link participation")
+    session = session or resolve_session()
+    if session is None:
+        # Observed nothing. Touch nothing: a human commit on a worker's branch
+        # must not erase the worker's binding or disturb its recency.
+        return False
+    _upsert_session(store, session, now=now or _now())
+    data: Dict[str, Any] = {}
+    if worktree_path:
+        data["worktree_path"] = str(worktree_path)
+    # UNIQUE (src_uid, dst_uid, rel_type) makes this idempotent per
+    # (session, work_item): a second commit updates, never appends.
+    store.relationships.add(
+        session.uid, work_item_uid, REL_SESSION_PARTICIPATES_IN_WORK_ITEM, data=data
+    )
+    return True
+
+
+def _upsert_session(store: StateStore, session: AgentSession, *, now: str) -> None:
+    """Ensure the session object + its provider ref exist, and stamp recency.
+
+    Merges into the ref's existing ``data`` rather than replacing it, and does
+    not touch ``created_at`` — the ON CONFLICT clause updates only object_uid
+    and data, so the session's identity anchor survives every re-commit.
+    """
+    store.objects.upsert(session.uid, KIND_AGENT_SESSION)
+    existing = store.external_refs.resolve(
+        session.provider, REF_KIND_SESSION, session.session_id
+    )
+    data = dict(existing.data or {}) if existing else {}
+    data["last_seen_at"] = now  # exactly one value; no history accumulates
+    store.external_refs.link(
+        session.uid, session.provider, REF_KIND_SESSION, session.session_id, data=data
+    )
 
 
 def capture_post_commit(control_root: Optional[Path] = None, *,
@@ -134,7 +241,54 @@ def capture_post_commit(control_root: Optional[Path] = None, *,
     function must therefore never raise — it returns ``False`` and leaves the
     store untouched on any fault.
     """
-    raise NotImplementedError("GREEN: resolve branch -> work_item, record participation")
+    try:
+        environ = os.environ if env is None else env
+        session = resolve_session(environ)
+        if session is None:
+            return False  # a human commit
+
+        work_dir = cwd or os.getcwd()
+        branch_name = branch or _current_branch(work_dir)
+        if not branch_name:
+            return False
+
+        root = control_root or environ.get("ATDD_CONTROL_ROOT") or work_dir
+        conn = connect(init_state_store(start=Path(root)))
+        try:
+            store = StateStore(conn)
+            work_item_uid = _work_item_for_branch(store, branch_name)
+            if work_item_uid is None:
+                return False  # a branch with no registered work item
+            recorded = record_participation(
+                store, work_item_uid, session, worktree_path=work_dir
+            )
+            conn.commit()
+            return recorded
+        finally:
+            conn.close()
+    except Exception:
+        # The commit already exists. Nothing here is worth failing it for.
+        return False
+
+
+def _current_branch(cwd: str) -> Optional[str]:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=cwd, capture_output=True, text=True,
+        )
+    except OSError:
+        return None
+    name = proc.stdout.strip()
+    return name or None
+
+
+def _work_item_for_branch(store: StateStore, branch: str) -> Optional[str]:
+    """Resolve branch → work_item uid via the binding E007 wrote at create."""
+    for obj in store.objects.list(kind=WORK_ITEM_KIND):
+        if (obj.data or {}).get("branch") == branch:
+            return obj.uid
+    return None
 
 
 def sessions_for_work_item(store: StateStore, work_item_uid: str) -> List[SessionParticipation]:
@@ -142,10 +296,56 @@ def sessions_for_work_item(store: StateStore, work_item_uid: str) -> List[Sessio
 
     Ordered by ``last_seen_at`` — NOT by creation order, which misorders 32% of
     measured multi-session work_items. Asserts no role.
+
+    Reads the store and the provider table only: no multiplexer, no subprocess.
     """
-    raise NotImplementedError("GREEN: join session refs to their relationships")
+    refs = {
+        r.object_uid: r
+        for r in store.external_refs.all()
+        if r.ref_kind == REF_KIND_SESSION
+    }
+
+    touched: Dict[str, Dict[str, Any]] = {}
+    for rel in store.relationships.list(dst_uid=work_item_uid):
+        if rel.rel_type not in (
+            REL_SESSION_CREATED_WORK_ITEM, REL_SESSION_PARTICIPATES_IN_WORK_ITEM
+        ):
+            continue
+        entry = touched.setdefault(rel.src_uid, {"created": False, "worktree_path": None})
+        if rel.rel_type == REL_SESSION_CREATED_WORK_ITEM:
+            entry["created"] = True
+        else:
+            entry["worktree_path"] = (rel.data or {}).get("worktree_path")
+
+    rows: List[SessionParticipation] = []
+    for uid, entry in touched.items():
+        ref = refs.get(uid)
+        if ref is None:
+            continue
+        session = AgentSession(provider=ref.provider, session_id=ref.ref_value)
+        rows.append(SessionParticipation(
+            session=session,
+            worktree_path=entry["worktree_path"],
+            last_seen_at=(ref.data or {}).get("last_seen_at"),
+            created=entry["created"],
+            resume_command=resume_command(session, entry["worktree_path"]),
+        ))
+
+    rows.sort(key=lambda r: r.last_seen_at or "", reverse=True)
+    return rows
 
 
 def resume_command(session: AgentSession, cwd: Optional[str]) -> Optional[str]:
-    """The provider's runnable resume command, from its ``resume_template``."""
-    raise NotImplementedError("GREEN: render the provider's resume_template")
+    """The provider's runnable resume command, from its ``resume_template``.
+
+    Both substitutions are shell-quoted, so a worktree path containing a space
+    arrives as ONE argument. ``shlex.quote`` leaves ordinary paths untouched,
+    so the common case stays readable.
+    """
+    row = _row_for_provider(session.provider)
+    if row is None or not row.resume_template:
+        return None
+    return row.resume_template.format(
+        session_id=shlex.quote(session.session_id),
+        cwd=shlex.quote(cwd or ""),
+    )

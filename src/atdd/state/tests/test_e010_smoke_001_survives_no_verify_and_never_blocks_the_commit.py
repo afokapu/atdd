@@ -82,7 +82,16 @@ def test_e010_smoke_001_capture_survives_no_verify(tmp_path, monkeypatch):
 
     repo = _repo(tmp_path, HOOK)
     import os
+
+    import atdd
+
+    # The hook runs in a temp repo, so a relative PYTHONPATH (as pytest is
+    # invoked with) would not resolve there and the hook would silently import
+    # the *installed* atdd instead of this working tree — passing or failing for
+    # reasons that have nothing to do with post-commit. Pin it absolutely.
+    src_root = str(Path(atdd.__file__).resolve().parent.parent)
     env = {**os.environ,
+           "PYTHONPATH": src_root,
            "ATDD_CONTROL_ROOT": str(root),
            "CLAUDE_CODE_SESSION_ID": SESSION_ID}
 
