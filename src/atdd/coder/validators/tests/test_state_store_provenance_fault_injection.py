@@ -101,21 +101,51 @@ def test_scan_is_clean_for_a_sanctioned_work_item(tmp_path):
 # The validator FAILS CLOSED
 # --------------------------------------------------------------------------- #
 @pytest.mark.coder
-def test_unreachable_control_root_raises_rather_than_scanning_clean(tmp_path):
-    """No Control Root is an inability to look, and must not read as a pass."""
+def test_no_control_root_is_vacuously_clean_not_an_error(tmp_path):
+    """No Control Root ⇒ no store ⇒ no records ⇒ nothing to check.
+
+    This is the boundary that matters for consumers. The shipped wheel's
+    validators run in repos that have never seen ``atdd init``; raising there
+    would fail every such consumer over a store they were never supposed to
+    have. Absence of a store is not an inability to read one.
+    """
     nowhere = tmp_path / "no" / "control" / "root"
     nowhere.mkdir(parents=True)
 
-    with pytest.raises(provenance.ProvenanceStoreUnreadable):
-        scan_work_item_provenance(control_root=nowhere)
+    assert scan_work_item_provenance(control_root=nowhere) == []
 
 
 @pytest.mark.coder
-def test_unopenable_store_raises_rather_than_scanning_clean(tmp_path):
-    """A store path that cannot be opened as a database fails the run."""
+def test_control_root_without_a_store_file_is_clean(tmp_path):
+    """A store that has never been written holds no records."""
+    root = _control_root(tmp_path)  # .atdd/ marker, but no state.sqlite
+
+    assert scan_work_item_provenance(control_root=root) == []
+
+
+@pytest.mark.coder
+def test_scan_does_not_create_a_store_as_a_side_effect(tmp_path):
+    """Checking a store must not bring one into existence."""
     root = _control_root(tmp_path)
-    # Occupy the store path with a directory: nothing can open it as SQLite.
-    (root / ".atdd" / "state" / "state.sqlite").mkdir(parents=True)
+    store_file = root / ".atdd" / "state" / "state.sqlite"
+
+    scan_work_item_provenance(control_root=root)
+
+    assert not store_file.exists(), "the validator created the store it was auditing"
+
+
+@pytest.mark.coder
+def test_existing_but_unreadable_store_raises_rather_than_scanning_clean(tmp_path):
+    """THE fail-closed case: a store is present and cannot be read.
+
+    Distinct from absence. Here the tree claims to have a store, so reporting
+    "clean" would assert something about records this scan never managed to
+    look at.
+    """
+    root = _control_root(tmp_path)
+    store_file = root / ".atdd" / "state" / "state.sqlite"
+    store_file.parent.mkdir(parents=True, exist_ok=True)
+    store_file.write_bytes(b"this is emphatically not a sqlite database")
 
     with pytest.raises(provenance.ProvenanceStoreUnreadable):
         scan_work_item_provenance(control_root=root)

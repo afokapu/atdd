@@ -328,27 +328,51 @@ def scan_work_item_provenance(control_root: Optional[Path] = None) -> List[Viola
     APIs. No provider is imported, named or called anywhere on this path; the
     whole point of the design is that the answer comes from the record.
 
-    FAILS CLOSED. A store that cannot be resolved, opened or queried raises
-    :class:`~atdd.state.provenance.ProvenanceStoreUnreadable` out of this
-    function rather than returning ``[]``. Returning an empty list would be
-    indistinguishable from "everything is fine", and an inability to look must
-    never read as a pass. Note the asymmetry that makes this honest: a *finding*
-    is subject to the rule's declared disposition (advisory today), but an
-    unreadable store is not a finding — no disposition tier can downgrade it.
+    FAILS CLOSED — but on the right boundary. "Fail closed" means *an existing
+    store I cannot read must not read as clean*. It does NOT mean "any tree
+    without a store fails", and the difference is the whole correctness of the
+    rule:
 
-    A store that resolves, opens and queries cleanly but holds no work items is
-    NOT unreadable: it has legitimately nothing to say, and returns ``[]``.
+    - **No Control Root** (a consumer repo that has never run ``atdd init``, or
+      any checkout of this package installed as a dependency): there is no
+      store, therefore no ``work_item``, therefore no record whose provenance
+      could be laundered. The invariant has no subject here and the scan is
+      vacuously clean. Raising instead would fail every consumer of the shipped
+      wheel over a store they were never supposed to have.
+    - **Control Root but no store file yet**: same — the store is created on
+      first write, and a store that has never been written holds no records.
+    - **Store present but unopenable/unqueryable**: RAISES
+      :class:`~atdd.state.provenance.ProvenanceStoreUnreadable`. This is the
+      case the fail-closed property exists for. Returning ``[]`` here would be
+      indistinguishable from "everything is fine".
+
+    Note the asymmetry that keeps this honest: a *finding* is subject to the
+    rule's declared disposition (advisory today), but an unreadable store is not
+    a finding — no disposition tier can downgrade it.
+
+    Deliberately resolves the Control Root rather than calling
+    ``init_state_store``: a validator must not CREATE a store as a side effect of
+    checking one.
     """
     from atdd.state import provenance  # local: state is a lower foundational layer
-    from atdd.state.db import connect, init_state_store
+    from atdd.state.db import connect
+    from atdd.state.paths import ControlRootNotFoundError, resolve_control_root
+
+    start = control_root or REPO_ROOT
+    try:
+        resolution = resolve_control_root(Path(start))
+    except ControlRootNotFoundError:
+        return []  # no Control Root ⇒ no store ⇒ no records ⇒ nothing to check
+
+    if not resolution.state_store_exists:
+        return []  # never written ⇒ holds no records
 
     try:
-        db_path = init_state_store(start=control_root or REPO_ROOT)
-        conn = connect(db_path)
-    except Exception as exc:  # noqa: BLE001 — fail closed, never degrade to a pass
+        conn = connect(resolution.state_store_path)
+    except Exception as exc:  # noqa: BLE001 — a store that EXISTS must be readable
         raise provenance.ProvenanceStoreUnreadable(
-            f"State Store unreachable from {control_root or REPO_ROOT}; "
-            f"provenance could not be evaluated: {exc}"
+            f"State Store at {resolution.state_store_path} exists but could not be "
+            f"opened; provenance could not be evaluated: {exc}"
         ) from exc
 
     try:
