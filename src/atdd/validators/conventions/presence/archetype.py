@@ -80,6 +80,11 @@ _PHASE_MACHINE_GATE_COMMAND = "atdd validate planner"
 _SMOKE_URN_RE = re.compile(
     r"^acc:[a-z][a-z0-9-]*:[DLPCEMYRK]\d{3}-SMOKE-\d{3}(?:-[a-z0-9-]+)?$"
 )
+# Acceptance well-formedness (required_field_presence) — a `then` line that is
+# nothing but a placeholder token states no outcome a test could assert.
+_PLACEHOLDER_RE = re.compile(r"^(tbd|todo|tba|n/?a|fixme|xxx|\?+|-+)$", re.IGNORECASE)
+_MIN_OUTCOME_CHARS = 10
+
 _FEEDBACK_LOOP_SUPPRESS_RE = re.compile(
     r"atdd:suppress\(planner\.smoke\.feedback-loop-close-the-loop\)"
     r"\s+UNTIL=\d{4}-\d{2}-\d{2}"
@@ -242,11 +247,73 @@ def _check_phase_machine_init_precommit_gate(graph) -> list:
     return []
 
 
+def _abstract_prose(section) -> list:
+    """The non-empty prose lines of an acceptance ``given``/``when``/``then``
+    section's ``abstract`` field.
+
+    ``when.abstract`` is documented as a string and ``given``/``then`` as arrays
+    (``planner.acceptance.abstract-fields-required``), but the plan corpus carries
+    multi-line ``when.abstract`` arrays too. Both forms are prose, so both are
+    accepted here — this rule checks that the narrative is PRESENT, not which
+    YAML shape carries it.
+    """
+    if not isinstance(section, dict):
+        return []
+    value = section.get("abstract")
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, list):
+        return [x for x in value if isinstance(x, str) and x.strip()]
+    return []
+
+
+def _verifiable_outcome(lines: list) -> bool:
+    """True when at least one ``then`` line states an outcome a generated test
+    can assert — substantive prose rather than a bare placeholder token.
+
+    A line like ``TBD`` or ``???`` names no observable outcome. The match is
+    anchored to the WHOLE stripped line: prose that merely mentions a placeholder
+    (``"... or marked TBD if the follow-on is not yet filed"``) is a real outcome
+    and stays clean.
+    """
+    return any(
+        len(line.strip()) >= _MIN_OUTCOME_CHARS and not _PLACEHOLDER_RE.match(line.strip())
+        for line in lines
+    )
+
+
+def _check_acceptance_well_formed(graph) -> list:
+    """Every acceptance declares Given/When/Then prose AND a verifiable outcome
+    (``planner.acceptance.well-formed``, formerly ``planner.acceptance.complete``).
+
+    Local shape only — this says nothing about whether the acceptance SET is
+    complete for its WMBT, which is ``planner.coverage.every-wmbt-must-have``.
+    """
+    out = []
+    for wmbt in graph.by_kind("wmbt"):
+        for acc in (wmbt.fields.get("acceptances") or []):
+            if not isinstance(acc, dict):
+                continue
+            acc_id = (acc.get("identity") or {}).get("urn") or wmbt.id
+            for section in ("given", "when", "then"):
+                if not _abstract_prose(acc.get(section)):
+                    out.append({"node_id": acc_id,
+                                "missing_field": f"{section}.abstract",
+                                "node_location": wmbt.location})
+            then_lines = _abstract_prose(acc.get("then"))
+            if then_lines and not _verifiable_outcome(then_lines):
+                out.append({"node_id": acc_id,
+                            "missing_field": "then.abstract (no verifiable outcome)",
+                            "node_location": wmbt.location})
+    return out
+
+
 _REQUIRED_FIELD_VARIANTS = {
     "theme_zero_mandatory": _check_theme_zero_mandatory,
     "rule_has_disposition": _check_rule_has_disposition,
     "rule_has_fix_hint": _check_rule_has_fix_hint,
     "phase_machine_init_precommit_gate": _check_phase_machine_init_precommit_gate,
+    "acceptance_well_formed": _check_acceptance_well_formed,
 }
 
 
