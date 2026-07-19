@@ -46,10 +46,10 @@ class TestSmokeHarnessCode:
     def test_acceptance_builder_emits_smoke_urn(self):
         """The builder accepts SMOKE and produces a well-formed acc URN."""
         urn = URNGrammar.acceptance(
-            "mediate-worker-decisions", "E007", "SMOKE", "001", "live-all-answered"
+            "author-plan-substrate", "E007", "SMOKE", "001", "cli-authors-interlocking"
         )
         assert urn == (
-            "acc:mediate-worker-decisions:E007-SMOKE-001-live-all-answered"
+            "acc:author-plan-substrate:E007-SMOKE-001-cli-authors-interlocking"
         )
 
 
@@ -62,7 +62,7 @@ class TestSmokeUrnValidates:
     @pytest.mark.parametrize(
         "good_urn",
         [
-            "acc:mediate-worker-decisions:E007-SMOKE-001-live-multi-question-all-answered",
+            "acc:author-plan-substrate:E007-SMOKE-001-cli-authors-interlocking",
             "acc:integration-hardening:E001-SMOKE-002",
             "acc:auth:C004-SMOKE-019-session-management",
             "acc:a:D001-SMOKE-999",
@@ -88,7 +88,7 @@ class TestSmokeUrnValidates:
 class TestSmokeBrokenRegression:
     def test_representative_real_smoke_urn_not_broken(self):
         """A representative live URN from plan/ resolves as well-formed."""
-        urn = "acc:mediate-worker-decisions:E007-SMOKE-001-live-multi-question-all-answered"
+        urn = "acc:author-plan-substrate:E007-SMOKE-001-cli-authors-interlocking"
         assert URNGrammar.validate_urn(urn, "acc") is True
 
     def test_coherent_with_smoke_acceptance_validator_regex(self):

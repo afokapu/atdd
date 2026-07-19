@@ -35,7 +35,6 @@ trains:
       - coach-wave-orchestration
       - consolidate-coach-workspace
       - dispatch-ux-defaults-and-primer
-      - mediate-worker-decisions
       - coach-verb-split
     - train_id: train:object-conflict-resolution:project-state
       category: nominal
