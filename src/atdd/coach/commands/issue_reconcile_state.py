@@ -53,11 +53,15 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 from __future__ import annotations
 
-import json
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence, Set
+from typing import Callable, Dict, List, Optional, Sequence
+
+from atdd.coach.commands.issue_reconcile_state_evidence import (
+    fetch_labelled_issues,
+    fetch_merged_closers,
+    phase_from_labels,
+)
 
 # The linear lifecycle spine, from
 # ``src/atdd/coach/conventions/phase_machine.convention.yaml``. Only the
@@ -268,90 +272,6 @@ def classify(
 
 
 # ---------------------------------------------------------------------------
-# Evidence
-# ---------------------------------------------------------------------------
-
-def fetch_merged_closers(limit: int = 1000) -> Set[int]:
-    """Issue numbers closed by a **merged** PR — the only "work landed" evidence.
-
-    One ``gh pr list`` call rather than a per-issue query: classifying 236
-    records must not cost 236 round trips. Returns an empty set (after printing)
-    when ``gh`` fails, which downgrades every class-2 candidate to class 3 —
-    fail-SAFE, because class 3 never advances the store.
-    """
-    try:
-        result = subprocess.run(
-            [
-                "gh", "pr", "list",
-                "--state", "merged",
-                "--limit", str(limit),
-                "--json", "number,closingIssuesReferences",
-            ],
-            capture_output=True, text=True, timeout=120,
-        )
-    except (OSError, subprocess.SubprocessError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-30
-        print(f"  Warning: merge evidence unavailable ({exc}); "
-              f"treating every record as class 3 (no store advance).")
-        return set()
-
-    if result.returncode != 0:
-        print(f"  Warning: gh pr list failed: {result.stderr.strip()}; "
-              f"treating every record as class 3 (no store advance).")
-        return set()
-
-    try:
-        prs = json.loads(result.stdout) or []
-    except (json.JSONDecodeError, ValueError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-30
-        print(f"  Warning: could not parse gh output: {exc}; "
-              f"treating every record as class 3 (no store advance).")
-        return set()
-
-    closed: Set[int] = set()
-    for pr in prs:
-        for ref in pr.get("closingIssuesReferences") or []:
-            number = ref.get("number")
-            if number is not None:
-                closed.add(int(number))
-    return closed
-
-
-def fetch_labelled_issues(limit: int = 1000) -> Optional[List[dict]]:
-    """Every ``atdd-issue`` (open AND closed) with its labels.
-
-    Closed issues are the whole point — the ``label=COMPLETE`` signature only
-    exists on records a merge closed. Restricting to open issues would never
-    reach 217 of the 236.
-    """
-    result = subprocess.run(
-        [
-            "gh", "issue", "list",
-            "--label", "atdd-issue",
-            "--state", "all",
-            "--limit", str(limit),
-            "--json", "number,title,state,labels",
-        ],
-        capture_output=True, text=True, timeout=120,
-    )
-    if result.returncode != 0:
-        print(f"Error: gh issue list failed: {result.stderr.strip()}")
-        return None
-    try:
-        return json.loads(result.stdout) or []
-    except (json.JSONDecodeError, ValueError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-30
-        print(f"Error: could not parse gh output: {exc}")
-        return None
-
-
-def phase_from_labels(labels: Sequence) -> Optional[str]:
-    """The ``atdd:<PHASE>`` label's phase, or None when the issue carries none."""
-    for entry in labels or []:
-        name = entry.get("name") if isinstance(entry, dict) else entry
-        if isinstance(name, str) and name.startswith("atdd:") and name != "atdd-issue":
-            return name.split(":", 1)[1].upper()
-    return None
-
-
-# ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
 
@@ -437,46 +357,83 @@ def apply_repair(
     ``reproject`` are injectable purely so the repair classes can be driven in a
     hermetic test without touching live GitHub.
     """
-    if repair.repair_class == CLASS_UNKNOWN_TO_STORE:
-        print(f"#{repair.issue_number}: skipped — {repair.reason}")
-        return 1
+    gate = _gate(repair, allow_legacy_undriven)
+    if gate is not None:
+        return gate
 
-    if repair.refused and not allow_legacy_undriven:
-        print(f"#{repair.issue_number}: REFUSED — {repair.reason}")
-        return 1
-
-    if repair.refused and allow_legacy_undriven:
-        # The operator decision authorises correcting the label DOWN to the
-        # honest floor. It does NOT authorise a replay — no flag does. Fabricated
-        # history is unreachable by construction, not merely discouraged.
-        print(
-            f"#{repair.issue_number}: operator-authorised (--allow-legacy-undriven) "
-            f"— re-projecting the label down to the honest floor "
-            f"{repair.store_phase}. The store is NOT advanced and no history is "
-            f"synthesised."
-        )
-        repair = Repair(
-            repair.issue_number, repair.label_phase, repair.store_phase,
-            repair.merged, repair.repair_class, repair.reason,
-            reproject_to=repair.store_phase, refused=False,
-        )
+    if repair.refused:
+        repair = _authorised_downward_repair(repair)
 
     if repair.is_noop:
         print(f"#{repair.issue_number}: no-op — {repair.reason}")
         return 0
 
     if repair.reproject_to:
-        if reproject is None:
-            from atdd.coach.commands.issue import IssueManager
+        return _run_reprojection(repair, reproject, target_dir)
+    return _run_replay(repair, transition, target_dir)
 
-            reproject = IssueManager(target_dir).reproject_phase_label
-        projected = reproject(repair.issue_number)
-        if projected is None:
-            print(f"#{repair.issue_number}: re-projection failed — store unreadable.")
-            return 1
-        print(f"#{repair.issue_number}: label re-projected from the store := {projected}")
-        return 0
 
+def _gate(repair: Repair, allow_legacy_undriven: bool) -> Optional[int]:
+    """The two ways a repair stops before any writer is reached, or None to proceed."""
+    if repair.repair_class == CLASS_UNKNOWN_TO_STORE:
+        print(f"#{repair.issue_number}: skipped — {repair.reason}")
+        return 1
+    if repair.refused and not allow_legacy_undriven:
+        print(f"#{repair.issue_number}: REFUSED — {repair.reason}")
+        return 1
+    return None
+
+
+def _authorised_downward_repair(repair: Repair) -> Repair:
+    """Downgrade an operator-authorised class-4 record to a label re-projection.
+
+    The operator decision authorises correcting the label DOWN to the honest
+    floor. It does NOT authorise a replay — no flag does. That is why this
+    returns a ``reproject_to`` repair and never a ``transitions`` one: a
+    fabricated history is unreachable by construction, not merely discouraged.
+    """
+    print(
+        f"#{repair.issue_number}: operator-authorised (--allow-legacy-undriven) "
+        f"— re-projecting the label down to the honest floor "
+        f"{repair.store_phase}. The store is NOT advanced and no history is "
+        f"synthesised."
+    )
+    return Repair(
+        repair.issue_number, repair.label_phase, repair.store_phase,
+        repair.merged, repair.repair_class, repair.reason,
+        reproject_to=repair.store_phase, refused=False,
+    )
+
+
+def _run_reprojection(
+    repair: Repair,
+    reproject: Optional[Callable[[int], Optional[str]]],
+    target_dir: Optional[Path],
+) -> int:
+    """Re-derive the label from the store via the one allowlisted writer (#1452)."""
+    if reproject is None:
+        from atdd.coach.commands.issue import IssueManager
+
+        reproject = IssueManager(target_dir).reproject_phase_label
+    projected = reproject(repair.issue_number)
+    if projected is None:
+        print(f"#{repair.issue_number}: re-projection failed — store unreadable.")
+        return 1
+    print(f"#{repair.issue_number}: label re-projected from the store := {projected}")
+    return 0
+
+
+def _run_replay(
+    repair: Repair,
+    transition: Optional[Callable[..., int]],
+    target_dir: Optional[Path],
+) -> int:
+    """Walk the missing phases one legal single step at a time.
+
+    A step the phase machine refuses stops the walk there rather than being
+    forced past: the store keeps whatever it legally earned, and a replay that
+    skipped a refusal would just be the raw label write wearing a new name.
+    """
     if transition is None:
         from atdd.coach.commands.issue_transition import apply_transition
 

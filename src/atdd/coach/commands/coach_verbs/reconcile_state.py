@@ -21,6 +21,7 @@ SAFETY POSTURE — the defaults are deliberate, not cautious-by-accident:
 from __future__ import annotations
 
 import argparse
+from typing import Optional
 
 VERB = "reconcile-state"
 
@@ -72,50 +73,56 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _reject(ns) -> Optional[str]:
+    """The argv combinations the verb declines, or None when the invocation is sane.
+
+    Kept separate from :func:`run` so the safety posture reads as a list rather
+    than as branches interleaved with the work.
+    """
+    if ns.all_issues and ns.number:
+        return "pass an issue number OR --all, not both."
+    if not ns.all_issues and not ns.number:
+        return "atdd coach reconcile-state requires an issue number or --all"
+    if ns.all_issues and ns.apply:
+        return (
+            "--all is report-only. Repairing 236 drifted records in one run is "
+            "an operator-gated data migration, not a verb invocation (#1338 "
+            "Decision 4). Review the report, then --apply per issue."
+        )
+    if ns.number and not ns.number.lstrip("-").isdigit():
+        return f"invalid issue number '{ns.number}'"
+    return None
+
+
 def run(argv: list) -> int:
     """``atdd coach reconcile-state [<N>|--all] [--apply] [--allow-legacy-undriven]``."""
     ns = _build_parser().parse_args(argv)
+
+    rejection = _reject(ns)
+    if rejection is not None:
+        print(f"Error: {rejection}")
+        return 1
 
     # Imported at dispatch time so the coach_verbs package stays a pure
     # registration surface and the fast `atdd coach <N>` path pays no cost.
     from atdd.coach.commands.issue_reconcile_state import apply_repair, build_report
 
-    if ns.all_issues and ns.number:
-        print("Error: pass an issue number OR --all, not both.")
-        return 1
-    if not ns.all_issues and not ns.number:
-        print("Error: atdd coach reconcile-state requires an issue number or --all")
-        return 1
-
-    if ns.all_issues and ns.apply:
-        print(
-            "Error: --all is report-only. Repairing 236 drifted records in one "
-            "run is an operator-gated data migration, not a verb invocation "
-            "(#1338 Decision 4). Review the report, then --apply per issue."
-        )
-        return 1
-
-    numbers = None
-    if ns.number:
-        try:
-            numbers = [int(ns.number)]
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-30
-            print(f"Error: invalid issue number '{ns.number}'")
-            return 1
-
+    numbers = [int(ns.number)] if ns.number else None
     report = build_report(numbers)
     if report is None:
         return 1
 
+    # Always render the plan first, as a plan. Under --apply it is what is about
+    # to be attempted, not what happened — a repair that then refuses must not
+    # have been announced as applied.
+    print(report.render(dry_run=True))
     if not ns.apply:
-        print(report.render(dry_run=True))
         return 0
 
     if not report.repairs:
         print(f"reconcile-state: #{numbers[0]} is not an atdd-issue on GitHub.")
         return 1
 
-    print(report.render(dry_run=True))
     print("")
     return apply_repair(
         report.repairs[0],
