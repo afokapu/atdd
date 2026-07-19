@@ -19,6 +19,11 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
+from atdd.coach.commands.worktree_placement import (
+    resolve_worktree_dir_name,
+    resolve_worktree_path,
+)
+
 logger = logging.getLogger(__name__)
 
 # Statuses where branch + gate are triggered
@@ -152,15 +157,14 @@ class IssueLifecycle:
 
     def _find_worktree_for_issue(self, slug: str, prefix: str) -> Optional[Path]:
         """Check if a worktree already exists for this issue's branch."""
-        worktree_dir_name = f"{prefix}-{slug}"
-        worktree_path = self.target_dir.parent / worktree_dir_name
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         if worktree_path.exists():
             return worktree_path
         return None
 
     def _is_in_worktree(self, slug: str, prefix: str) -> bool:
         """Check if we're currently in the correct worktree."""
-        expected_dir_name = f"{prefix}-{slug}"
+        expected_dir_name = resolve_worktree_dir_name(prefix, slug)
         return self.target_dir.name == expected_dir_name
 
     def _create_branch(self, issue_number: int, slug: str, prefix: str) -> Optional[Path]:
@@ -171,11 +175,11 @@ class IssueLifecycle:
         if entry:
             rc = manager.branch(issue_number)
             if rc == 0:
-                return self.target_dir.parent / f"{prefix}-{slug}"
+                return resolve_worktree_path(self.target_dir, prefix, slug)
             return None
         # If not in manifest, create worktree directly
         branch_name = f"{prefix}/{slug}"
-        worktree_path = self.target_dir.parent / f"{prefix}-{slug}"
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         if worktree_path.exists():
             return worktree_path
 

@@ -54,3 +54,27 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-18'
+- identity:
+    urn: acc:place-worktrees:E001-SMOKE-001-real-repo-places-worktree-under-configured-root
+    id: AC-SMOKE-001
+    purpose: over a real git checkout, the resolver places a worktree where worktree_root
+      says and nowhere else
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real git repository whose .atdd/config.yaml sets worktree_root to a non-default
+      directory
+  when:
+    abstract: a worktree path is resolved for a branch and a real git worktree is
+      created at it
+  then:
+    abstract:
+    - the worktree exists under the configured root and git worktree list reports
+      it there
+    - no directory is created at the legacy flat-sibling location
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-19'

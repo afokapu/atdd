@@ -54,3 +54,26 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-18'
+- identity:
+    urn: acc:place-worktrees:Y001-SMOKE-001-real-relocation-moves-git-and-store-together
+    id: AC-SMOKE-001
+    purpose: over a real git worktree, relocation moves the directory and rewrites
+      the store binding as one step
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real git worktree bound to a work item in a real State Store, carrying uncommitted
+      work
+  when:
+    abstract: the worktree is relocated under the configured root
+  then:
+    abstract:
+    - the directory moves, the uncommitted work survives, and git worktree list reports
+      the new path
+    - the store binding names the new path, so no stale binding is manufactured
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-19'

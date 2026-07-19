@@ -61,3 +61,25 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-18'
+- identity:
+    urn: acc:place-worktrees:E002-SMOKE-001-real-gc-finds-orphans-in-both-roots-and-spares-the-root
+    id: AC-SMOKE-001
+    purpose: over a real checkout, gc scans the configured root and the legacy location
+      without ever eating the root itself
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repository with orphan worktree directories under both the configured
+      root and the legacy sibling location
+  when:
+    abstract: atdd worktree gc runs in its default dry-run mode
+  then:
+    abstract:
+    - orphans in both locations are reported
+    - the configured worktree root is never itself reported as an orphan
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-19'

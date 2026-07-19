@@ -77,19 +77,39 @@ def gc(repo_root: Optional[Path] = None, apply: bool = False) -> List[Path]:
         repo_root = Path.cwd()
     repo_root = Path(repo_root).resolve()
 
-    parent = repo_root.parent
+    from atdd.coach.commands.worktree_placement import resolve_worktree_root_dir
+
     worktree_paths = _real_worktree_paths(repo_root)
 
+    # Scan BOTH the configured root and the legacy sibling location while old
+    # worktrees drain. Scanning only the parent meant a configured root named
+    # `worktrees` was skipped by the `"-" not in name` filter and gc silently
+    # reported zero orphans after migration (#1524 E002).
+    configured_root = resolve_worktree_root_dir(repo_root)
+    scan_roots = {repo_root.parent, configured_root}
+
+    # The configured root is excluded from the candidate set BY IDENTITY. The
+    # naming filter below is not a safeguard: name a root `atdd-worktrees` and
+    # it becomes a candidate, whereupon `_is_orphan` rglobs the whole subtree
+    # and `apply=True` would rmtree every worktree under it.
+    excluded = {repo_root.resolve(), configured_root}
+
     orphans: List[Path] = []
-    for candidate in sorted(parent.iterdir()):
-        if candidate == repo_root:
+    seen: set = set()
+    for scan_root in sorted(scan_roots):
+        if not scan_root.is_dir():
             continue
-        if not candidate.is_dir():
-            continue
-        if "-" not in candidate.name:
-            continue
-        if _is_orphan(candidate, worktree_paths):
-            orphans.append(candidate)
+        for candidate in sorted(scan_root.iterdir()):
+            resolved = candidate.resolve()
+            if resolved in excluded or resolved in seen:
+                continue
+            if not candidate.is_dir():
+                continue
+            if "-" not in candidate.name:
+                continue
+            if _is_orphan(candidate, worktree_paths):
+                seen.add(resolved)
+                orphans.append(candidate)
 
     if apply:
         for orphan in orphans:
