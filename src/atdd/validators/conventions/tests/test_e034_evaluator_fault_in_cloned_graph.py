@@ -29,6 +29,8 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions.coherence import _parity as coherence_parity
 from atdd.validators.conventions._support.graph_loader import find_train_file
 from atdd.validators.conventions._support.graph_mutations import (
@@ -66,6 +68,7 @@ def _tree_hashes(root: Path) -> dict:
     }
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_on_disk_fault_rewrites_plan_yaml() -> None:
     """E034-RED-001: the retired on-disk mechanism mutates a plan YAML mid-test.
 
