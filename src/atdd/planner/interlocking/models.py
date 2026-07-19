@@ -52,12 +52,14 @@ class Message:
     intent: str
     payload: Payload
     feature_refs: Tuple[str, ...] = ()
+    wmbt_refs: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class Guard:
     id: str
     expression: str
+    wmbt_refs: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,7 @@ class Fragment:
     kind: str  # "alt" | "opt"
     guards: Tuple[Guard, ...]
     acceptance_refs: Tuple[str, ...] = ()
+    wmbt_refs: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -82,6 +85,7 @@ class Residual:
     reason: str
     acceptance_ref: Optional[str] = None
     validator_ref: Optional[str] = None
+    wmbt_refs: Tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -171,6 +175,53 @@ class TrainInterlocking:
 
     def lifeline_refs(self) -> "set[str]":
         return {ll.ref for ll in self.lifelines}
+
+    def obligation_index(self) -> "dict[str, set[str]]":
+        """Map each referenced WMBT obligation to the surface kinds that carry it.
+
+        The single resolver behind the surface-coverage question (#1546): it walks
+        every surface kind that can name an obligation — message, guard, fragment,
+        invariant, residual — and returns ``{wmbt_ref: {surface_kind, ...}}``.
+
+        It reports only what the document *declares*; it does not enumerate the
+        WMBT population and does not decide whether an obligation is adequately
+        surfaced. That judgement belongs to the validator (#1547), which needs the
+        surface kinds — not a bare set of refs — to name the kind in its evidence.
+        """
+        index: "dict[str, set[str]]" = {}
+
+        def _add(ref: "str | None", kind: str) -> None:
+            if ref:
+                index.setdefault(ref, set()).add(kind)
+
+        for msg in self.messages:
+            for ref in msg.wmbt_refs:
+                _add(ref, "self" if msg.kind == "self" else "message")
+        for frag in self.fragments:
+            for ref in frag.wmbt_refs:
+                _add(ref, "fragment")
+            for guard in frag.guards:
+                for ref in guard.wmbt_refs:
+                    _add(ref, "guard")
+        for inv in self.invariants:
+            _add(inv.wmbt_ref, "invariant")
+        for rsd in self.residuals:
+            for ref in rsd.wmbt_refs:
+                _add(ref, f"residual:{rsd.kind}")
+        return index
+
+    def residual_wmbt_refs(self, kind: str = "structural") -> "set[str]":
+        """WMBT obligations discharged by a residual of ``kind`` (default structural).
+
+        Distinct from ``{rsd.id for rsd in residuals}``, which lives in the
+        ``residual:`` namespace and can never equal a ``wmbt:`` ref.
+        """
+        return {
+            ref
+            for rsd in self.residuals
+            if rsd.kind == kind
+            for ref in rsd.wmbt_refs
+        }
 
     def route_by_id(self, route_id: str) -> Optional[Route]:
         for route in self.routes:
