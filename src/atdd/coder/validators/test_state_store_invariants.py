@@ -33,6 +33,14 @@ Invariants:
    report a violation for a synthetic rogue per-worktree store, so a
    defined-but-toothless guard cannot pass. Sibling-worktree mode allows exactly
    one store.
+6. ``coder.state-store.work-item-provenance`` (#1557) — every ``work_item`` in
+   the live store has a sanctioned authoring event as its FIRST event. Unlike
+   invariants 1–4, which scan source text, this one reads the running store
+   (``objects`` + ``events``), because the fault it catches is a *record*
+   created outside the sanctioned path — something no amount of source reading
+   can see. It names no provider and makes no network call, and it **fails
+   closed**: an unreadable store raises out of the test rather than passing
+   vacuously, which is why that path deliberately bypasses the disposition gate.
 
 Convention nodes: ``src/atdd/coder/conventions/nodes/coder.state-store.*.convention.yaml``.
 """
@@ -43,7 +51,7 @@ import ast
 import re
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import pytest
 
@@ -62,6 +70,7 @@ _RULE_SYNC = bind_rule("coder.state-store.sync-engine-provider-agnostic")
 _RULE_SQL = bind_rule("coder.state-store.no-raw-sql-at-call-sites")
 _RULE_REF = bind_rule("coder.state-store.one-external-ref-per-issue")
 _RULE_STORE = bind_rule("coder.state-store.single-store-per-control-root")
+_RULE_PROVENANCE = bind_rule("coder.state-store.work-item-provenance")
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +321,52 @@ def scan_single_store_per_control_root() -> List[Violation]:
     return violations
 
 
+def scan_work_item_provenance(control_root: Optional[Path] = None) -> List[Violation]:
+    """Invariant 6 (#1557): every ``work_item``'s first event is sanctioned.
+
+    Reads the live State Store — ``objects`` + ``events`` — through the storage
+    APIs. No provider is imported, named or called anywhere on this path; the
+    whole point of the design is that the answer comes from the record.
+
+    FAILS CLOSED. A store that cannot be resolved, opened or queried raises
+    :class:`~atdd.state.provenance.ProvenanceStoreUnreadable` out of this
+    function rather than returning ``[]``. Returning an empty list would be
+    indistinguishable from "everything is fine", and an inability to look must
+    never read as a pass. Note the asymmetry that makes this honest: a *finding*
+    is subject to the rule's declared disposition (advisory today), but an
+    unreadable store is not a finding — no disposition tier can downgrade it.
+
+    A store that resolves, opens and queries cleanly but holds no work items is
+    NOT unreadable: it has legitimately nothing to say, and returns ``[]``.
+    """
+    from atdd.state import provenance  # local: state is a lower foundational layer
+    from atdd.state.db import connect, init_state_store
+
+    try:
+        db_path = init_state_store(start=control_root or REPO_ROOT)
+        conn = connect(db_path)
+    except Exception as exc:  # noqa: BLE001 — fail closed, never degrade to a pass
+        raise provenance.ProvenanceStoreUnreadable(
+            f"State Store unreachable from {control_root or REPO_ROOT}; "
+            f"provenance could not be evaluated: {exc}"
+        ) from exc
+
+    try:
+        findings = provenance.audit_work_items(conn)
+    finally:
+        conn.close()
+
+    return [
+        Violation(
+            rule_id=_RULE_PROVENANCE.rule_id,
+            severity=_RULE_PROVENANCE.severity,
+            location=f"state:work_item/{f.uid}",
+            detail=f.detail,
+        )
+        for f in findings
+    ]
+
+
 # ===========================================================================
 # Tests — one per invariant, routed through the disposition gate.
 # ===========================================================================
@@ -382,4 +437,22 @@ def test_single_store_per_control_root():
     assert_disposition_satisfied(
         validator_id="state_store_single_store_per_control_root",
         violations=scan_single_store_per_control_root(),
+    )
+
+
+@pytest.mark.coder
+def test_work_item_provenance():
+    """SPEC: ``coder.state-store.work-item-provenance``.
+
+    Given: The live State Store's ``objects`` and ``events`` tables.
+    When:  Each ``work_item``'s lowest-seq event is read.
+    Then:  It is a sanctioned authoring event.
+
+    An unreadable store propagates ``ProvenanceStoreUnreadable`` and errors the
+    run — it is not routed through the disposition gate, because the gate
+    decides what to do with *findings*, and "I could not look" is not a finding.
+    """
+    assert_disposition_satisfied(
+        validator_id="state_store_work_item_provenance",
+        violations=scan_work_item_provenance(),
     )
