@@ -5,7 +5,7 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
-  content_digest: 2efc581afcd87707444648cb5ff6d1df4109d5f3bc8da2cec43c68bf08ca948a
+  content_digest: 59f5d6a4a78fb57870be8c3ac727380df2e3a035985e96db540d4e242a35a9d6
 entrypoint:
   exposed: true
   actions:
@@ -92,16 +92,16 @@ fragments:
   - acceptance:unbound-declaration-detected
   guards:
   - id: guard:unbound-declaration
-    expression: declared == true and gating == true and realized == true and bound == false and core_backed
-      == true
+    expression: declared == true and gating == true and realized == true and bound
+      == false and core_backed == true
 - id: frag:succession-loss-blocked
   kind: alt
   acceptance_refs:
   - acceptance:succession-loss-blocked
   guards:
   - id: guard:succession-loss
-    expression: declared == true and gating == true and realized == true and bound == false and core_backed
-      == false
+    expression: declared == true and gating == true and realized == true and bound
+      == false and core_backed == false
 - id: frag:unrealized-obligation-detected
   kind: alt
   acceptance_refs:
@@ -130,20 +130,22 @@ residuals:
   kind: structural
   acceptance_ref: acceptance:enforcement-ratchet-baseline
   validator_ref: src/atdd/enforce/validators/test_ratchet_baseline.py
-  reason: the pre-existing 13 failing rules are held flat by a recorded baseline rather than by a guarded
-    route, because the baseline is a stored artifact and not a decision branch
+  reason: the pre-existing 13 failing rules are held flat by a recorded baseline rather
+    than by a guarded route, because the baseline is a stored artifact and not a decision
+    branch
 - id: residual:mirror-coherence
   kind: structural
   acceptance_ref: acceptance:mirror-coherence-validation
   validator_ref: src/atdd/planner/validators/test_extension_mirror_coherence.py
-  reason: extension nodes mirror core rules as data read by a validator, not as a route the enforcement
-    entrypoint can take
+  reason: extension nodes mirror core rules as data read by a validator, not as a
+    route the enforcement entrypoint can take
 - id: residual:duplicate-precedence
   kind: structural
   acceptance_ref: acceptance:duplicate-rule-precedence
   validator_ref: src/atdd/coach/validators/test_rule_id_uniqueness.py
-  reason: a duplicate rule_id is detected while building the registry at import time, before any enforcement
-    entrypoint runs, so it cannot be expressed as a guarded route
+  reason: a duplicate rule_id is detected while building the registry at import time,
+    before any enforcement entrypoint runs, so it cannot be expressed as a guarded
+    route
 routes:
 - route_id: clean-gate-passes
   category: nominal
@@ -243,3 +245,10 @@ routes:
     - from
     - to
     - artifact
+category_assessment:
+  error:
+    basis: not-yet-assessed
+    retires_with: 1549
+  exception:
+    basis: discharged-by-residual
+    residual_ref: residual:duplicate-precedence
