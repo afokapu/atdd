@@ -1492,11 +1492,19 @@ class IssueManager:
             ):
                 return 1
 
-            self._write_phase_label(client, issue_number, current_labels, status)
-
-            # R001: mirror the transition into the local manifest so readers of
-            # .atdd/manifest.yaml do not diverge from GitHub state.
+            # #1452: STORE FIRST, LABEL AS ITS PROJECTION. The order matters and
+            # is load-bearing, not cosmetic. `atdd:<PHASE>` is a *rendering* of
+            # `objects.state`, so the source of truth must move before the
+            # artifact derived from it. Writing the label first is how 236 issues
+            # (56%) ended up carrying a phase their store never earned: the
+            # projection landed, something failed after it, and the label was
+            # left asserting a transition that never happened.
             self._update_manifest_status(issue_number, status)
+
+            # Project the store's new state onto GitHub. This is the sole
+            # authoritative `atdd:*` label write in the codebase — enforced by
+            # coach.issue.phase-label-projection-only.
+            self._write_phase_label(client, issue_number, current_labels, status)
             updated.append(f"status: {status}")
 
         # Validate branch prefix (every branch = a worktree)
@@ -1591,6 +1599,46 @@ class IssueManager:
 
         self._update_manifest_fields(issue_number, manifest_text)
         return [f"{key}: {value}" for key, value in manifest_text.items()]
+
+    def reproject_phase_label(self, issue_number: int) -> Optional[str]:
+        """Re-render the ``atdd:<PHASE>`` label from ``objects.state`` (#1338).
+
+        The repair counterpart of :meth:`update`. ``update`` *advances* the
+        lifecycle — store first, label projected from it. This method advances
+        nothing: it re-derives the projection from the store the record already
+        has, for a record whose label drifted away from it.
+
+        It is deliberately NOT a transition. ``update(status=<store phase>)``
+        cannot express "make the label agree again" — the phase machine refuses
+        a self-transition, which is precisely why the 236 drifted records were
+        unrepairable (see #1338: ``Cannot transition from COMPLETE to COMPLETE``).
+
+        It lives here, on ``IssueManager``, because ``issue.py`` is the sole
+        path allowed to author an ``atdd:*`` label — enforced by
+        ``coach.phase-label.projection-only`` (#1452). The direction of truth is
+        never inverted: the store is read, never written.
+
+        Returns the phase projected, or ``None`` when the store does not know
+        this issue (which the caller must treat as "cannot decide", never as
+        "no phase").
+        """
+        from atdd.coach.commands.auto_phase import read_store_phase
+
+        store_phase = read_store_phase(issue_number, self.target_dir)
+        if not store_phase:
+            return None
+
+        resolved = self._resolve_issue(str(issue_number))
+        if resolved is None:
+            return None
+        _, issue, client = resolved
+
+        current_labels, current_phase = self._read_phase_labels(issue)
+        if current_phase == store_phase:
+            return store_phase
+
+        self._write_phase_label(client, issue_number, current_labels, store_phase)
+        return store_phase
 
     # -------------------------------------------------------------------------
     # Transition gates (each prints its own diagnosis; False blocks the write)

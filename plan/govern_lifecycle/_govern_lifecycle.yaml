@@ -81,7 +81,9 @@ features:
   - urn: "feature:govern-lifecycle:ship-package-data-and-consumer-ci"
 
 wmbt:
-  total: 96
+  total: 98
+  R006: "minimize drifted-lifecycle-records-that-no-verb-can-repair"
+  R005: "minimize phase-labels-written-without-the-store-transition-behind-them"
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"

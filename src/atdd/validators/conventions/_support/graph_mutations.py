@@ -361,6 +361,42 @@ def mirror_file(
     return dst
 
 
+def mirror_glob(
+    real_root: Union[str, Path], staged_root: Union[str, Path], subdir: str, pattern: str
+) -> int:
+    """Mirror every ``real_root/subdir`` file matching ``pattern`` into the staged tree.
+
+    :func:`mirror_file` stages the ONE file an evaluator reads by path. A second root-reader
+    shape does not read by path — it GLOBS a whole surface (coverage's ``no_orphan_nodes``
+    walks every ``*.convention.yaml`` under ``src/atdd`` looking for rule-bearing nodes).
+    Staging only the fault probe for one of those would hand the evaluator a tree containing
+    nothing BUT the fault: it would still flag the probe, but for the wrong reason, and it
+    could no longer show that a legitimate node goes unflagged. The pass would be degenerate.
+
+    So mirror the evaluator's real input surface and inject the fault INTO it. The staged
+    tree is then the real one as far as the evaluator can tell, and the assertion can be the
+    strong one — this node and no other.
+
+    Copies bytes verbatim (no transform: the fault belongs in a separate
+    :func:`stage_file` / :func:`mirror_file` call, so what is faithful and what is faulted
+    stay visibly apart). Returns the number of files mirrored, and raises ``FileNotFoundError``
+    if the pattern matches nothing — an empty surface means the glob has drifted, and every
+    later assertion would be reasoning about a tree with nothing in it.
+    """
+    src_dir = Path(real_root) / subdir
+    matches = sorted(p for p in src_dir.rglob(pattern) if p.is_file())
+    if not matches:
+        raise FileNotFoundError(
+            f"mirroring {subdir}/**/{pattern} matched no file under {real_root} — the glob "
+            "has drifted and the staged tree would be empty"
+        )
+    for src in matches:
+        dst = Path(staged_root) / src.relative_to(real_root)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(src.read_bytes())
+    return len(matches)
+
+
 def stage_file(staged_root: Union[str, Path], rel: str, content: str) -> Path:
     """Write ``content`` to ``staged_root/rel``, creating parents; return the path.
 
