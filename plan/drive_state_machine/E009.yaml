@@ -72,3 +72,24 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:E009-SMOKE-001-real-cli-mint-records-the-creating-session"
+      id: "AC-SMOKE-001"
+      purpose: "The real `atdd author issue` CLI, run as a subprocess, records the creating session"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real on-disk control-root State Store and a stub `gh` on PATH (no network, no real issue minted)"
+        - "An environment carrying an agent session id"
+    when:
+      abstract: "`atdd author issue` is invoked as a real subprocess"
+    then:
+      abstract:
+        - "The command exits zero and the work item is in the store"
+        - "A session external_ref and a creator relationship were written by the real CLI path, not an in-process call"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"

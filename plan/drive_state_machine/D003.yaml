@@ -90,3 +90,24 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:D003-SMOKE-001-shipped-provider-table-resolves-in-a-real-process"
+      id: "AC-SMOKE-001"
+      purpose: "The provider table shipped in the installed package loads and resolves a session in a real process"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The provider table as shipped alongside the installed package (not a test fixture)"
+    when:
+      abstract: "A separate process imports the package and resolves a session from an environment carrying the table's own session env var"
+    then:
+      abstract:
+        - "The table is present, parses, and yields at least one complete row"
+        - "A session resolves, carrying that row's provider tag"
+        - "An empty environment resolves to nothing without raising"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"

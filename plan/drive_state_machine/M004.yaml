@@ -68,3 +68,23 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:M004-SMOKE-001-recency-ordering-survives-a-real-store-reopen"
+      id: "AC-SMOKE-001"
+      purpose: "Recency ordering is durable — it survives the process that wrote it"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real on-disk control-root State Store written by one process, with several sessions whose creation order differs from their recency order"
+    when:
+      abstract: "A separate process reopens that store from disk and reads the sessions back"
+    then:
+      abstract:
+        - "The ordering by `last_seen_at` is unchanged across the reopen"
+        - "Recovery therefore does not depend on the process that recorded it — which is the point, since that process has crashed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
