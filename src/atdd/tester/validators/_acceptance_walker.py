@@ -32,6 +32,7 @@ from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 import yaml
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.utils.plan_paths import TRAINS_DIRNAME, iter_train_files
 from atdd.coach.validators._violation import Violation
 
 
@@ -107,25 +108,9 @@ def iter_repo_acceptances(repo_root: Path) -> Iterator[RawAcceptance]:
                 continue
             yield from _iter_acceptances_in_file(wmbt_file, "wmbt", repo_root)
 
-    trains_dir = plan_dir / "_trains"
-    if trains_dir.is_dir():
-        for train_file in sorted(_iter_train_files(trains_dir)):
-            yield from _iter_acceptances_in_file(train_file, "train", repo_root)
-
-
-def _iter_train_files(trains_dir: Path) -> Iterator[Path]:
-    """Yield every train YAML under ``plan/_trains/``, flat or subject-nested.
-
-    Legacy trains sit flat (``0007-enforce-extension-conventions.yaml``); typed
-    trains (#1421) sit one level down under their subject
-    (``self-compliance/validate-lifecycle.yaml``). Underscore-prefixed names are
-    registries (``_trains.yaml``, ``_aliases.yaml``) or control artifacts
-    (``_interlockings/``), never trains.
-    """
-    for path in trains_dir.rglob("*.yaml"):
-        if any(part.startswith("_") for part in path.relative_to(trains_dir).parts):
-            continue
-        yield path
+    trains_dir = plan_dir / TRAINS_DIRNAME
+    for train_file in sorted(iter_train_files(trains_dir)):
+        yield from _iter_acceptances_in_file(train_file, "train", repo_root)
 
 
 def _iter_acceptances_in_file(
