@@ -21,8 +21,8 @@ rules:
 
   - id: "AR-003"
     rule: "Commit after every completed sub-task; never accumulate more than 5 modified files without committing"
-    classification: partial
-    enforcement: "Advisory warning in claude-pre-tool-use.sh hook when >5 files modified since last commit"
+    classification: soft-only
+    enforcement: "Not mechanically enforced. The per-agent pre-tool-use advisory that carried this was removed in #1556 (core names no agent); the surviving pre-push/pre-commit reminders warn on staged/uncommitted volume, not on this rule's >5-modified-files threshold"
 
   - id: "AR-004"
     rule: "Use --worktree flag for per-worktree git config; never run bare git config in a worktree"

@@ -25,9 +25,9 @@ and record the in-repo enforcement site when applicable.
 |---|---|---|---|
 | Never pass `--dangerously-skip-permissions` | **enforceable** | `SpawnPermissionViolation` raised in `cmd_spawn()` before multiplexer dispatch | `src/atdd/coach/commands/spawn.py` (E014) |
 | Search before filing issues (`atdd issue <slug>`) | **enforceable** | `dup_check_before_file()` called in `IssueManager.new()`; abort on matches unless `--no-dup-check` | `src/atdd/coach/commands/issue.py` (E013) |
-| Commit after every sub-task; never accumulate >5 modified files | **partial** | Advisory warning in claude-pre-tool-use.sh hook when >5 files modified since last commit | `.claude/hooks/pre_tool_use.sh` (template: `src/atdd/coach/templates/hooks/claude-pre-tool-use.sh`) |
+| Commit after every sub-task; never accumulate >5 modified files | **soft-only** | Not mechanically enforced. The per-agent pre-tool-use advisory was removed in #1556 (core names no agent); surviving hooks warn on staged/uncommitted volume, not this threshold | — |
 | Use `--worktree` flag for per-worktree git config; never `git config` bare keys in a worktree | **enforceable** | pre-push hook Layer 1 guard detects `core.bare` contamination (Y002/Y003) | `src/atdd/coach/templates/hooks/pre-push` |
-| All issue and PR operations via `atdd` CLI, not direct `gh` commands | **partial** | Forbidden-commands classifier catches `gh issue create` and `gh pr create` via pre-tool-use hook | `src/atdd/coach/validators/test_forbidden_commands.py` (E006) |
+| All issue and PR operations via `atdd` CLI, not direct `gh` commands | **partial** | `gh issue create` blocked by the agent-agnostic PATH shim and the L3b pre-commit hook. `gh pr create` is NOT mechanically guarded since #1556 removed the classifier — see #1557 | `src/atdd/coach/templates/bin/gh.shim` (E032), `templates/hooks/pre-commit-gh-issue-create.sh` (E033) |
 | Do NOT commit anything under `.atdd/runtime/` | **enforceable** | `coach.pr.runtime-artifacts-blocked` validator in `atdd validate coach`; `.atdd/runtime/` fully gitignored | `src/atdd/coach/validators/` (E009) |
 | Do NOT add `Co-Authored-By: Claude <noreply@anthropic.com>` to commits | **soft-only** | Documented in CLAUDE.md `git.commits.co_authored=false`; no automated check | CLAUDE.md |
 | Run `atdd gate` before starting work; confirm loaded files and hash | **soft-only** | Protocol documented in CLAUDE.md ATDD Bootstrap Protocol; gate output is informational | CLAUDE.md |
@@ -43,9 +43,9 @@ The following rules have been lifted into `.atdd/agent-rules.yaml` (the portable
 
 - AR-001: Never pass `--dangerously-skip-permissions` (enforceable — E014)
 - AR-002: Search before filing issues (enforceable — E013)
-- AR-003: Micro-commit discipline (partial — advisory hook)
+- AR-003: Micro-commit discipline (soft-only — per-agent advisory removed in #1556)
 - AR-004: `--worktree` git config guard (enforceable — Y002/Y003)
-- AR-005: Use `atdd` CLI, not direct `gh` commands (partial — E006)
+- AR-005: Use `atdd` CLI, not direct `gh` commands (partial — E032/E033; `gh pr create` unguarded since #1556)
 - AR-006: Do not commit `.atdd/runtime/` (enforceable — E009)
 - AR-007: No `Co-Authored-By: Claude` (soft-only — documented)
 - AR-008: Run `atdd gate` before starting (soft-only — documented)

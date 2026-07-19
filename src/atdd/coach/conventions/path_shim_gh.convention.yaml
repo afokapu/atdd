@@ -4,9 +4,11 @@ description: |
   YAML-backed registry of the gh-issue-create enforcement patterns used by the
   L3a direnv PATH shim (.atdd/bin/gh) and the L3b pre-commit hook (issue #816).
 
-  This convention mirrors forbidden_commands.convention.yaml (#668, L1) but
-  targets two harness-agnostic enforcement sites instead of the Claude Code
-  PreToolUse hook:
+  These are the surviving enforcement sites for `gh issue create`. The former
+  per-agent interception layer (#668) was decommissioned in #1556 because
+  interception can only be implemented per-agent; forbidden_commands.convention.yaml
+  is now an advisory record only and enforces nothing. Both sites below are
+  harness-agnostic and name no agent:
 
     L3a (shim)        — .atdd/bin/gh wraps the gh binary at PATH precedence
                         inside the worktree. Blocks `gh issue create` for ANY
