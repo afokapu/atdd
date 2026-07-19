@@ -62,3 +62,29 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-18"
+  - identity:
+      urn: "acc:govern-lifecycle:R006-SMOKE-001-real-reconcile-state-cli"
+      id: "AC-SMOKE-001"
+      purpose: "A real `atdd coach reconcile-state` CLI subprocess classifies a real State Store record, reports without writing, and really refuses the legacy-undriven one"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real Control Root with a real migrated State Store carrying real work items — one at SMOKE (the #1434 signature) and one at INIT (the legacy-undriven signature), both labelled atdd:COMPLETE"
+        - "The installed CLI invoked as a real subprocess — no in-process import shortcut and no re-implemented classification"
+        - "A real `gh` executable on PATH answering `gh issue list` and `gh pr list` with canned JSON, so the run stays hermetic and off production GitHub while the CLI, dispatch, store and classifier stay genuinely real"
+    when:
+      abstract: "The real CLI is run against the drifted record, against the legacy record with --apply, and across --all"
+    then:
+      abstract:
+        - "The verb is asserted to actually dispatch before any output is asserted about, so a missing surface cannot make the substring checks vacuously green"
+        - "The drifted record is reported as class 2 naming the missing legal steps REFACTOR -> COMPLETE"
+        - "A default report leaves objects.state untouched at SMOKE and says DRY RUN — the operator approves the plan before it is applied"
+        - "The legacy-undriven record exits non-zero naming the refusal, and its store is still INIT afterwards — a refusal that writes is not a refusal, and that write would be the fabricated history"
+        - "`--all --apply` is refused and explains that --all is report-only, so a bulk data migration cannot ride in on a verb invocation"
+        - "The --all sweep surfaces both the replay class and the refused class"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
