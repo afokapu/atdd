@@ -187,6 +187,14 @@ class TrainInterlocking:
         WMBT population and does not decide whether an obligation is adequately
         surfaced. That judgement belongs to the validator (#1547), which needs the
         surface kinds — not a bare set of refs — to name the kind in its evidence.
+
+        The surface kind is load-bearing, not decorative. Residual-sourced refs
+        are tagged ``residual:<kind>`` and are deliberately NOT merged into the
+        flow-surface kinds (``message``/``self``/``guard``/``fragment``/
+        ``invariant``), because per #1543 a structural residual discharges route
+        completeness (O2) ONLY — never a SMOKE obligation (O1/O3). Collapsing
+        this dict to ``set(index)`` throws that distinction away; any caller
+        judging SMOKE coverage must filter on the kind rather than membership.
         """
         index: "dict[str, set[str]]" = {}
 
@@ -211,10 +219,33 @@ class TrainInterlocking:
         return index
 
     def residual_wmbt_refs(self, kind: str = "structural") -> "set[str]":
-        """WMBT obligations discharged by a residual of ``kind`` (default structural).
+        """WMBT obligations a residual of ``kind`` names for ROUTE COMPLETENESS only.
 
         Distinct from ``{rsd.id for rsd in residuals}``, which lives in the
         ``residual:`` namespace and can never equal a ``wmbt:`` ref.
+
+        SCOPE — the #1543 binding rule. A structural residual discharges **O2
+        only** (every modeled route/category has an acceptance at an appropriate
+        phase). It NEVER discharges:
+
+          O1  every registered train has a resolvable train-level SMOKE
+          O3  every executable WMBT is SMOKE-covered, by train or WMBT ownership
+
+        A residual is an admission that an obligation has *no honest flow
+        representation*, so it is the weakest possible evidence — it asserts the
+        route space is accounted for, never that anything was executed. It is
+        therefore NOT SMOKE evidence and must not be counted as such.
+
+        Concretely, this is the misuse this docstring exists to prevent::
+
+            covered = surfaced | il.residual_wmbt_refs()   # WRONG for O1/O3
+
+        That union silently lets a structural residual satisfy a SMOKE
+        obligation. This method returns a bare set with no phase or evidence
+        dimension and cannot distinguish the two on its own; keeping O2 separate
+        from O1/O3 is the CALLER's responsibility. Use ``obligation_index()``
+        when the distinction matters — it tags residual-sourced refs as
+        ``residual:<kind>``, which the flow-surface kinds never collide with.
         """
         return {
             ref

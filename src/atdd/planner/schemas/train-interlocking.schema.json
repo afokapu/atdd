@@ -187,6 +187,12 @@
       "items": { "$ref": "#/definitions/wmbt_ref" },
       "description": "Typed obligation references: the WMBT obligations this surface discharges. Every surface kind carries this so `planner.train.interlocking-wmbt-surface-or-residual` is expressible — before #1546 only `invariant` could name a WMBT, and it did so with a malformed grammar."
     },
+    "residual_wmbt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/wmbt_ref" },
+      "description": "WMBT obligations this residual accounts for, for ROUTE COMPLETENESS ONLY. Same shape as wmbt_refs, deliberately a distinct definition so the weaker semantics are stated where they apply rather than as an ignored sibling of a $ref. Per the #1543 binding rule a structural residual discharges O2 (every modeled route/category has an acceptance at an appropriate phase) and NEVER O1 (every registered train has a resolvable train-level SMOKE) or O3 (every executable WMBT is SMOKE-covered by train or WMBT ownership). A residual declares that an obligation has no honest flow representation, so it asserts the route space is accounted for — never that anything executed. It is NOT SMOKE evidence and must not be counted as such."
+    },
     "acceptance_urn": {
       "type": "string",
       "pattern": "^acc:[a-z0-9][a-z0-9-]*:([DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?|[a-z][a-z0-9-]*)$",
@@ -325,7 +331,7 @@
           "enum": ["structural", "behavioral", "temporal"]
         },
         "acceptance_ref": { "$ref": "#/definitions/acceptance_urn" },
-        "wmbt_refs": { "$ref": "#/definitions/wmbt_refs" },
+        "wmbt_refs": { "$ref": "#/definitions/residual_wmbt_refs" },
         "validator_ref": {
           "type": "string",
           "description": "Path to the validator that discharges this residual obligation."
