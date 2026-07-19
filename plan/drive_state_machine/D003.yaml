@@ -70,22 +70,23 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-07-18"
   - identity:
-      urn: "acc:drive-state-machine:D003-UNIT-004-no-core-path-reads-cmux"
+      urn: "acc:drive-state-machine:D003-UNIT-004-capture-is-enrolled-in-the-provider-boundary"
       id: "AC-UNIT-004"
-      purpose: "No core code path reads or invokes cmux to obtain identity"
+      purpose: "Session capture is in scope of the repo-wide core-no-provider boundary check"
       phase: "RED"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "The core source tree carrying the session capture paths"
+        - "The existing required `core-no-provider` check (merge_authority, spec §8.1), which already forbids core importing provider code generically"
     when:
-      abstract: "The capture paths and the provider table are examined for multiplexer coupling"
+      abstract: "The capture modules are checked for membership of that boundary's scanned set"
     then:
       abstract:
-        - "No core module imports, executes, or reads state from cmux"
-        - "Identity is obtained only from ambient environment via the provider table"
+        - "Each capture module is enrolled, so the existing gate scans it"
+        - "The boundary rejects a provider import and admits the capture module's legitimate imports"
+        - "No multiplexer is named: the constraint is enforced generically, so any agent runtime or multiplexer fails it, not one named vendor"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-18"
