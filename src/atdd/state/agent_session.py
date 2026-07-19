@@ -33,6 +33,7 @@ chokepoints and nothing else, and a blocked worker is not idle.
 """
 from __future__ import annotations
 
+import logging
 import os
 import shlex
 import subprocess
@@ -51,6 +52,8 @@ from .store import StateStore
 #: module's transitive import surface stays as small as the boundary check
 #: (``core-no-provider``) wants it. It is the kind named in the schema DDL.
 WORK_ITEM_KIND = "work_item"
+
+logger = logging.getLogger(__name__)
 
 KIND_AGENT_SESSION = "agent_session"
 REF_KIND_SESSION = "session"
@@ -110,9 +113,15 @@ def _load_table(path_str: str) -> tuple:
     source = Path(path_str)
     try:
         raw = yaml.safe_load(source.read_text()) or {}
-    except (OSError, yaml.YAMLError):
+    except (OSError, yaml.YAMLError) as exc:
         # An unreadable table means we cannot identify anyone — which is the
         # same situation as a human at a shell, and is handled the same way.
+        # Logged, not silent: capture failing closed is invisible by nature, so
+        # the log line is the only way anyone learns the table stopped loading.
+        logger.warning(
+            "agent session provider table unreadable; identity capture disabled",
+            extra={"path": path_str, "error": str(exc)},
+        )
         return ()
     rows = []
     for entry in raw.get("providers") or []:
@@ -266,8 +275,14 @@ def capture_post_commit(control_root: Optional[Path] = None, *,
             return recorded
         finally:
             conn.close()
-    except Exception:
-        # The commit already exists. Nothing here is worth failing it for.
+    except Exception as exc:
+        # The commit already exists. Nothing here is worth failing it for — but
+        # it IS worth saying, or a permanently broken capture looks identical to
+        # a machine with no agents on it.
+        logger.warning(
+            "post-commit agent session capture failed; the commit stands",
+            extra={"branch": branch, "error": str(exc)},
+        )
         return False
 
 
@@ -277,7 +292,11 @@ def _current_branch(cwd: str) -> Optional[str]:
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=cwd, capture_output=True, text=True,
         )
-    except OSError:
+    except OSError as exc:
+        logger.warning(
+            "could not resolve the current branch; skipping session capture",
+            extra={"cwd": cwd, "error": str(exc)},
+        )
         return None
     name = proc.stdout.strip()
     return name or None
