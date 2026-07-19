@@ -120,13 +120,18 @@ class Repair:
 
 
 def _spine_index(phase: Optional[str]) -> Optional[int]:
-    """Position on the lifecycle spine, or None for an off-spine/unknown phase."""
+    """Position on the lifecycle spine, or None for an off-spine/unknown phase.
+
+    A membership test rather than a caught ``ValueError``: off-spine is an
+    ordinary answer here (BLOCKED, OBSOLETE and UNKNOWN are all legitimate
+    phases with no position), not an exceptional one.
+    """
     if not phase:
         return None
-    try:
-        return PHASE_ORDER.index(phase.upper())
-    except ValueError:
+    upper = phase.upper()
+    if upper not in PHASE_ORDER:
         return None
+    return PHASE_ORDER.index(upper)
 
 
 def missing_steps(store_phase: str, target_phase: str) -> tuple:
