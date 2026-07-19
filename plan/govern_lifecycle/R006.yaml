@@ -1,0 +1,64 @@
+urn: "wmbt:govern-lifecycle:R006"
+step: "resolve"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "drifted-lifecycle-records-that-no-verb-can-repair"
+context_clarifier: "#1452 stopped new drift by deleting the raw `gh issue edit` phase-label writes and making the atdd:<PHASE> label a projection of objects.state, but the wound it was treating was already there: 236 of 421 tracked issues (56%) carry a label their store never earned, and not one of them can be fixed. Every existing verb either reads the corrupted label and refuses — `atdd coach transition <N> COMPLETE` sees COMPLETE and answers `Cannot transition from COMPLETE to COMPLETE`, so the corrupted label blocks its own repair; `atdd auto-phase` no-ops on it — or is scoped elsewhere: `atdd coach reconcile` backfills issues MISSING from the store and leaves existing entries untouched (it reconciles existence, never state), and `atdd coach sync-labels` re-derives labels from the issue BODY, a different source and not the authoritative one. The evidence a repair can actually use is thin and must be stated honestly: objects.state is a trustworthy FLOOR (the last phase legitimately driven), a merged PR closing the issue proves the work landed, the label itself is SUSPECT (it is the corrupted artifact, the input to the bug, not evidence), and the events table carries NO phase transitions at all (only version_bumped, issue_revised, spawned, prompt_sent — objects.state is a mutable column, not event-sourced). So the verb cannot reconstruct history; it can only reason from the floor plus merge evidence. That limit is why the 82 records sitting at store=INIT with label=COMPLETE must be REFUSED rather than replayed: their store was never driven at all, so replaying INIT->COMPLETE would fabricate an audit trail that never happened, trading a wrong record for a fraudulent one. The store is not corrupt — it is honest and stale; the LABEL is the unearned one, and every line of the repair follows from that sentence."
+lens: "functional.effectiveness"
+statement: "minimize quantity of drifted-lifecycle-records-that-no-verb-can-repair by adding `atdd coach reconcile-state <N> | --all [--apply]`, which classifies each divergence between objects.state and the atdd:<PHASE> label against the store floor plus merge evidence and applies the matching remedy — re-projecting the label from the store where it merely lags, replaying the missing legal single steps through IssueManager.update where a merged PR proves the work landed so the store EARNS the phases rather than being handed them, declining to advance the store where nothing evidences the landing, and REFUSING the legacy-undriven records outright rather than synthesising a phase history they never had — reporting by default, never writing objects.state by hand, and treating the store as the survivor and the label as the artifact to re-derive"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R006-UNIT-001-classification-selects-the-right-remedy"
+      id: "AC-UNIT-001"
+      purpose: "Each divergence lands in the repair class whose remedy is correct for the evidence available, and a repaired record re-classifies as a no-op"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pure classifier taking the issue number, the atdd:<PHASE> label, the objects.state floor and whether a merged PR closed the issue"
+        - "The lifecycle spine declared by phase_machine.convention.yaml (INIT PLANNED RED GREEN SMOKE REFACTOR COMPLETE)"
+        - "The #1434 signature — label COMPLETE with the store parked at SMOKE — as the worked example"
+    when:
+      abstract: "Every divergence shape is classified: agreement, a label behind the store, an unearned COMPLETE with and without merge evidence, a record the store does not know, and a record already repaired"
+    then:
+      abstract:
+        - "An agreeing record is class 0 and plans no action at all"
+        - "A label behind the store is projection-lag: the label is re-derived and the store is NOT advanced"
+        - "An unearned COMPLETE backed by a merged PR replays exactly the missing forward single steps (SMOKE yields REFACTOR then COMPLETE), never a re-projection as well"
+        - "An unearned COMPLETE with no merged PR re-projects and drives NO transition, so the label's claim is never laundered into the store"
+        - "A record absent from the store is neither guessed at nor seeded from the suspect label, and the report names `atdd coach reconcile` as the verb for backfilling existence"
+        - "Re-running the classifier on the phase a repair landed at yields class 0, so the verb is idempotent"
+        - "The replay path admits only forward single steps on the spine — a backwards or off-spine step yields no transitions"
+        - "The legacy-undriven check is decided BEFORE the replay class, so an INIT-floored record with merge evidence is never handed a six-step replay"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:govern-lifecycle:R006-UNIT-002-class-4-refuses-to-fabricate-history"
+      id: "AC-UNIT-002"
+      purpose: "The legacy-undriven refusal fires, writes nothing, explains itself, and cannot be flagged into fabricating a phase history"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The live signature of the 82 legacy-undriven records planted into the apply path: label COMPLETE, objects.state INIT, closed by a merged PR"
+        - "Its neighbour — identical label and merge evidence, but a floor the store actually earned (SMOKE)"
+        - "Both authoritative writers (the phase-machine transition and the label re-projection) instrumented to record every write attempted"
+    when:
+      abstract: "The apply path runs against the planted fault, against the same fault with the operator flag granted, and against the neighbouring record"
+    then:
+      abstract:
+        - "The planted signature is asserted to actually classify as legacy-undriven BEFORE anything is asserted about the response, so the guard cannot be green because it was never asked the question"
+        - "The refusal exits non-zero — it fails loudly rather than skipping quietly"
+        - "NEITHER writer is reached: no transition is driven and no label is re-projected, so the default action really is none"
+        - "The refusal names what it declines to do and names the operator flag, so there is a path forward that is not a workaround"
+        - "Granted the operator flag, the label is re-projected DOWN to the honest floor and still NO transition is driven — a fabricated history is unreachable by construction, not merely discouraged"
+        - "The neighbouring record, differing only in its store floor, IS repaired through the same code path — so the refusal is shown to discriminate rather than fire blanket"
+        - "A replay step refused by the phase machine stops the walk at that step instead of forcing past it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
