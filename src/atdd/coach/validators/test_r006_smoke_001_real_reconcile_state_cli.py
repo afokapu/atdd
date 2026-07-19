@@ -32,7 +32,9 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = [pytest.mark.coach, pytest.mark.smoke]
+# Toolkit dogfood: REPO_ROOT below resolves to the toolkit checkout, so every
+# test here asserts on a toolkit-only path (#1475).
+pytestmark = [pytest.mark.coach, pytest.mark.smoke, pytest.mark.platform]
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
