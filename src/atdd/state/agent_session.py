@@ -119,6 +119,24 @@ def record_participation(store: StateStore, work_item_uid: str,
     raise NotImplementedError("GREEN: upsert session, stamp recency, link participation")
 
 
+def capture_post_commit(control_root: Optional[Path] = None, *,
+                        env: Optional[Mapping[str, str]] = None,
+                        cwd: Optional[str] = None,
+                        branch: Optional[str] = None) -> bool:
+    """Entry point the packaged ``post-commit`` hook execs (#1492 dispatcher).
+
+    The hook file under ``.atdd/hooks/`` is fixed content that only execs this;
+    the logic lives in the installed package and propagates by ``pipx upgrade``.
+    Editing a hook file in the repo changes nothing.
+
+    ``post-commit``, not ``pre-commit``: it survives ``git commit --no-verify``
+    and runs after the commit exists, so a store failure CANNOT block it. This
+    function must therefore never raise — it returns ``False`` and leaves the
+    store untouched on any fault.
+    """
+    raise NotImplementedError("GREEN: resolve branch -> work_item, record participation")
+
+
 def sessions_for_work_item(store: StateStore, work_item_uid: str) -> List[SessionParticipation]:
     """Every session that touched ``work_item_uid``, most recently seen first.
 
