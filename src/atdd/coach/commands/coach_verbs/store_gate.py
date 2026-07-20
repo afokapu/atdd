@@ -20,7 +20,10 @@ Convention: src/atdd/coach/commands/coach_verbs/__init__.py (the #1304 pattern).
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
+
+_log = logging.getLogger(__name__)
 
 VERB = "store-gate"
 
@@ -66,6 +69,10 @@ def run(argv: list[str]) -> int:
     try:
         result = evaluate_branch(branch, check_provider=not ns.no_provider)
     except StoreUnavailable as exc:
+        _log.warning(
+            "state store unavailable; store-mirror gate not evaluated",
+            extra={"branch": branch, "error": str(exc)},
+        )
         print(f"Error: cannot open the State Store ({exc})")
         return 2
 
