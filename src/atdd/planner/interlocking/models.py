@@ -89,6 +89,24 @@ class Residual:
 
 
 @dataclass(frozen=True)
+class CategoryAssessment:
+    """A typed not-applicable for one route category (issue #1554).
+
+    Declared only for ``alternate``/``error``/``exception`` — ``nominal`` always
+    requires routes. ``basis`` is a closed vocabulary, never prose: a free-text
+    reason is an escape hatch that erodes as it gets copy-pasted. A
+    ``discharged-by-residual`` basis names a declared residual, which must itself
+    carry a reason, an acceptance_ref and a validator_ref, so discharging a
+    category costs a bound obligation rather than a sentence.
+    """
+
+    category: str
+    basis: str
+    residual_ref: Optional[str] = None
+    retires_with: Optional[int] = None
+
+
+@dataclass(frozen=True)
 class Projection:
     expected_sequence_digest: str
     fields: Tuple[str, ...] = ("step", "intent", "from", "to", "artifact")
@@ -162,9 +180,24 @@ class TrainInterlocking:
     fragments: Tuple[Fragment, ...] = ()
     invariants: Tuple[Invariant, ...] = ()
     residuals: Tuple[Residual, ...] = ()
+    category_assessments: Tuple[CategoryAssessment, ...] = ()
     # On-disk context (populated by load_interlocking; not part of digest content).
     loaded_from: Optional[Path] = None
     repo_root: Optional[Path] = None
+
+    def assessment_index(self) -> "dict[str, CategoryAssessment]":
+        """category -> its declared typed not-applicable (issue #1554)."""
+        return {ca.category: ca for ca in self.category_assessments}
+
+    def routes_by_category(self) -> "dict[str, list[str]]":
+        """category -> the route_ids declaring it (empty categories are absent)."""
+        index: dict[str, list[str]] = {}
+        for route in self.routes:
+            index.setdefault(route.category, []).append(route.route_id)
+        return index
+
+    def residual_ids(self) -> "set[str]":
+        return {rsd.id for rsd in self.residuals}
 
     def guard_index(self) -> "dict[str, Guard]":
         index: dict[str, Guard] = {}

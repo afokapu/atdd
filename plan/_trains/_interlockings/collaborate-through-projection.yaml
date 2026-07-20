@@ -5,7 +5,7 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/collaborate-through-projection.yaml
-  content_digest: fc99ecd5639cd8291582f99a809032c2d5ad14c6aafcb7803cc254843b61ab47
+  content_digest: e0e59a68c91d083fd4c5e8eefb3b9a40e5a9a81a728ca5d90357326073194f9a
 entrypoint:
   actions:
   - project_store
@@ -279,3 +279,7 @@ routes:
   route_id: resolve-object-conflict
   train_id: train:object-conflict-resolution:resolve-object-conflict
   train_path: plan/_trains/object-conflict-resolution/resolve-object-conflict.yaml
+category_assessment:
+  error:
+    basis: discharged-by-residual
+    residual_ref: residual:provider-failure

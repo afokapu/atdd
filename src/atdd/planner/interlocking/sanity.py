@@ -45,6 +45,7 @@ from .guards import GuardSyntaxError, parse_guard
 from .loader import InterlockingError, target_train_category
 from .models import TrainInterlocking
 from .projections import project_route_to_train_sequence
+from .route_space import category_assessment_violations
 
 __all__ = [
     "RULE_CHECKS",
@@ -64,6 +65,7 @@ __all__ = [
     "wmbt_surface_or_residual_violations",
     "structural_residual_explicit_violations",
     "does_not_carry_cargo_violations",
+    "category_assessment_violations",
 ]
 
 # Field-name tokens that would smuggle Cargo runtime state into a YAML that is
@@ -426,6 +428,11 @@ RULE_CHECKS: "Dict[str, Callable[..., List[dict]]]" = {
     "planner.train.interlocking-wmbt-surface-or-residual": wmbt_surface_or_residual_violations,
     "planner.train.interlocking-structural-residual-explicit": structural_residual_explicit_violations,
     "planner.train.interlocking-does-not-carry-cargo": does_not_carry_cargo_violations,
+    # #1554: assessed per-interlocking, so it rides the Confirm gate with the rest
+    # — a plan cannot lock while a category is silently unassessed. Route-space
+    # ADMISSION is repo-level (train registry x route registry) and therefore
+    # cannot use this per-interlocking signature; it lives in its own validator.
+    "planner.train.route-category-assessment": category_assessment_violations,
 }
 
 

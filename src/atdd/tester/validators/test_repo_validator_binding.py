@@ -53,8 +53,14 @@ _VALIDATOR_ID = (
     "test_repo_validator_binding::test_validator_binding_is_bidirectional"
 )
 
+# Both tiers of the two-tier header bind an acceptance to a test:
+#   `Acceptance:`       — the acceptance tier (acc:<wagon>:<WMBT>-<HARNESS>-NNN)
+#   `Train-Acceptance:` — the journey tier (acc:<train-id>:<slug>, #1548)
+# A journey test must omit `Acceptance:` (SPEC-V3-002), so without the second
+# spelling every harness-backed TRAIN acceptance would be permanently one-way:
+# the forward pass would demand a test that no journey test is allowed to carry.
 _ACCEPTANCE_HEADER_RE = re.compile(
-    r"(?:#|//)\s*[Aa]cceptance:\s*(acc:[^\s]+)"
+    r"(?:#|//)\s*(?:[Tt]rain-)?[Aa]cceptance:\s*(acc:[^\s]+)"
 )
 _TEST_FILENAME_RE = re.compile(
     r"^(?:test_.*\.py|.*_test\.py|.*\.test\.tsx?|.*\.spec\.ts|.*_test\.dart)$"
