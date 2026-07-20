@@ -9,6 +9,10 @@ description: "Replace polling-and-trust with an event-driven, observer-augmented
 themes:
 - commons
 primary_wagon: freeze-runtime-contracts
+route_space:
+  classification: single-route
+  basis: not-yet-assessed
+  retires_with: 1549
 participants:
 - wagon:freeze-runtime-contracts
 - wagon:drive-state-machine

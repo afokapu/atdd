@@ -40,7 +40,11 @@ def test_cli_appends_acceptance_to_existing_wmbt(tmp_path):
         "identity": {"urn": "acc:smoke-demo:E001-UNIT-001-x", "id": "AC-UNIT-001",
                      "purpose": "an appended acceptance", "phase": "GREEN"},
         "harness": {"type": "unit", "category": "backend"},
-        "given": {"abstract": ["a"]}, "when": {"abstract": "b"}, "then": {"abstract": ["c"]},
+        # Realistic values: the writer schema-validates the block before writing
+        # (#1194) and embedded_acceptance carries minLength floors.
+        "given": {"abstract": ["a WMBT authored by the CLI in this same session"]},
+        "when": {"abstract": "atdd author acceptance is invoked with this block"},
+        "then": {"abstract": ["the block is appended to the WMBT acceptances list"]},
     }), encoding="utf-8")
     r = _cli(["acceptance", "--wmbt", "wmbt:smoke-demo:E001", "--spec", str(block),
               "--root", str(tmp_path)], tmp_path)

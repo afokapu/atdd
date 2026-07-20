@@ -19,6 +19,7 @@ import jsonschema
 import yaml
 
 from .models import (
+    CategoryAssessment,
     Entrypoint,
     Fragment,
     Guard,
@@ -115,6 +116,7 @@ def _build_message(raw: Mapping[str, Any]) -> Message:
         intent=raw["intent"],
         payload=_build_payload(raw.get("payload", {})),
         feature_refs=tuple(raw.get("feature_refs", []) or []),
+        wmbt_refs=tuple(raw.get("wmbt_refs", []) or []),
     )
 
 
@@ -123,9 +125,15 @@ def _build_fragment(raw: Mapping[str, Any]) -> Fragment:
         id=raw["id"],
         kind=raw["kind"],
         guards=tuple(
-            Guard(id=g["id"], expression=g["expression"]) for g in raw.get("guards", [])
+            Guard(
+                id=g["id"],
+                expression=g["expression"],
+                wmbt_refs=tuple(g.get("wmbt_refs", []) or []),
+            )
+            for g in raw.get("guards", [])
         ),
         acceptance_refs=tuple(raw.get("acceptance_refs", []) or []),
+        wmbt_refs=tuple(raw.get("wmbt_refs", []) or []),
     )
 
 
@@ -182,8 +190,23 @@ def _from_dict(data: Mapping[str, Any], loaded_from: Path | None) -> TrainInterl
                 reason=r["reason"],
                 acceptance_ref=r.get("acceptance_ref"),
                 validator_ref=r.get("validator_ref"),
+                wmbt_refs=tuple(r.get("wmbt_refs", []) or []),
             )
             for r in data.get("residuals", [])
+        ),
+        # #1554: typed per-category not-applicable. Sorted so the model order is
+        # deterministic regardless of YAML key order (the digest is computed over
+        # the document, but callers compare model tuples too).
+        category_assessments=tuple(
+            CategoryAssessment(
+                category=category,
+                basis=entry["basis"],
+                residual_ref=entry.get("residual_ref"),
+                retires_with=entry.get("retires_with"),
+            )
+            for category, entry in sorted(
+                (data.get("category_assessment") or {}).items()
+            )
         ),
         loaded_from=loaded_from,
         repo_root=_infer_repo_root(loaded_from) if loaded_from else None,

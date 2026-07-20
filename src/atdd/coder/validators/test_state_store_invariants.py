@@ -33,6 +33,14 @@ Invariants:
    report a violation for a synthetic rogue per-worktree store, so a
    defined-but-toothless guard cannot pass. Sibling-worktree mode allows exactly
    one store.
+6. ``coder.state-store.work-item-provenance`` (#1557) — every ``work_item`` in
+   the live store has a sanctioned authoring event as its FIRST event. Unlike
+   invariants 1–4, which scan source text, this one reads the running store
+   (``objects`` + ``events``), because the fault it catches is a *record*
+   created outside the sanctioned path — something no amount of source reading
+   can see. It names no provider and makes no network call, and it **fails
+   closed**: an unreadable store raises out of the test rather than passing
+   vacuously, which is why that path deliberately bypasses the disposition gate.
 
 Convention nodes: ``src/atdd/coder/conventions/nodes/coder.state-store.*.convention.yaml``.
 """
@@ -43,7 +51,7 @@ import ast
 import re
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import pytest
 
@@ -62,6 +70,7 @@ _RULE_SYNC = bind_rule("coder.state-store.sync-engine-provider-agnostic")
 _RULE_SQL = bind_rule("coder.state-store.no-raw-sql-at-call-sites")
 _RULE_REF = bind_rule("coder.state-store.one-external-ref-per-issue")
 _RULE_STORE = bind_rule("coder.state-store.single-store-per-control-root")
+_RULE_PROVENANCE = bind_rule("coder.state-store.work-item-provenance")
 
 
 # ---------------------------------------------------------------------------
@@ -312,6 +321,76 @@ def scan_single_store_per_control_root() -> List[Violation]:
     return violations
 
 
+def scan_work_item_provenance(control_root: Optional[Path] = None) -> List[Violation]:
+    """Invariant 6 (#1557): every ``work_item``'s first event is sanctioned.
+
+    Reads the live State Store — ``objects`` + ``events`` — through the storage
+    APIs. No provider is imported, named or called anywhere on this path; the
+    whole point of the design is that the answer comes from the record.
+
+    FAILS CLOSED — but on the right boundary. "Fail closed" means *an existing
+    store I cannot read must not read as clean*. It does NOT mean "any tree
+    without a store fails", and the difference is the whole correctness of the
+    rule:
+
+    - **No Control Root** (a consumer repo that has never run ``atdd init``, or
+      any checkout of this package installed as a dependency): there is no
+      store, therefore no ``work_item``, therefore no record whose provenance
+      could be laundered. The invariant has no subject here and the scan is
+      vacuously clean. Raising instead would fail every consumer of the shipped
+      wheel over a store they were never supposed to have.
+    - **Control Root but no store file yet**: same — the store is created on
+      first write, and a store that has never been written holds no records.
+    - **Store present but unopenable/unqueryable**: RAISES
+      :class:`~atdd.state.provenance.ProvenanceStoreUnreadable`. This is the
+      case the fail-closed property exists for. Returning ``[]`` here would be
+      indistinguishable from "everything is fine".
+
+    Note the asymmetry that keeps this honest: a *finding* is subject to the
+    rule's declared disposition (advisory today), but an unreadable store is not
+    a finding — no disposition tier can downgrade it.
+
+    Deliberately resolves the Control Root rather than calling
+    ``init_state_store``: a validator must not CREATE a store as a side effect of
+    checking one.
+    """
+    from atdd.state import provenance  # local: state is a lower foundational layer
+    from atdd.state.db import connect
+    from atdd.state.paths import ControlRootNotFoundError, resolve_control_root
+
+    start = control_root or REPO_ROOT
+    try:
+        resolution = resolve_control_root(Path(start))
+    except ControlRootNotFoundError:
+        return []  # no Control Root ⇒ no store ⇒ no records ⇒ nothing to check
+
+    if not resolution.state_store_exists:
+        return []  # never written ⇒ holds no records
+
+    try:
+        conn = connect(resolution.state_store_path)
+    except Exception as exc:  # noqa: BLE001 — a store that EXISTS must be readable
+        raise provenance.ProvenanceStoreUnreadable(
+            f"State Store at {resolution.state_store_path} exists but could not be "
+            f"opened; provenance could not be evaluated: {exc}"
+        ) from exc
+
+    try:
+        findings = provenance.audit_work_items(conn)
+    finally:
+        conn.close()
+
+    return [
+        Violation(
+            rule_id=_RULE_PROVENANCE.rule_id,
+            severity=_RULE_PROVENANCE.severity,
+            location=f"state:work_item/{f.uid}",
+            detail=f.detail,
+        )
+        for f in findings
+    ]
+
+
 # ===========================================================================
 # Tests — one per invariant, routed through the disposition gate.
 # ===========================================================================
@@ -382,4 +461,22 @@ def test_single_store_per_control_root():
     assert_disposition_satisfied(
         validator_id="state_store_single_store_per_control_root",
         violations=scan_single_store_per_control_root(),
+    )
+
+
+@pytest.mark.coder
+def test_work_item_provenance():
+    """SPEC: ``coder.state-store.work-item-provenance``.
+
+    Given: The live State Store's ``objects`` and ``events`` tables.
+    When:  Each ``work_item``'s lowest-seq event is read.
+    Then:  It is a sanctioned authoring event.
+
+    An unreadable store propagates ``ProvenanceStoreUnreadable`` and errors the
+    run — it is not routed through the disposition gate, because the gate
+    decides what to do with *findings*, and "I could not look" is not a finding.
+    """
+    assert_disposition_satisfied(
+        validator_id="state_store_work_item_provenance",
+        violations=scan_work_item_provenance(),
     )
