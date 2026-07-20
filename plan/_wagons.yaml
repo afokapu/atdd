@@ -995,7 +995,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 25
+    total: 27
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -1022,6 +1022,8 @@ wagons:
     E010: minimize likelihood of participating-session-absent-from-store-after-commit
     M004: minimize likelihood of wrong-session-selected-when-resuming-a-work-item
     L003: minimize effort-to-locate-the-session-to-resume-after-a-crash
+    E011: minimize likelihood of session-folder-absent-for-a-creator-only-session
+    L004: minimize likelihood of non-runnable-resume-command-for-a-session-with-no-folder
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/

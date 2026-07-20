@@ -1,0 +1,113 @@
+urn: "wmbt:drive-state-machine:E011"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "session-folder-absent-for-a-creator-only-session"
+context_clarifier: "Core must answer four facts about any worker: its chat id, whether it created the issue, whether it participated, and the folder it is in. #1540 shipped the first three uniformly but answered the fourth only on the commit path, because the folder was modelled as a property of a participation rather than of the session: `record_creator` takes no folder, so a session that minted an issue and has not yet committed carries none. The folder belongs on the session `external_ref.data` beside `last_seen_at`, where `_upsert_session` — the single writer both chokepoints already call — can stamp it with no schema migration. NO THIRD CHOKEPOINT is added: `atdd author issue` and `post-commit` remain the only two, orchestration stays an extension concern, and no role is stored, derived, or inferred (#1540 Decision 5). The participation edge keeps its own `worktree_path` unchanged in meaning and value — at mint there is no worktree yet, so writing an incidental cwd into a field named for a worktree would misrepresent it to every reader. This WMBT owns the CAPTURE half only; what the read projection does with the folder, and what it does when there is none, is L004."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of session-folder-absent-for-a-creator-only-session by recording the session's working folder as a session-level attribute beside `last_seen_at` at BOTH existing chokepoints — the `atdd author issue` mint and the packaged `post-commit` hook — such that a session observed at either or both carries exactly one folder value, refreshed on the later observation with `created_at` untouched, the participation edge's `worktree_path` unchanged, no role stored, and no third chokepoint added"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E011-UNIT-001-mint-records-the-session-folder"
+      id: "AC-UNIT-001"
+      purpose: "A session that mints an issue and has not committed records its folder at session level"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store with no prior record of the acting session"
+        - "An environment carrying an agent session id, in a known working folder"
+    when:
+      abstract: "The creator capture runs at the mint chokepoint with that folder"
+    then:
+      abstract:
+        - "The session's provider ref carries the folder as a session-level attribute beside `last_seen_at`"
+        - "A creator relationship links the session to the work item"
+        - "No participation relationship is written, and no role is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
+  - identity:
+      urn: "acc:drive-state-machine:E011-UNIT-002-commit-records-the-session-folder-and-leaves-the-edge-alone"
+      id: "AC-UNIT-002"
+      purpose: "The post-commit chokepoint records the folder at session level while the participation edge's worktree_path is unchanged"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store holding a work item bound to a branch, and an environment carrying an agent session id"
+    when:
+      abstract: "The post-commit capture runs from a worktree checkout of that branch"
+    then:
+      abstract:
+        - "The session's provider ref carries that folder as a session-level attribute"
+        - "The participation relationship still carries its own `worktree_path`, unchanged in meaning and value"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
+  - identity:
+      urn: "acc:drive-state-machine:E011-UNIT-003-both-chokepoints-one-folder-refreshed-created-at-untouched"
+      id: "AC-UNIT-003"
+      purpose: "One session observed at both chokepoints carries a single folder value, refreshed by the later observation, with created_at unchanged"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A session already recorded as creator from one folder"
+    when:
+      abstract: "The same session is later observed at the post-commit chokepoint from a different folder"
+    then:
+      abstract:
+        - "Exactly one folder value is stored for that session — the later observation's"
+        - "The session ref's `created_at` is unchanged and `last_seen_at` has advanced"
+        - "Exactly one session ref row exists for that provider and session id"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
+  - identity:
+      urn: "acc:drive-state-machine:E011-UNIT-004-no-agent-env-records-nothing-and-clears-no-folder"
+      id: "AC-UNIT-004"
+      purpose: "A commit with no agent env var records nothing and does not clear an existing folder"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store in which a session already carries a recorded folder"
+        - "An environment with no agent session env var set (a human commit)"
+    when:
+      abstract: "The post-commit capture runs"
+    then:
+      abstract:
+        - "Nothing is written"
+        - "The pre-existing folder and recency are unchanged — not nulled"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
+  - identity:
+      urn: "acc:drive-state-machine:E011-SMOKE-001-folder-recorded-through-a-real-chokepoint-survives-a-store-reopen"
+      id: "AC-SMOKE-001"
+      purpose: "The folder written at a real chokepoint lands in a real on-disk store and reads back after a reopen"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real on-disk control-root store and an environment carrying an agent session id"
+    when:
+      abstract: "A session is recorded through the real capture path and the store is closed and reopened"
+    then:
+      abstract:
+        - "The session ref read back from disk carries the folder it was captured in"
+        - "Exactly one session ref row exists, with `created_at` preserved across the reopen"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-19"
