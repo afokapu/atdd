@@ -58,6 +58,34 @@ def _is_orphan(path: Path, worktree_paths: Set[Path]) -> bool:
     return True
 
 
+def _orphans_under(
+    scan_root: Path,
+    worktree_paths: Set[Path],
+    excluded: Set[Path],
+    seen: Set[Path],
+) -> List[Path]:
+    """Orphan dirs directly under one scan root, skipping excluded/already-seen.
+
+    Extracted from ``gc`` so the dual-root scan (#1524) does not push a single
+    function's branching past the cyclomatic ratchet. ``seen`` is mutated so the
+    same directory reached via two roots is reported once.
+    """
+    if not scan_root.is_dir():
+        return []
+
+    found: List[Path] = []
+    for candidate in sorted(scan_root.iterdir()):
+        resolved = candidate.resolve()
+        if resolved in excluded or resolved in seen:
+            continue
+        if not candidate.is_dir() or "-" not in candidate.name:
+            continue
+        if _is_orphan(candidate, worktree_paths):
+            seen.add(resolved)
+            found.append(candidate)
+    return found
+
+
 def gc(repo_root: Optional[Path] = None, apply: bool = False) -> List[Path]:
     """Detect (and optionally remove) orphan worktree dirs at the project parent.
 
@@ -97,19 +125,7 @@ def gc(repo_root: Optional[Path] = None, apply: bool = False) -> List[Path]:
     orphans: List[Path] = []
     seen: set = set()
     for scan_root in sorted(scan_roots):
-        if not scan_root.is_dir():
-            continue
-        for candidate in sorted(scan_root.iterdir()):
-            resolved = candidate.resolve()
-            if resolved in excluded or resolved in seen:
-                continue
-            if not candidate.is_dir():
-                continue
-            if "-" not in candidate.name:
-                continue
-            if _is_orphan(candidate, worktree_paths):
-                seen.add(resolved)
-                orphans.append(candidate)
+        orphans.extend(_orphans_under(scan_root, worktree_paths, excluded, seen))
 
     if apply:
         for orphan in orphans:
