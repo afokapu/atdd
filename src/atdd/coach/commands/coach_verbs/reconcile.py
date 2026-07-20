@@ -24,10 +24,10 @@ def _build_parser() -> argparse.ArgumentParser:
     return argparse.ArgumentParser(
         prog="atdd coach reconcile",
         description=(
-            "Backfill every open GitHub atdd-issue missing from the manifest/"
-            "State Store (the coach-archetype replacement for `atdd issue "
-            "reconcile`). Idempotent — re-running on a complete manifest is a "
-            "no-op."
+            "Backfill every open GitHub atdd-issue missing from the State Store, "
+            "stamping each backfilled record with 'reconciled' provenance so it is "
+            "reported by `atdd validate` rather than laundered into a first-class "
+            "record (#1557). Idempotent — re-running on a complete store is a no-op."
         ),
     )
 

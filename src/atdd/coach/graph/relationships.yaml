@@ -567,6 +567,24 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_start
+  reason: the provenance audit is agent- and provider-agnostic only because the store core imports no provider layer; it reads objects + events and can make no provider call
+  source_ref: coder.state-store.work-item-provenance
+  strength: critical
+  target_ref: coder.state-store.core-imports-no-providers
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'provenance and external-ref uniqueness are co-held record-integrity rules: one says the record was authored through a sanctioned path, the other says its provider link is unambiguous'
+  source_ref: coder.state-store.work-item-provenance
+  strength: important
+  target_ref: coder.state-store.one-external-ref-per-issue
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: start_to_start
   reason: peer technology-governance gate (approved-alternative gating) evaluated alongside the layer-default selection rule
   source_ref: coder.technology.new-components-default-to
@@ -1585,37 +1603,10 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_finish
-  reason: the anchor convention requires the artifact definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.artifact.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
   reason: the anchor convention requires the feature definition anchor to exist
   source_ref: planner.definition.anchor-required
   strength: critical
   target_ref: planner.feature.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the feature definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.feature.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the interlocking definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.interlocking.definition
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -1639,24 +1630,6 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_finish
-  reason: the anchor convention requires the theme definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.theme.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the train definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.train.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
   reason: the anchor convention requires the train definition anchor to exist
   source_ref: planner.definition.anchor-required
   strength: critical
@@ -1670,24 +1643,6 @@ edges:
   source_ref: planner.definition.anchor-required
   strength: critical
   target_ref: planner.wagon.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the wagon definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.wagon.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the wmbt definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.wmbt.definition
   type: requires
 - confidence: 1.0
   constraint: mandatory
