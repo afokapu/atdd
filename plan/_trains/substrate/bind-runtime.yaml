@@ -13,6 +13,10 @@ description: "Binding substrate train: the runtime back end that turns a locked,
 themes:
 - commons
 primary_wagon: bind-substrate-runtime
+route_space:
+  classification: single-route
+  basis: not-yet-assessed
+  retires_with: 1549
 participants:
 - wagon:bind-substrate-runtime
 - system:atdd-cli
