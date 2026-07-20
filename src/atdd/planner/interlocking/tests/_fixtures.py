@@ -89,16 +89,19 @@ def interlocking_doc() -> Dict[str, Any]:
                 "id": "frag:quorum-or-timeout",
                 "kind": "alt",
                 "acceptance_refs": ["acceptance:closes-on-quorum-or-timeout"],
+                "wmbt_refs": ["wmbt:pressure-collapse:E001", "wmbt:pressure-collapse:E002"],
                 "guards": [
-                    {"id": "guard:all-voted", "expression": "all_players_voted == true"},
-                    {"id": "guard:timer-expires", "expression": "timer_expired == true"},
+                    {"id": "guard:all-voted", "expression": "all_players_voted == true",
+                     "wmbt_refs": ["wmbt:pressure-collapse:E001"]},
+                    {"id": "guard:timer-expires", "expression": "timer_expired == true",
+                     "wmbt_refs": ["wmbt:pressure-collapse:E002"]},
                 ],
             }
         ],
         "invariants": [
             {
                 "id": "inv:unresolved-max-seven",
-                "wmbt_ref": "wmbt:pressure-collapse",
+                "wmbt_ref": "wmbt:pressure-collapse:C001",
                 "expression": "unresolved_count <= 7",
             }
         ],
@@ -106,8 +109,9 @@ def interlocking_doc() -> Dict[str, Any]:
             {
                 "id": "residual:blitz-owns-no-grid",
                 "kind": "structural",
-                "acceptance_ref": "acceptance:blitz-owns-no-grid",
+                "acceptance_ref": "acc:blitz:blitz-owns-no-grid",
                 "validator_ref": "src/atdd/validators/architecture/test_blitz_owns_no_grid.py",
+                "wmbt_refs": ["wmbt:pressure-collapse:M001"],
                 "reason": "no honest flow representation; structural ownership invariant",
             }
         ],
