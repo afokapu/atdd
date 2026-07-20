@@ -5,7 +5,7 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/collaborate-through-projection.yaml
-  content_digest: fc99ecd5639cd8291582f99a809032c2d5ad14c6aafcb7803cc254843b61ab47
+  content_digest: e0e59a68c91d083fd4c5e8eefb3b9a40e5a9a81a728ca5d90357326073194f9a
 entrypoint:
   actions:
   - project_store
@@ -31,6 +31,8 @@ lifelines:
 messages:
 - from: user:dev-a
   id: msg:author-locally
+  wmbt_refs:
+  - wmbt:reconcile-local-store:E001
   intent: Author feature-x in the private local store (doc s11.3)
   kind: boundary
   payload:
@@ -40,6 +42,9 @@ messages:
   to: system:local-store
 - from: wagon:project-shared-state
   id: msg:project-store
+  wmbt_refs:
+  - wmbt:project-shared-state:C001
+  - wmbt:project-shared-state:E001
   intent: Project the store deterministically to per-UID YAML (I1)
   kind: control
   payload:
@@ -47,6 +52,9 @@ messages:
   to: system:git
 - from: user:dev-a
   id: msg:commit-with-trailers
+  wmbt_refs:
+  - wmbt:enforce-merge-authority:C002
+  - wmbt:enforce-merge-authority:D001
   intent: Commit the projection with the canonical ATDD trailer group (s5)
   kind: boundary
   payload:
@@ -54,6 +62,9 @@ messages:
   to: system:git
 - from: system:git
   id: msg:ci-canonicality
+  wmbt_refs:
+  - wmbt:project-shared-state:C002
+  - wmbt:project-shared-state:E002
   intent: Prove project(hydrate(projection)) == committed projection (s4)
   kind: control
   payload:
@@ -61,6 +72,9 @@ messages:
   to: system:ci
 - from: wagon:enforce-merge-authority
   id: msg:ci-legal-transition
+  wmbt_refs:
+  - wmbt:enforce-merge-authority:C001
+  - wmbt:enforce-merge-authority:E002
   intent: Reject canonical but lifecycle-illegal projection changes (s4, the load-bearing
     gate)
   kind: control
@@ -69,6 +83,9 @@ messages:
   to: system:ci
 - from: wagon:govern-projection-fields
   id: msg:ci-field-writer
+  wmbt_refs:
+  - wmbt:govern-projection-fields:D001
+  - wmbt:govern-projection-fields:E001
   intent: Reject a field written by a writer that does not own it (s7.1)
   kind: control
   payload:
@@ -76,6 +93,8 @@ messages:
   to: system:ci
 - from: system:ci
   id: msg:merge-authority
+  wmbt_refs:
+  - wmbt:enforce-merge-authority:D002
   intent: PR CI is the merge authority; provider failure never blocks it (s12.6)
   kind: control
   payload:
@@ -83,6 +102,9 @@ messages:
   to: system:git
 - from: wagon:reconcile-local-store
   id: msg:head-change-reconcile
+  wmbt_refs:
+  - wmbt:reconcile-local-store:C001
+  - wmbt:reconcile-local-store:M001
   intent: Any operation that moves HEAD reconciles local store state (s9 invariant)
   kind: self
   payload:
@@ -92,6 +114,9 @@ messages:
   to: wagon:reconcile-local-store
 - from: system:git
   id: msg:hydrate-and-replay
+  wmbt_refs:
+  - wmbt:reconcile-local-store:K001
+  - wmbt:reconcile-local-store:R001
   intent: 'Dev B: store := hydrate(new HEAD projection) + replay(B overlay) (I3, s11.10)'
   kind: control
   payload:
@@ -99,6 +124,9 @@ messages:
   to: wagon:reconcile-local-store
 - from: wagon:isolate-provider-boundary
   id: msg:mirror-after-merge
+  wmbt_refs:
+  - wmbt:isolate-provider-boundary:C001
+  - wmbt:isolate-provider-boundary:K001
   intent: Mirror projection state to GitHub after merge; non-authoritative (I7)
   kind: boundary
   payload:
@@ -106,6 +134,8 @@ messages:
   to: system:github-mirror
 - from: wagon:isolate-provider-boundary
   id: msg:lock-provider-digest
+  wmbt_refs:
+  - wmbt:isolate-provider-boundary:E002
   intent: Lock core schema, lifecycle policy, merge policy and provider digests (s10.5)
   kind: control
   payload:
@@ -113,6 +143,9 @@ messages:
   to: system:ci
 - from: wagon:migrate-projection-authority
   id: msg:migrate-manifest
+  wmbt_refs:
+  - wmbt:migrate-projection-authority:E001
+  - wmbt:migrate-projection-authority:K001
   intent: Migrate the manifest mirror into projection authority; decommission the
     read-fallback (s14 M8)
   kind: control
@@ -126,53 +159,78 @@ fragments:
   guards:
   - expression: exists(overlay_events)
     id: guard:overlay-present
+    wmbt_refs:
+    - wmbt:reconcile-local-store:R001
   - expression: not exists(overlay_events)
     id: guard:overlay-absent
+    wmbt_refs:
+    - wmbt:reconcile-local-store:P002
   id: frag:overlay-present
   kind: alt
+  wmbt_refs:
+  - wmbt:reconcile-local-store:P002
+  - wmbt:reconcile-local-store:R001
 - acceptance_refs:
   - acceptance:merge-driver-conflicts-by-design
   guards:
   - expression: same_object_divergence == true
     id: guard:same-object-conflict
+    wmbt_refs:
+    - wmbt:govern-projection-fields:R001
   id: frag:same-object-divergence
   kind: alt
+  wmbt_refs:
+  - wmbt:govern-projection-fields:R001
 invariants:
 - expression: 'project(store) == project(store)  # I1: deterministic; no timestamps,
     host paths, or unstable ordering'
   id: inv:byte-identical-projection
+  wmbt_ref: wmbt:project-shared-state:E001
 - expression: 'not hand_authored(projection)  # I2: derived and gated'
   id: inv:projection-is-derived
+  wmbt_ref: wmbt:project-shared-state:C002
 - expression: 'store == hydrate(projection @ HEAD) + local_overlay  # I3'
   id: inv:store-equals-hydrate-plus-overlay
+  wmbt_ref: wmbt:reconcile-local-store:K001
 - expression: 'legal_transition(phase_change, merge_base)  # I4'
   id: inv:transitions-are-legal
+  wmbt_ref: wmbt:enforce-merge-authority:C001
 - expression: 'reconcile(dirty_store) preserves local_overlay  # I5: reconcile is
     not overwrite'
   id: inv:reconcile-preserves-overlay
+  wmbt_ref: wmbt:reconcile-local-store:C001
 - expression: 'authority == ci and not local_hooks  # I6'
   id: inv:ci-is-authority
+  wmbt_ref: wmbt:enforce-merge-authority:E002
 - expression: 'not lifecycle_reads(external_refs)  # I7'
   id: inv:mirror-non-authoritative
+  wmbt_ref: wmbt:isolate-provider-boundary:C001
 - expression: 'no_secrets(projection) and no_secrets(trailers)  # I8'
   id: inv:history-has-no-secrets
+  wmbt_ref: wmbt:enforce-merge-authority:C003
 residuals:
-- acceptance_ref: acceptance:drift-alarm-never-syncs-back
+- acceptance_ref: acc:collaborate-through-projection:drift-alarm-never-syncs-back
   id: residual:mirror-drift
+  wmbt_refs:
+  - wmbt:isolate-provider-boundary:K001
   kind: behavioral
   reason: A human edits a GitHub issue directly. detect_drift() alarms only; it is
     never synced back into lifecycle state (I7, section 7 exit criteria). Discharged
     in the extension repo by EXT-007/EXT-008, outside this train.
   validator_ref: test_sequence_diagram_sanity::test_mirror_is_alarm_only
-- acceptance_ref: acceptance:provider-failure-never-blocks-merge
+- acceptance_ref: acc:collaborate-through-projection:provider-failure-never-blocks-merge
   id: residual:provider-failure
+  wmbt_refs:
+  - wmbt:isolate-provider-boundary:C002
   kind: temporal
   reason: The provider is down or rate-limited, so the mirror lags. Core merge authority
     is unaffected (section 12 rule 6); the outbox retries durably. No core route models
     this.
   validator_ref: test_sequence_diagram_sanity::test_provider_failure_does_not_block_merge
-- acceptance_ref: acceptance:disjoint-objects-merge-cleanly
+- acceptance_ref: acc:collaborate-through-projection:disjoint-objects-merge-cleanly
   id: residual:disjoint-object-merge
+  wmbt_refs:
+  - wmbt:govern-projection-fields:E002
   kind: structural
   reason: Projection sharding by UID makes disjoint objects merge cleanly in git itself
     (section 7). There is no ATDD route because no lifecycle decision is taken; it
@@ -221,3 +279,7 @@ routes:
   route_id: resolve-object-conflict
   train_id: train:object-conflict-resolution:resolve-object-conflict
   train_path: plan/_trains/object-conflict-resolution/resolve-object-conflict.yaml
+category_assessment:
+  error:
+    basis: discharged-by-residual
+    residual_ref: residual:provider-failure

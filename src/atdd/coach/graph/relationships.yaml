@@ -1603,37 +1603,10 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_finish
-  reason: the anchor convention requires the artifact definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.artifact.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
   reason: the anchor convention requires the feature definition anchor to exist
   source_ref: planner.definition.anchor-required
   strength: critical
   target_ref: planner.feature.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the feature definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.feature.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the interlocking definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.interlocking.definition
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -1657,24 +1630,6 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_finish
-  reason: the anchor convention requires the theme definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.theme.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the train definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.train.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
   reason: the anchor convention requires the train definition anchor to exist
   source_ref: planner.definition.anchor-required
   strength: critical
@@ -1688,24 +1643,6 @@ edges:
   source_ref: planner.definition.anchor-required
   strength: critical
   target_ref: planner.wagon.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the wagon definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.wagon.definition
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_finish
-  reason: the anchor convention requires the wmbt definition anchor to exist
-  source_ref: planner.definition.anchor-required
-  strength: critical
-  target_ref: planner.wmbt.definition
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -2626,6 +2563,33 @@ edges:
   strength: important
   target_ref: planner.coverage.bidirectional-coverage-between-trains
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: assessing the category space presupposes each route's declared category already agrees with its target train
+  source_ref: planner.train.route-category-assessment
+  strength: important
+  target_ref: planner.train.interlocking-route-category-matches-train-id
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: admission proves every train is classified; category assessment proves the route space that classifies them is itself complete
+  source_ref: planner.train.route-category-assessment
+  strength: important
+  target_ref: planner.train.route-space-admission
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: admission counts routes across the registered interlockings, so it presupposes the homed+registered interlocking set
+  source_ref: planner.train.route-space-admission
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
