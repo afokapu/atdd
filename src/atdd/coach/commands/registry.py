@@ -91,6 +91,22 @@ def _present(path: Optional[Path]) -> bool:
     """
     return path is not None and path.exists()
 
+
+def _discover_train_manifests(trains_dir: Path) -> List[Path]:
+    """Train manifest files under ``trains_dir``: flat legacy manifests plus
+    nested typed ones at ``<subject>/<slug>.yaml`` (#1504).
+
+    Underscore-prefixed names are skipped at EVERY level, not just the leaf:
+    ``plan/_trains/_interlockings/*.yaml`` sits at nesting depth 2 and is not a
+    train — globbing it in would mint phantom trains.
+    """
+    return [
+        f
+        for f in trains_dir.rglob("*.yaml")
+        if not any(part.startswith("_") for part in f.relative_to(trains_dir).parts)
+    ]
+
+
 _logger = logging.getLogger(__name__)
 
 # Train ID category digit → category name (train.convention.yaml).
@@ -1160,16 +1176,9 @@ class RegistryBuilder:
                 mode, registry_path, existing_trains, theme_map, stats
             )
 
-        # Scan for train manifests
-        # Flat legacy manifests plus nested typed ones at <subject>/<slug>.yaml
-        # (#1504). Underscore-prefixed names are skipped at EVERY level, not just
-        # the leaf: plan/_trains/_interlockings/*.yaml sits at nesting depth 2 and
-        # is not a train — globbing it in would mint phantom trains.
-        manifest_files = [
-            f
-            for f in trains_dir.rglob("*.yaml")
-            if not any(part.startswith("_") for part in f.relative_to(trains_dir).parts)
-        ]
+        # Scan for train manifests (flat legacy + nested typed, underscore dirs
+        # skipped at every level — see _discover_train_manifests, #1504).
+        manifest_files = _discover_train_manifests(trains_dir)
         stats["total_manifests"] = len(manifest_files)
 
         # Collect all train entries (flat list first, then group)
