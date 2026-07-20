@@ -1,14 +1,15 @@
 urn: "feature:govern-lifecycle:fix-issue-transition-side-effects"
 wagon: "wagon:govern-lifecycle"
-description: "Resolves side effects of the phase-transition path: stale local manifest status after a successful GitHub transition, a misleading layout error emitted by the post-transition re-enter path, and phase labels authored independently of the store write they are supposed to project (#1452)"
+description: "Resolves side effects of the phase-transition path: stale local manifest status after a successful GitHub transition, a misleading layout error emitted by the post-transition re-enter path, phase labels authored independently of the store write they are supposed to project (#1452), and the drifted records that desync left behind with no verb able to repair them (#1338)"
 sizing:
-  wmbts: 3
-  footprint_score: 3
-  footprint_size: "XS"
+  wmbts: 4
+  footprint_score: 4
+  footprint_size: "S"
 wmbts:
   - "wmbt:govern-lifecycle:R001"
   - "wmbt:govern-lifecycle:R002"
   - "wmbt:govern-lifecycle:R005"
+  - "wmbt:govern-lifecycle:R006"
 components:
   backend:
     presentation:

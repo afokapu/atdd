@@ -99,6 +99,36 @@
         }
       }
     },
+    "route_space": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "basis"],
+      "description": "Typed single-route assessment (issue #1554). A train is admitted to the route space one of two ways: it is targeted by exactly one registered interlocking route, or it declares this block. The two are mutually exclusive — declaring this block on a route-targeted train is a contradiction, and declaring neither is an omission. This exists because the ABSENCE of a route used to read as a positive assertion that route analysis had been performed and concluded `direct`; it no longer does. This block does NOT reference an interlocking: the route -> train edge is authoritative and lives on the interlocking, and `source_interlocking` remains optional traceability that is never consulted as an authority.",
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": ["single-route"],
+          "description": "The classification this train asserts. Only `single-route` is declarable — being route-targeted is DERIVED from the interlocking registry and must never be self-declared here, which would make the train a second source of truth for its own routing."
+        },
+        "basis": {
+          "type": "string",
+          "enum": ["sole-terminal-outcome", "externally-routed", "not-yet-assessed"],
+          "description": "Why this train has a single route, drawn from a CLOSED vocabulary. Prose is deliberately not accepted: a free-text reason is an escape hatch that erodes, because it gets copy-pasted until every train carries one. `sole-terminal-outcome` = no alternative/error/exception path exists to route. `externally-routed` = the path is selected outside this plan's route space. `not-yet-assessed` = TRANSITIONAL; route analysis has not been performed, and `retires_with` must name the issue that will retire it."
+        },
+        "retires_with": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Issue number that will retire a `not-yet-assessed` basis. REQUIRED when basis is `not-yet-assessed` and forbidden otherwise, so the transitional basis is an owned obligation with a named retirer rather than a permanent resting place."
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"basis": {"const": "not-yet-assessed"}}, "required": ["basis"]},
+          "then": {"required": ["retires_with"]},
+          "else": {"not": {"required": ["retires_with"]}}
+        }
+      ]
+    },
     "participants": {
       "type": "array",
       "description": "Wagons, users, and systems involved in this train",

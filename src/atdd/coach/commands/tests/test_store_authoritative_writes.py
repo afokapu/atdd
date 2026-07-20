@@ -120,7 +120,8 @@ def test_register_issue_creates_store_work_item_and_ref(tmp_path):
     # ever forwarded to `_store_create_work_item` with status="INIT". The
     # registration seam it covered is live, so this drives it directly.
     mgr._store_create_work_item(
-        4242, "brand-new-thing", status="INIT", data={"train": "0009"}
+        4242, "brand-new-thing", status="INIT", data={"train": "0009"},
+        discovered_via="atdd coach reconcile",
     )
 
     store = _store(tmp_path)
@@ -137,7 +138,10 @@ def test_create_work_item_preserves_existing_state_on_reregister(tmp_path):
     # #1203 already exists at GREEN (seeded directly into the store).
     mgr._store_set_status(1203, "SMOKE")
     # Re-registering must not reset the live phase back to INIT.
-    mgr._store_create_work_item(1203, "state-store-authoritative", status="INIT", data={"train": "0002"})
+    mgr._store_create_work_item(
+        1203, "state-store-authoritative", status="INIT", data={"train": "0002"},
+        discovered_via="atdd coach reconcile",
+    )
 
     store = _store(tmp_path)
     assert store.objects.get("state-store-authoritative").state == "SMOKE"
@@ -146,7 +150,9 @@ def test_create_work_item_preserves_existing_state_on_reregister(tmp_path):
 def test_create_work_item_unregistered_store_unavailable_is_false(tmp_path):
     # No .atdd at all → store cannot resolve a control root → graceful False.
     mgr = IssueManager(target_dir=tmp_path / "no-atdd-here")
-    assert mgr._store_create_work_item(1, "x", status="INIT", data={}) is False
+    assert mgr._store_create_work_item(
+        1, "x", status="INIT", data={}, discovered_via="atdd coach reconcile",
+    ) is False
 
 
 def test_archive_writes_store_complete_and_archived_date(tmp_path):

@@ -878,6 +878,13 @@ _IL_FIELD_ORDER: tuple[str, ...] = (
     "schema_version", "interlocking_id", "title", "theme", "status",
     "source", "entrypoint", "route_resolution", "lifelines", "messages",
     "fragments", "invariants", "residuals", "routes",
+    # #1554: the author's typed per-category not-applicable. Carried through
+    # VERBATIM like the rest of the control body — the command must never
+    # synthesize an assessment, because auto-emitting a not-applicable basis for
+    # every unrouted category is precisely the erosion the closed vocabulary
+    # exists to prevent. Omitting the field here would silently drop the author's
+    # assessment and make a compliant interlocking unauthorable through the CLI.
+    "category_assessment",
 )
 
 
