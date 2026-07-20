@@ -115,6 +115,18 @@ def interlocking_doc() -> Dict[str, Any]:
                 "reason": "no honest flow representation; structural ownership invariant",
             }
         ],
+        # #1554: the fixture carries nominal + alternate routes, so `error` and
+        # `exception` must be explicitly assessed for this to remain a FULLY-VALID
+        # interlocking. Before #1554 the omission was silent, which is exactly the
+        # defect the rule exists to catch — a fixture that models a compliant
+        # artifact has to say what happens on the paths it does not route.
+        "category_assessment": {
+            "error": {
+                "basis": "discharged-by-residual",
+                "residual_ref": "residual:blitz-owns-no-grid",
+            },
+            "exception": {"basis": "outcome-cannot-arise"},
+        },
         "routes": [
             {
                 "route_id": "nominal-all-voted",
