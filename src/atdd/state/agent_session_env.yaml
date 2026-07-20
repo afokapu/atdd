@@ -1,0 +1,47 @@
+# Agent session provider table (issue #1540)
+# ==============================================================================
+# The single source of truth for how ATDD learns *which agent session* is acting
+# at a canonical write point. Identity is read from AMBIENT PROCESS ENVIRONMENT
+# and never asked of the agent: asking is a prompt, and a prompt is
+# non-deterministic and confabulable (#1540 Decision 1).
+#
+# Read as plain data with ``yaml.safe_load`` + ``@lru_cache`` by
+# ``atdd.state.agent_session`` — the same way ``planner/naming.py::verb_lexicon``
+# executes ``feature.convention.yaml`` and ``URNGrammar`` executes
+# ``coach/utils/graph/urn_grammar.yaml``. It deliberately lives OUTSIDE an
+# ``*/conventions/`` directory and carries no ``rules:`` block, because it binds
+# no validator: it is a lookup table, not a gating convention, and entering the
+# convention graph would make it an orphan node with nothing to realize it.
+#
+# CORE LEARNS NO PROVIDER. Every provider-specific string lives in this file;
+# ``agent_session.py`` reads rows generically. Adding a provider is ONE ROW here
+# and ZERO lines of code (#1540 success criterion 9). In particular no core code
+# path reads or invokes a multiplexer to obtain identity (#1480/#1483 are
+# pruning cmux out of core) — an env var NAME in a data table is not a call.
+#
+# Per row:
+#   agent            kebab-case name of the agent runtime
+#   provider         provider tag stored in ``external_refs.provider``; the
+#                    session id is stored opaque in ``ref_value`` and is never
+#                    parsed or interpreted by core
+#   session_env      environment variable carrying that runtime's session id
+#   resume_template  command that re-enters the session. ``{session_id}`` and
+#                    ``{cwd}`` are substituted by the read projection (#1540
+#                    L003) so core hardcodes no provider's CLI either.
+#
+# Order matters: the first row whose ``session_env`` is present in the
+# environment wins, so more specific runtimes belong above more general ones.
+
+version: "1.0"
+name: "Agent Session Provider Table"
+description: "Agent runtime → session env var, for identity capture at canonical write points."
+
+providers:
+  # Verified on a live machine (#1540): CLAUDE_CODE_SESSION_ID holds the uuid
+  # that names the session's own transcript
+  # (~/.claude/projects/<cwd-slug>/<uuid>.jsonl), and `claude --resume <uuid>`
+  # continues that same session and appends to that same transcript.
+  - agent: claude-code
+    provider: claude
+    session_env: CLAUDE_CODE_SESSION_ID
+    resume_template: "cd {cwd} && claude --resume {session_id}"

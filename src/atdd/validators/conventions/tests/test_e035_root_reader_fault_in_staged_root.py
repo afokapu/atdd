@@ -40,6 +40,7 @@ from atdd.validators.conventions._support.graph_mutations import (
     add_node,
     graph_rooted_at,
     mirror_file,
+    mirror_glob,
     node_at,
     stage_file,
 )
@@ -88,6 +89,7 @@ def _tracked_hashes(root: Path) -> dict:
     return out
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_on_disk_fault_rewrites_the_checkout() -> None:
     """E035-RED-001: the retired on-disk mechanism mutates a TRACKED file mid-test.
 
@@ -201,6 +203,38 @@ def test_node_at_resolves_the_anchor_the_old_fault_wrote(clean_convention_graph)
 
     with pytest.raises(KeyError):
         node_at(clean_convention_graph, "plan/no_such_wagon/_no_such_wagon.yaml")
+
+
+def test_mirror_glob_stages_a_whole_input_surface_verbatim(tmp_path) -> None:
+    """#1418: the GLOBBING root-readers need their whole input surface staged, not one file.
+
+    ``mirror_file`` serves an evaluator that reads a known path. Coverage's
+    ``no_orphan_nodes`` instead walks every ``*.convention.yaml`` under ``src/atdd``, so
+    staging just its fault probe would leave it globbing a tree that contains nothing but
+    the fault — flagged for the wrong reason, and unable to show a legitimate node going
+    unflagged. ``mirror_glob`` stages the real surface so the fault can be injected INTO it.
+    """
+    root = _repo_root()
+    count = mirror_glob(root, tmp_path, "src/atdd", "*.convention.yaml")
+
+    assert count > 1, "the convention surface should be many files, not one"
+    staged = sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*.convention.yaml"))
+    real = sorted(
+        p.relative_to(root) for p in (root / "src/atdd").rglob("*.convention.yaml") if p.is_file()
+    )
+    assert staged == real, "the staged surface is not the real one at the real relative paths"
+    sample = real[0]
+    assert (tmp_path / sample).read_bytes() == (root / sample).read_bytes(), (
+        "mirror_glob altered the bytes it copied — the staged surface must be verbatim"
+    )
+
+
+def test_mirror_glob_raises_on_a_drifted_glob(tmp_path) -> None:
+    """A glob that matches nothing means the surface has moved. Staging an EMPTY tree and
+    carrying on would leave every later assertion reasoning about a tree with nothing in
+    it — the same vacuous-pass hazard `mirror_file` refuses for a no-op transform."""
+    with pytest.raises(FileNotFoundError, match="drifted"):
+        mirror_glob(_repo_root(), tmp_path, "src/atdd", "*.no-such-suffix.yaml")
 
 
 def test_migrated_families_write_nothing_to_the_tracked_tree(clean_convention_graph, tmp_path) -> None:
