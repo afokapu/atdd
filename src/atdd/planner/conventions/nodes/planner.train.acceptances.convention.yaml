@@ -21,12 +21,39 @@ content:
   exceptions:
   - 'id: at acceptance-block top level (rule-id derives mechanically — see §3.3)'
   - 'disposition: anywhere in repo YAML (walker sets to ''strict'' per §4.4)'
+implementation:
+  type: validator
+  ref: test_train_acceptances_wellformed::test_train_acceptances_are_wellformed
+metadata:
+  severity: 3
+  disposition: strict
+validation:
+  family: presence
+  template: required_field_presence
+  variant: planner_train_acceptances_wellformed
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: train_acceptance
+  selector: train files under plan/_trains/ (flat or subject-nested) declaring an acceptances[] block
+  traversal: train file -> acceptances[] -> identity/harness/signal fields
+  invariant: identity.urn matches the acc grammar, purpose and phase are populated, and the block is
+    measurable via harness.type or signal.metric+threshold
+  failure_evidence:
+  - train_file
+  - acceptance_urn
+  - constraint
+  - detail
 parity:
   source_fragments_preserved: true
   examples_preserved: false
-  implementation_preserved: false
+  # #1548: the node declared four constraints and bound nothing — no
+  # implementation, no validation block. It is now enforced by a real validator
+  # whose every constraint has a fault-injection test, because the real-repo
+  # baseline is 0 only for want of data (16 trains, 0 with acceptances; #1551
+  # backfills), and a clean baseline over an empty selection proves nothing.
+  implementation_preserved: true
   fix_hint_preserved: false
-  reviewed_at: '2026-06-16'
+  reviewed_at: '2026-07-19'
 terms:
 - term_id: train_acceptance
   text: an optional train-level acceptance.
