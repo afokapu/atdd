@@ -654,6 +654,15 @@ edges:
   strength: minor
   target_ref: planner.acceptance.complete
   type: enables
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: following the authoring guidelines is what yields a well-formed acceptance
+  source_ref: planner.acceptance.authoring-guidelines
+  strength: minor
+  target_ref: planner.acceptance.well-formed
+  type: enables
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -716,6 +725,15 @@ edges:
   source_ref: planner.acceptance.extraction-no-inference
   strength: minor
   target_ref: planner.acceptance.complete
+  type: enables
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: extracting (not inferring) the missing context is what makes the acceptance well-formed and faithful
+  source_ref: planner.acceptance.extraction-no-inference
+  strength: minor
+  target_ref: planner.acceptance.well-formed
   type: enables
 - confidence: 0.9
   constraint: discretionary
@@ -798,6 +816,15 @@ edges:
   strength: minor
   target_ref: planner.acceptance.complete
   type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the per-WMBT acceptance cap is a sizing constraint applied alongside acceptance well-formedness
+  source_ref: planner.acceptance.max-per-wmbt
+  strength: minor
+  target_ref: planner.acceptance.well-formed
+  type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -843,6 +870,42 @@ edges:
   strength: important
   target_ref: planner.acceptance.harness-vocabulary
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: well-formedness includes the required abstract Gherkin fields
+  source_ref: planner.acceptance.well-formed
+  strength: important
+  target_ref: planner.acceptance.abstract-fields-required
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a well-formed acceptance presupposes the Given/When/Then structure
+  source_ref: planner.acceptance.well-formed
+  strength: critical
+  target_ref: planner.acceptance.given-when-then-structure
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a verifiable outcome includes its telemetry signal
+  source_ref: planner.acceptance.well-formed
+  strength: important
+  target_ref: planner.acceptance.signal-telemetry-naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: well-formedness and harness-type declaration are two required facets of the same acceptance
+  source_ref: planner.acceptance.well-formed
+  strength: important
+  target_ref: planner.acceptance.harness
+  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -1396,6 +1459,15 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: a WMBT's required acceptance only counts if acceptances are well-formed (G/W/T + verifiable outcome)
+  source_ref: planner.coverage.every-wmbt-must-have
+  strength: important
+  target_ref: planner.acceptance.well-formed
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: the per-WMBT acceptance check presupposes a well-shaped WMBT (id, statement, proving artifacts)
   source_ref: planner.coverage.every-wmbt-must-have
   strength: important
@@ -1535,6 +1607,15 @@ edges:
   source_ref: planner.criteria.shape
   strength: minor
   target_ref: planner.acceptance.complete
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: external
+  foundation: start_to_start
+  reason: criteria are the structured form of an acceptance
+  source_ref: planner.criteria.shape
+  strength: minor
+  target_ref: planner.acceptance.well-formed
   type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
@@ -2031,6 +2112,15 @@ edges:
   source_ref: planner.relationship.no-orphan-nodes
   strength: minor
   target_ref: planner.acceptance.complete
+  type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: no-orphan-node graph completeness is a planning-artifact integrity rule alongside acceptance well-formedness
+  source_ref: planner.relationship.no-orphan-nodes
+  strength: minor
+  target_ref: planner.acceptance.well-formed
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
