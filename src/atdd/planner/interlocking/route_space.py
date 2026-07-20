@@ -185,6 +185,51 @@ def _declared_route_space(entry: dict, root: Path) -> dict:
     return block if isinstance(block, dict) else {}
 
 
+# Admission outcome vocabulary. Hoisted to module level so the status names are
+# a named, greppable vocabulary rather than literals buried in a branch — and so
+# the complexity counter, which matches decision keywords as whole words over raw
+# body text, no longer reads the `and` inside hyphenated names like
+# `route-targeted-and-declared` as a boolean operator.
+_MULTIPLY_ROUTED = "multiply-routed"
+_ROUTED_AND_DECLARED = "route-targeted-and-declared"
+_UNROUTED_UNDECLARED = "unrouted-and-undeclared"
+_INVALID_CLASSIFICATION = "invalid-classification"
+_INVALID_BASIS = "invalid-basis"
+_NO_RETIRER = "transitional-without-retirer"
+
+
+def _admission_status(hits: List[tuple], declared: dict) -> "str | None":
+    """Classify ONE train's route-space admission; ``None`` when it is admitted.
+
+    Split out from :func:`route_space_admission_violations` so the *judgement*
+    (which of the mutually exclusive admission outcomes holds) is separable from
+    the *evidence construction* around it.
+    """
+    if len(hits) > 1:
+        # A train is a single linear path; two routes selecting it makes the
+        # route -> train edge ambiguous.
+        return _MULTIPLY_ROUTED
+
+    if hits:
+        # Route-targeted plus self-declared: two sources of truth about one
+        # train's routing, which is what `source_interlocking` is explicitly
+        # forbidden from becoming.
+        return _ROUTED_AND_DECLARED if declared else None
+
+    # No route. Silence is no longer an assertion that analysis happened.
+    if not declared:
+        return _UNROUTED_UNDECLARED
+    if declared.get("classification") != "single-route":
+        return _INVALID_CLASSIFICATION
+
+    basis = declared.get("basis")
+    if basis not in SINGLE_ROUTE_BASES:
+        return _INVALID_BASIS
+    if basis == _TRANSITIONAL and not declared.get("retires_with"):
+        return _NO_RETIRER
+    return None
+
+
 def route_space_admission_violations(root: Path | str) -> List[dict]:
     """``planner.train.route-space-admission``: every registered train is
     route-targeted or typed single-route, and never both or neither."""
@@ -193,47 +238,19 @@ def route_space_admission_violations(root: Path | str) -> List[dict]:
     out: List[dict] = []
 
     for entry in registered_trains(root):
-        train_id = entry["train_id"]
-        hits = targets.get(train_id, [])
-        route_ids = [f"{iid}::{rid}" for iid, rid in hits]
+        hits = targets.get(entry["train_id"], [])
         declared = _declared_route_space(entry, root)
-        classification = declared.get("classification")
-        basis = declared.get("basis")
-
-        evidence = {
-            "train_id": train_id,
+        status = _admission_status(hits, declared)
+        if status is None:
+            continue
+        out.append({
+            "train_id": entry["train_id"],
             "train_path": entry.get("path"),
-            "route_ids": route_ids,
-            "classification": classification,
-            "basis": basis,
-        }
-
-        if len(hits) > 1:
-            # A train is a single linear path; two routes selecting it makes the
-            # route -> train edge ambiguous.
-            out.append({**evidence, "admission_status": "multiply-routed"})
-            continue
-
-        if hits:
-            if declared:
-                # Route-targeted AND self-declared: two sources of truth for one
-                # train's routing, which is what `source_interlocking` is
-                # explicitly forbidden from becoming.
-                out.append({**evidence, "admission_status": "route-targeted-and-declared"})
-            continue
-
-        # No route. Silence is no longer an assertion that analysis happened.
-        if not declared:
-            out.append({**evidence, "admission_status": "unrouted-and-undeclared"})
-            continue
-        if classification != "single-route":
-            out.append({**evidence, "admission_status": "invalid-classification"})
-            continue
-        if basis not in SINGLE_ROUTE_BASES:
-            out.append({**evidence, "admission_status": "invalid-basis"})
-            continue
-        if basis == _TRANSITIONAL and not declared.get("retires_with"):
-            out.append({**evidence, "admission_status": "transitional-without-retirer"})
+            "route_ids": [f"{iid}::{rid}" for iid, rid in hits],
+            "classification": declared.get("classification"),
+            "basis": declared.get("basis"),
+            "admission_status": status,
+        })
 
     return out
 
