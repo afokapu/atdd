@@ -94,6 +94,47 @@ class PlanSession:
         data = json.loads(path.read_text(encoding="utf-8"))
         return cls(**data)
 
+    # ---- the Confirm lock --------------------------------------------------
+    def assert_mutable(self, what: str) -> None:
+        """Refuse a mutation while the decomposition is locked (#1505).
+
+        ``locked`` is an invariant, not a marker: it is the operator's assertion
+        that *this exact unit set* may be authored, and ``confirm()`` is where the
+        interlocking (#1249), verb-object (#1276) and artifact-naming (#1329)
+        validations run. A unit slipped in after the lock would be seen by none of
+        them, so what you confirmed is what gets authored — ``reopen()`` is the one
+        sanctioned way to withdraw the assertion and edit again.
+        """
+        if self.locked:
+            raise SessionGateError(
+                f"the decomposition is locked — cannot {what}. What you confirmed is "
+                f"what gets authored: units added after Confirm would never be seen by "
+                f"the interlocking, verb-object and artifact-naming validations that "
+                f"confirm() runs. To edit, withdraw the confirmation first: "
+                f"`atdd plan reopen --id {self.session_id}` (returns the session to "
+                f"Prepare and keeps your verdicts), then re-run confirm().")
+
+    def reopen(self) -> None:
+        """Withdraw the operator's Confirm and return to Prepare (#1505).
+
+        The sanctioned escape from a locked session — sanctioned because
+        ``planner.plan.session-lifecycle`` already allows a pivot to reopen an
+        earlier step. Verdicts are PRESERVED: ``confirm()`` re-runs every validation
+        against the *current* unit set regardless of verdict age, so keeping them
+        bypasses nothing, while resetting them would punish a large decomposition
+        for a one-unit edit and push operators back to hand-editing session.json.
+
+        Refused once ``step == AUTHORED``: the artifacts are already on disk, and
+        reopening would leave them orphaned with no rollback to offer.
+        """
+        if Step(self.step) is Step.AUTHORED:
+            raise SessionGateError(
+                "cannot reopen a session that has already authored its units — the "
+                "artifacts are on disk and reopening would orphan them. Author the "
+                "change as a new plan session against the same issue instead.")
+        self.locked = False
+        self.step = Step.PREPARE.value
+
     # ---- units -------------------------------------------------------------
     def add_unit(self, unit: Unit) -> None:
         """Add a candidate unit, or update the one already carrying this ``ref``.
@@ -112,7 +153,15 @@ class PlanSession:
         Re-using a ``ref`` under a different ``kind`` is refused — that is an
         operator mistake, not an update, and silently changing a unit's kind
         would send it to a different ``atdd author`` writer.
+
+        Refused outright while the session is locked (#1505). The upsert path
+        makes this stricter than it looks: re-stating an existing unit with a
+        changed spec *rewrites* that unit and resets its verdict, so an upsert on
+        a confirmed session would mutate a decomposition the operator had already
+        signed off — the same bypass as appending a new unit, wearing the shape of
+        an edit. The guard runs before the ref scan so both paths are covered.
         """
+        self.assert_mutable(f"add the {unit.kind} unit {unit.ref!r}")
         incoming = asdict(unit)
         for i, existing in enumerate(self.units):
             if existing["ref"] != incoming["ref"]:
@@ -143,6 +192,7 @@ class PlanSession:
         """Ask the operator keep/pivot/kill for one unit, via the elicit channel
         (a consumer of #1096a — never AskUserQuestion directly). Records the verdict."""
         unit = self._unit(ref)
+        self.assert_mutable(f"re-decide the {unit['kind']} {ref!r}")
         req = ElicitRequest(
             elicit_id=f"{self.session_id}:{ref}",
             origin=Participant(ElicitRole.CONDUCTOR, session_ref or f"atdd-plan-session:{self.session_id}", AtddRole.PLANNER),
@@ -174,11 +224,21 @@ class PlanSession:
 
     def advance(self, target: Step) -> None:
         """Advance to `target` if its exit condition holds. Backtracking (to an
-        earlier step) is always allowed and does not re-check gates."""
+        earlier step) is always allowed and does not re-check gates.
+
+        Backtracking CLEARS the lock (#1505). The flag asserts 'this exact unit set
+        may be authored'; stepping back to edit withdraws that assertion, so leaving
+        it set would let `_gate_ok(AUTHORED)` wave the session through on a stale
+        confirm() that never saw the current units. A no-op (`target is cur`) is not
+        a backtrack and leaves the lock alone.
+        """
         cur = Step(self.step)
-        if _ORDER.index(target) <= _ORDER.index(cur):
-            self.step = target.value  # backtrack / no-op
+        if _ORDER.index(target) < _ORDER.index(cur):
+            self.step = target.value  # backtrack
+            self.locked = False
             return
+        if target is cur:
+            return  # no-op: not an edit, so the operator's confirmation stands
         if _ORDER.index(target) != _ORDER.index(cur) + 1:
             raise SessionGateError(f"cannot skip from {cur.value} to {target.value}")
         ok, why = self._gate_ok(target)
