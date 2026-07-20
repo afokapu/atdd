@@ -259,12 +259,38 @@ def render(result: GateResult) -> List[str]:
     return lines
 
 
-def _current_branch() -> str:
+class StoreUnavailable(RuntimeError):
+    """The State Store could not be opened.
+
+    Raised rather than handled in place so each caller decides its own policy:
+    the pre-push hook allows the push (a missing Store is not this gate's
+    failure), while the CLI reports a usage error. Previously only the hook
+    guarded this, so the CLI died with a traceback on the same condition.
+    """
+
+
+def current_branch() -> str:
+    """The checked-out branch, or ``"HEAD"`` when detached."""
     proc = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
         capture_output=True, text=True,
     )
     return proc.stdout.strip()
+
+
+def evaluate_branch(branch: str, *, check_provider: bool = True) -> GateResult:
+    """Open the Store and evaluate ``branch`` against it.
+
+    The single seam both entry points share, so the hook and
+    ``atdd coach store-gate`` can never diverge in how they resolve the Store.
+    """
+    from atdd.state.db import connect, init_state_store
+
+    try:
+        conn = connect(init_state_store())
+    except Exception as exc:  # noqa: BLE001 — surfaced as StoreUnavailable
+        raise StoreUnavailable(str(exc)) from exc
+    return evaluate(conn, branch, check_provider=check_provider)
 
 
 def _gate_main() -> None:
@@ -273,23 +299,22 @@ def _gate_main() -> None:
     Mirrors ``atdd.version_check._gate_main`` so the pre-push hook stays a
     dispatcher over the packaged implementation.
     """
-    from atdd.state.db import connect, init_state_store
-
-    branch = _current_branch()
+    branch = current_branch()
     if not branch or branch == "HEAD":
         # Detached HEAD: no branch to resolve a work_item from. Not this gate's
         # failure mode, and blocking here would strand a rebase.
         sys.exit(EXIT_ALLOW)
 
     try:
-        conn = connect(init_state_store())
-    except Exception as exc:  # noqa: BLE001 — a missing Store is not this gate's failure
-        print(f"ATDD store-mirror gate: cannot open the State Store ({exc}); skipped.",
-              file=sys.stderr)
+        result = evaluate_branch(
+            branch, check_provider=os.environ.get("CI") != "true"
+        )
+    except StoreUnavailable as exc:
+        print(
+            f"ATDD store-mirror gate: cannot open the State Store ({exc}); skipped.",
+            file=sys.stderr,
+        )
         sys.exit(EXIT_ALLOW)
-
-    check_provider = os.environ.get("CI") != "true"
-    result = evaluate(conn, branch, check_provider=check_provider)
 
     if result.blocked:
         print("\nATDD: Pre-push blocked.", file=sys.stderr)

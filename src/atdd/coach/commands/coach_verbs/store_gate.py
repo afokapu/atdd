@@ -52,23 +52,25 @@ def run(argv: list[str]) -> int:
     ns = _build_parser().parse_args(argv)
 
     from atdd.coach.store_mirror_gate import (
-        EXIT_ALLOW,
-        _current_branch,
-        evaluate,
+        StoreUnavailable,
+        current_branch,
+        evaluate_branch,
         render,
     )
-    from atdd.state.db import connect, init_state_store
 
-    branch = ns.branch or _current_branch()
+    branch = ns.branch or current_branch()
     if not branch or branch == "HEAD":
         print("Error: no branch to check (detached HEAD); pass --branch")
         return 2
 
-    conn = connect(init_state_store())
-    result = evaluate(conn, branch, check_provider=not ns.no_provider)
+    try:
+        result = evaluate_branch(branch, check_provider=not ns.no_provider)
+    except StoreUnavailable as exc:
+        print(f"Error: cannot open the State Store ({exc})")
+        return 2
 
     for line in render(result):
         print(line, file=sys.stderr)
     if not result.blocked:
         print(f"store-mirror gate: OK for branch {branch!r}")
-    return EXIT_ALLOW if not result.blocked else result.exit_code
+    return result.exit_code
