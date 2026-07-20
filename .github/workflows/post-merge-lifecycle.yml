@@ -1,5 +1,9 @@
 # Post-Merge Lifecycle: complete the ATDD issue lifecycle after PR merge.
-# Closes WMBT sub-issues, swaps labels to atdd:COMPLETE, updates Project v2.
+# Closes WMBT sub-issues and updates Project v2.
+#
+# This workflow MUST NOT write an `atdd:<PHASE>` label (#1452). The phase label is
+# a PROJECTION of `objects.state`, emitted by IssueManager.update and by nothing
+# else; the phase advance on merge belongs to atdd-auto-phase.yml.
 name: Post-Merge Lifecycle
 
 on:
@@ -54,27 +58,26 @@ jobs:
             echo "Closed $(echo "$SUB_ISSUES" | wc -w | tr -d ' ') sub-issue(s)."
           fi
 
-      - name: Swap labels to atdd:COMPLETE
-        if: steps.extract.outputs.found == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE: ${{ steps.extract.outputs.issue }}
-          REPO: ${{ github.repository }}
-        run: |
-          # Get current labels on the issue
-          LABELS=$(gh issue view "$ISSUE" --repo "$REPO" --json labels --jq '.labels[].name')
-
-          # Remove any atdd phase labels
-          for PHASE in INIT PLANNED RED GREEN SMOKE REFACTOR BLOCKED; do
-            if echo "$LABELS" | grep -qx "atdd:${PHASE}"; then
-              echo "Removing label atdd:${PHASE}..."
-              gh issue edit "$ISSUE" --repo "$REPO" --remove-label "atdd:${PHASE}"
-            fi
-          done
-
-          # Add atdd:COMPLETE
-          echo "Adding label atdd:COMPLETE..."
-          gh issue edit "$ISSUE" --repo "$REPO" --add-label "atdd:COMPLETE"
+      # #1452: the "Swap labels to atdd:COMPLETE" step USED TO LIVE HERE and was
+      # deleted. It shelled out to `gh issue edit --remove-label/--add-label` and
+      # stamped atdd:COMPLETE directly, which bypassed IssueManager.update — and
+      # with it the phase machine (COMPLETE is not reachable from SMOKE), the
+      # train gate, the COMPLETE gates and the store-first write. The label moved
+      # and `objects.state` did not: 236 of 421 issues (56%) drifted, 217 of them
+      # carrying the single `label=COMPLETE / store=<last earned phase>` signature.
+      #
+      # It also won a deterministic race: this workflow has no checkout and no
+      # Python, so it edited labels ~1s in, while atdd-auto-phase.yml needs
+      # checkout + setup-python + `pip install -e .` and does not run for ~11s.
+      # auto-phase then read the *label*, found COMPLETE already there, and
+      # correctly no-opped green — so the desync was silent.
+      #
+      # The phase advance is owned by .github/workflows/atdd-auto-phase.yml →
+      # `atdd coach transition` → IssueManager.update, which writes the store
+      # FIRST and projects the atdd:<PHASE> label from it. Nothing else may write
+      # an `atdd:*` label. Re-adding a raw label write here is a build failure —
+      # see coach.issue.phase-label-projection-only
+      # (src/atdd/coach/validators/test_phase_label_projection_only.py).
 
       - name: Update Project v2 ATDD Status
         if: steps.extract.outputs.found == 'true'
