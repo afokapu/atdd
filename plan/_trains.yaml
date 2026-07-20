@@ -48,6 +48,20 @@ trains:
       - dispatch-ux-defaults-and-primer
       - mediate-worker-decisions
       - coach-verb-split
+    - train_id: train:issue-lifecycle:record-agent-session-identity
+      category: nominal
+      description: Record which agent session worked which work_item by reading ambient
+        environment at two mandatory chokepoints — `atdd author issue` (creator) and
+        the packaged `post-commit` hook (participant) — storing provider-tagged opaque
+        session refs with recency in `data.last_seen_at` and the worktree path per
+        participation, so recovery no longer depends on a single-provider multiplexer
+        state file.
+      path: plan/_trains/issue-lifecycle/record-agent-session-identity.yaml
+      wagons:
+      - isolate-provider-boundary
+      - author-atdd-substrate
+      - drive-state-machine
+      - project-shared-state
     - train_id: train:object-conflict-resolution:project-state
       category: nominal
       description: 'State projection train: make the committed deterministic projection

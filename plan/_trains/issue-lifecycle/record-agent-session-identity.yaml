@@ -1,0 +1,52 @@
+train_id: train:issue-lifecycle:record-agent-session-identity
+family: behavior
+title: Record Agent Session Identity
+description: "Record which agent session worked which work_item by reading ambient environment
+  at two mandatory chokepoints — `atdd author issue` (creator) and the packaged `post-commit`
+  hook (participant) — storing provider-tagged opaque session refs in `external_refs` with
+  recency in `data.last_seen_at` and the worktree path per participation. The agent-kind →
+  session-env-var mapping lives in a convention YAML so core never learns a provider, and no
+  role is ever stored: orchestrator vs worker is inferred at read time from the worktree paths
+  a session participated in."
+themes:
+- commons
+primary_wagon: drive-state-machine
+participants:
+- wagon:isolate-provider-boundary
+- wagon:author-atdd-substrate
+- wagon:drive-state-machine
+- wagon:project-shared-state
+- system:atdd-cli
+sequence:
+- step: 1
+  intent: "Publish the provider table mapping agent kind to its session env var, so identity is
+    read from ambient environment and adding a provider is a YAML line, not a code change"
+  from: wagon:isolate-provider-boundary
+  to: wagon:author-atdd-substrate
+  artifact: commons:agent-session:provider-table
+- step: 2
+  intent: "Record the creating session against the work_item at issue mint — a no-op when no agent
+    env var is present, never a failure of the mint itself"
+  from: wagon:author-atdd-substrate
+  to: wagon:drive-state-machine
+  artifact: commons:agent-session:creator-ref
+- step: 3
+  intent: "Record the participating session plus the worktree path it was captured in at post-commit,
+    resolving branch → work_item, never blocking the commit and never nulling an existing binding"
+  from: wagon:drive-state-machine
+  to: wagon:project-shared-state
+  artifact: commons:agent-session:participation-ref
+- step: 4
+  intent: "Maintain per-session recency in `data.last_seen_at` so several sessions on one work_item
+    order by last observation at a chokepoint rather than by creation order"
+  from: wagon:project-shared-state
+  to: wagon:drive-state-machine
+  artifact: commons:agent-session:recency
+- step: 5
+  intent: "Project a runnable resume command (session id + cwd) per session per work_item, so an
+    orchestrator can re-enter the fleet from the store alone with no multiplexer installed"
+  from: wagon:drive-state-machine
+  to: system:atdd-cli
+  artifact: commons:agent-session:resume-projection
+status: planned
+category: nominal
