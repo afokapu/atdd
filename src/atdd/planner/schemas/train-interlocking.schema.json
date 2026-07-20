@@ -220,6 +220,28 @@
       "type": "string",
       "pattern": "^(wagon|user|system):[a-z][a-z0-9-]*$"
     },
+    "wmbt_ref": {
+      "type": "string",
+      "pattern": "^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$",
+      "description": "Canonical TWO-segment WMBT obligation URN: wmbt:<wagon>:<CATEGORY><NNN> (issue #1546). This is the same grammar wmbt.schema.json and feature.schema.json enforce — the prior one-segment `^wmbt:[a-z][a-z0-9-]*$` form could never name a real WMBT and is REJECTED."
+    },
+    "wmbt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/wmbt_ref" },
+      "description": "Typed obligation references: the WMBT obligations this surface discharges. Every surface kind carries this so `planner.train.interlocking-wmbt-surface-or-residual` is expressible — before #1546 only `invariant` could name a WMBT, and it did so with a malformed grammar."
+    },
+    "residual_wmbt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/definitions/wmbt_ref" },
+      "description": "WMBT obligations this residual accounts for, for ROUTE COMPLETENESS ONLY. Same shape as wmbt_refs, deliberately a distinct definition so the weaker semantics are stated where they apply rather than as an ignored sibling of a $ref. Per the #1543 binding rule a structural residual discharges O2 (every modeled route/category has an acceptance at an appropriate phase) and NEVER O1 (every registered train has a resolvable train-level SMOKE) or O3 (every executable WMBT is SMOKE-covered by train or WMBT ownership). A residual declares that an obligation has no honest flow representation, so it asserts the route space is accounted for — never that anything executed. It is NOT SMOKE evidence and must not be counted as such."
+    },
+    "acceptance_urn": {
+      "type": "string",
+      "pattern": "^acc:[a-z0-9][a-z0-9-]*:([DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?|[a-z][a-z0-9-]*)$",
+      "description": "Canonical acceptance URN, mirroring the `acc` entry of src/atdd/coach/utils/graph/urn_grammar.yaml: either a WMBT acceptance (acc:<wagon>:<WMBT-id>-<HARNESS>-<NNN>[-<slug>]) or a train acceptance (acc:<train>:<slug>). Replaces the free-slug `acceptance:<slug>` form, which resolved to nothing (issue #1546)."
+    },
     "message": {
       "type": "object",
       "additionalProperties": false,
@@ -247,6 +269,7 @@
             "pattern": "^feature:[a-z][a-z0-9-]*$"
           }
         },
+        "wmbt_refs": { "$ref": "#/definitions/wmbt_refs" },
         "payload": {
           "type": "object",
           "additionalProperties": false,
@@ -296,6 +319,7 @@
             "pattern": "^acceptance:[a-z][a-z0-9-]*$"
           }
         },
+        "wmbt_refs": { "$ref": "#/definitions/wmbt_refs" },
         "guards": {
           "type": "array",
           "minItems": 1,
@@ -316,7 +340,8 @@
           "type": "string",
           "minLength": 1,
           "description": "Declarative, side-effect-free guard expression. Operators: == != < <= > >= and or not exists(field) in. No raw Python eval, no function calls except exists(), no imports/IO/mutation."
-        }
+        },
+        "wmbt_refs": { "$ref": "#/definitions/wmbt_refs" }
       }
     },
     "invariant": {
@@ -328,10 +353,7 @@
           "type": "string",
           "pattern": "^inv:[a-z][a-z0-9-]*$"
         },
-        "wmbt_ref": {
-          "type": "string",
-          "pattern": "^wmbt:[a-z][a-z0-9-]*$"
-        },
+        "wmbt_ref": { "$ref": "#/definitions/wmbt_ref" },
         "expression": {
           "type": "string",
           "minLength": 1,
@@ -352,10 +374,8 @@
           "type": "string",
           "enum": ["structural", "behavioral", "temporal"]
         },
-        "acceptance_ref": {
-          "type": "string",
-          "pattern": "^acceptance:[a-z][a-z0-9-]*$"
-        },
+        "acceptance_ref": { "$ref": "#/definitions/acceptance_urn" },
+        "wmbt_refs": { "$ref": "#/definitions/residual_wmbt_refs" },
         "validator_ref": {
           "type": "string",
           "description": "Path to the validator that discharges this residual obligation."
