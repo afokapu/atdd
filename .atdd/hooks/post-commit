@@ -24,6 +24,18 @@
 
 set -u  # no `set -e` — we want to keep going even if a validator fails
 
+# --- Agent session capture (#1540) ---
+# Records WHICH agent session touched this work_item, read from ambient
+# environment. Runs BEFORE the CI bypass and before any validator work:
+#   * post-commit, not pre-commit, because this must survive `--no-verify`
+#     (agents use it routinely) and can never cost anyone their commit;
+#   * a no-op when no agent env var is set — a human commit records nothing
+#     and, crucially, clears nothing;
+#   * backgrounded and fully muted so it cannot slow or interrupt a commit.
+# Always through the `atdd` binary: a bare `python3` cannot import a
+# pipx-installed atdd.
+( atdd state sessions capture >/dev/null 2>&1 & ) 2>/dev/null || true
+
 # --- CI bypass ---
 if [ "${CI:-}" = "true" ]; then
     exit 0
