@@ -1,0 +1,41 @@
+schema_version: 1.0.0
+rule_id: planner.train.route-space-admission
+kind: constraint
+status: active
+name: Route-space admission
+statement: 'Every registered train must be targeted by exactly one registered interlocking
+  route, or declare a typed single-route assessment; absence of a route no longer
+  implies direct dispatch (issue #1554).'
+rationale: Route-space was modelled as optional metadata, so a train with no route
+  analysis was indistinguishable from a train whose analysis concluded single-route.
+  Silence read as a positive assertion that analysis happened; this rule makes the
+  classification explicit and forces the omission to surface at planning time.
+terms:
+- term_id: route_targeted
+  text: the train is selected by exactly one route across every registered interlocking
+- term_id: typed_single_route
+  text: the train declares route_space.classification single-route with a basis drawn
+    from a closed vocabulary; free prose is never a basis
+- term_id: exactly_one
+  text: route-targeted and typed-single-route are mutually exclusive; declaring both
+    is a contradiction, declaring neither is an omission
+implementation:
+  type: validator
+  ref: test_route_space_admission::test_every_train_is_route_targeted_or_typed_single_route
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: coverage
+  template: source_has_required_target
+  variant: planner_train_route_space_admission
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: train
+  failure_evidence:
+  - train_id
+  - train_path
+  - route_ids
+  - classification
+  - basis
+  - admission_status

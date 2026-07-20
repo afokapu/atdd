@@ -9,6 +9,7 @@ from atdd.planner.interlocking import (
     RouteResolutionError,
     evaluate_interlocking_route,
     load_interlocking,
+    parse_interlocking,
 )
 from atdd.planner.interlocking.tests._fixtures import interlocking_doc, write_tree
 
@@ -95,3 +96,62 @@ def test_state_snapshot_merges_with_inputs(tmp_path):
         state={"timer_expired": True},
     )
     assert route_id == "alternate-timeout"
+
+
+# ---------------------------------------------------------------------------
+# Obligation resolution (#1546).
+#
+# `_interlocking_wmbt_surface_or_residual` could not emit partly because it
+# compared `residual:*` ids against `wmbt:*` refs — two namespaces that never
+# intersect, so the residual check silently matched nothing. These tests pin the
+# resolver's behaviour so #1547 can build on it, and each asserts a distinction
+# that would vanish if the resolver regressed to a namespace-blind set.
+# ---------------------------------------------------------------------------
+def test_obligation_index_reports_the_surface_kind_that_carries_each_ref():
+    il = parse_interlocking(interlocking_doc())
+    index = il.obligation_index()
+    assert index["wmbt:pressure-collapse:C001"] == {"invariant"}
+    assert index["wmbt:pressure-collapse:E001"] == {"guard", "fragment"}
+    assert index["wmbt:pressure-collapse:M001"] == {"residual:structural"}
+
+
+def test_residual_wmbt_refs_are_wmbt_urns_not_residual_ids():
+    """The namespace mismatch that made the coverage rule vacuous."""
+    il = parse_interlocking(interlocking_doc())
+    refs = il.residual_wmbt_refs()
+    assert refs == {"wmbt:pressure-collapse:M001"}
+    assert all(r.startswith("wmbt:") for r in refs)
+    residual_ids = {r.id for r in il.residuals}
+    assert refs.isdisjoint(residual_ids), (
+        "residual ids and WMBT refs must never be compared as the same namespace"
+    )
+
+
+def test_obligation_index_is_empty_when_no_surface_declares_a_ref():
+    """Guards against a resolver that looks populated on an unreferenced document.
+
+    This is the pre-#1546 state of both authored interlockings: every surface
+    present, zero obligations nameable.
+    """
+    doc = interlocking_doc()
+    for msg in doc["messages"]:
+        msg.pop("wmbt_refs", None)
+    for frag in doc["fragments"]:
+        frag.pop("wmbt_refs", None)
+        for guard in frag["guards"]:
+            guard.pop("wmbt_refs", None)
+    for inv in doc["invariants"]:
+        inv.pop("wmbt_ref", None)
+    for rsd in doc["residuals"]:
+        rsd.pop("wmbt_refs", None)
+    il = parse_interlocking(doc)
+    assert il.obligation_index() == {}
+    assert il.residual_wmbt_refs() == set()
+
+
+def test_self_messages_are_reported_as_their_own_surface_kind():
+    doc = interlocking_doc()
+    self_msg = next(m for m in doc["messages"] if m["kind"] == "self")
+    self_msg["wmbt_refs"] = ["wmbt:pressure-collapse:Y001"]
+    il = parse_interlocking(doc)
+    assert il.obligation_index()["wmbt:pressure-collapse:Y001"] == {"self"}
