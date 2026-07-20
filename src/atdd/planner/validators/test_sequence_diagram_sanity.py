@@ -109,11 +109,11 @@ def _valid_model(**overrides) -> TrainInterlocking:
         fragments=(
             Fragment(id="f1", kind="alt",
                      guards=(Guard("g0", "x == true"), Guard("g2", "y == true")),
-                     acceptance_refs=("acc:demo",)),
+                     acceptance_refs=("acc:demo-wagon:demo-fragment",)),
         ),
-        invariants=(Invariant(id="i1", expression="z <= 7", wmbt_ref="wmbt:demo"),),
+        invariants=(Invariant(id="i1", expression="z <= 7", wmbt_ref="wmbt:demo-wagon:E001"),),
         residuals=(Residual(id="r1", kind="structural", reason="ownership",
-                            acceptance_ref="acc:demo", validator_ref="t::t"),),
+                            acceptance_ref="acc:demo-wagon:demo-residual", validator_ref="t::t"),),
         routes=(
             Route(route_id="nominal", category="nominal", priority=1,
                   guard_ref="g0", train_id="0001-demo", train_path="plan/_trains/0001-demo.yaml",
@@ -214,7 +214,7 @@ def test_interlocking_guard_grammar_is_safe() -> None:
 def test_guard_grammar_fault_is_evidence_shaped() -> None:
     evil = Fragment(id="f1", kind="alt",
                     guards=(Guard("g0", "__import__('os').system('rm -rf /')"),),
-                    acceptance_refs=("acc:demo",))
+                    acceptance_refs=("acc:demo-wagon:demo-fragment",))
     bad = _valid_model(fragments=(evil,),
                        routes=(_valid_model().routes[0],))
     _assert_evidence_shaped("planner.train.interlocking-guard-grammar",
@@ -257,7 +257,7 @@ def test_guard_coverage_fault_is_evidence_shaped() -> None:
     frag = Fragment(id="f1", kind="alt",
                     guards=(Guard("g0", "x == true"), Guard("g2", "y == true"),
                             Guard("gX", "w == true")),
-                    acceptance_refs=("acc:demo",))
+                    acceptance_refs=("acc:demo-wagon:demo-fragment",))
     bad = _valid_model(fragments=(frag,))
     _assert_evidence_shaped("planner.train.interlocking-guard-coverage",
                             sanity.guard_coverage_violations(bad))
@@ -419,7 +419,7 @@ def test_every_wmbt_surfaces_or_is_structural_residual() -> None:
 
 
 def test_wmbt_surface_fault_is_evidence_shaped() -> None:
-    dangling = Invariant(id="i1", expression="", wmbt_ref="wmbt:demo")
+    dangling = Invariant(id="i1", expression="", wmbt_ref="wmbt:demo-wagon:E001")
     bad = _valid_model(invariants=(dangling,), residuals=())
     _assert_evidence_shaped("planner.train.interlocking-wmbt-surface-or-residual",
                             sanity.wmbt_surface_or_residual_violations(bad))

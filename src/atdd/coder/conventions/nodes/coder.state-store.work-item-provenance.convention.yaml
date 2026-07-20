@@ -1,0 +1,48 @@
+schema_version: 1.0.0
+rule_id: coder.state-store.work-item-provenance
+kind: rule
+status: active
+name: Work item authoring provenance
+statement: Every work_item in the State Store has a sanctioned authoring event as
+  its first event. Provenance is a property of the record, so the check holds for
+  any agent and for a human at a terminal; it is evaluated by reading objects + events
+  only, with no provider call.
+rationale: "Enforcement designed as command interception is per-agent by construction\
+  \ and can never be agnostic. Detecting the artifact can be. Recording provenance\
+  \ as an append-only event \u2014 rather than a mutable objects.data field \u2014\
+  \ is what makes 'first event' answerable and non-rewritable."
+terms:
+- term_id: sanctioned_authoring_event
+  text: an event_type in the allowlist that a sanctioned authoring command appends
+    at the store write point (work_item_authored, pull_request_authored, branch_authored).
+- term_id: reconciled_provenance
+  text: the work_item_reconciled stamp a repair path applies to a record it discovered
+    already existing; deliberately outside the allowlist, so repair detects rather
+    than launders.
+implementation:
+  type: validator
+  ref: test_state_store_invariants::test_work_item_provenance
+content:
+  normative_text: "For every objects row with kind=work_item, the lowest-seq row in\
+    \ events for that object_uid must carry an event_type in the sanctioned allowlist\
+    \ declared by atdd.state.provenance.SANCTIONED_AUTHORING_EVENTS. A work item with\
+    \ no events, a first event of work_item_reconciled, or any other first event is\
+    \ a violation. The audit is an allowlist, never a blocklist: a blocklist enumerates\
+    \ the forbidden paths and silently admits the next one. The audit fails closed\
+    \ \u2014 a store that cannot be read raises ProvenanceStoreUnreadable and fails\
+    \ the run rather than passing vacuously."
+  fix_hint: "Create work items through atdd author issue, which stamps work_item_authored\
+    \ at the store write. A record already stamped work_item_reconciled was created\
+    \ out-of-band and backfilled by atdd coach reconcile; provenance is history and\
+    \ re-running the author command will not overwrite it \u2014 adjudicate the record\
+    \ instead."
+  operational_guidance: 'Landed advisory: records backfilled before this rule existed
+    light up immediately and must be adjudicated before being treated as debt.'
+metadata:
+  severity: 4
+  disposition: advisory
+  introduced_in: 4.14.0
+  advisory_precondition: "The pre-existing corpus of work items backfilled by atdd\
+    \ coach reconcile before #1557 has been adjudicated \u2014 each either re-authored,\
+    \ tombstoned, or accepted with recorded reason."
+  advisory_discharged_by: '#1557'
