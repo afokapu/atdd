@@ -19,6 +19,7 @@ import jsonschema
 import yaml
 
 from .models import (
+    CategoryAssessment,
     Entrypoint,
     Fragment,
     Guard,
@@ -192,6 +193,20 @@ def _from_dict(data: Mapping[str, Any], loaded_from: Path | None) -> TrainInterl
                 wmbt_refs=tuple(r.get("wmbt_refs", []) or []),
             )
             for r in data.get("residuals", [])
+        ),
+        # #1554: typed per-category not-applicable. Sorted so the model order is
+        # deterministic regardless of YAML key order (the digest is computed over
+        # the document, but callers compare model tuples too).
+        category_assessments=tuple(
+            CategoryAssessment(
+                category=category,
+                basis=entry["basis"],
+                residual_ref=entry.get("residual_ref"),
+                retires_with=entry.get("retires_with"),
+            )
+            for category, entry in sorted(
+                (data.get("category_assessment") or {}).items()
+            )
         ),
         loaded_from=loaded_from,
         repo_root=_infer_repo_root(loaded_from) if loaded_from else None,

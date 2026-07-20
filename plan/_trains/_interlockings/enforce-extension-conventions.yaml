@@ -5,7 +5,7 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
-  content_digest: 2efc581afcd87707444648cb5ff6d1df4109d5f3bc8da2cec43c68bf08ca948a
+  content_digest: 1a605623ae81d26699512256d6b26a875eadfdcecda0956802881ba2bca60690
 entrypoint:
   exposed: true
   actions:
@@ -124,8 +124,8 @@ fragments:
   - id: guard:unbound-declaration
     wmbt_refs:
     - wmbt:bind-extension-conventions:E002
-    expression: declared == true and gating == true and realized == true and bound == false and core_backed
-      == true
+    expression: declared == true and gating == true and realized == true and bound
+      == false and core_backed == true
 - id: frag:succession-loss-blocked
   kind: alt
   acceptance_refs:
@@ -136,8 +136,8 @@ fragments:
   - id: guard:succession-loss
     wmbt_refs:
     - wmbt:guard-succession:E003
-    expression: declared == true and gating == true and realized == true and bound == false and core_backed
-      == false
+    expression: declared == true and gating == true and realized == true and bound
+      == false and core_backed == false
 - id: frag:unrealized-obligation-detected
   kind: alt
   acceptance_refs:
@@ -180,24 +180,26 @@ residuals:
   wmbt_refs:
   - wmbt:enforce-conventions-ci:E003
   validator_ref: src/atdd/enforce/validators/test_ratchet_baseline.py
-  reason: the pre-existing 13 failing rules are held flat by a recorded baseline rather than by a guarded
-    route, because the baseline is a stored artifact and not a decision branch
+  reason: the pre-existing 13 failing rules are held flat by a recorded baseline rather
+    than by a guarded route, because the baseline is a stored artifact and not a decision
+    branch
 - id: residual:mirror-coherence
   kind: structural
   acceptance_ref: acc:enforce-extension-conventions:mirror-coherence-validation
   wmbt_refs:
   - wmbt:govern-registry:E001
   validator_ref: src/atdd/planner/validators/test_extension_mirror_coherence.py
-  reason: extension nodes mirror core rules as data read by a validator, not as a route the enforcement
-    entrypoint can take
+  reason: extension nodes mirror core rules as data read by a validator, not as a
+    route the enforcement entrypoint can take
 - id: residual:duplicate-precedence
   kind: structural
   acceptance_ref: acc:enforce-extension-conventions:duplicate-rule-precedence
   wmbt_refs:
   - wmbt:govern-registry:E002
   validator_ref: src/atdd/coach/validators/test_rule_id_uniqueness.py
-  reason: a duplicate rule_id is detected while building the registry at import time, before any enforcement
-    entrypoint runs, so it cannot be expressed as a guarded route
+  reason: a duplicate rule_id is detected while building the registry at import time,
+    before any enforcement entrypoint runs, so it cannot be expressed as a guarded
+    route
 routes:
 - route_id: clean-gate-passes
   category: nominal
@@ -297,3 +299,10 @@ routes:
     - from
     - to
     - artifact
+category_assessment:
+  error:
+    basis: not-yet-assessed
+    retires_with: 1549
+  exception:
+    basis: discharged-by-residual
+    residual_ref: residual:duplicate-precedence

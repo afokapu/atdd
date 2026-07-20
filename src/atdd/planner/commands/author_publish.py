@@ -96,6 +96,7 @@ def publish_issue(
     (#1220); if that projection fails it is enqueued to the outbox for a durable
     retry while the work_item still stands.
     """
+    from atdd.state import provenance
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
     from atdd.state.work_item_writer import create_work_item
@@ -127,6 +128,24 @@ def publish_issue(
             ) from exc
 
         store = StateStore(conn)
+
+        # Provenance stamp (#1557). The store write above is the ONE chokepoint
+        # every sanctioned issue-create passes through, so this is where the
+        # sanctioned authoring event is appended — first event on the object,
+        # which is exactly what the L2 detector checks.
+        #
+        # NOT wrapped in a try/except, unlike the creator capture below: the
+        # stamp is not telemetry. A work item minted without it is precisely the
+        # unprovenanced record the invariant exists to catch, so silently
+        # swallowing the failure would manufacture the violation it is meant to
+        # prevent. A store that cannot append is a store failure — fail loud.
+        try:
+            provenance.record_authored(store, slug, command="atdd author issue")
+        except Exception as exc:
+            raise PublishError(
+                f"provenance stamp failed for work_item {slug!r} — refusing to mint "
+                f"an unprovenanced record (#1557): {exc}"
+            ) from exc
 
         # Creator capture (#1540). The mint is a mandatory chokepoint, so this
         # is where the creating agent session is recorded — read from ambient

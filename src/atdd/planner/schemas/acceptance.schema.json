@@ -14,8 +14,8 @@
       "properties": {
         "urn": {
           "type": "string",
-          "pattern": "^acc:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}-(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?$",
-          "description": "Acceptance URN format: acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]"
+          "pattern": "^acc:(?:train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*|[a-z0-9][a-z0-9-]*:(?:[DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?|[a-z][a-z0-9-]*))$",
+          "description": "Acceptance URN, BOTH shapes (spec v12 §3.3): wagon-parented acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}], or train-parented acc:train:{subject}:{slug}:{acceptance-slug} (the #1421 typed train identity, admitted by #1548). MUST stay byte-identical to families.acc.pattern in src/atdd/coach/utils/graph/urn_grammar.yaml — the grammar is the single source and this copy exists only because JSON Schema cannot reference it. Pinned by test_acceptance_schema_urn_pattern_matches_the_grammar."
         },
         "id": {
           "type": "string",
