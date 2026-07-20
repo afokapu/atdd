@@ -124,26 +124,40 @@ def _repo_is_atdd_checkout(repo_root: Optional[Path]) -> bool:
         return False
 
 
+#: Every symbol a git hook dispatches to via ``python3 -c``. Each one must be
+#: importable by the bare ``python3`` the hooks invoke, or that gate is inert.
+#: Probing only one of them would leave the others failing silently.
+_HOOK_DISPATCH_IMPORTS = (
+    "from atdd.version_check import _gate_main",
+    "from atdd.coach.store_mirror_gate import _gate_main",
+)
+
+
 def _hook_python_can_import_atdd() -> bool:
     """Probe the bare ``python3`` the git hooks invoke for an atdd import.
 
-    The hooks run ``python3 -c "from atdd.version_check import _gate_main"``.
-    A namespace-only ``atdd`` (``__file__ is None``) fails the submodule
-    import, so probe the actual symbol the hooks use, not bare ``import atdd``.
+    The hooks dispatch via ``python3 -c "from atdd.<module> import _gate_main"``.
+    A namespace-only ``atdd`` (``__file__ is None``) fails the submodule import,
+    so probe the actual symbols the hooks use, not bare ``import atdd`` — and
+    probe *all* of them, since a hook whose module cannot be imported is a gate
+    that silently never runs.
     """
     python3 = shutil.which("python3")
     if not python3:
         return False
-    try:
-        result = subprocess.run(
-            [python3, "-c", "from atdd.version_check import _gate_main"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
-        return False
+    for statement in _HOOK_DISPATCH_IMPORTS:
+        try:
+            result = subprocess.run(
+                [python3, "-c", statement],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+            return False
+        if result.returncode != 0:
+            return False
+    return True
 
 
 def diagnose_environment(repo_root: Optional[Path] = None) -> EnvDiagnosis:
