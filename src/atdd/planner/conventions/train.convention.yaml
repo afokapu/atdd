@@ -33,10 +33,15 @@ acceptances:
   forbidden_fields:
     - "id: at acceptance-block top level (rule-id derives mechanically — see §3.3)"
     - "disposition: anywhere in repo YAML (walker sets to 'strict' per §4.4)"
+  # The acceptance URN is parented by the TYPED train identity (#1421):
+  # acc:train:<subject>:<slug>:<acceptance-slug>. The `acc` grammar admits this
+  # 4-token shape as of #1548; before that its second segment forbade colons and
+  # this example used the retired `acc:0001-self-compliance-validate:...` form —
+  # anyone following it produced an artifact that could not validate.
   example: |
     acceptances:
       - identity:
-          urn: "acc:0001-self-compliance-validate:idempotent-on-retry"
+          urn: "acc:train:self-compliance:validate-lifecycle:idempotent-on-retry"
           id: "AC-SMOKE-001"
           purpose: "Re-running the train with the same idempotency key produces no duplicate side effects"
           phase: "SMOKE"
@@ -45,6 +50,20 @@ acceptances:
         signal:
           metric: "duplicate_side_effects_on_retry"
           threshold: 0
+
+  # Execution binding (#1548): an acceptance declaring `harness.type` is only
+  # satisfied when a journey test anchors back to it. A journey test must OMIT
+  # `Acceptance:` (SPEC-V3-002), so it binds through the journey-tier key:
+  #
+  #   # URN: test:train:self-compliance:validate-lifecycle:SMOKE-001-idempotent
+  #   # Train: train:self-compliance:validate-lifecycle
+  #   # Train-Acceptance: acc:train:self-compliance:validate-lifecycle:idempotent-on-retry
+  #
+  # Enforced bidirectionally by
+  # tester.acceptance-violation.validator-binding-must-be-bidirectional.
+  execution_binding:
+    journey_test_header: "Train-Acceptance: acc:<train-id>:<acceptance-slug>"
+    convention: "src/atdd/tester/conventions/red.convention.yaml"
 
 # URN naming pattern. Typed grammar (issue #1421): the legacy NNNN digit identity
 # is RETIRED. The grammar itself is single-sourced in

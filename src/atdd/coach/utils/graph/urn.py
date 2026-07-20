@@ -207,6 +207,17 @@ class URNGrammar:
         return bool(re.match(pattern, urn))
 
     @classmethod
+    def _alternate_segment_counts(cls, family: str) -> list:
+        """Extra admissible token counts for a family with a polymorphic parent.
+
+        Empty for every family that declares none — the exact-match segment-count
+        check is the norm; ``acc`` is the sole exception (spec §3.3 gives it a
+        wagon-parented AND a train-parented shape).
+        """
+        spec = cls._FAMILY_SPECS.get(family) or {}
+        return list(spec.get('alternate_segment_counts') or [])
+
+    @classmethod
     def validate_grammar(cls, urn: str) -> bool:
         """Validate a URN against the parent-it-belongs-to grammar (spec §3.2).
 
@@ -242,10 +253,16 @@ class URNGrammar:
         expected = cls.SEGMENT_COUNTS.get(prefix)
         if expected is not None:
             actual = len(urn.split(':')) - 1  # tokens AFTER the prefix
-            if actual != expected:
+            # A family whose PARENT is polymorphic has a polymorphic token count
+            # too (``acc``: wagon-parented = 2, train-parented = 4 — #1548). Such
+            # a family declares the extra counts in ``alternate_segment_counts``;
+            # every other family has none and keeps the exact-match check.
+            admissible = [expected, *cls._alternate_segment_counts(prefix)]
+            if actual not in admissible:
+                expected_txt = " or ".join(str(c) for c in admissible)
                 raise ValueError(
                     f"{prefix!r} URN has wrong segment count: expected "
-                    f"{expected} token{'s' if expected != 1 else ''} after "
+                    f"{expected_txt} token{'s' if admissible != [1] else ''} after "
                     f"'{prefix}:' per parent-it-belongs-to principle "
                     f"(spec §3.2), got {actual} in {urn!r}"
                 )
@@ -1127,12 +1144,35 @@ class URNGrammar:
 
     @classmethod
     def _parse_acc(cls, urn: str) -> dict:
-        """Custom parser for ``acc:<wagon>:<wmbt_id>-<harness>-<seq>[-<slug>]``."""
-        main_part = urn.replace('acc:', '')
+        """Custom parser for the two ``acc`` shapes (spec §3.3).
+
+        Train-parented — ``acc:train:<subject>:<slug>:<acceptance-slug>`` (#1548)
+        — is detected first: it is the only shape whose parent is itself a typed,
+        multi-token identity, so it is reassembled as a whole ``train_id`` rather
+        than split across positional fields.
+
+        Wagon-parented — ``acc:<wagon>:<wmbt_id>-<harness>-<seq>[-<slug>]`` — is
+        the original shape and parses exactly as before.
+        """
+        main_part = urn[len('acc:'):]
+
+        if main_part.startswith('train:'):
+            tokens = main_part.split(':')
+            # train, <subject>, <slug>, <acceptance-slug>
+            if len(tokens) == 4:
+                return {
+                    'type': 'acceptance',
+                    'parent_kind': 'train',
+                    'train_id': ':'.join(tokens[:3]),
+                    'subject': tokens[1],
+                    'slug': tokens[3],
+                }
+
         parts = main_part.split(':')
         # Format: wagon_id:wmbt_id-harness-seq[-slug]
         result = {
             'type': 'acceptance',
+            'parent_kind': 'wagon',
             'wagon_id': parts[0] if len(parts) > 0 else None,
         }
 

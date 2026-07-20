@@ -32,6 +32,7 @@ from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 import yaml
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.utils.plan_paths import TRAINS_DIRNAME, iter_train_files
 from atdd.coach.validators._violation import Violation
 
 
@@ -79,8 +80,16 @@ def iter_repo_acceptances(repo_root: Path) -> Iterator[RawAcceptance]:
     """Yield every ``acceptances[]`` entry under ``<repo>/plan/``.
 
     Reads:
-      - ``plan/<wagon>/[DLPCEMYRK]NNN.yaml`` (WMBT acceptances).
-      - ``plan/_trains/*.yaml``               (train acceptances).
+      - ``plan/<wagon>/[DLPCEMYRK]NNN.yaml``  (WMBT acceptances).
+      - ``plan/_trains/**/*.yaml``            (train acceptances).
+
+    The train walk RECURSES (#1548). Typed trains (#1421) live nested at
+    ``plan/_trains/<subject>/<slug>.yaml``; the original top-level-only glob
+    saw none of them, so every train acceptance in the repo was invisible to
+    the substrate validators — the forward pass never required a test, and the
+    reverse pass read any test anchored to one as an orphan. Underscore-
+    prefixed subdirectories (``_interlockings``) are registry/control
+    artifacts, not trains, and are skipped like the wagon loop skips them.
 
     Files that fail to parse, or whose top level is not a dict with an
     ``acceptances:`` list, are silently skipped — those are caught by
@@ -99,10 +108,9 @@ def iter_repo_acceptances(repo_root: Path) -> Iterator[RawAcceptance]:
                 continue
             yield from _iter_acceptances_in_file(wmbt_file, "wmbt", repo_root)
 
-    trains_dir = plan_dir / "_trains"
-    if trains_dir.is_dir():
-        for train_file in sorted(trains_dir.glob("*.yaml")):
-            yield from _iter_acceptances_in_file(train_file, "train", repo_root)
+    trains_dir = plan_dir / TRAINS_DIRNAME
+    for train_file in sorted(iter_train_files(trains_dir)):
+        yield from _iter_acceptances_in_file(train_file, "train", repo_root)
 
 
 def _iter_acceptances_in_file(

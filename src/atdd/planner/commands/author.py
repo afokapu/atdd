@@ -902,6 +902,13 @@ _IL_FIELD_ORDER: tuple[str, ...] = (
     "schema_version", "interlocking_id", "title", "theme", "status",
     "source", "entrypoint", "route_resolution", "lifelines", "messages",
     "fragments", "invariants", "residuals", "routes",
+    # #1554: the author's typed per-category not-applicable. Carried through
+    # VERBATIM like the rest of the control body — the command must never
+    # synthesize an assessment, because auto-emitting a not-applicable basis for
+    # every unrouted category is precisely the erosion the closed vocabulary
+    # exists to prevent. Omitting the field here would silently drop the author's
+    # assessment and make a compliant interlocking unauthorable through the CLI.
+    "category_assessment",
 )
 
 
@@ -976,6 +983,39 @@ def create_interlocking(spec: dict, *, root: Path | str | None = None) -> Path:
     return il_path
 
 
+_SCHEMAS_DIR = Path(__file__).resolve().parents[1] / "schemas"
+
+
+def _validate_embedded_acceptance(block: dict) -> None:
+    """Reject an acceptance block that acceptance.schema.json would not accept.
+
+    Validates against ``definitions/embedded_acceptance`` — NOT the strict root
+    object (#1194). The root shape requires ``signal`` + ``metadata`` and a full
+    ``when.action`` / ``then.assertions``; read literally it rejects every real
+    WMBT acceptance in ``plan/`` and everything this writer has ever produced,
+    which is exactly why #1193 excluded ``acceptance`` from author-time schema
+    validation instead of reconciling it. ``embedded_acceptance`` is the shape
+    real files carry (1280 of 1334 in-repo acceptances satisfy it today), so it
+    is the shape the writer is held to — authored blocks now validate by
+    construction rather than by convention.
+    """
+    import jsonschema
+
+    schema = json.loads(
+        (_SCHEMAS_DIR / "acceptance.schema.json").read_text(encoding="utf-8")
+    )
+    validator = jsonschema.Draft7Validator(
+        {**schema, "$ref": "#/definitions/embedded_acceptance"}
+    )
+    errors = sorted(validator.iter_errors(block), key=str)
+    if errors:
+        detail = "; ".join(
+            f"{'.'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
+            for e in errors
+        )
+        raise AuthorInputError("acceptance", f"acceptance block is not schema-valid: {detail}")
+
+
 def create_acceptance(wmbt_urn: str, block: dict, *, root: Path | str | None = None) -> Path:
     """Append an acceptance into an existing WMBT's acceptances[], idempotent on urn (WMBT E005)."""
     parts = (wmbt_urn or "").split(":")
@@ -991,6 +1031,8 @@ def create_acceptance(wmbt_urn: str, block: dict, *, root: Path | str | None = N
         raise AuthorInputError("identity", "acceptance block missing identity.urn")
     if (block.get("identity") or {}).get("phase") not in ("GREEN", "SMOKE", "RED", "REFACTOR"):
         raise AuthorInputError("phase", "acceptance phase must be one of GREEN/SMOKE/RED/REFACTOR")
+    # Schema gate BEFORE any write, so a rejected block leaves the file untouched.
+    _validate_embedded_acceptance(block)
 
     doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     accs = doc.setdefault("acceptances", [])
