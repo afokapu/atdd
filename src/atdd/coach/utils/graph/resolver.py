@@ -1705,6 +1705,18 @@ class TestResolver(BaseResolver):
     _ACCEPTANCE_RE = re.compile(r"(?:#|//)\s*[Aa]cceptance:\s*([^\s]+)")
     _WMBT_RE = re.compile(r"(?:#|//)\s*[Ww][Mm][Bb][Tt]:\s*([^\s]+)")
     _TRAIN_RE = re.compile(r"(?:#|//)\s*[Tt]rain:\s*([^\s]+)")
+    # Journey-test binding to a TRAIN acceptance (#1548). Deliberately spelled
+    # `Train-Acceptance:` rather than reusing `Acceptance:`: a journey test MUST
+    # omit `Acceptance:` and `WMBT:` (SPEC-V3-002 mutual exclusion, enforced by
+    # test_urn_spec_v3), so reusing that key would make every harness-backed
+    # train acceptance unsatisfiable — its test would violate the very rule that
+    # requires it. The hyphen keeps this key invisible to BOTH _ACCEPTANCE_RE
+    # (whose `\s*` cannot consume the `Train-` prefix) and _TRAIN_RE (whose
+    # `[Tt]rain:` needs a colon where this has a hyphen), so the two-tier header
+    # contract is extended without loosening it.
+    _TRAIN_ACCEPTANCE_RE = re.compile(
+        r"(?:#|//)\s*[Tt]rain-[Aa]cceptance:\s*([^\s]+)"
+    )
     _PHASE_RE = re.compile(r"(?:#|//)\s*[Pp]hase:\s*(RED|GREEN|SMOKE|REFACTOR)")
     _LAYER_RE = re.compile(
         r"(?:#|//)\s*[Ll]ayer:\s*(presentation|application|domain|integration|assembly)"
@@ -1764,13 +1776,19 @@ class TestResolver(BaseResolver):
         """
         Parse V3 test header metadata from file content.
 
-        Returns dict with keys: test_urn, acceptance, wmbt, train, phase, layer, assertion, format.
+        Returns dict with keys: test_urn, acceptance, train_acceptance, wmbt,
+        train, phase, layer, assertion, format.
         format is 'acceptance' | 'journey' | 'legacy' | None.
         assertion is 'structural' | 'behavioral' | None (None when undeclared — legacy tests).
+
+        ``train_acceptance`` is the journey tier's binding to a train acceptance
+        (#1548) — see ``_TRAIN_ACCEPTANCE_RE`` for why it is a distinct key and
+        not a second spelling of ``acceptance``.
         """
         result = {
             "test_urn": None,
             "acceptance": None,
+            "train_acceptance": None,
             "wmbt": None,
             "train": None,
             "phase": None,
@@ -1782,6 +1800,7 @@ class TestResolver(BaseResolver):
         # Header fields each carried by a single "Key: value" comment line
         simple_fields = (
             ("acceptance", cls._ACCEPTANCE_RE),
+            ("train_acceptance", cls._TRAIN_ACCEPTANCE_RE),
             ("wmbt", cls._WMBT_RE),
             ("train", cls._TRAIN_RE),
             ("phase", cls._PHASE_RE),

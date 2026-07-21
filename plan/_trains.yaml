@@ -24,7 +24,6 @@ trains:
       wagons: []
       category: nominal
     - train_id: train:issue-lifecycle:drive-state-machine
-      category: nominal
       description: Replace polling-and-trust with an event-driven, observer-augmented
         coach that drives the issue → merged-PR lifecycle (per atdd-coach-spec-v9.md).
         Absorbs valuable machinery from atdd orchestrate and atdd babysit; introduces
@@ -48,22 +47,24 @@ trains:
       - dispatch-ux-defaults-and-primer
       - mediate-worker-decisions
       - coach-verb-split
-    - train_id: train:issue-lifecycle:record-agent-session-identity
       category: nominal
-      description: Record which agent session worked which work_item by reading ambient
+    - train_id: train:issue-lifecycle:record-agent-session-identity
+      description: 'Record which agent session worked which work_item by reading ambient
         environment at two mandatory chokepoints — `atdd author issue` (creator) and
         the packaged `post-commit` hook (participant) — storing provider-tagged opaque
-        session refs with recency in `data.last_seen_at` and the worktree path per
-        participation, so recovery no longer depends on a single-provider multiplexer
-        state file.
+        session refs in `external_refs` with recency in `data.last_seen_at` and the
+        worktree path per participation. The agent-kind → session-env-var mapping
+        lives in a convention YAML so core never learns a provider, and no role is
+        ever stored: orchestrator vs worker is inferred at read time from the worktree
+        paths a session participated in.'
       path: plan/_trains/issue-lifecycle/record-agent-session-identity.yaml
       wagons:
       - isolate-provider-boundary
       - author-atdd-substrate
       - drive-state-machine
       - project-shared-state
-    - train_id: train:object-conflict-resolution:project-state
       category: nominal
+    - train_id: train:object-conflict-resolution:project-state
       description: 'State projection train: make the committed deterministic projection
         the shared source of truth, the local SQLite store a private authoring workspace,
         git history plus structured ATDD trailers the audit log, and CI the merge
@@ -80,8 +81,8 @@ trains:
       - govern-projection-fields
       - isolate-provider-boundary
       - migrate-projection-authority
+      category: nominal
     - train_id: train:object-conflict-resolution:reconcile-dirty-store
-      category: alternate
       description: 'Alternate-path train (category: alternate): the HEAD-change reconcile
         flow when the local store is DIRTY — uncommitted overlay events exist. Instead
         of a plain hydrate-overwrite, the store is backed up, the incoming projection
@@ -92,8 +93,8 @@ trains:
       path: plan/_trains/object-conflict-resolution/reconcile-dirty-store.yaml
       wagons:
       - reconcile-local-store
+      category: alternate
     - train_id: train:object-conflict-resolution:resolve-object-conflict
-      category: exception
       description: 'Exception-path train (category: exception): two branches change
         the SAME projection object. Disjoint objects merge cleanly by UID sharding;
         a same-object divergence is an EXPECTED failure handled gracefully — validity-gated,
@@ -105,8 +106,8 @@ trains:
       path: plan/_trains/object-conflict-resolution/resolve-object-conflict.yaml
       wagons:
       - govern-projection-fields
+      category: exception
     - train_id: train:self-compliance:validate-lifecycle
-      category: nominal
       description: 'Validate lifecycle train: planner defines plans, tester verifies
         contracts, coder implements, coach governs'
       path: plan/_trains/self-compliance/validate-lifecycle.yaml
@@ -120,8 +121,8 @@ trains:
       - enforce-structured-logging
       - validate-conventions
       - enforce-binding-plan
-    - train_id: train:substrate:admit-packages
       category: nominal
+    - train_id: train:substrate:admit-packages
       description: 'Admission substrate train: the front door that admits external
         extension/workspace packages into a project — define the substrate/lock/registry
         schemas, read registries, resolve+validate+compose an artifact against core,
@@ -131,8 +132,8 @@ trains:
       path: plan/_trains/substrate/admit-packages.yaml
       wagons:
       - admit-substrate
-    - train_id: train:substrate:author-artifacts
       category: nominal
+    - train_id: train:substrate:author-artifacts
       description: 'Authoring substrate train: define canonical schemas + flat homes,
         validate author input on a shared spine, then deterministically write the
         four governance artifact kinds (convention-node, relationship, scope, gate)
@@ -141,8 +142,8 @@ trains:
       wagons:
       - author-atdd-substrate
       - author-plan-substrate
-    - train_id: train:substrate:bind-runtime
       category: nominal
+    - train_id: train:substrate:bind-runtime
       description: 'Binding substrate train: the runtime back end that turns a locked,
         inert .atdd/substrate.lock.yaml into running, gating capabilities. Define
         a binding-plan schema, load enabled packages from the lock by installed_path,
@@ -156,6 +157,7 @@ trains:
       path: plan/_trains/substrate/bind-runtime.yaml
       wagons:
       - bind-substrate-runtime
+      category: nominal
     02-commons-alternate:
     - train_id: 0201-enforce-strict-failure
       description: A strict convention node reports at least one violation, so the

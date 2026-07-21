@@ -1,0 +1,43 @@
+schema_version: 1.0.0
+rule_id: planner.train.route-category-assessment
+kind: constraint
+status: active
+name: Route category assessment
+statement: 'Every interlocking must assess each route category: nominal requires one
+  or more routes, and alternate/error/exception each require routes or a typed not-applicable
+  basis from a closed vocabulary (issue #1554).'
+rationale: A check satisfied by 'at least one non-nominal route' is gamed by adding
+  a token alternate while error and exception behaviour go unwritten. Assessing every
+  category individually forces the author to state what happens on each, and a typed
+  not-applicable keeps the escape from eroding into copy-pasted prose.
+terms:
+- term_id: category_space
+  text: the closed set nominal, alternate, error, exception; no category may be silently
+    omitted
+- term_id: nominal_requires_routes
+  text: nominal is the executed path and can never be typed not-applicable
+- term_id: typed_not_applicable
+  text: alternate, error and exception may be discharged by a basis drawn from a closed
+    vocabulary, never by free prose
+- term_id: no_contradiction
+  text: declaring a not-applicable basis for a category that already carries routes
+    is a contradiction, so stale assessments cannot survive
+implementation:
+  type: validator
+  ref: test_route_space_admission::test_every_category_is_assessed_or_typed_not_applicable
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: presence
+  template: conditional_requirement
+  variant: planner_train_route_category_assessment
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - category
+  - route_ids
+  - not_applicable_basis
+  - assessment_status

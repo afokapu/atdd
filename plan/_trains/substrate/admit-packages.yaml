@@ -9,6 +9,10 @@ description: "Admission substrate train: the front door that admits external ext
 themes:
 - commons
 primary_wagon: admit-substrate
+route_space:
+  classification: single-route
+  basis: not-yet-assessed
+  retires_with: 1549
 participants:
 - wagon:admit-substrate
 - system:atdd-cli
