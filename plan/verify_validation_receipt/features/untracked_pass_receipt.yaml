@@ -8,7 +8,14 @@ description: 'Redesign the validation pass-receipt so concurrent PRs stop confli
   is computed over toolkit source files only, excluding installed __pycache__/*.pyc
   bytecode, so the recorded key is reproducible across environments (#E002). Writer/verifier
   live in src/atdd/coach/commands/validation_baseline.py; the only reader is src/atdd/cli.py.
-  Does not touch the enforce-ratchet (.atdd/enforce-ratchet.yaml, #1428).
+  Does not touch the enforce-ratchet (.atdd/enforce-ratchet.yaml, #1428). DELIBERATE,
+  REVERSIBLE TRADEOFF (issue Decision 4, not cosmetic): cli.py:567 defines --verify-baseline
+  as a built-yet-unwired <10s CI fast-path (SPEC-COACH-BASELINE-0002); Option A forecloses
+  ever wiring it, because a fresh clone would have no committed baseline to verify. It is
+  still the right call now — reversible, unblocks #1530/#1538, and kills the force-push
+  treadmill at the root. Reversal path: if the fast-path is ever wired, reintroduce committed
+  receipts with a per-source-unit key (the old Option B) as a clean future PR that does not
+  resurrect the whole-tree key.
 
   '
 sizing:
