@@ -27,12 +27,24 @@ from atdd.coach.commands.initializer import ProjectInitializer
 pytestmark = [pytest.mark.coach]
 
 # The per-checkout operational artifacts `atdd init` must keep out of git history.
+#
+# Deliberately NARROW under `.atdd/state/` (#1580): a bare `.atdd/state/` here is what
+# gitignored the projection, and a gitignored projection is empty at every HEAD — which
+# reconcile read as "delete every work_item". See TRACKED_PATH below.
 REQUIRED_ENTRIES = (
     ".atdd/cache/",
     ".atdd/diagnostics/",
-    ".atdd/state/",
+    ".atdd/state/state.sqlite*",
+    ".atdd/state/backups/",
     ".atdd/manifest.migrated.yaml",
 )
+
+#: The one path under `.atdd/state/` that MUST stay tracked — the shared source of truth.
+TRACKED_PATH = ".atdd/state/projection/wi_01HF7YAT00M78607F0000000A1.yaml"
+
+#: An entry unambiguous enough to test for *absence* with: plain `.atdd/state/` is now a
+#: substring of a legitimate entry, so it can no longer stand in for "atdd seeded here".
+SENTINEL_ENTRY = ".atdd/state/state.sqlite*"
 
 
 def _init_repo(tmp_path: Path) -> Path:
@@ -115,7 +127,7 @@ def test_init_alone_does_not_reseed_an_already_initialized_repo(tmp_path: Path) 
 
     assert rc == 1, "init on an already-initialized repo is expected to bail out"
     content = (repo / ".gitignore").read_text()
-    assert ".atdd/state/" not in content, (
+    assert SENTINEL_ENTRY not in content, (
         "init unexpectedly re-seeded; re-evaluate whether the sync path is still needed"
     )
 
@@ -160,6 +172,38 @@ def test_sync_does_not_seed_gitignore_when_repo_never_initialized(tmp_path: Path
 
     assert not (repo / ".atdd").exists(), "sync must not create .atdd/ (not an installer)"
     content = (repo / ".gitignore").read_text()
-    assert ".atdd/state/" not in content, (
+    assert SENTINEL_ENTRY not in content, (
         "sync seeded atdd entries into a repo that never ran init:\n" + content
+    )
+
+
+# =============================================================================
+# CASE C — the projection must survive the seeding (#1580)
+#
+# The entries above are what `atdd init` ships to every consumer repo. Asserting
+# their presence is not enough: the 2026-07-20 mass-deletion was caused by an
+# entry that was *present and correct-looking* (`.atdd/state/`) and quietly took
+# the shared projection with it. So the guarantee is stated the other way round
+# and checked against real git, not against the file's text.
+# =============================================================================
+def test_seeding_leaves_the_committed_projection_tracked(tmp_path: Path) -> None:
+    """`atdd init`'s ignore entries must never make the projection untrackable."""
+    repo = _init_repo(tmp_path)
+    ProjectInitializer(target_dir=repo)._seed_gitignore_entries()
+
+    def ignored(path: str) -> bool:
+        return subprocess.run(
+            ["git", "check-ignore", "-q", path], cwd=repo, capture_output=True,
+        ).returncode == 0
+
+    # The private DB and its WAL stay out of history...
+    assert ignored(".atdd/state/state.sqlite"), "the local SQLite store must stay ignored"
+    assert ignored(".atdd/state/state.sqlite-wal"), "the WAL must stay ignored"
+    assert ignored(".atdd/state/backups/state-20260720.sqlite"), "backups must stay ignored"
+
+    # ...and the shared source of truth stays IN it. This is the assertion whose
+    # absence cost ~588 work_items.
+    assert not ignored(TRACKED_PATH), (
+        "the committed projection is gitignored — it will be empty at every HEAD, and "
+        "reconcile will read that emptiness as an instruction to delete the store (#1580)"
     )
