@@ -11,6 +11,9 @@ category: nominal
 themes:
 - commons
 primary_wagon: place-worktrees
+route_space:
+  classification: single-route
+  basis: sole-terminal-outcome
 sequence:
 - step: 1
   intent: Resolve the worktree directory from a worktree_root config key defaulting
