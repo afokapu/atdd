@@ -72,6 +72,16 @@ from atdd.coach.utils.config import (
 )
 from atdd.coach.utils.theme_map import get_theme_map
 
+# THE shared train bucket/path derivation (#1504). The planner owns the #1421 URN
+# grammar, so this writer consumes its derivation rather than keeping a second one
+# that drifts. author.py reaches back into coach only via function-local imports,
+# so this module-level direction introduces no cycle.
+from atdd.planner.commands.author import (
+    is_typed_train_id,
+    train_bucket,
+    train_relpath,
+)
+
 
 def _present(path: Optional[Path]) -> bool:
     """True when a stack root is both declared and present on disk.
@@ -80,6 +90,22 @@ def _present(path: Optional[Path]) -> bool:
     directory both mean "nothing to scan here" to every caller below.
     """
     return path is not None and path.exists()
+
+
+def _discover_train_manifests(trains_dir: Path) -> List[Path]:
+    """Train manifest files under ``trains_dir``: flat legacy manifests plus
+    nested typed ones at ``<subject>/<slug>.yaml`` (#1504).
+
+    Underscore-prefixed names are skipped at EVERY level, not just the leaf:
+    ``plan/_trains/_interlockings/*.yaml`` sits at nesting depth 2 and is not a
+    train — globbing it in would mint phantom trains.
+    """
+    return [
+        f
+        for f in trains_dir.rglob("*.yaml")
+        if not any(part.startswith("_") for part in f.relative_to(trains_dir).parts)
+    ]
+
 
 _logger = logging.getLogger(__name__)
 
@@ -1150,10 +1176,9 @@ class RegistryBuilder:
                 mode, registry_path, existing_trains, theme_map, stats
             )
 
-        # Scan for train manifests
-        manifest_files = [
-            f for f in trains_dir.glob("*.yaml") if not f.name.startswith("_")
-        ]
+        # Scan for train manifests (flat legacy + nested typed, underscore dirs
+        # skipped at every level — see _discover_train_manifests, #1504).
+        manifest_files = _discover_train_manifests(trains_dir)
         stats["total_manifests"] = len(manifest_files)
 
         # Collect all train entries (flat list first, then group)
@@ -1214,10 +1239,19 @@ class RegistryBuilder:
             theme_name = entry.pop("_theme_name", "unknown")
             category_name = entry.pop("_category_name", "unknown")
 
-            theme_key = self._get_theme_key(theme_digit, theme_name)
-            category_key = self._get_category_key(
-                theme_digit, category_digit, theme_name, category_name
-            )
+            # Typed ids (#1421) bucket by subject/category via THE shared planner
+            # derivation. Deriving them here from the legacy NNXX digits instead
+            # dropped every `train:...` id into the default 0-commons bucket while
+            # the planner writer put it under its subject — one train_id, two
+            # buckets, invisible to the bucket-local dedup (#1504).
+            train_id = entry.get("train_id", "")
+            if is_typed_train_id(train_id):
+                theme_key, category_key = train_bucket(train_id, entry)
+            else:
+                theme_key = self._get_theme_key(theme_digit, theme_name)
+                category_key = self._get_category_key(
+                    theme_digit, category_digit, theme_name, category_name
+                )
             nested.setdefault(theme_key, {}).setdefault(category_key, []).append(entry)
         return nested
 
@@ -1306,9 +1340,15 @@ class RegistryBuilder:
         entry = {
             "train_id": train_id,
             "description": manifest.get("description", manifest.get("title", "")),
-            "path": f"plan/_trains/{train_id}.yaml",
+            "path": train_relpath(train_id),
             "wagons": self._resolve_train_wagons(manifest, train_id),
         }
+
+        # Category is a validated FIELD on a typed identity (#1421), not a digit in
+        # it — so the rebuild has to carry it across or it is silently lost, and the
+        # next pass re-buckets an `exception` train as `nominal` (#1504).
+        if is_typed_train_id(train_id):
+            entry["category"] = manifest.get("category") or "nominal"
 
         # Section 5: Normalize test/code fields, keeping them out when empty
         test_normalized = self._normalize_test_code_field(manifest.get("test"))
