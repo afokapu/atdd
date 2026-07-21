@@ -31,7 +31,7 @@ import pytest
 
 from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.projection import MissingProjectionError, read_projection
-from atdd.state.reconcile import hydrate_store, projection_path
+from atdd.state.reconcile import MassDeletionRefused, hydrate_store, projection_path
 from atdd.state.store import StateStore
 
 from ._helpers import UID_A, UID_B, checkout, commit_all, document, store, store_bytes, write_projection
@@ -58,7 +58,14 @@ def test_c002_unit_001_absent_directory_is_refused_only_when_required(tmp_path) 
 
 
 def test_c002_unit_001_missing_projection_refuses_before_deleting(tmp_path) -> None:
-    """A hydrate against a deleted projection directory refuses and mutates nothing."""
+    """A hydrate against a deleted projection directory refuses and mutates nothing.
+
+    With work in the store the refusal is a :class:`MassDeletionRefused`, not the bare
+    :class:`MissingProjectionError`. Both would protect the store; only one tells the
+    operator what was at stake, and "there is no projection here" is a much less alarming
+    sentence than it deserves to be when the answer to "and what did that nearly cost?"
+    is the entire store.
+    """
     repo = checkout(tmp_path / "repo")
     write_projection(repo, [document(UID_A), document(UID_B)])
     commit_all(repo, "base projection")
@@ -71,8 +78,17 @@ def test_c002_unit_001_missing_projection_refuses_before_deleting(tmp_path) -> N
     shutil.rmtree(projection_path(repo))
     before = store_bytes(repo)
 
-    with pytest.raises(MissingProjectionError):
+    with pytest.raises(MassDeletionRefused) as refused:
         hydrate_store(repo)
+
+    # The refusal names both facts: the projection that is not there, and the work that
+    # would have gone with it.
+    message = str(refused.value)
+    assert str(projection_path(repo)) in message
+    assert "2" in message
+    assert set(refused.value.doomed) == {UID_A, UID_B}
+    # The precise cause is preserved for anyone reading the chain rather than the message.
+    assert isinstance(refused.value.__cause__, MissingProjectionError)
 
     # Raised BEFORE any sqlite mutation: the store is byte-identical, both objects intact.
     assert store_bytes(repo) == before
@@ -81,3 +97,16 @@ def test_c002_unit_001_missing_projection_refuses_before_deleting(tmp_path) -> N
         assert {o.uid for o in StateStore(conn).objects.list(kind=WORK_ITEM_KIND)} == {UID_A, UID_B}
     finally:
         conn.close()
+
+
+def test_c002_unit_001_missing_projection_against_an_empty_store_is_a_plain_refusal(
+    tmp_path,
+) -> None:
+    """With nothing at stake it is a misconfiguration, and says so without melodrama."""
+    repo = checkout(tmp_path / "repo")
+    commit_all(repo, "no projection was ever written")
+
+    # Nothing in the store, so nothing to lose — the operator needs the diagnosis
+    # ("your Control Root has no projection"), not a mass-deletion alarm.
+    with pytest.raises(MissingProjectionError):
+        hydrate_store(repo)

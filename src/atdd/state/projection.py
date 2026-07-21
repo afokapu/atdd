@@ -126,6 +126,30 @@ class ProjectionSchemaError(ProjectionError):
     """A document does not conform to ``commons:projection-object``."""
 
 
+class MissingProjectionError(ProjectionError):
+    """The projection directory a caller required does not exist (#1580).
+
+    "There is no projection here" and "the projection carries no objects" are different
+    facts, and :func:`read_projection` used to answer both with ``{}``. That collapse is
+    half of what made the 2026-07-20 mass-deletion silent: a control root resolved
+    somewhere without a projection produced the same empty mapping as a genuine empty
+    one, and the caller deleted the store to match.
+
+    So the distinction is now carried in the type. Callers that mean "read whatever is
+    there" keep the permissive default; callers about to *act* on the answer pass
+    ``require=True`` and get this instead.
+    """
+
+    def __init__(self, projection_dir: Path) -> None:
+        self.projection_dir = Path(projection_dir)
+        super().__init__(
+            f"no projection directory at {self.projection_dir} — this is not an empty "
+            "projection, it is the absence of one, and the two must not be confused.\n"
+            "  A store is never rebuilt from a projection that is not there. Check that the "
+            "Control Root is the one you meant, and that the projection is committed at HEAD."
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Determinism guard (C001) — refuse the three known leaks before any write
 # --------------------------------------------------------------------------- #
@@ -437,15 +461,33 @@ class HydrateResult:
     uids: List[str] = field(default_factory=list)
 
 
-def read_projection(projection_dir: Path) -> Dict[str, Dict[str, Any]]:
+def read_projection(
+    projection_dir: Path, *, require: bool = False
+) -> Dict[str, Dict[str, Any]]:
     """Read and validate every ``<uid>.yaml`` under ``projection_dir``, keyed by uid.
 
     The filename is identity: a document whose ``uid`` disagrees with the file it
     was read from is a corrupted projection, not a rename, and is refused.
+
+    ``require=True`` refuses an *absent* directory with :class:`MissingProjectionError`
+    rather than returning ``{}`` (#1580). Every caller that is about to rebuild or delete
+    store state passes it: acting on "no projection exists" as though it were "the
+    projection is empty" is the exact confusion that emptied the store on 2026-07-20.
+
+    The default stays permissive because two callers legitimately mean "read whatever is
+    there": :func:`atdd.state.tombstone.compact_archive` and :func:`check_canonicality`
+    both run against directories that may honestly not exist yet, and neither deletes
+    anything on the strength of the answer.
     """
     documents: Dict[str, Dict[str, Any]] = {}
     projection_dir = Path(projection_dir)
     if not projection_dir.is_dir():
+        if require:
+            _log.warning(
+                "required projection directory is absent",
+                extra={"projection_dir": str(projection_dir)},
+            )
+            raise MissingProjectionError(projection_dir)
         return documents
     for path in sorted(projection_dir.glob(f"*{PROJECTION_SUFFIX}"), key=lambda p: p.name):
         document = yaml.safe_load(path.read_text(encoding="utf-8"))

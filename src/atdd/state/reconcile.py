@@ -66,6 +66,22 @@ _log = logging.getLogger(__name__)
 #: it is the operator's undo, so reconcile never deletes one it wrote.
 BACKUP_SUFFIX = ".bak"
 
+#: Deletions at or below this count are routine and never refused, whatever proportion
+#: of the store they represent (#1580). Retiring 2 objects from a store of 6 is a third
+#: of it and is also an ordinary Tuesday; a guard that refuses Tuesdays is one operators
+#: learn to route around, and a routed-around guard protects nothing.
+SAFE_DELETIONS = 5
+
+#: Above :data:`SAFE_DELETIONS`, the largest share of the work_items one reconcile may
+#: remove. Catches the small store, where a catastrophe is not a large *number*: half of
+#: a 20-object store is 10 objects and the whole of somebody's month.
+MAX_DELETION_FRACTION = 0.25
+
+#: …and the largest absolute count, however small the share. Catches the large store,
+#: where 60 objects out of 5000 is a rounding error proportionally and still 60 things
+#: somebody has to get back.
+MAX_ABSOLUTE_DELETIONS = 50
+
 
 class DirtyStoreError(RuntimeError):
     """An overwrite path was taken against a store carrying uncommitted overlay (C001).
@@ -76,6 +92,33 @@ class DirtyStoreError(RuntimeError):
 
     def __init__(self, message: str, *, events: Optional[List[OverlayEvent]] = None) -> None:
         self.events = events or []
+        super().__init__(message)
+
+
+class MassDeletionRefused(RuntimeError):
+    """A reconcile would have removed more store state than any guard will allow (#1580).
+
+    Same posture as :class:`DirtyStoreError` and for the same reason: raised **before** any
+    sqlite mutation, so the store is exactly as it was when this surfaces. It carries the
+    arithmetic — how many objects exist, how many were doomed, which rule tripped — because
+    the number is what tells an operator whether they are looking at a misconfiguration or
+    at a genuine mass retirement, and those need opposite responses.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        doomed: Optional[List[str]] = None,
+        existing: int = 0,
+        allowed: Optional[int] = None,
+    ) -> None:
+        #: The uids that would have been removed.
+        self.doomed = list(doomed or [])
+        #: How many work_items the store held when the guard ran.
+        self.existing = existing
+        #: The count the operator asserted via ``allow_deletions``, if any.
+        self.allowed = allowed
         super().__init__(message)
 
 
@@ -296,6 +339,7 @@ def hydrate_store(
     *,
     commit: Optional[str] = None,
     projection_dir: Optional[Path] = None,
+    allow_deletions: Optional[int] = None,
 ) -> Tuple[int, Optional[str]]:
     """Hydrate the store from the committed projection and stamp its base commit.
 
@@ -334,7 +378,7 @@ def hydrate_store(
                 events=events,
             )
         store = StateStore(conn)
-        _replace_public_state(store, projection_dir)
+        _replace_public_state(store, projection_dir, allow_deletions=allow_deletions)
         result = hydrate(projection_dir, store)
         if resolved is None:
             # Nothing to anchor to yet. Record the shape of the store, but do not
@@ -348,22 +392,154 @@ def hydrate_store(
         conn.close()
 
 
-def _replace_public_state(store: StateStore, projection_dir: Path) -> None:
-    """Drop every work item the incoming projection does not carry.
+def guard_deletions(
+    doomed: List[str], *, existing: int, allow_deletions: Optional[int] = None
+) -> None:
+    """Refuse a deletion set that is too large to be believable (#1580).
+
+    This is the guard that does not care *why* the deletion set was computed. C002-UNIT-004
+    removes the specific path that emptied the store — absence stops meaning deletion — but
+    that is not the same as removing the class: a mass tombstone, an over-eager compaction,
+    a badly resolved merge, or a Control Root pointed at the wrong project all arrive at the
+    same raw ``DELETE`` loop by a different road. So the count itself is judged, wherever it
+    came from.
+
+    Three rules, in the order they are applied:
+
+    1. At or below :data:`SAFE_DELETIONS`, nothing is refused (see the constant for why).
+    2. Above it, more than :data:`MAX_DELETION_FRACTION` of the work_items is refused.
+    3. And more than :data:`MAX_ABSOLUTE_DELETIONS` is refused however small the share.
+
+    ``allow_deletions`` is the way through, and it is an **assertion, not a force flag**:
+    the operator states how many deletions they expect, and a number that does not match
+    reality is refused as firmly as no number at all. ``--force`` answers "do it anyway",
+    which is the question nobody was asked on 2026-07-20; this asks "how many?", and a wrong
+    answer is proof the operator does not yet know what they are about to do.
+    """
+    count = len(doomed)
+    if count == 0:
+        return
+
+    if allow_deletions is not None and allow_deletions != count:
+        raise MassDeletionRefused(
+            f"refusing to delete {count} work_item(s): you asserted --allow-deletions "
+            f"{allow_deletions}, but this reconcile would remove {count}. The numbers must "
+            "match — if they do not, the reconcile is not the one you think it is.\n"
+            f"  Objects at stake: {_render_uids(doomed)}",
+            doomed=doomed, existing=existing, allowed=allow_deletions,
+        )
+
+    if count <= SAFE_DELETIONS:
+        return  # routine retirement; the proportional rule must not make tiny stores unusable
+
+    if allow_deletions == count:
+        _log.warning(
+            "mass deletion allowed by explicit operator assertion",
+            extra={"deletions": count, "existing": existing},
+        )
+        return
+
+    share = (count / existing) if existing else 1.0
+    tripped = None
+    if count > MAX_ABSOLUTE_DELETIONS:
+        tripped = (
+            f"{count} exceeds the absolute limit of {MAX_ABSOLUTE_DELETIONS} deletions "
+            "in one reconcile"
+        )
+    elif share > MAX_DELETION_FRACTION:
+        tripped = (
+            f"{count} of {existing} work_item(s) is {share:.0%} of the store, over the "
+            f"{MAX_DELETION_FRACTION:.0%} limit for a single reconcile"
+        )
+    if tripped is None:
+        return
+
+    _log.warning(
+        "reconcile refused: deletion blast radius",
+        extra={"deletions": count, "existing": existing, "share": share},
+    )
+    raise MassDeletionRefused(
+        f"refusing a mass deletion: {tripped}.\n"
+        f"  Objects at stake: {_render_uids(doomed)}\n"
+        "  Nothing has been changed. If this is genuinely intended, re-run with "
+        f"`--allow-deletions {count}` to assert the exact count; if it is not, the store "
+        "you are reconciling is probably not anchored to the projection you think it is.",
+        doomed=doomed, existing=existing,
+    )
+
+
+def _render_uids(uids: List[str], limit: int = 10) -> str:
+    """The first ``limit`` uids, with an honest count of what was elided."""
+    shown = ", ".join(sorted(uids)[:limit])
+    remaining = len(uids) - limit
+    return f"{shown} (+{remaining} more)" if remaining > 0 else shown
+
+
+def _replace_public_state(
+    store: StateStore, projection_dir: Path, *, allow_deletions: Optional[int] = None
+) -> None:
+    """Drop every work item the incoming projection does not carry, if that is safe to do.
 
     Hydrate *replaces* the public half; it does not merge into it. If it merged, an
     object the projection had dropped would linger in the store forever, and
     ``store == hydrate(projection)`` — the left half of I3 — would quietly stop being
-    true. Safe to do unconditionally here: this path only ever runs against a clean
-    store, and a purely local object is either in the overlay (so the store is dirty
-    and we are not on this path) or already has a projection file of its own.
-    """
-    from atdd.state.projection import read_projection  # local: keeps the surface small
+    true.
 
-    incoming = read_projection(projection_dir)
-    for obj in store.objects.list(kind=WORK_ITEM_KIND):
-        if obj.uid not in incoming:
-            store.objects.delete(obj.uid)
+    What made that unsafe was doing it *unconditionally*. The reasoning it rested on —
+    "a purely local object is either in the overlay, so the store is dirty and we are not
+    on this path, or it already has a projection file of its own" — is sound only while
+    the projection at HEAD is the real one. When the projection is absent or empty (the
+    2026-07-20 incident: gitignored, never committed, empty at every HEAD) the premise is
+    false and the conclusion deletes the store. So the incoming projection must now *be*
+    there (``require=True``), and the size of what it implies is judged before any of it
+    is applied.
+    """
+    from atdd.state.projection import (  # local: keeps the surface small
+        MissingProjectionError,
+        read_projection,
+    )
+
+    existing = store.objects.list(kind=WORK_ITEM_KIND)
+
+    # Read the incoming projection *after* the store, so a refusal can name what is at
+    # stake. Which refusal an absent projection deserves depends on that: with nothing in
+    # the store it is a plain misconfiguration, and with work in it, it is the incident.
+    try:
+        incoming = read_projection(projection_dir, require=True)
+    except MissingProjectionError as absent:
+        if not existing:
+            raise
+        doomed = [obj.uid for obj in existing]
+        raise MassDeletionRefused(
+            f"refusing to empty a populated store: there is no projection directory at "
+            f"{projection_dir}, and the store holds {len(existing)} work_item(s).\n"
+            f"  Objects at stake: {_render_uids(doomed)}\n"
+            "  An absent projection is not an assertion that the store should be empty — "
+            "it is the absence of any assertion at all, and the two must never be "
+            "confused. This is the shape of the 2026-07-20 mass-deletion: a gitignored, "
+            "never-committed projection reading as empty at every HEAD.\n"
+            "  Nothing has been changed. Check that the Control Root is the one you meant "
+            "and that `.atdd/state/projection/` is committed at HEAD.",
+            doomed=doomed, existing=len(existing),
+        ) from absent
+
+    doomed = [obj.uid for obj in existing if obj.uid not in incoming]
+
+    if not incoming and existing:
+        raise MassDeletionRefused(
+            f"refusing to empty a populated store: the incoming projection carries no "
+            f"objects at all, but the store holds {len(existing)} work_item(s).\n"
+            f"  Objects at stake: {_render_uids(doomed)}\n"
+            "  An empty projection is far more often a missing or uncommitted one than a "
+            "genuine mass retirement, and the cost of being wrong is the whole store. "
+            "Nothing has been changed.",
+            doomed=doomed, existing=len(existing),
+        )
+
+    guard_deletions(doomed, existing=len(existing), allow_deletions=allow_deletions)
+
+    for uid in doomed:
+        store.objects.delete(uid)
 
 
 def freshness(control_root: Path, *, head: Optional[str] = None) -> StoreFreshness:
@@ -521,12 +697,16 @@ def reconcile(
     *,
     head: Optional[str] = None,
     projection_dir: Optional[Path] = None,
+    allow_deletions: Optional[int] = None,
 ) -> ReconcileResult:
     """Reconcile the local store with the projection at ``head`` (CORE-013).
 
     Raises :class:`StoreBaseCommitError` when the store is not anchored (P001),
-    :class:`ReplayConflictError` when the overlay will not replay (R002). In both
-    cases the store is left exactly as it was.
+    :class:`ReplayConflictError` when the overlay will not replay (R002),
+    :class:`MassDeletionRefused` when the incoming projection would remove more store
+    state than any guard will allow, and
+    :class:`~atdd.state.projection.MissingProjectionError` when there is no projection to
+    reconcile against at all (#1580). In every case the store is left exactly as it was.
     """
     control_root = Path(control_root)
     db_path = store_path(control_root)
@@ -555,6 +735,7 @@ def reconcile(
         # Clean store: reconcile reduces to plain hydrate. No backup, nothing to lose.
         hydrated, _ = hydrate_store(
             control_root, commit=resolved_head, projection_dir=projection_dir,
+            allow_deletions=allow_deletions,
         )
         _log.info(
             "reconciled by hydrate", extra={"base": base, "head": resolved_head},
@@ -575,6 +756,7 @@ def reconcile(
             events=events,
             backup=backup,
             workdir=Path(tmp),
+            allow_deletions=allow_deletions,
         )
 
 
@@ -588,6 +770,7 @@ def _replay_onto_incoming(
     events: List[OverlayEvent],
     backup: Path,
     workdir: Path,
+    allow_deletions: Optional[int] = None,
 ) -> ReconcileResult:
     """store := hydrate(incoming) + replay(overlay), on a copy, atomically (R001)."""
     incoming = _incoming_documents(projection_dir)
@@ -596,10 +779,10 @@ def _replay_onto_incoming(
     try:
         store = StateStore(conn)
 
-        # public := hydrate(incoming). Replace, do not merge: an object the incoming
-        # projection does not carry is not public state, and the overlay — not a
-        # leftover row — is what re-creates a purely local one.
-        _replace_public_state(store, projection_dir)
+        # public := hydrate(incoming), subject to the deletion guards — an incoming
+        # projection that is absent, empty, or implausibly smaller than the store is
+        # refused here rather than applied (#1580).
+        _replace_public_state(store, projection_dir, allow_deletions=allow_deletions)
         hydrated = hydrate(projection_dir, store).hydrated
 
         # ``working`` is the state each event is judged against: the incoming public
