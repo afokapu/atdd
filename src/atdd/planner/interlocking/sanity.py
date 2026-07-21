@@ -45,6 +45,7 @@ from .guards import GuardSyntaxError, parse_guard
 from .loader import InterlockingError, target_train_category
 from .models import TrainInterlocking
 from .projections import project_route_to_train_sequence
+from .route_space import category_assessment_violations
 
 __all__ = [
     "RULE_CHECKS",
@@ -64,6 +65,7 @@ __all__ = [
     "wmbt_surface_or_residual_violations",
     "structural_residual_explicit_violations",
     "does_not_carry_cargo_violations",
+    "category_assessment_violations",
 ]
 
 # Field-name tokens that would smuggle Cargo runtime state into a YAML that is
@@ -205,12 +207,19 @@ def guard_coverage_violations(il: TrainInterlocking, root=None) -> List[dict]:
     route_by_guard: Dict[str, List[str]] = {}
     for r in il.routes:
         route_by_guard.setdefault(r.guard_ref, []).append(r.route_id)
-    residual_guards = {rsd.id for rsd in il.residuals if rsd.kind == "structural"}
-    for guard_id in il.guard_index():
+    # An uncovered guard is a missing route — a route-completeness (O2) gap. It is
+    # excused only when a STRUCTURAL residual explicitly discharges the guard's WMBT
+    # obligation (#1546/#1547). The carrier is the guard->WMBT->residual linkage:
+    # `Residual` has no guard_ref, and `residual_wmbt_refs` lives in the `wmbt:`
+    # namespace, so the prior `{rsd.id ...}` set (a `residual:` namespace) could
+    # never match a guard id — the escape was structurally dead. Structural
+    # residuals discharge O2 only, which is exactly what guard coverage checks.
+    residual_discharged = il.residual_wmbt_refs("structural")
+    for guard_id, guard in il.guard_index().items():
         routes = route_by_guard.get(guard_id, [])
         if len(routes) == 1:
             continue
-        if not routes and guard_id in residual_guards:
+        if not routes and set(guard.wmbt_refs) & residual_discharged:
             continue
         status = "uncovered" if not routes else "multiply-covered"
         out.append({
@@ -337,7 +346,14 @@ def wmbt_surface_or_residual_violations(il: TrainInterlocking, root=None) -> Lis
     residual. A ``wmbt_ref`` on an invariant with no real assertion is a dangling
     obligation (it names a WMBT but enforces nothing)."""
     out: List[dict] = []
-    residual_wmbts = {rsd.id for rsd in il.residuals if rsd.kind == "structural"}
+    # The rule statement lists "explicit structural residual" as a valid surface, so
+    # an invariant's WMBT obligation with no real assertion is discharged when a
+    # STRUCTURAL residual names that same WMBT (#1546/#1547). The prior
+    # `{rsd.id ...}` set collected `residual:` ids and compared them to `wmbt:` refs
+    # — a namespace mismatch that made this escape structurally dead. This is a
+    # surface-coverage question, not a SMOKE (O1/O3) obligation, so the O2-only
+    # `residual_wmbt_refs` accessor is the correct carrier.
+    residual_wmbts = il.residual_wmbt_refs("structural")
     for inv in il.invariants:
         ref = inv.wmbt_ref
         if not ref:
@@ -426,6 +442,11 @@ RULE_CHECKS: "Dict[str, Callable[..., List[dict]]]" = {
     "planner.train.interlocking-wmbt-surface-or-residual": wmbt_surface_or_residual_violations,
     "planner.train.interlocking-structural-residual-explicit": structural_residual_explicit_violations,
     "planner.train.interlocking-does-not-carry-cargo": does_not_carry_cargo_violations,
+    # #1554: assessed per-interlocking, so it rides the Confirm gate with the rest
+    # — a plan cannot lock while a category is silently unassessed. Route-space
+    # ADMISSION is repo-level (train registry x route registry) and therefore
+    # cannot use this per-interlocking signature; it lives in its own validator.
+    "planner.train.route-category-assessment": category_assessment_violations,
 }
 
 

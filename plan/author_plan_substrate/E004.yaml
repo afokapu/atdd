@@ -148,3 +148,30 @@ acceptances:
     feature: author-train
     author: atdd:self-compliance
     created: '2026-07-09'
+- identity:
+    urn: acc:author-plan-substrate:E004-UNIT-005-typed-train-bucket-agreement
+    id: AC-UNIT-005
+    purpose: both _trains.yaml writers derive a typed train's bucket from one shared
+      subject/category derivation, so one train_id yields exactly one entry
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A temp plan/ home with an empty _trains.yaml and a typed train:<subject>:<slug>
+      spec
+  when:
+    abstract: create_train and RegistryBuilder.build_trains both write the registry,
+      in either order
+  then:
+    abstract:
+    - the entry sits in the subject/category bucket, never the legacy digit-theme
+      bucket
+    - exactly one entry carries the train_id, regardless of which writer ran last
+    - a nested plan/_trains/<subject>/<slug>.yaml manifest is discovered by the rebuild
+    - an underscore-prefixed subdirectory such as _interlockings/ is never ingested
+      as a train
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'

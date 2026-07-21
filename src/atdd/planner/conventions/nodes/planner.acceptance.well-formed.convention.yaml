@@ -1,0 +1,57 @@
+schema_version: 1.0.0
+rule_id: planner.acceptance.well-formed
+kind: rule
+status: active
+name: Acceptance is well-formed
+statement: Each acceptance criterion has Given/When/Then prose and a verifiable outcome.
+rationale: An acceptance whose narrative is missing, empty, or states no assertable
+  outcome cannot be turned into a test, so the WMBT it belongs to is unverifiable
+  in practice while appearing covered on paper.
+terms:
+- term_id: given_when_then
+  text: structured prose stating preconditions, the trigger action, and the expected
+    observable outcomes.
+- term_id: verifiable_outcome
+  text: an outcome a generated test can assert; a bare placeholder token (TBD, TODO,
+    N/A) is not one.
+notes: "Local shape only. This says nothing about whether a WMBT's acceptance SET\
+  \ is complete \u2014 that floor is planner.coverage.every-wmbt-must-have. The former\
+  \ name (planner.acceptance.complete) overstated the guarantee, which is why it was\
+  \ renamed; the old id is retained as an alias."
+implementation:
+  type: validator
+  ref: conventions/presence/test_acceptance_well_formed::test_fault_injection_missing_gwt_prose_is_caught
+source:
+  legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
+  legacy_section: rules
+  legacy_rule_id: planner.acceptance.complete
+  legacy_sha: 027e2d86ff127550
+  extraction_mode: high_fidelity
+metadata:
+  aliases:
+  - planner.acceptance.complete
+  - PLANNER-ACCEPTANCE-COMPLETE-001
+  severity: 3
+  disposition: strict
+  introduced_in: 1.67.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-07-19'
+validation:
+  family: presence
+  template: required_field_presence
+  variant: acceptance_well_formed
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: acceptance
+  selector: every acceptance declared under a wmbt node
+  traversal: wmbt -> acceptances[] -> given/when/then.abstract
+  invariant: given/when/then abstract prose is present and non-empty, and at least
+    one then line states a verifiable outcome
+  failure_evidence:
+  - node_id
+  - missing_field
+  - node_location

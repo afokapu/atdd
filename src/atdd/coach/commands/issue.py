@@ -720,9 +720,10 @@ class IssueManager:
         return results
 
     def _store_create_work_item(
-        self, issue_number: int, slug: str, *, status: Optional[str], data: Dict[str, Any]
+        self, issue_number: int, slug: str, *, status: Optional[str], data: Dict[str, Any],
+        discovered_via: str,
     ) -> bool:
-        """Create/register a work item in the State Store (#1203 Phase 2).
+        """Backfill a work item into the State Store, stamped as reconciled (#1557).
 
         Upserts the work item keyed by ``slug`` and links its GitHub issue number as
         the authoritative ``external_ref`` (storage APIs only — no raw SQL, within the
@@ -730,9 +731,20 @@ class IssueManager:
         existing object's lifecycle ``state`` and merges into its ``data`` so a
         re-registration never clobbers live phase. Returns True on a store write, False
         if the store is unavailable. Never raises.
+
+        THE INVERSION (#1557). This path used to *normalize*: a record created
+        out-of-band came out the far side indistinguishable from one authored
+        through ``atdd author issue``, so running the repair tool laundered the
+        violation away. It now stamps ``work_item_reconciled`` — which is not in
+        the sanctioned allowlist — making repair the DETECTOR. A violation can no
+        longer be washed away by running the tool, because the tool is what
+        records it. ``discovered_via`` is required rather than defaulted so a new
+        backfill path must state what it is, not inherit reconcile's story.
         """
         try:
+            from atdd.state import provenance
             from atdd.state.db import connect, init_state_store
+            from atdd.state.store import StateStore
             from atdd.state.work_item_writer import create_work_item
 
             conn = connect(init_state_store(start=self.target_dir))
@@ -743,6 +755,10 @@ class IssueManager:
                 create_work_item(
                     conn, slug, state=status, data=data,
                     github_number=issue_number, ref_source="atdd-issue",
+                )
+                provenance.record_reconciled(
+                    StateStore(conn), slug, discovered_via=discovered_via,
+                    payload={"issue_number": issue_number},
                 )
             finally:
                 conn.close()
@@ -1598,6 +1614,46 @@ class IssueManager:
         self._update_manifest_fields(issue_number, manifest_text)
         return [f"{key}: {value}" for key, value in manifest_text.items()]
 
+    def reproject_phase_label(self, issue_number: int) -> Optional[str]:
+        """Re-render the ``atdd:<PHASE>`` label from ``objects.state`` (#1338).
+
+        The repair counterpart of :meth:`update`. ``update`` *advances* the
+        lifecycle — store first, label projected from it. This method advances
+        nothing: it re-derives the projection from the store the record already
+        has, for a record whose label drifted away from it.
+
+        It is deliberately NOT a transition. ``update(status=<store phase>)``
+        cannot express "make the label agree again" — the phase machine refuses
+        a self-transition, which is precisely why the 236 drifted records were
+        unrepairable (see #1338: ``Cannot transition from COMPLETE to COMPLETE``).
+
+        It lives here, on ``IssueManager``, because ``issue.py`` is the sole
+        path allowed to author an ``atdd:*`` label — enforced by
+        ``coach.phase-label.projection-only`` (#1452). The direction of truth is
+        never inverted: the store is read, never written.
+
+        Returns the phase projected, or ``None`` when the store does not know
+        this issue (which the caller must treat as "cannot decide", never as
+        "no phase").
+        """
+        from atdd.coach.commands.auto_phase import read_store_phase
+
+        store_phase = read_store_phase(issue_number, self.target_dir)
+        if not store_phase:
+            return None
+
+        resolved = self._resolve_issue(str(issue_number))
+        if resolved is None:
+            return None
+        _, issue, client = resolved
+
+        current_labels, current_phase = self._read_phase_labels(issue)
+        if current_phase == store_phase:
+            return store_phase
+
+        self._write_phase_label(client, issue_number, current_labels, store_phase)
+        return store_phase
+
     # -------------------------------------------------------------------------
     # Transition gates (each prints its own diagnosis; False blocks the write)
     # -------------------------------------------------------------------------
@@ -1981,6 +2037,11 @@ class IssueManager:
         G: the ``.atdd/manifest.yaml`` mirror was deleted — the store is the sole
         registry, so no manifest read/write happens here.
 
+        #1557: a backfill is no longer silent normalization. Each record it
+        synthesises is stamped ``work_item_reconciled`` — unsanctioned provenance
+        — so ``atdd validate`` reports it afterwards. Reconcile still repairs the
+        registry; it just stops pretending the repair never happened.
+
         Returns 0 on success, 1 on hard error.
         """
         # Initialisation guard (#1270 Slice G): key on ``.atdd/config.yaml`` (the
@@ -2022,16 +2083,23 @@ class IssueManager:
             self._store_create_work_item(
                 number, slug, status=status,
                 data={k: v for k, v in entry.items() if k not in ("slug", "status")},
+                discovered_via="atdd coach reconcile",
             )
             registered.add(number)
             added += 1
-            print(f"  Backfilled: #{number} {slug}")
+            print(f"  Backfilled: #{number} {slug}  [provenance: reconciled]")
 
         if added == 0:
             print("reconcile: State Store is up-to-date — no missing issues found.")
             return 0
 
         print(f"reconcile: added {added} issue(s) to the State Store")
+        print(
+            f"reconcile: {added} record(s) stamped 'work_item_reconciled' — they were "
+            "created outside the sanctioned authoring path and `atdd validate` will "
+            "report them (#1557). Backfill repairs the registry; it does not confer "
+            "provenance."
+        )
         return 0
 
     @staticmethod

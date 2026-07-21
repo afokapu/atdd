@@ -72,6 +72,28 @@ except ImportError:
 " 2>&1
 if [ $? -ne 0 ]; then exit 1; fi
 
+# --- Store-as-source-of-truth gate (#1503) ---
+# This block is a dispatcher: the gate logic lives in the installed package, so
+# fixing it needs no hook edit. The hook file itself is still a byte-identical
+# projection of this template (.atdd/hooks/pre-push is tracked, and
+# test_template_and_installed_hook_are_byte_identical enforces the match) — so
+# changing these lines requires regenerating that projection in the same commit.
+#
+# Blocking is scoped to the work_item bound to THIS branch. Repo-wide drift is
+# reported as advisory only — a repo-wide block would red-gate every branch on
+# pre-existing history (#1516 backfills it).
+python3 -c "
+import sys
+try:
+    from atdd.coach.store_mirror_gate import _gate_main
+    _gate_main()
+except ImportError:
+    print('ATDD: the python3 running this hook (' + sys.executable + ') cannot import atdd.', file=sys.stderr)
+    print('  Diagnose and fix:  atdd doctor', file=sys.stderr)
+    sys.exit(1)
+" 2>&1
+if [ $? -ne 0 ]; then exit 1; fi
+
 REMOTE="$1"
 URL="$2"
 

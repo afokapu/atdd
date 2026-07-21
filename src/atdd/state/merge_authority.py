@@ -78,6 +78,11 @@ HOT_PATH_MODULES: Tuple[str, ...] = (
     "projection", "identity", "overlay", "reconcile", "metadata", "authoring",
     "trailers", "evidence", "crosscheck", "secrets", "merge_authority", "policy",
     "ownership", "merge_driver", "merge_matrix", "tombstone",
+    # Agent session capture (#1540): reads identity from ambient environment via
+    # a data table, so it must reach no agent runtime and no multiplexer. That
+    # is this check's existing principle, not a new one — enrolling the module
+    # here is what enforces it, rather than a bespoke per-module guard.
+    "agent_session",
 )
 
 #: An import of any of these from a hot-path module means core has grown a provider

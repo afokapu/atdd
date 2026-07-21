@@ -20,6 +20,8 @@ from typing import List, Optional
 
 import yaml
 
+from atdd.coach.utils.plan_paths import e2e_home as _e2e_home
+
 from .._support.template_contract import TemplateContract
 
 _log = logging.getLogger(__name__)
@@ -164,6 +166,71 @@ def _wmbt_has_smoke_acceptance(graph) -> List[dict]:
 
 
 # ---------------------------------------------------------------------------
+# variant: train_route_smoke_coverage  (template source_has_required_target)
+#
+# Every train registered in the plan must have >=1 SMOKE journey test under its
+# e2e home. A train is the assembly-level journey; without a smoke test nothing
+# exercises that route against real infrastructure, so the route is planned but
+# never executed.
+#
+# The e2e home MIRRORS the train identity (#1421), exactly as the plan home does:
+#   typed  train:<subject>:<slug>  -> e2e/<subject>/<slug>/
+#   legacy NNNN-slug               -> e2e/NNNN-slug/
+# A typed id pasted straight onto the path would produce a colon-named directory.
+#
+# The derivation comes from ``atdd.coach.utils.plan_paths`` — the shared utility
+# layer, NOT from ``atdd.tester.validators.test_smoke_coverage``. This module
+# stays runnable in parallel with the legacy validators because it imports no
+# persona validator module, and the identity->path mirroring is written once
+# rather than copied per consumer (copying it is what hid every typed train from
+# the acceptance walker in the first place, #1548).
+# ---------------------------------------------------------------------------
+_SMOKE_FILE_GLOBS = ('test_*.py', '*.test.ts', '*.spec.ts')
+
+
+def _smoke_files(train_dir) -> List[str]:
+    """Smoke test files under a train's e2e home (``*_smoke*`` / ``*-smoke*``)."""
+    if not train_dir.is_dir():
+        return []
+    found: List[str] = []
+    for pattern in _SMOKE_FILE_GLOBS:
+        for f in sorted(train_dir.rglob(pattern)):
+            if '_smoke' in f.stem or '-smoke' in f.stem:
+                found.append(f.name)
+    return sorted(set(found))
+
+
+def _uncovered_route_evidence(graph, node, home) -> dict:
+    """Failure evidence for a train whose e2e home holds no smoke test.
+
+    Split out of the loop below to keep the evidence literal at a shallow indent
+    (coder.refactor.complexity-nesting measures depth in INDENT COLUMNS, so a
+    dict literal nested under for+if — and its ternary continuation line — reads
+    far deeper than the control flow actually is).
+    """
+    inside_repo = graph.root in home.parents
+    return {
+        'source_node': node.id,
+        'required_target_kind': 'test:SMOKE',
+        'required_path': str(home.relative_to(graph.root)) if inside_repo else str(home),
+        'actual_targets': [],
+    }
+
+
+def _train_route_smoke_coverage(graph) -> List[dict]:
+    if graph.root is None:
+        return []
+    e2e_root = graph.root / 'e2e'
+    out: List[dict] = []
+    for t in graph.by_kind('train'):
+        home = _e2e_home(e2e_root, t.fields.get('train_id') or t.id)
+        if _smoke_files(home):
+            continue
+        out.append(_uncovered_route_evidence(graph, t, home))
+    return out
+
+
+# ---------------------------------------------------------------------------
 # variant: no_orphan_nodes  (template reachability_no_orphan)
 #
 # Every rule-bearing convention node (a *.convention.yaml with a top-level
@@ -231,6 +298,7 @@ def _no_orphan_nodes(graph) -> List[dict]:
 _SOURCE_VARIANTS = {
     'hierarchy_coverage': _hierarchy_coverage,
     'wmbt_has_smoke_acceptance': _wmbt_has_smoke_acceptance,
+    'train_route_smoke_coverage': _train_route_smoke_coverage,
 }
 
 

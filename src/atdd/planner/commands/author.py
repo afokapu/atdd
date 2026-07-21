@@ -528,31 +528,55 @@ def validate_train(spec: dict) -> None:
         )
 
 
+def is_typed_train_id(tid: str) -> bool:
+    """True when ``tid`` is a #1421 typed train identity (``train:<subject>:<slug>``)."""
+    return bool(_TYPED_TRAIN_ID_RE.match(tid or ""))
+
+
+def train_bucket(tid: str, spec: dict | None = None) -> tuple[str, str]:
+    """The ``(group, sub)`` registry bucket a train entry nests under in _trains.yaml.
+
+    THE single bucket derivation (issue #1504). Both writers of plan/_trains.yaml
+    — ``create_train`` here and ``RegistryBuilder.build_trains`` in coach — must
+    call this, or the same train_id lands in two buckets and the bucket-local
+    dedup in ``_upsert_train_registry`` cannot see the twin.
+
+    Typed ids bucket by subject/category, which is #1421's grammar: identity names
+    the journey and category rides as a validated FIELD (train.convention.yaml
+    naming.train_id, registry "trains bucketed by subject"). The legacy NNNN-slug
+    form keeps its digit buckets during the transition.
+    """
+    if is_typed_train_id(tid):
+        subject = tid[len("train:"):].split(":", 1)[0]
+        category = (spec or {}).get("category") or "nominal"
+        return subject, category
+    return f"{tid[0]}-trains", f"{tid[0]}0-nominal"
+
+
+def train_relpath(tid: str) -> str:
+    """The repo-relative per-train manifest path for a train id.
+
+    Typed ids nest at plan/_trains/<subject>/<slug>.yaml — the legacy flat
+    ``plan/_trains/{tid}.yaml`` derivation would name the file after a colon-bearing
+    id, which is not a usable filename. Shared with coach for the same reason
+    ``train_bucket`` is (#1504).
+    """
+    if is_typed_train_id(tid):
+        subject, slug = tid[len("train:"):].split(":", 1)
+        return f"plan/_trains/{subject}/{slug}.yaml"
+    return f"plan/_trains/{tid}.yaml"
+
+
 def _train_home(tid: str, spec: dict, plan: Path) -> tuple:
     """The registry bucket + on-disk home for a train id, as
     ``(group, sub, rel_path, per_train)``.
 
-    Typed ids (issue #1421) nest under plan/_trains/<subject>/<slug>.yaml and
-    bucket by subject/category — the legacy ``{tid[0]}-trains`` derivation would
-    place a ``train:...`` id under a nonsense ``t-trains`` bucket at a colon-named
-    file. The legacy NNNN-slug form keeps its flat home + digit buckets during
-    the transition.
+    Thin composition over the shared ``train_bucket`` / ``train_relpath``
+    derivations so the planner and coach writers cannot drift apart (#1504).
     """
-    if _TYPED_TRAIN_ID_RE.match(tid):
-        subject, slug = tid[len("train:"):].split(":", 1)
-        category = spec.get("category", "nominal")
-        return (
-            subject,
-            category,
-            f"plan/_trains/{subject}/{slug}.yaml",
-            plan / "_trains" / subject / f"{slug}.yaml",
-        )
-    return (
-        f"{tid[0]}-trains",
-        f"{tid[0]}0-nominal",
-        f"plan/_trains/{tid}.yaml",
-        plan / "_trains" / f"{tid}.yaml",
-    )
+    group, sub = train_bucket(tid, spec)
+    rel_path = train_relpath(tid)
+    return group, sub, rel_path, plan / Path(rel_path).relative_to("plan")
 
 
 def _reject_legacy_registry_shape(registry_path: Path, registry: object) -> None:
@@ -878,6 +902,13 @@ _IL_FIELD_ORDER: tuple[str, ...] = (
     "schema_version", "interlocking_id", "title", "theme", "status",
     "source", "entrypoint", "route_resolution", "lifelines", "messages",
     "fragments", "invariants", "residuals", "routes",
+    # #1554: the author's typed per-category not-applicable. Carried through
+    # VERBATIM like the rest of the control body — the command must never
+    # synthesize an assessment, because auto-emitting a not-applicable basis for
+    # every unrouted category is precisely the erosion the closed vocabulary
+    # exists to prevent. Omitting the field here would silently drop the author's
+    # assessment and make a compliant interlocking unauthorable through the CLI.
+    "category_assessment",
 )
 
 
@@ -952,6 +983,39 @@ def create_interlocking(spec: dict, *, root: Path | str | None = None) -> Path:
     return il_path
 
 
+_SCHEMAS_DIR = Path(__file__).resolve().parents[1] / "schemas"
+
+
+def _validate_embedded_acceptance(block: dict) -> None:
+    """Reject an acceptance block that acceptance.schema.json would not accept.
+
+    Validates against ``definitions/embedded_acceptance`` — NOT the strict root
+    object (#1194). The root shape requires ``signal`` + ``metadata`` and a full
+    ``when.action`` / ``then.assertions``; read literally it rejects every real
+    WMBT acceptance in ``plan/`` and everything this writer has ever produced,
+    which is exactly why #1193 excluded ``acceptance`` from author-time schema
+    validation instead of reconciling it. ``embedded_acceptance`` is the shape
+    real files carry (1280 of 1334 in-repo acceptances satisfy it today), so it
+    is the shape the writer is held to — authored blocks now validate by
+    construction rather than by convention.
+    """
+    import jsonschema
+
+    schema = json.loads(
+        (_SCHEMAS_DIR / "acceptance.schema.json").read_text(encoding="utf-8")
+    )
+    validator = jsonschema.Draft7Validator(
+        {**schema, "$ref": "#/definitions/embedded_acceptance"}
+    )
+    errors = sorted(validator.iter_errors(block), key=str)
+    if errors:
+        detail = "; ".join(
+            f"{'.'.join(str(p) for p in e.absolute_path) or '<root>'}: {e.message}"
+            for e in errors
+        )
+        raise AuthorInputError("acceptance", f"acceptance block is not schema-valid: {detail}")
+
+
 def create_acceptance(wmbt_urn: str, block: dict, *, root: Path | str | None = None) -> Path:
     """Append an acceptance into an existing WMBT's acceptances[], idempotent on urn (WMBT E005)."""
     parts = (wmbt_urn or "").split(":")
@@ -967,6 +1031,8 @@ def create_acceptance(wmbt_urn: str, block: dict, *, root: Path | str | None = N
         raise AuthorInputError("identity", "acceptance block missing identity.urn")
     if (block.get("identity") or {}).get("phase") not in ("GREEN", "SMOKE", "RED", "REFACTOR"):
         raise AuthorInputError("phase", "acceptance phase must be one of GREEN/SMOKE/RED/REFACTOR")
+    # Schema gate BEFORE any write, so a rejected block leaves the file untouched.
+    _validate_embedded_acceptance(block)
 
     doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     accs = doc.setdefault("acceptances", [])
