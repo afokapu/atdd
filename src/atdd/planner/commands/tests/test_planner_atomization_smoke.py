@@ -45,7 +45,7 @@ def test_real_cli_authors_a_schema_valid_node(tmp_path):
 
 def test_real_cli_core_and_extension_graphs_get_distinct_ids(tmp_path):
     core = _cli(["relationship", "--core", "--source", "planner.smoke.demo-rule",
-                 "--type", "requires", "--target", "planner.acceptance.complete",
+                 "--type", "requires", "--target", "planner.acceptance.well-formed",
                  "--foundation", "finish_to_start", "--constraint", "mandatory",
                  "--control", "internal", "--strength", "important", "--reason", "smoke"], tmp_path)
     assert core.returncode == 0, core.stderr

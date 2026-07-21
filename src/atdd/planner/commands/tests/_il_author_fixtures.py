@@ -41,6 +41,17 @@ def anchor_spec() -> dict:
              "projection": {"expected_sequence_digest": "PENDING",
                             "fields": ["step", "intent", "from", "to", "artifact"]}},
         ],
+        # #1554: this spec routes only `nominal`, so the other three categories
+        # must be assessed for the authored artifact to satisfy the real Confirm
+        # gate. The anchor is a single-guard opt fragment with one terminal
+        # outcome, so `outcome-cannot-arise` is the honest basis — there is no
+        # declared residual to discharge through, and inventing one to dress this
+        # up would defeat the point of the typed vocabulary.
+        "category_assessment": {
+            "alternate": {"basis": "outcome-cannot-arise"},
+            "error": {"basis": "outcome-cannot-arise"},
+            "exception": {"basis": "outcome-cannot-arise"},
+        },
     }
 
 

@@ -830,35 +830,40 @@ def _read_current_github_phase(issue_number: int) -> Optional[Phase]:
     return None
 
 
-def _gh_remove_phase_labels(issue_number: int, labels: list) -> None:
-    """Remove labels from a GitHub issue via gh CLI."""
-    for label in labels:
-        try:
-            subprocess.run(
-                ["gh", "issue", "edit", str(issue_number), "--remove-label", label],
-                capture_output=True, text=True, check=False,
-            )
-        except Exception as exc:
-            _logger.warning("_gh_remove_phase_labels failed", extra={"issue": issue_number, "label": label, "error": str(exc)})
+def _swap_phase_label(issue_number: int, new_phase: Phase) -> int:
+    """Move the issue to *new_phase* through the authoritative writer (#1452).
 
+    This used to shell out to ``gh issue edit --remove-label/--add-label`` via a
+    pair of module-level shims. That made it the codebase's *second* independent
+    author of the ``atdd:<PHASE>`` label — the same defect as the deleted
+    post-merge-lifecycle step, in Python rather than YAML. It stamped a
+    projection while ``objects.state`` stood still, and it did so without the
+    phase machine, the train gate or the COMPLETE gates ever running.
 
-def _gh_add_label(issue_number: int, labels: list) -> None:
-    """Add labels to a GitHub issue via gh CLI."""
-    if not labels:
-        return
+    The coach state machine advancing its internal phase is not a licence to
+    author the external one. It goes through ``IssueManager.update``, which
+    writes the store first and renders the label from it, like every other
+    caller. Returns the update's exit code (0 on success) so a refused
+    transition is visible to the caller instead of being swallowed.
+
+    Enforced by ``coach.phase-label.projection-only``.
+    """
+    from atdd.coach.commands.issue import IssueManager
+
     try:
-        subprocess.run(
-            ["gh", "issue", "edit", str(issue_number), "--add-label", ",".join(labels)],
-            capture_output=True, text=True, check=False,
+        return IssueManager().update(
+            issue_id=str(issue_number), status=new_phase.value
         )
-    except Exception as exc:
-        _logger.warning("_gh_add_label failed", extra={"issue": issue_number, "labels": labels, "error": str(exc)})
-
-
-def _swap_phase_label(issue_number: int, new_phase: Phase) -> None:
-    """Remove all atdd:<phase> labels and add atdd:<new_phase> on the GitHub issue."""
-    _gh_remove_phase_labels(issue_number, list(_PHASE_LABELS_ALL))
-    _gh_add_label(issue_number, [f"atdd:{new_phase.value}"])
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        _logger.warning(
+            "_swap_phase_label failed",
+            extra={
+                "issue": issue_number,
+                "phase": new_phase.value,
+                "error": str(exc),
+            },
+        )
+        return 1
 
 
 def _write_escalation(escalation_channel: Optional[str], message: str) -> None:

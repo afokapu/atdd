@@ -105,12 +105,32 @@ families:
     segments: [wagon_id, sequence]
 
   acc:
-    # Two shapes (substrate spec v12 §3.3):
-    #   WMBT acceptance: acc:<wagon>:<WMBT-id>-<HARNESS>-<NNN>[-<slug>]
+    # Two shapes (substrate spec v12 §3.3), distinguished by which family the
+    # acceptance is parented by:
+    #   WMBT acceptance:  acc:<wagon>:<WMBT-id>-<HARNESS>-<NNN>[-<slug>]
     #   Train acceptance: acc:<train-id>:<acceptance-slug>
-    pattern: "^acc:[a-z0-9][a-z0-9-]*:([DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?|[a-z][a-z0-9-]*)$"
+    #
+    # `acc` is the one family whose PARENT is polymorphic, so its token count is
+    # too — parent-it-belongs-to (§3.2) says an acceptance carries its parent's
+    # coordinates plus one leaf token:
+    #
+    #   wagon parent  → `wagon` is 1 token  → acc is 2 tokens  (segment_count)
+    #   train parent  → `train:<subject>:<slug>` is 3 tokens
+    #                                       → acc is 4 tokens  (alternate)
+    #
+    # The typed train identity landed in #1421; before this row admitted it, the
+    # second segment forbade colons and a typed train acceptance was UNAUTHORABLE
+    # (#1548). The typed alternative is listed FIRST so a typed URN parses as
+    # train-parented rather than as a wagon literally named `train`.
+    pattern: "^acc:(?:train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*|[a-z0-9][a-z0-9-]*:(?:[DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?|[a-z][a-z0-9-]*))$"
     segment_count: 2
+    # Admissible token counts BEYOND `segment_count`, for a family whose parent
+    # is polymorphic. `segment_count` stays the canonical (wagon-parented) count
+    # so the spec §3.2 table, `SEGMENT_COUNTS` and the root-family derivation in
+    # edge_validator all keep their existing int contract.
+    alternate_segment_counts: [4]
     parent: wagon
+    alternate_parents: [train]
     parse: custom
 
   security:

@@ -5,6 +5,10 @@ description: 'Validate lifecycle train: planner defines plans, tester verifies c
 themes:
 - commons
 primary_wagon: govern-lifecycle
+route_space:
+  classification: single-route
+  basis: not-yet-assessed
+  retires_with: 1549
 participants:
 - wagon:define-plans
 - wagon:verify-contracts

@@ -13,12 +13,12 @@ description: |
 # agent session. No sub-agent delegation, no shared workspaces. Waves are
 # computed by a topological sort over the issue dependency DAG
 # (commands/wave_planning.py) and worktrees are created two-phase with rollback
-# (commands/two_phase_commit.py).
+# (handlers/two_phase_commit.py).
 
 core_principle:
   unit: "one issue → one worktree → one cmux session unit → one agent"
   wave_planning: "src/atdd/coach/commands/wave_planning.py (build_plan + compute_waves)"
-  two_phase_commit: "src/atdd/coach/commands/two_phase_commit.py (Phase A worktrees, Phase B launch)"
+  two_phase_commit: "src/atdd/coach/handlers/two_phase_commit.py (Phase A worktrees, Phase B launch)"
   anti_pattern: "Reusing a worktree across issues, or sub-agent delegation that shares one agent's context."
 
 # =============================================================================
@@ -27,15 +27,11 @@ core_principle:
 activation:
   description: |
     The coach is a long-lived process driven by the `atdd coach` subcommand.
-    The durable runtime (start/wait/next/stop/daemons) is carved into
-    `commands/coach.py::run_cli` (#998).
+    Dispatch plans waves and launches sessions; live inspection is `status`.
+    The worker-orchestration runtime verbs (start/wait/next/stop/daemons, the
+    #998 coach_runtime) were retired with mediate-worker-decisions (#1520).
   commands:
     dispatch: "atdd coach <issue-numbers...>   # plan waves + launch sessions"
-    start: "atdd coach start                   # start the coach runtime + daemons"
-    wait: "atdd coach wait                      # block until the run settles"
-    next: "atdd coach next                      # advance the run one step"
-    daemons: "atdd coach daemons                # inspect/manage background daemons"
-    stop: "atdd coach stop                      # stop the coach runtime + daemons"
     status: "atdd coach status                  # live per-surface inspection (#616)"
 
 # =============================================================================
@@ -70,6 +66,44 @@ observer_corrections:
 # coach runtime, not by a pytest validator (disposition: documentation-only, so
 # no validator pointer is required).
 rules:
+  - id: "coach.phase-label.projection-only"
+    severity: 4
+    disposition: strict
+    description: "The atdd:<PHASE> label is a PROJECTION of objects.state and may be written only by IssueManager.update, which writes the store first and renders the label from it. No workflow, shell script or module may write an atdd:<PHASE> label directly (`gh issue edit --add-label/--remove-label`, or a GitHub-client `add_label`/`remove_label` carrying an `atdd:` phase token). A direct write bypasses the phase machine, the train gate, the COMPLETE gates and the store write in one step: the label moves and objects.state does not. Strict disposition: bypass is forbidden; no inline suppress."
+    introduced_in: "4.13.0"
+    aliases: []
+    validator: "test_phase_label_projection_only::test_no_raw_atdd_phase_label_writes_outside_issue_manager"
+    fix_hint: |
+      A workflow, script or module writes an `atdd:<PHASE>` label directly. The
+      label is a rendering of `objects.state`, not a record — authoring it
+      independently is how 236 of 421 issues (56%, measured 2026-07-13) came to
+      carry a phase their store never earned, 217 of them the single signature
+      `label=COMPLETE` with the store parked at the last legitimately-driven
+      phase.
+
+      Repair:
+
+        1. Read the violation — it cites `path:line` of the raw write.
+        2. DELETE the raw write. Do not "also" write the store next to it;
+           two writers is the defect, not the ordering.
+        3. Route the phase change through the authoritative writer:
+             atdd coach transition <N> <PHASE>
+           which runs the per-transition gate, the compliance gate and the
+           train/COMPLETE gates, then calls `IssueManager.update` →
+           `_store_set_status` (store) → `_write_phase_label` (projection).
+        4. On PR merge the advance is already owned by
+           .github/workflows/atdd-auto-phase.yml → `atdd auto-phase`. A merge
+           workflow needs no label step at all.
+        5. Re-run the validator:
+             pytest src/atdd/coach/validators/test_phase_label_projection_only.py -v
+
+      If the phase genuinely must move outside a transition — it almost never
+      must — that is a change to `IssueManager.update`, not a second writer.
+
+      This rule is strict by design. The writer it forbids already survived
+      #1434, the issue whose stated purpose was to remove it: #1434 was itself
+      stamped `atdd:COMPLETE` with its own store at `SMOKE`. See #1452.
+
   - id: "coach.activation.one-agent-per-session-unit"
     severity: 3
     disposition: documentation-only
