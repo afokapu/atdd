@@ -52,7 +52,6 @@ viz = ["streamlit", "st-link-analysis"]
 atdd = "atdd.cli:cli"
 # Pre-send classifier shim over `cmux send` — rejects raw `claude ...`
 # launches that bypass `atdd spawn` (issue #662).
-atdd-cmux-send = "atdd.coach.wrappers.atdd_cmux_send:console_main"
 
 # Substrate pytest plugin (spec v12 §7.2, §9.3 — issues #411, #415).
 # Auto-loaded by pytest whenever atdd is importable; the plugin itself

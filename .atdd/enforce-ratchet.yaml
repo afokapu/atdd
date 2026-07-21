@@ -14,20 +14,20 @@ scope:
   - src/atdd
 
 rules:
-  coder.dead-code.reachability:                                   59
+  coder.dead-code.reachability:                                   58
   coder.dead-code.reachability-typescript:                        29
   coder.design.orphan-ui:                                         7
   coder.design.primitives:                                        5
   coder.error-response.code-format:                               1
-  coder.logging.coach-silent-swallow:                             230
+  coder.logging.coach-silent-swallow:                             231
   coder.logging.structured:                                       15
-  coder.refactor.complexity-cognitive:                            124
-  coder.refactor.complexity-cyclomatic:                           145
-  coder.refactor.complexity-length:                               71
-  coder.refactor.complexity-nesting:                              171
+  coder.refactor.complexity-cognitive:                            126
+  coder.refactor.complexity-cyclomatic:                           147
+  coder.refactor.complexity-length:                               72
+  coder.refactor.complexity-nesting:                              172
   coder.refactor.composition-consumer:                            56
   coder.refactor.composition-root:                                7
-  coder.refactor.quality-comments:                                20
+  coder.refactor.quality-comments:                                19
   coder.refactor.quality-comments-typescript:                     2
   coder.refactor.quality-duplication:                             52
   coder.refactor.quality-file-length:                             38
@@ -36,4 +36,3 @@ rules:
   coder.security.sql-injection:                                   1
   tester.acceptance-violation.live-smoke-acceptance-must-execute: 1
   tester.acceptance-violation.metric-implementation-must-exist:   1
-  tester.smoke.no-collaborator-substitution:                      1

@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E022-UNIT-001-claude-md-contains-no-atdd-skip-references
-# Acceptance: acc:spawn-agents:E022-UNIT-001-claude-md-contains-no-atdd-skip-references
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E064-UNIT-001-claude-md-contains-no-atdd-skip-references
+# Acceptance: acc:govern-lifecycle:E064-UNIT-001-claude-md-contains-no-atdd-skip-references
+# WMBT: wmbt:govern-lifecycle:E064
 # Phase: RED
 # Layer: backend.unit
 # Assertion: structural

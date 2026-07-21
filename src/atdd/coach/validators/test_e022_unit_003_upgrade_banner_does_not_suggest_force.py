@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E022-UNIT-003-upgrade-banner-does-not-suggest-force
-# Acceptance: acc:spawn-agents:E022-UNIT-003-upgrade-banner-does-not-suggest-force
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E064-UNIT-003-upgrade-banner-does-not-suggest-force
+# Acceptance: acc:govern-lifecycle:E064-UNIT-003-upgrade-banner-does-not-suggest-force
+# WMBT: wmbt:govern-lifecycle:E064
 # Phase: GREEN
 # Layer: backend.unit
 # Assertion: structural

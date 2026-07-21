@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E022-UNIT-002-claude-md-references-operator-emergency-bypass-doc
-# Acceptance: acc:spawn-agents:E022-UNIT-002-claude-md-references-operator-emergency-bypass-doc
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E064-UNIT-002-claude-md-references-operator-emergency-bypass-doc
+# Acceptance: acc:govern-lifecycle:E064-UNIT-002-claude-md-references-operator-emergency-bypass-doc
+# WMBT: wmbt:govern-lifecycle:E064
 # Phase: RED
 # Layer: backend.unit
 # Assertion: structural

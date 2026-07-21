@@ -1263,7 +1263,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 98
+    total: 103
     R006: minimize drifted-lifecycle-records-that-no-verb-can-repair
     R005: minimize phase-labels-written-without-the-store-transition-behind-them
     R001: minimize stale local manifest status after a successful GitHub transition
@@ -1620,6 +1620,16 @@ wagons:
       atdd init early-returned before _install_hooks, and only the forbidden atdd
       init --force refreshed anything, so every hook fix reached only repos initialised
       after it landed and 6 of 11 hooks were never installed at all) (#1492)
+    E064: 'minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-or-a-destructive-force-flag-to-agents
+      (rehomed from spawn-agents #1483)'
+    E065: 'minimize likelihood of the-claude-md-agent-context-file-exceeding-the-operator-line-budget-or-losing-its-atdd-lifecycle-and-command-pointers
+      (rehomed from spawn-agents #1483)'
+    E066: 'minimize likelihood of the-operator-emergency-bypass-doc-being-absent-or-documenting-an-env-var-escape-hatch-instead-of-the-cli
+      (rehomed from spawn-agents #1483)'
+    R007: 'minimize likelihood of the-claude-md-size-budget-rule-being-absent-from-the-atdd-validate-coach-surface
+      (rehomed from spawn-agents #1483)'
+    R008: 'minimize likelihood of the-no-bypass-advertising-rule-being-absent-from-the-atdd-validate-coach-surface
+      (rehomed from spawn-agents #1483)'
     C008: 'minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
       by broadening the #451 scan to every non-.py source file, resolving the source
       tree from the working directory so it EXECUTES against a real installed wheel
