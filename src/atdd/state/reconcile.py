@@ -478,21 +478,33 @@ def _render_uids(uids: List[str], limit: int = 10) -> str:
 def _replace_public_state(
     store: StateStore, projection_dir: Path, *, allow_deletions: Optional[int] = None
 ) -> None:
-    """Drop every work item the incoming projection does not carry, if that is safe to do.
+    """Apply the incoming projection to the public half — retaining what it does not mention.
 
-    Hydrate *replaces* the public half; it does not merge into it. If it merged, an
-    object the projection had dropped would linger in the store forever, and
-    ``store == hydrate(projection)`` — the left half of I3 — would quietly stop being
-    true.
+    **This no longer deletes on absence, and that is a deliberate weakening of I3.**
 
-    What made that unsafe was doing it *unconditionally*. The reasoning it rested on —
-    "a purely local object is either in the overlay, so the store is dirty and we are not
-    on this path, or it already has a projection file of its own" — is sound only while
-    the projection at HEAD is the real one. When the projection is absent or empty (the
-    2026-07-20 incident: gitignored, never committed, empty at every HEAD) the premise is
-    false and the conclusion deletes the store. So the incoming projection must now *be*
-    there (``require=True``), and the size of what it implies is judged before any of it
-    is applied.
+    The old rule was "drop every work item the incoming projection does not carry", resting
+    on: hydrate replaces the public half rather than merging into it, so an object the
+    projection dropped would otherwise linger forever and ``store == hydrate(projection)``
+    would stop being true. The reasoning is sound *only while the projection at HEAD is
+    known to be complete*, and nothing anywhere established that. A gitignored projection,
+    a shallow clone, an older branch, a Control Root resolved one directory off — each
+    yields a projection that is missing objects while asserting nothing whatever about
+    them. On 2026-07-20 that inference deleted ~588 work_items in one silent operation.
+
+    So absence now means what it actually means: **no information**. The object is retained,
+    untouched. Retirement must be *said*, in a committed tombstone carrying provenance
+    (:data:`~atdd.state.projection.REQUIRED_TOMBSTONE_FIELDS`), and even then it is a
+    record rather than a removal — physical deletion belongs to
+    :func:`~atdd.state.tombstone.compact_archive` alone.
+
+    What I3's left half now holds is the weaker, true statement: the projection is
+    authoritative for every object it *mentions*. It was never authoritative about the
+    objects it does not, and the code no longer pretends otherwise.
+
+    The blast-radius guard still runs — over the set this projection *retires*, not the set
+    it omits. A projection that retires an implausible share of the store in one reconcile
+    is refused whether or not each individual tombstone is well-formed: saying it explicitly
+    is not the same as meaning it at that scale.
     """
     from atdd.state.projection import (  # local: keeps the surface small
         MissingProjectionError,
@@ -523,23 +535,25 @@ def _replace_public_state(
             doomed=doomed, existing=len(existing),
         ) from absent
 
-    doomed = [obj.uid for obj in existing if obj.uid not in incoming]
-
     if not incoming and existing:
         raise MassDeletionRefused(
-            f"refusing to empty a populated store: the incoming projection carries no "
-            f"objects at all, but the store holds {len(existing)} work_item(s).\n"
-            f"  Objects at stake: {_render_uids(doomed)}\n"
+            f"refusing to act on an empty projection: it carries no objects at all, but "
+            f"the store holds {len(existing)} work_item(s).\n"
+            f"  Objects at stake: {_render_uids([o.uid for o in existing])}\n"
             "  An empty projection is far more often a missing or uncommitted one than a "
             "genuine mass retirement, and the cost of being wrong is the whole store. "
             "Nothing has been changed.",
-            doomed=doomed, existing=len(existing),
+            doomed=[o.uid for o in existing], existing=len(existing),
         )
 
-    guard_deletions(doomed, existing=len(existing), allow_deletions=allow_deletions)
-
-    for uid in doomed:
-        store.objects.delete(uid)
+    # The set this projection RETIRES — objects it explicitly tombstones that the store
+    # still holds as live. Not the set it omits: omission is not an instruction.
+    retiring = sorted(
+        obj.uid for obj in existing
+        if obj.data.get("state") != STATE_TOMBSTONED
+        and (incoming.get(obj.uid) or {}).get("state") == STATE_TOMBSTONED
+    )
+    guard_deletions(retiring, existing=len(existing), allow_deletions=allow_deletions)
 
 
 def freshness(control_root: Path, *, head: Optional[str] = None) -> StoreFreshness:

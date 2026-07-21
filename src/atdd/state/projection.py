@@ -100,6 +100,26 @@ REQUIRED_FIELDS: Tuple[str, ...] = ("uid", "phase", "state", "owner_actor")
 #: A ``sha256:<hex>`` stamp, the one digest form the contract accepts.
 DIGEST_PREFIX = "sha256:"
 
+#: The provenance a **committed** tombstone must carry to be actionable (#1580).
+#:
+#: Retirement is the only thing a projection can say that ends something, so it is the only
+#: claim that must stay auditable after the fact. Without this, ``state: TOMBSTONED`` is a
+#: sentence with no author and no cause, and there is no way to tell — a year later, in a
+#: merge that tries to reintroduce the uid — whether it was ever true. Each field answers
+#: one question a reviewer will actually have:
+#:
+#: - ``actor``             who retired it
+#: - ``reason``            why, in prose, with ``reason_digest`` as the comparable stamp
+#: - ``source_generation`` which generation of the shared truth decided it
+#: - ``prior_digest``      what the object was immediately before, so the retirement can be
+#:                         shown to have been made against the state it claims
+#:
+#: Enforced on the way *in* (:func:`validate_document`), so an unattributable retirement
+#: cannot reach a store even if someone hand-writes one into the projection.
+REQUIRED_TOMBSTONE_FIELDS: Tuple[str, ...] = (
+    "actor", "reason", "reason_digest", "source_generation", "prior_digest",
+)
+
 
 class ProjectionError(ValueError):
     """Base class for every refusal raised on the projection path."""
@@ -307,7 +327,29 @@ def _validate_enum(document: Mapping[str, Any]) -> List[str]:
         )
     if document.get("state") not in STATES:
         problems.append(f"state {document.get('state')!r} is not one of {list(STATES)}")
+    problems.extend(_validate_tombstone(document))
     return problems
+
+
+def _validate_tombstone(document: Mapping[str, Any]) -> List[str]:
+    """A retirement must be attributable, or it is not a retirement (#1580).
+
+    Only checked when the document actually claims ``TOMBSTONED``: a live object may carry
+    no ``tombstone`` key at all, and demanding provenance from it would refuse every normal
+    document in the store.
+    """
+    if document.get("state") != STATE_TOMBSTONED:
+        return []
+    record = document.get("tombstone") or {}
+    missing = [name for name in REQUIRED_TOMBSTONE_FIELDS if not record.get(name)]
+    if not missing:
+        return []
+    return [
+        "a TOMBSTONED document must carry auditable provenance; its 'tombstone' record is "
+        f"missing {', '.join(missing)} (required: {', '.join(REQUIRED_TOMBSTONE_FIELDS)}). "
+        "Deletion has to be attributable — an unattributable retirement is a claim nobody "
+        "can check"
+    ]
 
 
 def validate_document(document: Mapping[str, Any]) -> None:
