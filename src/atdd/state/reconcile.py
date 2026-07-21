@@ -2,10 +2,27 @@
 
 The problem this solves: Dev A merges work to main; Dev B pulls, and B's local
 store must pick up A's work **without losing B's uncommitted private authoring**.
-The store is not the truth and the projection is not a backup of it — the relation
-between them is exact (I3):
+The store is not the truth and the projection is not a backup of it. The relation
+between them (I3) is:
 
     store == hydrate(projection @ store_base_commit) + replay(local_overlay)
+
+**over the objects the projection mentions.** That qualifier is not a footnote; it
+was added at the cost of ~588 work_items (#1580). I3 used to be read as an exact
+equality in both directions, which made a *gap* in the projection into an
+instruction: an object the projection did not carry was deleted, because otherwise
+the left half would stop being true. But the projection at HEAD is only known to be
+complete when something establishes that, and nothing ever did — a gitignored
+projection, a shallow clone, an older branch, or a Control Root resolved one
+directory off each omits objects while asserting nothing whatever about them. On
+2026-07-20 that inference emptied the store in a single silent operation.
+
+So absence means **no information**, and I3 holds in the only form it was ever
+entitled to: the projection is authoritative for what it says, and silent about
+what it does not. Retirement must be stated — a committed tombstone carrying actor,
+reason, source generation and prior-object digest — and even then it is a record
+rather than a removal; physical deletion belongs to ``tombstone.compact_archive``
+alone. See :func:`_replace_public_state`.
 
 So reconcile is not "overwrite the store from the new projection". It is:
 
@@ -21,6 +38,21 @@ So reconcile is not "overwrite the store from the new projection". It is:
 uncommitted overlay is *dirty*, and every path that would replace a dirty store
 with a plain hydrate raises before touching sqlite (C001). Nothing is destroyed to
 make room for incoming work.
+
+I5 guarded the *dirty* store and only the dirty store, which is why it stayed
+silent through the incident: the store that lost 588 objects was clean, and "a
+clean store hydrates with no backup and no fuss" was true and catastrophic at the
+same time. The guards added in #1580 judge the incoming projection instead of the
+local overlay, so they fire on exactly the case I5 was never watching:
+
+- an **absent** projection is refused, and refused loudly when a populated store is
+  at stake — it is the absence of an assertion, not an assertion of absence;
+- an **empty** projection never empties a populated store;
+- a projection retiring an implausible share of the store in one reconcile is
+  refused past a blast radius, with an operator override that asserts the expected
+  count rather than forcing past the check (:func:`guard_deletions`);
+- a store whose Control Root is not the checkout it follows will not follow any
+  HEAD at all (:func:`assert_reconcilable`).
 
 The mechanism that makes non-destructiveness structural rather than careful: the
 whole replay happens on a **copy** of the store, and the live ``state.sqlite`` is
@@ -475,8 +507,8 @@ def guard_deletions(
 
     if allow_deletions is not None and allow_deletions != count:
         raise MassDeletionRefused(
-            f"refusing to delete {count} work_item(s): you asserted --allow-deletions "
-            f"{allow_deletions}, but this reconcile would remove {count}. The numbers must "
+            f"refusing to retire {count} work_item(s): you asserted --allow-deletions "
+            f"{allow_deletions}, but this reconcile would retire {count}. The numbers must "
             "match — if they do not, the reconcile is not the one you think it is.\n"
             f"  Objects at stake: {_render_uids(doomed)}",
             doomed=doomed, existing=existing, allowed=allow_deletions,
@@ -496,7 +528,7 @@ def guard_deletions(
     tripped = None
     if count > MAX_ABSOLUTE_DELETIONS:
         tripped = (
-            f"{count} exceeds the absolute limit of {MAX_ABSOLUTE_DELETIONS} deletions "
+            f"{count} exceeds the absolute limit of {MAX_ABSOLUTE_DELETIONS} retirements "
             "in one reconcile"
         )
     elif share > MAX_DELETION_FRACTION:
@@ -512,7 +544,7 @@ def guard_deletions(
         extra={"deletions": count, "existing": existing, "share": share},
     )
     raise MassDeletionRefused(
-        f"refusing a mass deletion: {tripped}.\n"
+        f"refusing a mass retirement: {tripped}.\n"
         f"  Objects at stake: {_render_uids(doomed)}\n"
         "  Nothing has been changed. If this is genuinely intended, re-run with "
         f"`--allow-deletions {count}` to assert the exact count; if it is not, the store "
