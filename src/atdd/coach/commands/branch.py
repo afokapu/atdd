@@ -22,6 +22,10 @@ from typing import Any, Dict, Optional
 import yaml
 
 from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
+from atdd.coach.commands.worktree_placement import (
+    resolve_worktree_dir_name,
+    resolve_worktree_path,
+)
 from atdd.coach.github import GitHubClient, GitHubClientError, ProjectConfig
 from atdd.coach.utils.default_branch import resolve_default_branch
 
@@ -414,8 +418,8 @@ class BranchManager:
             return 1
 
         branch_name = f"{prefix}/{slug}"
-        worktree_dir_name = f"{prefix}-{slug}"
-        worktree_path = self.target_dir.parent / worktree_dir_name
+        worktree_dir_name = resolve_worktree_dir_name(prefix, slug)
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
 
         # Check if worktree directory already exists
         if worktree_path.exists():
@@ -601,7 +605,7 @@ class BranchManager:
             slug = entry["slug"]
             issue_type = entry.get("type", "implementation")
             prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
-            worktree_path = self.target_dir.parent / f"{prefix}-{slug}"
+            worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         else:
             worktree_path = Path(target).expanduser()
             if not worktree_path.is_absolute():

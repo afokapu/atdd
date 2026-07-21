@@ -1,0 +1,34 @@
+wagon: place-worktrees
+description: Resolve every worktree path from one configured root instead of seven
+  inlined derivations, so an operator chooses the repo layout once and both creation
+  paths, the spawned-agent launch prompt, and the orphan scanner all agree on it.
+theme: commons
+subject: agent:coach
+context: in-coach-worktree-lifecycle, when-a-worktree-path-is-derived-stored-or-asserted
+  and-seven-call-sites-each-compute-it-independently-from-a-hardcoded-flat-sibling-layout
+action: resolves the worktree directory from a worktree_root config key defaulting
+  to the current flat-sibling layout, routes all seven derivation and assertion sites
+  through that single resolver, and offers a transactional self-relocation when the
+  configured layout and the actual layout disagree
+goal: make worktree placement one configured decision rather than seven independent
+  derivations that can silently disagree
+outcome: atdd worktree create, atdd coach enter, the spawned-agent launch prompt,
+  and atdd worktree gc all resolve the same path from worktree_root; with no config
+  present the placement is bit-identical to today
+features:
+- urn: feature:place-worktrees:place-worktrees
+produce:
+- name: commons:coach:worktree-root-resolver
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:coach:worktree-relocation-offer
+  contract: null
+  telemetry: null
+  to: external
+consume: []
+wmbt:
+  total: 3
+  E001: minimize likelihood of divergent-worktree-placement-between-the-two-creation-paths
+  E002: minimize likelihood of a-spawned-agent-being-directed-to-a-path-no-resolver-created
+  Y001: minimize likelihood of a-half-applied-relocation-leaving-git-and-the-store-disagreeing
