@@ -162,6 +162,12 @@ jobs:
         env:
           ATDD_RELEASE_ALLOW_PUBLISH: ${{ secrets.ATDD_RELEASE_ALLOW_PUBLISH }}
           WORKER_DIR: ${{ steps.ext.outputs.worker_dir }}
+          # The extension's real_publish cuts a GitHub Release (`gh release create`)
+          # as the final publish step, so `gh` needs an authenticated token. The
+          # job already grants `contents: write` (see the job `permissions:` block),
+          # so the default GITHUB_TOKEN is sufficient — no new secret. Without this
+          # the tag + PyPI upload still succeed but the Release is never announced.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # INTERIM (decommission → afokapu/atdd-extensions#40): the extension's
           # real_publish uses raw `twine upload`, which cannot consume this repo's
           # OIDC trusted-publishing. Supply a project-scoped PyPI API token via
