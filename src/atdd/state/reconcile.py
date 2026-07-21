@@ -122,6 +122,57 @@ class MassDeletionRefused(RuntimeError):
         super().__init__(message)
 
 
+class SharedStoreReconcileRefused(RuntimeError):
+    """The store's Control Root is not the checkout whose HEAD it was asked to follow (#1580).
+
+    In the flat-sibling layout the Control Root resolves to the *project root* — the parent
+    of the primary ``main/`` checkout — and every worktree shares the one store beneath it
+    (``paths.resolve_control_root`` rule 1.5). That directory is not a git repository: no
+    HEAD, no branch, no commits. The worktrees around it have their own, one each.
+
+    Reconcile is defined against a commit. For a store whose Control Root is not a checkout
+    there is no such commit, so it was resolving one from whichever worktree happened to
+    invoke it — which makes the shared store's contents a function of which arbitrary HEAD
+    moved last, and lets an older feature branch roll every other worktree's view backward.
+
+    Whether ownership should be per-worktree or a single daemon is still open; a store
+    answering to a HEAD that does not describe it is wrong under either answer, so it is
+    refused now.
+    """
+
+    def __init__(self, control_root: Path) -> None:
+        self.control_root = Path(control_root)
+        super().__init__(
+            f"refusing to reconcile the store at {self.control_root}: its Control Root is "
+            "not a git checkout, so no HEAD describes it.\n"
+            "  This is the shared project-root store of a flat-sibling worktree layout. It "
+            "is shared by every worktree, and reconciling it against any one worktree's "
+            "HEAD makes its contents depend on which checkout moved last — an older branch "
+            "would roll back work that every other worktree can see.\n"
+            "  Reconcile from a Control Root that is itself the checkout it follows, or set "
+            "ATDD_CONTROL_ROOT to one. Nothing has been changed."
+        )
+
+
+def assert_reconcilable(control_root: Path) -> None:
+    """Refuse a Control Root that is not itself the git checkout it would follow (#1580).
+
+    Deliberately narrow, and shaped as the *positive* case rather than a layout sniff: the
+    Control Root must carry its own ``.git``. That is precisely the single-repo layout that
+    ships to consumers and the one every hermetic fixture builds, so nothing legitimate is
+    refused; and it is precisely what the shared project-root store is not.
+    """
+    control_root = Path(control_root)
+    git_entry = control_root / ".git"
+    if git_entry.is_dir() or git_entry.is_file():
+        return
+    _log.warning(
+        "reconcile refused: control root is not a git checkout",
+        extra={"control_root": str(control_root)},
+    )
+    raise SharedStoreReconcileRefused(control_root)
+
+
 class ColdStartError(StoreBaseCommitError):
     """The store carries overlay but has no base commit, so neither path can run (P002).
 
@@ -355,6 +406,8 @@ def hydrate_store(
     """
     control_root = Path(control_root)
     repo = control_root
+    # Before anything else: is this store even entitled to follow this HEAD? (#1580)
+    assert_reconcilable(control_root)
     resolved = resolve_head(repo) if commit is None else commit
     projection_dir = projection_path(control_root) if projection_dir is None else Path(projection_dir)
 
@@ -723,6 +776,7 @@ def reconcile(
     reconcile against at all (#1580). In every case the store is left exactly as it was.
     """
     control_root = Path(control_root)
+    assert_reconcilable(control_root)  # a store with no HEAD of its own borrows none (#1580)
     db_path = store_path(control_root)
     projection_dir = projection_path(control_root) if projection_dir is None else Path(projection_dir)
     resolved_head = gitstore.head(control_root) if head is None else head
