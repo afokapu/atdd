@@ -56,7 +56,7 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:E038-UNIT-003-import-discipline-and-call-site-routing"
       id: "AC-UNIT-003"
-      purpose: "atdd.runtime.worktree obeys the §3.3 dependency rules (imports no orchestration/integration/sibling-runtime layer) and the three coach worktree call sites route through it so no second worktree-creation path exists"
+      purpose: "atdd.runtime.worktree obeys the §3.3 dependency rules (imports no orchestration/integration/sibling-runtime layer). The coach-side worktree call site that used to delegate here was retired with the coach cold-start orchestration (#1483); creation is now owned solely by atdd.runtime.worktree, so no second worktree-creation path exists in core by construction."
       phase: "GREEN"
     harness:
       type: "unit"
@@ -64,14 +64,11 @@ acceptances:
     given:
       abstract:
         - "atdd.runtime.worktree source parsed for its import set"
-        - "atdd.coach.commands.coach._ensure_issue_worktree, atdd.coach.commands.branch, and atdd.coach.commands.issue_lifecycle source modules"
     when:
-      abstract: "the runtime.worktree import set is checked against the forbidden set and the coach call-site sources are inspected for raw git-worktree-add invocations"
+      abstract: "the runtime.worktree import set is checked against the forbidden set"
     then:
       abstract:
         - "atdd.runtime.worktree imports none of: atdd.coach, atdd.train, atdd.integrations, atdd.runtime.agent_control, atdd.runtime.multiplexer (§3.3)"
-        - "coach._ensure_issue_worktree delegates the git worktree creation to atdd.runtime.worktree.ensure_issue_worktree"
-        - "the migrated coach call sites perform no raw 'git worktree add' subprocess of their own — creation is owned by atdd.runtime.worktree"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-31"
