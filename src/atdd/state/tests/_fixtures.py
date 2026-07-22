@@ -95,6 +95,34 @@ def checkout(
     return path
 
 
+#: A pinned generation for fixture tombstones — a literal, so fixture bytes never move.
+FIXTURE_GENERATION = "0" * 40
+
+
+def attributed_tombstone(
+    reason: str,
+    *,
+    actor: str = "dev-a",
+    source_generation: str = FIXTURE_GENERATION,
+    prior_digest: Optional[str] = None,
+) -> dict:
+    """A tombstone record carrying the full provenance a committed retirement needs (#1580).
+
+    Defined once here because every wagon that writes a retired document needs it and none
+    of them are *about* provenance. The defaults are pinned literals rather than anything
+    derived: a fixture whose bytes depend on when it ran is a fixture that breaks
+    canonicality for reasons that have nothing to do with what it is testing.
+    """
+    from atdd.state.tombstone import tombstone_record
+
+    return tombstone_record(
+        reason,
+        actor=actor,
+        source_generation=source_generation,
+        prior_digest=prior_digest or ("sha256:" + "0" * 64),
+    )
+
+
 def projection_dir(repo: Path) -> Path:
     return Path(repo) / PROJECTION_RELATIVE
 
