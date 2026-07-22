@@ -164,8 +164,6 @@ Rule: **Train is not the Temporal/LangGraph-equivalent. TrainRunner is the equiv
 | **`atdd.coach.core`** | Phase machine, transition rules, evidence-evaluation rules, persona/prompt-template mapping, merge-readiness rules, escalation policy. Pure functions of (Evidence, Conventions). | Any I/O, any state, any subprocess, any external API |
 | **`atdd.train`** | Stateful orchestration: sessions, retries, event loop, wave concurrency, resume, persistence reads/writes, conventions loading | Phase semantics, persona mapping, spawn mechanics, GitHub API calls |
 | **`atdd.runtime.worktree`** | git worktree create/remove, branch safety, working-tree invariants | Phase decisions, GitHub label state |
-| **`atdd.runtime.multiplexer`** | cmux/tmux/zellij surface CREATE / ATTACH / CLOSE for **observability only** | Prompt delivery, ready detection, stdin forwarding |
-| **`atdd.runtime.agent_control`** | Worker spawn (cmux-native), prompt delivery, ready detection, agent done signals, transport selection | Phase decisions, terminal rendering |
 | **`atdd.integrations.github`** | Issue labels, Projects v2 fields, PR state/merge, check runs | Phase semantics, decision logic |
 | **`atdd.validators`** | Run validation against repo state, emit `ValidatorReport` rows | Decide what to do with violations |
 | **`atdd.observer`** | Read events.jsonl + per-agent output.log; surface in CLI/TUI | Write any orchestration state |
@@ -176,9 +174,7 @@ Rule: **Train is not the Temporal/LangGraph-equivalent. TrainRunner is the equiv
 |---|---|---|
 | `atdd.coach.core` | stdlib only; `dataclasses`, `typing`, `enum`, `pathlib` (types only, no opens) | `subprocess`, `os.system`, `requests`, `urllib`, `gh`, `git`, `cmux`, `time.sleep`, `threading`, `multiprocessing`, `asyncio`, `atdd.runtime.*`, `atdd.integrations.*`, `atdd.train.*`, `atdd.observer`, any I/O |
 | `atdd.train.*` | `atdd.coach.core`, `atdd.runtime.*`, `atdd.integrations.*`, `atdd.validators` (for type imports), stdlib | `atdd.cli` (cycle), `atdd.observer` |
-| `atdd.runtime.worktree` | stdlib, `subprocess`, `pathlib` | `atdd.coach.*`, `atdd.train.*`, `atdd.integrations.*`, `atdd.runtime.agent_control`, `atdd.runtime.multiplexer` |
-| `atdd.runtime.multiplexer` | stdlib, `subprocess` (cmux CLI) | `atdd.coach.*`, `atdd.train.*`, `atdd.integrations.*`, `atdd.runtime.agent_control` |
-| `atdd.runtime.agent_control` | stdlib, `subprocess`, `pathlib` | `atdd.coach.*`, `atdd.train.*`, `atdd.integrations.*`, `atdd.runtime.multiplexer` |
+| `atdd.runtime.worktree` | stdlib, `subprocess`, `pathlib` | `atdd.coach.*`, `atdd.train.*`, `atdd.integrations.*` |
 | `atdd.integrations.github.*` | stdlib, `subprocess` (gh CLI), `json` | `atdd.coach.*`, `atdd.train.*`, `atdd.runtime.*` |
 | `atdd.validators` | stdlib, target subject under test, `atdd.coach.conventions` (yaml load for rule lookup) | orchestration layers |
 | `atdd.observer` | stdlib, `atdd.train.persistence` (read-only API) | any writer |
@@ -616,6 +612,12 @@ Implementations:
 
 ### 4.8 AgentController + DispatchSpec
 
+> **SUPERSEDED — pruned from core by #1480.** Core coach is lifecycle
+> governance and does not manage sub-workers, so this layer was removed
+> outright rather than relocated to a provider. The specification below is
+> retained as the design record of what once shipped; it describes no
+> current core module.
+
 ```python
 # atdd/runtime/agent_control.py
 
@@ -703,6 +705,12 @@ Implementations (historical Child-6 decomposition):
 | `HeadlessPrintController` | Optional | `claude -p` for CI / non-interactive runs |
 
 ### 4.9 Multiplexer protocol (view-only)
+
+> **SUPERSEDED — pruned from core by #1480.** Core coach is lifecycle
+> governance and does not manage sub-workers, so this layer was removed
+> outright rather than relocated to a provider. The specification below is
+> retained as the design record of what once shipped; it describes no
+> current core module.
 
 ```python
 # atdd/runtime/multiplexer.py
@@ -1089,7 +1097,7 @@ These behaviors MUST be preserved at the same defense layer they currently sit. 
 | I-7 | No-progress TTL | Stuck run burns infinite time | `train.issue_runner` (configurable TTL → `escalation_for` returns ESCALATE) | `tests/train/test_ttl_escalation` |
 | I-8 | Durable decision-before-action | Side-effect happens before decision is persisted; resume loses ground | `train.issue_runner` (persistence.append_decision before any side effect) | `tests/train/test_decision_durability` |
 | I-9 | `core.bare=false` per-worktree on creation | Shared `core.bare=true` cascades | `runtime.worktree.ensure_issue_worktree` (sets `--worktree core.bare false`) | `tests/runtime/test_worktree_safety::test_sets_per_worktree_core_bare` |
-| I-10 | Forbidden-command guard (PATH shim) | Unguarded `git config core.bare true` | `runtime.agent_control` (DispatchSpec.env_overrides puts `.atdd/bin` first on PATH); covered by #884 once shipped | `tests/integrations/test_path_shim` |
+| I-10 | Forbidden-command guard (PATH shim) | Unguarded `git config core.bare true` | RETIRED by #1480 — `runtime.agent_control` pruned from core; the PATH-shim defense (#884) is unaffected | _(core-side pin retired)_ |
 | I-11 | Emergency bypass 5-min TTL + audit log | Permanent bypasses | `atdd.coach.commands.emergency` (unchanged) | Existing test |
 | I-12 | Issue advancement BEFORE partial-PR merge | Post-merge race causes stale CI to fail `test_issue_advancement` | `train.issue_runner` (transition_phase before merge_pr) | `tests/train/test_advancement_before_merge` |
 | I-13 | Pre-push blocks `core.bare=true` worktrees | Mass-deletion PRs from bare-mode contamination | `.atdd/hooks/pre-push` (unchanged) | Existing test |
@@ -1396,6 +1404,12 @@ Children #894, #895, and #896 carry historical slugs that include `workflow` (e.
 ---
 
 ### 13.6 Child 6 — Extract runtime.agent_control + close #840/#871/#872
+
+> **SUPERSEDED — pruned from core by #1480.** Core coach is lifecycle
+> governance and does not manage sub-workers, so this layer was removed
+> outright rather than relocated to a provider. The specification below is
+> retained as the design record of what once shipped; it describes no
+> current core module.
 
 **Slug:** `extract-runtime-agent-control-and-close-spawn-cluster`
 **Type:** `implementation`

@@ -180,5 +180,4 @@ wmbt:
   E025: "minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode"
   E026: "minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section"
   E027: "minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section"
-  E031: "minimize likelihood of spawned-worker-bash-allowlist-hardcoded-in-adapter-code-instead-of-sourced-from-the-session-convention-freedom-layer-data"
   E032: "minimize likelihood of destructive-or-unscoped-bash-entry-admitted-into-the-declared-freedom-set-allowlist"

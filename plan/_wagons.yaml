@@ -1406,9 +1406,6 @@ wagons:
       the current branch slug is absent from the manifest
     Y005: minimize atdd issue reconcile missing from the CLI when bulk backfill of
       unregistered open issues is needed
-    E014: minimize agent-spawn-commands-containing-dangerously-skip-permissions by
-      detecting the forbidden flag in the adapter command string and raising SpawnPermissionViolation
-      before the multiplexer dispatches (#657)
     E015: minimize agent-behavioral-rules-visible-only-in-per-user-memory by committing
       .atdd/agent-rules.yaml with the portable enforcement subset and injecting it
       into atdd gate output under an 'Agent Behavioral Rules' section (#657)
@@ -1499,13 +1496,6 @@ wagons:
       false on creation (I-9), refuses bare/foreign-directory dispatch (I-1), and
       blocks protected-main worktrees (I-2), and routing every coach worktree call
       site through it via compatibility shims (#892)
-    E039: 'minimize likelihood of agent-control-and-prompt-delivery-staying-coupled-to-coach-via-screen-scrape-so-paste-landed-submit-and-stdin-gaps-keep-regressing
-      by extracting atdd.runtime.agent_control with cli-return as the default control
-      plane (ShimAgentController whose deliver_prompt injects AND submits and whose
-      signal(INTERRUPT) terminates the wrapped agent), shipping the view-only atdd.runtime.multiplexer
-      Protocol with control methods stripped, providing the ATDD_USE_LEGACY_SPAWN=1
-      kill switch, and routing spawn dispatch through the controller (#893, closes
-      #840/#871/#872)'
     E040: minimize likelihood of the-jsonl-backed-persistence-store-load-conventions-snapshot-and-evidence-materialization-being-implemented-ad-hoc-or-drifting-from-the-frozen-child-3-contracts
       by implementing JsonlPersistenceStore against the §4.6 Protocol (durable events.jsonl/decisions.jsonl
       under runs/<run_id>/, RunStarted carrying conventions_hash + conventions_snapshot_ref,
@@ -1541,15 +1531,6 @@ wagons:
       atdd resume <run_id> public CLI command (§3.4/§7.4), and landing tests/train/test_jsonl_crash_recovery.py
       as the §10.3 gate that kill-mid-wave-then-resume yields identical decisions
       (#896)
-    E043: minimize likelihood of worker launch staying coupled to the pty shim by
-      adding a CmuxAgentController that launches the worker via cmux new-workspace
-      --command with the agent's positional prompt placed before the variadic --allowedTools
-      flag, deriving permission_mode + allowed_tools from the DispatchSpec, running
-      the built argv through assert_no_forbidden_launch_flags, relying on the cmux
-      wrapper's existing Feed hooks for decision communication (no pty, no cli-return
-      inbox, no output.log heartbeat, no submit sentinel), and exposing pure builders
-      (build_agent_seed_argv / build_cmux_launch_argv) so the launch shape is unit-testable
-      without a real cmux (#978)
     E044: 'minimize likelihood of the-registry-build-materializing-the-game-template-default-code-roots-python-supabase-telemetry-into-every-repo-regardless-of-what-atdd-config-yaml-code-declares
       by gating build_all code-root mirrors on the repo''s explicitly-declared `.atdd/config.yaml`
       code: block (build_coder/build_supabase only when python/supabase declared or
@@ -2982,7 +2963,6 @@ wagons:
     E025: minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode
     E026: minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section
     E027: minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section
-    E031: minimize likelihood of spawned-worker-bash-allowlist-hardcoded-in-adapter-code-instead-of-sourced-from-the-session-convention-freedom-layer-data
     E032: minimize likelihood of destructive-or-unscoped-bash-entry-admitted-into-the-declared-freedom-set-allowlist
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml
