@@ -30,6 +30,7 @@ from atdd.state.reconcile import ReplayConflictError, hydrate_store, reconcile
 
 from ._helpers import (
     UID_A,
+    attributed_tombstone,
     checkout,
     commit_all,
     document,
@@ -59,7 +60,7 @@ def test_r001_unit_002_invalid_replay_does_not_advance_base(tmp_path) -> None:
     write_projection(
         repo,
         [document(UID_A, phase="PLANNED", state=STATE_TOMBSTONED, owner="dev-a",
-                  tombstone={"reason": "superseded"})],
+                  tombstone=attributed_tombstone("superseded"))],
     )
     commit_all(repo, "peer tombstoned it")
 

@@ -15,7 +15,6 @@ Coverage map (one assertion home per defense; see §9 table):
 | I-3     | train (event-id / runtime baseline)        | this file::test_i3_*                   |
 | I-4     | runtime spawn (cmux >=0.64.7 avoidance)    | this file::test_i4_*                   |
 | I-5     | coach.core.next_transition (Persona)       | this file::test_i5_* (+ test_core_pure)|
-| I-6     | observer (singleton enforced)              | this file::test_i6_* (atdd.observer)   |
 | I-7     | train.issue_runner (no-progress TTL)       | this file::test_i7_*                   |
 | I-8     | train.issue_runner (decision-before-action)| this file::test_i8_*                   |
 | I-9     | runtime.worktree (core.bare=false)         | test_worktree_safety::test_sets_per_worktree_core_bare  |
@@ -25,7 +24,7 @@ Coverage map (one assertion home per defense; see §9 table):
 | I-13    | .atdd/hooks/pre-push (core.bare block)     | this file::test_i13_*                  |
 
 I-1/I-2/I-9 keep their canonical home in ``test_worktree_safety.py``; this
-module pins the remaining ten so the suite is complete and each defense has a
+module pins the remaining nine so the suite is complete and each defense has a
 named, executable test that exercises its owning layer's real behavior.
 """
 from __future__ import annotations
@@ -143,25 +142,10 @@ def test_i5_persona_matches_phase_machine_agent():
         )
 
 
-# --------------------------------------------------------------------------- #
-# I-6 — Single observer lifecycle (atdd.observer singleton)
-#       Two observers can never disagree about / race on the surfaced stream.
-# --------------------------------------------------------------------------- #
-def test_i6_observer_session_is_singleton(tmp_path):
-    from atdd.observer import ObserverAlreadyRunningError, ObserverSession
-
-    ObserverSession._active = None
-    try:
-        first = ObserverSession(tmp_path).start()
-        with pytest.raises(ObserverAlreadyRunningError):
-            ObserverSession(tmp_path).start()
-        first.stop()
-        # slot released → a fresh session may start
-        ObserverSession(tmp_path).start().stop()
-    finally:
-        ObserverSession._active = None
-
-
+# I-6 — Single observer lifecycle — RETIRED (#1521). The defense guarded the
+# ``atdd.observer`` singleton; the observer was coach sub-worker orchestration
+# and has left core, so there is no longer a stream two consumers could race on.
+#
 # --------------------------------------------------------------------------- #
 # I-7 — No-progress TTL escalation (train.issue_runner helper)
 # --------------------------------------------------------------------------- #

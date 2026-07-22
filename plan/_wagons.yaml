@@ -1406,6 +1406,9 @@ wagons:
       the current branch slug is absent from the manifest
     Y005: minimize atdd issue reconcile missing from the CLI when bulk backfill of
       unregistered open issues is needed
+    E014: minimize agent-spawn-commands-containing-dangerously-skip-permissions by
+      detecting the forbidden flag in the adapter command string and raising SpawnPermissionViolation
+      before the multiplexer dispatches (#657)
     E015: minimize agent-behavioral-rules-visible-only-in-per-user-memory by committing
       .atdd/agent-rules.yaml with the portable enforcement subset and injecting it
       into atdd gate output under an 'Agent Behavioral Rules' section (#657)
@@ -1496,6 +1499,13 @@ wagons:
       false on creation (I-9), refuses bare/foreign-directory dispatch (I-1), and
       blocks protected-main worktrees (I-2), and routing every coach worktree call
       site through it via compatibility shims (#892)
+    E039: 'minimize likelihood of agent-control-and-prompt-delivery-staying-coupled-to-coach-via-screen-scrape-so-paste-landed-submit-and-stdin-gaps-keep-regressing
+      by extracting atdd.runtime.agent_control with cli-return as the default control
+      plane (ShimAgentController whose deliver_prompt injects AND submits and whose
+      signal(INTERRUPT) terminates the wrapped agent), shipping the view-only atdd.runtime.multiplexer
+      Protocol with control methods stripped, providing the ATDD_USE_LEGACY_SPAWN=1
+      kill switch, and routing spawn dispatch through the controller (#893, closes
+      #840/#871/#872)'
     E040: minimize likelihood of the-jsonl-backed-persistence-store-load-conventions-snapshot-and-evidence-materialization-being-implemented-ad-hoc-or-drifting-from-the-frozen-child-3-contracts
       by implementing JsonlPersistenceStore against the §4.6 Protocol (durable events.jsonl/decisions.jsonl
       under runs/<run_id>/, RunStarted carrying conventions_hash + conventions_snapshot_ref,
@@ -1531,6 +1541,15 @@ wagons:
       atdd resume <run_id> public CLI command (§3.4/§7.4), and landing tests/train/test_jsonl_crash_recovery.py
       as the §10.3 gate that kill-mid-wave-then-resume yields identical decisions
       (#896)
+    E043: minimize likelihood of worker launch staying coupled to the pty shim by
+      adding a CmuxAgentController that launches the worker via cmux new-workspace
+      --command with the agent's positional prompt placed before the variadic --allowedTools
+      flag, deriving permission_mode + allowed_tools from the DispatchSpec, running
+      the built argv through assert_no_forbidden_launch_flags, relying on the cmux
+      wrapper's existing Feed hooks for decision communication (no pty, no cli-return
+      inbox, no output.log heartbeat, no submit sentinel), and exposing pure builders
+      (build_agent_seed_argv / build_cmux_launch_argv) so the launch shape is unit-testable
+      without a real cmux (#978)
     E044: 'minimize likelihood of the-registry-build-materializing-the-game-template-default-code-roots-python-supabase-telemetry-into-every-repo-regardless-of-what-atdd-config-yaml-code-declares
       by gating build_all code-root mirrors on the repo''s explicitly-declared `.atdd/config.yaml`
       code: block (build_coder/build_supabase only when python/supabase declared or
@@ -2300,137 +2319,6 @@ wagons:
   total: 0
   manifest: plan/judge_ambiguous_decisions/_judge_ambiguous_decisions.yaml
   path: plan/judge_ambiguous_decisions/
-- wagon: mediate-worker-decisions
-  description: cmux bridge that lets the coach answer a blocked worker agent's decision
-    prompt, with dangerous actions always escalated to a human and every outcome recorded
-  theme: commons
-  subject: coach:mediator
-  context: worker-blocked, cmux-surface, lifecycle-active
-  action: mediates a blocked worker's decision through the coach
-  goal: keep agents progressing without a human operator in the loop while never auto-applying
-    dangerous actions
-  outcome: decision applied to the worker or escalated to a human, with a durable
-    audit record
-  produce:
-  - name: commons:feed:blocked-item
-    contract: contract:commons:feed:blocked-item
-    telemetry: null
-    to: internal
-  - name: commons:decision:record
-    contract: contract:commons:decision:record
-    telemetry: null
-    to: external
-  - name: commons:decision:escalation
-    contract: contract:commons:decision:escalation
-    telemetry: null
-    to: external
-  - name: commons:decision:request
-    contract: contract:commons:decision:request
-    telemetry: null
-    to: internal
-  - name: commons:decision:verdict
-    contract: contract:commons:decision:verdict
-    telemetry: null
-    to: internal
-  consume:
-  - name: commons:cmux:notification
-    from: system:cmux
-    contract: null
-    telemetry: null
-  wmbt:
-    total: 47
-    D001: minimize likelihood of resolving a cmux notification to the wrong worker
-      (or routing two entry paths to divergent requests)
-    L001: maximize likelihood of locating the latest decision prompt in worker surface
-      text
-    C001: minimize quantity of false decision-requests emitted from non-decision worker
-      output
-    P001: minimize effort of presenting a structured worker decision to the coach
-      surface
-    C002: minimize likelihood of a dangerous action being auto-applied instead of
-      escalated to a human
-    E001: minimize likelihood of misparsing the coach reply into a wrong verdict
-    M001: minimize likelihood of coach silence causing a silent auto-apply instead
-      of an escalation
-    Y001: minimize likelihood of a verdict referencing an option absent from the request
-    E002: minimize quantity of duplicate applications of the same verdict to a worker
-    K001: minimize likelihood of an applied decision missing from the durable ledger
-    M002: minimize likelihood of a worker-application failure being silently swallowed
-    R001: minimize likelihood of an escalated (human_required) verdict being auto-applied
-    L002: maximize likelihood of locating a blocked agent decision in the cmux feed
-    E003: minimize likelihood of failing to deliver the coach verdict through the
-      feed reply
-    C003: minimize likelihood of auto replying to a dangerous tool use without human
-      review
-    E004: minimize likelihood of a blocked feed item left unanswered by the autonomous
-      daemon loop
-    E005: minimize quantity of duplicate answers to the same request id across ticks
-      and restarts
-    C004: minimize likelihood of the daemon auto answering a dangerous tool use instead
-      of escalating to a human
-    R002: minimize likelihood of the daemon failing to shut down cleanly and release
-      its lock on a termination signal
-    D002: minimize likelihood of two daemon instances answering the same feed concurrently
-    L003: maximize likelihood of preserving every question when mapping a feed item
-      into the decision document
-    E006: minimize likelihood of the decider leaving any block of the decision document
-      unanswered
-    E007: minimize likelihood of delivering selections for only the first question
-      instead of every question
-    C005: minimize likelihood of a dangerous block in a mixed document being auto
-      answered instead of escalating the whole document
-    E008: minimize likelihood of a spawned workers escalation worthy decision being
-      pre authorized so it never surfaces to the feed
-    C006: minimize likelihood of the launch policy pre authorizing an action class
-      tool so a dangerous action executes without ever surfacing for mediation
-    Y002: minimize likelihood of the rendered dispatch spec values diverging from
-      the declared decision surfacing policy
-    L004: maximize likelihood of the feed publishing hook being active for a spawned
-      worker at launch
-    E009: minimize likelihood of claiming a feed reply delivered while the worker
-      stays parked on its tui menu
-    L005: minimize likelihood of a daemon acting on decisions outside its own workspace
-      because the feed read is not scoped
-    E010: minimize likelihood of a second feed daemon spawned for a workspace that
-      already has a live managed daemon
-    L006: maximize likelihood of the next unhandled escalation past the persisted
-      cursor in the daemons escalations ledger
-    R003: minimize likelihood of a managed daemon left running or a stale manager
-      pidfile after atdd coach stop
-    E011: minimize likelihood of the autonomous decider deciding without the coach
-      convention and operating protocol loaded
-    L007: minimize likelihood of the workspace scoped feed read excluding a legitimate
-      decision from a worktree launched worker or silently empty scoping a watched
-      workspace
-    M003: minimize likelihood of a decide-loop or decider failure being silently swallowed
-      so the daemon writes neither a verdict nor an escalation
-    M004: minimize likelihood of a managed daemon being spawned with its output discarded
-      so runtime failures are unobservable
-    M005: minimize likelihood of a managed daemon spawned as a detached orphaned process
-      whose cmux rpc calls broken pipe so it silently never decides
-    E012: minimize likelihood of the atdd coach dispatch spawning a worker without
-      attaching the workspace scoped decision daemon
-    E013: minimize likelihood of a dispatch spawned worker whose blocking decisions
-      never reach the feed
-    C007: minimize likelihood of the daemon auto answering an operator reserved governance
-      decision such as a phase transition sign off instead of escalating it to the
-      human by classifying it operator_reserved before the coach is consulted and
-      escalating with no verdict
-    C008: minimize likelihood of a sanctioned worker bootstrap command being escalated
-      by default and deadlocking the worker instead of auto applied
-    E014: minimize likelihood of atdd coach answer failing to deliver the operator
-      reply through the correct cmux feed verb and params
-    C009: minimize likelihood of a wrong or partial option being delivered as a silent
-      delivered true no op instead of loudly rejected before any cmux reply
-    L008: maximize likelihood of surfacing every unanswered escalation from the daemons
-      escalations ledger in atdd coach status
-    C010: minimize likelihood of the supervisor advancing a work item before its phase
-      done signal
-    M006: minimize likelihood of a supervisor stall going unsurfaced instead of loud
-      logged and exited
-  total: 0
-  manifest: plan/mediate_worker_decisions/_mediate_worker_decisions.yaml
-  path: plan/mediate_worker_decisions/
 - wagon: migrate-projection-authority
   description: 'M8 of the state-projection collaboration model: move the shared source
     of truth off the legacy manifest and the GitHub hot path onto the committed deterministic
@@ -2601,6 +2489,10 @@ wagons:
     contract: null
     telemetry: null
     to: external
+  - name: commons:decision:record
+    contract: contract:commons:decision:record
+    telemetry: null
+    to: internal
   consume:
   - name: commons:coach:correction-schema
     from: wagon:freeze-runtime-contracts
@@ -2759,6 +2651,8 @@ wagons:
     telemetry: null
   wmbt:
     C001: minimize likelihood of a dirty-store-overwrite during reconcile
+    C002: minimize likelihood of a silent-mass-deletion when reconcile applies an
+      incoming projection
     E001: maximize likelihood of a complete overlay-event-log recording every uncommitted
       local authoring command
     K001: maximize likelihood of a proven collaboration-flow in which Dev B keeps
@@ -3084,6 +2978,7 @@ wagons:
     E025: minimize likelihood of workers-entering-their-wagon-without-architectural-context-due-to-no-wagon-scoped-graph-sub-mode
     E026: minimize likelihood of launch-prompts-emitted-without-wagon-scoped-graph-context-section
     E027: minimize likelihood of launch-prompt-template-edits-that-silently-drop-the-wagon-graph-section
+    E031: minimize likelihood of spawned-worker-bash-allowlist-hardcoded-in-adapter-code-instead-of-sourced-from-the-session-convention-freedom-layer-data
     E032: minimize likelihood of destructive-or-unscoped-bash-entry-admitted-into-the-declared-freedom-set-allowlist
   total: 0
   manifest: plan/spawn_agents/_spawn_agents.yaml

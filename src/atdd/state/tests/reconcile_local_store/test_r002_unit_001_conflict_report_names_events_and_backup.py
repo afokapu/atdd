@@ -35,6 +35,7 @@ class _Args:
         self.root = str(root)
         self.head = None
         self.check_dirty = False
+        self.allow_deletions = None  # no mass-retirement assertion (#1580)
 
 
 def test_r002_unit_001_conflict_report_names_events_and_backup(tmp_path, capsys) -> None:

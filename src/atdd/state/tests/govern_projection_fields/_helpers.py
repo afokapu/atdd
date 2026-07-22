@@ -28,7 +28,7 @@ import yaml
 from atdd.state.ownership import DEFAULT_POLICY, POLICY_RELATIVE
 from atdd.state.projection import canonical_bytes
 
-from .._fixtures import STORE_ONLY_GITIGNORE
+from .._fixtures import STORE_ONLY_GITIGNORE, attributed_tombstone  # noqa: F401 — re-exported
 from .._fixtures import checkout as _checkout
 from .._fixtures import (  # re-exported: the acceptances import these from this module
     commit_all,
