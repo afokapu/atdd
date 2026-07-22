@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E022-SMOKE-001-live-claude-md-contains-no-atdd-skip-references
-# Acceptance: acc:spawn-agents:E022-SMOKE-001-live-claude-md-contains-no-atdd-skip-references
-# WMBT: wmbt:spawn-agents:E022
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E064-SMOKE-001-live-claude-md-contains-no-atdd-skip-references
+# Acceptance: acc:govern-lifecycle:E068-SMOKE-001-live-claude-md-contains-no-atdd-skip-references
+# WMBT: wmbt:govern-lifecycle:E068
 # Phase: SMOKE
 # Layer: backend.smoke
 # Assertion: behavioral

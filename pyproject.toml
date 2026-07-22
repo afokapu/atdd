@@ -24,9 +24,18 @@ dependencies = [
     "jsonschema",
     "pytest-html",
     "radon>=5.0",
-    "tree-sitter>=0.23",
-    "tree-sitter-typescript>=0.23",
 ]
+
+# NOT dependencies, deliberately (#1518): `tree-sitter` and `tree-sitter-typescript`.
+#
+# They were runtime deps, so EVERY consumer — including pure-Python ones — installed a
+# TypeScript grammar in order to use a stack-agnostic engine. The only importer in core
+# was `coder/validators/_ast_tsx.py`, which loaded `language_tsx()` for the TSX validators;
+# both it and they now live in `frontend.extension.vite-coder` / `atdd.extension.coder`.
+#
+# Nothing in core parses Python with tree-sitter — that is `radon` plus the stdlib `ast`
+# module — so dropping the base `tree-sitter` package alongside the grammar is safe. If a
+# future core validator wants a non-TS grammar, add it back then, with the importer.
 
 [project.urls]
 Homepage = "https://github.com/afokapu/atdd"
@@ -52,7 +61,6 @@ viz = ["streamlit", "st-link-analysis"]
 atdd = "atdd.cli:cli"
 # Pre-send classifier shim over `cmux send` — rejects raw `claude ...`
 # launches that bypass `atdd spawn` (issue #662).
-atdd-cmux-send = "atdd.coach.wrappers.atdd_cmux_send:console_main"
 
 # Substrate pytest plugin (spec v12 §7.2, §9.3 — issues #411, #415).
 # Auto-loaded by pytest whenever atdd is importable; the plugin itself

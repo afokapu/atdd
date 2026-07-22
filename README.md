@@ -413,7 +413,7 @@ flowchart TB
     CLI[CLI<br/>atdd cli + command shells] --> TR[TrainRunner<br/>stateful execution]
     TR --> PERSIST[train.persistence<br/>events + evidence]
     PERSIST --> CORE[Coach-core<br/>pure policy]
-    TR --> RUNTIME[Runtime<br/>worktree + agent_control]
+    TR --> RUNTIME[Runtime<br/>worktree]
     TR --> GH[Integrations<br/>GitHub issue / PR / checks / Projects v2]
     TR --> VAL[Validators<br/>ValidatorReport]
     OBS[Observer<br/>read-only event stream] --> PERSIST
@@ -634,9 +634,7 @@ src/atdd/
 │   ├── conventions/
 │   └── validators/
 ├── runtime/
-│   ├── worktree.py
-│   ├── agent_control.py
-│   └── multiplexer.py
+│   └── worktree.py
 ├── integrations/
 │   └── github/
 ├── tester/

@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:R003-UNIT-002-validator-passes-when-claude-md-is-clean
-# Acceptance: acc:spawn-agents:R003-UNIT-002-validator-passes-when-claude-md-is-clean
-# WMBT: wmbt:spawn-agents:R003
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E068-UNIT-002-validator-passes-when-claude-md-is-clean
+# Acceptance: acc:govern-lifecycle:R008-UNIT-002-validator-passes-when-claude-md-is-clean
+# WMBT: wmbt:govern-lifecycle:R008
 # Phase: RED
 # Layer: backend.unit
 # Assertion: behavioral

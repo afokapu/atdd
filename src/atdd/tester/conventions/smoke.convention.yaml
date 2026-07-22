@@ -207,7 +207,6 @@ validation:
   validators:
     train_scoped: "src/atdd/tester/validators/test_smoke_coverage.py"
     train_route_scoped: "src/atdd/tester/validators/test_train_route_smoke_coverage.py"
-    presentation_steady_state: "src/atdd/tester/validators/test_presentation_smoke_coverage.py"
     presentation_ratchet_shrink: "src/atdd/coder/validators/test_presentation_ratchet_requires_smoke.py"
 
   checks:
