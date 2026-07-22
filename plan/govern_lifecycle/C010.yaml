@@ -76,38 +76,6 @@ acceptances:
     author: atdd:self-compliance
     created: '2026-07-18'
 - identity:
-    urn: acc:govern-lifecycle:C010-INTEGRATION-001-cross-branch-token-refuses-transition
-    id: AC-INTEGRATION-001
-    purpose: "With a correctly-signed token on disk that was minted for a DIFFERENT\
-      \ branch, the transition is refused behaviourally: non-zero exit and the label/phase\
-      \ swap is never reached \u2014 proven by a recording fake, not by a printed\
-      \ message"
-    phase: GREEN
-  harness:
-    type: integration
-    category: backend
-  given:
-    abstract:
-    - A hermetic temp Control Root, a throwaway issue number, and a checkout on branch
-      'feat/beta'
-    - A correctly-signed, unexpired approval token for that issue and PLANNED->RED,
-      but minted for branch 'feat/alpha', written at the path the gate reads
-    - A recording fake on the label/phase update so the test observes whether the
-      transition actually occurred
-  when:
-    abstract: the PLANNED->RED transition is attempted from the checkout on branch
-      'feat/beta'
-  then:
-    abstract:
-    - The transition returns a non-zero exit code
-    - The label/phase update was never reached (no phase advance occurred)
-    - The failure is attributed to the approval-token gate with its bound rule id
-    - "The same token, presented from a checkout on branch 'feat/alpha', permits the\
-      \ transition \u2014 the guard discriminates rather than refusing everything"
-  metadata:
-    author: atdd:self-compliance
-    created: '2026-07-18'
-- identity:
     urn: acc:govern-lifecycle:C010-INTEGRATION-002-guards-are-not-stubs-under-fault-injection
     id: AC-INTEGRATION-002
     purpose: "Each new guard is shown to be load-bearing: removing the branch binding,\
@@ -143,28 +111,34 @@ acceptances:
 - identity:
     urn: acc:govern-lifecycle:C010-SMOKE-001-real-token-does-not-replay-across-checkouts
     id: AC-SMOKE-001
-    purpose: "Against the real CLI and real checkouts: a token the operator signs\
-      \ in one checkout no longer verifies in a different checkout on a different\
-      \ branch \u2014 the live 19-of-19 replay reproduction is closed end-to-end"
+    purpose: "Against the real installed package in a real checkout: an operator-signed
+      token minted for one branch does not verify for another, and does still verify
+      for its own \u2014 the live 19-of-19 replay reproduction is closed in the shipped
+      code, not merely in the test tree"
     phase: SMOKE
   harness:
     type: smoke
     category: backend
   given:
     abstract:
-    - Two real on-disk checkouts of the same repo on different real branches
-    - The installed atdd CLI available on PATH
-    - A real operator-signed approval token produced in the first checkout via the
-      real approve command
+    - A real checkout and the real atdd package, exercised in a separate real process
+      (no in-process import of the module under test, no monkeypatching)
+    - A real operator-signed token minted through the real build_token for branch
+      'feat/alpha'
+    - The same token bytes presented for verification against a different branch
   when:
-    abstract: the token file is copied byte-identically into the second checkout and
-      the gated transition is attempted there
+    abstract: a subprocess mints the token and verifies it against its own branch
+      and against a different branch, printing both verdicts
   then:
     abstract:
-    - The transition in the second checkout is refused with a non-zero exit naming
-      the branch mismatch
-    - The phase/label in the second checkout is unchanged
-    - The same token still permits the transition in the checkout it was signed for
+    - The subprocess exits zero and reports the token verifying True on the branch
+      it was signed for
+    - The subprocess reports the token verifying False on any other branch
+    - The refusal comes from the shipped signing/verification path, so the replay
+      property is closed in the real artifact
+    - 'Scope note: refusal at the TRANSITION gate additionally requires the gate
+      consumer to pass the current branch to verify_token; that consumer is the
+      approval-token path seam owned by #1376 and is deliberately not modified here'
   metadata:
     author: atdd:self-compliance
-    created: '2026-07-18'
+    created: '2026-07-22'

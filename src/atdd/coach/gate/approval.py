@@ -35,10 +35,13 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Mapping, Optional
+
+logger = logging.getLogger(__name__)
 
 # Used when no operator signing key is configured. Signing binds the token to its
 # exact scope (a PLANNED->RED token can never be replayed for RED->GREEN, nor
@@ -107,6 +110,14 @@ def _parse_iso(value) -> Optional[datetime]:
     try:
         return datetime.fromisoformat(text)
     except ValueError:
+        # Observably react rather than swallowing: a malformed instant is a
+        # fail-closed REJECTION, and the operator needs to see which value could
+        # not be read (a mistyped expiry looks identical to an expired token
+        # from the outside).
+        logger.warning(
+            "approval token: unparseable ISO-8601 instant; verification fails closed",
+            extra={"value": text},
+        )
         return None
 
 

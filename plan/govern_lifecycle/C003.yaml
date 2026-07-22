@@ -31,7 +31,7 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:C003-SMOKE-001-plan-tree-respects-boundary"
       id: "AC-SMOKE-001"
-      purpose: "the plan/ tree respects the commons-coach boundary, except the #951-deferred mediate-worker-decisions carve-out"
+      purpose: "the plan/ tree respects the commons-coach boundary"
       phase: "SMOKE"
     harness:
       type: "smoke"
@@ -39,7 +39,6 @@ acceptances:
     given:
       abstract:
         - "The toolkit's own plan/ tree under the repo root"
-        - "mediate-worker-decisions is a known deferred carve-out until #951 re-themes it to coach"
     when:
       abstract: "test_commons_wagons_do_not_import_coach runs against REPO_ROOT"
     then:

@@ -320,7 +320,6 @@ git:
     see: "src/atdd/coach/conventions/coach.convention.yaml"
     cli:
       - "atdd coach <issue-numbers...>"
-      - "atdd coach start | wait | next | daemons | stop"
       - "atdd merge-cascade <pr-numbers...>"
       - "atdd session-template <issue-number>"
 

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "commons:decision:record",
   "title": "CommonsDecisionRecord",
-  "description": "The durable, externally-observable audit record of a mediated decision: what was asked, what was decided (or that it was escalated), and what happened when it was applied. Produced by the apply-decision feature; consumed by the observer/ledger.",
+  "description": "The durable, externally-observable audit record of a mediated decision: what was asked, what was decided (or that it was escalated), and what happened when it was applied. Owned and consumed by the observer/ledger.",
   "version": "1.0.0",
   "type": "object",
   "x-artifact-metadata": {
@@ -10,19 +10,15 @@
     "resource": "record",
     "version": "1.0.0",
     "hash": "",
-    "producer": "wagon:mediate-worker-decisions",
+    "producer": "wagon:observe-and-correct",
     "consumers": [
       "wagon:observe-and-correct"
     ],
-    "dependencies": [
-      "contract:commons:decision:request",
-      "contract:commons:decision:verdict",
-      "contract:commons:decision:escalation"
-    ],
+    "dependencies": [],
     "traceability": {
-      "wagon_ref": "plan/mediate_worker_decisions/_mediate_worker_decisions.yaml",
+      "wagon_ref": "plan/observe_and_correct/_observe_and_correct.yaml",
       "feature_refs": [
-        "feature:mediate-worker-decisions:apply-decision"
+        "feature:observe-and-correct:observer-operator-surface"
       ]
     },
     "governance": {
