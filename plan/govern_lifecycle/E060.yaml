@@ -57,7 +57,7 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:E060-SMOKE-001-real-tester-suite-runs-constant-evidence-gate"
       id: "AC-SMOKE-001"
-      purpose: "Running the real constant-evidence gate on this repo collects and executes test_no_live_smoke_harness_returns_constant_evidence against the real plan/ live_smoke acceptances (R002/D002), resolving each anchored test to its real harness and confirming none return constant evidence (eat-own-dog-food: the gate is alive and the shipped harnesses are honest)"
+      purpose: "Running the real constant-evidence gate on this repo collects and executes test_no_live_smoke_harness_returns_constant_evidence against whichever plan/ live_smoke acceptances are currently shipped, resolving each anchored test to its real harness and confirming none return constant evidence (eat-own-dog-food: the gate is alive and the shipped harnesses are honest); when the repo ships no live_smoke harness the gate has no subject and skips on absence-of-subject rather than asserting a hardcoded anchor, reactivating automatically when one lands"
       phase: "SMOKE"
     harness:
       type: "integration"
@@ -65,7 +65,7 @@ acceptances:
     given:
       abstract:
         - "test_live_smoke_execution.py is registered under src/atdd/tester/validators/ and declares the constant-evidence gate"
-        - "The two execution_kind: live_smoke acceptances (R002-SMOKE-001, D002-SMOKE-001) resolve to real harnesses via scan_test_acceptance_headers"
+        - "Whichever execution_kind: live_smoke acceptances the repo currently ships resolve to real harnesses via scan_test_acceptance_headers (none at present — the gate is dormant until one lands)"
         - "The convention registry is rebuilt by build_registry() from the repo root"
     when:
       abstract: "collect_constant_evidence_violations(repo_root) is invoked on this repo"
