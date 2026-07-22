@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from atdd.state import conformance, extensions_lock, import_boundary, provider_seam
+from atdd.state.cli_support import add_verb, opt
 from atdd.state.extensions_lock import LockError
 from atdd.state.projection import PROJECTION_RELATIVE, canonical_bytes, read_projection
 from atdd.state.provider_seam import ProviderBoundaryError, ProviderRegistryError, SyncProvider
@@ -44,46 +45,50 @@ _log = logging.getLogger(__name__)
 OPS = ("import-boundary", "conformance", "providers", "extensions-lock", "mirror")
 
 
+#: Register a provider for one invocation. Repeatable, and spelled the same by every verb
+#: that takes it — the composition root is the only way a provider ever gets in (spec §8).
+def _provider_opt():
+    return opt("--provider", action="append", default=None, metavar="PKG.MOD:FACTORY",
+               help="Register a provider for this invocation (repeatable).")
+
+
 def add_parsers(sub) -> None:
     """Register the provider-boundary verbs on the ``atdd state`` sub-parser."""
-    ib = sub.add_parser(
-        "import-boundary",
-        help="Prove core's import graph reaches no provider, gh, or GitHub API (spec §8.1).")
-    ib.add_argument("--package", default=None,
-                    help="The atdd package directory to walk (default: the running one).")
-    ib.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "import-boundary",
+        "Prove core's import graph reaches no provider, gh, or GitHub API (spec §8.1).",
+        opt("--package", default=None,
+            help="The atdd package directory to walk (default: the running one)."),
+    )
 
-    cf = sub.add_parser(
-        "conformance",
-        help="Drive the full workflow against a bare git remote with ZERO providers (M5).")
-    cf.add_argument("--work", default=None,
-                    help="Directory to build the bare remote and clones in (default: a temp dir).")
-    cf.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "conformance",
+        "Drive the full workflow against a bare git remote with ZERO providers (M5).",
+        opt("--work", default=None,
+            help="Directory to build the bare remote and clones in (default: a temp dir)."),
+    )
 
-    pv = sub.add_parser(
-        "providers", help="List the registered SyncProviders. Empty by default.")
-    pv.add_argument("--provider", action="append", default=None, metavar="PKG.MOD:FACTORY",
-                    help="Register a provider for this invocation (repeatable).")
-    pv.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "providers", "List the registered SyncProviders. Empty by default.",
+        _provider_opt(),
+    )
 
-    el = sub.add_parser(
-        "extensions-lock",
-        help="Write .atdd/extensions.lock: core's policy digests + every provider's digest.")
-    el.add_argument("--verify", action="store_true",
-                    help="Verify the committed lock instead of writing it (fails on drift).")
-    el.add_argument("--provider", action="append", default=None, metavar="PKG.MOD:FACTORY",
-                    help="Register a provider for this invocation (repeatable).")
-    el.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "extensions-lock",
+        "Write .atdd/extensions.lock: core's policy digests + every provider's digest.",
+        opt("--verify", action="store_true",
+            help="Verify the committed lock instead of writing it (fails on drift)."),
+        _provider_opt(),
+    )
 
-    mr = sub.add_parser(
-        "mirror",
-        help="Run the mirror job: external_refs.* only, and a provider failure never blocks.")
-    mr.add_argument("--provider", action="append", default=None, metavar="PKG.MOD:FACTORY",
-                    help="Register a provider for this invocation (repeatable).")
-    mr.add_argument("--strict", action="store_true",
-                    help="Exit non-zero if a provider failed. For debugging — never for CI (I7).")
-    mr.add_argument("--from", dest="from_dir", default=None, help="Projection directory.")
-    mr.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "mirror",
+        "Run the mirror job: external_refs.* only, and a provider failure never blocks.",
+        _provider_opt(),
+        opt("--strict", action="store_true",
+            help="Exit non-zero if a provider failed. For debugging — never for CI (I7)."),
+        opt("--from", dest="from_dir", default=None, help="Projection directory."),
+    )
 
 
 def _root(args) -> Path:
@@ -108,8 +113,10 @@ def _cmd_import_boundary(args) -> int:
     try:
         report = import_boundary.check(package)
     except import_boundary.ImportBoundaryError as exc:
-        _log.warning("the import-boundary guard could not run",
-                     extra={"command": "import-boundary", "error": str(exc)})
+        _log.warning(
+            "the import-boundary guard could not run",
+            extra={"command": "import-boundary", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -129,8 +136,10 @@ def _conformance_in(work: Path) -> int:
     try:
         report = conformance.run_in(work)
     except conformance.ConformanceError as exc:
-        _log.warning("the conformance suite could not be set up",
-                     extra={"command": "conformance", "error": str(exc)})
+        _log.warning(
+            "the conformance suite could not be set up",
+            extra={"command": "conformance", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not report.ok:
         return _fail(report.render())
@@ -142,8 +151,10 @@ def _cmd_providers(args) -> int:
     try:
         providers = _register(args)
     except (ProviderRegistryError, ImportError) as exc:
-        _log.warning("a provider could not be registered",
-                     extra={"command": "providers", "error": str(exc)})
+        _log.warning(
+            "a provider could not be registered",
+            extra={"command": "providers", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     if not providers:
         print("no SyncProvider is registered — core runs provider-free (spec §8.1)")
@@ -166,9 +177,11 @@ def _cmd_extensions_lock(args) -> int:
             return 0
         path = extensions_lock.write_lock(root, providers)
     except (LockError, ProviderRegistryError, ImportError) as exc:
-        _log.warning("the extensions lock could not be written or verified",
-                     extra={"command": "extensions-lock", "verify": bool(args.verify),
-                            "error": str(exc)})
+        _log.warning(
+            "the extensions lock could not be written or verified",
+            extra={"command": "extensions-lock", "verify": bool(args.verify),
+                "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
     core = extensions_lock.core_block(root)
     print(f"wrote {path.relative_to(root) if path.is_relative_to(root) else path}")
@@ -185,8 +198,10 @@ def _cmd_mirror(args) -> int:
     try:
         providers = _register(args)
     except (ProviderRegistryError, ImportError) as exc:
-        _log.warning("a provider could not be registered",
-                     extra={"command": "mirror", "error": str(exc)})
+        _log.warning(
+            "a provider could not be registered",
+            extra={"command": "mirror", "error": str(exc)},
+        )
         return _fail(f"ERROR: {exc}")
 
     documents = read_projection(projection_dir)
@@ -196,8 +211,10 @@ def _cmd_mirror(args) -> int:
     except ProviderBoundaryError as exc:
         # A refusal at the apply path writes NOTHING, and it is still not a gate: the mirror did
         # not happen, the projection is untouched, and merge authority never knew (I7).
-        _log.warning("the mirror's write-back was refused; the projection is untouched",
-                     extra={"command": "mirror", "rule": exc.rule, "error": str(exc)})
+        _log.warning(
+            "the mirror's write-back was refused; the projection is untouched",
+            extra={"command": "mirror", "rule": exc.rule, "error": str(exc)},
+        )
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1 if args.strict else 0
 

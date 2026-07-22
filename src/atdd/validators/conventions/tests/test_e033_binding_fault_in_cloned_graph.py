@@ -29,6 +29,8 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions._support.graph_mutations import (
     clone_graph,
     rename_rule_id,
@@ -59,6 +61,7 @@ def _convention_hashes(root: Path) -> dict:
     }
 
 
+@pytest.mark.convention_filesystem_mutation
 def test_on_disk_fault_rewrites_convention_yaml() -> None:
     """E033-RED-001: the retired on-disk mechanism mutates the convention YAML mid-test.
 

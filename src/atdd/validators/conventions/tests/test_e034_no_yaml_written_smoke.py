@@ -11,14 +11,21 @@ evaluator fault families and asserts the three observable outcomes of E034-SMOKE
 
   * the suite exits 0 (every migrated fault + baseline test passes),
   * ``git status`` reports no NEW residual modification to any tracked convention OR plan
-    YAML — the in-memory injections write nothing, and the loader tests that legitimately
-    touch disk revert cleanly,
+    YAML — the injections write nothing at all now,
   * the fault is still CAUGHT: the migrated ``*fault*`` / ``*inject*`` tests are collected
     and green, so coverage was preserved, not removed to buy the speed.
 
 Build counts and runtime are reported as measured numbers on the PR, never asserted —
 CI wall-clock swings too much to gate on, and a timing budget is cheapest to satisfy by
 deleting the very fault coverage this suite exists to protect.
+
+Both tests here were themselves ``convention_filesystem_mutation`` until #1418, not because
+they write anything — they only read ``git status`` — but because the nested pytest they
+spawn used to run the loader fault tests, which DID write the tree. #1418 staged that last
+group onto temp roots, so the child now writes nothing and these two CASCADE into the
+parallel class. That is not an assertion made here; it is the runtime guard
+(``_support/mutation_guard``) that decides, by fingerprinting the tree across the spawn. If
+a writer ever returns to those family directories, the guard fails these two by name.
 """
 from __future__ import annotations
 

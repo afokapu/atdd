@@ -31,6 +31,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions._support.graph_loader import load_composed_graph
 
 COUNTER_PLUGIN = "atdd.validators.conventions.tests.graph_build_counter"

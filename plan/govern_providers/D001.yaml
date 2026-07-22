@@ -1,0 +1,92 @@
+urn: "wmbt:govern-providers:D001"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "provider-boundary-erosion"
+context_clarifier: "a convention node is an agnostic obligation and a workspace provider is the stack-specific mechanism that checks it; the provider is reached only by SUBPROCESS (core imports no provider code, the V5 boundary), declares a contract_version, and is refused when no installed contract version satisfies the caret range, so a drifted or missing mechanism never silently binds"
+lens: "functional.sustainability"
+statement: "minimize likelihood of provider-boundary-erosion by resolving a workspace provider to a subprocess CLI handle that core never imports, requiring the provider to declare a contract_version, and refusing resolution when no installed contract version satisfies the requested caret range"
+acceptances:
+  - identity:
+      urn: "acc:govern-providers:D001-UNIT-001-provider-resolves-to-subprocess-cli-handle"
+      id: "AC-UNIT-001"
+      purpose: "resolving a workspace provider yields a filesystem path to its cli/scan.py subprocess entrypoint — a handle core shells out to, never an imported module"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a candidate root holding a workspace package whose atdd.workspace.yaml declares workspace_id 'atdd.workspace.python-pytest' and contract_version '1.1.0', with a cli/scan.py file present"
+    when:
+      abstract: "resolve_provider(candidate_roots, 'atdd.workspace.python-pytest', '^1.0.0') is called"
+    then:
+      abstract:
+        - "a ResolvedProvider is returned whose provider_cli_path points at the workspace package's cli/scan.py"
+        - "provider_cli_path is an existing file on disk (a subprocess entrypoint), not a python module object or callable"
+        - "the resolved contract_version is '1.1.0'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:D001-UNIT-002-semver-incompatible-provider-refused"
+      id: "AC-UNIT-002"
+      purpose: "a provider whose installed contract version does not satisfy the requested caret range is refused, and an absent workspace_id is refused, before any subprocess is spawned"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a candidate root holding one workspace package declaring workspace_id 'atdd.workspace.python-pytest' at contract_version '1.1.0'"
+    when:
+      abstract: "resolve_provider is asked for that workspace against an incompatible caret range ('^2.0.0'), and separately for a workspace_id absent from the roots"
+    then:
+      abstract:
+        - "the incompatible caret range raises ContractRangeError"
+        - "the absent workspace_id raises UnknownWorkspaceError"
+        - "a compatible range ('^1.0.0') against the same package resolves successfully"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:D001-UNIT-003-runner-invokes-provider-by-subprocess-never-imports"
+      id: "AC-UNIT-003"
+      purpose: "the runner reaches the resolved provider only by launching it as a subprocess (python <cli/scan.py>), never by importing provider code — the V5 boundary"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a ResolvedProvider whose provider_cli_path is a known scan.py path"
+        - "subprocess.run is captured so the argv the runner would launch can be inspected without executing it"
+    when:
+      abstract: "the runner's provider invocation is driven for one implementation over a scan root"
+    then:
+      abstract:
+        - "the launched argv is [sys.executable, str(provider_cli_path), ...] — the provider is spawned as a subprocess"
+        - "no module under .atdd/workspaces or .atdd/extensions is imported by the atdd.enforce package (the boundary is a CLI, not an import)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:D001-SMOKE-001-real-vendored-provider-resolves-to-cli-path"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real vendored substrate, the python-pytest workspace provider resolves to an on-disk cli/scan.py — the live subprocess boundary"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real substrate_home resolved by the enforce runner (the repo shipping this atdd package, with its vendored .atdd/workspaces)"
+    when:
+      abstract: "resolve_provider is driven over the real candidate roots for workspace_id 'atdd.workspace.python-pytest' against '^1.0.0'"
+    then:
+      abstract:
+        - "a ResolvedProvider is returned"
+        - "its provider_cli_path exists on disk and is a file"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

@@ -25,7 +25,7 @@ from atdd.state import merge_driver, tombstone
 from atdd.state.merge_driver import RULE_TOMBSTONE
 from atdd.state.projection import STATE_TOMBSTONED
 
-from ._helpers import UID_X, document, write_document
+from ._helpers import UID_X, attributed_tombstone, document, write_document
 
 REASON = "superseded by the projection model"
 
@@ -35,7 +35,7 @@ def test_k001_unit_001_red_tombstoned_object_revived(tmp_path) -> None:
     retired = document(
         phase="GREEN",
         state=STATE_TOMBSTONED,
-        tombstone=tombstone.tombstone_record(REASON),
+        tombstone=attributed_tombstone(REASON),
     )
     reviving = document(phase="SMOKE")  # a live phase, on the very same uid
 

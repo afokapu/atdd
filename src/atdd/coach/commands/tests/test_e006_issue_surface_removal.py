@@ -125,15 +125,15 @@ class TestIssueSurfaceRemoved:
         assert "invalid choice" not in err
 
     def test_engines_still_import_from_the_pure_engine_module(self):
-        """issue.py stays put; the CLI removal must not touch it."""
+        """issue.py stays put; the CLI removal must not touch it.
+
+        The mint-path engine symbols this once also pinned (`IssueBodyChecker`,
+        `IssueBodyComplianceError`, `dup_check_before_file`) were removed by
+        #1477 along with the mint path itself — their absence is now asserted
+        by `coach/validators/test_mint_path_decommissioned.py`.
+        """
         mod = importlib.import_module("atdd.coach.commands.issue")
-        for symbol in (
-            "IssueManager",
-            "IssueBodyChecker",
-            "IssueBodyComplianceError",
-            "dup_check_before_file",
-        ):
-            assert hasattr(mod, symbol), f"engine {symbol} vanished from issue.py"
+        assert hasattr(mod, "IssueManager"), "engine IssueManager vanished from issue.py"
 
     def test_every_coach_verb_still_resolves(self):
         """The ten verbs the shims delegated to are all still discoverable."""
@@ -149,7 +149,6 @@ class TestIssueSurfaceRemoved:
             "is-registered",
             "check",
             "close-wmbt",
-            "sync-wmbts",
             "enter",
         ):
             assert verb in discovered, f"coach verb `{verb}` no longer resolves"
@@ -198,14 +197,6 @@ class TestReplacementsReachTheSameDelegate:
             rc = self._run_coach(["is-registered", _FAKE_BRANCH])
         assert rc == expected_rc
         manager.branch_is_registered.assert_called_once_with(_FAKE_BRANCH)
-
-    def test_sync_wmbts_reaches_sync_wmbts(self, hermetic):
-        manager = MagicMock()
-        manager.sync_wmbts.return_value = 0
-        with patch("atdd.coach.commands.issue.IssueManager", return_value=manager):
-            rc = self._run_coach(["sync-wmbts", str(_FAKE_ISSUE)])
-        assert rc == 0
-        manager.sync_wmbts.assert_called_once_with(_FAKE_ISSUE)
 
     def test_check_reaches_issue_lifecycle_check(self, hermetic):
         with patch(

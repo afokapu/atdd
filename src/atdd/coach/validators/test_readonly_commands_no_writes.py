@@ -32,6 +32,9 @@ from pathlib import Path
 
 import pytest
 
+# Toolkit dogfood: asserts on toolkit-only repo content (#1475).
+pytestmark = [pytest.mark.platform]
+
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 

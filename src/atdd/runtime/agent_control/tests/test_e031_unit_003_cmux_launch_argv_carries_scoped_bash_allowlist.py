@@ -23,17 +23,30 @@ pytestmark = [pytest.mark.coder]
 from atdd.runtime.agent_control.cmux_launch import build_agent_seed_argv
 
 
-def _convention_sourced_allowlist() -> list[str]:
-    import atdd.coach.commands.spawn as spawn
+def _session_convention() -> Path:
+    """Locate session.convention.yaml.
 
-    convention = (
-        Path(spawn.__file__).resolve().parent.parent
+    #1486: this used to anchor on ``commands.spawn.__file__``; spawn was
+    decommissioned, so anchor on the surviving ``atdd.coach`` package instead.
+    The convention itself is unchanged.
+    """
+    import atdd.coach as coach_pkg
+
+    return (
+        Path(coach_pkg.__file__).resolve().parent
         / "conventions"
         / "session.convention.yaml"
     )
-    fl = yaml.safe_load(convention.read_text(encoding="utf-8"))["spawn_time"][
-        "freedom_layer"
-    ]
+
+
+def _freedom_layer() -> dict:
+    return yaml.safe_load(_session_convention().read_text(encoding="utf-8"))[
+        "spawn_time"
+    ]["freedom_layer"]
+
+
+def _convention_sourced_allowlist() -> list[str]:
+    fl = _freedom_layer()
     return list(fl.get("allowed_tools") or []) + list(fl.get("allowed_bash") or [])
 
 
@@ -75,16 +88,7 @@ def test_positional_prompt_precedes_allowed_tools():
 
 
 def test_no_forbidden_command_in_argv_allowed_tools():
-    import atdd.coach.commands.spawn as spawn
-
-    convention = (
-        Path(spawn.__file__).resolve().parent.parent
-        / "conventions"
-        / "session.convention.yaml"
-    )
-    fl = yaml.safe_load(convention.read_text(encoding="utf-8"))["spawn_time"][
-        "freedom_layer"
-    ]
+    fl = _freedom_layer()
     forbidden = list(fl.get("forbidden_bash") or [])
     assert forbidden, "E031: convention must declare forbidden_bash"
 

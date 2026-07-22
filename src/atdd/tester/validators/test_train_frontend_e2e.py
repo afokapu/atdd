@@ -21,6 +21,7 @@ from typing import Dict, List, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_stack_container
 from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
@@ -49,7 +50,10 @@ def _is_train_id(token: str) -> bool:
 
 # Path constants
 REPO_ROOT = find_repo_root()
-WEB_E2E_DIR = REPO_ROOT / "web" / "e2e"
+_WEB_CONTAINER = resolve_stack_container("web", REPO_ROOT)
+WEB_E2E_DIR = (
+    _WEB_CONTAINER / "e2e" if _WEB_CONTAINER is not None else None
+)
 TRAINS_DIR = REPO_ROOT / "plan" / "_trains"
 
 # Package resources
@@ -93,7 +97,7 @@ def _find_frontend_e2e_tests() -> List[Tuple[Path, str]]:
     """
     tests = []
 
-    if not WEB_E2E_DIR.exists():
+    if WEB_E2E_DIR is None or not WEB_E2E_DIR.exists():
         return tests
 
     # Pattern: web/e2e/<train_id>/*.spec.ts
@@ -178,8 +182,8 @@ def test_frontend_e2e_path_convention():
     if not all_train_ids:
         pytest.skip("No trains found in registry")
 
-    if not WEB_E2E_DIR.exists():
-        pytest.skip("No web/e2e/ directory found")
+    if WEB_E2E_DIR is None or not WEB_E2E_DIR.exists():
+        pytest.skip("no web e2e tree declared or present")
 
     violations = []
     e2e_tests = _find_frontend_e2e_tests()

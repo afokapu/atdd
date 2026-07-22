@@ -1,0 +1,27 @@
+urn: "feature:drive-state-machine:record-agent-session-identity"
+wagon: "wagon:drive-state-machine"
+description: "Record which agent session worked which work_item at two mandatory chokepoints, by reading ambient environment rather than asking an agent (asking is a prompt: non-deterministic and confabulable). `atdd author issue` records the creator; the packaged `post-commit` hook records the participant plus the worktree path it was captured in. Identity is stored as a provider-tagged opaque string in `external_refs(provider, ref_kind='session', ref_value)` with recency in `data.last_seen_at` — the `data` blob already exists, so there is no schema migration. The agent-kind → session-env-var mapping lives in an `agent_session_env` convention YAML so core never learns a provider and no core path reads or invokes cmux (#1480/#1483 are pruning it out). No role is ever stored: a participant is not definitionally a worker, since the documented recovery procedure has orchestrators commit inside a worker's worktree — orchestrator vs worker is inferred at read time from the set of worktree paths a session participated in. A read projection emits a runnable resume command (session id + cwd) per session per work_item, so an orchestrator can re-enter the fleet from the store alone after a crash with no multiplexer installed."
+sizing:
+  wmbts: 5
+  footprint_score: 16
+  footprint_size: "M"
+wmbts:
+  - "wmbt:drive-state-machine:D003"
+  - "wmbt:drive-state-machine:E009"
+  - "wmbt:drive-state-machine:E010"
+  - "wmbt:drive-state-machine:M004"
+  - "wmbt:drive-state-machine:L003"
+components:
+  backend:
+    application:
+      - type: "use_cases"
+        count: 3
+        rationale: "Creator capture at the `atdd author issue` mint path, participant capture at the packaged post-commit hook (resolving branch → work_item via the github external_ref, idempotent per session, non-blocking), and the resume projection that renders sessions per work_item ordered by last_seen_at"
+    domain:
+      - type: "value_objects"
+        count: 2
+        rationale: "AgentSession (provider tag + opaque session id) and SessionParticipation (session + worktree path + last_seen_at) — neither carries a role, because roles are inferred at read time and never stored"
+    integration:
+      - type: "adapters"
+        count: 2
+        rationale: "The ambient-environment session resolver driven by the `agent_session_env` provider table (adding a provider is a YAML row, no code change), and the store-side session-ref writer that upserts provider-tagged external_refs and the creator/participation relationships while preserving kind, state, and existing data keys"

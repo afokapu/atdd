@@ -19,6 +19,7 @@ from typing import Dict, List, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
@@ -47,10 +48,13 @@ def _is_train_id(token: str) -> bool:
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
-STREAMLIT_DIR = PYTHON_DIR / "streamlit"
-APPS_DIR = PYTHON_DIR / "apps"
-STREAMLIT_TESTS_DIR = PYTHON_DIR / "tests" / "streamlit"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
+_HAS_PYTHON = PYTHON_DIR is not None
+STREAMLIT_DIR = PYTHON_DIR / "streamlit" if _HAS_PYTHON else None
+APPS_DIR = PYTHON_DIR / "apps" if _HAS_PYTHON else None
+STREAMLIT_TESTS_DIR = (
+    PYTHON_DIR / "tests" / "streamlit" if _HAS_PYTHON else None
+)
 
 # Package resources
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
@@ -116,7 +120,7 @@ def _find_frontend_python_code_files() -> List[Path]:
     files = []
 
     for search_dir in [STREAMLIT_DIR, APPS_DIR]:
-        if search_dir.exists():
+        if search_dir is not None and search_dir.exists():
             for py_file in search_dir.rglob("*.py"):
                 if not py_file.name.startswith("_"):
                     files.append(py_file)
@@ -133,7 +137,7 @@ def _find_frontend_python_test_files() -> List[Tuple[Path, str]]:
     """
     tests = []
 
-    if not STREAMLIT_TESTS_DIR.exists():
+    if STREAMLIT_TESTS_DIR is None or not STREAMLIT_TESTS_DIR.exists():
         return tests
 
     # Pattern: test_<train_id>.py — the stem after `test_` is a train identity
@@ -156,7 +160,7 @@ def _check_train_code_references(train_id: str) -> List[Path]:
     matching_files = []
 
     for search_dir in [STREAMLIT_DIR, APPS_DIR]:
-        if not search_dir.exists():
+        if search_dir is None or not search_dir.exists():
             continue
 
         for py_file in search_dir.rglob("*.py"):

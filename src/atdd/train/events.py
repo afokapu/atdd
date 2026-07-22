@@ -76,20 +76,27 @@ def validate_event_dict(event: dict) -> tuple[str, ...]:
             f"unsupported schema major: {version!r} (reader supports {SCHEMA_VERSION!r})"
         )
 
-    etype = event.get("type")
-    if etype is not None:
-        if etype not in EVENT_TYPES:
-            problems.append(f"unknown event type {etype!r}")
-        else:
-            payload = event.get("payload")
-            if not isinstance(payload, dict):
-                problems.append("payload must be an object")
-            else:
-                for key in EVENT_TYPES[etype]:
-                    if key not in payload:
-                        problems.append(f"{etype} payload missing {key!r}")
-
+    problems.extend(_payload_problems(event))
     return tuple(problems)
+
+
+def _payload_problems(event: dict) -> list[str]:
+    """Problems with the event's ``type`` and the payload keys that type requires.
+    An event with no ``type`` is not judged here (its absence is already reported
+    as a missing required field)."""
+    etype = event.get("type")
+    if etype is None:
+        return []
+    if etype not in EVENT_TYPES:
+        return [f"unknown event type {etype!r}"]
+    payload = event.get("payload")
+    if not isinstance(payload, dict):
+        return ["payload must be an object"]
+    return [
+        f"{etype} payload missing {key!r}"
+        for key in EVENT_TYPES[etype]
+        if key not in payload
+    ]
 
 
 __all__ = [

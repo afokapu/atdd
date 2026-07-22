@@ -6,7 +6,7 @@
 """#1270 slice B — WorkItemReader accessor extensions for the CLI readers.
 
 Adds feature(), issue_number_for_slug(), session_entry() consumed by the
-pr/branch/issue_lifecycle/sync_wmbts repoints. Isolated tmp-store tests
+pr/branch/issue_lifecycle repoints. Isolated tmp-store tests
 (explicit db_path), independent of the ambient control-root layout.
 """
 from __future__ import annotations

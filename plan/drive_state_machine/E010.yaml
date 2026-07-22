@@ -1,0 +1,112 @@
+urn: "wmbt:drive-state-machine:E010"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "participating-session-absent-from-store-after-commit"
+context_clarifier: "Committing is the one act every agent performs on work it touches, so `post-commit` is the second mandatory chokepoint. It must be `post-commit` and not `pre-commit` for two reasons, both decisions in #1540: post-commit survives `git commit --no-verify` (verified), and it runs after the commit is already made, so a failing store write can never block the operator's commit. The hook follows the #1492 fixed-content dispatcher pattern — logic lives in the installed package and `.atdd/hooks/post-commit` only execs it — so behaviour propagates by `pipx upgrade`, not by editing a hook file in the repo. Branch → work_item resolution reuses the E007 seam (WorkItemReader over the github external_ref). The write records a `session_participates_in_work_item` relationship plus the worktree path the participation was captured in; it never records a role, because the documented recovery procedure has orchestrators commit inside a worker's worktree, so a participant is not definitionally a worker. Participation is idempotent per session: a second commit updates recency (M004) rather than adding a row. A human commit carries no agent env var and must record nothing while leaving any existing binding intact — capture never nulls what it cannot observe."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of participating-session-absent-from-store-after-commit by recording the committing agent session and its worktree path against the branch's work_item from a packaged `post-commit` hook — resolving identity from ambient env and work_item via the github external_ref, writing one idempotent `session_participates_in_work_item` relationship per session with no role — such that it survives `--no-verify`, never blocks a commit, and a commit with no agent env var records nothing and leaves an existing binding intact"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:E010-UNIT-001-first-commit-records-participation-with-worktree-path"
+      id: "AC-UNIT-001"
+      purpose: "A worker's first commit records its session against the work item resolved from its branch, carrying the worktree path"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store holding a work item with a github external_ref and a branch binding"
+        - "An environment carrying an agent session id, inside a worktree checkout of that branch"
+    when:
+      abstract: "The packaged post-commit capture runs after a commit"
+    then:
+      abstract:
+        - "A `session_participates_in_work_item` relationship links the session to the work item"
+        - "The participation carries the worktree path it was captured in"
+        - "No role field is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:E010-UNIT-002-second-commit-adds-no-new-row"
+      id: "AC-UNIT-002"
+      purpose: "Participation is idempotent per session — a second commit writes no new row"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store in which the session already participates in the work item"
+    when:
+      abstract: "The post-commit capture runs again for the same session and work item"
+    then:
+      abstract:
+        - "Exactly one participation relationship exists for that session and work item"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:E010-UNIT-003-no-agent-env-records-nothing-and-preserves-binding"
+      id: "AC-UNIT-003"
+      purpose: "A commit with no agent env var records nothing and leaves an existing binding intact"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store in which some session already participates in the work item"
+        - "An environment with no agent session env var set (a human commit)"
+    when:
+      abstract: "The post-commit capture runs after a commit"
+    then:
+      abstract:
+        - "No new participation is written"
+        - "The pre-existing participation and its recency are unchanged — not nulled"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:E010-UNIT-004-creator-committing-alone-is-both-without-inventing-a-role"
+      id: "AC-UNIT-004"
+      purpose: "A session that creates a work item and commits to it alone is recorded as both creator and participant, with no worker binding invented"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A session that minted a work item and is the only session committing to it"
+    when:
+      abstract: "The post-commit capture runs after that session's commit"
+    then:
+      abstract:
+        - "Both a creator and a participation relationship exist for that one session"
+        - "No role or worker binding is written"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:E010-SMOKE-001-survives-no-verify-and-never-blocks-the-commit"
+      id: "AC-SMOKE-001"
+      purpose: "Capture runs under `git commit --no-verify`, and a failing store write does not block the commit"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git worktree with the packaged post-commit hook installed and a real control-root store"
+        - "An environment carrying an agent session id"
+    when:
+      abstract: "A commit is made with `--no-verify`, and separately a commit is made while the store write fails"
+    then:
+      abstract:
+        - "The `--no-verify` commit still records the participation"
+        - "The commit with a failing store write still succeeds and the commit object exists"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"

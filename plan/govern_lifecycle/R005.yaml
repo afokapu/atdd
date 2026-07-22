@@ -1,0 +1,99 @@
+urn: "wmbt:govern-lifecycle:R005"
+step: "resolve"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "phase-labels-written-without-the-store-transition-behind-them"
+context_clarifier: "when a PR merges, .github/workflows/post-merge-lifecycle.yml shells out to `gh issue edit --add-label atdd:COMPLETE` with no checkout and no Python, so it stamps the phase label ~1s in and beats atdd-auto-phase.yml (checkout + setup-python + pip install -e ., ~11s) every time, structurally. That raw edit bypasses IssueManager.update and with it the phase machine (COMPLETE is not reachable from SMOKE), the train gate, the COMPLETE gates and the store write. auto-phase then reads the LABEL, finds COMPLETE already there, correctly concludes there is nothing to advance, and exits 0 green — so the label moves, objects.state does not, and the desync is silent. Measured 2026-07-13: 236 of 421 issues (56%) disagree with their store, 217 of them the single signature label=COMPLETE with the store at the last legitimately-driven phase (INIT 82, REFACTOR 61, SMOKE 34, GREEN 21, PLANNED 19). The store is not corrupt — it is honest and stale; the LABEL is the unearned one."
+lens: "functional.effectiveness"
+statement: "minimize quantity of phase-labels-written-without-the-store-transition-behind-them by deleting the raw `gh issue edit` phase-label writes from post-merge-lifecycle.yml, inverting IssueManager.update to write objects.state before projecting the atdd:<PHASE> label from it, pointing atdd auto-phase at the store instead of the label so a label race cannot silence the authoritative path, failing loud when store and label disagree instead of no-opping green, and binding a strict validator (coach.phase-label.projection-only) that fails the build if any workflow, script or module authors an atdd:<PHASE> label outside IssueManager.update"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R005-UNIT-001-no-raw-phase-label-writers"
+      id: "AC-UNIT-001"
+      purpose: "No workflow, shell script or module writes an atdd:<PHASE> label outside IssueManager.update, and the guard demonstrably fails when one reappears"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The repo's workflows, workflow templates, scripts and src/atdd modules"
+        - "IssueManager.update (src/atdd/coach/commands/issue.py) is the single sanctioned writer"
+        - "A synthetic copy of the deleted post-merge-lifecycle label-swap step, including its interpolated `atdd:${PHASE}` removal loop"
+    when:
+      abstract: "The projection-only scanner evaluates both the real repo sources and the synthetic regrown step"
+    then:
+      abstract:
+        - "The real repo yields zero violations — no raw atdd:<PHASE> label writer survives"
+        - "The synthetic regrown step yields a violation for BOTH halves of the swap, so the guard is shown to be capable of failing"
+        - "A raw writer whose helper is underscore-prefixed rather than dot-attributed is caught too"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:govern-lifecycle:R005-UNIT-002-store-written-before-label"
+      id: "AC-UNIT-002"
+      purpose: "IssueManager.update writes objects.state BEFORE it projects the atdd:<PHASE> label"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An IssueManager whose transition gates pass"
+        - "The store write and the label projection are both instrumented to record their call order"
+    when:
+      abstract: "update(issue_id, status=<target>) runs a successful transition"
+    then:
+      abstract:
+        - "The store write is observed before the label projection"
+        - "Both writes happen — the inversion does not drop either"
+        - "The label carries exactly atdd:<target>"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:govern-lifecycle:R005-UNIT-003-auto-phase-fails-loud-on-divergence"
+      id: "AC-UNIT-003"
+      purpose: "atdd auto-phase reads the store, and exits non-zero when store and label disagree instead of no-opping green"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A merged PR resolving to an issue carrying the #1434 signature: label atdd:COMPLETE, objects.state SMOKE"
+        - "A second issue whose store is silent (unknown work item) but which carries a label"
+    when:
+      abstract: "atdd auto-phase resolves each PR and runs"
+    then:
+      abstract:
+        - "The divergent issue yields action=divergence carrying BOTH readings, and run() exits non-zero"
+        - "No transition subprocess is invoked for the divergent issue"
+        - "The issue with a silent store falls back to the label and still advances, so consumer repos without a store are not turned red"
+        - "The phase driving the advance comes from objects.state, not from the label"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:govern-lifecycle:R005-SMOKE-001-real-validate-coach-enforces-projection-only"
+      id: "AC-SMOKE-001"
+      purpose: "A real `atdd validate coach` run enforces coach.phase-label.projection-only against the real repo, and goes red when a raw writer is planted in a real workflow file"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The real coach validator suite, invoked as a real pytest subprocess (no in-process import shortcut)"
+        - "A real workflow file in a scratch checkout of the repo's .github/workflows"
+    when:
+      abstract: "The suite runs once against the clean tree, then again with the deleted label-swap step planted back into a real workflow file"
+    then:
+      abstract:
+        - "The clean run passes and the projection-only validator is actually collected and executed, not silently skipped"
+        - "The planted run FAILS, naming coach.phase-label.projection-only and the planted file:line"
+        - "The failure is produced by the real strict disposition gate, so it cannot be suppressed inline"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"

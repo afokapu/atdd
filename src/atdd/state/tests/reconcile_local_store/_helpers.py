@@ -23,54 +23,26 @@ import yaml
 from atdd.state.db import connect, init_state_store
 from atdd.state.projection import PROJECTION_RELATIVE
 
+from .._fixtures import checkout as _checkout
+from .._fixtures import (  # re-exported: the acceptances import these from this module
+    attributed_tombstone,
+    commit_all,
+    git,
+    head,
+)
+
 #: Pinned identities, so a fixture's bytes never move between runs. 10 Crockford
 #: Base32 time characters + 16 random ones, matching the contract's uid pattern.
 UID_A = "wi_01HF7YAT00M78607F0000000A1"
 UID_B = "wi_01HF7YAT00M78607F0000000B2"
 
 
-def git(repo: Path, *args: str) -> str:
-    """Run git in ``repo`` and return its stdout."""
-    result = subprocess.run(
-        ["git", *args], cwd=str(repo), capture_output=True, text=True, check=True, timeout=60,
-    )
-    return result.stdout.strip()
-
-
 def checkout(path: Path) -> Path:
     """A real git repo carrying a real Control Root marker, with one commit on it.
 
-    The identity is pinned to a literal so the fixture never depends on the
-    developer's git config.
+    ``initial_branch=None``: this wagon never names a branch, so git picks — as it always did.
     """
-    path.mkdir(parents=True, exist_ok=True)
-    git(path.parent if path.exists() else path, "init", "--quiet", str(path))
-    git(path, "config", "user.email", "dev@example.invalid")
-    git(path, "config", "user.name", "Dev")
-    (path / ".atdd").mkdir(exist_ok=True)
-    (path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    (path / "README.md").write_text("fixture\n", encoding="utf-8")
-    # The store is the PRIVATE authoring workspace and is never committed (spec §2.1);
-    # `version_cache.json` is the CLI's local upgrade-check cache. Committing either
-    # would push one developer's private state at everyone else — and a tracked store
-    # makes `git checkout` delete and resurrect it under the developer's feet.
-    (path / ".gitignore").write_text(
-        ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n", encoding="utf-8",
-    )
-    git(path, "add", "-A")
-    git(path, "commit", "--quiet", "-m", "initial")
-    return path
-
-
-def commit_all(repo: Path, message: str = "projection") -> str:
-    """Stage everything and commit; return the new HEAD sha."""
-    git(repo, "add", "-A")
-    git(repo, "commit", "--quiet", "--allow-empty", "-m", message)
-    return git(repo, "rev-parse", "HEAD")
-
-
-def head(repo: Path) -> str:
-    return git(repo, "rev-parse", "HEAD")
+    return _checkout(path, initial_branch=None, extra_files={"README.md": "fixture\n"})
 
 
 def document(

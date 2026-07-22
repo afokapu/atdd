@@ -31,6 +31,25 @@ from atdd.coach.commands import coach as _coach
 
 _logger = logging.getLogger("atdd.coach")
 
+
+class _NullObserver:
+    """No-op stand-in for the decommissioned coach observer (#1486).
+
+    ``execute_cold_start`` drives its observer purely through ``start()`` /
+    ``stop()``. The observer itself was coach sub-worker orchestration and left
+    core; the injection seam is kept so a caller can still supply a real
+    observer, but the default now observes nothing.
+    """
+
+    def __init__(self, runtime_dir: Path) -> None:
+        self._runtime_dir = runtime_dir
+
+    def start(self) -> None:
+        return None
+
+    def stop(self) -> None:
+        return None
+
 # Convenience re-bind for the immutable enum the bodies below reference.
 Phase = _coach.Phase
 
@@ -165,8 +184,11 @@ def execute_cold_start(
     without aborting siblings that already started (Decision #1). Returns a
     ``ColdStartResult`` carrying the aggregate ``rc`` and the BLOCKED issues.
 
-    Issue #754: starts exactly one MultiAgentObserver before driving waves;
-    stops it after all waves complete regardless of outcome.
+    Issue #754 started exactly one MultiAgentObserver before driving waves and
+    stopped it after all waves completed. #1486 decommissioned the observer
+    (coach sub-worker orchestration left core), so the ``_observer_factory`` seam
+    remains but defaults to :class:`_NullObserver` — waves are no longer observed.
+    Callers that still want observation inject a factory.
 
     Child 8 (#895): when ``runner`` (a :class:`~atdd.train.runner_iface.TrainRunner`)
     and ``policy`` are supplied, each issue is driven through
@@ -176,9 +198,8 @@ def execute_cold_start(
     directly.
     """
     from atdd.train import issue_runner as _issue_runner
-    from atdd.coach.commands.observer import MultiAgentObserver as _MultiAgentObserver
 
-    factory = _observer_factory or _MultiAgentObserver
+    factory = _observer_factory or _NullObserver
     coach_observer = factory(runtime_dir)
     coach_observer.start()
 

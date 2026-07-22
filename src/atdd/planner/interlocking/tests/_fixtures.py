@@ -89,16 +89,19 @@ def interlocking_doc() -> Dict[str, Any]:
                 "id": "frag:quorum-or-timeout",
                 "kind": "alt",
                 "acceptance_refs": ["acceptance:closes-on-quorum-or-timeout"],
+                "wmbt_refs": ["wmbt:pressure-collapse:E001", "wmbt:pressure-collapse:E002"],
                 "guards": [
-                    {"id": "guard:all-voted", "expression": "all_players_voted == true"},
-                    {"id": "guard:timer-expires", "expression": "timer_expired == true"},
+                    {"id": "guard:all-voted", "expression": "all_players_voted == true",
+                     "wmbt_refs": ["wmbt:pressure-collapse:E001"]},
+                    {"id": "guard:timer-expires", "expression": "timer_expired == true",
+                     "wmbt_refs": ["wmbt:pressure-collapse:E002"]},
                 ],
             }
         ],
         "invariants": [
             {
                 "id": "inv:unresolved-max-seven",
-                "wmbt_ref": "wmbt:pressure-collapse",
+                "wmbt_ref": "wmbt:pressure-collapse:C001",
                 "expression": "unresolved_count <= 7",
             }
         ],
@@ -106,11 +109,24 @@ def interlocking_doc() -> Dict[str, Any]:
             {
                 "id": "residual:blitz-owns-no-grid",
                 "kind": "structural",
-                "acceptance_ref": "acceptance:blitz-owns-no-grid",
+                "acceptance_ref": "acc:blitz:blitz-owns-no-grid",
                 "validator_ref": "src/atdd/validators/architecture/test_blitz_owns_no_grid.py",
+                "wmbt_refs": ["wmbt:pressure-collapse:M001"],
                 "reason": "no honest flow representation; structural ownership invariant",
             }
         ],
+        # #1554: the fixture carries nominal + alternate routes, so `error` and
+        # `exception` must be explicitly assessed for this to remain a FULLY-VALID
+        # interlocking. Before #1554 the omission was silent, which is exactly the
+        # defect the rule exists to catch — a fixture that models a compliant
+        # artifact has to say what happens on the paths it does not route.
+        "category_assessment": {
+            "error": {
+                "basis": "discharged-by-residual",
+                "residual_ref": "residual:blitz-owns-no-grid",
+            },
+            "exception": {"basis": "outcome-cannot-arise"},
+        },
         "routes": [
             {
                 "route_id": "nominal-all-voted",

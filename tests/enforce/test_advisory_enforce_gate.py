@@ -1,19 +1,19 @@
-"""Advisory extension-enforcement gate (#1359).
+"""Extension-enforcement gate wiring (#1359 activated it; #1428 made it REQUIRED).
 
-Guards the MECHANISM #1359 activates against the vendored, committed substrate:
+Guards the MECHANISM against the vendored, committed substrate:
 
   * the canonical ``.atdd/binding.lock.yaml`` binds a real (non-no-op) coder/tester
-    set, train-interlocking included (#1361), and every one of those rules resolves
-    to a runnable detector rather than binding to a provider that cannot run it;
+    set, and train-interlocking is DEFERRED (#1361, blocked on #1292/#1345) — an
+    unresolvable bind would break ``--verify-substrate`` and the gate;
   * ``atdd enforce --verify-substrate`` passes against the committed vendored tree
     (digest coherence — a real, blocking invariant);
-  * CI wires ``atdd enforce`` and runs its VERDICT as an ADVISORY (non-blocking)
-    ratchet stage — the toolkit does not yet pass its own extension rules, so a FAIL
-    verdict must not break the build. The flip to a BLOCKING gate is a tracked
-    follow-up (decommission #1207 + extract orchestration out of core).
+  * CI wires ``atdd enforce`` and runs its VERDICT as a BLOCKING check — no
+    ``continue-on-error``, no ``|| true`` — judged against the
+    ``.atdd/enforce-ratchet.yaml`` debt register so the toolkit's pre-existing
+    violations are held flat while any regression fails the build (#1428).
 
 These are fast + dependency-light (no tree-sitter): the heavy convention verdict is
-produced by the advisory CI step itself, visible in the CI log, not re-run here.
+produced by the blocking CI step itself, visible in the CI log, not re-run here.
 """
 from __future__ import annotations
 
@@ -56,22 +56,8 @@ def _enforce_run_steps() -> list[tuple[str, dict, str]]:
     return steps
 
 
-_TRAIN_INTERLOCKING_CONVENTIONS = {
-    "coder.train.interlocking-runner-exists",
-    "coder.train.interlocking-resolution-model-exists",
-    "coder.train.station-master-interlocking-routing",
-    "coder.train.interlocking-delegates-to-trainrunner",
-    "coder.train.interlocking-does-not-carry-cargo",
-    "coder.train.interlocking-bilateral-binding",
-    "tester.interlocking.route-coverage",
-    "tester.interlocking.production-runner-used",
-    "tester.interlocking.smoke-coverage-for-station-master",
-    "tester.interlocking.trace-binds-declared-route",
-}
-
-
 def test_binding_lock_binds_runnable_set_including_train_interlocking():
-    """GT-001: the canonical lock binds a non-empty coder/tester set, train-interlocking included (#1361)."""
+    """GT-001: the canonical lock binds a non-empty coder/tester set, train-interlocking included."""
     assert BINDING_LOCK.is_file(), f"canonical binding.lock missing at {BINDING_LOCK}"
     lock = yaml.safe_load(BINDING_LOCK.read_text(encoding="utf-8")) or {}
     bound = [c for c in lock.get("conventions", []) if c.get("disposition") == "bound"]
@@ -80,31 +66,15 @@ def test_binding_lock_binds_runnable_set_including_train_interlocking():
     assert any(i.startswith(("coder.", "tester.")) for i in ids), (
         f"expected coder/tester bound conventions, got: {sorted(ids)}"
     )
-    # The whole point of the extension: its ten conventions are enforced, not shelved.
-    # Five coder rules fan out from one detector — the composer fan-out (#1359) — and
-    # four tester rules from another. Previously deferred to #1361 while the composer
-    # could not compose a list-valued realizes_convention.
-    missing = _TRAIN_INTERLOCKING_CONVENTIONS - ids
-    assert not missing, f"train-interlocking conventions must be bound; missing: {sorted(missing)}"
-
-
-def test_train_interlocking_rules_are_runnable_not_merely_bound():
-    """A bound rule whose detector cannot run reports `unrunnable` and enforce still
-    prints PASS — a false green. Every interlocking rule must resolve to a runnable
-    provider (its detector is shipped by the extension package, not the workspace)."""
-    from atdd.enforce.runner import _resolve_impls_root
-
-    lock = yaml.safe_load(BINDING_LOCK.read_text(encoding="utf-8")) or {}
-    bound = {
-        c["convention_id"]: c["implementation_id"]
-        for c in lock.get("conventions", [])
-        if c.get("disposition") == "bound"
-    }
-    unrunnable = [
-        rule for rule in sorted(_TRAIN_INTERLOCKING_CONVENTIONS)
-        if _resolve_impls_root(REPO_ROOT, bound[rule]) is None
-    ]
-    assert not unrunnable, f"bound but unrunnable (false green): {unrunnable}"
+    # train-interlocking was held out while its two blockers stood: the composer
+    # could not compose a list-valued realizes_convention, and an unresolvable
+    # bound entry would have failed --verify-substrate. Both are now discharged —
+    # the #1426 implementation fan-out composes the list form, and main ships the
+    # extension enabled — so the rules bind, verify, and run. Pin that.
+    assert any("interlocking" in i for i in ids), (
+        "train-interlocking must be bound: the extension ships enabled and the "
+        "fan-out composes its list-valued realizes_convention"
+    )
 
 
 def test_verify_substrate_passes_against_vendored_tree():
@@ -125,13 +95,19 @@ def test_ci_runs_enforce_verify_substrate():
     )
 
 
-def test_ci_enforce_verdict_is_advisory():
-    """GT-900 mechanism: the `atdd enforce` VERDICT step is advisory (non-blocking ratchet stage).
+def test_ci_enforce_verdict_is_blocking():
+    """GT-900 mechanism: the `atdd enforce` VERDICT step is BLOCKING (#1428 E001).
 
     A verdict step is any `atdd enforce` invocation that is NOT `--verify-substrate`.
-    It must be non-blocking (``continue-on-error: true`` or ``|| true``) so the
-    toolkit's current self-debt (13/25 rules) does not break the build — this is an
-    explicit ratchet stage, not the destination (#1359).
+    It must carry NEITHER swallow guard — no ``continue-on-error: true``, no
+    ``|| true`` — so a strict convention FAIL exits the job non-zero and blocks the
+    merge via the validate-gate fan-in.
+
+    This INVERTS the #1359 assertion. #1359 shipped the verdict as a deliberate
+    ADVISORY ratchet STAGE because the toolkit did not pass its own rules; #1428 ends
+    that stage by pairing the flip with `.atdd/enforce-ratchet.yaml`, a per-rule
+    violation-count baseline that holds the pre-existing debt flat while failing any
+    regression. The stage was never the destination.
     """
     verdict_steps = [
         (job, step, run)
@@ -140,8 +116,17 @@ def test_ci_enforce_verdict_is_advisory():
     ]
     assert verdict_steps, "CI must run the `atdd enforce` verdict (a non --verify-substrate invocation)"
     for job, step, run in verdict_steps:
-        advisory = step.get("continue-on-error") is True or "|| true" in run
-        assert advisory, (
-            f"the `atdd enforce` verdict step in job {job!r} must be ADVISORY "
-            f"(continue-on-error: true or `|| true`) — #1359 ratchet stage"
+        assert step.get("continue-on-error") is not True, (
+            f"the `atdd enforce` verdict step in job {job!r} carries "
+            f"`continue-on-error: true` — a strict FAIL would report SUCCESS (#1428)"
+        )
+        assert "|| true" not in run, (
+            f"the `atdd enforce` verdict step in job {job!r} pipes through `|| true` "
+            f"— a strict FAIL would report SUCCESS (#1428)"
+        )
+        # Blocking WITHOUT the ratchet would red the build on pre-existing debt: the
+        # flip and the baseline are one change, never two.
+        assert "--ratchet" in run, (
+            f"the blocking `atdd enforce` verdict step in job {job!r} must judge "
+            f"against the recorded ratchet baseline (#1428 E003)"
         )

@@ -1,4 +1,13 @@
 artifacts:
+- id: commons:binding-lock
+  urn: contract:commons:binding-lock
+  version: 1.0.0
+  title: Extension convention binding lock
+  description: Extension convention binding lock exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/binding-lock.schema.json
+  producer: wagon:bind-extension-conventions
+  consumers:
+  - wagon:reconcile-dispositions
 - id: commons:coach:canonical-surface-name
   urn: contract:commons:coach:canonical-surface-name
   version: 1.0.0
@@ -39,50 +48,35 @@ artifacts:
   path: contracts/commons/compliance/inventory.schema.json
   producer: wagon:govern-lifecycle
   consumers: []
-- id: commons:decision:escalation
-  urn: contract:commons:decision:escalation
-  version: 1.0.0
-  title: CommonsDecisionEscalation
-  description: An external signal that a worker decision cannot be safely auto-mediated
-    and needs a human. Produced by the mediate-decision feature whenever the safety
-    gate fires or the coach cannot be parsed/answers too slowly.
-  path: contracts/commons/decision/escalation.schema.json
-  producer: wagon:mediate-worker-decisions
-  consumers: []
 - id: commons:decision:record
   urn: contract:commons:decision:record
   version: 1.0.0
   title: CommonsDecisionRecord
   description: 'The durable, externally-observable audit record of a mediated decision:
     what was asked, what was decided (or that it was escalated), and what happened
-    when it was applied. Produced by the apply-decision feature; consumed by the observer/ledger.'
+    when it was applied. Owned and consumed by the observer/ledger.'
   path: contracts/commons/decision/record.schema.json
-  producer: wagon:mediate-worker-decisions
+  producer: wagon:observe-and-correct
   consumers:
   - wagon:observe-and-correct
-- id: commons:decision:request
-  urn: contract:commons:decision:request
+- id: commons:disposition-policy
+  urn: contract:commons:disposition-policy
   version: 1.0.0
-  title: CommonsDecisionRequest
-  description: A blocked worker's decision prompt, normalized from a cmux notification
-    (or the emit CLI), ready for coach mediation. Flows from the sense-decision feature
-    to the mediate-decision feature.
-  path: contracts/commons/decision/request.schema.json
-  producer: wagon:mediate-worker-decisions
+  title: Disposition to verdict policy
+  description: Disposition to verdict policy exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/disposition-policy.schema.json
+  producer: wagon:reconcile-dispositions
   consumers:
-  - wagon:mediate-worker-decisions
-- id: commons:decision:verdict
-  urn: contract:commons:decision:verdict
+  - wagon:enforce-conventions-ci
+- id: commons:enforce-verdict
+  urn: contract:commons:enforce-verdict
   version: 1.0.0
-  title: CommonsDecisionVerdict
-  description: 'The mediated outcome of a decision request. disposition encodes the
-    safety guarantee in the contract itself: a human_required verdict carries no selected
-    option and MUST NOT be auto-applied. Flows from the mediate-decision feature to
-    the apply-decision feature.'
-  path: contracts/commons/decision/verdict.schema.json
-  producer: wagon:mediate-worker-decisions
+  title: Per-rule enforcement verdict
+  description: Per-rule enforcement verdict exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/enforce-verdict.schema.json
+  producer: wagon:enforce-conventions-ci
   consumers:
-  - wagon:mediate-worker-decisions
+  - wagon:verify-enforcement
 - id: commons:error:response
   urn: contract:commons:error:response
   version: 1.0.0
@@ -93,21 +87,6 @@ artifacts:
   producer: wagon:verify-contracts
   consumers:
   - wagon:implement-code
-- id: commons:feed:blocked-item
-  urn: contract:commons:feed:blocked-item
-  version: 1.0.0
-  title: CommonsFeedBlockedItem
-  description: 'One pending blocked-decision entry as it appears in ''cmux rpc feed.list''
-    for a spawned worker. This is the boundary contract of the daemon''s journey:
-    the surface-worker-decisions feature (producer) guarantees a worker''s escalation-worthy
-    decision is published in this shape, and bridge-cmux-feed''s CmuxFeedSource (consumer)
-    reads exactly these fields into its frozen FeedItem. Mirrors src/atdd/mediate_worker_decisions/bridge_cmux_feed/src/domain/feed_item.py.
-    Only kinds question | permission | exitPlan are blocked decisions; toolUse/telemetry
-    entries are not.'
-  path: contracts/commons/feed/blocked-item.schema.json
-  producer: wagon:mediate-worker-decisions
-  consumers:
-  - wagon:mediate-worker-decisions
 - id: commons:projection-evidence
   urn: contract:commons:projection-evidence
   version: 1.0.0
@@ -173,6 +152,15 @@ artifacts:
   consumers:
   - wagon:govern-projection-fields
   - wagon:migrate-projection-authority
+- id: commons:provider-capability
+  urn: contract:commons:provider-capability
+  version: 1.0.0
+  title: Provider implementation realization index
+  description: Provider implementation realization index exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/provider-capability.schema.json
+  producer: wagon:govern-providers
+  consumers:
+  - wagon:bind-extension-conventions
 - id: commons:provider-extensions-lock
   urn: contract:commons:provider-extensions-lock
   version: 1.0.0
@@ -198,6 +186,24 @@ artifacts:
   consumers:
   - wagon:govern-projection-fields
   - wagon:migrate-projection-authority
+- id: commons:rule-registry
+  urn: contract:commons:rule-registry
+  version: 1.0.0
+  title: Core convention rule registry projection
+  description: Core convention rule registry projection exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/rule-registry.schema.json
+  producer: wagon:govern-registry
+  consumers:
+  - wagon:bind-extension-conventions
+- id: commons:succession-coverage
+  urn: contract:commons:succession-coverage
+  version: 1.0.0
+  title: Core-to-extension succession coverage
+  description: Core-to-extension succession coverage exchanged inside train 0007-enforce-extension-conventions.
+  path: contracts/commons/succession-coverage.schema.json
+  producer: wagon:verify-enforcement
+  consumers:
+  - wagon:govern-registry
 - id: frontend:train:render-metadata
   urn: contract:frontend:train:render-metadata
   version: 1.0.0

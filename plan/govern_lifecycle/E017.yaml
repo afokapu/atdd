@@ -8,54 +8,6 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of operators-unable-to-find-adapter-documentation-or-run-manifest-backfill when an operator selects an LLM adapter or needs to backfill the manifest by (1) creating docs/MODELS.md with an adapter table (id, env vars, permission policy, extension recipe) covering every entry in ADAPTER_REGISTRY, and (2) wiring atdd manifest backfill in cli.py as a named subcommand that delegates to IssueManager.reconcile()"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:E017-UNIT-001-docs-models-md-exists-with-adapter-table"
-      id: "AC-UNIT-001"
-      purpose: "docs/MODELS.md exists and contains a table row for every adapter ID registered in ADAPTER_REGISTRY"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "ADAPTER_REGISTRY is imported from atdd.coach.commands.spawn"
-        - "docs/MODELS.md is a file at the repo root"
-    when:
-      abstract: "The file is read and parsed"
-    then:
-      abstract:
-        - "docs/MODELS.md exists"
-        - "The file contains a markdown table or section for each key in ADAPTER_REGISTRY"
-        - "The file contains the string 'claude-code'"
-        - "The file contains the string 'ANTHROPIC_API_KEY' or similar env var reference"
-        - "The file contains an extension recipe section"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-19"
-
-  - identity:
-      urn: "acc:govern-lifecycle:E017-UNIT-002-atdd-manifest-backfill-routes-to-reconcile"
-      id: "AC-UNIT-002"
-      purpose: "cli.py dispatch routes 'atdd manifest backfill' to IssueManager.reconcile()"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "src/atdd/cli.py is readable"
-        - "IssueManager is importable from atdd.coach.commands.issue"
-    when:
-      abstract: "The cli.py source and IssueManager are inspected"
-    then:
-      abstract:
-        - "cli.py registers a 'manifest' subparser or top-level command"
-        - "The 'backfill' target within manifest dispatch calls manager.reconcile() or equivalent"
-        - "IssueManager has a reconcile() attribute"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-19"
-
-  - identity:
       urn: "acc:govern-lifecycle:E017-SMOKE-001-docs-models-md-has-valid-structure"
       id: "AC-SMOKE-001"
       purpose: "docs/MODELS.md has valid markdown structure: title, adapter table, env vars section, and extension guide"

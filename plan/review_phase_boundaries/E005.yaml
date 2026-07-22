@@ -29,27 +29,6 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-19"
   - identity:
-      urn: "acc:review-phase-boundaries:E005-UNIT-002-skip-review-bypasses-default"
-      id: "AC-UNIT-002"
-      purpose: "parse_cli with --skip-review sets skip_review=True regardless of default review_phases"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "The atdd coach CLI parser"
-        - "Only --skip-review is passed; no --review-phases flag"
-    when:
-      abstract: "parse_cli(['999', '--skip-review']) is called"
-    then:
-      abstract:
-        - "The returned Config has skip_review == True"
-        - "The reviewer handler returns NOOP for the REFACTOR boundary (because skip_review is honoured)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-19"
-  - identity:
       urn: "acc:review-phase-boundaries:E005-UNIT-003-explicit-review-phases-override"
       id: "AC-UNIT-003"
       purpose: "parse_cli with --review-phases green,smoke overrides the default and uses exactly that set"
@@ -67,27 +46,6 @@ acceptances:
       abstract:
         - "The returned Config has review_phases == {\"green\", \"smoke\"}"
         - "The value does not include \"refactor\" (the override replaces the default, not augments it)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-19"
-  - identity:
-      urn: "acc:review-phase-boundaries:E005-INTEGRATION-001-reviewer-fires-at-refactor-boundary-by-default"
-      id: "AC-INTEGRATION-001"
-      purpose: "With the default review_phases={\"refactor\"}, the reviewer handle() returns HANDLED at the REFACTOR boundary"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A CoachContext built from the default parse_cli output (review_phases={\"refactor\"}, skip_review=False)"
-        - "A fake _spawn_reviewer that is a no-op and a fake _wait_for_review_report that returns a pass report"
-    when:
-      abstract: "reviewer.handle(ctx, Transition(src=Phase.SMOKE, dst=Phase.REFACTOR)) is called (entering REFACTOR, the last phase before COMPLETE)"
-    then:
-      abstract:
-        - "The result is HandlerResult.HANDLED (the reviewer ran and returned a pass verdict)"
-        - "A reviewer manifest is written under .atdd/runtime/agents/ with phase=REFACTOR"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-19"

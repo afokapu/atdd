@@ -30,6 +30,7 @@ from typing import Dict, List, Optional, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -45,7 +46,7 @@ _RULE_SECRET = bind_rule("coder.security.hardcoded-secret")
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 SECURITY_CONVENTION = ATDD_PKG_DIR / "coder" / "conventions" / "security.convention.yaml"
@@ -339,7 +340,7 @@ def scan_sql_concatenation(repo_root: Path) -> Tuple[int, List[Violation]]:
     sql_keywords = rule.get("sql_keywords", ["SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE"])
     sink_methods = rule.get("sink_methods", ["execute", "executemany", "raw", "execute_sql"])
     exclusions = rule.get("exclusions", [])
-    python_dir = repo_root / "python"
+    python_dir = resolve_code_root("python", repo_root)
     files = find_python_files(python_dir, exclusions)
     violations: List[Dict] = []
     for f in files:
@@ -356,7 +357,7 @@ def scan_missing_auth(repo_root: Path) -> Tuple[int, List[Violation]]:
     router_objects = rule.get("router_objects", ["app", "router"])
     auth_deps = rule.get("auth_dependencies", ["get_current_user", "require_auth", "verify_token"])
     exclusions = rule.get("exclusions", [])
-    python_dir = repo_root / "python"
+    python_dir = resolve_code_root("python", repo_root)
     files = find_python_files(python_dir, exclusions)
     violations: List[Dict] = []
     for f in files:
@@ -377,7 +378,7 @@ def scan_hardcoded_secrets(repo_root: Path) -> Tuple[int, List[Violation]]:
         {"name": "generic_token", "regex": r'(token|auth_token|access_token)\s*=\s*["\'][a-zA-Z0-9_\-]{20,}["\']'},
     ])
     exclusions = rule.get("exclusions", [])
-    python_dir = repo_root / "python"
+    python_dir = resolve_code_root("python", repo_root)
     files = find_python_files(python_dir, exclusions)
     violations: List[Dict] = []
     for f in files:

@@ -25,8 +25,8 @@ acceptances:
       abstract:
         - "`issue` is NOT a registered top-level subparser name"
         - "invoking `atdd issue <anything>` exits NON-ZERO and prints a message naming both `atdd coach <verb>` and `atdd author issue` as the 4.0.0 replacements (a fail-loud guard, never a silent success)"
-        - "IssueManager, IssueBodyChecker, IssueBodyComplianceError and dup_check_before_file all still import from atdd.coach.commands.issue"
-        - "coach_verbs.discover() still resolves transition, reconcile, issues, sync-labels, issue-review, is-registered, check, close-wmbt, sync-wmbts and enter to their run callables"
+        - "IssueManager still imports from atdd.coach.commands.issue (the mint-path engine symbols IssueBodyChecker / IssueBodyComplianceError / dup_check_before_file were retired with the mint path in #1477 — their ABSENCE is now gated by coach/validators/test_mint_path_decommissioned.py)"
+        - "coach_verbs.discover() still resolves transition, reconcile, issues, sync-labels, issue-review, is-registered, check, close-wmbt and enter to their run callables (sync-wmbts retired in #1477)"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-09"
