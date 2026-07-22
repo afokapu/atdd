@@ -58,10 +58,12 @@ ARCHETYPE_GATES = {
         ("GT-010", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_python_architecture.py"),
         ("GT-011", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_import_boundaries.py"),
     ],
-    "fe": [
-        ("GT-020", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_typescript_architecture.py"),
-        ("GT-021", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_design_system_compliance.py"),
-    ],
+    # No "fe" rows. GT-020/GT-021 named `test_typescript_architecture.py` and
+    # `test_design_system_compliance.py`, both pruned in #1518 — core is
+    # stack-agnostic and those obligations belong to `frontend.extension.vite-coder`.
+    # A frontend gate row is the workspace provider's to contribute, not core's to
+    # hard-code; an entry naming a validator core no longer ships would render a
+    # Validation table pointing at nothing.
     "contracts": [
         ("GT-030", "tester", "atdd validate tester", "src/atdd/tester/validators/test_contract_schema_compliance.py"),
     ],

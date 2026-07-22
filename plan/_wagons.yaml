@@ -1341,9 +1341,6 @@ wagons:
       the current branch slug is absent from the manifest
     Y005: minimize atdd issue reconcile missing from the CLI when bulk backfill of
       unregistered open issues is needed
-    E014: minimize agent-spawn-commands-containing-dangerously-skip-permissions by
-      detecting the forbidden flag in the adapter command string and raising SpawnPermissionViolation
-      before the multiplexer dispatches (#657)
     E015: minimize agent-behavioral-rules-visible-only-in-per-user-memory by committing
       .atdd/agent-rules.yaml with the portable enforcement subset and injecting it
       into atdd gate output under an 'Agent Behavioral Rules' section (#657)
@@ -1434,13 +1431,6 @@ wagons:
       false on creation (I-9), refuses bare/foreign-directory dispatch (I-1), and
       blocks protected-main worktrees (I-2), and routing every coach worktree call
       site through it via compatibility shims (#892)
-    E039: 'minimize likelihood of agent-control-and-prompt-delivery-staying-coupled-to-coach-via-screen-scrape-so-paste-landed-submit-and-stdin-gaps-keep-regressing
-      by extracting atdd.runtime.agent_control with cli-return as the default control
-      plane (ShimAgentController whose deliver_prompt injects AND submits and whose
-      signal(INTERRUPT) terminates the wrapped agent), shipping the view-only atdd.runtime.multiplexer
-      Protocol with control methods stripped, providing the ATDD_USE_LEGACY_SPAWN=1
-      kill switch, and routing spawn dispatch through the controller (#893, closes
-      #840/#871/#872)'
     E040: minimize likelihood of the-jsonl-backed-persistence-store-load-conventions-snapshot-and-evidence-materialization-being-implemented-ad-hoc-or-drifting-from-the-frozen-child-3-contracts
       by implementing JsonlPersistenceStore against the §4.6 Protocol (durable events.jsonl/decisions.jsonl
       under runs/<run_id>/, RunStarted carrying conventions_hash + conventions_snapshot_ref,
@@ -1456,15 +1446,6 @@ wagons:
       exec-ing the next git on PATH, and complements it with a CI validator failing
       on a poisoned core.bare=true baseline plus an atdd gate session self-heal that
       scopes core.bare=false back to the worktree (#884)
-    E043: minimize likelihood of worker launch staying coupled to the pty shim by
-      adding a CmuxAgentController that launches the worker via cmux new-workspace
-      --command with the agent's positional prompt placed before the variadic --allowedTools
-      flag, deriving permission_mode + allowed_tools from the DispatchSpec, running
-      the built argv through assert_no_forbidden_launch_flags, relying on the cmux
-      wrapper's existing Feed hooks for decision communication (no pty, no cli-return
-      inbox, no output.log heartbeat, no submit sentinel), and exposing pure builders
-      (build_agent_seed_argv / build_cmux_launch_argv) so the launch shape is unit-testable
-      without a real cmux (#978)
     E044: 'minimize likelihood of the-registry-build-materializing-the-game-template-default-code-roots-python-supabase-telemetry-into-every-repo-regardless-of-what-atdd-config-yaml-code-declares
       by gating build_all code-root mirrors on the repo''s explicitly-declared `.atdd/config.yaml`
       code: block (build_coder/build_supabase only when python/supabase declared or
@@ -1600,19 +1581,10 @@ wagons:
       atdd init early-returned before _install_hooks, and only the forbidden atdd
       init --force refreshed anything, so every hook fix reached only repos initialised
       after it landed and 6 of 11 hooks were never installed at all) (#1492)
-    E064: 'minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-or-a-destructive-force-flag-to-agents
-      (rehomed from spawn-agents #1483)'
-    E065: 'minimize likelihood of the-claude-md-agent-context-file-exceeding-the-operator-line-budget-or-losing-its-atdd-lifecycle-and-command-pointers
-      (rehomed from spawn-agents #1483)'
-    E066: 'minimize likelihood of the-operator-emergency-bypass-doc-being-absent-or-documenting-an-env-var-escape-hatch-instead-of-the-cli
-      (rehomed from spawn-agents #1483)'
-    R007: 'minimize likelihood of the-claude-md-size-budget-rule-being-absent-from-the-atdd-validate-coach-surface
-      (rehomed from spawn-agents #1483)'
-    R008: 'minimize likelihood of the-no-bypass-advertising-rule-being-absent-from-the-atdd-validate-coach-surface
-      (rehomed from spawn-agents #1483)'
-    E067: 'minimize likelihood of the-deployed-freedom-layer-allow-list-pre-authorizing-a-forbidden-command-or-an-unscoped-bash-prefix
-      (rehomed from spawn-agents #1483; policy/freedom_layer_bash_scope variant is
-      still live)'
+    E064: minimize likelihood of a-javascript-or-typescript-file-shipping-in-the-core-wheel-and-reaching-a-pure-python-consumer-who-can-never-satisfy-the-stack-it-encodes
+      by asserting against the member list of a REAL built wheel that no `.ts/.tsx/.js/.jsx/.mjs/.cjs`
+      file ships, with any deliberate exemption held as an exact-path allowlist plus
+      a subset assertion so the carve-out can shrink to empty but never silently widen
     C008: 'minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
       by broadening the #451 scan to every non-.py source file, resolving the source
       tree from the working directory so it EXECUTES against a real installed wheel
@@ -1623,6 +1595,19 @@ wagons:
       it into a clean venv and runs the shipped validators from a synthetic consumer
       repo, gating on wheel-completeness plus zero pytest collection errors across
       all four phases (30 today: 15 tester + 15 coder)'
+    E065: 'minimize likelihood of the-claude-md-agent-context-file-exceeding-the-operator-line-budget-or-losing-its-atdd-lifecycle-and-command-pointers
+      (rehomed from spawn-agents #1483)'
+    E066: 'minimize likelihood of the-operator-emergency-bypass-doc-being-absent-or-documenting-an-env-var-escape-hatch-instead-of-the-cli
+      (rehomed from spawn-agents #1483)'
+    E067: 'minimize likelihood of the-deployed-freedom-layer-allow-list-pre-authorizing-a-forbidden-command-or-an-unscoped-bash-prefix
+      (rehomed from spawn-agents #1483; policy/freedom_layer_bash_scope variant is
+      still live)'
+    E068: 'minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-or-a-destructive-force-flag-to-agents
+      (rehomed from spawn-agents #1483; renumbered from E064 which origin/main claimed)'
+    R007: 'minimize likelihood of the-claude-md-size-budget-rule-being-absent-from-the-atdd-validate-coach-surface
+      (rehomed from spawn-agents #1483)'
+    R008: 'minimize likelihood of the-no-bypass-advertising-rule-being-absent-from-the-atdd-validate-coach-surface
+      (rehomed from spawn-agents #1483)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

@@ -1,6 +1,6 @@
 # URN: test:govern-lifecycle:coach-operator-safety-invariants:E064-UNIT-001-claude-md-contains-no-atdd-skip-references
-# Acceptance: acc:govern-lifecycle:E064-UNIT-001-claude-md-contains-no-atdd-skip-references
-# WMBT: wmbt:govern-lifecycle:E064
+# Acceptance: acc:govern-lifecycle:E068-UNIT-001-claude-md-contains-no-atdd-skip-references
+# WMBT: wmbt:govern-lifecycle:E068
 # Phase: RED
 # Layer: backend.unit
 # Assertion: structural

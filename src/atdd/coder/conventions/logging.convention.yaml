@@ -139,10 +139,11 @@ enforcement:
       description: "Python: no try/except handlers that swallow without logging or re-raising"
       validates: "COACH-SILENT-SWALLOW-001"
       validator: "src/atdd/coder/validators/test_no_silent_exception_swallowing_python.py"
-    - id: "SPEC-CODER-SILENT-SWALLOW-0002"
-      description: "TypeScript: no try/catch handlers that swallow without logging or re-throwing"
-      validates: "COACH-SILENT-SWALLOW-001"
-      validator: "src/atdd/coder/validators/test_no_silent_exception_swallowing_typescript.py"
+    # SPEC-CODER-SILENT-SWALLOW-0002 (the TypeScript half) was removed in #1518.
+    # `COACH-SILENT-SWALLOW-001` stays here as the language-agnostic obligation; the
+    # TypeScript realization is owned by `coder.vite.logging-silent-swallow` and
+    # `coder.astro.logging-silent-swallow`, each backed by a detect.mjs in
+    # frontend.workspace.runtime. The Python realization above is unaffected.
 
 deferred:
   phase_2:

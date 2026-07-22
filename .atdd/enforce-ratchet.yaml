@@ -14,25 +14,24 @@ scope:
   - src/atdd
 
 rules:
-  coder.dead-code.reachability:                                   58
-  coder.dead-code.reachability-typescript:                        29
-  coder.design.orphan-ui:                                         7
+  coder.dead-code.reachability:                                   54
+  coder.dead-code.reachability-typescript:                        16
+  coder.design.orphan-ui:                                         5
   coder.design.primitives:                                        5
   coder.error-response.code-format:                               1
-  coder.logging.coach-silent-swallow:                             231
+  coder.logging.coach-silent-swallow:                             230
   coder.logging.structured:                                       15
-  coder.refactor.complexity-cognitive:                            126
-  coder.refactor.complexity-cyclomatic:                           147
-  coder.refactor.complexity-length:                               72
-  coder.refactor.complexity-nesting:                              172
-  coder.refactor.composition-consumer:                            56
-  coder.refactor.composition-root:                                7
-  coder.refactor.quality-comments:                                19
-  coder.refactor.quality-comments-typescript:                     2
-  coder.refactor.quality-duplication:                             52
-  coder.refactor.quality-file-length:                             38
+  coder.refactor.complexity-cognitive:                            120
+  coder.refactor.complexity-cyclomatic:                           139
+  coder.refactor.complexity-length:                               66
+  coder.refactor.complexity-nesting:                              162
+  coder.refactor.composition-consumer:                            3
+  coder.refactor.composition-root:                                1
+  coder.refactor.quality-comments:                                12
+  coder.refactor.quality-duplication:                             48
+  coder.refactor.quality-file-length:                             37
   coder.refactor.quality-mi:                                      11
-  coder.refactor.quality-naming:                                  3
+  coder.refactor.quality-naming:                                  1
   coder.security.sql-injection:                                   1
   tester.acceptance-violation.live-smoke-acceptance-must-execute: 1
   tester.acceptance-violation.metric-implementation-must-exist:   1

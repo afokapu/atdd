@@ -1,6 +1,6 @@
 # URN: test:govern-lifecycle:coach-operator-safety-invariants:E064-SMOKE-001-live-claude-md-contains-no-atdd-skip-references
-# Acceptance: acc:govern-lifecycle:E064-SMOKE-001-live-claude-md-contains-no-atdd-skip-references
-# WMBT: wmbt:govern-lifecycle:E064
+# Acceptance: acc:govern-lifecycle:E068-SMOKE-001-live-claude-md-contains-no-atdd-skip-references
+# WMBT: wmbt:govern-lifecycle:E068
 # Phase: SMOKE
 # Layer: backend.smoke
 # Assertion: behavioral

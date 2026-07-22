@@ -211,7 +211,6 @@ def test_runtime_worktree_has_no_forbidden_imports():
 
     forbidden = {
         "atdd.coach", "atdd.train", "atdd.integrations",
-        "atdd.runtime.agent_control", "atdd.runtime.multiplexer",
     }
     leaked = {
         imp for imp in imports
