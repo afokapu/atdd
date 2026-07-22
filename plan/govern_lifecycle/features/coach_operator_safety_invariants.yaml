@@ -2,7 +2,7 @@ urn: "feature:govern-lifecycle:coach-operator-safety-invariants"
 wagon: "wagon:govern-lifecycle"
 description: "Operator-safety invariants on CLAUDE.md and the operator-emergency-bypass doc that survive the retirement of coach sub-worker orchestration (#1483). Rehomed from the pruned spawn-agents wagon's claude-md-slim-and-debanner feature: these validators enforce that the repo's own agent-context file never advertises ATDD_SKIP_* bypass env-vars or a destructive `--force`, stays within the operator line budget while retaining lifecycle pointers, and that the operator-emergency-bypass doc exists and documents the CLI (not an env-var escape hatch). They run in `atdd validate coach` independent of whether any worker is ever spawned."
 sizing:
-  wmbts: 5
+  wmbts: 6
   footprint_score: 8
   footprint_size: "M"
 wmbts:
@@ -11,6 +11,7 @@ wmbts:
   - "wmbt:govern-lifecycle:E066"
   - "wmbt:govern-lifecycle:R007"
   - "wmbt:govern-lifecycle:R008"
+  - "wmbt:govern-lifecycle:E067"
 components:
   backend:
     presentation:

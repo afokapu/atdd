@@ -80,7 +80,7 @@ features:
   - urn: "feature:govern-lifecycle:coach-operator-safety-invariants"
 
 wmbt:
-  total: 101
+  total: 102
   R006: "minimize drifted-lifecycle-records-that-no-verb-can-repair"
   R005: "minimize phase-labels-written-without-the-store-transition-behind-them"
   R001: "minimize stale local manifest status after a successful GitHub transition"
@@ -183,5 +183,6 @@ wmbt:
   E066: "minimize likelihood of the-operator-emergency-bypass-doc-being-absent-or-documenting-an-env-var-escape-hatch-instead-of-the-cli (rehomed from spawn-agents #1483)"
   R007: "minimize likelihood of the-claude-md-size-budget-rule-being-absent-from-the-atdd-validate-coach-surface (rehomed from spawn-agents #1483)"
   R008: "minimize likelihood of the-no-bypass-advertising-rule-being-absent-from-the-atdd-validate-coach-surface (rehomed from spawn-agents #1483)"
+  E067: "minimize likelihood of the-deployed-freedom-layer-allow-list-pre-authorizing-a-forbidden-command-or-an-unscoped-bash-prefix (rehomed from spawn-agents #1483; policy/freedom_layer_bash_scope variant is still live)"
   C008: "minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in by broadening the #451 scan to every non-.py source file, resolving the source tree from the working directory so it EXECUTES against a real installed wheel instead of skipping, and flipping its rule node off advisory to a gating disposition (#451)"
   C009: "minimize likelihood of a-packaging-regression-reaching-a-consumer-repo-undetected-because-no-ci-job-ever-installs-the-wheel-and-every-job-runs-the-toolkit-from-its-own-source-tree by adding a required validate-consumer job that builds the wheel, pip-installs it into a clean venv and runs the shipped validators from a synthetic consumer repo, gating on wheel-completeness plus zero pytest collection errors across all four phases (30 today: 15 tester + 15 coder)"
