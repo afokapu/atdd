@@ -223,6 +223,16 @@ def plan_relocations(root: Path) -> List[Tuple[Path, Path]]:
 # ``wagons``), never off the bucket key names — so the migration is free to
 # re-key the buckets by ``subject``/``category`` without breaking a reader.
 # ---------------------------------------------------------------------------
+def _collect_train_entries(entries, flat: Dict[str, dict]) -> None:
+    """Key every well-formed entry of a train list into ``flat`` by its train_id.
+    A non-list (malformed section) contributes nothing."""
+    if not isinstance(entries, list):
+        return
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("train_id"):
+            flat[entry["train_id"]] = entry
+
+
 def _flatten_registry(trains_data) -> Dict[str, dict]:
     """Flatten a ``trains:`` document into ``{train_id: entry}``.
 
@@ -235,15 +245,9 @@ def _flatten_registry(trains_data) -> Dict[str, dict]:
             if not isinstance(sections, dict):
                 continue
             for _section, entries in sections.items():
-                if not isinstance(entries, list):
-                    continue
-                for entry in entries:
-                    if isinstance(entry, dict) and entry.get("train_id"):
-                        flat[entry["train_id"]] = entry
+                _collect_train_entries(entries, flat)
     elif isinstance(trains_data, list):
-        for entry in trains_data:
-            if isinstance(entry, dict) and entry.get("train_id"):
-                flat[entry["train_id"]] = entry
+        _collect_train_entries(trains_data, flat)
     return flat
 
 
@@ -378,6 +382,26 @@ def apply(root: Path) -> List[Tuple[str, str, str]]:
     return migrated
 
 
+def _restore_flat_train(legacy_id: str, dst: Path, flat: Path) -> None:
+    """Rewrite one typed train back to its flat legacy file, then drop the typed
+    file and prune its subject directory if that leaves it empty."""
+    doc = yaml.safe_load(dst.read_text(encoding="utf-8")) or {}
+    doc["train_id"] = legacy_id
+    doc.pop("category", None)
+    flat.write_text(
+        yaml.safe_dump(doc, sort_keys=False, default_flow_style=False),
+        encoding="utf-8",
+    )
+    dst.unlink()
+    try:
+        dst.parent.rmdir()
+    except OSError as exc:
+        logger.debug(
+            "revert: subject dir not empty, leaving in place",
+            extra={"dir": str(dst.parent), "error": str(exc)},
+        )
+
+
 def revert(root: Path) -> List[Tuple[str, str]]:
     """Inverse of :func:`apply`: restore every flat legacy train, drop the
     typed nesting, and rewrite the registry to its legacy digit-bucketed shape.
@@ -393,22 +417,7 @@ def revert(root: Path) -> List[Tuple[str, str]]:
         dst = trains_dir / subject / f"{slug}.yaml"
         flat = trains_dir / f"{legacy_id}.yaml"
         if dst.exists():
-            doc = yaml.safe_load(dst.read_text(encoding="utf-8")) or {}
-            doc["train_id"] = legacy_id
-            doc.pop("category", None)
-            flat.write_text(
-                yaml.safe_dump(doc, sort_keys=False, default_flow_style=False),
-                encoding="utf-8",
-            )
-            dst.unlink()
-            # prune the now-empty subject directory
-            try:
-                dst.parent.rmdir()
-            except OSError as exc:
-                logger.debug(
-                    "revert: subject dir not empty, leaving in place",
-                    extra={"dir": str(dst.parent), "error": str(exc)},
-                )
+            _restore_flat_train(legacy_id, dst, flat)
             restored.append((legacy_id, str(flat)))
 
     _rewrite_registry_legacy(root, existing)

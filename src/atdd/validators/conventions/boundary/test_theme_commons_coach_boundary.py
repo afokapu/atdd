@@ -18,13 +18,13 @@ validator module (the legacy parity check shells out via subprocess).
 """
 from __future__ import annotations
 
-import subprocess
-import sys
 from pathlib import Path
 
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    stage_file,
+)
 from atdd.validators.conventions.boundary import fixtures
-from atdd.validators.conventions.boundary import _parity
 from atdd.validators.conventions.boundary.archetype import (
     DEFERRED_RETHEME_WAGONS,
     TEMPLATE_IDS,
@@ -52,7 +52,7 @@ def _repo_root() -> Path:
     for cand in p.parents:
         if (cand / "pyproject.toml").is_file() and (cand / "src" / "atdd").is_dir():
             return cand
-    raise RuntimeError("repo root not found")
+    raise RuntimeError("repo root not found")  # atdd:suppress(coach.code-roots.resolver-degrades-not-raises) — #1499 ratchet: pre-existing raising resolver; destination is zero
 
 
 def _evaluate(graph) -> list:
@@ -129,17 +129,30 @@ def test_clean_baseline_real_graph_is_empty(clean_convention_graph) -> None:
 # --- fault injection + legacy parity (BOTH must catch) ---------------------
 
 
-def test_fault_injection_convention_catches() -> None:
-    """Inject a coach import under a real non-deferred commons wagon's source
-    tree; assert the convention evaluator catches it; then revert and confirm
-    it goes green again. Oracle retired (#1365)."""
-    root = _repo_root()
-    graph0 = load_composed_graph(root)
+def test_fault_injection_convention_catches(clean_convention_graph, tmp_path) -> None:
+    """Stage a coach import under a real non-deferred commons wagon's source path in a
+    temp root; assert the convention evaluator catches it and the real src/ tree is
+    never written. Oracle retired (#1365).
 
-    # Pick a real commons, non-deferred wagon whose src/atdd/<slug> dir does NOT
-    # yet exist — so injection is a clean create + delete (fully reversible).
+    The evaluator selects wagons from the graph's NODES but reads the crossing out of
+    the wagon's `.py` source via ast.parse, so the fault must be a real module it really
+    parses — no node carries it. It does not have to live in the REAL src/ tree
+    (#1458, E035). The wagon nodes come from the session graph and the import is staged
+    under `tmp_path` at the wagon's own source path; every other wagon's src dir is
+    absent from the temp root, which the evaluator already skips (`if not src.is_dir()`),
+    so the target is the only wagon in scope — the same isolation the old test bought by
+    picking a slug with no existing src dir.
+
+    `boundary/_parity.py` is deleted with this change. It justified writing the real tree
+    on the grounds that "the legacy validator imports/scans it — tmp_path is not an
+    option"; that oracle was retired in #1365, so the constraint it encoded is gone.
+    """
+    root = Path(clean_convention_graph.root)
+
+    # A real commons, non-deferred wagon whose src/atdd/<slug> dir does NOT exist, so
+    # staging its source path in the temp root cannot collide with a real module.
     target_slug = None
-    for w in graph0.by_kind("wagon"):
+    for w in clean_convention_graph.by_kind("wagon"):
         if w.theme != "commons":
             continue
         slug = w.fields.get("wagon") or w.package
@@ -150,16 +163,19 @@ def test_fault_injection_convention_catches() -> None:
             break
     assert target_slug, "no clean commons wagon available for fault injection"
 
-    # Pre-condition: clean.
-    assert _evaluate(load_composed_graph(root)) == []
+    # Pre-condition: the real tree crosses no boundary.
+    assert _evaluate(clean_convention_graph) == []
 
-    with _parity.injected_coach_import(root, target_slug):
-        # Convention evaluator catches it (oracle retired #1365 — legacy subprocess
-        # cross-check dropped; the convention path is the live coverage).
-        viols = _evaluate(load_composed_graph(root))
-        assert any(v["source"].startswith(f"{target_slug}:") for v in viols), (
-            f"convention evaluator missed injected crossing in {target_slug}: {viols}"
-        )
+    pkg = str(target_slug).replace("-", "_")
+    stage_file(
+        tmp_path, f"src/atdd/{pkg}/_boundary_fault_injection.py",
+        "import atdd.coach  # injected boundary crossing\n",
+    )
 
-    # Post-condition: green again.
-    assert _evaluate(load_composed_graph(root)) == []
+    viols = _evaluate(graph_rooted_at(clean_convention_graph, tmp_path))
+    assert any(v["source"].startswith(f"{target_slug}:") for v in viols), (
+        f"convention evaluator missed injected crossing in {target_slug}: {viols}"
+    )
+
+    # Post-condition: the real tree was never written to.
+    assert _evaluate(clean_convention_graph) == []

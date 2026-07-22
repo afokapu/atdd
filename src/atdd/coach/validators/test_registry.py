@@ -12,6 +12,8 @@ import json
 import tempfile
 import shutil
 
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
+
 
 # Test fixtures
 @pytest.fixture
@@ -25,8 +27,10 @@ def temp_repo():
     (repo_root / "contracts").mkdir()
     (repo_root / "telemetry").mkdir()
     (repo_root / "atdd" / "tester").mkdir(parents=True)
-    (repo_root / "python").mkdir()
-    (repo_root / "supabase" / "functions").mkdir(parents=True)
+    # Built from the same resolvers the code under test uses, so the fixture
+    # tracks .atdd/config.yaml rather than drifting from it.
+    resolve_code_root("python", repo_root).mkdir(parents=True)
+    (resolve_stack_container("supabase", repo_root) / "functions").mkdir(parents=True)
 
     yield repo_root
 

@@ -17,8 +17,7 @@ source:
 content:
   normative_text: 'A wagon is commons IFF a non-coach archetype (planner/tester/coder) can consume its
     produced artifacts WITHOUT importing atdd.coach. Bindable: no module under a commons wagon''s src
-    tree may `import atdd.coach`. Known deferred violation: mediate-worker-decisions (commons, imports
-    coach) — suppressed UNTIL the #951 co-land re-theme.'
+    tree may `import atdd.coach`.'
   examples:
   - 'commons: worktree, graph/URN/config/telemetry primitives'
   - 'coach: multiplexer/pane spawn, durable run persistence, Feed daemon, worker-decision mediation'
@@ -37,5 +36,4 @@ parity:
 terms:
 - term_id: coach_import_boundary
   text: the prohibition on a commons module importing atdd.coach.
-notes: 'Known deferred violation: mediate-worker-decisions (commons, imports coach) — suppressed UNTIL
-  the #951 co-land re-theme.'
+notes: ''

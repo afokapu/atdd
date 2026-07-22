@@ -45,6 +45,7 @@ from typing import List, Optional
 import yaml
 
 from atdd.enforce.conventions import RuleMetadata, compute_scan_policy, rule_metadata
+from atdd.enforce.dispositions import fails_on_violation
 from atdd.enforce.resolution import (
     ProviderResolutionError,
     ResolvedProvider,
@@ -277,11 +278,18 @@ def _records_for_rule(raw: list[dict], rule_id: str) -> list[dict]:
 
 
 def _verdict_for_rule(meta: RuleMetadata, raw: list[dict]) -> str:
-    """Non-raising disposition verdict (D-2): strict/suppress-and-clean fail on
-    any violation; advisory always passes."""
-    if meta.disposition == "advisory":
+    """Non-raising disposition verdict (D-2), TOTAL over the treatment vocabulary
+    (#1424 E001).
+
+    strict / suppress-and-clean fail on any violation; advisory /
+    documentation-only never fail. The mapping is delegated to the disposition
+    model's :func:`fails_on_violation` so the treatment namespace is named in
+    exactly one place. Previously ONLY ``advisory`` was special-cased, so
+    ``documentation-only`` fell through to fail-on-any and failed builds it must
+    not have (e.g. the bound documentation-only rule ``tester.filename.urn``)."""
+    if not raw:
         return "pass"
-    return "fail" if raw else "pass"
+    return "fail" if fails_on_violation(meta.disposition) else "pass"
 
 
 # --------------------------------------------------------------------------- #

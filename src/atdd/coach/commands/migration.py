@@ -19,12 +19,19 @@ from datetime import datetime
 from pathlib import Path
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_stack_container
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
 CONTRACTS_DIR = REPO_ROOT / "contracts"
-MIGRATIONS_DIR = REPO_ROOT / "supabase" / "migrations"
+
+# The supabase tree is declared in .atdd/config.yaml, not frozen here
+# (coach.graph.implementation-root-resolution). None == no supabase stack.
+SUPABASE_DIR = resolve_stack_container("supabase", REPO_ROOT)
+MIGRATIONS_DIR = (
+    SUPABASE_DIR / "migrations" if SUPABASE_DIR is not None else None
+)
 
 
 def contract_needs_migration(contract_path: Path) -> bool:
@@ -158,12 +165,43 @@ COMMENT ON TABLE {table_name} IS 'Contract: {contract_id}. JSONB blob storage fo
     return sql
 
 
+def _generate_for_contract(contract: Path) -> None:
+    """Generate a single migration for an explicitly named contract."""
+    if not contract.exists():
+        print(f"Error: Contract not found: {contract}")
+        return
+
+    if not contract_needs_migration(contract):
+        print(f"ℹ️  Contract does not need migration (strategy='none' or transient)")
+        return
+
+    migration_sql = generate_migration_sql(contract)
+    table_name = derive_table_name_from_contract(contract)
+
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{timestamp}_{table_name}.sql"
+    output_path = MIGRATIONS_DIR / filename
+
+    output_path.write_text(migration_sql)
+    print(f"✅ Generated: {output_path.relative_to(REPO_ROOT)}")
+    print(f"📦 JSONB blob storage - no manual review needed")
+    print(f"🚀 Apply: supabase db push")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate Supabase JSONB migrations from contracts")
     parser.add_argument("--contract", type=Path, help="Specific contract to generate migration for")
     parser.add_argument("--validate", action="store_true", help="Only validate coverage, don't generate")
 
     args = parser.parse_args()
+
+    if MIGRATIONS_DIR is None:
+        print(
+            "❌ No supabase stack declared. This command writes SQL migrations, "
+            "so it needs `stack_containers.supabase` (or the default supabase/ "
+            "layout) in .atdd/config.yaml."
+        )
+        return 1
 
     MIGRATIONS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -174,25 +212,7 @@ def main():
 
     # Generate for specific contract
     if args.contract:
-        if not args.contract.exists():
-            print(f"Error: Contract not found: {args.contract}")
-            return
-
-        if not contract_needs_migration(args.contract):
-            print(f"ℹ️  Contract does not need migration (strategy='none' or transient)")
-            return
-
-        migration_sql = generate_migration_sql(args.contract)
-        table_name = derive_table_name_from_contract(args.contract)
-
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        filename = f"{timestamp}_{table_name}.sql"
-        output_path = MIGRATIONS_DIR / filename
-
-        output_path.write_text(migration_sql)
-        print(f"✅ Generated: {output_path.relative_to(REPO_ROOT)}")
-        print(f"📦 JSONB blob storage - no manual review needed")
-        print(f"🚀 Apply: supabase db push")
+        _generate_for_contract(args.contract)
         return
 
     # Generate all missing migrations

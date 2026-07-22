@@ -17,22 +17,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator, Tuple
 
-from atdd.state.db import apply_migrations
 from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.store import StateStore
 from atdd.state.work_item_writer import mint_work_item, update_work_item
 
-
-@contextmanager
-def memory_store() -> Iterator[Tuple[sqlite3.Connection, StateStore]]:
-    """An ephemeral, migrated State Store held entirely in RAM."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    apply_migrations(conn)
-    try:
-        yield conn, StateStore(conn)
-    finally:
-        conn.close()
+from .._fixtures import memory_store  # re-exported: the acceptances import it from here
 
 
 def two_work_items(conn: sqlite3.Connection) -> Tuple[str, str]:

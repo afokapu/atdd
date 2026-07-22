@@ -34,12 +34,13 @@ from atdd.coach.utils.diagnostics import (
     fail_with_diagnostic,
 )
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coder.validators._toolkit_roots import ScanRoot, is_excluded_fixture
 
 # Path constants
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 PYPROJECT_TOML = PYTHON_DIR / "pyproject.toml"
 
 # The consumer ``python/`` tree as a ScanRoot: discovery == import root, no
@@ -556,7 +557,7 @@ def test_package_hierarchy_exists():
     When: Checking for __init__.py files
     Then: All required __init__.py files exist
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         pytest.skip("python/ not found")
 
     missing = check_package_hierarchy()
@@ -585,7 +586,7 @@ def test_pytest_pythonpath_configured():
     When: Checking [tool.pytest.ini_options]
     Then: pythonpath = ["."] is configured
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         pytest.skip("python/ not found")
 
     is_configured, message = check_pytest_pythonpath()

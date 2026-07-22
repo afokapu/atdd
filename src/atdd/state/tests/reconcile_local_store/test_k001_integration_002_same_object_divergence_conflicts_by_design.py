@@ -131,5 +131,6 @@ def test_k001_integration_002_same_object_divergence_conflicts_by_design(tmp_pat
 
     class _Args:
         op, root, head, check_dirty = "reconcile", str(dev_b), None, False
+        allow_deletions = None  # no mass-retirement assertion (#1580)
 
     assert dispatch(_Args()) == 1

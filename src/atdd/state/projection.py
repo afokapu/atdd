@@ -100,6 +100,26 @@ REQUIRED_FIELDS: Tuple[str, ...] = ("uid", "phase", "state", "owner_actor")
 #: A ``sha256:<hex>`` stamp, the one digest form the contract accepts.
 DIGEST_PREFIX = "sha256:"
 
+#: The provenance a **committed** tombstone must carry to be actionable (#1580).
+#:
+#: Retirement is the only thing a projection can say that ends something, so it is the only
+#: claim that must stay auditable after the fact. Without this, ``state: TOMBSTONED`` is a
+#: sentence with no author and no cause, and there is no way to tell — a year later, in a
+#: merge that tries to reintroduce the uid — whether it was ever true. Each field answers
+#: one question a reviewer will actually have:
+#:
+#: - ``actor``             who retired it
+#: - ``reason``            why, in prose, with ``reason_digest`` as the comparable stamp
+#: - ``source_generation`` which generation of the shared truth decided it
+#: - ``prior_digest``      what the object was immediately before, so the retirement can be
+#:                         shown to have been made against the state it claims
+#:
+#: Enforced on the way *in* (:func:`validate_document`), so an unattributable retirement
+#: cannot reach a store even if someone hand-writes one into the projection.
+REQUIRED_TOMBSTONE_FIELDS: Tuple[str, ...] = (
+    "actor", "reason", "reason_digest", "source_generation", "prior_digest",
+)
+
 
 class ProjectionError(ValueError):
     """Base class for every refusal raised on the projection path."""
@@ -124,6 +144,30 @@ class NondeterministicProjectionError(ProjectionError):
 
 class ProjectionSchemaError(ProjectionError):
     """A document does not conform to ``commons:projection-object``."""
+
+
+class MissingProjectionError(ProjectionError):
+    """The projection directory a caller required does not exist (#1580).
+
+    "There is no projection here" and "the projection carries no objects" are different
+    facts, and :func:`read_projection` used to answer both with ``{}``. That collapse is
+    half of what made the 2026-07-20 mass-deletion silent: a control root resolved
+    somewhere without a projection produced the same empty mapping as a genuine empty
+    one, and the caller deleted the store to match.
+
+    So the distinction is now carried in the type. Callers that mean "read whatever is
+    there" keep the permissive default; callers about to *act* on the answer pass
+    ``require=True`` and get this instead.
+    """
+
+    def __init__(self, projection_dir: Path) -> None:
+        self.projection_dir = Path(projection_dir)
+        super().__init__(
+            f"no projection directory at {self.projection_dir} — this is not an empty "
+            "projection, it is the absence of one, and the two must not be confused.\n"
+            "  A store is never rebuilt from a projection that is not there. Check that the "
+            "Control Root is the one you meant, and that the projection is committed at HEAD."
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -283,7 +327,29 @@ def _validate_enum(document: Mapping[str, Any]) -> List[str]:
         )
     if document.get("state") not in STATES:
         problems.append(f"state {document.get('state')!r} is not one of {list(STATES)}")
+    problems.extend(_validate_tombstone(document))
     return problems
+
+
+def _validate_tombstone(document: Mapping[str, Any]) -> List[str]:
+    """A retirement must be attributable, or it is not a retirement (#1580).
+
+    Only checked when the document actually claims ``TOMBSTONED``: a live object may carry
+    no ``tombstone`` key at all, and demanding provenance from it would refuse every normal
+    document in the store.
+    """
+    if document.get("state") != STATE_TOMBSTONED:
+        return []
+    record = document.get("tombstone") or {}
+    missing = [name for name in REQUIRED_TOMBSTONE_FIELDS if not record.get(name)]
+    if not missing:
+        return []
+    return [
+        "a TOMBSTONED document must carry auditable provenance; its 'tombstone' record is "
+        f"missing {', '.join(missing)} (required: {', '.join(REQUIRED_TOMBSTONE_FIELDS)}). "
+        "Deletion has to be attributable — an unattributable retirement is a claim nobody "
+        "can check"
+    ]
 
 
 def validate_document(document: Mapping[str, Any]) -> None:
@@ -437,15 +503,33 @@ class HydrateResult:
     uids: List[str] = field(default_factory=list)
 
 
-def read_projection(projection_dir: Path) -> Dict[str, Dict[str, Any]]:
+def read_projection(
+    projection_dir: Path, *, require: bool = False
+) -> Dict[str, Dict[str, Any]]:
     """Read and validate every ``<uid>.yaml`` under ``projection_dir``, keyed by uid.
 
     The filename is identity: a document whose ``uid`` disagrees with the file it
     was read from is a corrupted projection, not a rename, and is refused.
+
+    ``require=True`` refuses an *absent* directory with :class:`MissingProjectionError`
+    rather than returning ``{}`` (#1580). Every caller that is about to rebuild or delete
+    store state passes it: acting on "no projection exists" as though it were "the
+    projection is empty" is the exact confusion that emptied the store on 2026-07-20.
+
+    The default stays permissive because two callers legitimately mean "read whatever is
+    there": :func:`atdd.state.tombstone.compact_archive` and :func:`check_canonicality`
+    both run against directories that may honestly not exist yet, and neither deletes
+    anything on the strength of the answer.
     """
     documents: Dict[str, Dict[str, Any]] = {}
     projection_dir = Path(projection_dir)
     if not projection_dir.is_dir():
+        if require:
+            _log.warning(
+                "required projection directory is absent",
+                extra={"projection_dir": str(projection_dir)},
+            )
+            raise MissingProjectionError(projection_dir)
         return documents
     for path in sorted(projection_dir.glob(f"*{PROJECTION_SUFFIX}"), key=lambda p: p.name):
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -582,7 +666,7 @@ def check_canonicality(projection_dir: Path) -> CanonicalityReport:
     """
     projection_dir = Path(projection_dir)
     committed = _read_bytes(projection_dir)
-    with _memory_store() as store, tempfile.TemporaryDirectory() as tmp:
+    with MemoryStore() as store, tempfile.TemporaryDirectory() as tmp:
         hydrate(projection_dir, store)
         result = project(store, Path(tmp))
         canonical = {path.name: path.read_bytes() for path in result.files.values()}
@@ -592,16 +676,17 @@ def check_canonicality(projection_dir: Path) -> CanonicalityReport:
         _log.warning(
             "projection canonicality check failed",
             extra={"projection_dir": str(projection_dir),
-                   "mismatches": [m.filename for m in mismatches]},
+                "mismatches": [m.filename for m in mismatches]},
         )
     return CanonicalityReport(checked=len(committed), mismatches=mismatches)
 
 
-class _memory_store:  # noqa: N801 — a context-manager helper, used as `with _memory_store()`
+class MemoryStore:
     """An ephemeral, migrated State Store held entirely in memory.
 
     The canonicality check must touch no developer SQLite (spec §4), so it hydrates
-    into RAM and throws the connection away.
+    into RAM and throws the connection away. Shadow runs on the same terms and for the
+    same reason, so it uses this one rather than keeping a second copy of it.
     """
 
     def __enter__(self) -> StateStore:

@@ -17,6 +17,7 @@ from atdd.coach.utils.locale_phase import (
     emit_locale_warning,
 )
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_stack_container
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -28,7 +29,7 @@ _RULE_I18N_SWITCHER = bind_rule("coder.presentation.i18n-switcher")
 
 # Path constants
 REPO_ROOT = find_repo_root()
-WEB_DIR = REPO_ROOT / "web"
+WEB_DIR = resolve_stack_container("web", REPO_ROOT)
 
 
 def _find_file(base_dir: Path, *possible_paths: str) -> Optional[Path]:
@@ -50,7 +51,7 @@ def _read_file_content(path: Path) -> Optional[str]:
 
 def scan_i18n_config(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for hardcoded locale arrays in i18n config. Used by ratchet baseline."""
-    web_dir = repo_root / "web"
+    web_dir = resolve_stack_container("web", repo_root)
     i18n_config = _find_file(
         web_dir, "src/i18nConfig.ts", "src/i18n/config.ts",
         "src/i18n.ts", "src/lib/i18n.ts", "src/config/i18n.ts",
@@ -85,8 +86,8 @@ def scan_i18n_config(repo_root: Path) -> Tuple[int, List[Violation]]:
 
 def scan_language_switcher(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for hardcoded locales in LanguageSwitcher. Used by ratchet baseline."""
-    web_dir = repo_root / "web"
-    if not web_dir.exists():
+    web_dir = resolve_stack_container("web", repo_root)
+    if web_dir is None or not web_dir.exists():
         return 0, []
     switcher_file = _find_file(
         web_dir, "src/components/LanguageSwitcher.tsx",

@@ -138,9 +138,16 @@ class TestRunner:
         else:
             cmd.append("-q")
 
+        # pytest's -m is store, not append: passing it twice keeps only the LAST
+        # expression and silently discards the earlier ones. Emitting one -m per
+        # marker therefore dropped a filter whose identity depended on argument
+        # order — `-m 'not platform' -m 'not github_api'` ran every platform test,
+        # and `-m 'not github_api' -m 'not platform'` ran every API-bound test.
+        # Conjoin into a single expression instead; each operand is parenthesised
+        # so an operand that already contains `not`/`or` cannot rebind across the
+        # `and` (#1475).
         if markers:
-            for marker in markers:
-                cmd.extend(["-m", marker])
+            cmd.extend(["-m", " and ".join(f"({m})" for m in markers)])
 
         if coverage:
             htmlcov_path = self.repo_root / ".atdd" / "htmlcov"

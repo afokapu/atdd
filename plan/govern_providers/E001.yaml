@@ -1,0 +1,71 @@
+urn: "wmbt:govern-providers:E001"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "extension-shipped-detector-resolution"
+context_clarifier: "a workspace package ships the detectors for its own runtime, but an extension package may ship its own detector targeting that workspace's provider contract; the runner must discover an implementation shipped under .atdd/extensions and forward its impls-root to the subprocessed provider CLI exactly as for a workspace-shipped one, so an injected violation surfaces as FAIL instead of the detector being reported unrunnable while the aggregate verdict prints a false-green PASS (#1359)"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of extension-shipped-detector-resolution by discovering an implementation shipped under .atdd/extensions and forwarding its impls-root to the subprocessed provider CLI just as for a workspace-shipped detector, so its violations surface as a real verdict rather than a false-green skip"
+acceptances:
+  - identity:
+      urn: "acc:govern-providers:E001-UNIT-001-extension-shipped-detector-resolves-impls-root"
+      id: "AC-UNIT-001"
+      purpose: "a detector shipped only under .atdd/extensions is discovered and its own implementations root is resolved, exactly as a workspace-shipped detector would be"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a real minimal substrate with a workspace provider (cli/scan.py) and an extension package under .atdd/extensions that ships one implementation with a v1.1 report channel present, and no detector under .atdd/workspaces"
+    when:
+      abstract: "the runner resolves the impls-root for that extension-shipped implementation_id"
+    then:
+      abstract:
+        - "the resolved impls-root is the extension package's implementations/ directory (not None)"
+        - "resolution searches both the workspaces and the extensions trees"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:E001-UNIT-002-extension-detector-violation-is-real-fail-not-false-green"
+      id: "AC-UNIT-002"
+      purpose: "driving the real enforce runner over a substrate whose only bound detector is extension-shipped turns an injected violation into a FAIL verdict and exit 1, never a silently-passing false green; a workspace-shipped detector still resolves"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a real minimal substrate binding one convention to an extension-shipped detector whose provider CLI emits one v1.1 violation over the scanned root"
+        - "a consumer tree with a file the detector will flag"
+    when:
+      abstract: "enforce(root, path_override=[consumer]) is driven end-to-end, subprocessing the provider"
+    then:
+      abstract:
+        - "the bound convention's verdict status is 'fail' (the injected violation surfaced)"
+        - "the aggregate result exit_code is 1 and result.passed is False"
+        - "the same substrate with the detector shipped under .atdd/workspaces instead still resolves and fails (no regression from forwarding --impls-root)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:E001-SMOKE-001-conformance-runs-over-real-dual-tree-substrate"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real vendored substrate, the conformance check exercises the dual-tree (workspaces + extensions) resolution live and reports per-rule runnability without raising"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real substrate_home with its committed .atdd/binding.lock.yaml and vendored workspaces + extensions trees"
+    when:
+      abstract: "conformance(repo_root) is driven over the real substrate"
+    then:
+      abstract:
+        - "it returns an (ok, report) pair without raising"
+        - "the report names the bound-rule runnability count over the real lock"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

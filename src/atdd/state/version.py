@@ -324,6 +324,6 @@ def bump(conn: sqlite3.Connection, change_class: str, *, pr: Optional[str] = Non
     _log.info(
         "release version bumped; version_decided signal enqueued",
         extra={"from": from_version, "to": to_version, "change_class": cls,
-               "pr": pr, "provider": provider, "outbox_id": outbox_id},
+            "pr": pr, "provider": provider, "outbox_id": outbox_id},
     )
     return to_version

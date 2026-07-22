@@ -1,0 +1,29 @@
+wagon: reconcile-dispositions
+urn: wagon:reconcile-dispositions
+name: Reconcile Dispositions
+theme: commons
+description: Remove the ambiguity that lets a documentation-only node fail a build
+  and lets bound be mistaken for strict
+subject: agent:planner
+context: three different namespaces all spelled disposition
+action: names each namespace separately, makes the disposition-to-verdict mapping
+  total across the declared vocabulary, and rejects any node outside it
+goal: remove the ambiguity that lets a documentation-only node fail a build and lets
+  bound be mistaken for strict
+outcome: one coherent disposition model, a total verdict mapping, and a vocabulary
+  validator
+features:
+- urn: feature:reconcile-dispositions:reconcile-dispositions
+produce:
+- name: commons:disposition-policy
+  contract: contract:commons:disposition-policy
+  telemetry: null
+  to: internal
+consume:
+- name: commons:binding-lock
+  from: wagon:bind-extension-conventions
+wmbt:
+  total: 3
+  D001: "minimize likelihood of the three distinct things spelled disposition being conflated into one namespace"
+  E001: "minimize likelihood of a documentation-only node failing a build through an incomplete disposition-to-verdict mapping"
+  E002: "minimize likelihood of a convention node declaring a disposition outside the known treatment vocabulary slipping through unnoticed"

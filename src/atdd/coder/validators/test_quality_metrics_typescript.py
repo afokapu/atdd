@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
@@ -38,7 +39,7 @@ _RULE_COMMENTS_TS = bind_rule("coder.refactor.quality-comments-typescript")
 # Path constants
 # ---------------------------------------------------------------------------
 REPO_ROOT = find_repo_root()
-WEB_SRC = REPO_ROOT / "web" / "src"
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
 
 # ---------------------------------------------------------------------------
 # Quality thresholds (parity with test_quality_metrics.py)
@@ -253,8 +254,8 @@ def calculate_comment_ratio_ts(file_path: Path) -> float:
 # ---------------------------------------------------------------------------
 def scan_maintainability_index_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for MI violations in TS/TSX files. Used by ratchet baseline."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)
@@ -284,8 +285,8 @@ def scan_maintainability_index_ts(repo_root: Path) -> Tuple[int, List[Violation]
 
 def scan_comment_ratio_ts(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for comment ratio violations in TS/TSX files. Used by ratchet baseline."""
-    web_src = repo_root / "web" / "src"
-    if not web_src.exists():
+    web_src = resolve_code_root("web", repo_root)
+    if web_src is None or not web_src.exists():
         return 0, []
 
     files = find_typescript_files(web_src)

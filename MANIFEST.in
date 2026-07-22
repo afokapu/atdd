@@ -3,19 +3,21 @@
 # "backend-path entry 'build_meta_shim' does not exist". #1310.
 graft build_meta_shim
 
-recursive-include src/atdd/coach/validators/fixtures *
-recursive-include src/atdd/coder/validators/fixtures *
-recursive-include src/atdd/tester/validators/fixtures *
-recursive-include src/atdd/planner/validators/fixtures *
+# #1474: the sdist carries the same broad-ship set as the wheel.
+#
+# This matters more than it looks: a bare `python -m build` builds the sdist FIRST
+# and then builds the wheel FROM THAT SDIST. So a file absent here is absent from
+# the wheel too, however correct `[tool.setuptools.package-data]` is — the sdist is
+# a second, independent chokepoint on the same question, and it used to enumerate
+# the same four fixture directories the package-data block did.
+#
+# Same policy, same reason: ship it all, deny-list the cruft. Keep this set in step
+# with `[tool.setuptools.exclude-package-data]` in pyproject.toml.
+graft src/atdd
 
-recursive-exclude src/atdd/coach/validators/fixtures __pycache__ *.pyc *.pyo
-recursive-exclude src/atdd/coder/validators/fixtures __pycache__ *.pyc *.pyo
-recursive-exclude src/atdd/tester/validators/fixtures __pycache__ *.pyc *.pyo
-recursive-exclude src/atdd/planner/validators/fixtures __pycache__ *.pyc *.pyo
-
-recursive-exclude src/atdd/coach/validators/fixtures .pytest_cache
-recursive-exclude src/atdd/coder/validators/fixtures .pytest_cache
-recursive-exclude src/atdd/tester/validators/fixtures .pytest_cache
-recursive-exclude src/atdd/planner/validators/fixtures .pytest_cache
-
+# `global-exclude`, not `prune`: prune takes a literal directory, not a glob, so
+# `prune src/atdd/**/__pycache__` matches nothing and silently ships byte-code.
+# Excluding the FILES empties those directories, and an empty directory does not
+# ship.
+global-exclude *.pyc *.pyo
 global-exclude .DS_Store

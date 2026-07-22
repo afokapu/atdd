@@ -1,0 +1,69 @@
+urn: "wmbt:govern-providers:E003"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "extension-identity-leak"
+context_clarifier: "binding.lock.yaml records convention_id, implementation_id, workspace_id and contract_version — never the extension PACKAGE identity string; so renaming a package for the persona-aware ID grammar (#1343/#1344) regenerates the lock's convention bindings unchanged rather than forcing a rule migration, and no atdd.extension.* package identity may appear in the generated lock"
+lens: "functional.sustainability"
+statement: "minimize quantity of extension-identity-leak by generating binding.lock.yaml from convention, implementation, workspace and contract fields alone and never emitting the extension package identity, so a package rename is a lock regeneration rather than a rule migration"
+acceptances:
+  - identity:
+      urn: "acc:govern-providers:E003-UNIT-001-generated-lock-carries-no-package-identity"
+      id: "AC-UNIT-001"
+      purpose: "building the binding plan over a substrate whose extension package id is atdd.extension.coder produces a lock whose serialized text contains that package id zero times"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a real locked substrate with a python-pytest workspace provider and an enabled extension package whose package id is 'atdd.extension.coder' shipping one implementation that realizes a convention"
+    when:
+      abstract: "build_binding_plan(project_root) composes the plan and it is serialized to YAML"
+    then:
+      abstract:
+        - "the plan's bound convention entry carries convention_id, implementation_id, workspace_id and contract_version"
+        - "the serialized lock text does not contain the package id string 'atdd.extension.coder'"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:E003-UNIT-002-package-rename-regenerates-identical-bindings"
+      id: "AC-UNIT-002"
+      purpose: "two substrates identical except for the extension package id produce identical convention bindings, proving a persona rename is a lock regeneration, not a rule migration"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "two locked substrates identical in every way except the extension package id — one 'atdd.extension.coder', one 'atdd.extension.coder-persona' — each shipping the same implementation realizing the same convention against the same provider"
+    when:
+      abstract: "build_binding_plan is composed over each substrate"
+    then:
+      abstract:
+        - "the two plans' conventions lists are equal (same convention_id, implementation_id, workspace_id, contract_version, disposition)"
+        - "the only material difference is the package identity that never reaches the lock"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-providers:E003-SMOKE-001-real-lock-has-no-extension-identity"
+      id: "AC-SMOKE-001"
+      purpose: "the toolkit's real committed binding.lock.yaml carries no extension package identity string, so the persona rename stays a lock regeneration"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real committed .atdd/binding.lock.yaml"
+    when:
+      abstract: "the committed lock text is read"
+    then:
+      abstract:
+        - "the strings 'atdd.extension.coder' and 'atdd.extension.tester' each occur zero times"
+        - "every bound entry is keyed by convention_id and implementation_id, not a package identity"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

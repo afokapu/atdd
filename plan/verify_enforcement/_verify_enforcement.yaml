@@ -1,0 +1,29 @@
+wagon: verify-enforcement
+urn: wagon:verify-enforcement
+name: Verify Enforcement
+theme: commons
+description: Guarantee that deleting a core convention node can never silently remove
+  enforcement of the rule its extension twin was meant to inherit
+subject: agent:tester
+context: in CI today all 50 extension rules are enforced solely by their core twin,
+  because no job runs the enforcement path
+action: reports which rules are enforced in CI versus merely reported, and proves
+  that every core node with an extension twin has that twin bound and running before
+  the core node may be retired
+goal: guarantee that deleting a core convention node can never silently remove enforcement
+  of the rule its extension twin was meant to inherit
+outcome: a coverage report and a succession proof that the core-deletion guard consumes
+features:
+- urn: feature:verify-enforcement:verify-enforcement
+produce:
+- name: commons:succession-coverage
+  contract: contract:commons:succession-coverage
+  telemetry: null
+  to: internal
+consume:
+- name: commons:enforce-verdict
+  from: wagon:enforce-conventions-ci
+wmbt:
+  total: 2
+  M001: "minimize likelihood of enforcement-coverage-blindness by producing a report that classifies every extension rule as ENFORCED-in-CI or REPORTED-only, so the bound set is never mistaken for the enforced set"
+  E001: "minimize likelihood of unsafe-core-retirement by proving that every core convention node with an extension twin has that twin bound and blockingly running in CI before the core node may be retired, so retiring a core node can never silently drop the rule its twin mirrors"

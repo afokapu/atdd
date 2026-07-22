@@ -21,6 +21,7 @@ holds the scan helpers so they outlive the retired legacy validator (#1207 sweep
 """
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
@@ -30,6 +31,8 @@ import yaml
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
+
+_log = logging.getLogger(__name__)
 
 _RULE_ID = "planner.smoke.synthetic-fixture-bypass"
 _RULE = bind_rule("planner.smoke.synthetic-fixture-bypass")
@@ -154,27 +157,47 @@ def scan_for_synthetic_fixture_bypass(
     """
     violations: List[Violation] = []
     for wmbt_file in wmbt_files:
-        try:
-            raw = yaml.safe_load(wmbt_file.read_text())
-        except Exception:
+        raw = _load_wmbt(wmbt_file)
+        if raw is None:
             continue
-        if not isinstance(raw, dict):
-            continue
-        for acc in raw.get("acceptances", []):
-            identity = acc.get("identity", {})
-            if not _is_smoke_acceptance(identity):
-                continue
-            urn = identity.get("urn", "")
-            if not urn:
-                continue
-            if resolve_test_file is not None:
-                test_file = resolve_test_file(urn)
-            else:
-                test_file = _resolve_test_file_from_urn(urn, repo_root)
-            if test_file is None:
-                continue
+        for test_file, urn in _smoke_test_files(raw, repo_root, resolve_test_file):
             violations.extend(_scan_file_for_violations(test_file, urn))
     return violations
+
+
+def _load_wmbt(wmbt_file: Path) -> Optional[dict]:
+    """The WMBT mapping at ``wmbt_file``; None when unreadable or not a mapping."""
+    try:
+        raw = yaml.safe_load(wmbt_file.read_text())
+    except Exception as exc:
+        _log.debug(
+            "synthetic-fixture scan skipped an unreadable WMBT",
+            extra={"path": str(wmbt_file), "error": str(exc).splitlines()[0][:120]},
+        )
+        return None
+    return raw if isinstance(raw, dict) else None
+
+
+def _smoke_test_files(
+    raw: dict, repo_root: Path, resolve_test_file
+) -> List[Tuple[Path, str]]:
+    """(test_file, urn) for every SMOKE acceptance whose test file resolves."""
+    out: List[Tuple[Path, str]] = []
+    for acc in raw.get("acceptances", []):
+        identity = acc.get("identity", {})
+        if not _is_smoke_acceptance(identity):
+            continue
+        urn = identity.get("urn", "")
+        if not urn:
+            continue
+        if resolve_test_file is not None:
+            test_file = resolve_test_file(urn)
+        else:
+            test_file = _resolve_test_file_from_urn(urn, repo_root)
+        if test_file is None:
+            continue
+        out.append((test_file, urn))
+    return out
 
 
 def _iter_wmbt_files(plan_dir: Path) -> List[Path]:
@@ -183,12 +206,13 @@ def _iter_wmbt_files(plan_dir: Path) -> List[Path]:
     if not plan_dir.is_dir():
         return files
     for child in plan_dir.iterdir():
-        if child.is_dir():
-            for f in child.glob("*.yaml"):
-                if _WMBT_FILENAME_RE.match(f.name):
-                    files.append(f)
-        elif _WMBT_FILENAME_RE.match(child.name):
-            files.append(child)
+        if not child.is_dir():
+            if _WMBT_FILENAME_RE.match(child.name):
+                files.append(child)
+            continue
+        for f in child.glob("*.yaml"):
+            if _WMBT_FILENAME_RE.match(f.name):
+                files.append(f)
     return files
 
 

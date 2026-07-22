@@ -27,21 +27,33 @@ from atdd.state.store import StateStore
 from atdd.state.sync_engine import apply_inbox, ingest_inbox, push_outbox
 
 
-def run_sync_cli(argv: Optional[Sequence[str]] = None) -> int:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="atdd state sync",
-        description="Sync the State Store with registered providers "
-                    "(provider-agnostic; #1364 / ext#40 Phase 2).",
+        description=(
+            "Sync the State Store with registered providers "
+            "(provider-agnostic; #1364 / ext#40 Phase 2)."
+        ),
     )
     parser.add_argument("--root", default=None, help="Starting directory (default: cwd).")
-    parser.add_argument("--ingest", action="store_true",
-                        help="Ask registered providers to fill the inbox from their "
-                             "remote before draining (no-op with no provider).")
-    parser.add_argument("--push", action="store_true",
-                        help="Push the outbox to registered providers (default: report only).")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Report pending work without mutating local or remote state.")
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    parser.add_argument(
+        "--ingest", action="store_true",
+        help="Ask registered providers to fill the inbox from their "
+             "remote before draining (no-op with no provider).",
+    )
+    parser.add_argument(
+        "--push", action="store_true",
+        help="Push the outbox to registered providers (default: report only).",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="Report pending work without mutating local or remote state.",
+    )
+    return parser
+
+
+def run_sync_cli(argv: Optional[Sequence[str]] = None) -> int:
+    args = _build_parser().parse_args(list(argv) if argv is not None else None)
 
     start = Path(args.root).resolve() if args.root else Path.cwd()
     resolution = resolve_control_root(start)

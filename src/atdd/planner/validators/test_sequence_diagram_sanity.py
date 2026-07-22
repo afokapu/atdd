@@ -109,11 +109,11 @@ def _valid_model(**overrides) -> TrainInterlocking:
         fragments=(
             Fragment(id="f1", kind="alt",
                      guards=(Guard("g0", "x == true"), Guard("g2", "y == true")),
-                     acceptance_refs=("acc:demo",)),
+                     acceptance_refs=("acc:demo-wagon:demo-fragment",)),
         ),
-        invariants=(Invariant(id="i1", expression="z <= 7", wmbt_ref="wmbt:demo"),),
+        invariants=(Invariant(id="i1", expression="z <= 7", wmbt_ref="wmbt:demo-wagon:E001"),),
         residuals=(Residual(id="r1", kind="structural", reason="ownership",
-                            acceptance_ref="acc:demo", validator_ref="t::t"),),
+                            acceptance_ref="acc:demo-wagon:demo-residual", validator_ref="t::t"),),
         routes=(
             Route(route_id="nominal", category="nominal", priority=1,
                   guard_ref="g0", train_id="0001-demo", train_path="plan/_trains/0001-demo.yaml",
@@ -214,7 +214,7 @@ def test_interlocking_guard_grammar_is_safe() -> None:
 def test_guard_grammar_fault_is_evidence_shaped() -> None:
     evil = Fragment(id="f1", kind="alt",
                     guards=(Guard("g0", "__import__('os').system('rm -rf /')"),),
-                    acceptance_refs=("acc:demo",))
+                    acceptance_refs=("acc:demo-wagon:demo-fragment",))
     bad = _valid_model(fragments=(evil,),
                        routes=(_valid_model().routes[0],))
     _assert_evidence_shaped("planner.train.interlocking-guard-grammar",
@@ -257,8 +257,47 @@ def test_guard_coverage_fault_is_evidence_shaped() -> None:
     frag = Fragment(id="f1", kind="alt",
                     guards=(Guard("g0", "x == true"), Guard("g2", "y == true"),
                             Guard("gX", "w == true")),
-                    acceptance_refs=("acc:demo",))
+                    acceptance_refs=("acc:demo-wagon:demo-fragment",))
     bad = _valid_model(fragments=(frag,))
+    _assert_evidence_shaped("planner.train.interlocking-guard-coverage",
+                            sanity.guard_coverage_violations(bad))
+
+
+def test_guard_coverage_structural_residual_discharges_uncovered_guard() -> None:
+    """FAULT INJECTION (#1547 branch A). An uncovered guard (no route) that carries
+    a WMBT a STRUCTURAL residual explicitly names is discharged — no violation.
+
+    This exercises the residual-escape branch that was structurally dead before the
+    repair: it compared `{rsd.id ...}` (a `residual:` id) against a `guard:` id, so
+    the escape could never fire. Reverting the fix to the `{rsd.id ...}` set makes
+    this assertion fail (the guard is re-flagged as uncovered) — the mutation proof.
+    """
+    frag = Fragment(id="f1", kind="alt",
+                    guards=(Guard("g0", "x == true"), Guard("g2", "y == true"),
+                            Guard("gX", "w == true", wmbt_refs=("wmbt:demo-wagon:E001",))),
+                    acceptance_refs=("acc:demo-wagon:demo-fragment",))
+    residual = Residual(id="residual:gap", kind="structural", reason="ownership",
+                        acceptance_ref="acc:demo-wagon:demo-residual", validator_ref="t::t",
+                        wmbt_refs=("wmbt:demo-wagon:E001",))
+    discharged = _valid_model(fragments=(frag,), residuals=(residual,))
+    assert sanity.guard_coverage_violations(discharged) == [], (
+        "a structural residual naming the uncovered guard's WMBT must discharge it"
+    )
+
+
+def test_guard_coverage_unrelated_residual_does_not_discharge() -> None:
+    """FAULT INJECTION (#1547 branch A, negative). A structural residual that names a
+    DIFFERENT WMBT than the uncovered guard's does NOT discharge it — the violation
+    still emits. Guards against over-suppression (an escape that fires on any
+    residual rather than the one that actually names the obligation)."""
+    frag = Fragment(id="f1", kind="alt",
+                    guards=(Guard("g0", "x == true"), Guard("g2", "y == true"),
+                            Guard("gX", "w == true", wmbt_refs=("wmbt:demo-wagon:E001",))),
+                    acceptance_refs=("acc:demo-wagon:demo-fragment",))
+    residual = Residual(id="residual:gap", kind="structural", reason="ownership",
+                        acceptance_ref="acc:demo-wagon:demo-residual", validator_ref="t::t",
+                        wmbt_refs=("wmbt:demo-wagon:E999",))
+    bad = _valid_model(fragments=(frag,), residuals=(residual,))
     _assert_evidence_shaped("planner.train.interlocking-guard-coverage",
                             sanity.guard_coverage_violations(bad))
 
@@ -419,8 +458,42 @@ def test_every_wmbt_surfaces_or_is_structural_residual() -> None:
 
 
 def test_wmbt_surface_fault_is_evidence_shaped() -> None:
-    dangling = Invariant(id="i1", expression="", wmbt_ref="wmbt:demo")
+    dangling = Invariant(id="i1", expression="", wmbt_ref="wmbt:demo-wagon:E001")
     bad = _valid_model(invariants=(dangling,), residuals=())
+    _assert_evidence_shaped("planner.train.interlocking-wmbt-surface-or-residual",
+                            sanity.wmbt_surface_or_residual_violations(bad))
+
+
+def test_wmbt_surface_structural_residual_discharges_dangling_invariant() -> None:
+    """FAULT INJECTION (#1547 branch B). An invariant that names a WMBT but asserts
+    nothing (empty expression) is discharged when a STRUCTURAL residual explicitly
+    names that same WMBT — the rule statement lists "explicit structural residual"
+    as a valid surface.
+
+    This exercises the residual-escape branch that was structurally dead before the
+    repair: it compared `{rsd.id ...}` (a `residual:` id) against a `wmbt:` ref, so
+    the escape could never fire. Reverting the fix to the `{rsd.id ...}` set makes
+    this assertion fail (the invariant is re-flagged as unsurfaced) — the mutation
+    proof."""
+    dangling = Invariant(id="i1", expression="", wmbt_ref="wmbt:demo-wagon:E001")
+    residual = Residual(id="residual:gap", kind="structural", reason="ownership",
+                        acceptance_ref="acc:demo-wagon:demo-residual", validator_ref="t::t",
+                        wmbt_refs=("wmbt:demo-wagon:E001",))
+    discharged = _valid_model(invariants=(dangling,), residuals=(residual,))
+    assert sanity.wmbt_surface_or_residual_violations(discharged) == [], (
+        "a structural residual naming the invariant's WMBT must discharge it"
+    )
+
+
+def test_wmbt_surface_unrelated_residual_does_not_discharge() -> None:
+    """FAULT INJECTION (#1547 branch B, negative). A structural residual naming a
+    DIFFERENT WMBT than the dangling invariant's does NOT discharge it — the
+    violation still emits. Guards against over-suppression."""
+    dangling = Invariant(id="i1", expression="", wmbt_ref="wmbt:demo-wagon:E001")
+    residual = Residual(id="residual:gap", kind="structural", reason="ownership",
+                        acceptance_ref="acc:demo-wagon:demo-residual", validator_ref="t::t",
+                        wmbt_refs=("wmbt:demo-wagon:E999",))
+    bad = _valid_model(invariants=(dangling,), residuals=(residual,))
     _assert_evidence_shaped("planner.train.interlocking-wmbt-surface-or-residual",
                             sanity.wmbt_surface_or_residual_violations(bad))
 

@@ -11,8 +11,8 @@ enforcement applied to NAMING: a managed surface whose name lacks the role-aware
 shape is flagged for re-application.
 
 Recognition is delegated to the pure domain primitive (single source of truth)
-and the drift-family recogniser
-``atdd.coach.observer_rules.canonical_role_naming``. The rule is bound here via
+via the recogniser ``atdd.coach.utils.canonical_role_naming`` (rehomed out of the
+decommissioned observer_rules package in #1486). The rule is bound here via
 ``bind_rule`` so the reverse-coherence substrate resolves the convention's
 ``validator:`` field to this module.
 
@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from atdd.coach.observer_rules.canonical_role_naming import (
+from atdd.coach.utils.canonical_role_naming import (
     flag_non_conforming,
     is_conforming,
 )

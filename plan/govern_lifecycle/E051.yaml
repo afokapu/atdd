@@ -30,27 +30,6 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-06-11"
   - identity:
-      urn: "acc:govern-lifecycle:E051-UNIT-002-issue-creation-zero-board-writes"
-      id: "AC-UNIT-002"
-      purpose: "The issue-creation drive path performs zero Projects-v2 board writes; state is carried by the atdd:<phase> label plus the manifest entry"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "The issue-creation path (issue.py ~1082-1163) is exercised against a spy GitHub client recording every invocation"
-    when:
-      abstract: "A new ATDD issue is created via the creation drive path"
-    then:
-      abstract:
-        - "Zero invocations of add_issue_to_project, set_project_field_select or set_project_field_text are recorded"
-        - "The created issue carries the initial atdd:INIT label via REST and is registered in .atdd/manifest.yaml"
-        - "No Projects-v2 GraphQL document is sent for the new issue"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-11"
-  - identity:
       urn: "acc:govern-lifecycle:E051-UNIT-003-skip-board-sync-gate-retired"
       id: "AC-UNIT-003"
       purpose: "The ATDD_SKIP_BOARD_SYNC bridge env gate is removed so label-only sync is unconditional, not opt-in"

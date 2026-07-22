@@ -49,7 +49,7 @@ def repo_root() -> Path:
     for parent in p.parents:
         if (parent / "pyproject.toml").exists() and (parent / ".atdd").exists():
             return parent
-    raise RuntimeError("repo root not found")
+    raise RuntimeError("repo root not found")  # atdd:suppress(coach.code-roots.resolver-degrades-not-raises) — #1499 ratchet: pre-existing raising resolver; destination is zero
 
 
 def _graph(root: Path):
