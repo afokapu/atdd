@@ -40,8 +40,16 @@ coverage.xml
 # Fully ignored so git add -A / git commit -a cannot accidentally pick up
 # coach session files, decisions.jsonl, or any other per-run artifact.
 .atdd/runtime/
-# ATDD State Store — local operational SQLite DB (#1168); never git-tracked.
-.atdd/state/
+# ATDD State Store (#1168). The local SQLite DB is private to a checkout and is never
+# git-tracked; the PROJECTION is the shared source of truth and MUST be (#1580).
+#
+# This was a bare `.atdd/state/`, which ignored the projection too. A gitignored
+# projection is empty at every HEAD, and reconcile read that emptiness as "delete
+# everything" — the 2026-07-20 mass-deletion. Keep the two lines apart, and keep the
+# negation: git will not descend into an excluded directory, so `.atdd/state/` must
+# never again be ignored wholesale.
+.atdd/state/state.sqlite*
+.atdd/state/backups/
 # Manifest import backup written on first authoritative store read (#1183/#1203); local-only.
 .atdd/manifest.migrated.yaml
 .scratch/
