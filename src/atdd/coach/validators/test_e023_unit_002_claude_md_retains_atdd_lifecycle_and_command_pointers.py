@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E023-UNIT-002-claude-md-retains-atdd-lifecycle-and-command-pointers
-# Acceptance: acc:spawn-agents:E023-UNIT-002-claude-md-retains-atdd-lifecycle-and-command-pointers
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E065-UNIT-002-claude-md-retains-atdd-lifecycle-and-command-pointers
+# Acceptance: acc:govern-lifecycle:E065-UNIT-002-claude-md-retains-atdd-lifecycle-and-command-pointers
+# WMBT: wmbt:govern-lifecycle:E065
 # Phase: RED
 # Layer: backend.unit
 # Assertion: structural

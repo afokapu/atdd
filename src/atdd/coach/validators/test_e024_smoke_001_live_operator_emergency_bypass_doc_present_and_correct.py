@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E024-SMOKE-001-live-operator-emergency-bypass-doc-present-and-correct
-# Acceptance: acc:spawn-agents:E024-SMOKE-001-live-operator-emergency-bypass-doc-present-and-correct
-# WMBT: wmbt:spawn-agents:E024
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E066-SMOKE-001-live-operator-emergency-bypass-doc-present-and-correct
+# Acceptance: acc:govern-lifecycle:E066-SMOKE-001-live-operator-emergency-bypass-doc-present-and-correct
+# WMBT: wmbt:govern-lifecycle:E066
 # Phase: SMOKE
 # Layer: backend.smoke
 # Assertion: behavioral

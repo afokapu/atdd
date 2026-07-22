@@ -2,8 +2,6 @@
 # Acceptance: acc:integration-hardening:K001-INTEGRATION-001-spawn-at-each-transition
 # Acceptance: acc:integration-hardening:K001-INTEGRATION-002-persona-prompts-loaded
 # Acceptance: acc:integration-hardening:K001-INTEGRATION-003-persona-llm-honored
-# Acceptance: acc:integration-hardening:K001-INTEGRATION-004-multiplexer-mode-honored
-# Acceptance: acc:integration-hardening:K001-INTEGRATION-005-spawn-failure-retries-then-escalates
 # WMBT: wmbt:integration-hardening:K001
 # Phase: GREEN
 # Layer: assembly
@@ -42,11 +40,5 @@ def test_k001_integration_003_persona_llm_honored() -> None:
     pytest.skip("integration-hardening anchor stub — real wired test pending implementation")
 
 
-def test_k001_integration_004_multiplexer_mode_honored() -> None:
-    """Anchor stub for acc:integration-hardening:K001-INTEGRATION-004-multiplexer-mode-honored (real test pending implementation)."""
-    pytest.skip("integration-hardening anchor stub — real wired test pending implementation")
 
 
-def test_k001_integration_005_spawn_failure_retries_then_escalates() -> None:
-    """Anchor stub for acc:integration-hardening:K001-INTEGRATION-005-spawn-failure-retries-then-escalates (real test pending implementation)."""
-    pytest.skip("integration-hardening anchor stub — real wired test pending implementation")

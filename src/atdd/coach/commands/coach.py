@@ -532,30 +532,6 @@ def _repo_root_for(runtime_dir: Path) -> Path:
     return Path.cwd()
 
 
-def _build_train_runner(cfg: "Config", runtime_dir: Path):
-    """Instantiate the configured TrainRunner (Child 8, §7.1/§7.4).
-
-    Only ``jsonl`` is implemented; ``_require_supported_runner`` has already
-    rejected the reserved backends by the time this is called.
-    """
-    from atdd.train.persistence import JsonlPersistenceStore
-    from atdd.train.runners.jsonl import JsonlTrainRunner
-
-    repo_root = _repo_root_for(runtime_dir)
-    store = JsonlPersistenceStore(repo_root)
-    return JsonlTrainRunner(persistence=store, cfg=cfg, runtime_dir=runtime_dir)
-
-
-def _build_policy_handle(runtime_dir: Path):
-    """Construct the PolicyHandle the runner drives with (coach-core + frozen conventions)."""
-    from atdd.coach import core as coach_core
-    from atdd.train.persistence import load_conventions
-    from atdd.train.runner_iface import PolicyHandle
-
-    repo_root = _repo_root_for(runtime_dir)
-    return PolicyHandle(coach_module=coach_core, conventions=load_conventions(repo_root))
-
-
 # ---------------------------------------------------------------------------
 # Interactive model selection (issue #723 / E008)
 # ---------------------------------------------------------------------------
@@ -932,115 +908,6 @@ def _make_phase_transition_record(
     }
 
 
-def _ensure_issue_worktree(ctx) -> Optional[Path]:
-    """Cold-start: ensure the issue's git worktree exists, creating it if absent.
-
-    The spawn handler's ``_resolve_worktree`` only *derives* a path — it never
-    runs ``git worktree add``. ``phase_a_create_worktrees`` was written but
-    never wired into a live command path. Without this step the planner is
-    dispatched into a bare non-git directory and its commits land on protected
-    ``main`` (2026-05-16 incident).
-
-    The worktree path is taken from the spawn handler's ``_resolve_worktree``
-    so creation and dispatch always agree. The branch is read from the issue
-    body's ``Branch:`` metadata, falling back to ``feat/issue-<N>``.
-
-    Idempotent: an existing git worktree is returned unchanged. Returns the
-    worktree ``Path``, or ``None`` if creation failed (caller → BLOCKED).
-    """
-    from atdd.coach.commands import session_template
-    from atdd.coach.handlers.spawn import _resolve_worktree
-    from atdd.runtime import worktree as runtime_worktree
-
-    worktree = _resolve_worktree(ctx)
-
-    # Idempotent: an existing git worktree is reused unchanged.
-    if (worktree / ".git").exists():
-        return worktree
-
-    # The real `_resolve_worktree` always returns a direct sibling of the
-    # repo root (`Path.cwd().parent / <slug>`). A resolved path that is NOT
-    # such a sibling means `_resolve_worktree` was injected (tests) or the
-    # layout is non-standard — running `git worktree add` there would be
-    # wrong, so the path is taken as-is and no worktree is created.
-    repo_root = Path.cwd()
-    if worktree.parent != repo_root.parent:
-        return worktree
-
-    fetched = session_template.fetch_issue(ctx.issue_number) or {}
-    meta = session_template.parse_metadata(fetched.get("body") or "")
-    branch = (meta.get("Branch") or "").strip()
-    if not branch or branch == "TBD":
-        branch = f"feat/issue-{ctx.issue_number}"
-
-    # Worktree creation (triage of an existing non-git path, remote/new-branch
-    # selection, and the I-1/I-2/I-9 incident defenses) is owned by the runtime
-    # layer (docs/coach-decomposition.md §13.5). Coach only resolves the path
-    # and branch, then delegates.
-    try:
-        return runtime_worktree.ensure_issue_worktree(
-            worktree, branch, repo_root, issue_number=ctx.issue_number,
-        )
-    except runtime_worktree.ProtectedBranchError as exc:
-        _logger.warning(
-            "coach cold-start refused worktree on protected branch",
-            extra={"issue": ctx.issue_number, "error": str(exc)},
-        )
-        print(
-            f"❌ #{ctx.issue_number}: {exc}",
-            file=sys.stderr,
-        )
-        return None
-
-
-def _make_coach_context(
-    cfg: "Config",
-    issue_number: int,
-    coach_run_id: str,
-    runtime_dir: Path,
-    *,
-    multiplexer_backend: Optional[object] = None,
-    worktree_override: Optional[Path] = None,
-) -> "CoachContext":
-    """Build a ``CoachContext`` from the run ``Config`` for one issue.
-
-    Single construction site shared by the cold-start path
-    (``_drive_single_issue``) and the ``--resume`` path
-    (``_make_resume_transition_action``). Decision #1 of issue #734: one
-    orchestration path is less drift-prone than two — both must spawn
-    personas with an identically-shaped context, so the mapping from
-    ``Config`` lives here once instead of being copied per call site.
-
-    ``multiplexer_backend`` / ``worktree_override`` are explicit
-    orchestration seams (both ``None`` in production): they let a caller
-    inject collaborators by construction so hermetic integration tests
-    need not monkeypatch ``_resolve_multiplexer`` / ``_resolve_worktree``.
-    """
-    from atdd.coach.handlers.state_machine import CoachContext
-
-    return CoachContext(
-        issue_number=issue_number,
-        coach_run_id=coach_run_id,
-        runtime_dir=runtime_dir,
-        dry_run=cfg.dry_run,
-        multiplexer=cfg.multiplexer,
-        multiplexer_mode=cfg.multiplexer_mode,
-        llm=cfg.llm,
-        persona_llm=cfg.persona_llm,
-        judge_llm=cfg.judge_llm,
-        require_issue_review=cfg.require_issue_review,
-        review_phases=cfg.review_phases,
-        skip_review=cfg.skip_review,
-        risk_threshold_block=cfg.risk_threshold_block,
-        allow_stale_suppressions=cfg.allow_stale_suppressions,
-        auto_merge=cfg.auto_merge,
-        max_retries=cfg.max_retries,
-        escalation_channel=cfg.escalation_channel,
-        multiplexer_backend=multiplexer_backend,
-        worktree_override=worktree_override,
-    )
-
-
 def _load_issue_context(issue: int, cfg: "Config") -> object:
     """Load per-issue context (stub — full implementation in downstream track)."""
     return None
@@ -1049,112 +916,6 @@ def _load_issue_context(issue: int, cfg: "Config") -> object:
 def _pre_flight_checks(cfg: "Config") -> None:
     """Run pre-flight validation (stub — full implementation in downstream track)."""
     return None
-
-
-def _drive_single_issue(
-    cfg: "Config",
-    sm: StateMachine,
-    runtime_dir: Path,
-    *,
-    _spawn_func: Optional[Callable] = None,
-    _two_phase_func: Optional[Callable] = None,
-    _injected_events: Optional[list] = None,
-    _max_loop_events: Optional[int] = None,
-    _run_id_sink: Optional[list] = None,
-) -> int:
-    """DEPRECATED shim — moved to atdd.train.issue_runner.drive_single_issue (Child 8, #895).
-
-    Removal target: 3.87.0 (§11 deprecation cadence). New code drives an issue via
-    ``JsonlTrainRunner.start_issue``; this name is kept so existing internal/test
-    callers keep working through the soak.
-    """
-    import warnings
-    from atdd.train import issue_runner as _issue_runner
-
-    warnings.warn(
-        "atdd.coach.commands.coach._drive_single_issue is deprecated; the per-issue "
-        "drive moved to atdd.train.issue_runner.drive_single_issue (Child 8). "
-        "Removal target: 3.87.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _issue_runner.drive_single_issue(
-        cfg, sm, runtime_dir,
-        _spawn_func=_spawn_func,
-        _two_phase_func=_two_phase_func,
-        _injected_events=_injected_events,
-        _max_loop_events=_max_loop_events,
-        _run_id_sink=_run_id_sink,
-    )
-
-
-def _watcher_runtime_dir(ctx: "CoachContext", fallback: Path) -> Path:
-    """Runtime dir the coach's ``RuntimeWatcher`` must scan (#708 link 3).
-
-    A dispatched persona runs *inside the issue's worktree* and writes its
-    runtime artifacts (``events.jsonl``, ``done.json``, …) to
-    ``<worktree>/.atdd/runtime`` — NOT the coach process's cwd runtime. If
-    the watcher scans the coach's cwd it never sees a persona event and the
-    coach never advances past the first phase. Resolve the issue's worktree
-    and point the watcher at its ``.atdd/runtime``; fall back to
-    ``fallback`` only when the worktree cannot be resolved.
-    """
-    try:
-        from atdd.coach.handlers.spawn import _resolve_worktree
-
-        worktree = _resolve_worktree(ctx)
-    except Exception as exc:  # noqa: BLE001 — best-effort; logged, then fall back
-        _logger.warning(
-            "coach watcher: worktree resolution failed; using fallback runtime dir",
-            extra={"issue": getattr(ctx, "issue_number", "?"), "error": str(exc)},
-        )
-        return fallback
-    return worktree / ".atdd" / "runtime"
-
-
-def _execute_cold_start(
-    cfg: "Config",
-    machines: list,
-    runtime_dir: Path,
-    *,
-    _spawn_func: Optional[Callable] = None,
-    _two_phase_func: Optional[Callable] = None,
-    _injected_events: Optional[dict] = None,
-    _max_loop_events: Optional[int] = None,
-    _run_id_sink: Optional[list] = None,
-    _observer_factory: Optional[Callable] = None,
-    _max_parallel: Optional[int] = None,
-    runner: Optional[object] = None,
-    policy: Optional[object] = None,
-) -> "ColdStartResult":
-    """DEPRECATED shim — moved to atdd.train.wave_runner.execute_cold_start (Child 9, #896).
-
-    Removal target: 3.87.0 (§11). New code drives a cold-start wave via
-    ``atdd.train.wave_runner.execute_cold_start``; this name is kept so existing
-    internal/test callers keep working through the soak.
-    """
-    import warnings
-    from atdd.train import wave_runner as _wave_runner
-
-    warnings.warn(
-        "atdd.coach.commands.coach._execute_cold_start is deprecated; the cold-start "
-        "wave drive moved to atdd.train.wave_runner.execute_cold_start (Child 9). "
-        "Removal target: 3.87.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return _wave_runner.execute_cold_start(
-        cfg, machines, runtime_dir,
-        _spawn_func=_spawn_func,
-        _two_phase_func=_two_phase_func,
-        _injected_events=_injected_events,
-        _max_loop_events=_max_loop_events,
-        _run_id_sink=_run_id_sink,
-        _observer_factory=_observer_factory,
-        _max_parallel=_max_parallel,
-        runner=runner,
-        policy=policy,
-    )
 
 
 def run(
@@ -1243,79 +1004,19 @@ def run(
 
     runtime_dir = _runtime_dir_override or Path(".atdd") / "runtime"
 
-    if cfg.resume is not None:
-        from atdd.coach.commands.durability import DecisionWriter
-        from atdd.coach.commands.resume import ResumeRunner
-        from atdd.train import issue_runner as _issue_runner
-
-        writer = DecisionWriter(runtime_dir=runtime_dir)
-        # Wire ResumeRunner with a real transition_action so each pending
-        # phase is genuinely orchestrated (persona spawn + work) rather than
-        # paper-stamped to COMPLETE — issue #734.
-        # Calls the canonical home directly (atdd.train.issue_runner) rather
-        # than the deprecated coach.py shim that will be removed in #923.
-        transition_action = _transition_action_override or _issue_runner.make_resume_transition_action(
-            cfg,
-            runtime_dir,
-            multiplexer_backend=_multiplexer_backend,
-            worktree_override=_worktree_override,
+    # #1483 — the cold-start drive and the `--resume` replay both spawned and
+    # supervised persona sub-workers, so they left core with the rest of the
+    # runner chain (`train.issue_runner`, `train.wave_runner`, `train.resume_cli`).
+    # What survives here is lifecycle *governance*: resolve the issues, compute
+    # the wave plan, and report the planned path. Executing that plan is a
+    # provider's job — core no longer manages other agents.
+    if cfg.resume is not None or not cfg.dry_run:
+        print(
+            "atdd coach: planning only — issue orchestration (cold-start drive "
+            "and --resume replay) is no longer part of core. The planned path "
+            "above is advisory; an orchestration provider executes it.",
+            file=sys.stderr,
         )
-        runner = ResumeRunner(
-            runtime_dir=runtime_dir,
-            run_id=cfg.resume,
-            decision_writer=writer,
-            transition_action=transition_action,
-        )
-        reconstructed = runner.reconstruct()
-        print(f"  --resume={cfg.resume!r}: reconstructed {len(reconstructed)} issue(s)")
-        for issue, phase in sorted(reconstructed.items()):
-            print(f"    #{issue}: {phase}")
-        if not cfg.dry_run:
-            try:
-                final = runner.drive_to_complete(cfg.issue_numbers)
-            except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
-                # A phase the resume run could not legitimately complete must
-                # BLOCK/escalate — never silently fast-forward to COMPLETE.
-                for num in cfg.issue_numbers:
-                    _write_escalation(
-                        cfg.escalation_channel,
-                        f"#{num}: resume blocked — {exc}",
-                    )
-                print(f"❌ resume blocked: {exc}", file=sys.stderr)
-                return 1
-            for issue, phase in sorted(final.items()):
-                print(f"    #{issue} → {phase}")
-        return 0
-
-    # Cold-start execution path (issue #645): drive all issues from INIT to MERGED.
-    if not cfg.dry_run:
-        # Child 8 (#895): drive each issue through the TrainRunner seam. The CLI
-        # instantiates JsonlTrainRunner + PolicyHandle here and hands them to the
-        # cold-start loop, which calls runner.start_issue per issue — no direct
-        # coach.commands.coach._drive_* private call remains in the CLI path.
-        # Child 9 (#896): the wave orchestration now lives in the train layer;
-        # the CLI calls it directly (the coach-side name is a deprecated shim).
-        from atdd.train import wave_runner as _wave_runner
-
-        train_runner = _build_train_runner(cfg, runtime_dir)
-        result = _wave_runner.execute_cold_start(
-            cfg,
-            machines,
-            runtime_dir,
-            _spawn_func=_spawn_func,
-            _two_phase_func=_two_phase_func,
-            _injected_events=_injected_events,
-            _max_loop_events=_max_loop_events,
-            _run_id_sink=_run_id_sink,
-            runner=train_runner,
-            policy=_build_policy_handle(runtime_dir),
-        )
-        if result.blocked:
-            print(
-                f"⚠ BLOCKED: {', '.join(f'#{n}' for n in result.blocked)}",
-                file=sys.stderr,
-            )
-        return result.rc
 
     return 0
 

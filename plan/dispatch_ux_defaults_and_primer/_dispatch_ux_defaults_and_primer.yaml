@@ -30,8 +30,6 @@ produce:
     to: external
 
 consume:
-  - name: coach:spawn:canonical-naming-and-layout-pass
-    from: wagon:spawn-agents
   - name: commons:coach:runtime-event-schema
     from: wagon:freeze-runtime-contracts
 
