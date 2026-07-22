@@ -665,14 +665,23 @@ class ProjectInitializer:
 
         - ``.atdd/cache/``                 CLI caches.
         - ``.atdd/diagnostics/``           `atdd validate` run artifacts (#449).
-        - ``.atdd/state/``                 the State Store (`state.sqlite*`), now
-          the sole operational registry — written on every run (#1325 item 6).
+        - ``.atdd/state/state.sqlite*``    the State Store's local SQLite DB + WAL, the
+          sole operational registry — written on every run (#1325 item 6).
+        - ``.atdd/state/backups/``         local pre-mutation store backups.
         - ``.atdd/manifest.migrated.yaml`` the one-shot manifest→store migration
           backup (``manifest_import._BACKUP_NAME``) (#1325 item 6).
+
+        **Never** ``.atdd/state/`` wholesale (#1580). That is what this wrote until the
+        2026-07-20 mass-deletion, and it took ``.atdd/state/projection/`` — the *shared*
+        source of truth, the one thing under ``state/`` that must be committed — down with
+        the private DB it meant to hide. A gitignored projection is empty at every HEAD,
+        and reconcile read that emptiness as an instruction to delete. The entries stay
+        narrow so a consumer install cannot inherit the same trap.
         """
         self._ensure_gitignore_entry(".atdd/cache/")
         self._ensure_gitignore_entry(".atdd/diagnostics/")
-        self._ensure_gitignore_entry(".atdd/state/")
+        self._ensure_gitignore_entry(".atdd/state/state.sqlite*")
+        self._ensure_gitignore_entry(".atdd/state/backups/")
         self._ensure_gitignore_entry(".atdd/manifest.migrated.yaml")
 
     def _ensure_gitignore_entry(self, entry: str) -> None:
