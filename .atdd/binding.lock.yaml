@@ -1,5 +1,5 @@
 schema_version: 1.0.0
-substrate_lock_digest: sha256:775e677a42ae3b8c9f594900a7aa145e35e4254227689e72f26cbf531a665ec0
+substrate_lock_digest: sha256:2ae62340b84936eb7a31fa06be0eee65fd5394ad368929034b253bf2150eb7fa
 conventions:
 - convention_id: coder.boundaries.http-client
   disposition: bound
@@ -236,6 +236,36 @@ conventions:
   implementation_id: coder.security.sql-injection
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
+- convention_id: coder.train.interlocking-bilateral-binding
+  disposition: bound
+  implementation_id: coder.train.interlocking-bilateral-binding.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.train.interlocking-delegates-to-trainrunner
+  disposition: bound
+  implementation_id: coder.interlocking.runner-infrastructure.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.train.interlocking-does-not-carry-cargo
+  disposition: bound
+  implementation_id: coder.interlocking.runner-infrastructure.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.train.interlocking-resolution-model-exists
+  disposition: bound
+  implementation_id: coder.interlocking.runner-infrastructure.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.train.interlocking-runner-exists
+  disposition: bound
+  implementation_id: coder.interlocking.runner-infrastructure.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.train.station-master-interlocking-routing
+  disposition: bound
+  implementation_id: coder.interlocking.runner-infrastructure.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
 - convention_id: tester.acceptance-violation.live-smoke-acceptance-must-execute
   disposition: bound
   implementation_id: tester.acceptance-violation.live-smoke-acceptance-must-execute
@@ -249,6 +279,26 @@ conventions:
 - convention_id: tester.filename.urn
   disposition: bound
   implementation_id: tester.filename.urn
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: tester.interlocking.production-runner-used
+  disposition: bound
+  implementation_id: tester.interlocking.route-coverage.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: tester.interlocking.route-coverage
+  disposition: bound
+  implementation_id: tester.interlocking.route-coverage.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: tester.interlocking.smoke-coverage-for-station-master
+  disposition: bound
+  implementation_id: tester.interlocking.route-coverage.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: tester.interlocking.trace-binds-declared-route
+  disposition: bound
+  implementation_id: tester.interlocking.route-coverage.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: tester.smoke.no-collaborator-substitution
