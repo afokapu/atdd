@@ -1666,6 +1666,10 @@ wagons:
       atdd init early-returned before _install_hooks, and only the forbidden atdd
       init --force refreshed anything, so every hook fix reached only repos initialised
       after it landed and 6 of 11 hooks were never installed at all) (#1492)
+    E064: minimize likelihood of a-javascript-or-typescript-file-shipping-in-the-core-wheel-and-reaching-a-pure-python-consumer-who-can-never-satisfy-the-stack-it-encodes
+      by asserting against the member list of a REAL built wheel that no `.ts/.tsx/.js/.jsx/.mjs/.cjs`
+      file ships, with any deliberate exemption held as an exact-path allowlist plus
+      a subset assertion so the carve-out can shrink to empty but never silently widen
     C008: 'minimize likelihood of the-wheel-completeness-gate-passing-vacuously-because-it-scans-only-validator-fixtures-and-skips-itself-on-every-environment-it-is-ever-run-in
       by broadening the #451 scan to every non-.py source file, resolving the source
       tree from the working directory so it EXECUTES against a real installed wheel

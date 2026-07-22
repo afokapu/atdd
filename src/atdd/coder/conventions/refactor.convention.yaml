@@ -583,27 +583,6 @@ rules:
     disposition: strict
     description: "Cognitive complexity per function below threshold (default <=15)"
     introduced_in: "1.67.0"
-  - id: "coder.refactor.complexity-cyclomatic-typescript"
-    validator: "test_complexity_typescript::test_cyclomatic_complexity_typescript"
-    aliases: ["COMPLEXITY-CYCLOMATIC-TS-001"]
-    severity: 3
-    disposition: strict
-    description: "TypeScript cyclomatic complexity per function below threshold"
-    introduced_in: "1.67.0"
-  - id: "coder.refactor.complexity-nesting-typescript"
-    validator: "test_complexity_typescript::test_cyclomatic_complexity_typescript"
-    aliases: ["COMPLEXITY-NESTING-TS-001"]
-    severity: 3
-    disposition: strict
-    description: "TypeScript function nesting depth below threshold"
-    introduced_in: "1.67.0"
-  - id: "coder.refactor.complexity-length-typescript"
-    validator: "test_complexity_typescript::test_cyclomatic_complexity_typescript"
-    aliases: ["COMPLEXITY-LENGTH-TS-001"]
-    severity: 2
-    disposition: strict
-    description: "TypeScript function length below threshold"
-    introduced_in: "1.67.0"
   - id: "coder.refactor.quality-mi"
     validator: "test_quality_metrics::test_maintainability_index_above_threshold"
     aliases: ["REFACTOR-QUALITY-MI-001"]
@@ -638,20 +617,6 @@ rules:
     severity: 2
     disposition: strict
     description: "Python source files stay within the configured maximum line count"
-    introduced_in: "1.67.0"
-  - id: "coder.refactor.quality-mi-typescript"
-    validator: "test_quality_metrics_typescript::test_maintainability_index_typescript"
-    aliases: ["REFACTOR-QUALITY-MI-TS-001"]
-    severity: 2
-    disposition: strict
-    description: "TypeScript module maintainability index above threshold"
-    introduced_in: "1.67.0"
-  - id: "coder.refactor.quality-comments-typescript"
-    validator: "test_quality_metrics_typescript::test_maintainability_index_typescript"
-    aliases: ["REFACTOR-QUALITY-COMMENTS-TS-001"]
-    severity: 2
-    disposition: strict
-    description: "TypeScript source files have an adequate code-comment ratio"
     introduced_in: "1.67.0"
   - id: "coder.refactor.nplus1"
     validator: "test_query_count::test_no_db_calls_inside_loops"
