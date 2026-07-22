@@ -68,11 +68,11 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
+  total: 24
   total: 25
   D001: "minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton"
   D002: "minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface"
   P001: "minimize likelihood of lossy-coach-decisions-and-judgments-on-restart"
-  E001: "minimize likelihood of leaked-worktrees-on-failed-multi-issue-launch"
   M001: "minimize likelihood of missed-agent-runtime-events-from-polling-only-observation"
   R001: "minimize likelihood of duplicate-state-transitions-on-coach-resume"
   L001: "minimize effort of locating-in-progress-coach-run-state via atdd coach status subcommand"

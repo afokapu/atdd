@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:R003-SMOKE-001-atdd-validate-coach-includes-no-bypass-advertising-rule
-# Acceptance: acc:spawn-agents:R003-SMOKE-001-atdd-validate-coach-includes-no-bypass-advertising-rule
-# WMBT: wmbt:spawn-agents:R003
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E068-SMOKE-001-atdd-validate-coach-includes-no-bypass-advertising-rule
+# Acceptance: acc:govern-lifecycle:R008-SMOKE-001-atdd-validate-coach-includes-no-bypass-advertising-rule
+# WMBT: wmbt:govern-lifecycle:R008
 # Phase: SMOKE
 # Layer: backend.smoke
 # Assertion: behavioral
