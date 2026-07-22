@@ -1,4 +1,4 @@
-urn: "wmbt:drive-state-machine:E002"
+urn: "wmbt:drive-state-machine:E002"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-10-18 — warm-resume SMOKE + tests retired with sub-worker orchestration (#1483); WMBT retains agent-done phase-match unit coverage
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"

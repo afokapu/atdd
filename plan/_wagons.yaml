@@ -2033,7 +2033,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 23
+    total: 22
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2061,10 +2061,6 @@ wagons:
       mirror of #651)'
     Y003: minimize quantity of test-sessions-that-leave-core-bare-mutated-in-the-live-worktree
       when pytest runs any src/atdd test
-    E009: minimize quantity of resume-driver-phase-transitions-recorded-without-dispatching-orchestration
-      when atdd coach --resume <RUN_ID> walks a reconstructed issue — wiring a real
-      transition_action into ResumeRunner and failing loudly when it is absent (#734,
-      resume-path analog of E002/#645)
     Y004: minimize quantity of git-hooks-that-run-pip-install-during-push by stripping
       auto_upgrade() from _gate_main so the version gate only checks and exits 1 with
       a message telling the user to run 'atdd upgrade' then retry
