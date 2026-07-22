@@ -28,7 +28,6 @@ participants:
 - wagon:coach-wave-orchestration
 - wagon:consolidate-coach-workspace
 - wagon:dispatch-ux-defaults-and-primer
-- wagon:mediate-worker-decisions
 - wagon:coach-verb-split
 - system:atdd-cli
 sequence:
