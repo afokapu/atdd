@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:R002-UNIT-002-validator-passes-when-claude-md-within-budget
-# Acceptance: acc:spawn-agents:R002-UNIT-002-validator-passes-when-claude-md-within-budget
-# WMBT: wmbt:spawn-agents:R002
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E067-UNIT-002-validator-passes-when-claude-md-within-budget
+# Acceptance: acc:govern-lifecycle:R007-UNIT-002-validator-passes-when-claude-md-within-budget
+# WMBT: wmbt:govern-lifecycle:R007
 # Phase: RED
 # Layer: backend.unit
 # Assertion: behavioral

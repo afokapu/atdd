@@ -67,7 +67,6 @@ trains:
       wagons:
       - freeze-runtime-contracts
       - drive-state-machine
-      - spawn-agents
       - observe-and-correct
       - dispatch-validators
       - review-phase-boundaries
@@ -77,7 +76,6 @@ trains:
       - integration-hardening
       - coach-ops
       - coach-wave-orchestration
-      - consolidate-coach-workspace
       - dispatch-ux-defaults-and-primer
       - coach-verb-split
       category: nominal

@@ -110,23 +110,6 @@ spawn_time:
     replacement: "cli-return.jsonl correction inbox + cmux-native session metadata"
 
 # =============================================================================
-# LAUNCH-PROMPT QUALITY RULES
-# =============================================================================
-
-rules:
-  - id: "coach.launch-prompt.must-include-wagon-graph"
-    severity: 3
-    suppress_mode: suppress-and-clean
-    description: >
-      SESSION-LAUNCH-TEMPLATE.md must contain a '## Wagon Architecture' section
-      so the wagon-graph output (E022/E023) is injected into every spawn launch
-      prompt. Without this section, agents start work without structural context
-      about the wagon's features, WMBTs, and contracts.
-    introduced_in: "3.83.2"
-    aliases: []
-    validator: "launch_prompt_wagon_graph_guard::check_wagon_graph_rule"
-
-# =============================================================================
 # Session naming + layout placement (issue #470)
 # =============================================================================
 # When the coach (`atdd coach`) dispatches a cmux-native session, BOTH the cmux

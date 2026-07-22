@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E023-SMOKE-001-live-claude-md-line-count-within-budget
-# Acceptance: acc:spawn-agents:E023-SMOKE-001-live-claude-md-line-count-within-budget
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E065-SMOKE-001-live-claude-md-line-count-within-budget
+# Acceptance: acc:govern-lifecycle:E065-SMOKE-001-live-claude-md-line-count-within-budget
+# WMBT: wmbt:govern-lifecycle:E065
 # Phase: SMOKE
 # Layer: backend.smoke
 # Assertion: behavioral
