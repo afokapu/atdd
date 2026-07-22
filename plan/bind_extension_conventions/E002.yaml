@@ -1,0 +1,87 @@
+urn: "wmbt:bind-extension-conventions:E002"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-gating-node-with-no-binding-or-a-binding-with-no-obligation"
+context_clarifier: "binding the 26 rules is only durable if a gate keeps the lock a faithful projection of the gating obligations. The validator asserts two directions at once. First, every GATING extension convention node — one whose metadata.disposition is strict, advisory, or suppress-and-clean — MUST appear as a bound entry in binding.lock.yaml; documentation-only nodes (coder.performance.perf, tester.migration.naming) carry no verdict and are EXEMPT, so they may stay unbound. Second, there must be zero bound-not-declared: every bound entry must resolve to a convention node that is declared SOMEWHERE in the node universe (core or extensions). This is deliberately the full-universe check, distinct from and complementary to the extension-scoped orphan detector shipped by govern-providers: the 4 tester.* bindings whose node lives in core are declared obligations here (not orphans), while a binding whose obligation is declared nowhere is caught. Before the fan-out the first assertion fails on 26 unbound gating nodes; after it, both hold."
+lens: "functional.sustainability"
+statement: "minimize likelihood of a gating node with no binding or a binding with no obligation by validating that every strict, advisory, or suppress-and-clean extension node is bound while documentation-only nodes stay exempt, and that every bound entry resolves to a convention node declared somewhere in the core-or-extension node universe"
+acceptances:
+  - identity:
+      urn: "acc:bind-extension-conventions:E002-UNIT-001-unbound-gating-node-is-flagged-doc-only-exempt"
+      id: "AC-UNIT-001"
+      purpose: "An unbound gating node is reported as a coverage gap while an unbound documentation-only node is treated as exempt"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A declared node set with an unbound strict node and an unbound documentation-only node, against a bound set"
+    when:
+      abstract: "The unbound gating nodes are computed"
+      action: "invoke"
+    then:
+      abstract:
+        - "The unbound strict node is reported as a gating coverage gap"
+        - "The unbound documentation-only node is NOT reported — it is exempt from binding"
+      assertions:
+        - type: "equals"
+        - type: "excludes"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"
+  - identity:
+      urn: "acc:bind-extension-conventions:E002-UNIT-002-binding-with-no-declared-node-is-flagged"
+      id: "AC-UNIT-002"
+      purpose: "A bound entry whose obligation is declared nowhere is flagged, while a bound entry declared only in the core node universe is accepted"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A bound set with one entry declared only in core, one declared in extensions, and one declared nowhere, against the full node universe"
+    when:
+      abstract: "The undeclared bindings are computed against the full node universe"
+      action: "invoke"
+    then:
+      abstract:
+        - "The binding declared nowhere is reported as a bound-not-declared fault"
+        - "The bindings declared in core or in extensions are NOT reported"
+      assertions:
+        - type: "equals"
+        - type: "excludes"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"
+  - identity:
+      urn: "acc:bind-extension-conventions:E002-SMOKE-001-live-gating-coverage-is-clean-after-fanout"
+      id: "AC-SMOKE-001"
+      purpose: "Over the real substrate after the fan-out the gating-coverage gate passes: every gating node bound, documentation-only exempt, zero bindings with no obligation"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "The toolkit's own real .atdd/extensions nodes, core nodes, and regenerated binding.lock.yaml"
+    when:
+      abstract: "The gating-coverage validator runs over the live substrate"
+      action: "invoke"
+    then:
+      abstract:
+        - "It returns clean: no unbound gating node and no bound-not-declared entry"
+        - "The two documentation-only nodes remain unbound without being flagged"
+      assertions:
+        - type: "exists"
+        - type: "equals"
+    close_the_loop:
+      consumer_reacted: "the enforce CI gate can rely on the invariant that every gating extension obligation is realized by a bound mechanism"
+      drift_resolved: "a future unbound gating node or nodeless binding fails the validator instead of silently defaulting to strict"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"

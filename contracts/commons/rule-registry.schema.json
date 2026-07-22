@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:rule-registry",
+  "title": "Core convention rule registry projection",
+  "description": "Core convention rule registry projection exchanged inside train 0007-enforce-extension-conventions.",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "rule_id": {
+      "type": "string"
+    },
+    "disposition": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule_id"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "rule_registry",
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/contracts/commons/rule-registry.schema.json",
+          "description": "Read the Core convention rule registry projection payload contract.",
+          "responses": {
+            "200": {
+              "description": "The payload contract schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "producer": "wagon:govern-registry",
+    "consumers": [
+      "wagon:bind-extension-conventions"
+    ],
+    "dependencies": [],
+    "traceability": {
+      "wagon_ref": "plan/govern_registry/_govern_registry.yaml",
+      "feature_refs": [
+        "feature:govern-registry:govern-registry"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  }
+}

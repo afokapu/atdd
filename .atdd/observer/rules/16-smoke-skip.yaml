@@ -1,9 +1,0 @@
-# Observer rule 16 — coach.observer.smoke-skip
-# Spec: atdd-coach-spec-v9.md §6.4 (phase-ordering), §8.3 (rule table).
-# Implemented by detectors.detect_violation (observer_rules/detectors.py),
-# --status REFACTOR clause. The .atdd/ hand-edit clause of detect_violation
-# is owned by a separate observer rule.
-
-trigger:
-  type: python
-  builder: "atdd.coach.observer_rules.smoke_skip:build_rule"

@@ -45,6 +45,13 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 from atdd.state import import_boundary, merge_authority, provider_seam
+from atdd.state.bare_remote import (
+    ConformanceError,  # re-exported: the suite's callers catch conformance.ConformanceError
+    clone_of,
+    git,
+    seed_bare_remote,
+    write_gh_shim,
+)
 from atdd.state.projection import (
     PROJECTION_RELATIVE,
     canonical_bytes,
@@ -59,10 +66,6 @@ INVARIANT_I7 = "I7 — the mirror is non-authoritative: no lifecycle decision ma
 
 #: The uid-bearing trailer a projection commit carries (spec §5).
 _TRAILER = "ATDD-Object"
-
-
-class ConformanceError(RuntimeError):
-    """The suite could not be set up (a git fault, not a gate failure)."""
 
 
 # --------------------------------------------------------------------------- #
@@ -126,16 +129,7 @@ def _watch_registry(tripwire: Tripwire, step: Callable[[], str]) -> Iterator[Non
 @contextmanager
 def _gh_tripwire(tmp: Path) -> Iterator[Path]:
     """Put a ``gh`` that cannot work first on ``PATH``; it leaves a marker if anything calls it."""
-    bin_dir = tmp / "tripwire-bin"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    marker = bin_dir / "gh-was-invoked"
-    shim = bin_dir / "gh"
-    shim.write_text(
-        '#!/bin/sh\necho "$@" >> "$(dirname "$0")/gh-was-invoked"\n'
-        'echo "gh is not available: core runs against a bare remote" >&2\nexit 127\n',
-        encoding="utf-8",
-    )
-    shim.chmod(0o755)
+    bin_dir, marker = write_gh_shim(tmp)
     previous = os.environ.get("PATH", "")
     os.environ["PATH"] = f"{bin_dir}{os.pathsep}{previous}"
     try:
@@ -173,46 +167,14 @@ class Context:
         }
 
 
-def git(repo: Path, *args: str, check: bool = True) -> str:
-    result = subprocess.run(
-        ["git", *args], cwd=str(repo), capture_output=True, text=True, timeout=180,
-    )
-    if check and result.returncode != 0:
-        raise ConformanceError(f"git {' '.join(args)} failed in {repo}: {result.stderr.strip()}")
-    return result.stdout.strip()
-
-
-def _identify(repo: Path) -> None:
-    git(repo, "config", "user.email", "dev@example.invalid")
-    git(repo, "config", "user.name", "Dev")
-
-
 def setup(root: Path) -> Context:
     """A bare remote and two clones of it. No GitHub, no API, no provider — just git."""
     root = Path(root)
-    remote = root / "remote.git"
-    subprocess.run(
-        ["git", "init", "--bare", "--quiet", "--initial-branch=main", str(remote)],
-        check=True, capture_output=True, timeout=60,
+    remote = seed_bare_remote(
+        root, gitignore=".atdd/state/state.sqlite*\n", message="seed: control root",
     )
-    seed = root / "seed"
-    subprocess.run(["git", "clone", "--quiet", str(remote), str(seed)],
-                   check=True, capture_output=True, timeout=60)
-    _identify(seed)
-    (seed / ".atdd" / "state" / "projection").mkdir(parents=True, exist_ok=True)
-    (seed / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    (seed / ".atdd" / "state" / "projection" / ".gitkeep").write_text("", encoding="utf-8")
-    (seed / ".gitignore").write_text(".atdd/state/state.sqlite*\n", encoding="utf-8")
-    git(seed, "add", "-A")
-    git(seed, "commit", "--quiet", "-m", "seed: control root")
-    git(seed, "push", "--quiet", "origin", "main")
-
-    author = root / "author"
-    peer = root / "peer"
-    for clone in (author, peer):
-        subprocess.run(["git", "clone", "--quiet", str(remote), str(clone)],
-                       check=True, capture_output=True, timeout=60)
-        _identify(clone)
+    author = clone_of(remote, root / "author")
+    peer = clone_of(remote, root / "peer")
     return Context(remote=remote, author=author, peer=peer)
 
 
@@ -393,6 +355,24 @@ class ConformanceReport:
         return "\n".join(lines)
 
 
+def _run_step(context: Context, step: Step) -> StepResult:
+    """One step, with the registry watched for its duration.
+
+    A step that raises is a report line, not a crash: the run has to reach the end so that one
+    report names everything that is wrong rather than the first thing.
+    """
+    context.step = step.name
+    with _watch_registry(context.tripwire, lambda: context.step):
+        try:
+            return StepResult(step.name, True, step.run(context))
+        except Exception as exc:  # noqa: BLE001 - a failed step is a report line, not a crash
+            _log.warning(
+                "a conformance step failed against the bare remote",
+                extra={"step": step.name, "error": str(exc)},
+            )
+            return StepResult(step.name, False, f"{type(exc).__name__}: {exc}")
+
+
 def run(context: Context, *, steps: Sequence[Step] = STEPS) -> ConformanceReport:
     """Drive the workflow with **zero providers registered** and every tripwire armed (C002).
 
@@ -400,21 +380,10 @@ def run(context: Context, *, steps: Sequence[Step] = STEPS) -> ConformanceReport
     everything that is wrong rather than the first thing. A step that *touches a provider* is not
     a failing step at all — it may well succeed — which is exactly why the tripwires exist.
     """
-    results: List[StepResult] = []
     context.providers = {}
 
     with _gh_tripwire(context.remote.parent) as marker:
-        for step in steps:
-            context.step = step.name
-            with _watch_registry(context.tripwire, lambda: context.step):
-                try:
-                    results.append(StepResult(step.name, True, step.run(context)))
-                except Exception as exc:  # noqa: BLE001 - a failed step is a report line, not a crash
-                    _log.warning(
-                        "a conformance step failed against the bare remote",
-                        extra={"step": step.name, "error": str(exc)},
-                    )
-                    results.append(StepResult(step.name, False, f"{type(exc).__name__}: {exc}"))
+        results: List[StepResult] = [_run_step(context, step) for step in steps]
         if marker.is_file():
             context.tripwire.gh_invocations.extend(
                 f"the run invoked `gh`: {line.strip()}"

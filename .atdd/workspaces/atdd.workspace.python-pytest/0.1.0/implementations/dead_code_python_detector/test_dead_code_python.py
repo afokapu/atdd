@@ -68,6 +68,31 @@ def test_init_files_are_never_flagged() -> None:
     assert all(not item["file"].endswith("__init__.py") for item in v)
 
 
+def test_absolute_import_resolves_when_root_is_the_package_dir() -> None:
+    # The scan root is commonly the package dir (`src/atdd`) while an absolute import
+    # is anchored at the import root (`src/`). Anchoring the dotted path at the scan
+    # root looked for `src/atdd/atdd/state/projection.py` and resolved nothing, so the
+    # import graph came apart and live modules read as unreachable.
+    root = Path("/repo/src/atdd")
+    target = root / "state" / "projection.py"
+    assert detector.resolve_module_to_file(
+        "atdd.state.projection", {target}, root=root
+    ) == {target}
+
+
+def test_absolute_import_still_resolves_when_root_is_the_import_root() -> None:
+    root = Path("/repo/src")
+    target = root / "atdd" / "state" / "projection.py"
+    assert detector.resolve_module_to_file(
+        "atdd.state.projection", {target}, root=root
+    ) == {target}
+
+
+def test_unrelated_top_level_module_does_not_resolve() -> None:
+    root = Path("/repo/src/atdd")
+    assert detector.resolve_module_to_file("os.path", set(), root=root) == set()
+
+
 # ── 1b. ATDD_GRAPH_ROOTS parity (PARITY-AUDIT-26 row 1) ───────────────────────
 #
 # The ``entrypoint`` fixture has one convention root (composition.py, reaches

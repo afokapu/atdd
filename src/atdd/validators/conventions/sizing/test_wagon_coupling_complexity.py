@@ -12,12 +12,11 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-import contextlib
-
-import yaml
-
-from atdd.coach.utils.repo import find_repo_root
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    clone_graph,
+    node_at,
+    set_node_field,
+)
 from atdd.validators.conventions.sizing import fixtures as F
 from atdd.validators.conventions.sizing.archetype import (
     TEMPLATE_IDS,
@@ -83,35 +82,45 @@ def test_clean_baseline_on_real_composed_graph(clean_convention_graph) -> None:
     assert evaluate_coupling_complexity(clean_convention_graph) == []
 
 
-@contextlib.contextmanager
-def _inject_consumes(root, rel, consumes):
-    p = root / rel
-    orig = p.read_text(encoding="utf-8")
-    d = yaml.safe_load(orig)
-    d["consume"] = [{"name": n, "contract": None, "telemetry": None, "from": "external"}
-                    for n in consumes]
-    p.write_text(yaml.safe_dump(d, sort_keys=False), encoding="utf-8")
-    try:
-        yield
-    finally:
-        p.write_text(orig, encoding="utf-8")
+def _inject_consumes(graph, rel, consumes):
+    """Give the wagon loaded from `rel` a `consume` list, in a CLONE of the graph.
+
+    `_wagon_io` reads the wagon's consume list straight out of `Node.fields`, so
+    setting that field in memory is the same fault the on-disk rewrite of the wagon
+    manifest produced — the file was only ever the delivery mechanism (#1458, E035).
+    """
+    wagon = node_at(graph, rel)
+    return set_node_field(graph, wagon.id, "consume", [
+        {"name": n, "contract": None, "telemetry": None, "from": "external"}
+        for n in consumes
+    ])
 
 
-def test_fault_injection_legacy_parity() -> None:
-    """Inject an over-coupling fault into a real wagon manifest; assert the convention
-    evaluator flags that wagon, then revert and assert it no longer does.
+def _flagged(graph) -> set:
+    return {_norm(ev["source_node_or_scope"].split(":", 1)[1])
+            for ev in evaluate_coupling_complexity(graph)}
+
+
+def test_fault_injection_legacy_parity(clean_convention_graph) -> None:
+    """Inject an over-coupling fault into a cloned wagon node; assert the convention
+    evaluator flags that wagon and that the shared session graph never saw the fault.
 
     The legacy in-process scan oracle was dropped with the retired legacy validator
-    (#1207 sweep, #1385); the differential below is the live coverage.
+    (#1207 sweep, #1385); the differential below is the live coverage. The fault is
+    injected into a clone rather than the real wagon manifest (#1458, E035): the old
+    mechanism rewrote `plan/.../_freeze_runtime_contracts.yaml`, rebuilt the graph,
+    and reverted in a `finally`, costing two full graph builds and putting a plan YAML
+    in the working tree for the duration.
     """
-    root = find_repo_root()
-    with _inject_consumes(root, _TARGET_FILE, _INJECT_CONSUMES):
-        graph = load_composed_graph(root)
-        conv = {_norm(ev["source_node_or_scope"].split(":", 1)[1])
-                for ev in evaluate_coupling_complexity(graph)}
+    graph = clone_graph(clean_convention_graph)
+    _inject_consumes(graph, _TARGET_FILE, _INJECT_CONSUMES)
 
-    assert _TARGET_WAGON in conv, f"convention missed injected fault: {conv}"
-
-    reverted = {_norm(ev["source_node_or_scope"].split(":", 1)[1])
-                for ev in evaluate_coupling_complexity(load_composed_graph(root))}
-    assert _TARGET_WAGON not in reverted, "fault survived revert — injection leaked"
+    assert _TARGET_WAGON in _flagged(graph), (
+        f"convention missed injected fault: {_flagged(graph)}"
+    )
+    # Clone-independence replaces the old revert-and-rebuild: the session graph is the
+    # SAME object every other test holds, so proving it is unflagged proves the
+    # injection leaked nowhere.
+    assert _TARGET_WAGON not in _flagged(clean_convention_graph), (
+        "fault leaked out of the clone into the shared session graph"
+    )

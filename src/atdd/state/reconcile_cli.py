@@ -27,9 +27,16 @@ from pathlib import Path
 from typing import Optional
 
 from atdd.state import authoring, overlay, reconcile as rec
+from atdd.state.cli_support import START_DIR_HELP, add_verb, opt
 from atdd.state.db import connect, init_state_store
 from atdd.state.metadata import StoreBaseCommitError
-from atdd.state.reconcile import DirtyStoreError, ReplayConflictError
+from atdd.state.projection import MissingProjectionError
+from atdd.state.reconcile import (
+    DirtyStoreError,
+    MassDeletionRefused,
+    ReplayConflictError,
+    SharedStoreReconcileRefused,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -39,62 +46,61 @@ OPS = ("reconcile", "freshness", "overlay", "author")
 
 def add_parsers(sub) -> None:
     """Register the reconcile verbs on the ``atdd state`` sub-parser."""
-    recon = sub.add_parser(
-        "reconcile",
-        help="Reconcile the local store with the projection at HEAD (hydrate + replay overlay).")
-    recon.add_argument("--head", default=None, help="Target commit (default: the repo's HEAD).")
-    recon.add_argument("--check-dirty", action="store_true",
-                       help="Report whether the store carries uncommitted overlay; change nothing.")
-    recon.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "reconcile",
+        "Reconcile the local store with the projection at HEAD (hydrate + replay overlay).",
+        opt("--head", default=None, help="Target commit (default: the repo's HEAD)."),
+        opt("--check-dirty", action="store_true",
+            help="Report whether the store carries uncommitted overlay; change nothing."),
+        opt("--allow-deletions", type=int, default=None, metavar="N",
+            help="Assert that this reconcile is expected to retire exactly N object(s). "
+                 "Required past the blast-radius limits. This is an assertion, not a "
+                 "force flag: a value that does not match reality is refused."),
+        root=START_DIR_HELP,
+    )
 
-    fresh = sub.add_parser(
-        "freshness",
-        help="Report whether store_base_commit still agrees with HEAD (bypassed-hook check).")
-    fresh.add_argument("--head", default=None, help="Compare against this commit (default: HEAD).")
-    fresh.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "freshness",
+        "Report whether store_base_commit still agrees with HEAD (bypassed-hook check).",
+        opt("--head", default=None, help="Compare against this commit (default: HEAD)."),
+        root=START_DIR_HELP,
+    )
 
-    over = sub.add_parser("overlay", help="List the local overlay events and their status.")
-    over.add_argument("--all", action="store_true",
-                      help="Include committed/discarded events, not just the replayable ones.")
-    over.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "overlay", "List the local overlay events and their status.",
+        opt("--all", action="store_true",
+            help="Include committed/discarded events, not just the replayable ones."),
+        root=START_DIR_HELP,
+    )
 
     auth = sub.add_parser(
         "author", help="Local authoring commands — each appends one typed overlay event.")
     auth_sub = auth.add_subparsers(dest="author_op")
 
-    body = auth_sub.add_parser("body", help="Rewrite the body (body_updated).")
-    body.add_argument("uid")
-    body.add_argument("--body", required=True)
-    body.add_argument("--root", default=None)
+    # Every authoring verb names the object it appends an event for, then says what changed.
+    add_verb(auth_sub, "body", "Rewrite the body (body_updated).",
+             opt("uid"), opt("--body", required=True), root=None)
 
-    trans = auth_sub.add_parser(
-        "transition", help="Request a phase transition (phase_transition_requested).")
-    trans.add_argument("uid")
-    trans.add_argument("--to", dest="to_phase", required=True)
-    trans.add_argument("--from", dest="from_phase", default=None,
-                       help="Phase moved from (default: the store's current phase).")
-    trans.add_argument("--root", default=None)
+    add_verb(
+        auth_sub, "transition", "Request a phase transition (phase_transition_requested).",
+        opt("uid"),
+        opt("--to", dest="to_phase", required=True),
+        opt("--from", dest="from_phase", default=None,
+            help="Phase moved from (default: the store's current phase)."),
+        root=None,
+    )
 
-    train = auth_sub.add_parser("train", help="Set the train (train_updated).")
-    train.add_argument("uid")
-    train.add_argument("--train", required=True)
-    train.add_argument("--root", default=None)
+    add_verb(auth_sub, "train", "Set the train (train_updated).",
+             opt("uid"), opt("--train", required=True), root=None)
 
-    wmbt = auth_sub.add_parser("wmbt", help="Attach a WMBT (wmbt_added).")
-    wmbt.add_argument("uid")
-    wmbt.add_argument("--wmbt", required=True)
-    wmbt.add_argument("--root", default=None)
+    add_verb(auth_sub, "wmbt", "Attach a WMBT (wmbt_added).",
+             opt("uid"), opt("--wmbt", required=True), root=None)
 
-    tomb = auth_sub.add_parser("tombstone", help="Retire an object (tombstone_requested).")
-    tomb.add_argument("uid")
-    tomb.add_argument("--reason", required=True)
-    tomb.add_argument("--root", default=None)
+    add_verb(auth_sub, "tombstone", "Retire an object (tombstone_requested).",
+             opt("uid"), opt("--reason", required=True), root=None)
 
-    ref = auth_sub.add_parser("external-ref", help="Record a provider ref (external_ref_applied).")
-    ref.add_argument("uid")
-    ref.add_argument("--provider", required=True)
-    ref.add_argument("--ref", required=True)
-    ref.add_argument("--root", default=None)
+    add_verb(auth_sub, "external-ref", "Record a provider ref (external_ref_applied).",
+             opt("uid"), opt("--provider", required=True), opt("--ref", required=True), root=None)
 
 
 def _control_root(root: Optional[str]) -> Path:
@@ -129,14 +135,25 @@ def _cmd_reconcile(args) -> int:
         return 0
 
     try:
-        result = rec.reconcile(control_root, head=args.head)
+        result = rec.reconcile(
+            control_root, head=args.head, allow_deletions=args.allow_deletions,
+        )
+    except (MassDeletionRefused, SharedStoreReconcileRefused, MissingProjectionError) as exc:
+        # The refusals that stand between a misconfigured checkout and an emptied store
+        # (#1580). Each is raised before any sqlite mutation, so there is nothing to undo
+        # and nothing to report beyond what the refusal already says.
+        _log.warning("reconcile refused", extra={"error": type(exc).__name__})
+        print(f"ERROR: {exc}")
+        return 1
     except StoreBaseCommitError as exc:
         _log.warning("reconcile refused: store not anchored", extra={"error": str(exc)})
         print(f"ERROR: {exc}")
         return 1
     except ReplayConflictError as exc:
-        _log.warning("reconcile stopped with a conflict; the backup is kept",
-                     extra={"conflicts": len(exc.report.conflicts)})
+        _log.warning(
+            "reconcile stopped with a conflict; the backup is kept",
+            extra={"conflicts": len(exc.report.conflicts)},
+        )
         print(exc.report.render())
         return 1
     except DirtyStoreError as exc:
@@ -189,8 +206,10 @@ def _cmd_author(args) -> int:
     try:
         event = _AUTHOR_COMMANDS[args.author_op](conn, args)
     except (KeyError, ValueError, overlay.OverlayLogError) as exc:
-        _log.warning("authoring command failed",
-                     extra={"op": args.author_op, "error": str(exc)})
+        _log.warning(
+            "authoring command failed",
+            extra={"op": args.author_op, "error": str(exc)},
+        )
         print(f"ERROR: {exc}")
         return 1
     finally:

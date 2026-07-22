@@ -138,25 +138,3 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-13"
-  - identity:
-      urn: "acc:coach-ops:M001-INTEGRATION-004-agent-wait-ci-uses-watcher"
-      id: "AC-INTEGRATION-004"
-      purpose: "atdd agent wait-ci routes through pr_watcher.poll — same batched behavior"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A mock gh pr list returning CLEAN for a specific PR number"
-        - "An agent runtime dir with a pr_number file or --pr argument"
-    when:
-      abstract: "run_agent(['wait-ci', '--pr', '101']) is called"
-    then:
-      abstract:
-        - "poll() is invoked (verified via mock call count)"
-        - "When the PR state is CLEAN, exit code is 0 and the PR number is printed"
-        - "No direct gh pr view calls are made (only gh pr list)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-13"

@@ -166,7 +166,7 @@ def check(
         _log.warning(
             "the M8 cutover is not complete",
             extra={"root": str(root),
-                   "unmet": [criterion.name for criterion in report.unmet]},
+                "unmet": [criterion.name for criterion in report.unmet]},
         )
     return report
 

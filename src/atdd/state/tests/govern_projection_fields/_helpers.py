@@ -26,7 +26,15 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 import yaml
 
 from atdd.state.ownership import DEFAULT_POLICY, POLICY_RELATIVE
-from atdd.state.projection import PROJECTION_RELATIVE, canonical_bytes
+from atdd.state.projection import canonical_bytes
+
+from .._fixtures import STORE_ONLY_GITIGNORE, attributed_tombstone  # noqa: F401 — re-exported
+from .._fixtures import checkout as _checkout
+from .._fixtures import (  # re-exported: the acceptances import these from this module
+    commit_all,
+    git,
+    write_projection,
+)
 
 #: Pinned identities, so a fixture's bytes never move between runs.
 UID_X = "wi_01HF7YAT00M78607F0000000X1"
@@ -58,15 +66,6 @@ def document(uid: str = UID_X, **overrides: Any) -> Dict[str, Any]:
 def projection(*documents: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
     """A projection keyed by uid — the shape every validator takes."""
     return {str(doc["uid"]): dict(doc) for doc in documents}
-
-
-def write_projection(root: Path, documents: Iterable[Mapping[str, Any]]) -> Path:
-    """Write documents as a repo's committed projection, in CANONICAL bytes."""
-    out = Path(root) / PROJECTION_RELATIVE
-    out.mkdir(parents=True, exist_ok=True)
-    for doc in documents:
-        (out / f"{doc['uid']}.yaml").write_bytes(canonical_bytes(doc))
-    return out
 
 
 def write_document(path: Path, doc: Mapping[str, Any]) -> Path:
@@ -128,34 +127,4 @@ def contract(name: str) -> Dict[str, Any]:
 
 def checkout(path: Path) -> Path:
     """A real git repo with a Control Root and one commit."""
-    path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["git", "init", "--quiet", "--initial-branch=main", str(path)],
-        check=True, capture_output=True, timeout=60,
-    )
-    git(path, "config", "user.email", "dev@example.invalid")
-    git(path, "config", "user.name", "Dev")
-    (path / ".atdd").mkdir(exist_ok=True)
-    (path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    (path / ".gitignore").write_text(".atdd/state/state.sqlite*\n", encoding="utf-8")
-    git(path, "add", "-A")
-    git(path, "commit", "--quiet", "-m", "initial")
-    return path
-
-
-def git(repo: Path, *args: str) -> str:
-    """Run git in ``repo`` and return its stdout."""
-    result = subprocess.run(
-        ["git", *args], cwd=str(repo), capture_output=True, text=True, check=True, timeout=60,
-    )
-    return result.stdout.strip()
-
-
-def commit_all(repo: Path, message: str, *, author: Optional[str] = None) -> str:
-    """Stage everything and commit; ``author`` is ``Name <email>`` when the writer matters."""
-    git(repo, "add", "-A")
-    args = ["commit", "--quiet", "--allow-empty", "-m", message]
-    if author is not None:
-        args += ["--author", author]
-    git(repo, *args)
-    return git(repo, "rev-parse", "HEAD")
+    return _checkout(path, gitignore=STORE_ONLY_GITIGNORE)

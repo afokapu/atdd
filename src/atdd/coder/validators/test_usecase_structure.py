@@ -19,13 +19,23 @@ from pathlib import Path
 from typing import List, Tuple, Set
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 DART_DIRS = [REPO_ROOT / "lib", REPO_ROOT / "dart"]
-TS_DIRS = [REPO_ROOT / "supabase" / "functions", REPO_ROOT / "typescript"]
+# Undeclared stacks (no `code:` entry) resolve to None and drop out of the
+# scan — the convention's skip-unknown contract, not a crash.
+TS_DIRS = [
+    d
+    for d in (
+        resolve_code_root("supabase", REPO_ROOT),
+        resolve_code_root("typescript", REPO_ROOT),
+    )
+    if d is not None
+]
 
 
 def find_usecase_files() -> List[Tuple[Path, str]]:
@@ -38,7 +48,7 @@ def find_usecase_files() -> List[Tuple[Path, str]]:
     usecase_files = []
 
     # Python use cases
-    if PYTHON_DIR.exists():
+    if PYTHON_DIR is not None and PYTHON_DIR.exists():
         for py_file in PYTHON_DIR.rglob("*_use_case.py"):
             if '__pycache__' not in str(py_file):
                 usecase_files.append((py_file, 'python'))

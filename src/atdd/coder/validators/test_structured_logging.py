@@ -28,6 +28,7 @@ from typing import List, Tuple
 import atdd
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
@@ -40,7 +41,7 @@ _RULE_STRUCTURED = bind_rule("coder.logging.structured")
 # Path constants
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 # Package resources (conventions, schemas)
 # PKG_DIR always resolves to the installed atdd package (used for loading
@@ -195,7 +196,7 @@ def _rel_path(file_path: Path) -> Path:
 
 def scan_print_in_production(repo_root: Path) -> Tuple[int, List[Violation]]:
     """Scan for print() calls in production code. Used by ratchet baseline."""
-    python_dir = repo_root / "python"
+    python_dir = resolve_code_root("python", repo_root)
     python_files = _collect_files(python_dir)
     violations: List[Violation] = []
     for py_file in python_files:
@@ -224,7 +225,7 @@ def scan_structured_logging(repo_root: Path) -> Tuple[int, List[Violation]]:
     skipped (ATDD_PKG_DIR is None) so vendored site-packages code is not
     flagged.
     """
-    python_dir = repo_root / "python"
+    python_dir = resolve_code_root("python", repo_root)
     scan_dirs = [python_dir]
     if ATDD_PKG_DIR is not None:
         scan_dirs.append(ATDD_PKG_DIR)

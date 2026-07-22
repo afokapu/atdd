@@ -24,9 +24,18 @@ dependencies = [
     "jsonschema",
     "pytest-html",
     "radon>=5.0",
-    "tree-sitter>=0.23",
-    "tree-sitter-typescript>=0.23",
 ]
+
+# NOT dependencies, deliberately (#1518): `tree-sitter` and `tree-sitter-typescript`.
+#
+# They were runtime deps, so EVERY consumer — including pure-Python ones — installed a
+# TypeScript grammar in order to use a stack-agnostic engine. The only importer in core
+# was `coder/validators/_ast_tsx.py`, which loaded `language_tsx()` for the TSX validators;
+# both it and they now live in `frontend.extension.vite-coder` / `atdd.extension.coder`.
+#
+# Nothing in core parses Python with tree-sitter — that is `radon` plus the stdlib `ast`
+# module — so dropping the base `tree-sitter` package alongside the grammar is safe. If a
+# future core validator wants a non-TS grammar, add it back then, with the importer.
 
 [project.urls]
 Homepage = "https://github.com/afokapu/atdd"
@@ -35,7 +44,17 @@ Issues = "https://github.com/afokapu/atdd/issues"
 Changelog = "https://github.com/afokapu/atdd/releases"
 
 [project.optional-dependencies]
-dev = []
+# #1474: the packaging acceptances (E062, C008, C009) build a REAL wheel into a REAL
+# venv — `_wheel_harness` shells out to `sys.executable -m build`. That makes `build`
+# a test-time dependency of the toolkit's own validator suite, and an undeclared one
+# is how it stays invisible: nothing imports it, so no import-discipline check sees
+# it, and `atdd validate --local` just dies with an opaque CalledProcessError.
+#
+# These are NOT runtime dependencies. The acceptances that need them are
+# `platform`-marked, so a consumer's `atdd validate <phase>` deselects them and never
+# builds anything. Putting `build` in `dependencies` would make every consumer install
+# a build backend for a test they never run.
+dev = ["build>=1.0", "setuptools>=61.0", "wheel"]
 viz = ["streamlit", "st-link-analysis"]
 
 [project.scripts]
@@ -66,30 +85,51 @@ where = ["src"]
 # generating __pycache__/*.pyc beside the fixture sources.
 exclude = ["atdd.*.validators.fixtures*"]
 
+# #1474: BROAD-SHIP + EXPLICIT-EXCLUDE. Ship every file under the package, and
+# name only what must NOT ship.
+#
+# This block used to enumerate one glob per directory, and enumeration is what
+# broke. A non-.py directory shipped only if someone remembered to add a glob for
+# it, and when the conventions were atomised into `nodes/` nobody did:
+# `atdd.coach.conventions` and `atdd.planner.conventions` gained `nodes/*.yaml`;
+# `atdd.coder.conventions` and `atdd.tester.conventions` did not. So 78 rule-node
+# YAMLs that `bind_rule()` reads AT IMPORT never shipped, and a consumer's
+# `atdd validate coder` aborted at pytest collection (#1369). Same shape for
+# `coach/schemas/*.md` (#663) and `coach/templates/bin/` (#952) — 174 of the 610
+# non-.py files were absent from the wheel.
+#
+# Inverting the default makes the failure mode LOUD instead of silent: a new data
+# directory ships by construction, and omitting one now takes a deliberate,
+# reviewable entry in the deny-list below. `test_wheel_completeness` is the gate
+# that holds this honest; the `validate-consumer` CI job is the oracle that proves
+# it against a real install.
 [tool.setuptools.package-data]
-"atdd.coach.templates" = ["*.md"]
-"atdd.coach.templates.hooks" = ["pre-commit"]
-"atdd.coach.templates.harness" = ["*.mjs"]
-"atdd.coach.templates.workflows" = ["*.yml"]
-"atdd.coach.schemas" = ["*.json"]
-"atdd.coach.prompts" = ["**/*.yaml"]
-"atdd.coach.conventions" = ["*.yaml", "nodes/*.yaml"]
-"atdd.coach.overlays" = ["*.md"]
-# #1275: ship the relationship graph so `atdd plan guidelines` can surface
-# protocol-flow edges in consumer repos (graph/ is not a package; the glob
-# reaches into it from the atdd.coach package root).
-"atdd.coach" = ["graph/*.yaml"]
-# #1421: the URN grammar convention (urn_grammar.yaml) is read at import by the
-# URNGrammar engine, so it must ship in the wheel or a non-editable install
-# fails on first import.
-"atdd.coach.utils.graph" = ["*.yaml"]
-"atdd.planner.conventions" = ["*.yaml", "nodes/*.yaml"]
-"atdd.planner.schemas" = ["*.json", "author/*.json"]
-"atdd.tester.conventions" = ["*.yaml"]
-"atdd.tester.schemas" = ["*.json"]
-"atdd.coder.conventions" = ["*.yaml"]
-"atdd.coder.schemas" = ["*.json"]
-"atdd" = ["**/validators/fixtures/**"]
+"atdd" = ["**/*"]
+
+# The deny-list: build/OS cruft, and NOTHING ELSE. The invariant is deliberately
+# blunt — **the wheel is the source tree minus cruft**.
+#
+# It is tempting to also exclude `**/*.py` here, on the reasoning that setuptools
+# already installs .py as MODULES so the data copy is redundant. That is wrong, and
+# it silently drops 21 files: the `.py` under `**/validators/fixtures/**` are not
+# modules at all. `[tool.setuptools.packages.find] exclude` deliberately keeps those
+# directories from being importable packages, so nothing installs them as code —
+# they are DATA (fixture sources that validators read and parse), and a `**/*.py`
+# deny-list is the one thing that would remove them. Excluding nothing but cruft
+# sidesteps the whole "is this .py a module or data?" question, which is a question
+# the packaging config has no business having to answer correctly.
+#
+# The `"*"` key is load-bearing — it means EVERY package. setuptools resolves
+# exclusions PER PACKAGE, so a `"atdd"` key alone under-applies to files collected
+# under a subpackage (e.g. `atdd.coach.validators`) and lets byte-code through.
+[tool.setuptools.exclude-package-data]
+"*" = [
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**",
+    "**/.DS_Store",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -103,4 +143,13 @@ markers = [
     "coder: marks tests as coder phase validators",
     "smoke: marks SMOKE-phase tests that verify against real infrastructure",
     "parity: marks the lifecycle parity gate (required-CI; docs/coach-decomposition.md §10.1)",
+    # #1418/#1417 — the convention suite's mutation classes. The classes partition
+    # src/atdd/validators/conventions/ so the non-mutating majority can run under
+    # `pytest-xdist -n auto` against one shared checkout. `convention_readonly` is the
+    # residue class and is applied by the suite's conftest, so a new test is
+    # parallel-by-default; the other two are authored, and the runtime guard in
+    # _support/mutation_guard.py is what stops the classification from rotting.
+    "convention_readonly: convention test that only reads the repo or the clean graph — safe under -n auto",
+    "convention_inmemory_fault: convention test that injects its fault into a cloned graph — writes nothing, safe under -n auto",
+    "convention_filesystem_mutation: convention test that writes the checkout (or spawns a subprocess over it) — MUST run serially",
 ]

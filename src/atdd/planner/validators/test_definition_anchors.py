@@ -31,7 +31,7 @@ from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
 
-pytestmark = [pytest.mark.planner]
+pytestmark = [pytest.mark.planner, pytest.mark.platform]
 
 _RULE = bind_rule("planner.definition.anchor-required")
 _VALIDATOR_ID = "definition_anchor_required"

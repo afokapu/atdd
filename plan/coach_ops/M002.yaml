@@ -88,23 +88,3 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"
-  - identity:
-      urn: "acc:coach-ops:M002-INTEGRATION-001-cli-dispatch-and-discovery"
-      id: "AC-INTEGRATION-001"
-      purpose: "`atdd coach dashboard` routes via coach.run_cli, scopes to the current run, and auto-discovers the coach's populated runtime"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A seeded runtime dir (runs/status.json + coach/<issue>/sessions) and an empty sibling worktree runtime"
-    when:
-      abstract: "run_dashboard([...]) is invoked and coach.run_cli(['dashboard']) is routed"
-    then:
-      abstract:
-        - "Default scope shows only the current run's workers; --all shows the roster"
-        - "_resolve_runtime_dir finds the populated sibling when cwd's runtime is empty"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-11"

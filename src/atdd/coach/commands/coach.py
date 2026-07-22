@@ -61,7 +61,6 @@ from atdd.coach.handlers.state_machine import (
     initialize_state_machine,
 )
 from atdd.coach.utils.escalation_channel import validate_escalation_channel_arg
-from atdd.coach.commands.spawn import ADAPTER_REGISTRY, PERSONAS
 
 __all__ = [
     "Phase",
@@ -79,7 +78,6 @@ __all__ = [
     "run",
     "run_cli",
     "run_status",
-    "run_review",
     "run_watch",
     "run_gc",
     "resolve_or_create_coach_surface",
@@ -94,10 +92,6 @@ __all__ = [
 # Re-export run_status so test imports from atdd.coach.commands.coach work.
 # The implementation lives in coach_status.py to satisfy J1 scope constraints.
 from atdd.coach.commands.coach_status import run_status  # noqa: E402
-
-# Re-export run_review so test imports from atdd.coach.commands.coach work.
-# The implementation lives in coach_review.py (#624).
-from atdd.coach.commands.coach_review import run_review  # noqa: E402
 
 # Re-export run_watch so test imports from atdd.coach.commands.coach work.
 # The implementation lives in coach_watch.py (#628).
@@ -836,35 +830,40 @@ def _read_current_github_phase(issue_number: int) -> Optional[Phase]:
     return None
 
 
-def _gh_remove_phase_labels(issue_number: int, labels: list) -> None:
-    """Remove labels from a GitHub issue via gh CLI."""
-    for label in labels:
-        try:
-            subprocess.run(
-                ["gh", "issue", "edit", str(issue_number), "--remove-label", label],
-                capture_output=True, text=True, check=False,
-            )
-        except Exception as exc:
-            _logger.warning("_gh_remove_phase_labels failed", extra={"issue": issue_number, "label": label, "error": str(exc)})
+def _swap_phase_label(issue_number: int, new_phase: Phase) -> int:
+    """Move the issue to *new_phase* through the authoritative writer (#1452).
 
+    This used to shell out to ``gh issue edit --remove-label/--add-label`` via a
+    pair of module-level shims. That made it the codebase's *second* independent
+    author of the ``atdd:<PHASE>`` label — the same defect as the deleted
+    post-merge-lifecycle step, in Python rather than YAML. It stamped a
+    projection while ``objects.state`` stood still, and it did so without the
+    phase machine, the train gate or the COMPLETE gates ever running.
 
-def _gh_add_label(issue_number: int, labels: list) -> None:
-    """Add labels to a GitHub issue via gh CLI."""
-    if not labels:
-        return
+    The coach state machine advancing its internal phase is not a licence to
+    author the external one. It goes through ``IssueManager.update``, which
+    writes the store first and renders the label from it, like every other
+    caller. Returns the update's exit code (0 on success) so a refused
+    transition is visible to the caller instead of being swallowed.
+
+    Enforced by ``coach.phase-label.projection-only``.
+    """
+    from atdd.coach.commands.issue import IssueManager
+
     try:
-        subprocess.run(
-            ["gh", "issue", "edit", str(issue_number), "--add-label", ",".join(labels)],
-            capture_output=True, text=True, check=False,
+        return IssueManager().update(
+            issue_id=str(issue_number), status=new_phase.value
         )
-    except Exception as exc:
-        _logger.warning("_gh_add_label failed", extra={"issue": issue_number, "labels": labels, "error": str(exc)})
-
-
-def _swap_phase_label(issue_number: int, new_phase: Phase) -> None:
-    """Remove all atdd:<phase> labels and add atdd:<new_phase> on the GitHub issue."""
-    _gh_remove_phase_labels(issue_number, list(_PHASE_LABELS_ALL))
-    _gh_add_label(issue_number, [f"atdd:{new_phase.value}"])
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        _logger.warning(
+            "_swap_phase_label failed",
+            extra={
+                "issue": issue_number,
+                "phase": new_phase.value,
+                "error": str(exc),
+            },
+        )
+        return 1
 
 
 def _write_escalation(escalation_channel: Optional[str], message: str) -> None:
@@ -1323,10 +1322,6 @@ def run(
 
 def main(argv: Optional[list[str]] = None) -> int:
     cfg = parse_cli(list(sys.argv[1:] if argv is None else argv))
-    if should_prompt_for_models(cfg):
-        known = sorted(ADAPTER_REGISTRY)
-        print("Select the LLM adapter for each persona:")
-        cfg.persona_llm = prompt_persona_models(PERSONAS, known)
     return run(
         issue_numbers=cfg.issue_numbers,
         max_retries=cfg.max_retries,
@@ -1362,11 +1357,6 @@ def run_cli(argv: list[str]) -> int:
     """
     if argv and argv[0] == "status":
         return run_status(argv[1:])
-    # Worker-grid sibling of `status`: one card per worker over the same reader.
-    if argv and argv[0] == "dashboard":
-        from atdd.coach.commands.coach_dashboard import run_dashboard
-
-        return run_dashboard(argv[1:])
     # #1017 — operator produces the approval token that the ApprovalTokenGateCheck
     # requires; `atdd coach approve <N> --transition PLANNED->RED`. Thin verb
     # dispatch; logic lives in the govern-lifecycle gate feature.
@@ -1374,22 +1364,10 @@ def run_cli(argv: list[str]) -> int:
         from atdd.coach.gate.approve_command import run as run_approve
 
         return run_approve(argv[1:])
-    if argv and argv[0] == "review":
-        return run_review(argv[1:])
     if argv and argv[0] == "watch":
         return run_watch(argv[1:])
     if argv and argv[0] == "gc":
         return run_gc(argv[1:])
-    # #998 — coach runtime: start the workspace-scoped feed_daemon and surface
-    # its escalations back to the session (closes the autonomous loop). The
-    # wait/cursor logic lives in the mediate-worker-decisions coach_runtime
-    # feature; this is a thin verb dispatch.
-    if argv and argv[0] in ("start", "wait", "next", "stop", "daemons"):
-        from atdd.mediate_worker_decisions.coach_runtime.src.presentation.coach_runtime_cli import (
-            run as run_coach_runtime,
-        )
-
-        return run_coach_runtime(argv)
     # #1304 — extracted `atdd issue` sub-verbs are auto-discovered drop-ins under
     # atdd.coach.commands.coach_verbs (one file per verb; zero shared edits, so
     # #1305/#1307/#1308 never merge-conflict on wiring). Resolve a non-numeric
@@ -1402,10 +1380,6 @@ def run_cli(argv: list[str]) -> int:
         if _verb_run is not None:
             return _verb_run(argv[1:])
     cfg = parse_cli(argv)
-    if should_prompt_for_models(cfg):
-        known = sorted(ADAPTER_REGISTRY)
-        print("Select the LLM adapter for each persona:")
-        cfg.persona_llm = prompt_persona_models(PERSONAS, known)
     return run(
         issue_numbers=cfg.issue_numbers,
         max_retries=cfg.max_retries,

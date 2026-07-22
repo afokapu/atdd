@@ -1,0 +1,20 @@
+train_id: 0204-detect-succession-loss
+title: 0204-detect-succession-loss
+description: 'A gating node is unbound and its core twin has been deleted: enforcement has actually vanished
+  and the guard must block.'
+themes:
+- commons
+sequence:
+- step: 1
+  intent: block the core-node deletion
+  from: wagon:verify-enforcement
+  to: wagon:guard-succession
+  artifact: commons:succession-coverage
+participants:
+- wagon:guard-succession
+- wagon:verify-enforcement
+status: planned
+category: alternate
+source_interlocking:
+  interlocking_id: interlocking:enforce-extension-conventions
+  route_id: succession-loss-blocked

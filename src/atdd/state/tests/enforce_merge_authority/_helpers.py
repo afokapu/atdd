@@ -20,11 +20,19 @@ anyway, and a fixture that failed canonicality would prove nothing.
 """
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
-from atdd.state.projection import PROJECTION_RELATIVE, canonical_bytes, object_digest
+from atdd.state.projection import object_digest
+
+from .._fixtures import checkout as _checkout
+from .._fixtures import (  # re-exported: the acceptances import these from this module
+    commit_all,
+    git,
+    head,
+    projection_dir,
+    write_projection,
+)
 
 #: Pinned identities, so a fixture's bytes never move between runs.
 UID_X = "wi_01HF7YAT00M78607F0000000X1"
@@ -34,33 +42,9 @@ UID_Y = "wi_01HF7YAT00M78607F0000000Y2"
 TOKEN_DIGEST = "sha256:" + "a1" * 32
 
 
-def git(repo: Path, *args: str) -> str:
-    """Run git in ``repo`` and return its stdout."""
-    result = subprocess.run(
-        ["git", *args], cwd=str(repo), capture_output=True, text=True, check=True, timeout=60,
-    )
-    return result.stdout.strip()
-
-
 def checkout(path: Path) -> Path:
     """A real git repo with a Control Root, a gitignored store, and one commit."""
-    path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["git", "init", "--quiet", "--initial-branch=main", str(path)],
-        check=True, capture_output=True, timeout=60,
-    )
-    git(path, "config", "user.email", "dev@example.invalid")
-    git(path, "config", "user.name", "Dev")
-    (path / ".atdd").mkdir(exist_ok=True)
-    (path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    (path / ".gitignore").write_text(
-        ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n", encoding="utf-8",
-    )
-    (path / ".atdd" / "state" / "projection").mkdir(parents=True, exist_ok=True)
-    (path / ".atdd" / "state" / "projection" / ".gitkeep").write_text("", encoding="utf-8")
-    git(path, "add", "-A")
-    git(path, "commit", "--quiet", "-m", "initial")
-    return path
+    return _checkout(path, seed_projection=True)
 
 
 def document(
@@ -81,23 +65,6 @@ def document(
     }
     doc.update(extra)
     return doc
-
-
-def projection_dir(repo: Path) -> Path:
-    return repo / PROJECTION_RELATIVE
-
-
-def write_projection(repo: Path, documents: Iterable[Mapping[str, Any]]) -> Path:
-    """Write ``documents`` as the repo's committed projection, in CANONICAL bytes.
-
-    Canonical by construction: the fixtures exist to show that canonicality is *not*
-    correctness, so a branch that failed canonicality would be arguing the wrong point.
-    """
-    out = projection_dir(repo)
-    out.mkdir(parents=True, exist_ok=True)
-    for doc in documents:
-        (out / f"{doc['uid']}.yaml").write_bytes(canonical_bytes(doc))
-    return out
 
 
 def digest_of(doc: Mapping[str, Any]) -> str:
@@ -129,17 +96,6 @@ def trailer_block(
 def message(subject: str, *blocks: str) -> str:
     """A commit message: a subject, a blank line, then the trailer group(s)."""
     return subject + "\n\n" + "\n\n".join(block for block in blocks if block) + "\n"
-
-
-def commit_all(repo: Path, msg: str) -> str:
-    """Stage everything and commit with ``msg``; return the new HEAD sha."""
-    git(repo, "add", "-A")
-    git(repo, "commit", "--quiet", "--allow-empty", "-m", msg)
-    return git(repo, "rev-parse", "HEAD")
-
-
-def head(repo: Path) -> str:
-    return git(repo, "rev-parse", "HEAD")
 
 
 def touch_test_file(repo: Path, name: str = "test_acceptance.py") -> Path:

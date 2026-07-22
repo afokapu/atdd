@@ -24,12 +24,13 @@ from typing import Dict, List, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 
 # Path constants
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 # Package resources (conventions, schemas)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
@@ -275,7 +276,7 @@ def find_python_files() -> list:
     Returns:
         List of Path objects
     """
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return []
 
     python_files = []

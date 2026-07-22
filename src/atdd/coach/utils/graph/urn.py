@@ -207,6 +207,17 @@ class URNGrammar:
         return bool(re.match(pattern, urn))
 
     @classmethod
+    def _alternate_segment_counts(cls, family: str) -> list:
+        """Extra admissible token counts for a family with a polymorphic parent.
+
+        Empty for every family that declares none — the exact-match segment-count
+        check is the norm; ``acc`` is the sole exception (spec §3.3 gives it a
+        wagon-parented AND a train-parented shape).
+        """
+        spec = cls._FAMILY_SPECS.get(family) or {}
+        return list(spec.get('alternate_segment_counts') or [])
+
+    @classmethod
     def validate_grammar(cls, urn: str) -> bool:
         """Validate a URN against the parent-it-belongs-to grammar (spec §3.2).
 
@@ -242,10 +253,16 @@ class URNGrammar:
         expected = cls.SEGMENT_COUNTS.get(prefix)
         if expected is not None:
             actual = len(urn.split(':')) - 1  # tokens AFTER the prefix
-            if actual != expected:
+            # A family whose PARENT is polymorphic has a polymorphic token count
+            # too (``acc``: wagon-parented = 2, train-parented = 4 — #1548). Such
+            # a family declares the extra counts in ``alternate_segment_counts``;
+            # every other family has none and keeps the exact-match check.
+            admissible = [expected, *cls._alternate_segment_counts(prefix)]
+            if actual not in admissible:
+                expected_txt = " or ".join(str(c) for c in admissible)
                 raise ValueError(
                     f"{prefix!r} URN has wrong segment count: expected "
-                    f"{expected} token{'s' if expected != 1 else ''} after "
+                    f"{expected_txt} token{'s' if admissible != [1] else ''} after "
                     f"'{prefix}:' per parent-it-belongs-to principle "
                     f"(spec §3.2), got {actual} in {urn!r}"
                 )
@@ -496,29 +513,8 @@ class URNGrammar:
 
         counters = state['counters']
         current_counter = counters.get(step_code)
-
         if current_counter is None:
-            existing = manifest.get('wmbt') or {}
-            if not isinstance(existing, dict):
-                existing = {}
-
-            wagon_slug = current_wagon or ""
-            wagon_token = wagon_slug.split('-')[0] if wagon_slug else ""
-            produce_entries = manifest.get('produce') or []
-            if produce_entries and wagon_token:
-                if all(wagon_slug not in str(entry) and wagon_token not in str(entry) for entry in produce_entries):
-                    existing = {}
-
-            pattern = re.compile(rf'^{step_code}(\d{{3}})$')
-            max_index = 0
-            for key in existing.keys():
-                if not isinstance(key, str):
-                    continue
-                match = pattern.match(key)
-                if match:
-                    max_index = max(max_index, int(match.group(1)))
-
-            current_counter = max_index
+            current_counter = cls._highest_wmbt_index(manifest, current_wagon, step_code)
 
         if current_counter >= 999:
             raise ValueError(f"No remaining ids for step {step}")
@@ -527,6 +523,46 @@ class URNGrammar:
         counters[step_code] = next_index
 
         return f"{step_code}{next_index:03d}"
+
+    @classmethod
+    def _highest_wmbt_index(cls, manifest: dict, current_wagon, step_code: str) -> int:
+        """The highest NNN already used for this step code in the manifest's wmbt block."""
+        existing = cls._wmbt_block_for_wagon(manifest, current_wagon)
+
+        pattern = re.compile(rf'^{step_code}(\d{{3}})$')
+        max_index = 0
+        for key in existing.keys():
+            if not isinstance(key, str):
+                continue
+            match = pattern.match(key)
+            if match:
+                max_index = max(max_index, int(match.group(1)))
+
+        return max_index
+
+    @staticmethod
+    def _wmbt_block_for_wagon(manifest: dict, current_wagon) -> dict:
+        """The manifest's wmbt block, empty when it clearly belongs to another wagon.
+
+        A manifest whose produce[] entries never mention this wagon (or its
+        leading token) is carrying someone else's wmbt block, so its ids must
+        not seed this wagon's counter.
+        """
+        existing = manifest.get('wmbt') or {}
+        if not isinstance(existing, dict):
+            return {}
+
+        wagon_slug = current_wagon or ""
+        wagon_token = wagon_slug.split('-')[0] if wagon_slug else ""
+        produce_entries = manifest.get('produce') or []
+        if produce_entries and wagon_token:
+            if all(
+                wagon_slug not in str(entry) and wagon_token not in str(entry)
+                for entry in produce_entries
+            ):
+                return {}
+
+        return existing
 
     @classmethod
     def _normalize_step(cls, step: str) -> str:
@@ -607,13 +643,26 @@ class URNGrammar:
             URNGrammar.acceptance("maintain-ux", "C004", "E2E", "019", "user-connection")
             -> "acc:maintain-ux:C004-E2E-019-user-connection"
         """
-        # Normalize wagon ID
         wagon_id = cls._normalize_id(wagon_id)
-
-        # Validate and normalize WMBT ID
         wmbt_id = cls._normalize_wmbt_id(wmbt_id)
+        harness_code = cls._validate_harness_code(harness_code)
+        seq_str = cls._normalize_sequence(seq)
 
-        # Validate harness code
+        urn = f"acc:{wagon_id}:{wmbt_id}-{harness_code}-{seq_str}"
+
+        # Add optional slug
+        if slug:
+            urn += f"-{cls._normalize_id(slug)}"
+
+        # Validate final URN
+        if not cls.validate_urn(urn, 'acc'):
+            raise ValueError(f"Generated invalid acceptance URN: {urn}")
+
+        return urn
+
+    @classmethod
+    def _validate_harness_code(cls, harness_code: str) -> str:
+        """Uppercase the harness code and check it against HARNESS_CODES."""
         harness_code = harness_code.upper()
         valid_harnesses = set(cls.HARNESS_CODES.values())
         if harness_code not in valid_harnesses:
@@ -621,36 +670,24 @@ class URNGrammar:
                 f"Invalid harness code: {harness_code}. "
                 f"Must be one of: {', '.join(sorted(valid_harnesses))}"
             )
+        return harness_code
 
-        # Normalize and pad sequence
+    @staticmethod
+    def _normalize_sequence(seq) -> str:
+        """A 1-999 sequence (int or string) as a zero-padded 3-digit string."""
         if isinstance(seq, int):
-            if seq <= 0 or seq > 999:
-                raise ValueError("Sequence must be between 1 and 999")
-            seq_str = f"{seq:03d}"
+            seq_int = seq
         elif isinstance(seq, str):
             seq_clean = seq.strip()
             if not re.match(r'^\d{1,3}$', seq_clean):
                 raise ValueError("Sequence must be 1-3 digit number")
             seq_int = int(seq_clean)
-            if seq_int <= 0 or seq_int > 999:
-                raise ValueError("Sequence must be between 1 and 999")
-            seq_str = f"{seq_int:03d}"
         else:
             raise TypeError("Sequence must be int or string")
 
-        # Build URN
-        urn = f"acc:{wagon_id}:{wmbt_id}-{harness_code}-{seq_str}"
-
-        # Add optional slug
-        if slug:
-            slug_normalized = cls._normalize_id(slug)
-            urn += f"-{slug_normalized}"
-
-        # Validate final URN
-        if not cls.validate_urn(urn, 'acc'):
-            raise ValueError(f"Generated invalid acceptance URN: {urn}")
-
-        return urn
+        if seq_int <= 0 or seq_int > 999:
+            raise ValueError("Sequence must be between 1 and 999")
+        return f"{seq_int:03d}"
 
     # Valid layers for component URNs
     COMPONENT_LAYERS = [
@@ -694,7 +731,25 @@ class URNGrammar:
         wagon_id = cls._normalize_id(wagon_id)
         feature_id = cls._normalize_id(feature_id)
 
-        # Validate formats
+        cls._validate_component_parts(wagon_id, feature_id, component_name, side, layer)
+
+        urn = f"component:{wagon_id}:{feature_id}:{component_name}:{side}:{layer}"
+
+        if not cls.validate_urn(urn, 'component'):
+            raise ValueError(f"Generated invalid component URN: {urn}")
+
+        return urn
+
+    @classmethod
+    def _validate_component_parts(
+        cls,
+        wagon_id: str,
+        feature_id: str,
+        component_name: str,
+        side: str,
+        layer: str,
+    ) -> None:
+        """Every coordinate of a component URN, checked against the grammar."""
         if not re.match(r'^[a-z][a-z0-9-]*$', wagon_id):
             raise ValueError(f"Invalid wagon ID for component: {wagon_id}")
         if not re.match(r'^[a-z][a-z0-9-]*$', feature_id):
@@ -710,20 +765,17 @@ class URNGrammar:
         if wagon_id == 'trains' and layer != 'assembly':
             raise ValueError(f"Train infrastructure components must use 'assembly' layer, got: {layer}")
 
-        urn = f"component:{wagon_id}:{feature_id}:{component_name}:{side}:{layer}"
-
-        if not cls.validate_urn(urn, 'component'):
-            raise ValueError(f"Generated invalid component URN: {urn}")
-
-        return urn
-
     @classmethod
-    def plan(cls,
-             wagon_id: str,
-             feature_id: Optional[str] = None,
-             component_name: Optional[str] = None,
-             side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
-             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'assembly']] = None) -> str:
+    def plan(
+        cls,
+        wagon_id: str,
+        feature_id: Optional[str] = None,
+        component_name: Optional[str] = None,
+        side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
+        layer: Optional[
+            Literal['presentation', 'application', 'domain', 'integration', 'assembly']
+        ] = None,
+    ) -> str:
         """
         Build a plan URN.
 
@@ -744,8 +796,10 @@ class URNGrammar:
             URNGrammar.plan("user-mgmt", feature_id="auth")
             -> "plan:user-mgmt.auth"
 
-            URNGrammar.plan("user-mgmt", feature_id="auth",
-                          component_name="LoginForm", side="fe", layer="presentation")
+            URNGrammar.plan(
+                "user-mgmt", feature_id="auth",
+                component_name="LoginForm", side="fe", layer="presentation",
+            )
             -> "plan:user-mgmt.auth.LoginForm.fe.presentation"
         """
         # Normalize IDs
@@ -861,13 +915,17 @@ class URNGrammar:
         return urn
 
     @classmethod
-    def test(cls,
-             wagon_id: str,
-             test_case: str,
-             feature_id: Optional[str] = None,
-             component_name: Optional[str] = None,
-             side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
-             layer: Optional[Literal['presentation', 'application', 'domain', 'integration', 'assembly']] = None) -> str:
+    def test(
+        cls,
+        wagon_id: str,
+        test_case: str,
+        feature_id: Optional[str] = None,
+        component_name: Optional[str] = None,
+        side: Optional[Literal['frontend', 'backend', 'fe', 'be']] = None,
+        layer: Optional[
+            Literal['presentation', 'application', 'domain', 'integration', 'assembly']
+        ] = None,
+    ) -> str:
         """
         Build a test URN.
 
@@ -889,8 +947,10 @@ class URNGrammar:
             URNGrammar.test("user-mgmt", "tc-login", feature_id="auth")
             -> "test:user-mgmt.auth.tc-login"
 
-            URNGrammar.test("user-mgmt", "tc-render", feature_id="auth",
-                          component_name="LoginForm", side="fe", layer="presentation")
+            URNGrammar.test(
+                "user-mgmt", "tc-render", feature_id="auth",
+                component_name="LoginForm", side="fe", layer="presentation",
+            )
             -> "test:user-mgmt.auth.LoginForm.fe.presentation.tc-render"
         """
         # Normalize IDs
@@ -917,13 +977,15 @@ class URNGrammar:
         return urn
 
     @classmethod
-    def test_acceptance(cls,
-                        wagon_id: str,
-                        feature_id: str,
-                        wmbt_id: str,
-                        harness: str,
-                        seq: str,
-                        slug: str) -> str:
+    def test_acceptance(
+        cls,
+        wagon_id: str,
+        feature_id: str,
+        wmbt_id: str,
+        harness: str,
+        seq: str,
+        slug: str,
+    ) -> str:
         """
         Build a V3 acceptance test URN.
 
@@ -939,8 +1001,10 @@ class URNGrammar:
             URN in format: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
 
         Example:
-            URNGrammar.test_acceptance("authenticate-identity", "verify-session",
-                                       "M002", "UNIT", "003", "trace-spans-created")
+            URNGrammar.test_acceptance(
+                "authenticate-identity", "verify-session",
+                "M002", "UNIT", "003", "trace-spans-created",
+            )
             -> "test:authenticate-identity:verify-session:M002-UNIT-003-trace-spans-created"
         """
         wagon_id = cls._normalize_id(wagon_id)
@@ -1054,7 +1118,11 @@ class URNGrammar:
             if prefix == 'test':
                 return cls._parse_test(urn)
 
-        # Generic, segment-driven parse for every colon-only family.
+        return cls._parse_by_segments(urn, prefix, spec)
+
+    @classmethod
+    def _parse_by_segments(cls, urn: str, prefix: str, spec: Optional[dict]) -> dict:
+        """Generic, segment-driven parse for every colon-only family."""
         segments = (spec or {}).get('segments')
         if not spec or not segments:
             raise ValueError(f"Unknown URN type: {urn}")
@@ -1076,12 +1144,35 @@ class URNGrammar:
 
     @classmethod
     def _parse_acc(cls, urn: str) -> dict:
-        """Custom parser for ``acc:<wagon>:<wmbt_id>-<harness>-<seq>[-<slug>]``."""
-        main_part = urn.replace('acc:', '')
+        """Custom parser for the two ``acc`` shapes (spec §3.3).
+
+        Train-parented — ``acc:train:<subject>:<slug>:<acceptance-slug>`` (#1548)
+        — is detected first: it is the only shape whose parent is itself a typed,
+        multi-token identity, so it is reassembled as a whole ``train_id`` rather
+        than split across positional fields.
+
+        Wagon-parented — ``acc:<wagon>:<wmbt_id>-<harness>-<seq>[-<slug>]`` — is
+        the original shape and parses exactly as before.
+        """
+        main_part = urn[len('acc:'):]
+
+        if main_part.startswith('train:'):
+            tokens = main_part.split(':')
+            # train, <subject>, <slug>, <acceptance-slug>
+            if len(tokens) == 4:
+                return {
+                    'type': 'acceptance',
+                    'parent_kind': 'train',
+                    'train_id': ':'.join(tokens[:3]),
+                    'subject': tokens[1],
+                    'slug': tokens[3],
+                }
+
         parts = main_part.split(':')
         # Format: wagon_id:wmbt_id-harness-seq[-slug]
         result = {
             'type': 'acceptance',
+            'parent_kind': 'wagon',
             'wagon_id': parts[0] if len(parts) > 0 else None,
         }
 
@@ -1108,50 +1199,66 @@ class URNGrammar:
 
         # V3 journey format: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
         if main_part.startswith('train:'):
-            train_part = main_part[6:]  # strip 'train:'
-            colon_idx = train_part.find(':')
-            if colon_idx > 0:
-                train_id = train_part[:colon_idx]
-                tail = train_part[colon_idx + 1:]
-                # Parse: {HARNESS}-{NNN}-{slug}
-                segments = tail.split('-', 2)
-                return {
-                    'type': 'test',
-                    'format': 'journey',
-                    'train_id': train_id,
-                    'harness': segments[0] if len(segments) > 0 else None,
-                    'sequence': segments[1] if len(segments) > 1 else None,
-                    'slug': segments[2] if len(segments) > 2 else None,
-                }
-            return {'type': 'test', 'format': 'journey', 'train_id': train_part}
+            return cls._parse_test_journey(main_part[6:])  # strip 'train:'
 
         # V3 acceptance format: test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}
-        colon_parts = main_part.split(':')
-        if len(colon_parts) == 3:
-            wagon_id, feature_id, tail = colon_parts
-            # Parse tail: {WMBT_ID}-{HARNESS}-{NNN}-{slug}
-            # First 3 dash-segments = WMBT_ID, HARNESS, NNN; rest = slug
-            segments = tail.split('-', 3)
-            if len(segments) >= 3 and re.match(r'^[A-Z]\d{3}$', segments[0]):
-                return {
-                    'type': 'test',
-                    'format': 'acceptance',
-                    'wagon_id': wagon_id,
-                    'feature_id': feature_id,
-                    'wmbt_id': segments[0],
-                    'harness': segments[1],
-                    'sequence': segments[2],
-                    'slug': segments[3] if len(segments) > 3 else None,
-                }
+        acceptance = cls._parse_test_acceptance(main_part)
+        if acceptance:
+            return acceptance
 
-        # Legacy dot format: test:wagon.feature.tc-name
+        return cls._parse_test_legacy(main_part)
+
+    @staticmethod
+    def _parse_test_journey(train_part: str) -> dict:
+        """``test:train:{train_id}:{HARNESS}-{NNN}-{slug}``."""
+        colon_idx = train_part.find(':')
+        if colon_idx <= 0:
+            return {'type': 'test', 'format': 'journey', 'train_id': train_part}
+
+        # Parse the tail: {HARNESS}-{NNN}-{slug}
+        segments = train_part[colon_idx + 1:].split('-', 2)
+        return {
+            'type': 'test',
+            'format': 'journey',
+            'train_id': train_part[:colon_idx],
+            'harness': segments[0] if len(segments) > 0 else None,
+            'sequence': segments[1] if len(segments) > 1 else None,
+            'slug': segments[2] if len(segments) > 2 else None,
+        }
+
+    @staticmethod
+    def _parse_test_acceptance(main_part: str) -> Optional[dict]:
+        """``test:{wagon}:{feature}:{WMBT_ID}-{HARNESS}-{NNN}-{slug}``. None if not one."""
+        colon_parts = main_part.split(':')
+        if len(colon_parts) != 3:
+            return None
+
+        wagon_id, feature_id, tail = colon_parts
+        # First 3 dash-segments = WMBT_ID, HARNESS, NNN; the rest is the slug
+        segments = tail.split('-', 3)
+        if len(segments) < 3 or not re.match(r'^[A-Z]\d{3}$', segments[0]):
+            return None
+
+        return {
+            'type': 'test',
+            'format': 'acceptance',
+            'wagon_id': wagon_id,
+            'feature_id': feature_id,
+            'wmbt_id': segments[0],
+            'harness': segments[1],
+            'sequence': segments[2],
+            'slug': segments[3] if len(segments) > 3 else None,
+        }
+
+    @staticmethod
+    def _parse_test_legacy(main_part: str) -> dict:
+        """Legacy dot format: ``test:wagon.feature.tc-name``."""
         parts = main_part.split('.')
-        test_case = parts[-1] if parts else None
         result = {
             'type': 'test',
             'format': 'legacy',
             'wagon_id': parts[0] if len(parts) > 0 else None,
-            'test_case': test_case
+            'test_case': parts[-1] if parts else None,
         }
         if len(parts) > 2:
             result['feature_id'] = parts[1]
@@ -1177,10 +1284,9 @@ class URNGrammar:
         return normalized
 
 
-def main() -> int:
-    """CLI interface for URN generation."""
+def _build_arg_parser():
+    """The URN generator's CLI surface."""
     import argparse
-    import json
 
     parser = argparse.ArgumentParser(description='Generate URNs for ATDD entities')
     subparsers = parser.add_subparsers(dest='entity', help='Entity type')
@@ -1215,48 +1321,60 @@ def main() -> int:
     validate_parser.add_argument('urn', help='URN to validate')
     validate_parser.add_argument('entity_type', choices=['wagon', 'feature', 'wmbt', 'acceptance', 'component'], help='Expected entity type')
 
+    return parser
+
+
+def _run_urn_command(args) -> int:
+    """Run one URN subcommand. Returns the process exit code."""
+    import json
+
+    if args.entity == 'wagon':
+        print(URNGrammar.wagon(args.wagon_id))
+    elif args.entity == 'feature':
+        print(URNGrammar.feature(args.wagon_id, args.feature_id))
+    elif args.entity == 'wmbt':
+        print(URNGrammar.wmbt(args.wagon_id, args.sequence))
+    elif args.entity == 'acceptance':
+        print(URNGrammar.acceptance(args.wagon_id, args.wmbt_sequence, args.acceptance_id))
+    elif args.entity == 'component':
+        print(URNGrammar.component(
+            args.wagon_id, args.feature_id, args.component_name, args.side, args.layer
+        ))
+    elif args.entity == 'parse':
+        print(json.dumps(URNGrammar.parse_urn(args.urn), indent=2))
+    elif args.entity == 'validate':
+        return _print_validation(args.urn, args.entity_type)
+    else:
+        print(f"Unsupported entity: {args.entity}")
+        return 1
+
+    return 0
+
+
+def _print_validation(urn: str, entity_type: str) -> int:
+    """Report whether a URN is valid for its entity type."""
+    if URNGrammar.validate_urn(urn, entity_type):
+        print(f"✓ Valid {entity_type} URN")
+        return 0
+
+    print(f"✗ Invalid {entity_type} URN")
+    return 1
+
+
+def main() -> int:
+    """CLI interface for URN generation."""
+    parser = _build_arg_parser()
     args = parser.parse_args()
 
     if not args.entity:
         parser.print_help()
         return 1
 
-    exit_code = 0
-
     try:
-        if args.entity == 'wagon':
-            urn = URNGrammar.wagon(args.wagon_id)
-            print(urn)
-        elif args.entity == 'feature':
-            urn = URNGrammar.feature(args.wagon_id, args.feature_id)
-            print(urn)
-        elif args.entity == 'wmbt':
-            urn = URNGrammar.wmbt(args.wagon_id, args.sequence)
-            print(urn)
-        elif args.entity == 'acceptance':
-            urn = URNGrammar.acceptance(args.wagon_id, args.wmbt_sequence, args.acceptance_id)
-            print(urn)
-        elif args.entity == 'component':
-            urn = URNGrammar.component(args.wagon_id, args.feature_id, args.component_name, args.side, args.layer)
-            print(urn)
-        elif args.entity == 'parse':
-            result = URNGrammar.parse_urn(args.urn)
-            print(json.dumps(result, indent=2))
-        elif args.entity == 'validate':
-            is_valid = URNGrammar.validate_urn(args.urn, args.entity_type)
-            if is_valid:
-                print(f"✓ Valid {args.entity_type} URN")
-            else:
-                print(f"✗ Invalid {args.entity_type} URN")
-                exit_code = 1
-        else:
-            print(f"Unsupported entity: {args.entity}")
-            return 1
+        return _run_urn_command(args)
     except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-
-    return exit_code
 
 
 if __name__ == '__main__':

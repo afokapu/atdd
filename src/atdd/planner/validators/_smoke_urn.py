@@ -20,6 +20,7 @@ Run: ``atdd validate planner``
 """
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -28,6 +29,8 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
+
+_log = logging.getLogger(__name__)
 from atdd.coach.validators._violation import Violation
 
 
@@ -60,14 +63,24 @@ def iter_wmbt_files(plan_dir: Path) -> List[Tuple[Path, Dict[str, Any]]]:
         for yaml_file in sorted(wagon_dir.glob("*.yaml")):
             if not _WMBT_FILENAME_RE.match(yaml_file.name):
                 continue
-            try:
-                with open(yaml_file) as fh:
-                    data = yaml.safe_load(fh) or {}
-            except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-                continue
-            if isinstance(data, dict):
+            data = _read_wmbt(yaml_file)
+            if data is not None:
                 out.append((yaml_file, data))
     return out
+
+
+def _read_wmbt(yaml_file: Path) -> Optional[Dict[str, Any]]:
+    """The WMBT mapping at ``yaml_file``; None when unreadable or not a mapping."""
+    try:
+        with open(yaml_file) as fh:
+            data = yaml.safe_load(fh) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        _log.debug(
+            "smoke-urn scan skipped an unreadable WMBT",
+            extra={"path": str(yaml_file), "error": str(exc).splitlines()[0][:120]},
+        )
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def extract_acceptance_urns(wmbt_data: Dict[str, Any]) -> List[str]:
@@ -98,13 +111,22 @@ def _find_urn_lineno(yaml_path: Path) -> int:
     """
     try:
         with open(yaml_path) as fh:
-            for idx, line in enumerate(fh, start=1):
-                stripped = line.lstrip()
-                if stripped.startswith("urn:"):
-                    return idx
-    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-        pass
-    return 1
+            found = _urn_lineno_in(fh)
+    except OSError as exc:
+        _log.debug(
+            "urn: line scan skipped (unreadable WMBT)",
+            extra={"path": str(yaml_path), "error": str(exc).splitlines()[0][:120]},
+        )
+        return 1
+    return found or 1
+
+
+def _urn_lineno_in(fh) -> Optional[int]:
+    """The 1-based line number of the ``urn:`` field in an open WMBT file."""
+    for idx, line in enumerate(fh, start=1):
+        if line.lstrip().startswith("urn:"):
+            return idx
+    return None
 
 
 def evaluate_wmbt_smoke_coverage(

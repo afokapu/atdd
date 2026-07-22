@@ -1,4 +1,7 @@
-urn: "wmbt:spawn-agents:E026"
+urn: "wmbt:spawn-agents:E026"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=2026-11-14
+# #1486: E026-SMOKE-001 'real-rendered-prompt-contains-graph-section' rendered the launch
+# prompt via `commands/spawn.py`. The launch-prompt renderer left core with spawn; the
+# surviving unit acceptance (template carries the slot) remains bound to a live test.
 step: "execute"
 direction: "minimize"
 dimension: "likelihood"
@@ -51,72 +54,3 @@ acceptances:
       author: "atdd:planner"
       created: "2026-05-27"
 
-  - identity:
-      urn: "acc:spawn-agents:E026-UNIT-002-render-launch-prompt-injects-graph-section"
-      id: "AC-UNIT-002"
-      purpose: "_render_launch_prompt injects the wagon-scoped graph output between the issue body section and the persona instructions section of the rendered prompt"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A minimal fake issue object with wagon='spawn-agents'"
-        - "`atdd repo graph --wagon spawn-agents --format launch-prompt` is monkeypatched to return a known fixture string (e.g. '## Wagon: spawn-agents\\n...fixture...')"
-        - "_render_launch_prompt is called with the fake issue"
-    when:
-      abstract: "The rendered prompt string is captured"
-    then:
-      abstract:
-        - "The rendered prompt contains the fixture graph string"
-        - "The fixture graph string appears AFTER the issue body section and BEFORE the persona instructions section"
-        - "The graph section is bounded by recognizable headers (e.g. '## Wagon Architecture')"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-27"
-
-  - identity:
-      urn: "acc:spawn-agents:E026-UNIT-003-render-launch-prompt-omits-graph-on-command-failure"
-      id: "AC-UNIT-003"
-      purpose: "When `atdd repo graph --wagon <wagon> --format launch-prompt` fails (non-zero exit), _render_launch_prompt emits a warning and continues rendering without the graph section, rather than raising or blocking the dispatch"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A minimal fake issue object with an unknown wagon ID"
-        - "`atdd repo graph` subprocess call is monkeypatched to return exit code 1"
-    when:
-      abstract: "_render_launch_prompt is called with the fake issue"
-    then:
-      abstract:
-        - "No exception is raised"
-        - "The returned prompt is a non-empty string"
-        - "The returned prompt does NOT contain a Python traceback"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-27"
-
-  - identity:
-      urn: "acc:spawn-agents:E026-SMOKE-001-real-rendered-prompt-contains-graph-section"
-      id: "AC-SMOKE-001"
-      purpose: "SMOKE: rendering a launch prompt for a real issue whose wagon is spawn-agents produces a prompt containing the wagon-graph section (non-empty, well-formed markdown)"
-      phase: "SMOKE"
-    harness:
-      type: "smoke"
-      category: "backend"
-    given:
-      abstract:
-        - "The atdd CLI is installed and atdd repo graph --wagon spawn-agents --format launch-prompt works (E025-SMOKE-001 passed)"
-        - "A real or representative issue object with wagon='spawn-agents' is available"
-    when:
-      abstract: "_render_launch_prompt (or `atdd spawn --dry-run`) is invoked for the issue"
-    then:
-      abstract:
-        - "The output contains a wagon-graph section (e.g. '## Wagon Architecture' or 'spawn-agents')"
-        - "The wagon-graph section is non-empty"
-        - "The wagon-graph section is positioned between the issue body and the persona instructions in the output"
-    metadata:
-      author: "atdd:planner"
-      created: "2026-05-27"

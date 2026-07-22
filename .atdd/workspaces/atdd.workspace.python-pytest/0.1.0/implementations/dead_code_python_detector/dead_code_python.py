@@ -156,23 +156,36 @@ def extract_imports_ast(file_path: Path, *, root: Path) -> list[str]:
 
 
 def resolve_module_to_file(module_path: str, all_files: set[Path], *, root: Path) -> set[Path]:
-    """Resolve a dotted module path to file candidates under ``root``."""
+    """Resolve a dotted module path to file candidates under ``root``.
+
+    An absolute import is anchored at the IMPORT root (the ``sys.path`` entry, e.g.
+    ``src/``), but ``root`` here is a SCAN root and is commonly the package directory
+    itself (e.g. ``src/atdd``). In that case the package's own name leads the dotted
+    path — ``atdd.state.projection`` lives at ``<root>/state/projection.py``, not
+    ``<root>/atdd/state/projection.py`` — so the leading segment must be dropped.
+    Both anchors are tried; relative imports already arrive root-anchored.
+    """
     parts = module_path.split(".")
+    anchors = [parts]
+    if len(parts) > 1 and parts[0] == root.name:
+        anchors.append(parts[1:])
+
     candidates: set[Path] = set()
-    file_candidate = root / "/".join(parts)
+    for anchor in anchors:
+        file_candidate = root / "/".join(anchor)
 
-    py_candidate = file_candidate.with_suffix(".py")
-    if py_candidate in all_files:
-        candidates.add(py_candidate)
+        py_candidate = file_candidate.with_suffix(".py")
+        if py_candidate in all_files:
+            candidates.add(py_candidate)
 
-    init_candidate = file_candidate / "__init__.py"
-    if init_candidate in all_files:
-        candidates.add(init_candidate)
+        init_candidate = file_candidate / "__init__.py"
+        if init_candidate in all_files:
+            candidates.add(init_candidate)
 
-    if file_candidate.is_dir():
-        init_file = file_candidate / "__init__.py"
-        if init_file in all_files:
-            candidates.add(init_file)
+        if file_candidate.is_dir():
+            init_file = file_candidate / "__init__.py"
+            if init_file in all_files:
+                candidates.add(init_file)
     return candidates
 
 

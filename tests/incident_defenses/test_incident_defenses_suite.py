@@ -15,7 +15,6 @@ Coverage map (one assertion home per defense; see §9 table):
 | I-3     | train (event-id / runtime baseline)        | this file::test_i3_*                   |
 | I-4     | runtime spawn (cmux >=0.64.7 avoidance)    | this file::test_i4_*                   |
 | I-5     | coach.core.next_transition (Persona)       | this file::test_i5_* (+ test_core_pure)|
-| I-6     | observer (singleton enforced)              | this file::test_i6_* (atdd.observer)   |
 | I-7     | train.issue_runner (no-progress TTL)       | this file::test_i7_*                   |
 | I-8     | train.issue_runner (decision-before-action)| this file::test_i8_*                   |
 | I-9     | runtime.worktree (core.bare=false)         | test_worktree_safety::test_sets_per_worktree_core_bare  |
@@ -25,7 +24,7 @@ Coverage map (one assertion home per defense; see §9 table):
 | I-13    | .atdd/hooks/pre-push (core.bare block)     | this file::test_i13_*                  |
 
 I-1/I-2/I-9 keep their canonical home in ``test_worktree_safety.py``; this
-module pins the remaining ten so the suite is complete and each defense has a
+module pins the remaining nine so the suite is complete and each defense has a
 named, executable test that exercises its owning layer's real behavior.
 """
 from __future__ import annotations
@@ -86,25 +85,11 @@ def test_i3_post_baseline_done_json_does_emit(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# I-4 — cmux broken-pipe avoidance on >=0.64.7
-#       The deprecated new-workspace / new-pane RPCs (which fail with
-#       "Broken pipe (errno 32)") are refused before they reach cmux.
+# I-4 — RETIRED in #1486. This defense pinned `commands.spawn._create_surface`
+#       refusing the deprecated cmux new-workspace / new-pane RPCs. Spawning
+#       sub-workers is orchestration and left core, so there is no longer a
+#       surface-creation path here to defend.
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize("deprecated_mode", ["workspace", "pane"])
-def test_i4_deprecated_multiplexer_mode_refused(deprecated_mode, tmp_path):
-    from atdd.coach.commands.spawn import (
-        DeprecatedMultiplexerModeError,
-        _create_surface,
-    )
-
-    with pytest.raises(DeprecatedMultiplexerModeError):
-        _create_surface(
-            object(),  # multiplexer never reached — raises before use
-            worktree=tmp_path,
-            command="claude",
-            name="agent-1",
-            mode=deprecated_mode,
-        )
 
 
 # --------------------------------------------------------------------------- #
@@ -157,25 +142,10 @@ def test_i5_persona_matches_phase_machine_agent():
         )
 
 
-# --------------------------------------------------------------------------- #
-# I-6 — Single observer lifecycle (atdd.observer singleton)
-#       Two observers can never disagree about / race on the surfaced stream.
-# --------------------------------------------------------------------------- #
-def test_i6_observer_session_is_singleton(tmp_path):
-    from atdd.observer import ObserverAlreadyRunningError, ObserverSession
-
-    ObserverSession._active = None
-    try:
-        first = ObserverSession(tmp_path).start()
-        with pytest.raises(ObserverAlreadyRunningError):
-            ObserverSession(tmp_path).start()
-        first.stop()
-        # slot released → a fresh session may start
-        ObserverSession(tmp_path).start().stop()
-    finally:
-        ObserverSession._active = None
-
-
+# I-6 — Single observer lifecycle — RETIRED (#1521). The defense guarded the
+# ``atdd.observer`` singleton; the observer was coach sub-worker orchestration
+# and has left core, so there is no longer a stream two consumers could race on.
+#
 # --------------------------------------------------------------------------- #
 # I-7 — No-progress TTL escalation (train.issue_runner helper)
 # --------------------------------------------------------------------------- #
@@ -277,26 +247,19 @@ def test_i8_decision_durable_even_if_body_raises(tmp_path):
 #        runtime.agent_control threads env_overrides (e.g. PATH=.atdd/bin:...)
 #        into the worker dispatch command. The git PATH-shim itself ships in
 #        #884; here we pin the runtime mechanism that delivers it.
+#
+#        #1486: the *delivery* half of this defense asserted on
+#        `commands.spawn._prepend_env_prefix`, which rendered env_overrides as a
+#        shell KEY=value prefix at spawn time. Spawning left core, so that
+#        assertion is retired. DispatchSpec still carries env_overrides as a
+#        typed field (§4.8) and that contract is still pinned here.
 # --------------------------------------------------------------------------- #
 def test_i10_env_overrides_threaded_into_dispatch(tmp_path):
-    from atdd.coach.commands.spawn import _prepend_env_prefix
     from atdd.runtime.agent_control import DispatchSpec
 
     shimmed_path = f"{tmp_path / '.atdd' / 'bin'}{os.pathsep}/usr/bin"
-    # #979: the legacy shim --env delivery was removed; the sole cmux-native
-    # launch plane threads DispatchSpec.env_overrides into the surface command
-    # as a shell KEY=value prefix (_prepend_env_prefix), so the git PATH shim
-    # still reaches the worker process.
-    cmd = _prepend_env_prefix(
-        "claude --permission-mode default",
-        {"PATH": shimmed_path},
-    )
-    assert cmd.startswith("PATH="), (
-        "DispatchSpec.env_overrides must reach the worker as a shell prefix (I-10)"
-    )
-    assert ".atdd/bin" in cmd, "the shimmed PATH (.atdd/bin first) must be delivered (I-10)"
 
-    # And DispatchSpec carries env_overrides as a typed field (§4.8).
+    # DispatchSpec carries env_overrides as a typed field (§4.8).
     spec = DispatchSpec(
         agent_id="agent-1",
         persona="coder",

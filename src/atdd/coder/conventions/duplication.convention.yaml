@@ -49,40 +49,11 @@ duplication:
         - "**/validators/**"
         - "**/templates/**"
 
-    # ------------------------------------------------------------------
-    # SPEC-CODER-DUP-0002: TypeScript intra-layer structural duplication
-    # ------------------------------------------------------------------
-    intra_layer_duplication_typescript:
-      id: "coder.duplication.no-structurally-identical-typescript"
-      aliases: ["SPEC-CODER-DUP-0002"]
-      disposition: documentation-only
-      description: "No structurally identical TypeScript fragments within the same architectural layer"
-      severity: warning
-      language: typescript
-      detection: regex
-
-      # Minimum number of non-trivial normalized lines in a fragment
-      min_fragment_lines: 7
-
-      # Layers to check
-      layers:
-        - domain
-        - application
-        - presentation
-        - integration
-
-      # Directories to scan
-      scan_dirs:
-        - "web/src/"
-
-      exclusions:
-        - "**/*.test.ts"
-        - "**/*.test.tsx"
-        - "**/*.spec.ts"
-        - "**/*.spec.tsx"
-        - "**/*.d.ts"
-        - "**/node_modules/**"
-        - "**/index.ts"
+    # SPEC-CODER-DUP-0002 (TypeScript intra-layer structural duplication) was
+    # removed in #1518. Core is stack-agnostic; the obligation is owned by
+    # `coder.duplication.no-intra-layer-code-typescript` in `atdd.extension.coder`
+    # (disposition: strict), which is a stronger enforcement than the
+    # documentation-only declaration that stood here.
 
 # =============================================================================
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
@@ -94,11 +65,4 @@ rules:
     severity: 2
     disposition: strict
     description: "No intra-layer code duplication in Python sources beyond the configured threshold"
-    introduced_in: "1.67.0"
-  - id: "coder.duplication.no-intra-layer-code-typescript"
-    validator: "test_duplication_detector_typescript::test_no_intra_layer_duplication_typescript"
-    aliases: ["DUPLICATION-TS-001"]
-    severity: 2
-    disposition: strict
-    description: "No intra-layer code duplication in TypeScript sources beyond the configured threshold"
     introduced_in: "1.67.0"

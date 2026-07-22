@@ -1,0 +1,20 @@
+train_id: 0206-decommission-orphan-detector
+title: 0206-decommission-orphan-detector
+description: 'An implementation is bound to a convention_id no node declares: a mechanism enforcing an
+  obligation nobody wrote down.'
+themes:
+- commons
+sequence:
+- step: 1
+  intent: report the mechanism with no obligation
+  from: wagon:govern-providers
+  to: wagon:bind-extension-conventions
+  artifact: commons:provider-capability
+participants:
+- wagon:bind-extension-conventions
+- wagon:govern-providers
+status: planned
+category: alternate
+source_interlocking:
+  interlocking_id: interlocking:enforce-extension-conventions
+  route_id: orphan-detector-decommissioned
