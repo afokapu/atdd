@@ -2,9 +2,12 @@
 # Source of truth: docs/coach-decomposition.md §9, §13.10 (umbrella #887)
 """Consolidated incident-defense suite — Coach Decomposition §9 / §13.10 (#897).
 
-The closing child (Child 10) requires that **all 13 incident defenses
-(I-1 … I-13) have explicit tests in ``tests/incident_defenses/``**
-(docs/coach-decomposition.md §13.10 acceptance, umbrella #887).
+The closing child (Child 10) requires that the incident defenses have
+explicit tests in ``tests/incident_defenses/`` (docs/coach-decomposition.md
+§13.10 acceptance, umbrella #887). I-12 (issue advancement before partial-PR
+merge) was retired with the train issue-runner / two-phase-commit merge
+orchestration when sub-worker orchestration left core (#1483); the invariant is
+now owned by whichever provider drives merge, not core.
 
 Coverage map (one assertion home per defense; see §9 table):
 
@@ -20,7 +23,6 @@ Coverage map (one assertion home per defense; see §9 table):
 | I-9     | runtime.worktree (core.bare=false)         | test_worktree_safety::test_sets_per_worktree_core_bare  |
 | I-10    | RETIRED by #1480 (runtime.agent_control pruned from core)                            |
 | I-11    | coach.commands.emergency (5-min TTL)       | this file::test_i11_*                  |
-| I-12    | train.issue_runner (advance before merge)  | this file::test_i12_*                  |
 | I-13    | .atdd/hooks/pre-push (core.bare block)     | this file::test_i13_*                  |
 
 I-1/I-2/I-9 keep their canonical home in ``test_worktree_safety.py``; this
@@ -275,49 +277,6 @@ def test_i11_emergency_bypass_writes_audit_and_bypass(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# I-12 — Issue advancement BEFORE partial-PR merge
-#        The two-phase-commit handler only ever attempts a merge once the issue
-#        has reached COMPLETE; any earlier source phase is a NOOP. This pins the
-#        ordering invariant that prevents the post-merge stale-CI race.
-# --------------------------------------------------------------------------- #
-def test_i12_merge_only_fires_from_complete(monkeypatch):
-    from atdd.coach.handlers import two_phase_commit as tpc
-    from atdd.coach.handlers.state_machine import (
-        CoachContext, HandlerResult, Phase, Transition,
-    )
-
-    merge_calls: list[str] = []
-    monkeypatch.setattr(tpc, "_create_pr", lambda n: (_ for _ in ()).throw(
-        AssertionError("PR/merge must not start before the issue reaches COMPLETE (I-12)")))
-    monkeypatch.setattr(tpc, "_merge_pr", lambda: merge_calls.append("merge") or (True, ""))
-
-    ctx = CoachContext(issue_number=42)
-    ctx.auto_merge = True
-    # A premature transition (not from COMPLETE) must be a NOOP — no merge.
-    result = tpc.handle(ctx, Transition(Phase.REFACTOR, Phase.COMPLETE))
-    assert result == HandlerResult.NOOP
-    assert merge_calls == [], "merge must not run before advancement to COMPLETE (I-12)"
-
-
-def test_i12_complete_to_merged_runs_create_then_merge(monkeypatch):
-    from atdd.coach.handlers import two_phase_commit as tpc
-    from atdd.coach.handlers.state_machine import (
-        CoachContext, HandlerResult, Phase, Transition,
-    )
-
-    order: list[str] = []
-    monkeypatch.setattr(tpc, "_create_pr", lambda n: order.append("create") or True)
-    monkeypatch.setattr(tpc, "_merge_pr", lambda: (order.append("merge"), (True, ""))[1])
-    monkeypatch.setattr(tpc, "_find_worktree_for_issue", lambda n: None)
-
-    ctx = CoachContext(issue_number=42)
-    ctx.auto_merge = True
-    result = tpc.handle(ctx, Transition(Phase.COMPLETE, Phase.MERGED))
-
-    assert result == HandlerResult.HANDLED
-    assert order == ["create", "merge"], "advancement (COMPLETE) precedes the merge (I-12)"
-
-
 # --------------------------------------------------------------------------- #
 # I-13 — Pre-push hook blocks core.bare=true worktrees
 # --------------------------------------------------------------------------- #

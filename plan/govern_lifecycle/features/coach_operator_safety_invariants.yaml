@@ -1,0 +1,32 @@
+urn: "feature:govern-lifecycle:coach-operator-safety-invariants"
+wagon: "wagon:govern-lifecycle"
+description: "Operator-safety invariants on CLAUDE.md and the operator-emergency-bypass doc that survive the retirement of coach sub-worker orchestration (#1483). Rehomed from the pruned spawn-agents wagon's claude-md-slim-and-debanner feature: these validators enforce that the repo's own agent-context file never advertises ATDD_SKIP_* bypass env-vars or a destructive `--force`, stays within the operator line budget while retaining lifecycle pointers, and that the operator-emergency-bypass doc exists and documents the CLI (not an env-var escape hatch). They run in `atdd validate coach` independent of whether any worker is ever spawned."
+sizing:
+  wmbts: 6
+  footprint_score: 8
+  footprint_size: "M"
+wmbts:
+  - "wmbt:govern-lifecycle:E068"
+  - "wmbt:govern-lifecycle:E065"
+  - "wmbt:govern-lifecycle:E066"
+  - "wmbt:govern-lifecycle:R007"
+  - "wmbt:govern-lifecycle:R008"
+  - "wmbt:govern-lifecycle:E067"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface; the checks are dispatched by the existing `atdd validate coach` validator surface"
+    application:
+      - type: "use_cases"
+        count: 2
+        rationale: "size_budget check (line count within budget + pointers retained) and no_bypass_advertising check (no ATDD_SKIP_* / --force tokens); both operate on CLAUDE.md and the operator-emergency-bypass doc"
+    domain:
+      - type: "value_objects"
+        count: 0
+        rationale: "Pure text/predicate checks over existing files; no new domain type"
+    integration:
+      - type: "repositories"
+        count: 1
+        rationale: "Read-only file access to CLAUDE.md, docs/operator-emergency-bypass.md, and the upgrade-banner source"

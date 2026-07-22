@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:R002-SMOKE-001-atdd-validate-coach-includes-size-budget-rule
-# Acceptance: acc:spawn-agents:R002-SMOKE-001-atdd-validate-coach-includes-size-budget-rule
-# WMBT: wmbt:spawn-agents:R002
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E067-SMOKE-001-atdd-validate-coach-includes-size-budget-rule
+# Acceptance: acc:govern-lifecycle:R007-SMOKE-001-atdd-validate-coach-includes-size-budget-rule
+# WMBT: wmbt:govern-lifecycle:R007
 # Phase: SMOKE
 # Layer: backend.smoke
 # Assertion: behavioral

@@ -10,15 +10,15 @@
     "resource": "canonical_surface_name",
     "version": "1.0.0",
     "hash": "",
-    "producer": "wagon:consolidate-coach-workspace",
+    "producer": "wagon:freeze-runtime-contracts",
     "consumers": [
-      "wagon:consolidate-coach-workspace"
+      "wagon:freeze-runtime-contracts"
     ],
     "dependencies": [],
     "traceability": {
-      "wagon_ref": "plan/consolidate_coach_workspace/_consolidate_coach_workspace.yaml",
+      "wagon_ref": "plan/freeze_runtime_contracts/_freeze_runtime_contracts.yaml",
       "feature_refs": [
-        "feature:consolidate-coach-workspace:enforce-surface-conformance"
+        "feature:freeze-runtime-contracts:runtime-schema-freeze"
       ]
     },
     "governance": {
