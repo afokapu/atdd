@@ -111,7 +111,12 @@ def add_wmbt(conn: sqlite3.Connection, uid: str, wmbt: str) -> OverlayEvent:
 
 
 def request_tombstone(
-    conn: sqlite3.Connection, uid: str, reason: str, *, actor: Optional[str] = None
+    conn: sqlite3.Connection,
+    uid: str,
+    reason: str,
+    *,
+    actor: Optional[str] = None,
+    default_actor: str = "unattributed",
 ) -> OverlayEvent:
     """Retire an object, logging ``tombstone_requested``.
 
@@ -122,12 +127,40 @@ def request_tombstone(
     The record carries a **reason digest** as well as the prose reason — the digest is
     what a merge can compare and what refuses two sides retiring one object for
     different stated reasons (K001).
+
+    It also carries the provenance a committed retirement must be auditable by (#1580),
+    and this is the right place to capture it because this is the only place where it is
+    still knowable:
+
+    - ``prior_digest`` is taken from the object **as it stands right now**, before the
+      retirement is applied. A moment later that state exists nowhere.
+    - ``source_generation`` is the store's base commit — the generation of shared truth
+      this retirement was decided against.
+
+    Neither can be reconstructed downstream, which is precisely why the incident's audit
+    trail could not be reconstructed either. ``actor`` falls back to a marker rather than
+    being omitted: "we do not know who" is a fact worth recording, and an absent field
+    would instead make the record unreadable at the far end.
     """
+    from atdd.state import metadata  # local: authoring is imported by metadata's callers
+    from atdd.state.projection import build_document, object_digest
+
+    uid = assert_uid(uid)
+    current = StateStore(conn).objects.get(uid)
+    prior_digest = object_digest(build_document(current)) if current is not None else None
+
     return overlay.author(
         conn,
         overlay.TOMBSTONE_REQUESTED,
-        assert_uid(uid),
-        {"tombstone": tombstone.tombstone_record(reason, actor=actor)},
+        uid,
+        {
+            "tombstone": tombstone.tombstone_record(
+                reason,
+                actor=actor or default_actor,
+                source_generation=metadata.base_commit(conn) or metadata.UNANCHORED_GENERATION,
+                prior_digest=prior_digest or object_digest({"uid": uid}),
+            )
+        },
     )
 
 
