@@ -33,10 +33,10 @@ FORBIDDEN_BY_LAYER = {
     "atdd.coach.core": {
         "subprocess", "os.system", "requests", "urllib.request", "urllib3",
         "git", "gh", "cmux", "threading", "multiprocessing", "asyncio",
-        "atdd.runtime", "atdd.integrations", "atdd.train", "atdd.observer",
+        "atdd.runtime", "atdd.integrations", "atdd.train",
     },
     "atdd.train": {
-        "atdd.cli", "atdd.observer",
+        "atdd.cli",
     },
     "atdd.runtime.worktree": {
         "atdd.coach", "atdd.train", "atdd.integrations",
