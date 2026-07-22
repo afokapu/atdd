@@ -1069,16 +1069,6 @@ def run_cli(argv: list[str]) -> int:
         return run_watch(argv[1:])
     if argv and argv[0] == "gc":
         return run_gc(argv[1:])
-    # #998 — coach runtime: start the workspace-scoped feed_daemon and surface
-    # its escalations back to the session (closes the autonomous loop). The
-    # wait/cursor logic lives in the mediate-worker-decisions coach_runtime
-    # feature; this is a thin verb dispatch.
-    if argv and argv[0] in ("start", "wait", "next", "stop", "daemons"):
-        from atdd.mediate_worker_decisions.coach_runtime.src.presentation.coach_runtime_cli import (
-            run as run_coach_runtime,
-        )
-
-        return run_coach_runtime(argv)
     # #1304 — extracted `atdd issue` sub-verbs are auto-discovered drop-ins under
     # atdd.coach.commands.coach_verbs (one file per verb; zero shared edits, so
     # #1305/#1307/#1308 never merge-conflict on wiring). Resolve a non-numeric

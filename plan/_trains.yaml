@@ -77,7 +77,6 @@ trains:
       - coach-ops
       - coach-wave-orchestration
       - dispatch-ux-defaults-and-primer
-      - mediate-worker-decisions
       - coach-verb-split
       category: nominal
     - train_id: train:issue-lifecycle:record-agent-session-identity
