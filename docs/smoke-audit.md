@@ -98,6 +98,7 @@ of bypass patterns.
 
 | acceptance-URN | entry-point-coverage | assertion-target | handoff-coverage | incident-cross-ref |
 |---|---|---|---|---|
+| acc:reconcile-local-store:C002-SMOKE-001-gitignored-projection-does-not-wipe-a-populated-store | real (throwaway git checkout + real .atdd/state/state.sqlite; no mocks, no patching) | a populated store survives a HEAD move against a gitignored, absent projection — reconcile refuses and every work_item is retained | single direction (reconcile refuses; no downstream handoff) | #1580 — reproduces the 2026-07-20 silent mass-deletion of ~588 work_items |
 | acc:observe-and-correct:E006-SMOKE-001-stdin-bytes-reach-wrapped-subprocess | synthetic (cat subprocess) | stdin bytes round-trip | single direction | #861; flagged for retrofit per #855 (synthetic-fixture-bypass) |
 | acc:consolidate-coach-workspace:D001-SMOKE-001-real-layout-holds-as-workers-added | real (atdd spawn + cmux) | layout persistence | N/A (UI state) | — |
 | acc:consolidate-coach-workspace:E001-SMOKE-001-real-coach-tab-shows-every-issue | real (atdd spawn) | cmux pane list | N/A (UI state) | — |

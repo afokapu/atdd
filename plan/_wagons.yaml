@@ -2651,6 +2651,8 @@ wagons:
     telemetry: null
   wmbt:
     C001: minimize likelihood of a dirty-store-overwrite during reconcile
+    C002: minimize likelihood of a silent-mass-deletion when reconcile applies an
+      incoming projection
     E001: maximize likelihood of a complete overlay-event-log recording every uncommitted
       local authoring command
     K001: maximize likelihood of a proven collaboration-flow in which Dev B keeps
