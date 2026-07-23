@@ -1595,6 +1595,10 @@ wagons:
       it into a clean venv and runs the shipped validators from a synthetic consumer
       repo, gating on wheel-completeness plus zero pytest collection errors across
       all four phases (30 today: 15 tester + 15 coder)'
+    C010: minimize likelihood of an-operator-approval-token-signed-once-for-one-branch-verifying-on-every-other-branch-and-indefinitely-into-the-future-because-canonical-scope-signs-only-issue-from-to-and-binds-neither-a-branch-nor-a-moment-in-time
+      by widening the signed scope to bind the branch and an expiry, so verification
+      rejects a token presented on a branch it was not signed for and a token presented
+      after its expiry
     E065: 'minimize likelihood of the-claude-md-agent-context-file-exceeding-the-operator-line-budget-or-losing-its-atdd-lifecycle-and-command-pointers
       (rehomed from spawn-agents #1483)'
     E066: 'minimize likelihood of the-operator-emergency-bypass-doc-being-absent-or-documenting-an-env-var-escape-hatch-instead-of-the-cli
