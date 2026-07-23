@@ -23,6 +23,16 @@ _WS_DIR = "workspaces"
 # scope ∈ {core, extension, workspace}: ``core`` is the ATDD protocol, ``extension``
 # is a use-case package, ``workspace`` is a first-class reusable runtime provider
 # (e.g. ``atdd.workspace.python-pytest``) that many extensions may target.
+#
+# AUDIT #1345 / MIGRATION #1343: this is the *single* regex that encodes the
+# package-ID grammar (verified — no duplicate three-segment pattern exists in
+# validators, enforcement, substrate, or schemas; every other path carries the
+# ID as an opaque string). #1343 splits it so **extension** IDs become
+# persona-aware — ``<publisher>.extension.<persona>.<artifact-name>`` with
+# persona ∈ {planner,tester,coder,coach} — while **workspace** IDs stay
+# three-segment. Until then the extension grammar is intentionally left
+# three-segment (see docs/1345-extension-id-grammar-audit.md and the xfail
+# boundary tests in test_p001_unit_003_extension_id_namespace.py).
 _PKG_ID_RE = re.compile(
     r"^(?P<publisher>[a-z][a-z0-9-]*)\.(?P<scope>core|extension|workspace)\.(?P<name>[a-z][a-z0-9-]*)$"
 )
