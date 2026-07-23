@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:R003-UNIT-001-validator-fails-when-claude-md-contains-atdd-skip-token
-# Acceptance: acc:spawn-agents:R003-UNIT-001-validator-fails-when-claude-md-contains-atdd-skip-token
-# WMBT: wmbt:spawn-agents:R003
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E068-UNIT-001-validator-fails-when-claude-md-contains-atdd-skip-token
+# Acceptance: acc:govern-lifecycle:R008-UNIT-001-validator-fails-when-claude-md-contains-atdd-skip-token
+# WMBT: wmbt:govern-lifecycle:R008
 # Phase: RED
 # Layer: backend.unit
 # Assertion: behavioral

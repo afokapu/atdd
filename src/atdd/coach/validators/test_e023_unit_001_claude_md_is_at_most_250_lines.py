@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E023-UNIT-001-claude-md-is-at-most-250-lines
-# Acceptance: acc:spawn-agents:E023-UNIT-001-claude-md-is-at-most-250-lines
-# WMBT: wmbt:spawn-agents:E023
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E065-UNIT-001-claude-md-is-at-most-250-lines
+# Acceptance: acc:govern-lifecycle:E065-UNIT-001-claude-md-is-at-most-250-lines
+# WMBT: wmbt:govern-lifecycle:E065
 # Phase: RED
 # Layer: backend.unit
 # Assertion: structural
