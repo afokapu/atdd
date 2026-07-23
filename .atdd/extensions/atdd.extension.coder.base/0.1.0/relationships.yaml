@@ -1,6 +1,6 @@
 schema_version: "1.0.0"
 
-# Extension-LOCAL relationship graph for atdd.extension.coder.
+# Extension-LOCAL relationship graph for atdd.extension.coder.base.
 #
 # IMPORTANT (boundary spec §6.2): core↔extension edges are NOT authored here. The
 # core coder nodes these convention nodes realize are declared narratively in each
@@ -9,7 +9,7 @@ schema_version: "1.0.0"
 # *-typescript complexity detectors refining their language-neutral siblings, the
 # design hierarchy-import edge to dependency-flow). Authored in the build slice;
 # this skeleton carries the graph header with no nodes/edges yet.
-graph_id: atdd.extension.coder.relationships
+graph_id: atdd.extension.coder.base.relationships
 
 nodes:
 - coder.boundaries.http-client
@@ -66,7 +66,7 @@ edges:
   type: refines
   reason: "Same \"all production source is reachable from a graph root\" obligation, peeled to the TypeScript\
     \ stack (regex import-graph, index.ts barrels/app entry roots) from the language-neutral Python sibling.\
-    \ DESIGN \xA72.1 *-typescript-refines-sibling pattern; both nodes live in atdd.extension.coder."
+    \ DESIGN \xA72.1 *-typescript-refines-sibling pattern; both nodes live in atdd.extension.coder.base."
 - source_ref: coder.logging.coach-silent-swallow
   target_ref: coder.logging.structured
   type: co-extracted-from
@@ -165,21 +165,21 @@ edges:
   reason: "Same \"function cyclomatic complexity stays under threshold\" obligation, peeled to the TypeScript\
     \ stack (regex decision-point count over a brace-matched function body, threshold parity <= 10) from\
     \ the language-neutral Python sibling. DESIGN \xA72.1 *-typescript-refines-sibling pattern; both nodes\
-    \ live in atdd.extension.coder."
+    \ live in atdd.extension.coder.base."
 - source_ref: coder.refactor.complexity-nesting-typescript
   target_ref: coder.refactor.complexity-nesting
   type: refines
   reason: "Same \"function nesting depth stays under threshold\" obligation, peeled to the TypeScript\
     \ stack (regex brace-depth tracking gated on control-flow keywords, threshold parity <= 4) from the\
     \ language-neutral Python sibling. DESIGN \xA72.1 *-typescript-refines-sibling pattern; both nodes\
-    \ live in atdd.extension.coder."
+    \ live in atdd.extension.coder.base."
 - source_ref: coder.refactor.complexity-length-typescript
   target_ref: coder.refactor.complexity-length
   type: refines
   reason: "Same \"function length stays under threshold\" obligation, peeled to the TypeScript stack (regex\
     \ LOC count over a brace-matched function body, excluding // and /* */ comments, threshold parity\
     \ <= 50) from the language-neutral Python sibling. DESIGN \xA72.1 *-typescript-refines-sibling pattern;\
-    \ both nodes live in atdd.extension.coder."
+    \ both nodes live in atdd.extension.coder.base."
 - source_ref: coder.refactor.quality-comments
   target_ref: coder.refactor.quality-mi
   type: relates-to
@@ -212,13 +212,13 @@ edges:
   reason: "Same \"modules meet a minimum maintainability index (>= 20)\" obligation, peeled to the TypeScript\
     \ stack: the TS rule approximates the SEI MI formula with a regex-estimated Halstead volume (no radon,\
     \ no AST) where the python sibling uses radon's mi_visit. DESIGN \xA72.1 *-typescript-refines-sibling;\
-    \ both nodes live in atdd.extension.coder."
+    \ both nodes live in atdd.extension.coder.base."
 - source_ref: coder.refactor.quality-comments-typescript
   target_ref: coder.refactor.quality-comments
   type: refines
   reason: "Same \"source has an adequate comment ratio (>= 10%)\" obligation, peeled to the TypeScript\
     \ stack: the TS rule counts //, /* */, and JSDoc comment lines where the python sibling counts # comments\
-    \ and triple-quoted docstrings. DESIGN \xA72.1 *-typescript-refines-sibling; both nodes live in atdd.extension.coder."
+    \ and triple-quoted docstrings. DESIGN \xA72.1 *-typescript-refines-sibling; both nodes live in atdd.extension.coder.base."
 - source_ref: coder.refactor.quality-comments-typescript
   target_ref: coder.refactor.quality-mi-typescript
   type: relates-to
