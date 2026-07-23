@@ -74,20 +74,27 @@ def test_reserved_atdd_publisher_refused_for_workspace():
 #
 # These assert the *target* persona-aware extension grammar
 # (``<publisher>.extension.<persona>.<artifact-name>``, persona ∈
-# {planner,tester,coder,coach}) that #1343 will introduce and #1344 will adopt
-# for the installed official extensions. They must FAIL against today's
-# single three-segment ``_PKG_ID_RE`` (author_context.py:26), so they are
-# ``xfail(strict=True)``: when #1343 splits the grammar they flip to XPASS,
-# which fails the strict xfail and prompts removing the marker. See
-# docs/1345-extension-id-grammar-audit.md.
+# {planner,tester,coder,coach}). #1343 (this change) makes core **accept** the
+# four-segment form additively: four-segment persona-aware IDs now validate
+# (and a bad persona segment is refused), while three-segment IDs stay valid.
+#
+# So the two "accept" boundaries below flip from xfail → plain passing tests.
+# The "reject three-segment" boundary stays ``xfail(strict=True)``: #1343 is
+# additive by design — the legacy three-segment form is still accepted because
+# the installed official extensions are three-segment until **#1344** renames
+# them; rejecting it now would break them (no compatibility alias — #1345
+# non-goal). It flips to XPASS once #1344 lands and reject-three is turned on.
+# See docs/1345-extension-id-grammar-audit.md.
 #
 # The workspace invariant below is NOT gated — workspace IDs stay three-segment
 # — so it is a plain passing test that must survive the #1343 flip.
 # --------------------------------------------------------------------------- #
-_GATED = "grammar split gated on #1343; installed-extension rename gated on #1344"
+_GATED_1344 = (
+    "additive #1343 keeps three-segment extension IDs valid; reject-three is "
+    "gated on the #1344 installed-extension rename"
+)
 
 
-@pytest.mark.xfail(reason=_GATED, strict=True)
 def test_four_segment_persona_extension_id_accepted():
     # Official persona-aware IDs (#1344 target). allow_reserved: structural
     # validation of an official ``atdd.*`` manifest.
@@ -97,20 +104,18 @@ def test_four_segment_persona_extension_id_accepted():
     validate_extension_id("productos.extension.coach.lifecycle")
 
 
-@pytest.mark.xfail(reason=_GATED, strict=True)
+@pytest.mark.xfail(reason=_GATED_1344, strict=True)
 def test_three_segment_extension_id_rejected():
-    # Once #1343 makes the extension grammar persona-aware, the legacy
-    # three-segment form must be refused (no compatibility alias — #1345
-    # non-goal). Today it is (wrongly, per the target) accepted.
+    # #1343 is additive: the legacy three-segment form is STILL accepted until
+    # #1344 renames the installed official extensions. Once reject-three lands
+    # (#1344), this refuses and the xfail flips to XPASS.
     with pytest.raises(AuthorInputError):
         validate_extension_id("acme.extension.demo")
 
 
-@pytest.mark.xfail(reason=_GATED, strict=True)
 def test_extension_persona_validated_against_core_vocabulary():
     # A well-formed four-segment ID whose persona segment is not one of the
-    # four core personas must be refused; a valid-persona ID must pass. Today
-    # both are refused as malformed (four segments), so the pair fails.
+    # four core personas must be refused; a valid-persona ID must pass.
     validate_extension_id("productos.extension.tester.jira-sync")
     with pytest.raises(AuthorInputError):
         validate_extension_id("productos.extension.notapersona.jira-sync")
