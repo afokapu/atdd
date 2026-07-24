@@ -98,6 +98,34 @@ _RULE_DEFAULT_EXCLUDES: dict[str, tuple[str, ...]] = {
 # pyproject itself). See docs/PARITY-AUDIT-26.md row 1 / REGRESSION #3.
 _ENTRY_POINT_ROOT_RULES = frozenset({"coder.dead-code.reachability"})
 
+# The train-interlocking detector resolves its scan surfaces with precedence:
+# (1) the env var this layer emits, (2) the extension's own scope selectors,
+# (3) its hardcoded defaults. A repo whose layout differs from those defaults
+# DECLARES it once, under the OPTIONAL top-level ``interlocking_layout:`` key of
+# the per-repo ``.atdd/config.yaml`` that ``runner.load_config`` already reads
+# (#1595):
+#
+#   interlocking_layout:
+#     interlocking_yaml: ["plan/_trains/_interlockings/*.yaml"]
+#     e2e_tests:         ["e2e/**/*.py"]
+#
+# Core's surface ENDS at forwarding that declaration to the provider subprocess
+# for the rules that consume it — it never interprets the globs, and it never
+# supplies a default (absent block -> no env var -> detector falls back).
+_INTERLOCKING_LAYOUT_CONFIG_KEY = "interlocking_layout"
+_INTERLOCKING_LAYOUT_RULE_PREFIX = "coder.train.interlocking-"
+# The selector ids of the contract, exactly. An unrecognized id is dropped with a
+# warning rather than forwarded: the detector would silently ignore it, and a
+# typo'd surface that looks declared but never scans is the failure mode this
+# whole key exists to remove.
+_INTERLOCKING_LAYOUT_SELECTOR_IDS: tuple[str, ...] = (
+    "interlocking_yaml",
+    "train_yaml",
+    "python_runtime",
+    "station_master",
+    "e2e_tests",
+)
+
 
 @dataclass(frozen=True)
 class RuleMetadata:
@@ -339,6 +367,56 @@ def compute_scan_policy(
         exempt_reason=exempt_reason,
         graph_roots=graph_roots,
     )
+
+
+def is_interlocking_rule(rule_id: str) -> bool:
+    """True iff ``rule_id`` is one of the ``coder.train.interlocking-*`` rules the
+    train-interlocking detector realizes (the only rules the layout env is scoped to)."""
+    return rule_id.startswith(_INTERLOCKING_LAYOUT_RULE_PREFIX)
+
+
+def resolve_interlocking_layout(config: dict) -> Optional[dict[str, list[str]]]:
+    """Read the OPTIONAL per-repo ``interlocking_layout`` declaration, or ``None``.
+
+    Reused surface (#1595): the block lives under the top-level
+    ``interlocking_layout:`` key of the ``.atdd/config.yaml`` the runner already
+    loads — no new file, no new schema object. Returns a normalized
+    ``{selector_id: [globs]}`` mapping restricted to the contract's selector ids,
+    or ``None`` when the key is absent/empty so the caller emits no env var and the
+    detector falls back to its own selectors (contract step 2/3).
+
+    Malformed shapes are tolerated defensively (this is a scan-surface HINT, not a
+    verdict input): a non-mapping block, an unknown selector id, or a non-list
+    value is dropped with a warning rather than raised — a bad layout hint must
+    not sink an enforce run.
+    """
+    block = config.get(_INTERLOCKING_LAYOUT_CONFIG_KEY) if isinstance(config, dict) else None
+    if block is None:
+        return None
+    if not isinstance(block, dict):
+        _log.warning(
+            "ignoring non-mapping interlocking_layout block",
+            extra={"type": type(block).__name__},
+        )
+        return None
+    layout: dict[str, list[str]] = {}
+    for selector_id, globs in block.items():
+        if selector_id not in _INTERLOCKING_LAYOUT_SELECTOR_IDS:
+            _log.warning(
+                "ignoring unknown interlocking_layout selector id",
+                extra={"selector_id": str(selector_id),
+                       "known": list(_INTERLOCKING_LAYOUT_SELECTOR_IDS)},
+            )
+            continue
+        as_list = _as_str_list(globs)
+        if not as_list:
+            _log.warning(
+                "ignoring empty/malformed interlocking_layout globs for selector",
+                extra={"selector_id": str(selector_id)},
+            )
+            continue
+        layout[str(selector_id)] = as_list
+    return layout or None
 
 
 def _dedupe(items: list[str]) -> list[str]:

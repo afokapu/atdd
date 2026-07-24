@@ -44,7 +44,13 @@ from typing import List, Optional
 
 import yaml
 
-from atdd.enforce.conventions import RuleMetadata, compute_scan_policy, rule_metadata
+from atdd.enforce.conventions import (
+    RuleMetadata,
+    compute_scan_policy,
+    is_interlocking_rule,
+    resolve_interlocking_layout,
+    rule_metadata,
+)
 from atdd.enforce.dispositions import fails_on_violation
 from atdd.enforce.resolution import (
     ProviderResolutionError,
@@ -58,6 +64,13 @@ from atdd.enforce.resolution import (
 # test from each implementation's manifest rather than keying off one hardcoded
 # filename, so every bound detector is runnable — not just ``coder.logging.print``.
 _PROVIDER_REPORT_FIELD = "report"
+
+# Env var the train-interlocking detector reads as its HIGHEST-precedence scan-surface
+# source (contract step 1, #1595): JSON ``{selector_id: [globs]}``. Core sets it on the
+# provider subprocess ONLY for a ``coder.train.interlocking-*`` rule whose repo declares
+# an ``interlocking_layout`` block; otherwise it is never set and the detector falls back
+# to its own scope selectors / defaults. Never leaked onto unrelated rule subprocesses.
+_INTERLOCKING_LAYOUT_ENV = "ATDD_INTERLOCKING_LAYOUT"
 
 
 class EnforceUsageError(Exception):
@@ -197,6 +210,7 @@ def _invoke_provider(
     scan_excludes: list[str],
     graph_roots: Optional[list[str]] = None,
     impls_root: Optional[Path] = None,
+    interlocking_layout: Optional[dict] = None,
 ) -> list[dict]:
     """Subprocess the provider CLI over ``scan_roots``; parse RAW v1.1 JSON.
 
@@ -213,6 +227,12 @@ def _invoke_provider(
     closes the moment the fixed detector is re-vendored, with no further core
     change. (We cannot patch the vendored detector here: it is digest-locked by
     ``.atdd/substrate.lock.yaml`` and re-vendoring is the convergence step.)
+
+    ``interlocking_layout`` (the repo's declared ``{selector_id: [globs]}`` scan
+    surfaces) is forwarded as ``ATDD_INTERLOCKING_LAYOUT`` when — and only when —
+    the caller supplies one, i.e. for a ``coder.train.interlocking-*`` rule in a
+    repo that declares the block. Nothing is set otherwise, so the detector's own
+    selector/default fallback stays in force.
     """
     env = {
         **os.environ,
@@ -223,6 +243,11 @@ def _invoke_provider(
         env["ATDD_SCAN_EXCLUDES"] = json.dumps([str(e) for e in scan_excludes])
     if graph_roots:
         env["ATDD_GRAPH_ROOTS"] = json.dumps([str(r) for r in graph_roots])
+    if interlocking_layout:
+        # The repo declared a per-repo interlocking layout; forward it verbatim as
+        # the detector's highest-precedence scan-surface source (#1595). Scoped by
+        # the caller to interlocking rules only — absent for every other rule.
+        env[_INTERLOCKING_LAYOUT_ENV] = json.dumps(interlocking_layout)
     argv = [sys.executable, str(provider.provider_cli_path)]
     if impls_root is not None:
         # Without this the provider CLI defaults to its OWN implementations/ dir and
@@ -363,6 +388,16 @@ def enforce(
                 ) from exc
         provider = provider_cache[cache_key]
 
+        # Scope the per-repo interlocking layout to the interlocking rules only —
+        # resolve the declared block once and forward it via env ONLY for a
+        # coder.train.interlocking-* subprocess, never leaking it onto unrelated
+        # rule subprocesses (#1595).
+        layout = (
+            resolve_interlocking_layout(config)
+            if is_interlocking_rule(rule_id)
+            else None
+        )
+
         raw = _invoke_provider(
             provider,
             impl_id,
@@ -370,6 +405,7 @@ def enforce(
             policy.scan_excludes,
             policy.graph_roots,
             impls_root=impls_root,
+            interlocking_layout=layout,
         )
         # A multi-rule detector emits several rule_ids in one run; judge this
         # bound convention only on its own rule_id's records.
