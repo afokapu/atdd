@@ -298,6 +298,36 @@ def _bind_for_acceptance(acc_urn: str) -> Optional[Any]:
 # ---------------------------------------------------------------------------
 # Pytest hooks
 # ---------------------------------------------------------------------------
+_SMOKE_ATTESTATION_NAME = "atdd_smoke_attestation"
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Attach the #1602 smoke-execution attestation writer to this session.
+
+    Registered here rather than as its own ``pytest11`` entry point so it takes
+    effect from the working tree with no reinstall — and deliberately BEFORE the
+    ``repo.substrate.enabled`` check below, because it is not part of the
+    substrate opt-in. That switch makes the substrate a no-op in consumer repos
+    that never ran ``atdd init --consumer-repo``; the lifecycle gate the
+    attestation feeds is core, and the toolkit repo itself declares no ``repo:``
+    block, so gating it would leave the toolkit unable to dogfood its own
+    ``SMOKE->REFACTOR`` gate. The writer is self-limiting instead: it records
+    nothing unless ``plan/`` declares an ``execution_kind: live_smoke``
+    acceptance with an anchored test.
+    """
+    if config.pluginmanager.has_plugin(_SMOKE_ATTESTATION_NAME):
+        return
+    try:
+        from atdd.tester.substrate.smoke_attestation import SmokeAttestationPlugin
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        _logger.warning(
+            "substrate plugin: smoke-execution attestation unavailable: %s", exc,
+            extra={"error_type": type(exc).__name__},
+        )
+        return
+    config.pluginmanager.register(SmokeAttestationPlugin(), _SMOKE_ATTESTATION_NAME)
+
+
 def pytest_collection_modifyitems(
     session: pytest.Session,
     config: pytest.Config,
