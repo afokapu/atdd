@@ -7,10 +7,23 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  # Issue #1611: re-drive a PR that already merged. Re-running the original run
+  # replays it at the commit it ran on, so a fix to the gate can never be
+  # exercised on the PRs it was written for; this entry runs the same command at
+  # current main. The gate resolves what a PR landed from GitHub, not from the
+  # checkout, so it answers the same question from any commit.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Number of an already-merged PR to re-run auto-phase for"
+        required: true
+        type: string
 
 jobs:
   auto-phase:
-    if: github.event.pull_request.merged == true
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -36,6 +49,6 @@ jobs:
       - name: Run atdd auto-phase
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
         run: |
           PYTHONPATH=src python3 -m atdd.cli auto-phase "$PR_NUMBER"
