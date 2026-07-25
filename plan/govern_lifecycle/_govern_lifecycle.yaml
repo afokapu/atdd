@@ -76,9 +76,10 @@ features:
   - urn: "feature:govern-lifecycle:deprecate-issue-create-alias"
   - urn: "feature:govern-lifecycle:ship-package-data-and-consumer-ci"
   - urn: "feature:govern-lifecycle:coach-operator-safety-invariants"
+  - urn: "feature:govern-lifecycle:smoke-execution-gate-satisfiability"
 
 wmbt:
-  total: 102
+  total: 103
   R006: "minimize drifted-lifecycle-records-that-no-verb-can-repair"
   R005: "minimize phase-labels-written-without-the-store-transition-behind-them"
   R001: "minimize stale local manifest status after a successful GitHub transition"
@@ -183,3 +184,4 @@ wmbt:
   E068: "minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-or-a-destructive-force-flag-to-agents (rehomed from spawn-agents #1483; renumbered from E064 which origin/main claimed)"
   R007: "minimize likelihood of the-claude-md-size-budget-rule-being-absent-from-the-atdd-validate-coach-surface (rehomed from spawn-agents #1483)"
   R008: "minimize likelihood of the-no-bypass-advertising-rule-being-absent-from-the-atdd-validate-coach-surface (rehomed from spawn-agents #1483)"
+  E069: "minimize likelihood of a-smoke-execution-gate-that-no-run-can-ever-satisfy-because-the-repo-declares-zero-live-smoke-acceptances-so-smoke-to-refactor-is-reachable-only-by-force by declaring the repo's first execution_kind: live_smoke acceptance and anchoring it to a test that drives the whole #1602 chain against real infrastructure through the shipped harness atdd.coach.gate.live_smoke (real git repo, real pytest subprocess auto-loading the substrate plugin from materialized pytest11 metadata, real State Store, real SmokeExecutionGateCheck), so an executing run writes the attestation that opens SMOKE->REFACTOR and a run that never executes leaves it closed — the gate becomes satisfiable by running smoke instead of by --force, and E060's constant-evidence gate gains its first real subject (#1602)"
