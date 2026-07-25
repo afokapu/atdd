@@ -394,6 +394,69 @@ jobs:
         if: env.SMOKE_BASE_URL != ''
         run: npx playwright test "e2e/**/*smoke*.spec.ts"
 
+  # The installed path (#1604). Every other python job here runs
+  # `PYTHONPATH=src python3 -m pytest` against an UNINSTALLED tree, and that is
+  # precisely why the substrate pytest plugin — and the #1602 smoke-execution
+  # attestation that attaches to it — never fires in this repository's own CI.
+  # pytest auto-loads that plugin from the `pytest11` entry point in
+  # `pyproject.toml`, and entry points are read from INSTALLED distribution
+  # metadata; `PYTHONPATH` makes `import atdd` work and contributes no metadata at
+  # all. A consumer who ran `pip install atdd` has always been fine. The toolkit
+  # was testing the one configuration in which its own hook is inert.
+  #
+  # So this job installs the package and runs pytest against the installation.
+  # `tests/ci_install/` is where the claim is both proved (a real venv, the same
+  # source installed and then reached only by PYTHONPATH — the hook loads in the
+  # first and not the second) and guarded (this job's wiring is read back out of
+  # this file, so reverting it reds the suite).
+  #
+  # SCOPE — #1604 is the install-enablement, deliberately not the CI-width
+  # redesign. WHICH smoke tests run under this interpreter is the deferred
+  # operator decision (and #1602's hook is not on this branch yet). When that is
+  # settled, the smoke selection is ADDED to this job's pytest step: the
+  # installed interpreter is the thing this job exists to provide. Do NOT add
+  # `PYTHONPATH=src` here to make it look like its neighbours — that is the whole
+  # defect, and `tests/ci_install/` fails if you do.
+  attestation-hook-install:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    env:
+      # Read by tests/ci_install/: in THIS job "the substrate plugin is loaded" is
+      # a hard requirement rather than a consistency check, so an install that
+      # silently stops taking effect fails the job instead of passing quietly.
+      ATDD_HOOK_MUST_BE_INSTALLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      # THE POINT OF THIS JOB. Not a convenience, not a faster import path: this
+      # is what writes the `atdd` dist-info that pytest's entry-point discovery
+      # reads at startup. Removing it does not slow the job down — it silently
+      # unloads the hook.
+      - name: Install the package (this is what makes the hook loadable)
+        run: pip3 install -e .
+
+      # Deliberately NO `PYTHONPATH=src`. The install above already puts `atdd` on
+      # the path; adding PYTHONPATH would only make this job resemble the ones
+      # that cannot load the plugin, and the suite below rejects it.
+      - name: Prove the hook fires when the package is installed
+        run: python3 -m pytest tests/ci_install/ -v --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # --- Coach decomposition gates (docs/coach-decomposition.md §10, §12.3) ---
   # These two tests are required-CI from #889 onward and gate EVERY PR in the
   # migration. The import-discipline test enforces the §3.3 layer dependency
@@ -572,7 +635,7 @@ jobs:
   # check that no longer reports.
 
   validate-gate:
-    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-conventions-serial, validate-consumer, validate-smoke, import-discipline-test, parity-test, incident-defense-test, enforce-extensions]
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-conventions-serial, validate-consumer, validate-smoke, attestation-hook-install, import-discipline-test, parity-test, incident-defense-test, enforce-extensions]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -588,6 +651,7 @@ jobs:
                         "conventions-serial:${{ needs.validate-conventions-serial.result }}" \
                         "validate-consumer:${{ needs.validate-consumer.result }}" \
                         "smoke:${{ needs.validate-smoke.result }}" \
+                        "attestation-hook-install:${{ needs.attestation-hook-install.result }}" \
                         "import-discipline:${{ needs.import-discipline-test.result }}" \
                         "parity:${{ needs.parity-test.result }}" \
                         "incident-defense:${{ needs.incident-defense-test.result }}" \
