@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 from atdd.state.db import connect, init_state_store
-from atdd.state.evidence import (
+from atdd.state.smoke_evidence import (
     CLAUSE_SMOKE_NOT_ATTESTED,
     CLAUSE_SMOKE_NOT_EXECUTED,
     CLAUSE_SMOKE_STALE_COMMIT,

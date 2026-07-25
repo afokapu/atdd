@@ -121,7 +121,7 @@ class SmokeExecutionGateCheck:
     rule_id: str = RULE_ID
 
     def run(self, ctx: GateContext) -> GateCheckResult:
-        from atdd.state.evidence import (
+        from atdd.state.smoke_evidence import (
             evaluate_smoke_execution,
             open_state_store,
             smoke_executions,

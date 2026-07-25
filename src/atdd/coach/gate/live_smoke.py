@@ -206,7 +206,7 @@ def build_probe_repo(root: Path, probe_source: str) -> Path:
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "probe repo")
 
-    from atdd.state.evidence import open_state_store
+    from atdd.state.smoke_evidence import open_state_store
 
     with _control_root(repo):
         with open_state_store(control_root=repo) as store:
@@ -314,7 +314,7 @@ def _control_root(repo: Path) -> Iterator[None]:
 
 def attested_runs(repo: Path) -> List[Any]:
     """Every :class:`~atdd.state.evidence.SmokeRun` the probe repo's store holds."""
-    from atdd.state.evidence import open_state_store, smoke_executions
+    from atdd.state.smoke_evidence import open_state_store, smoke_executions
 
     with _control_root(repo):
         with open_state_store(control_root=repo) as store:

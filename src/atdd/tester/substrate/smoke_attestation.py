@@ -25,7 +25,7 @@ WHAT IS RECORDED. Every test anchored to an ``execution_kind: live_smoke``
 acceptance, with its outcome — including ``skipped``. A skip must be *visible as
 a skip*, not absent: #1076 (C010-SMOKE-001) "passed" by skipping, and an absent
 record is indistinguishable from a run that never happened. The verdict in
-:func:`atdd.state.evidence.evaluate_smoke_execution` then rejects skips; this
+:func:`atdd.state.smoke_evidence.evaluate_smoke_execution` then rejects skips; this
 module's job is to tell the truth, not to judge it.
 
 FAILURE POSTURE. A pytest hook must never break the run it observes, so every
@@ -125,7 +125,7 @@ def resolve_work_item_uid(repo_root: Path, store) -> Optional[str]:
 
     Resolving from the BRANCH rather than from an issue number is deliberate: a
     pytest run knows what checkout it is in and nothing about GitHub, and
-    ``atdd.state.evidence`` may not consult ``external_refs`` for a lifecycle
+    ``atdd.state.smoke_evidence`` may not consult ``external_refs`` for a lifecycle
     decision (I7). The gate on the other side does the issue-number → uid
     translation itself, one layer up.
     """
@@ -155,6 +155,19 @@ _LIVE_SMOKE_DECLARATION_RE = re.compile(
 )
 
 
+def _file_declares_live_smoke(path: Path) -> bool:
+    """True when ``path``'s bytes carry a ``execution_kind: live_smoke`` YAML key."""
+    try:
+        blob = path.read_bytes()
+    except OSError as exc:
+        _logger.debug(
+            "plan file unreadable; it declares nothing for this scan",
+            extra={"path": str(path), "error": str(exc)},
+        )
+        return False
+    return bool(_LIVE_SMOKE_DECLARATION_RE.search(blob))
+
+
 def plan_declares_live_smoke(repo_root: Path) -> bool:
     """Fast byte-level answer to "could ``plan/`` hold a live_smoke acceptance?".
 
@@ -173,13 +186,9 @@ def plan_declares_live_smoke(repo_root: Path) -> bool:
         return False
     for dirpath, _dirnames, filenames in os.walk(plan_dir):
         for name in filenames:
-            if not name.endswith((".yaml", ".yml")):
-                continue
-            try:
-                blob = (Path(dirpath) / name).read_bytes()
-            except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow)
-                continue
-            if _LIVE_SMOKE_DECLARATION_RE.search(blob):
+            if name.endswith((".yaml", ".yml")) and _file_declares_live_smoke(
+                Path(dirpath) / name
+            ):
                 return True
     return False
 
@@ -266,24 +275,18 @@ class SmokeAttestationPlugin:
     def pytest_runtest_logreport(self, report) -> None:
         """Buffer one run record per live_smoke test, whatever its outcome.
 
-        Both phases are consulted because a skip and a pass arrive differently: a
-        ``@pytest.mark.skip``/fixture skip is reported at ``setup`` and never
-        reaches ``call``, while a pass, a failure, or an in-body ``pytest.skip()``
-        is reported at ``call``. Listening to only one would make a whole class of
-        non-execution invisible — the #1076 bug restated.
+        Which reports count is :func:`_carries_an_outcome`; listening to only one
+        pytest phase would make a whole class of non-execution invisible — the
+        #1076 bug restated.
         """
-        if not self.acceptance_by_file:
+        if not self.acceptance_by_file or not _carries_an_outcome(report):
             return
-        if report.when not in ("setup", "call"):
-            return
-        if report.when == "setup" and not report.skipped:
-            return  # a successful setup is not an outcome; wait for `call`
 
         path = _report_path(report, self.repo_root)
         if path is None or path not in self.acceptance_by_file:
             return
 
-        outcome = "skipped" if report.skipped else ("passed" if report.passed else "failed")
+        outcome = _report_outcome(report)
         self.pending.append({
             "nodeid": report.nodeid,
             "outcome": outcome,
@@ -309,7 +312,7 @@ class SmokeAttestationPlugin:
             self.pending.clear()
 
     def _flush(self) -> None:
-        from atdd.state.evidence import SmokeRun, open_state_store, record_smoke_execution
+        from atdd.state.smoke_evidence import SmokeRun, open_state_store, record_smoke_execution
 
         repo_root = self.repo_root
         assert repo_root is not None  # guarded by the caller
@@ -358,6 +361,26 @@ def _repo_root_for(config: pytest.Config) -> Optional[Path]:
     return None
 
 
+def _carries_an_outcome(report) -> bool:
+    """True when this report states how a test ended.
+
+    Both phases are consulted because a skip and a pass arrive differently: a
+    ``@pytest.mark.skip``/fixture skip is reported at ``setup`` and never reaches
+    ``call``, while a pass, a failure, or an in-body ``pytest.skip()`` is reported
+    at ``call``. A *successful* setup is not an outcome — wait for ``call``.
+    """
+    if report.when not in ("setup", "call"):
+        return False
+    return report.when != "setup" or bool(report.skipped)
+
+
+def _report_outcome(report) -> str:
+    """``skipped`` / ``passed`` / ``failed`` for one report."""
+    if report.skipped:
+        return "skipped"
+    return "passed" if report.passed else "failed"
+
+
 def _report_path(report, repo_root: Optional[Path]) -> Optional[Path]:
     """Absolute path of the test file a report belongs to.
 
@@ -380,7 +403,11 @@ def _report_path(report, repo_root: Optional[Path]) -> Optional[Path]:
             if resolved.exists():
                 return resolved
         return candidate.resolve()
-    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except OSError as exc:
+        _logger.debug(
+            "report path did not resolve; the report attests for no test file",
+            extra={"raw": str(raw), "repo_root": str(repo_root), "error": str(exc)},
+        )
         return None
 
 

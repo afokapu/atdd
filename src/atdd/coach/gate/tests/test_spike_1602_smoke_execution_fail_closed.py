@@ -43,7 +43,7 @@ from atdd.coach.gate.live_smoke import write_live_smoke_plan_scope
 from atdd.coach.gate.registrations import register_smoke_execution_check
 from atdd.coach.gate.registry import GATE_REGISTRY
 from atdd.coach.gate.smoke_execution_check import GATE_ID, SmokeExecutionGateCheck
-from atdd.state.evidence import SmokeRun, open_state_store, record_smoke_execution
+from atdd.state.smoke_evidence import SmokeRun, open_state_store, record_smoke_execution
 
 pytestmark = [pytest.mark.platform]
 
