@@ -1,0 +1,25 @@
+# CONFIGURED-LAYOUT fixture: this consumer keeps its InterlockingRunner runtime under
+# `src/app/runtime/interlocking/`, NOT the historical `python/trains/`. With the default layout the
+# detector never sees that runtime (it scans silently). With a per-repo ATDD_INTERLOCKING_LAYOUT
+# override pointing `python_runtime` at `src/**/runtime/interlocking/`, the runtime IS read and its
+# HIDDEN route (a route_id declared in no interlocking YAML) is caught as runtime_to_declaration.
+schema_version: 1.0.0
+interlocking_id: interlocking:match-resolution
+title: Match resolution route interlocking
+theme: match
+status: checked
+
+entrypoint:
+  exposed: false
+  reason: internal-only
+
+route_resolution:
+  strategy: fail_on_multiple_match
+
+routes:
+  - route_id: nominal-all-voted
+    category: nominal
+    category_digit: "0"
+    guard_ref: guard:all-voted
+    train_id: 3007-match-resolution-standard
+    train_path: plan/_trains/3007-match-resolution-standard.yaml

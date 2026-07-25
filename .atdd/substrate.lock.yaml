@@ -26,7 +26,7 @@ artifacts:
 - id: atdd.extension.train-interlocking-enforcement
   kind: extension
   version: 0.1.0
-  digest: sha256:5d0f0d17512f39b90e62b725232a1b4a8b9079bc56b0823dcb41409d855e888a
+  digest: sha256:8604d27b1657472c09c6c948fd37b3c9485753275c71067bbf8dfd6f6a0b887a
   installed_path: .atdd/extensions/atdd.extension.train-interlocking-enforcement/0.1.0
   enabled: true
   workspaces:
