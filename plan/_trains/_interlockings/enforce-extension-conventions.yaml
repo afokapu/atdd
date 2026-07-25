@@ -5,12 +5,11 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
-  content_digest: 1a605623ae81d26699512256d6b26a875eadfdcecda0956802881ba2bca60690
+  content_digest: 22c1d63a35aa06728e5386f87c732cee45cffe98caf63f7f9b7827e1cdf68d7a
 entrypoint:
-  exposed: true
-  actions:
-  - run_enforce_gate
-  reason: null
+  exposed: false
+  actions: []
+  reason: planned-not-exposed
 route_resolution:
   strategy: first_priority
 lifelines:
