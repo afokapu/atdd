@@ -252,6 +252,84 @@ def test_layout_unresolved_fires_when_runtime_and_station_resolve_to_nothing() -
     assert "no runtime/Station Master found at configured layout" in v[0]["evidence"]
 
 
+# ── 1g. sub-path scan roots still engage the rule (anchoring) ──────────────────
+#
+# Core hands the detector whatever roots the operator scoped in — `atdd enforce --paths
+# src/atdd plan` passes SUB-PATHS. Layout globs are repo-root-relative, so before anchoring
+# they matched nothing under a sub-root and the rule went silently inert: a whole-system
+# obligation reporting PASS because it had been handed a fragment. These pin the fix.
+
+
+def _sub_scoped_repo(tmp_path) -> Path:
+    """A consumer repo (with a real ``.atdd/`` marker) whose runtime lives at src/, copied from
+    the shipped layout fixture so the tree under test stays the canonical one."""
+    import shutil
+
+    repo = tmp_path / "consumer"
+    shutil.copytree(_SRC_RUNTIME_LAYOUT, repo)
+    (repo / ".atdd").mkdir()
+    return repo
+
+
+def _src_layout_override(monkeypatch) -> None:
+    monkeypatch.setenv(
+        detector.ENV_LAYOUT,
+        json.dumps({"python_runtime": ["src/**/runtime/interlocking/**/*.py"]}),
+    )
+
+
+def test_sub_path_scan_root_engages_the_rule_identically_to_repo_root(monkeypatch, tmp_path) -> None:
+    # THE REGRESSION: scanning src/ alone used to resolve every repo-root-relative glob against
+    # src/, match nothing, and return [] — a silent PASS. The scan root must now anchor up to the
+    # repo root, producing exactly the whole-repo verdict.
+    _src_layout_override(monkeypatch)
+    repo = _sub_scoped_repo(tmp_path)
+
+    whole = detector.scan_root(repo)
+    sub = detector.scan_root(repo / "src")
+
+    _assert_v11_shape(sub)
+    assert sub, "sub-path scan root must NOT silently pass a repo with a broken binding"
+    assert detector.DIR_RUNTIME_DECL in _directions(sub)
+    assert sub == whole, "sub-path scoping must not change the verdict"
+    # Reported paths stay repo-root-relative, not relative to the sub-path it was scoped in by.
+    assert any(item["file"].startswith("src/") for item in sub)
+
+
+def test_sub_path_scan_root_anchors_only_up_to_the_repo_boundary(monkeypatch, tmp_path) -> None:
+    # Anchoring must not escape the consumer repo: a tree with no marker and no system of its
+    # own must stay put rather than hoisting into whatever repo happens to sit above it.
+    _src_layout_override(monkeypatch)
+    repo = _sub_scoped_repo(tmp_path)
+    outside = tmp_path / "unrelated" / "nested"
+    outside.mkdir(parents=True)
+
+    assert detector.anchor_scan_root(repo / "src") == repo
+    assert detector.anchor_scan_root(outside) == outside
+    assert detector.scan_root(outside) == []
+
+
+def test_scan_roots_dedupes_sub_paths_of_one_repo(monkeypatch, tmp_path) -> None:
+    # Two sub-paths of ONE repo anchor to the same root — the repo must be scanned once, not
+    # reported twice.
+    _src_layout_override(monkeypatch)
+    repo = _sub_scoped_repo(tmp_path)
+
+    both = detector.scan_roots([repo / "src", repo / "plan"])
+    assert both == detector.scan_root(repo.resolve())
+
+
+def test_fixture_tree_nested_in_a_git_repo_still_anchors_to_itself(monkeypatch) -> None:
+    # Guard on the anchoring heuristic itself: this package's fixtures are self-contained mini
+    # repos nested inside a real git checkout. Each roots its OWN interlocking system, so it must
+    # anchor at itself and never hoist into the surrounding repo.
+    monkeypatch.delenv(detector.ENV_LAYOUT, raising=False)
+    assert detector.anchor_scan_root(_PASS) == _PASS
+    assert detector.anchor_scan_root(_FAIL / "exposed_interlocking_unreachable") == (
+        _FAIL / "exposed_interlocking_unreachable"
+    )
+
+
 def test_train_id_fallback_ignores_interlocking_control_artifact(tmp_path) -> None:
     # Regression (adversarial review R3): the recursive train_yaml default
     # (plan/_trains/**/*.yaml) must NOT accept an _interlockings/<id>.yaml control

@@ -843,6 +843,74 @@ def _layout_unresolved_violation(records: dict[Path, dict], layout: dict[str, li
 
 
 # ---------------------------------------------------------------------------
+# Scan-root anchoring — the layout is REPO-ROOT-relative, the scan root may not be
+# ---------------------------------------------------------------------------
+# Every layout glob (``plan/_trains/...``, ``src/**/runtime/interlocking/*.py``) is written
+# relative to the CONSUMER REPO ROOT. But core hands this detector whatever scan roots the
+# operator asked for — ``atdd enforce --paths src/atdd plan`` passes those SUB-PATHS. Resolving
+# a repo-root-relative glob against a sub-root matches nothing, so the whole system looked
+# absent and the rule went silently inert. That is the exact failure this rule exists to catch,
+# so it must never be how the rule itself behaves.
+#
+# Interlocking binding is a WHOLE-SYSTEM property: closure across declaration, runtime, Station
+# Master and trace cannot be judged from a fragment of the tree. So a scan root that carries no
+# interlocking system of its own is HOISTED to the nearest ancestor that does — i.e. the rule is
+# pinned to repo-root scope no matter how it was scoped in.
+#
+# The walk is BOUNDED by a repo marker and only runs when the given root itself resolves nothing,
+# which is what keeps this package's own fixture trees (each a self-contained mini-repo nested
+# inside a real git repo) anchored at themselves.
+_REPO_MARKERS = (".atdd", ".git")
+
+
+def _repo_boundary(start: Path) -> Path:
+    """Nearest ancestor of ``start`` (inclusive) holding a repo marker, else ``start``.
+
+    No marker anywhere above means there is no consumer repo to hoist into, so the walk is not
+    allowed to escape upward at all — ``start`` bounds itself.
+    """
+    for cand in (start, *start.parents):
+        if any((cand / marker).exists() for marker in _REPO_MARKERS):
+            return cand
+    return start
+
+
+def _carries_interlocking_system(root: Path, layout: dict[str, list[str]]) -> bool:
+    """True if ``root`` is the root of an interlocking system: a declared route space OR an
+    InterlockingRunner runtime resolves at the layout's repo-root-relative globs."""
+    if find_interlocking_files(root, layout[SEL_INTERLOCKING]):
+        return True
+    return any(
+        "InterlockingRunner" in text or "InterlockingResolution" in text
+        for text in (_read(p) for p in find_runtime_files(root, layout[SEL_RUNTIME]))
+    )
+
+
+def anchor_scan_root(root: Path, layout: dict[str, list[str]] | None = None) -> Path:
+    """Resolve the repo root the layout globs are relative to, for a possibly sub-scoped ``root``.
+
+    Returns ``root`` unchanged when it already roots an interlocking system (the fixture and
+    whole-repo cases); otherwise the nearest ancestor up to and including the repo boundary that
+    does. When nothing resolves anywhere up to the boundary, returns ``root`` — the caller then
+    proceeds normally, so a genuinely non-interlocking tree still carries no obligation and a
+    declared-but-unscannable route space still gets the ``layout_unresolved`` teeth.
+    """
+    root = Path(root)
+    if not root.exists():
+        return root
+    layout = _resolve_layout(root) if layout is None else layout
+    if _carries_interlocking_system(root, layout):
+        return root
+    boundary = _repo_boundary(root)
+    for cand in root.parents:
+        if _carries_interlocking_system(cand, layout):
+            return cand
+        if cand == boundary:
+            break
+    return root
+
+
+# ---------------------------------------------------------------------------
 # Aggregate scan
 # ---------------------------------------------------------------------------
 
@@ -852,15 +920,21 @@ def scan_root(root: Path) -> list[dict]:
 
     The rule only bites an interlocking system: a root with a declared interlocking route space OR an
     InterlockingRunner runtime. Every surface is located through the resolved LAYOUT (per-repo
-    override / scope selectors / defaults), resolved once here and threaded into the walks. The
-    detector NEVER applies disposition — ``strict`` is the gate's call.
+    override / scope selectors / defaults), resolved once here and threaded into the walks. A
+    sub-scoped ``root`` is first ANCHORED to the repo root those globs are relative to, so the rule
+    engages identically however it was scoped in. The detector NEVER applies disposition — ``strict``
+    is the gate's call.
     """
     root = Path(root)
     if not root.exists():
         return []
 
     layout = _resolve_layout(root)
+    return _scan_anchored(anchor_scan_root(root, layout), layout)
 
+
+def _scan_anchored(root: Path, layout: dict[str, list[str]]) -> list[dict]:
+    """Run every binding direction over an ALREADY-ANCHORED repo root with a resolved layout."""
     records: dict[Path, dict] = {}
     for il_file in find_interlocking_files(root, layout[SEL_INTERLOCKING]):
         rec = parse_interlocking(_read(il_file))
@@ -896,9 +970,26 @@ def scan_root(root: Path) -> list[dict]:
 
 
 def scan_roots(roots: list[Path]) -> list[dict]:
+    """Scan every root, ANCHORED and DEDUPED.
+
+    Anchoring collapses sub-scoped roots onto the repo root they belong to, so
+    ``--paths src/atdd plan`` would otherwise scan that one repo twice and report every
+    violation twice. Dedupe on the resolved anchor: one repo, one scan, whatever mix of
+    sub-paths pointed at it. The layout itself is root-independent (env / this package's
+    scope selectors / defaults), so it is resolved once for the whole batch.
+    """
+    layout = _resolve_layout(Path("."))
     out: list[dict] = []
+    seen: set[Path] = set()
     for r in roots:
-        out.extend(scan_root(Path(r)))
+        root = Path(r)
+        if not root.exists():
+            continue
+        anchor = anchor_scan_root(root, layout).resolve()
+        if anchor in seen:
+            continue
+        seen.add(anchor)
+        out.extend(_scan_anchored(anchor, layout))
     return out
 
 
@@ -917,6 +1008,7 @@ __all__ = [
     "parse_journey_map",
     "runtime_resolution_literals",
     "runtime_resolution_provenance",
+    "anchor_scan_root",
     "scan_root",
     "scan_roots",
     "detect",
