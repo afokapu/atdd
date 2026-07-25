@@ -1,6 +1,6 @@
-# URN: test:enforce-binding-plan:E004-UNIT-001-per-repo-interlocking-layout-emitted-to-provider
-# Acceptance: acc:enforce-binding-plan:E004-UNIT-001-per-repo-interlocking-layout-emitted-to-provider
-# WMBT: wmbt:enforce-binding-plan:E004
+# URN: test:govern-providers:D001-UNIT-006-per-repo-interlocking-layout-emitted-to-provider
+# Acceptance: acc:govern-providers:D001-UNIT-006-per-repo-interlocking-layout-emitted-to-provider
+# WMBT: wmbt:govern-providers:D001
 # Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
