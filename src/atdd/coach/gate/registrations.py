@@ -22,6 +22,10 @@ from __future__ import annotations
 
 from atdd.coach.gate.approval_check import GATE_ID, ApprovalTokenGateCheck
 from atdd.coach.gate.registry import GATE_REGISTRY
+from atdd.coach.gate.smoke_execution_check import (
+    GATE_ID as SMOKE_EXECUTION_GATE_ID,
+    SmokeExecutionGateCheck,
+)
 
 # The candidate operator-gateable lifecycle transitions. ``is_transition_gated``
 # decides which actually enforce (default: only PLANNED->RED). Creating the plan
@@ -43,3 +47,29 @@ def register_approval_checks(registry=GATE_REGISTRY) -> None:
         if any(getattr(c, "gate_id", None) == GATE_ID for c in existing):
             continue
         registry.register(from_phase, to_phase, ApprovalTokenGateCheck())
+
+
+# The transition the smoke-execution attestation gates. Already present in
+# ``_CANDIDATE_TRANSITIONS`` above, so the seam it plugs into is the proven one.
+_SMOKE_EXECUTION_TRANSITION = ("SMOKE", "REFACTOR")
+
+
+def register_smoke_execution_check(registry=GATE_REGISTRY) -> None:
+    """Idempotently register the smoke-execution check for SMOKE->REFACTOR.
+
+    SPIKE (#1602) — REGISTRATION HELPER ONLY. Like ``register_approval_checks``
+    this is deliberately NOT an import-time side effect (that would pollute
+    ``GATE_REGISTRY`` for #1020's migration-safety tests, which assert against
+    the live registry that test collection imports every module into).
+
+    Unlike ``register_approval_checks`` it is not yet called from the
+    ``atdd coach transition`` dispatch, and ``.atdd/config.yaml`` does not yet
+    carry ``SMOKE->REFACTOR: true`` — so in this repo the check is AVAILABLE but
+    not ENFORCING. Turning it on repo-wide is the full build's job, gated on
+    this spike's proof.
+    """
+    from_phase, to_phase = _SMOKE_EXECUTION_TRANSITION
+    existing = registry.checks_for(from_phase, to_phase)
+    if any(getattr(c, "gate_id", None) == SMOKE_EXECUTION_GATE_ID for c in existing):
+        return
+    registry.register(from_phase, to_phase, SmokeExecutionGateCheck())
