@@ -61,6 +61,16 @@ coach:
 gate:
   transitions:
     PLANNED->RED: true
+    # #1602: SmokeExecutionGateCheck — SMOKE->REFACTOR requires an attestation
+    # written by a live-smoke run that actually executed. Safe to enable because
+    # the check is OPT-IN PER ISSUE (atdd.coach.gate.smoke_obligation): it applies
+    # only to an issue whose own plan scope declares an
+    # `execution_kind: live_smoke` acceptance, and passes as "not applicable" for
+    # every issue that declares none — 787 of 787 work items in this repo at the
+    # time this line landed. Enabling it repo-wide with a repo-level opt-in would
+    # instead demand an attestation from every in-flight issue and make --force
+    # the routine exit, which is the failure this issue exists to remove.
+    SMOKE->REFACTOR: true
 
 # Convention validator suite promotion (#1207): conventions/** is the
 # authoritative convention-graph enforcement path; legacy persona validators
