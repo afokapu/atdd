@@ -184,6 +184,7 @@ def test_every_binding_direction_is_proven_by_one_fixture() -> None:
         "exposed_interlocking_unreachable": detector.DIR_DECL_STATION,
         "trace_does_not_resolve_to_yaml": detector.DIR_TRACE_DECL,
         "parallel_reachability_field_used": detector.DIR_PARALLEL_FIELD,
+        "layout_unresolved_no_runtime_or_station": detector.DIR_LAYOUT_UNRESOLVED,
     }
     seen: set[str] = set()
     for name, direction in expected.items():
@@ -197,6 +198,309 @@ def test_every_binding_direction_is_proven_by_one_fixture() -> None:
 
 def test_non_interlocking_tree_carries_no_obligation() -> None:
     assert detector.scan_root(_PASS / "does-not-exist") == []
+
+
+# ── 1f. scan layout is resolved from selectors (override / scope / defaults) ────
+
+_LAYOUT = _FIXTURES / "layout"
+_SRC_RUNTIME_LAYOUT = _LAYOUT / "runtime_in_src_layout"
+
+
+def test_default_layout_equals_today_hardcoded_constants(monkeypatch) -> None:
+    # Behavior-preserving: with no env override, the resolved layout (from the shipped scope file)
+    # MUST equal today's hardcoded constants — this is what keeps every game-app fixture green.
+    monkeypatch.delenv(detector.ENV_LAYOUT, raising=False)
+    layout = detector._resolve_layout(_PASS)
+    assert layout[detector.SEL_INTERLOCKING] == list(detector._INTERLOCKING_GLOBS)
+    assert layout[detector.SEL_RUNTIME] == ["python/trains/**/*.py"]
+    assert layout[detector.SEL_STATION] == ["python/app.py"]
+    assert layout[detector.SEL_E2E] == [detector._E2E_GLOB]
+    assert layout[detector.SEL_TRAIN] == [f"{detector._TRAIN_DIR}/**/*.yaml"]
+
+
+def test_per_repo_override_reads_runtime_at_configured_layout(monkeypatch) -> None:
+    # A per-repo ATDD_INTERLOCKING_LAYOUT override pointing python_runtime at src/**/runtime/
+    # interlocking/ makes the detector read the runtime that lives THERE (not python/trains/), so its
+    # hidden route (declared in no YAML) is caught as runtime_to_declaration.
+    monkeypatch.setenv(
+        detector.ENV_LAYOUT,
+        json.dumps({"python_runtime": ["src/**/runtime/interlocking/**/*.py"]}),
+    )
+    v = detector.scan_root(_SRC_RUNTIME_LAYOUT)
+    _assert_v11_shape(v)
+    assert detector.DIR_RUNTIME_DECL in _directions(v)
+    assert any("ghost-route-not-declared" in item["evidence"] for item in v)
+    assert any(item["file"].endswith("runtime.py") for item in v)
+
+
+def test_without_override_configured_runtime_is_invisible_and_scan_fails_closed(monkeypatch) -> None:
+    # Same tree, DEFAULT layout: the src/ runtime is never read (python/trains/ is empty), there is no
+    # Station Master — so instead of a silent green pass the detector fails closed.
+    monkeypatch.delenv(detector.ENV_LAYOUT, raising=False)
+    v = detector.scan_root(_SRC_RUNTIME_LAYOUT)
+    _assert_v11_shape(v)
+    assert _directions(v) == {detector.DIR_LAYOUT_UNRESOLVED}
+
+
+def test_layout_unresolved_fires_when_runtime_and_station_resolve_to_nothing() -> None:
+    # Fail-closed teeth: interlockings declared but the resolved runtime AND Station Master globs match
+    # NO file → ONE layout_unresolved violation (replaces the old silent no-op).
+    v = detector.scan_root(_FAIL / "layout_unresolved_no_runtime_or_station")
+    _assert_v11_shape(v)
+    assert _directions(v) == {detector.DIR_LAYOUT_UNRESOLVED}
+    assert len(v) == 1
+    assert "no runtime/Station Master found at configured layout" in v[0]["evidence"]
+
+
+# ── 1g. sub-path scan roots still engage the rule (anchoring) ──────────────────
+#
+# Core hands the detector whatever roots the operator scoped in — `atdd enforce --paths
+# src/atdd plan` passes SUB-PATHS. Layout globs are repo-root-relative, so before anchoring
+# they matched nothing under a sub-root and the rule went silently inert: a whole-system
+# obligation reporting PASS because it had been handed a fragment. These pin the fix.
+
+
+def _sub_scoped_repo(tmp_path) -> Path:
+    """A consumer repo (with a real ``.atdd/`` marker) whose runtime lives at src/, copied from
+    the shipped layout fixture so the tree under test stays the canonical one."""
+    import shutil
+
+    repo = tmp_path / "consumer"
+    shutil.copytree(_SRC_RUNTIME_LAYOUT, repo)
+    (repo / ".atdd").mkdir()
+    return repo
+
+
+def _src_layout_override(monkeypatch) -> None:
+    monkeypatch.setenv(
+        detector.ENV_LAYOUT,
+        json.dumps({"python_runtime": ["src/**/runtime/interlocking/**/*.py"]}),
+    )
+
+
+def test_sub_path_scan_root_engages_the_rule_identically_to_repo_root(monkeypatch, tmp_path) -> None:
+    # THE REGRESSION: scanning src/ alone used to resolve every repo-root-relative glob against
+    # src/, match nothing, and return [] — a silent PASS. The scan root must now anchor up to the
+    # repo root, producing exactly the whole-repo verdict.
+    _src_layout_override(monkeypatch)
+    repo = _sub_scoped_repo(tmp_path)
+
+    whole = detector.scan_root(repo)
+    sub = detector.scan_root(repo / "src")
+
+    _assert_v11_shape(sub)
+    assert sub, "sub-path scan root must NOT silently pass a repo with a broken binding"
+    assert detector.DIR_RUNTIME_DECL in _directions(sub)
+    assert sub == whole, "sub-path scoping must not change the verdict"
+    # Reported paths stay repo-root-relative, not relative to the sub-path it was scoped in by.
+    assert any(item["file"].startswith("src/") for item in sub)
+
+
+def test_sub_path_scan_root_anchors_only_up_to_the_repo_boundary(monkeypatch, tmp_path) -> None:
+    # Anchoring must not escape the consumer repo: a tree with no marker and no system of its
+    # own must stay put rather than hoisting into whatever repo happens to sit above it.
+    _src_layout_override(monkeypatch)
+    repo = _sub_scoped_repo(tmp_path)
+    outside = tmp_path / "unrelated" / "nested"
+    outside.mkdir(parents=True)
+
+    assert detector.anchor_scan_root(repo / "src") == repo
+    assert detector.anchor_scan_root(outside) == outside
+    assert detector.scan_root(outside) == []
+
+
+def test_scan_roots_dedupes_sub_paths_of_one_repo(monkeypatch, tmp_path) -> None:
+    # Two sub-paths of ONE repo anchor to the same root — the repo must be scanned once, not
+    # reported twice.
+    _src_layout_override(monkeypatch)
+    repo = _sub_scoped_repo(tmp_path)
+
+    both = detector.scan_roots([repo / "src", repo / "plan"])
+    assert both == detector.scan_root(repo.resolve())
+
+
+def test_fixture_tree_nested_in_a_git_repo_still_anchors_to_itself(monkeypatch) -> None:
+    # Guard on the anchoring heuristic itself: this package's fixtures are self-contained mini
+    # repos nested inside a real git checkout. Each roots its OWN interlocking system, so it must
+    # anchor at itself and never hoist into the surrounding repo.
+    monkeypatch.delenv(detector.ENV_LAYOUT, raising=False)
+    assert detector.anchor_scan_root(_PASS) == _PASS
+    assert detector.anchor_scan_root(_FAIL / "exposed_interlocking_unreachable") == (
+        _FAIL / "exposed_interlocking_unreachable"
+    )
+
+
+def test_train_id_fallback_ignores_interlocking_control_artifact(tmp_path) -> None:
+    # Regression (adversarial review R3): the recursive train_yaml default
+    # (plan/_trains/**/*.yaml) must NOT accept an _interlockings/<id>.yaml control
+    # artifact as the route's train (core afokapu/atdd#1504). A route whose
+    # train_id equals an interlocking stem, with no real train file, MUST still
+    # fire declaration_to_runtime (fail-closed) — not be silently resolved.
+    il = tmp_path / "plan" / "_trains" / "_interlockings"
+    il.mkdir(parents=True)
+    (il / "match-resolution.yaml").write_text(
+        "interlocking_id: interlocking:match-resolution\n"
+        "routes:\n- route_id: r1\n  train_id: match-resolution\n",
+        encoding="utf-8",
+    )
+    v = detector.scan_root(tmp_path)
+    assert detector.DIR_DECL_RUNTIME in _directions(v), (
+        "declaration_to_runtime must fire: no real train file exists, only an "
+        "_interlockings/ control artifact sharing the train_id stem"
+    )
+
+
+def test_malformed_override_falls_back_to_defaults(monkeypatch) -> None:
+    # A non-JSON override must not crash the scan — it falls back to scope/defaults.
+    monkeypatch.setenv(detector.ENV_LAYOUT, "{not-json")
+    layout = detector._resolve_layout(_PASS)
+    assert layout[detector.SEL_RUNTIME] == ["python/trains/**/*.py"]
+    assert detector.scan_root(_PASS) == []
+
+
+# ── 1g. atdd's idiom — function-based Station Master + variable-built resolutions ──
+#
+# atdd's runtime (core #1251) does NOT use the game-app idiom: the Station Master is the
+# FUNCTION `resolve_journey(journey_map, action)` (map is a parameter, no module-level
+# JOURNEY_MAP literal), and InterlockingResolution(...) is built from VARIABLES
+# (`route_id=route.route_id`), not string literals. These pin the matcher adaptation that
+# teaches the detector atdd's idiom while leaving the game-app path (1a–1f) untouched.
+#
+# The idiom is reproduced INLINE below (portable — no dependency on a sibling core checkout). The
+# real dogfood binding to atdd's actual runtime happens in STEP 3 (running the detector against the
+# repo), not here — these unit tests stay hermetic.
+
+# Faithful reproduction of atdd's station_master.py idiom: the Station Master is a FUNCTION; the
+# journey map is a PARAMETER. No module-level JOURNEY_MAP literal, no call site handing it a map.
+_ATDD_STATION_MASTER = (
+    "def resolve_journey(journey_map, action):\n"
+    "    if action not in journey_map:\n"
+    "        raise StationMasterError(action)\n"
+    "    mapping = journey_map[action]\n"
+    "    return mapping\n"
+)
+
+# Faithful reproduction of atdd's runner.py idiom: resolution built from `route.<attr>` where
+# `route = interlocking.route_by_id(route_id)` — variables, not string literals.
+_ATDD_RUNNER = (
+    "def resolve_train(self, action, inputs, state=None):\n"
+    "    interlocking = self._load_and_validate()\n"
+    "    route_id = evaluate_interlocking_route(interlocking, action, inputs, state)\n"
+    "    route = interlocking.route_by_id(route_id)\n"
+    "    return InterlockingResolution(\n"
+    "        interlocking_id=interlocking.interlocking_id,\n"
+    "        route_id=route.route_id,\n"
+    "        train_id=route.train_id,\n"
+    "        train_path=route.train_path,\n"
+    "    )\n"
+)
+
+
+def test_function_based_station_master_wiring_is_followed() -> None:
+    # atdd idiom: a concrete map handed to resolve_journey(...) is real wiring the matcher must read,
+    # exactly as a game-app JOURNEY_MAP literal is. Both the bare and the Name-bound form resolve.
+    inline = (
+        "from atdd.runtime.interlocking import resolve_journey\n"
+        "def dispatch(action, inputs):\n"
+        "    return resolve_journey({\n"
+        "        'start_match': '3001-solo',\n"
+        "        'resolve_match': {'interlocking_id': 'interlocking:match-resolution',\n"
+        "                          'path': 'plan/_trains/_interlockings/match-resolution.yaml'},\n"
+        "    }, action)\n"
+    )
+    journey = detector.parse_journey_map(inline)
+    assert journey["resolve_match"]["kind"] == "interlocking"
+    assert journey["resolve_match"]["interlocking_id"] == "interlocking:match-resolution"
+    assert journey["start_match"]["kind"] == "direct"
+
+    name_bound = (
+        "JOURNEY = {'resolve_match': {'interlocking_id': 'interlocking:match-resolution',\n"
+        "                             'path': 'plan/_trains/_interlockings/match-resolution.yaml'}}\n"
+        "def dispatch(action):\n"
+        "    return resolve_journey(JOURNEY, action)\n"
+    )
+    assert detector.parse_journey_map(name_bound)["resolve_match"]["kind"] == "interlocking"
+
+
+def test_station_master_definition_alone_yields_no_invented_wiring() -> None:
+    # atdd's Station Master only DEFINES resolve_journey (map is a runtime parameter); there is no
+    # call site handing it a concrete map. The matcher must NOT hallucinate wiring — it returns {} so
+    # a genuinely unwired exposed interlocking still surfaces via declaration_to_station.
+    assert "def resolve_journey" in _ATDD_STATION_MASTER  # guard: this IS the function-based idiom
+    assert detector.parse_journey_map(_ATDD_STATION_MASTER) == {}
+
+
+def test_variable_built_resolution_is_provenance_bound_not_undecidable() -> None:
+    # atdd builds InterlockingResolution from `route = interlocking.route_by_id(...)` attributes.
+    # runtime_resolution_literals sees NO literal route/train kwarg; provenance classifies
+    # route.route_id / route.train_id as "bound" (derived from the loaded route space) — so
+    # runtime_to_declaration holds by construction, WITHOUT a literal.
+    assert detector.runtime_resolution_literals(_ATDD_RUNNER) == []  # no string-literal resolution kwargs
+    prov = detector.runtime_resolution_provenance(_ATDD_RUNNER)
+    kinds = {(kind, provenance) for kind, provenance, *_ in prov}
+    assert ("route", "bound") in kinds
+    assert ("train", "bound") in kinds
+    assert all(provenance == "bound" for _kind, provenance, *_ in prov)  # nothing undecidable
+
+
+def test_opaque_variable_resolution_is_surfaced_not_silently_passed() -> None:
+    # A resolution built from an opaque variable (no route_by_id provenance) is UNDECIDABLE by static
+    # scan. It must NOT be silently passed: provenance flags it, and runtime_to_declaration surfaces it.
+    opaque = (
+        "def resolve_train(self, action):\n"
+        "    picked = external_pick(action)\n"
+        "    return InterlockingResolution(route_id=picked.rid, train_id=picked.tid)\n"
+    )
+    prov = detector.runtime_resolution_provenance(opaque)
+    assert {(kind, provenance) for kind, provenance, *_ in prov} == {
+        ("route", "undecidable"),
+        ("train", "undecidable"),
+    }
+
+
+def _write_atdd_shaped_repo(root: Path, runner_src: str, station_src: str) -> None:
+    il_dir = root / "plan" / "_trains" / "_interlockings"
+    il_dir.mkdir(parents=True)
+    (root / "plan" / "_trains" / "3007-x.yaml").write_text("train_id: 3007-x\n", encoding="utf-8")
+    (il_dir / "match-resolution.yaml").write_text(
+        "interlocking_id: interlocking:match-resolution\n"
+        "entrypoint:\n  exposed: true\n  actions:\n  - resolve_match\n"
+        "routes:\n"
+        "- route_id: nominal-all-voted\n  train_id: 3007-x\n"
+        "  train_path: plan/_trains/3007-x.yaml\n",
+        encoding="utf-8",
+    )
+    rt = root / "src" / "atdd" / "runtime" / "interlocking"
+    rt.mkdir(parents=True)
+    (rt / "runner.py").write_text(runner_src, encoding="utf-8")
+    (rt / "station_master.py").write_text(station_src, encoding="utf-8")
+
+
+_ATDD_LAYOUT = json.dumps(
+    {
+        "python_runtime": ["src/atdd/runtime/interlocking/*.py"],
+        "station_master": ["src/atdd/runtime/interlocking/station_master.py"],
+    }
+)
+
+
+def test_atdd_shaped_repo_reds_on_unwired_exposed_interlocking_only(tmp_path, monkeypatch) -> None:
+    # END-TO-END dogfood shape: an exposed interlocking declared in YAML, atdd's runtime/station under
+    # a src-style layout override. runtime_to_declaration must NOT fire (resolutions are
+    # provenance-bound), but declaration_to_station MUST fire — the exposed interlocking has no Station
+    # Master wiring (function-based Station Master with no concrete map). This is the genuine RED the
+    # dogfood is meant to surface, not a matcher-blindness false positive.
+    _write_atdd_shaped_repo(tmp_path, _ATDD_RUNNER, _ATDD_STATION_MASTER)
+    monkeypatch.setenv(detector.ENV_LAYOUT, _ATDD_LAYOUT)
+    v = detector.scan_root(tmp_path)
+    _assert_v11_shape(v)
+    dirs = _directions(v)
+    assert detector.DIR_RUNTIME_DECL not in dirs, "resolutions are provenance-bound; must not RED"
+    assert detector.DIR_DECL_STATION in dirs, "exposed interlocking is genuinely unwired — must RED"
+    assert any("resolve_match" in item["evidence"] for item in v)
+
+
+# ── 2. emission (writes the RAW report; does NOT decide disposition) ───────────
 
 
 # ── 2. emission (writes the RAW report; does NOT decide disposition) ───────────
