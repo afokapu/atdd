@@ -375,6 +375,30 @@ def is_interlocking_rule(rule_id: str) -> bool:
     return rule_id.startswith(_INTERLOCKING_LAYOUT_RULE_PREFIX)
 
 
+def _layout_globs_for(selector_id: object, globs: object) -> Optional[list[str]]:
+    """Normalized globs for one declared selector, or ``None`` (with a warning).
+
+    The per-entry half of :func:`resolve_interlocking_layout`, split out so the
+    caller's loop body stays flat. Both rejections are warn-and-drop for the same
+    reason the caller documents: a layout hint must never sink an enforce run.
+    """
+    if selector_id not in _INTERLOCKING_LAYOUT_SELECTOR_IDS:
+        _log.warning(
+            "ignoring unknown interlocking_layout selector id",
+            extra={"selector_id": str(selector_id),
+                   "known": list(_INTERLOCKING_LAYOUT_SELECTOR_IDS)},
+        )
+        return None
+    as_list = _as_str_list(globs)
+    if not as_list:
+        _log.warning(
+            "ignoring empty/malformed interlocking_layout globs for selector",
+            extra={"selector_id": str(selector_id)},
+        )
+        return None
+    return as_list
+
+
 def resolve_interlocking_layout(config: dict) -> Optional[dict[str, list[str]]]:
     """Read the OPTIONAL per-repo ``interlocking_layout`` declaration, or ``None``.
 
@@ -401,21 +425,9 @@ def resolve_interlocking_layout(config: dict) -> Optional[dict[str, list[str]]]:
         return None
     layout: dict[str, list[str]] = {}
     for selector_id, globs in block.items():
-        if selector_id not in _INTERLOCKING_LAYOUT_SELECTOR_IDS:
-            _log.warning(
-                "ignoring unknown interlocking_layout selector id",
-                extra={"selector_id": str(selector_id),
-                       "known": list(_INTERLOCKING_LAYOUT_SELECTOR_IDS)},
-            )
-            continue
-        as_list = _as_str_list(globs)
-        if not as_list:
-            _log.warning(
-                "ignoring empty/malformed interlocking_layout globs for selector",
-                extra={"selector_id": str(selector_id)},
-            )
-            continue
-        layout[str(selector_id)] = as_list
+        as_list = _layout_globs_for(selector_id, globs)
+        if as_list is not None:
+            layout[str(selector_id)] = as_list
     return layout or None
 
 

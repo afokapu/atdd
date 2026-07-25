@@ -52,6 +52,7 @@ from atdd.enforce.conventions import (
     rule_metadata,
 )
 from atdd.enforce.dispositions import fails_on_violation
+from atdd.enforce.provider_env import provider_env
 from atdd.enforce.resolution import (
     ProviderResolutionError,
     ResolvedProvider,
@@ -64,13 +65,6 @@ from atdd.enforce.resolution import (
 # test from each implementation's manifest rather than keying off one hardcoded
 # filename, so every bound detector is runnable — not just ``coder.logging.print``.
 _PROVIDER_REPORT_FIELD = "report"
-
-# Env var the train-interlocking detector reads as its HIGHEST-precedence scan-surface
-# source (contract step 1, #1595): JSON ``{selector_id: [globs]}``. Core sets it on the
-# provider subprocess ONLY for a ``coder.train.interlocking-*`` rule whose repo declares
-# an ``interlocking_layout`` block; otherwise it is never set and the detector falls back
-# to its own scope selectors / defaults. Never leaked onto unrelated rule subprocesses.
-_INTERLOCKING_LAYOUT_ENV = "ATDD_INTERLOCKING_LAYOUT"
 
 
 class EnforceUsageError(Exception):
@@ -203,30 +197,6 @@ def _resolve_impls_root(substrate_home: Path, implementation_id: str) -> Optiona
     return None
 
 
-# The provider CLI imports vendored adapter modules and then subprocesses
-# ``python -m pytest`` over a test file INSIDE the vendored tree. Both writes land
-# in that tree — ``__pycache__/`` next to every imported module, ``.pytest_cache/``
-# at the resolved rootdir — mutating a digest-locked substrate that core is
-# supposed to leave untouched, which surfaced as a false ``[TAMPERED]`` from
-# ``--verify-substrate`` (#1603). The vendored adapter's pytest argv is fixed and
-# digest-locked, so env is core's only lever: it inherits down the whole chain
-# (core → provider CLI → pytest), and ``PYTEST_ADDOPTS`` is how a caller adds
-# pytest flags without owning the argv.
-_PYTEST_NO_CACHE_OPT = "-p no:cacheprovider"
-
-
-def _cache_suppressing_env() -> dict[str, str]:
-    """Env that keeps a provider run from depositing caches in the vendored tree."""
-    addopts = os.environ.get("PYTEST_ADDOPTS", "").strip()
-    return {
-        "PYTHONDONTWRITEBYTECODE": "1",
-        # Appended, not clobbered: an operator's own PYTEST_ADDOPTS still applies.
-        "PYTEST_ADDOPTS": (
-            f"{addopts} {_PYTEST_NO_CACHE_OPT}" if addopts else _PYTEST_NO_CACHE_OPT
-        ),
-    }
-
-
 def _invoke_provider(
     provider: ResolvedProvider,
     implementation_id: str,
@@ -242,37 +212,18 @@ def _invoke_provider(
     v1.1 JSON array off stdout". A non-zero provider exit is a run/usage failure
     of the provider itself (stdout empty), raised rather than mis-read as clean.
 
-    ``graph_roots`` (the consumer's resolved CLI entry-point module files) are
-    forwarded as ``ATDD_GRAPH_ROOTS`` for reachability detectors that consume
-    explicit extra roots. KNOWN GAP (#1238 / docs/PARITY-AUDIT-26.md REGRESSION
-    #3): the enforce layer supplies them, but the vendored python-pytest
-    dead-code detector does not yet READ ``ATDD_GRAPH_ROOTS`` — that detector-side
-    consumption awaits the extension re-vendor. Forwarding it now means parity
-    closes the moment the fixed detector is re-vendored, with no further core
-    change. (We cannot patch the vendored detector here: it is digest-locked by
-    ``.atdd/substrate.lock.yaml`` and re-vendoring is the convergence step.)
-
-    ``interlocking_layout`` (the repo's declared ``{selector_id: [globs]}`` scan
-    surfaces) is forwarded as ``ATDD_INTERLOCKING_LAYOUT`` when — and only when —
-    the caller supplies one, i.e. for a ``coder.train.interlocking-*`` rule in a
-    repo that declares the block. Nothing is set otherwise, so the detector's own
-    selector/default fallback stays in force.
+    What the subprocess is told — the scan surface, ``graph_roots``, the
+    ``interlocking_layout`` and the cache suppression — is
+    :func:`atdd.enforce.provider_env.provider_env`; this function only runs it and
+    reads the result.
     """
-    env = {
-        **os.environ,
-        "ATDD_SCAN_ROOTS": json.dumps([str(r) for r in scan_roots]),
-        "ATDD_IMPL_ID": implementation_id,
-        **_cache_suppressing_env(),
-    }
-    if scan_excludes:
-        env["ATDD_SCAN_EXCLUDES"] = json.dumps([str(e) for e in scan_excludes])
-    if graph_roots:
-        env["ATDD_GRAPH_ROOTS"] = json.dumps([str(r) for r in graph_roots])
-    if interlocking_layout:
-        # The repo declared a per-repo interlocking layout; forward it verbatim as
-        # the detector's highest-precedence scan-surface source (#1595). Scoped by
-        # the caller to interlocking rules only — absent for every other rule.
-        env[_INTERLOCKING_LAYOUT_ENV] = json.dumps(interlocking_layout)
+    env = provider_env(
+        implementation_id,
+        scan_roots,
+        scan_excludes,
+        graph_roots=graph_roots,
+        interlocking_layout=interlocking_layout,
+    )
     argv = [sys.executable, str(provider.provider_cli_path)]
     if impls_root is not None:
         # Without this the provider CLI defaults to its OWN implementations/ dir and

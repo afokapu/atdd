@@ -24,6 +24,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from atdd.enforce import provider_env as provider_env_mod
 from atdd.enforce import runner as runner_mod
 from atdd.enforce.resolution import ResolvedProvider
 
@@ -99,7 +100,7 @@ def test_provider_run_leaves_no_caches_in_the_vendored_tree(tmp_path, monkeypatc
 
     # CONTROL — the same run WITHOUT the runner's cache-suppressing env. If this
     # tree stays clean the assertion below proves nothing, so fail loudly here.
-    monkeypatch.setattr(runner_mod, "_cache_suppressing_env", dict)
+    monkeypatch.setattr(provider_env_mod, "cache_suppressing_env", dict)
     _drive(provider, consumer)
     polluted = _generated_caches(ws)
     assert polluted, (
