@@ -203,6 +203,30 @@ def _resolve_impls_root(substrate_home: Path, implementation_id: str) -> Optiona
     return None
 
 
+# The provider CLI imports vendored adapter modules and then subprocesses
+# ``python -m pytest`` over a test file INSIDE the vendored tree. Both writes land
+# in that tree — ``__pycache__/`` next to every imported module, ``.pytest_cache/``
+# at the resolved rootdir — mutating a digest-locked substrate that core is
+# supposed to leave untouched, which surfaced as a false ``[TAMPERED]`` from
+# ``--verify-substrate`` (#1603). The vendored adapter's pytest argv is fixed and
+# digest-locked, so env is core's only lever: it inherits down the whole chain
+# (core → provider CLI → pytest), and ``PYTEST_ADDOPTS`` is how a caller adds
+# pytest flags without owning the argv.
+_PYTEST_NO_CACHE_OPT = "-p no:cacheprovider"
+
+
+def _cache_suppressing_env() -> dict[str, str]:
+    """Env that keeps a provider run from depositing caches in the vendored tree."""
+    addopts = os.environ.get("PYTEST_ADDOPTS", "").strip()
+    return {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        # Appended, not clobbered: an operator's own PYTEST_ADDOPTS still applies.
+        "PYTEST_ADDOPTS": (
+            f"{addopts} {_PYTEST_NO_CACHE_OPT}" if addopts else _PYTEST_NO_CACHE_OPT
+        ),
+    }
+
+
 def _invoke_provider(
     provider: ResolvedProvider,
     implementation_id: str,
@@ -238,6 +262,7 @@ def _invoke_provider(
         **os.environ,
         "ATDD_SCAN_ROOTS": json.dumps([str(r) for r in scan_roots]),
         "ATDD_IMPL_ID": implementation_id,
+        **_cache_suppressing_env(),
     }
     if scan_excludes:
         env["ATDD_SCAN_EXCLUDES"] = json.dumps([str(e) for e in scan_excludes])
