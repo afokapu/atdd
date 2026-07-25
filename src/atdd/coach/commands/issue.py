@@ -1152,37 +1152,38 @@ class IssueManager:
         """
         if not issue_number:
             return None
-        if issue_number in self._landed_commit_cache:
-            return self._landed_commit_cache[issue_number]
+        if issue_number not in self._landed_commit_cache:
+            sha = self._closing_merge_sha(issue_number)
+            # It is only useful if this checkout can see it *and* its parent — the
+            # diff the merge landed is `<sha>^..<sha>`.
+            self._landed_commit_cache[issue_number] = (
+                sha if sha and self._has_commit_and_parent(sha) else None
+            )
+        return self._landed_commit_cache[issue_number]
 
-        sha: Optional[str] = None
+    def _closing_merge_sha(self, issue_number: int) -> Optional[str]:
+        """The commit GitHub says merged the PR that closed this issue."""
         client = self._get_github_client()
-        if client is not None:
-            try:
-                sha = client.get_closing_merge_commit(issue_number)
-            except Exception as exc:  # noqa: BLE001 — a gate must not die on a lookup
-                logger.debug(
-                    "closing merge commit lookup failed",
-                    extra={"issue": issue_number, "error": str(exc)},
-                )
-                sha = None
-
-        # It is only useful if this checkout can see it *and* its parent — the diff
-        # the merge landed is `<sha>^..<sha>`.
-        if sha:
-            present = subprocess.run(
-                ["git", "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"],
-                capture_output=True, text=True, cwd=str(self.target_dir),
+        if client is None:
+            return None
+        try:
+            return client.get_closing_merge_commit(issue_number)
+        except Exception as exc:  # noqa: BLE001 — a gate must not die on a lookup
+            logger.debug(
+                "closing merge commit lookup failed",
+                extra={"issue": issue_number, "error": str(exc)},
             )
-            parent = subprocess.run(
-                ["git", "rev-parse", "--verify", "--quiet", f"{sha}^^{{commit}}"],
-                capture_output=True, text=True, cwd=str(self.target_dir),
-            )
-            if present.returncode != 0 or parent.returncode != 0:
-                sha = None
+            return None
 
-        self._landed_commit_cache[issue_number] = sha
-        return sha
+    def _has_commit_and_parent(self, sha: str) -> bool:
+        """Whether this checkout can resolve both ends of ``<sha>^..<sha>``."""
+        return all(
+            subprocess.run(
+                ["git", "rev-parse", "--verify", "--quiet", rev],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            ).returncode == 0
+            for rev in (f"{sha}^{{commit}}", f"{sha}^^{{commit}}")
+        )
 
     def _verify_artifacts(
         self,
