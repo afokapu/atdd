@@ -21,6 +21,24 @@ LOCK_SCHEMA_VERSION = "1.0.0"
 # package kind → install subdirectory under .atdd/
 _KIND_DIR = {"extension": "extensions", "workspace": "workspaces"}
 
+# Generated artifacts a python run DEPOSITS into a tree — never package source.
+# They are not authored, not shipped and not installed; they appear only because
+# something executed inside the tree (e.g. `atdd enforce` subprocessing the
+# vendored pytest provider). The digest content-addresses SOURCE, so every walk
+# of it — the producer's here and the enforce substrate guard's verifier — must
+# see the same source-only file set. Digesting bytecode instead made a plain
+# `atdd enforce` run turn a pristine vendored tree into a false [TAMPERED] (#1603).
+#
+# Kept as narrow as the generators allow, because an excluded file is a file
+# tamper detection cannot see. `__pycache__/` is deliberately NOT excluded by
+# NAME — CPython writes only `.pyc` into it, so the suffix rule already covers
+# every real cache file, and anything ELSE planted under that name (a `.py`
+# payload hiding behind a directory the guard "ignores") stays digested and
+# still trips the guard. `.pytest_cache/` has no such stable file grammar (json,
+# CACHEDIR.TAG, .gitignore, lastfailed…), so it is excluded by directory name.
+_GENERATED_DIR_NAMES = frozenset({".pytest_cache"})
+_GENERATED_SUFFIXES = frozenset({".pyc", ".pyo"})
+
 
 def install_path(project_root: str | Path, kind: str, package_id: str, version: str) -> Path:
     """The versioned install home: `.atdd/{extensions,workspaces}/<id>/<version>/`."""
@@ -30,11 +48,31 @@ def install_path(project_root: str | Path, kind: str, package_id: str, version: 
     return Path(project_root) / ".atdd" / sub / package_id / version
 
 
+def iter_digest_files(package_dir: str | Path) -> list[Path]:
+    """Every SOURCE file under *package_dir*, sorted; generated caches excluded.
+
+    The single definition of "what the content digest covers", shared by the
+    producer (`compute_digest`) and the verifier
+    (`atdd.enforce.substrate_guard`). Excluding a file here hides it from tamper
+    detection, so the exclusion set is deliberately narrow: compiled bytecode and
+    pytest's cache dir only. Any authored file — `.py`, `.yaml`, anything else —
+    still lands in the digest and a change to it is still caught.
+    """
+    root = Path(package_dir)
+    return sorted(
+        p
+        for p in root.rglob("*")
+        if p.is_file()
+        and p.suffix not in _GENERATED_SUFFIXES
+        and _GENERATED_DIR_NAMES.isdisjoint(p.relative_to(root).parts)
+    )
+
+
 def compute_digest(package_dir: str | Path) -> str:
     """Content-address a package: sha256 over sorted (relpath, bytes). Stable."""
     root = Path(package_dir)
     h = hashlib.sha256()
-    for f in sorted(p for p in root.rglob("*") if p.is_file()):
+    for f in iter_digest_files(root):
         rel = f.relative_to(root).as_posix()
         h.update(rel.encode("utf-8"))
         h.update(b"\0")
