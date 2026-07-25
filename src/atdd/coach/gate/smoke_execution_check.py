@@ -23,12 +23,25 @@ gate exists to close, so the execution attestation lives somewhere else entirely
 stamp. ``test_operator_typed_stamp_is_not_accepted_as_execution_evidence``
 holds that line.
 
-FAIL-CLOSED, at three levels: the verdict rejects every degenerate record shape
-(see :func:`~atdd.state.evidence.evaluate_smoke_execution`); an unresolvable
-work item or unreachable store returns ``passed=False`` here with a message
-naming the fault; and anything that raises is converted to a FAIL one level up
-by ``decision.run_checks``. This check therefore never has to catch to be safe —
-it catches only to say something useful.
+OPT-IN, PER ISSUE. The check first asks whether THIS issue's own plan scope
+declares an ``execution_kind: live_smoke`` acceptance
+(:func:`~atdd.coach.gate.smoke_obligation.live_smoke_obligation`). If it declares
+none the transition is *not applicable* and passes; only an issue that promised a
+live-smoke run is held to one. That ordering is the whole safety property of
+enabling this gate: fail-closed on an issue that owes nothing is an obligation it
+cannot discharge, and its only exit is ``--force`` — a gate reachable only by
+forcing past it is a rubber stamp. Note which question is asked: *this issue's*
+obligation, never *the repo's*. ``plan_declares_live_smoke`` answers the
+repo-level one and became ``True`` for this repo when E069 landed; consulting it
+here would re-gate every issue on the commit that made the gate satisfiable.
+
+FAIL-CLOSED, at three levels, once the obligation exists: the verdict rejects
+every degenerate record shape (see
+:func:`~atdd.state.evidence.evaluate_smoke_execution`); an unresolvable work item
+or unreachable store returns ``passed=False`` here with a message naming the
+fault; and anything that raises is converted to a FAIL one level up by
+``decision.run_checks``. This check therefore never has to catch to be safe — it
+catches only to say something useful.
 
 ISSUE NUMBER -> UID. The gate is handed a provider-side issue number and the
 attestation is keyed by work-item uid, so the translation happens HERE, in the
@@ -45,6 +58,7 @@ from pathlib import Path
 from typing import Optional
 
 from atdd.coach.gate.decision import GateCheckResult, GateContext
+from atdd.coach.gate.smoke_obligation import SmokeObligation, live_smoke_obligation
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +100,19 @@ def resolve_work_item_uid(store, issue_number: int) -> Optional[str]:
     return ref.object_uid if ref is not None else None
 
 
+def work_item_data(store, uid: str) -> dict:
+    """The stored work item's ``data`` bag — where its plan scope is recorded.
+
+    Empty for an object the store has no body for, which reads downstream as "no
+    plan scope declared" and therefore no obligation. That is the same answer the
+    overwhelming majority of issues get, so the degenerate case needs no special
+    branch.
+    """
+    obj = store.objects.get(uid)
+    data = getattr(obj, "data", None)
+    return dict(data) if isinstance(data, dict) else {}
+
+
 @dataclass(frozen=True)
 class SmokeExecutionGateCheck:
     """Passes iff the State Store records a live-smoke test that actually ran."""
@@ -116,23 +143,51 @@ class SmokeExecutionGateCheck:
                     f"so no smoke-execution attestation can be found for it "
                     f"(fail-closed); {produce}",
                 )
+            obligation = live_smoke_obligation(ctx.worktree, work_item_data(store, uid))
+            if not obligation:
+                return self._not_applicable(ctx, transition, uid, obligation)
             runs = smoke_executions(store, uid)
 
+        owed = ", ".join(obligation.acceptance_urns)
         verdict = evaluate_smoke_execution(runs, head_sha=_head_sha(ctx.worktree))
         if not verdict.satisfied:
             logger.warning(
                 "smoke-execution gate refused a transition",
                 extra={"gate_id": self.gate_id, "rule_id": self.rule_id,
                        "issue": ctx.issue_number, "uid": uid,
-                       "clause": verdict.clause, "runs": len(runs)},
+                       "clause": verdict.clause, "runs": len(runs),
+                       "owed": owed},
             )
             return GateCheckResult(
                 self.gate_id, self.rule_id, False,
                 f"{transition} refused [{verdict.clause}] for {uid}: "
-                f"{verdict.detail}; {produce}",
+                f"{verdict.detail}; #{ctx.issue_number} declares live_smoke "
+                f"acceptance(s) {owed}, so {produce}",
             )
 
         return GateCheckResult(
             self.gate_id, self.rule_id, True,
-            f"{transition} attested for {uid}: {verdict.detail}",
+            f"{transition} attested for {uid} (owed: {owed}): {verdict.detail}",
+        )
+
+    def _not_applicable(
+        self, ctx: GateContext, transition: str, uid: str, obligation: SmokeObligation
+    ) -> GateCheckResult:
+        """PASS for an issue whose plan scope asks for no live-smoke run.
+
+        Separate from the fail-closed body so the two answers cannot be confused
+        while reading: this one is reached only when the obligation is genuinely
+        empty, and it never consults the attestation store at all.
+        """
+        logger.debug(
+            "smoke-execution gate: not applicable",
+            extra={"gate_id": self.gate_id, "rule_id": self.rule_id,
+                   "issue": ctx.issue_number, "uid": uid,
+                   "scopes": list(obligation.scopes)},
+        )
+        return GateCheckResult(
+            self.gate_id, self.rule_id, True,
+            f"{transition} not applicable: #{ctx.issue_number} ({uid}) declares no "
+            f"live_smoke acceptance, so smoke execution is not required for this "
+            f"transition ({obligation.describe_scope()})",
         )

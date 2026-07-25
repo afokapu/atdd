@@ -54,6 +54,20 @@ SLUG = "smoke-gate-probe"
 BRANCH = f"feat/{SLUG}"
 ACCEPTANCE_URN = "acc:smoke-gate-probe:live-smoke-executes"
 
+#: The plan scope the fixture work item is bound to, and the WMBT that scope is
+#: made of. The gate is OPT-IN per issue (see
+#: :mod:`~atdd.coach.gate.smoke_obligation`), so a fixture whose work item
+#: declared no plan scope would be *not applicable* and the chain's negative
+#: direction would pass for the wrong reason — "the gate let it through" would
+#: mean "the gate was never asked". Declaring the obligation here is what makes
+#: this probe repo the shape of a consumer that actually promised to smoke.
+FEATURE_URN = f"feature:{SLUG}:live-smoke-executes"
+WMBT_URN = f"wmbt:{SLUG}:E001"
+
+#: URN scope -> on-disk home, the mapping ``smoke_obligation`` resolves by:
+#: ``<kind>:smoke-gate-probe:<name>`` lives under ``plan/smoke_gate_probe/``.
+WAGON_DIRNAME = SLUG.replace("-", "_")
+
 #: ``src/`` of this working tree — the code the subprocess must import, so the
 #: run exercises the change under test rather than an installed wheel.
 #: ``live_smoke.py`` sits at ``src/atdd/coach/gate/``, hence four parents up.
@@ -114,8 +128,9 @@ def test_something_unrelated():
 """
 
 WMBT_YAML = f"""\
+urn: {WMBT_URN}
 identity:
-  urn: wmbt:smoke-gate-probe:E001
+  urn: {WMBT_URN}
 statement: the live-smoke probe executes against real infrastructure
 acceptances:
   - identity:
@@ -123,6 +138,16 @@ acceptances:
       phase: SMOKE
     execution_kind: live_smoke
     purpose: the probe runs and its execution is attested
+"""
+
+#: The feature the fixture issue is bound to. Names the WMBT above, which is the
+#: hop ``smoke_obligation`` walks from a work item's ``data.feature`` to the
+#: acceptances that work item owes.
+FEATURE_YAML = f"""\
+urn: {FEATURE_URN}
+description: the live-smoke probe the fixture issue promises to run
+wmbts:
+  - {WMBT_URN}
 """
 
 
@@ -145,14 +170,31 @@ def git(repo: Path, *args: str) -> str:
     return proc.stdout.strip()
 
 
+def write_live_smoke_plan_scope(repo: Path) -> Dict[str, str]:
+    """Declare one live_smoke acceptance under ``repo/plan/`` and bind it.
+
+    Writes the two plan artifacts the opt-in resolver walks — the feature and the
+    WMBT it names — and returns the work-item ``data`` bag that binds an issue to
+    that scope, ready to hand to ``store.objects.upsert(..., data=...)``.
+
+    Shipped from the harness rather than rebuilt per test because the obligation
+    and the fail-closed evidence must describe the SAME issue: a test that seeded
+    one and forgot the other would prove the opposite of what it claimed.
+    """
+    wagon = repo / "plan" / WAGON_DIRNAME
+    (wagon / "features").mkdir(parents=True, exist_ok=True)
+    (wagon / "E001.yaml").write_text(WMBT_YAML)
+    (wagon / "features" / "live_smoke_executes.yaml").write_text(FEATURE_YAML)
+    return {"feature": FEATURE_URN}
+
+
 def build_probe_repo(root: Path, probe_source: str) -> Path:
     """A minimal but genuine ATDD repo: git history, plan/, store, probe test."""
     repo = root / "probe-repo"
-    (repo / "plan" / "govern_probe").mkdir(parents=True)
     (repo / "tests").mkdir(parents=True)
     (repo / ".atdd").mkdir(parents=True)
 
-    (repo / "plan" / "govern_probe" / "E001.yaml").write_text(WMBT_YAML)
+    work_item_data = write_live_smoke_plan_scope(repo)
     (repo / "tests" / "test_live_smoke_probe.py").write_text(probe_source)
     (repo / "tests" / "test_unanchored.py").write_text(PROBE_WITHOUT_ANCHOR)
     (repo / ".atdd" / "config.yaml").write_text("version: '1.0'\n")
@@ -168,7 +210,7 @@ def build_probe_repo(root: Path, probe_source: str) -> Path:
 
     with _control_root(repo):
         with open_state_store(control_root=repo) as store:
-            store.objects.upsert(SLUG, "work_item", state="SMOKE")
+            store.objects.upsert(SLUG, "work_item", state="SMOKE", data=work_item_data)
             store.external_refs.link(SLUG, "github", "issue", str(ISSUE))
     return repo
 
@@ -372,6 +414,8 @@ __all__ = [
     "BRANCH",
     "ChainEvidence",
     "DIST_NAME",
+    "FEATURE_URN",
+    "FEATURE_YAML",
     "ISSUE",
     "PROBE_THAT_DOES_NOT_EXECUTE",
     "PROBE_THAT_RUNS",
@@ -379,6 +423,8 @@ __all__ = [
     "PYPROJECT",
     "SLUG",
     "SRC_ROOT",
+    "WAGON_DIRNAME",
+    "WMBT_URN",
     "WMBT_YAML",
     "attested_runs",
     "build_probe_repo",
@@ -388,4 +434,5 @@ __all__ = [
     "installed_metadata",
     "run_probe_pytest",
     "smoke_execution_chain",
+    "write_live_smoke_plan_scope",
 ]

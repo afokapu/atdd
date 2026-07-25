@@ -73,12 +73,15 @@ def register_smoke_execution_check(registry=GATE_REGISTRY) -> None:
           transitions:
             SMOKE->REFACTOR: true
 
-    That line is intentionally NOT set in this repo yet: the attestation is
-    written only for ``execution_kind: live_smoke`` acceptances, and ``plan/``
-    currently declares none — so enabling it here would make ``SMOKE->REFACTOR``
-    unreachable for every in-flight issue except through ``--force``, which is
-    the bypass-advertising failure this whole issue exists to remove. The
-    precondition is a live_smoke acceptance per issue that reaches SMOKE.
+    That line IS now set in this repo, and what made it safe to set is that the
+    check is opt-in per issue (:mod:`atdd.coach.gate.smoke_obligation`): it holds
+    an issue to a live-smoke run only when that issue's own plan scope declares an
+    ``execution_kind: live_smoke`` acceptance, and passes as *not applicable*
+    otherwise. Enabling it against an unconditional fail-closed check would have
+    made ``SMOKE->REFACTOR`` unreachable for every in-flight issue except through
+    ``--force`` — the bypass-advertising failure this whole issue exists to
+    remove. A consumer repo turning this on inherits the same property: nothing is
+    gated until something is declared.
     """
     from_phase, to_phase = _SMOKE_EXECUTION_TRANSITION
     existing = registry.checks_for(from_phase, to_phase)

@@ -22,6 +22,14 @@ and "did not occur" is proven behaviorally via a recording spy on
     2. passing attestation   -> transition PROCEEDS  (the negative control —
                                 without this, blocking everything would "pass")
     3. check raises          -> transition BLOCKED   (fail-closed inheritance)
+
+EVERY CASE HERE IS AN OBLIGATED ISSUE. The gate is opt-in per issue (#1602
+Convergence A): it holds an issue to a live-smoke run only when that issue's own
+plan scope declares an ``execution_kind: live_smoke`` acceptance. So the fixture
+worktree writes that declaration and binds the work item to it — otherwise every
+row below would pass as *not applicable* and this file would assert nothing about
+fail-closed at all. The opposite case (an issue that declares none) is proven in
+``test_1602_smoke_gate_is_opt_in_per_issue.py``, where it belongs.
 """
 from __future__ import annotations
 
@@ -31,6 +39,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from atdd.coach.commands.issue_lifecycle import IssueLifecycle
+from atdd.coach.gate.live_smoke import write_live_smoke_plan_scope
 from atdd.coach.gate.registrations import register_smoke_execution_check
 from atdd.coach.gate.registry import GATE_REGISTRY
 from atdd.coach.gate.smoke_execution_check import GATE_ID, SmokeExecutionGateCheck
@@ -61,7 +70,7 @@ def smoke_issue():
 
 @pytest.fixture
 def worktree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """An isolated worktree whose Control Root is itself, holding the work item.
+    """An isolated worktree whose Control Root is itself, holding an OBLIGATED item.
 
     ``ATDD_CONTROL_ROOT`` pins the store inside ``tmp_path`` so no test here can
     read — or write — the developer's real store. The work item and its GitHub
@@ -69,10 +78,16 @@ def worktree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     issue number it is handed into the uid the attestation is keyed by; without
     it the check has nothing to look up and (correctly) fails closed, which would
     make injection 2 pass for the wrong reason.
+
+    The ``plan/`` scope and the ``data`` bag binding the work item to it are
+    seeded for the mirror-image reason: with no declared live_smoke acceptance the
+    opt-in check answers *not applicable* and passes, so injections 1 and 3 would
+    go green having never reached the fail-closed logic they exist to pin.
     """
     monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
+    data = write_live_smoke_plan_scope(tmp_path)
     with open_state_store(control_root=tmp_path) as store:
-        store.objects.upsert(UID, "work_item", state="SMOKE")
+        store.objects.upsert(UID, "work_item", state="SMOKE", data=data)
         store.external_refs.link(UID, "github", "issue", str(ISSUE))
     return tmp_path
 
