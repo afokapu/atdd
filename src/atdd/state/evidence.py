@@ -43,7 +43,18 @@ TOMBSTONED = "TOMBSTONED"
 
 #: The phase ladder, in order. Position is what makes "backward" and "skipping"
 #: meaningful; a phase outside it has no rung, so no transition can be derived for it.
-PHASE_LADDER: Tuple[str, ...] = ("INIT", "PLANNED", "RED", "GREEN", "SMOKE", "COMPLETE")
+#:
+#: It is the linear spine of the phase machine
+#: (``src/atdd/coach/conventions/phase_machine.convention.yaml``), and it must stay that
+#: way: ``REFACTOR`` was missing here while :data:`atdd.state.projection.PHASES` carried
+#: it, so every ``SMOKE -> REFACTOR`` advance — the only legal way out of SMOKE — read as
+#: ``unknown_transition`` and hard-failed the merge (#1602). ``BLOCKED`` and ``OBSOLETE``
+#: are deliberately absent: they are escapes off the spine, not rungs on it, and they have
+#: no ordering relative to the rungs. ``test_phase_ladder_matches_projection_phases.py``
+#: is the tie that keeps the three in step.
+PHASE_LADDER: Tuple[str, ...] = (
+    "INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE",
+)
 
 #: Rung index by phase.
 PHASE_RANK: Dict[str, int] = {phase: index for index, phase in enumerate(PHASE_LADDER)}
@@ -80,7 +91,18 @@ EVIDENCE_POLICY: Dict[str, Any] = {
             "requires": ["smoke_evidence_artifact"],
         },
         {
+            # The only legal way out of SMOKE (phase_machine.convention.yaml). It demands
+            # the same artifact GREEN->SMOKE did, which is the point rather than an
+            # oversight: it is the gate COACH-RATCHET-PRES-001 already enforces locally
+            # (`.atdd/smoke-evidence/<N>.yaml`), restated where the merge authority can
+            # see it. A rung that demanded nothing could not exist — `requires` is
+            # `minItems: 1` in commons:projection-evidence.
             "from": "SMOKE",
+            "to": "REFACTOR",
+            "requires": ["smoke_evidence_artifact"],
+        },
+        {
+            "from": "REFACTOR",
             "to": "COMPLETE",
             "requires": ["derived_from_merge_to_main"],
             "derived": True,
