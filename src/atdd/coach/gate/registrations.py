@@ -55,18 +55,30 @@ _SMOKE_EXECUTION_TRANSITION = ("SMOKE", "REFACTOR")
 
 
 def register_smoke_execution_check(registry=GATE_REGISTRY) -> None:
-    """Idempotently register the smoke-execution check for SMOKE->REFACTOR.
+    """Idempotently register the smoke-execution check for SMOKE->REFACTOR (#1602).
 
-    SPIKE (#1602) — REGISTRATION HELPER ONLY. Like ``register_approval_checks``
-    this is deliberately NOT an import-time side effect (that would pollute
-    ``GATE_REGISTRY`` for #1020's migration-safety tests, which assert against
-    the live registry that test collection imports every module into).
+    Called explicitly from the ``atdd coach transition`` dispatch beside
+    ``register_approval_checks``, and for the same reason deliberately NOT an
+    import-time side effect: a side-effect registration into the module-level
+    ``GATE_REGISTRY`` would pollute it for #1020's migration-safety tests, which
+    assert against the live registry that test collection imports every module
+    into.
 
-    Unlike ``register_approval_checks`` it is not yet called from the
-    ``atdd coach transition`` dispatch, and ``.atdd/config.yaml`` does not yet
-    carry ``SMOKE->REFACTOR: true`` — so in this repo the check is AVAILABLE but
-    not ENFORCING. Turning it on repo-wide is the full build's job, gated on
-    this spike's proof.
+    Registering makes the check AVAILABLE; ``is_transition_gated`` decides
+    whether it ENFORCES. ``SMOKE->REFACTOR`` is absent from
+    ``DEFAULT_GATED_TRANSITIONS``, so a repo turns it on with one line of
+    ``.atdd/config.yaml``::
+
+        gate:
+          transitions:
+            SMOKE->REFACTOR: true
+
+    That line is intentionally NOT set in this repo yet: the attestation is
+    written only for ``execution_kind: live_smoke`` acceptances, and ``plan/``
+    currently declares none — so enabling it here would make ``SMOKE->REFACTOR``
+    unreachable for every in-flight issue except through ``--force``, which is
+    the bypass-advertising failure this whole issue exists to remove. The
+    precondition is a live_smoke acceptance per issue that reaches SMOKE.
     """
     from_phase, to_phase = _SMOKE_EXECUTION_TRANSITION
     existing = registry.checks_for(from_phase, to_phase)
