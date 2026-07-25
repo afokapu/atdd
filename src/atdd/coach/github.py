@@ -525,3 +525,34 @@ class GitHubClient:
             "--json", "number,title,state,labels,body",
         ])
         return json.loads(output)
+
+    def get_closing_merge_commit(self, issue_number: int) -> Optional[str]:
+        """The SHA of the commit that merged the PR which closed this issue.
+
+        This is what "the change the PR landed" resolves to once the branch is gone
+        (#1611). ``None`` when no PR closed the issue, or none of them merged.
+        """
+        output = self._run_gh([
+            "issue", "view", str(issue_number),
+            "--repo", self.repo,
+            "--json", "closedByPullRequestsReferences",
+        ])
+        references = (json.loads(output) or {}).get("closedByPullRequestsReferences") or []
+
+        # Newest first: if an issue was closed, reopened and closed again, the work
+        # its artifacts describe is what the *latest* merge landed.
+        numbers = sorted(
+            (r.get("number") for r in references if r.get("number")), reverse=True,
+        )
+        for number in numbers:
+            pr = json.loads(self._run_gh([
+                "pr", "view", str(number),
+                "--repo", self.repo,
+                "--json", "state,mergeCommit",
+            ]) or "{}")
+            if pr.get("state") != "MERGED":
+                continue
+            sha = (pr.get("mergeCommit") or {}).get("oid")
+            if sha:
+                return sha
+        return None

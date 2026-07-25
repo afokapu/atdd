@@ -20,6 +20,7 @@ the store rather than a convention the caller is trusted to follow. Refs #1400.
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 
 import pytest
@@ -83,3 +84,33 @@ def test_e001_unit_002_unlogged_object_write_is_rejected(tmp_path, conn) -> None
     ok = authoring.request_transition(conn, logged.object_uid, "PLANNED")
     assert ok.kind == overlay.PHASE_TRANSITION_REQUESTED
     assert store.objects.get(logged.object_uid).state == "PLANNED"
+
+
+def test_e001_unit_002_guard_sql_parses_on_every_supported_sqlite(conn) -> None:
+    """The guard installs on old SQLite too — its refusal message is a literal (#1613).
+
+    ``RAISE()``'s second argument is a **string literal** in SQLite's grammar. Newer
+    builds tolerate an expression there; the one on the CI runner does not, and the
+    trigger that named the uid with ``'<sentinel> ' || NEW.uid`` failed to parse with
+    ``near "||": syntax error`` — so ``authoring_session`` raised before any authoring
+    command could run, and no local run could see it (macOS ships a newer SQLite).
+
+    The uid must still reach the refusal, so this pins both halves: the SQL carries
+    only literals, and the error still names the object.
+    """
+    raised = re.findall(r"RAISE\s*\(\s*ABORT\s*,(.*?)\)\s*;", overlay._GUARD_SQL, re.S)
+    assert raised, "the guard must refuse with RAISE(ABORT, ...)"
+    for argument in raised:
+        assert re.fullmatch(r"\s*'[^']*'\s*", argument), (
+            f"RAISE(ABORT, {argument.strip()}) is an expression, not a string literal — "
+            "older SQLite rejects it at parse time"
+        )
+
+    # And it is not merely parseable text: installing it on this connection works,
+    # and an unlogged write is still refused *by uid*.
+    with pytest.raises(OverlayLogError) as refused:
+        with overlay.authoring_session(conn):
+            StateStore(conn).objects.upsert(
+                _ROGUE, WORK_ITEM_KIND, state="INIT", data={"slug": "rogue"},
+            )
+    assert refused.value.object_uid == _ROGUE
