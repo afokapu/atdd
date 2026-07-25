@@ -107,6 +107,10 @@ class IssueManager:
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
+        # issue number -> the commit its PR landed (or None). Resolved lazily and
+        # remembered, so a gate sweep over many issues does not re-ask GitHub (#1611).
+        self._landed_commit_cache: Dict[int, Optional[str]] = {}
+
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
         self.parent_template_source = self.package_root / "templates" / "PARENT-ISSUE-TEMPLATE.md"
@@ -1120,62 +1124,133 @@ class IssueManager:
     @staticmethod
     def _artifact_path(bullet: str) -> Optional[str]:
         """The path an artifact bullet names; None for a template placeholder."""
-        path = bullet[2:].strip().strip("`")
+        path = bullet[2:].strip()
         if path.startswith("(") or not path:
             return None
 
-        # Strip trailing descriptions after ' — ' or ' - '
+        # Strip trailing descriptions after ' — ' or ' - ' BEFORE the backticks: the
+        # template invites ``- `path` (why)``, and taking the backticks off first left
+        # the closing one stranded on the path (#1611 / observed on #1601).
         for sep in (" — ", " - ", " ("):
             if sep in path:
                 path = path[:path.index(sep)].strip()
-        return path
+        return path.strip("`").strip() or None
+
+    def _landed_commit(self, issue_number: Optional[int]) -> Optional[str]:
+        """The commit that carried this issue's work into main, if it already has.
+
+        ``atdd auto-phase`` runs on ``pull_request: closed``, so by the time the
+        COMPLETE gate is evaluated the work is *already* in main and the branch it
+        came from is gone. Asking git "what does this branch add on top of main?" then
+        has no honest answer — the answer is "nothing", for every path, always. What
+        the gate actually wants to know is what the PR **landed**, and GitHub can name
+        the commit that did it.
+
+        Returns ``None`` whenever that commit cannot be established or is not present
+        in this checkout — no merged PR yet, no GitHub access, a shallow clone — and
+        the caller falls back to the pre-merge branch-vs-main comparison.
+        """
+        if not issue_number:
+            return None
+        if issue_number in self._landed_commit_cache:
+            return self._landed_commit_cache[issue_number]
+
+        sha: Optional[str] = None
+        client = self._get_github_client()
+        if client is not None:
+            try:
+                sha = client.get_closing_merge_commit(issue_number)
+            except Exception as exc:  # noqa: BLE001 — a gate must not die on a lookup
+                logger.debug(
+                    "closing merge commit lookup failed",
+                    extra={"issue": issue_number, "error": str(exc)},
+                )
+                sha = None
+
+        # It is only useful if this checkout can see it *and* its parent — the diff
+        # the merge landed is `<sha>^..<sha>`.
+        if sha:
+            present = subprocess.run(
+                ["git", "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            parent = subprocess.run(
+                ["git", "rev-parse", "--verify", "--quiet", f"{sha}^^{{commit}}"],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            )
+            if present.returncode != 0 or parent.returncode != 0:
+                sha = None
+
+        self._landed_commit_cache[issue_number] = sha
+        return sha
 
     def _verify_artifacts(
-        self, artifacts: Dict[str, List[str]], force: bool = False,
+        self,
+        artifacts: Dict[str, List[str]],
+        force: bool = False,
+        issue_number: Optional[int] = None,
     ) -> Tuple[bool, List[str]]:
         """Verify artifact claims against git state.
 
-        - Created: file must exist in HEAD
-        - Modified: file must have changes vs main
-        - Deleted: file must NOT exist in HEAD
+        Before the merge the claims are read against the branch: Created/Deleted in
+        ``HEAD``, Modified as ``main...HEAD``. After it — which is when auto-phase
+        runs — they are read against the commit the PR landed, because ``main...HEAD``
+        is empty by construction once the branch is main (#1611).
+
+        - Created: file must exist in the landed tree
+        - Modified: file must have changed in the landed commit
+        - Deleted: file must NOT exist in the landed tree
         """
         total = sum(len(v) for v in artifacts.values())
         if total == 0:
             return True, ["  No artifacts declared"]
 
+        landed = self._landed_commit(issue_number)
         all_valid = True
         messages: List[str] = []
+        if landed:
+            messages.append(f"  Verifying against the commit PR landed: {landed[:8]}")
         for kind in ("created", "modified", "deleted"):
             valid, group_messages = self._verify_artifact_group(
-                kind, artifacts[kind], force
+                kind, artifacts[kind], force, landed=landed,
             )
             all_valid = all_valid and valid
             messages.extend(group_messages)
 
         return all_valid, messages
 
-    # kind -> (message prefix, git argv, git prints output when satisfied,
+    # kind -> (message prefix, check mode, git prints output when satisfied,
     #          satisfied word, unsatisfied word)
+    #
+    # "tree" asks whether the path is in a revision's tree, "diff" whether a
+    # revision changed it; the revisions themselves depend on whether the work has
+    # landed yet, so they are resolved per run rather than baked in here (#1611).
     _ARTIFACT_CHECKS = {
-        "created": (
-            "  Created:  ", ["git", "ls-tree", "HEAD", "--"],
-            True, "EXISTS", "MISSING",
-        ),
-        "modified": (
-            "  Modified: ", ["git", "diff", "main...HEAD", "--"],
-            True, "CHANGED", "NO CHANGES vs main",
-        ),
-        "deleted": (
-            "  Deleted:  ", ["git", "ls-tree", "HEAD", "--"],
-            False, "CONFIRMED GONE", "STILL EXISTS",
-        ),
+        "created": ("  Created:  ", "tree", True, "EXISTS", "MISSING"),
+        "modified": ("  Modified: ", "diff", True, "CHANGED", "NO CHANGES"),
+        "deleted": ("  Deleted:  ", "tree", False, "CONFIRMED GONE", "STILL EXISTS"),
     }
 
+    @staticmethod
+    def _artifact_check_argv(mode: str, landed: Optional[str]) -> List[str]:
+        """The git command that answers ``mode``, at the point in history that has it."""
+        if mode == "tree":
+            return ["git", "ls-tree", landed or "HEAD", "--"]
+        if landed:
+            return ["git", "diff", f"{landed}^", landed, "--"]
+        return ["git", "diff", "main...HEAD", "--"]
+
     def _verify_artifact_group(
-        self, kind: str, paths: List[str], force: bool
+        self,
+        kind: str,
+        paths: List[str],
+        force: bool,
+        landed: Optional[str] = None,
     ) -> Tuple[bool, List[str]]:
         """Verify one artifact group (created / modified / deleted) against git."""
-        prefix, argv, expect_output, satisfied, unsatisfied = self._ARTIFACT_CHECKS[kind]
+        prefix, mode, expect_output, satisfied, unsatisfied = self._ARTIFACT_CHECKS[kind]
+        argv = self._artifact_check_argv(mode, landed)
+        against = f"in {landed[:8]}" if landed else "vs main"
 
         all_valid = True
         messages: List[str] = []
@@ -1191,7 +1266,8 @@ class IssueManager:
             if bool(result.stdout.strip()) == expect_output:
                 messages.append(f"{prefix}{path} — {satisfied}")
             else:
-                messages.append(f"{prefix}{path} — {unsatisfied}")
+                suffix = f" {against}" if mode == "diff" else ""
+                messages.append(f"{prefix}{path} — {unsatisfied}{suffix}")
                 all_valid = False
 
         return all_valid, messages
@@ -1209,10 +1285,24 @@ class IssueManager:
     TRAIN_REQUIRED_TYPES = {"implementation", "migration", "refactor"}
 
     def _check_rebased_on_main(self) -> Tuple[bool, str]:
-        """Check that current branch is rebased on origin/main.
+        """Check that the work is not sitting on a stale base.
+
+        Two states satisfy that, and the gate used to recognise only the first:
+
+        - ``origin/main`` is an ancestor of ``HEAD`` — the branch already carries
+          everything main has, which is what "rebased" means before the merge;
+        - ``HEAD`` is an ancestor of ``origin/main`` — the work has *landed*, so
+          there is nothing to rebase onto. This is the state ``atdd auto-phase``
+          runs in, on PR close, and demanding the first condition there is a race
+          nobody can win: every PR that merges after this one puts main ahead of
+          the commit under test, and the gate reports "behind main" for work that
+          is already in main (#1611).
+
+        Genuine divergence — unmerged commits on a stale base, so neither is an
+        ancestor of the other — still fails.
 
         Returns:
-            (passed, message) — passed is True if origin/main is an ancestor of HEAD.
+            (passed, message)
         """
         # Fetch latest main
         fetch = subprocess.run(
@@ -1229,8 +1319,15 @@ class IssueManager:
         )
         if result.returncode == 0:
             return True, "  Rebase check: PASS (branch includes origin/main)"
-        else:
-            return False, "  Rebase check: FAIL (branch is behind origin/main)"
+
+        landed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", "HEAD", "origin/main"],
+            capture_output=True, text=True, cwd=str(self.target_dir), timeout=10,
+        )
+        if landed.returncode == 0:
+            return True, "  Rebase check: PASS (work is already contained in origin/main)"
+
+        return False, "  Rebase check: FAIL (branch is behind origin/main)"
 
     def _check_smoke_evidence_gate(
         self,
@@ -1923,7 +2020,7 @@ class IssueManager:
             print(f"Verifying {artifact_count} artifacts for #{issue_number}:")
 
         artifacts_valid, artifact_messages = self._verify_artifacts(
-            artifacts, force=force,
+            artifacts, force=force, issue_number=issue_number,
         )
         for msg in artifact_messages:
             print(msg)
