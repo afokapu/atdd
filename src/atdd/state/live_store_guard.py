@@ -42,8 +42,14 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sqlite3
 from pathlib import Path
 from typing import Iterable, Mapping, Optional
+
+#: Bound at import, BEFORE the pytest plugin patches ``sqlite3.connect``. The
+#: guard has to read the store it protects, and its own trap would otherwise
+#: refuse it — a guard cannot be its own first victim.
+_REAL_SQLITE_CONNECT = sqlite3.connect
 
 from atdd.state.paths import (
     CONTROL_ROOT_ENV,
@@ -230,10 +236,12 @@ def store_fingerprint(protected: Iterable[Path]) -> dict[str, Optional[tuple]]:
 
 
 def store_digest(protected: Iterable[Path]) -> dict[str, Optional[str]]:
-    """sha256 of each protected store + its ``-wal`` — the definitive byte-check.
+    """sha256 of each protected store file — a raw byte digest.
 
-    ~28 ms for a 9 MB store, so this is session-scoped where the
-    :func:`store_fingerprint` stat check is per-test.
+    Cheap and total, but NOT a pollution signal on its own: see
+    :func:`store_contents` for why, and prefer it for verdicts. Kept because a
+    byte digest is the right thing to quote in a report ("the live store is
+    byte-identical") when it genuinely has not moved.
     """
     digests: dict[str, Optional[str]] = {}
     for store in sorted(protected):
@@ -246,6 +254,91 @@ def store_digest(protected: Iterable[Path]) -> dict[str, Optional[str]]:
             else:
                 digests[str(path)] = hashlib.sha256(data).hexdigest()
     return digests
+
+
+def store_contents(protected: Iterable[Path]) -> dict[str, Optional[dict]]:
+    """Read-only LOGICAL content of each protected store: ``{uid: row-hash}``.
+
+    This, not the byte digest, is what "pollution" means. A byte digest answers
+    the wrong question, and answers it wrongly in both directions:
+
+    * FALSE POSITIVE — sqlite checkpoints the WAL when the last connection
+      closes cleanly, folding already-committed frames into the main database.
+      So a purely READ-ONLY audit of the live corpus can rewrite the main file
+      and shift its size and mtime while changing no row at all. Observed, not
+      theorized: a 12-minute suite run moved the store's sha256 and grew it by
+      20 KB with zero objects and zero events written.
+    * FALSE NEGATIVE — a writer that commits and does not checkpoint leaves the
+      new rows in the ``-wal`` while the main file still looks untouched.
+
+    Reading rows instead is immune to both: it sees committed data wherever it
+    physically lives, and page-level churn cannot fake a row.
+
+    Opened strictly ``mode=ro`` through the pre-patch connect, so this can
+    neither write nor checkpoint the store it is auditing. ``None`` means the
+    store is absent or could not be read — distinguished from an empty store, so
+    "I could not look" is never reported as "nothing changed".
+    """
+    contents: dict[str, Optional[dict]] = {}
+    for store in sorted(protected):
+        key = str(store)
+        if not store.is_file():
+            contents[key] = None
+            continue
+        try:
+            conn = _REAL_SQLITE_CONNECT(f"file:{store}?mode=ro", uri=True)
+        except sqlite3.Error:
+            contents[key] = None
+            continue
+        try:
+            rows: dict = {}
+            for uid, kind, state, data in conn.execute(
+                "SELECT uid, kind, state, COALESCE(data, '') FROM objects"
+            ):
+                payload = f"{kind}\x1f{state}\x1f{data}".encode()
+                rows[str(uid)] = hashlib.sha256(payload).hexdigest()[:16]
+            # Events are append-only history; their count is enough to notice an
+            # injected one, and cheaper than hashing every payload.
+            (event_count,) = conn.execute("SELECT COUNT(*) FROM events").fetchone()
+            rows["__events__"] = int(event_count)
+            contents[key] = rows
+        except sqlite3.Error:
+            contents[key] = None
+        finally:
+            conn.close()
+    return contents
+
+
+def describe_contents_change(
+    before: Mapping[str, Optional[dict]], after: Mapping[str, Optional[dict]]
+) -> str:
+    """Row-level diff of two :func:`store_contents` snapshots (empty if same).
+
+    Names the uids that appeared, vanished, or changed, so a reader can tell a
+    test fixture (``wi-authored``, ``drifted-record``) from a real record an
+    operator authored concurrently in another session.
+    """
+    lines: list[str] = []
+    for key in sorted(set(before) | set(after)):
+        was, now = before.get(key), after.get(key)
+        if was == now:
+            continue
+        if was is None or now is None:
+            lines.append(f"  {key}: readability changed (before={was is not None}, after={now is not None})")
+            continue
+        added = sorted(set(now) - set(was))
+        removed = sorted(set(was) - set(now))
+        changed = sorted(u for u in set(was) & set(now) if was[u] != now[u] and u != "__events__")
+        lines.append(f"  {key}:")
+        if added:
+            lines.append(f"    APPEARED ({len(added)}): {', '.join(added[:20])}")
+        if removed:
+            lines.append(f"    VANISHED ({len(removed)}): {', '.join(removed[:20])}")
+        if changed:
+            lines.append(f"    MODIFIED ({len(changed)}): {', '.join(changed[:20])}")
+        if was.get("__events__") != now.get("__events__"):
+            lines.append(f"    events: {was.get('__events__')} -> {now.get('__events__')}")
+    return "\n".join(lines)
 
 
 def describe_change(before: Mapping[str, object], after: Mapping[str, object]) -> str:

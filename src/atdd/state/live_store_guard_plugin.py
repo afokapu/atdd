@@ -61,6 +61,8 @@ def pytest_configure(config):
     )
 
 
+
+
 # ---------------------------------------------------------------------------
 # G1 — environment neutralization
 # ---------------------------------------------------------------------------
@@ -81,43 +83,49 @@ def _hermetic_control_root_env():
 
 
 # ---------------------------------------------------------------------------
-# G3 (session half) — the definitive byte-check
+# G3 — the rolling logical baseline
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session", autouse=True)
-def _live_store_digest_backstop(_hermetic_control_root_env):
-    """sha256 the live store around the whole session and fail if it moved.
+def _live_store_baseline(_hermetic_control_root_env):
+    """Hold the last known-good LOGICAL snapshot, and audit the whole session.
+
+    The baseline is a rolling one. A test that changes the store gets reported
+    once and then becomes the new baseline, so a single write does not re-fail
+    every test that happens to run after it.
 
     Depends on G1 so the protected path is resolved with the session's final
-    environment. Session-scoped because the digest costs ~28 ms on a 9 MB store —
-    once per session is nothing, once per test would be minutes.
+    environment.
     """
     protected = guard.protected_store_paths()
-    before = guard.store_digest(protected)
-    yield
-    after = guard.store_digest(protected)
-    if before != after:
+    state = {"protected": protected, "contents": guard.store_contents(protected)}
+    session_start = state["contents"]
+    yield state
+    final = guard.store_contents(protected)
+    detail = guard.describe_contents_change(session_start, final)
+    if detail:
         pytest.fail(
-            "The live State Store CHANGED during this test session.\n"
-            + guard.describe_change(before, after)
-            + "\n\nSomething in the suite wrote to production. If no individual "
-            "test was named by the per-test backstop, the writer was a child "
-            "process (a smoke spawning `python -m atdd`) — look for a subprocess "
-            "whose environment or cwd resolves the Control Root to this repo "
-            "(#1582).",
+            "The live State Store's CONTENTS changed across this test session.\n"
+            + detail
+            + "\n\nSomething wrote to production. If no individual test was named "
+            "by the per-test backstop, the writer was either a child process (a "
+            "smoke spawning `python -m atdd`) or a CONCURRENT OPERATOR SESSION "
+            "sharing this store — the uids above tell you which: test fixtures "
+            "look like 'wi-authored' or 'drifted-record', real records like a "
+            "defect slug (#1582).",
             pytrace=False,
         )
 
 
 # ---------------------------------------------------------------------------
-# G2 + G3 (function half) — the trap and the per-test backstop
+# G2 + G3 (per-test half) — the trap and the backstop
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
-def _live_store_write_guard(request, _hermetic_control_root_env):
-    """Refuse in-process opens of the live store; fingerprint it around the test.
+def _live_store_write_guard(request, _live_store_baseline):
+    """Refuse in-process opens of the live store; audit it around the test.
 
     The two halves are one fixture because they answer the same question from
     opposite sides: G2 stops the open it can see, G3 catches the write it
-    cannot. Either one alone would leave a hole the incident actually used.
+    cannot. Either alone leaves a hole the incident actually used.
 
     Deliberately does NOT request the ``monkeypatch`` fixture, and patches
     ``sqlite3.connect`` by hand under ``try/finally`` instead. An autouse fixture
@@ -126,9 +134,9 @@ def _live_store_write_guard(request, _hermetic_control_root_env):
     test's own ``monkeypatch.setattr(subprocess, "run", ...)`` would then still
     be in force while the #771 git-pollution guard shells out in teardown, and
     that guard errors through no fault of the test. Owning the patch here keeps
-    this guard from perturbing the ordering of fixtures it does not own.
+    this guard from perturbing fixtures it does not own.
     """
-    protected = guard.protected_store_paths()
+    protected = _live_store_baseline["protected"]
     if not protected:
         # No resolvable Control Root ⇒ no live store ⇒ nothing to pollute. This
         # is vacuous, not unchecked (consumer checkouts, CI before `atdd init`).
@@ -147,20 +155,35 @@ def _live_store_write_guard(request, _hermetic_control_root_env):
 
         sqlite3.connect = _guarded_connect
 
-    before = guard.store_fingerprint(protected)
+    # Two stages, so the per-test cost stays at one stat call: the cheap stat
+    # decides whether reading rows is worth it, and only a trip escalates to the
+    # logical check that renders the verdict. The stat must NOT be the verdict --
+    # sqlite rewrites the main database when a clean close checkpoints the WAL,
+    # so an honest read-only audit shifts its size and mtime without touching a
+    # single row. That false positive was observed, not theorized.
+    before_fp = guard.store_fingerprint(protected)
     try:
         yield
     finally:
         if not permitted:
             sqlite3.connect = real_connect
-    after = guard.store_fingerprint(protected)
-    if before != after:
-        pytest.fail(
-            f"Test {request.node.nodeid!r} MUTATED the live State Store.\n"
-            + guard.describe_change(before, after)
-            + "\n\nThe in-process trap did not catch it, so the write came from a "
-            "child process this test spawned. Give the subprocess an "
-            "ATDD_CONTROL_ROOT under tmp_path — inheriting the parent's "
-            "environment or cwd resolves it to production (#1582).",
-            pytrace=False,
-        )
+
+    if guard.store_fingerprint(protected) == before_fp:
+        return
+
+    after_contents = guard.store_contents(protected)
+    detail = guard.describe_contents_change(_live_store_baseline["contents"], after_contents)
+    # Re-baseline either way: a change reported once must not re-fail every
+    # later test in the session.
+    _live_store_baseline["contents"] = after_contents
+    if not detail:
+        return  # page churn / WAL checkpoint -- no row moved, nothing polluted
+    pytest.fail(
+        f"Test {request.node.nodeid!r} MUTATED the live State Store.\n"
+        + detail
+        + "\n\nThe in-process trap did not catch it, so the write came from a "
+        "child process this test spawned. Give the subprocess an "
+        "ATDD_CONTROL_ROOT under tmp_path -- inheriting the parent's environment "
+        "or cwd resolves it to production (#1582).",
+        pytrace=False,
+    )

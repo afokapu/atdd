@@ -36,6 +36,36 @@ from atdd.state.db import init_state_store
 
 from ._guard_probe_helpers import PLUGIN, inner_env, write_inner_conftest
 
+# The grandchild writer, authored here rather than nested inside the probe
+# source. Nesting Python-code-in-Python-code needs two levels of quote escaping
+# and the SQL literals need a third; the generated file silently became a syntax
+# error the first time round. A plain script on disk has no such trap.
+#
+# It injects a work_item because that is what real pollution looked like: the
+# incident put `a`, `b`, `demo-session`, `wi-authored` and friends into
+# production's `objects` table. Writing some unrelated scratch table would
+# exercise nothing the backstop actually watches.
+#
+# Idempotent, and mutates a ROW on every run — this executes twice (once guarded,
+# once as the baseline arm) against the same decoy, so a bare INSERT the second
+# run would ignore is not enough.
+_WRITER_SOURCE = '''
+import sqlite3
+import sys
+
+conn = sqlite3.connect(sys.argv[1])
+conn.execute(
+    "INSERT OR IGNORE INTO objects (uid, kind, state) "
+    "VALUES ('g3-fault-injected-work-item', 'work_item', 'INIT')"
+)
+conn.execute(
+    "UPDATE objects SET data = data || 'x' "
+    "WHERE uid = 'g3-fault-injected-work-item'"
+)
+conn.commit()
+conn.close()
+'''
+
 _PROBE = '''
 import os
 import subprocess
@@ -43,28 +73,17 @@ import sys
 from pathlib import Path
 
 DECOY = Path(os.environ["ATDD_LIVE_STORE_GUARD_TARGET"])
-
-# Idempotent: this runs twice (once guarded, once as the baseline arm) against
-# the same decoy, and must mutate the store BOTH times.
-_WRITER = (
-    "import sqlite3, sys;"
-    "c = sqlite3.connect(sys.argv[1]);"
-    "c.execute('CREATE TABLE IF NOT EXISTS g3_fault_injection (x)');"
-    "c.execute('INSERT INTO g3_fault_injection VALUES (1)');"
-    "c.commit(); c.close()"
-)
+WRITER = os.environ["G3_WRITER"]
 
 
 def test_a_subprocess_writes_to_the_protected_store():
     """This test PASSES on its own terms. G3 must fail it anyway."""
-    before = DECOY.stat().st_size
     proc = subprocess.run(
-        [sys.executable, "-c", _WRITER, str(DECOY)],
+        [sys.executable, WRITER, str(DECOY)],
         capture_output=True, text=True,
     )
     # The grandchild really did write — otherwise the probe proves nothing.
     assert proc.returncode == 0, proc.stderr
-    assert DECOY.stat().st_size >= before
 '''
 
 
@@ -74,23 +93,31 @@ def test_c013_smoke_001_g3_catches_a_subprocess_write(pytester, tmp_path, monkey
     decoy = init_state_store(db_path=tmp_path / "decoy" / ".atdd" / "state" / "state.sqlite")
     assert decoy.is_file(), "the decoy store must be real, not a stub"
 
+    writer = tmp_path / "g3_writer.py"
+    writer.write_text(_WRITER_SOURCE, encoding="utf-8")
+
     write_inner_conftest(pytester)
     pytester.makepyfile(test_probe=_PROBE)
     inner_env(monkeypatch, control_root=None, guard_target=decoy)
+    monkeypatch.setenv("G3_WRITER", str(writer))
 
     result = pytester.runpytest_subprocess("-p", PLUGIN, "-q")
+    stdout = result.stdout.str()
 
     # The inner test's own assertions passed; the session still fails, and the
-    # failure is G3's. Both the per-test backstop (an ERROR at teardown, which
-    # names the culprit) and the session digest fire.
-    assert result.ret != 0, "G3 did not fail the session over a real subprocess write"
-    stdout = result.stdout.str()
+    # failure is G3's. Both halves fire: the per-test backstop (an ERROR at
+    # teardown, which names the culprit) and the session-scoped audit.
+    assert result.ret != 0, f"G3 did not fail the session over a real subprocess write\n{stdout[-3000:]}"
     assert "MUTATED the live State Store" in stdout, stdout[-3000:]
     assert "test_a_subprocess_writes_to_the_protected_store" in stdout, (
         "G3 must NAME the test that let the write through"
     )
-    assert "The live State Store CHANGED during this test session" in stdout, (
-        "the session-scoped digest backstop must fire too"
+    assert "g3-fault-injected-work-item" in stdout, (
+        "G3 must name the polluting UID, so a reader can tell a test fixture "
+        "from a record an operator authored concurrently"
+    )
+    assert "CONTENTS changed across this test session" in stdout, (
+        "the session-scoped audit must fire too"
     )
 
     # Guard the guard: with the plugin absent the same session passes clean.
