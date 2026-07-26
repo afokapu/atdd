@@ -464,8 +464,15 @@ def test_single_store_per_control_root():
 
 
 @pytest.mark.coder
+@pytest.mark.live_store_read  # sanctioned live-corpus reader (#1582)
 def test_work_item_provenance():
     """SPEC: ``coder.state-store.work-item-provenance``.
+
+    Marked ``live_store_read`` because this validator audits the REAL store by
+    design — that is the whole point of a live-corpus scan, and pointing it at a
+    tmp_path would make it assert nothing. The #1582 write guard permits the
+    open for marked tests only; its fingerprint backstop still runs here, so
+    "this scan only reads" is proved rather than trusted.
 
     Given: The live State Store's ``objects`` and ``events`` tables.
     When:  Each ``work_item``'s lowest-seq event is read.
