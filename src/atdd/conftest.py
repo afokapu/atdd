@@ -11,7 +11,14 @@ import pytest
 # removed support for ``pytest_plugins`` in non-rootdir conftests, so the
 # fixture has to be enabled here. pytester is a no-op for sessions that
 # never touch the fixture.
-pytest_plugins = ["pytester"]
+# ``atdd.state.live_store_guard_plugin`` carries the #1582 live-State-Store
+# pollution guard (G1 env neutralization, G2 sqlite3.connect trap, G3 fingerprint
+# backstop). It is registered as a plugin rather than inlined here for two
+# reasons: the fault-injection tests enable the SHIPPED plugin in a real child
+# pytest session (``-p atdd.state.live_store_guard_plugin``) instead of
+# reimplementing the fixtures, so what is proven to fire is what actually runs;
+# and pytest_plugins is only honored in the rootdir conftest, which this is.
+pytest_plugins = ["pytester", "atdd.state.live_store_guard_plugin"]
 
 try:
     import pytest_html as _pytest_html_check  # noqa: F401
