@@ -121,9 +121,10 @@ def test_auto_phase_workflow_invokes_atdd_auto_phase():
     )
 
 
-_PROJECT_TOKEN_FALLBACK_EXPR = (
-    "${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}"
-)
+#: The only credential the job may name. #1621: `secrets.PROJECT_TOKEN ||
+#: secrets.GITHUB_TOKEN` was written as a fallback and behaves as a preference —
+#: with the secret present, `||` short-circuits and GITHUB_TOKEN is never reached.
+_GITHUB_TOKEN_EXPR = "${{ secrets.GITHUB_TOKEN }}"
 
 
 def _job_env(wf: dict) -> dict:
@@ -167,33 +168,69 @@ def test_auto_phase_workflow_template_does_not_request_projects_write():
     )
 
 
-def test_auto_phase_workflow_uses_project_token_fallback():
-    """Issue #404: `GH_TOKEN` must use the PROJECT_TOKEN || GITHUB_TOKEN fallback.
+def test_auto_phase_workflow_uses_the_token_its_permissions_are_declared_for():
+    """Issue #1621: `GH_TOKEN` must be GITHUB_TOKEN — the token that carries issues:write.
 
-    The fallback supports both modes without per-consumer setup:
-      * with PROJECT_TOKEN set → full ProjectV2 Status-field sync.
-      * without PROJECT_TOKEN  → GITHUB_TOKEN fallback, label-only sync via
-        `IssueManager.update`'s access-denial path.
-    A hard-coded `${{ secrets.GITHUB_TOKEN }}` would lock out optional PAT
-    consumers; a hard-coded `${{ secrets.PROJECT_TOKEN }}` would break every
-    default consumer that hasn't created the PAT.
+    This assertion is the inverse of the one it replaces, and deliberately so.
+    #404 introduced `${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}` because
+    GITHUB_TOKEN cannot grant the account-level Projects scope. #1051 then
+    decommissioned Projects v2, so nothing needs that scope any more — but the
+    expression outlived its reason, and `||` short-circuits: with PROJECT_TOKEN set
+    as a repo secret, GITHUB_TOKEN is *never* reached.
+
+    The result was that every label write from the workflow failed with
+    ``Resource not accessible by personal access token (removeLabelsFromLabelable)``
+    while the job's own ``permissions: issues: write`` granted exactly that
+    capability — to the token it never used.
     """
     env = _job_env(_load_workflow())
     gh_token = env.get("GH_TOKEN", "")
-    assert gh_token == _PROJECT_TOKEN_FALLBACK_EXPR, (
-        "atdd-auto-phase.yml `GH_TOKEN` must be "
-        f"'{_PROJECT_TOKEN_FALLBACK_EXPR}' so a PROJECT_TOKEN PAT, when set, "
-        "is preferred and GITHUB_TOKEN is the safe fallback. "
-        f"Found GH_TOKEN={gh_token!r}. Issue #404."
+    assert gh_token == _GITHUB_TOKEN_EXPR, (
+        f"atdd-auto-phase.yml `GH_TOKEN` must be '{_GITHUB_TOKEN_EXPR}'. The job "
+        "declares `permissions: issues: write`, which applies to GITHUB_TOKEN and "
+        "to nothing else — naming any other credential hands the label write to a "
+        f"token that was never granted it. Found GH_TOKEN={gh_token!r}. Issue #1621."
+    )
+    assert "PROJECT_TOKEN" not in gh_token, (
+        "atdd-auto-phase.yml still consults PROJECT_TOKEN. The PAT existed only "
+        "for the ProjectV2 Status sync that #1051 decommissioned; consulting it "
+        "shadows the correctly-permissioned token. Issue #1621."
     )
 
 
-def test_auto_phase_workflow_template_uses_project_token_fallback():
-    """Issue #404: the shipped template must also use the fallback expression."""
+def test_auto_phase_workflow_template_uses_the_same_token():
+    """Issue #1621: the shipped template must not seed consumers with the same trap.
+
+    The template is how the defect spreads: any consumer that followed #404 and
+    created a PROJECT_TOKEN gets a PAT silently preferred over the token their
+    `permissions:` block actually describes.
+    """
     env = _job_env(_load_template())
     gh_token = env.get("GH_TOKEN", "")
-    assert gh_token == _PROJECT_TOKEN_FALLBACK_EXPR, (
-        "src/atdd/coach/templates/workflows/atdd-auto-phase.yml `GH_TOKEN` "
-        f"must be '{_PROJECT_TOKEN_FALLBACK_EXPR}'. "
-        f"Found GH_TOKEN={gh_token!r}. Issue #404."
+    assert gh_token == _GITHUB_TOKEN_EXPR, (
+        "src/atdd/coach/templates/workflows/atdd-auto-phase.yml `GH_TOKEN` must be "
+        f"'{_GITHUB_TOKEN_EXPR}'. Found GH_TOKEN={gh_token!r}. Issue #1621."
     )
+
+
+def test_auto_phase_workflow_carries_no_stale_projectv2_rationale():
+    """Issue #1621: the comment justifying the PAT must go with the PAT.
+
+    The rationale above `permissions:` still told the next reader that the PAT
+    exists for "full ProjectV2 Status sync" — a code path removed in #1051. That
+    comment is why the expression survived two investigations: it read as a
+    deliberate, still-load-bearing choice.
+    """
+    for path in (WORKFLOW_PATH, TEMPLATE_PATH):
+        if not path.exists():
+            continue
+        content = path.read_text()
+        assert "PROJECT_TOKEN" not in content, (
+            f"{path.name} still mentions PROJECT_TOKEN. The credential is "
+            "vestigial (#1051 removed ProjectV2); leaving the name in the file "
+            "invites it back. Issue #1621."
+        )
+        assert "ProjectV2 Status sync" not in content, (
+            f"{path.name} still describes ProjectV2 Status sync as a live reason. "
+            "Issue #1621."
+        )

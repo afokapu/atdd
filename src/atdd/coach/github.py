@@ -12,6 +12,7 @@ Usage:
 
 import json
 import logging
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,53 @@ logger = logging.getLogger(__name__)
 
 class GitHubClientError(Exception):
     """Raised when a GitHub API call fails."""
+
+
+class GitHubPermissionError(GitHubClientError):
+    """A ``gh`` call was refused because the credential lacks the permission.
+
+    A subclass, so every existing ``except GitHubClientError`` keeps catching it —
+    but a distinct type, because the two failures have opposite remedies. A
+    transport error is worth retrying; a scope that was never granted never
+    becomes granted by trying again.
+
+    #1621: the auto-phase workflow's label writes were refused on every run with
+    ``Resource not accessible by personal access token``, and because that arrived
+    as a plain ``GitHubClientError`` with the same shape as any other failure, two
+    separate investigations read it as GitHub flakiness.
+    """
+
+    def __init__(
+        self, message: str, *, command: Optional[List[str]] = None, stderr: str = "",
+    ) -> None:
+        self.command = list(command or [])
+        self.stderr = stderr
+        super().__init__(message)
+
+
+#: How GitHub words "authenticated, but not authorised". The wording differs by
+#: credential kind — ``personal access token`` for a PAT, ``integration`` for
+#: GITHUB_TOKEN and GitHub Apps — and both mean the same thing to a caller.
+_PERMISSION_REFUSAL_SIGNATURES = (
+    "resource not accessible by personal access token",
+    "resource not accessible by integration",
+    "http 403",
+    "must have admin rights",
+)
+
+
+def _is_permission_refusal(stderr: str) -> bool:
+    """Whether ``stderr`` is GitHub declining for lack of scope, not a fault."""
+    lowered = stderr.lower()
+    return any(sig in lowered for sig in _PERMISSION_REFUSAL_SIGNATURES)
+
+
+def _credential_in_play() -> str:
+    """Which credential ``gh`` would have used — the first thing to check."""
+    for name in ("GH_TOKEN", "GITHUB_TOKEN"):
+        if os.environ.get(name):
+            return f"the token in ${name}"
+    return "the credential from `gh auth login`"
 
 
 @dataclass
@@ -104,9 +152,20 @@ class GitHubClient:
             input=input_text,
         )
         if result.returncode != 0:
+            stderr = result.stderr.strip()
+            if _is_permission_refusal(stderr):
+                raise GitHubPermissionError(
+                    f"gh command refused for lack of permission: {' '.join(args)}\n"
+                    f"stderr: {stderr}\n"
+                    f"GitHub accepted {_credential_in_play()} and then declined the "
+                    "operation, so this is a missing scope, not an outage — retrying "
+                    "cannot help. Check that the credential actually carries the "
+                    "permission this call needs.",
+                    command=args, stderr=stderr,
+                )
             raise GitHubClientError(
                 f"gh command failed: {' '.join(args)}\n"
-                f"stderr: {result.stderr.strip()}"
+                f"stderr: {stderr}"
             )
         return result.stdout.strip()
 
