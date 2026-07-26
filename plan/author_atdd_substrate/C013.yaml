@@ -1,0 +1,77 @@
+urn: "wmbt:author-atdd-substrate:C013"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "test-induced-live-state-store-pollution"
+context_clarifier: "when any test in the suite opens a State Store, it must reach a throwaway store and never the production one. `ATDD_CONTROL_ROOT` (resolver Rule 1, src/atdd/state/paths.py) OUTRANKS the explicit `start=` argument: `init_state_store(start=tmp_path)` reads os.environ, and when the operator's shell exports `ATDD_CONTROL_ROOT` — as this project's own idiom prescribes (`ATDD_CONTROL_ROOT=$PWD atdd …`) — Rule 1 returns the override and never consults `start` at all, after which Rule 1.4 (#1346) redirects a child-worktree override up to the shared project root. A session run injected 8 fixture work items (a, b, demo-session, wi-authored, wi-backfilled, wi-out-of-band, drifted-record, legacy-record) into the live store from four test modules, EVERY ONE of which passed a correct `start=<tmp_path>` — one of them under the docstring 'Hermetic: every probe builds its own throwaway Control Root. The developer's live store is never touched.' Same root class as the #1580 mass-deletion incident (a process pointed at the real Control Root instead of a temp dir); #1580 stopped the deletion direction, this stops the pollution direction. LINEAGE NOTE: this WMBT is cross-cutting test-infrastructure and fits the tester archetype better than author-issue-body; it is filed here because #1582 declares this feature and re-pointing mid-fix would ripple through validate-planner on a defect the store needed closed now."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of test-induced-live-state-store-pollution by neutralizing the ATDD_CONTROL_ROOT override for the session, refusing in-process opens of the production store, and fingerprinting that store around every test and around the session"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C013-UNIT-001-g1-pops-an-armed-control-root"
+      id: "AC-UNIT-001"
+      purpose: "An exported ATDD_CONTROL_ROOT is removed from the environment for the duration of the test session, so the resolver's Rule 1 override cannot silently outrank the `start=` argument that store-touching tests already pass correctly"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A real child pytest session launched with ATDD_CONTROL_ROOT armed to a throwaway directory"
+        - "The shipped guard plugin enabled by name (`-p atdd.state.live_store_guard_plugin`)"
+    when:
+      abstract: "a test inside that session reads os.environ"
+    then:
+      abstract:
+        - "ATDD_CONTROL_ROOT is absent inside the session"
+        - "The probe opens no State Store at all, so the result is attributable to this layer alone and cannot be carried by the write trap or the fingerprint backstop"
+        - "Guard the guard: the identical probe run WITHOUT the plugin FAILS, proving it is capable of observing a non-popping layer rather than passing vacuously"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-26"
+  - identity:
+      urn: "acc:author-atdd-substrate:C013-UNIT-002-g2-refuses-the-live-open-before-sqlite-sees-it"
+      id: "AC-UNIT-002"
+      purpose: "An in-process attempt to open the protected State Store is REFUSED before sqlite performs it — the guard prevents the write rather than reporting it afterwards — and the refusal is selective, not a blanket sqlite ban"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The guard fault-injected onto a decoy path under tmp_path (ATDD_LIVE_STORE_GUARD_TARGET), so production is never a participant"
+        - "A real child pytest session running the shipped guard plugin"
+    when:
+      abstract: "a test calls sqlite3.connect on the protected path, and separately on an unprotected path"
+    then:
+      abstract:
+        - "LiveStoreAccessError is raised for the protected path, and the message NAMES the offending test's nodeid"
+        - "The real sqlite3.connect never ran — proved by the decoy file still not existing, since sqlite3.connect creates a missing database"
+        - "The unprotected path opens normally and its file appears, proving the trap discriminates rather than breaking all sqlite access"
+        - "A URI-form open (file:<path>?mode=ro) is recognised too, so the guard cannot be walked around"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-26"
+  - identity:
+      urn: "acc:author-atdd-substrate:C013-SMOKE-001-g3-catches-a-subprocess-write"
+      id: "AC-SMOKE-001"
+      purpose: "A store write issued by a CHILD PROCESS — which the in-process trap is structurally blind to, and which is how the smokes actually run the CLI — is caught by the fingerprint backstop, which fails the session and names the test that let it through"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A REAL migrated State Store built by init_state_store under tmp_path, standing in for production, with the guard fault-injected onto it"
+        - "A REAL child pytest session (runpytest_subprocess) running the SHIPPED plugin by name — no reimplementation of the fixtures inside the test"
+    when:
+      abstract: "the inner test spawns a REAL grandchild process that performs a REAL sqlite write to that store"
+    then:
+      abstract:
+        - "The inner test's own assertions PASS, and the session FAILS anyway — so the failure is attributable to the backstop alone"
+        - "The per-test backstop names the test that spawned the writer"
+        - "The session-scoped digest backstop also fires, reporting that the store changed during the session"
+        - "Guard the guard: the identical session run WITHOUT the plugin passes clean, so a backstop that fired on everything could not masquerade as this result"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-26"
