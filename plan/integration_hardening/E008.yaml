@@ -156,7 +156,9 @@ acceptances:
     id: AC-UNIT-006
     purpose: "The upgrade is a two-step by existing design \u2014 the process that\
       \ ran pip is still running the old code and returns telling the caller to re-run.\
-      \ Unattended, that must converge and the first run must name its own successor"
+      \ Operator decision (#1628): keep that shape; the process must NOT re-exec itself\
+      \ to finish in one invocation. Unattended, the two steps must converge and the\
+      \ first run must name its own successor"
     phase: GREEN
   harness:
     type: unit
@@ -175,6 +177,10 @@ acceptances:
     - The second run performs the sync step and stamps toolkit.last_version forward,
       returning 0
     - A third run is a no-op, so the sequence converges rather than oscillating
+    - The first run exits after reporting, having replaced neither itself nor its interpreter
+      — no os.exec* call and no relaunch of the upgraded binary; the second step is
+      the caller's to take, which is what keeps the human-facing shape of the command
+      unchanged
   metadata:
     author: atdd:run-upgrade-unattended
     created: '2026-07-26'
