@@ -2034,7 +2034,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 22
+    total: 24
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2073,6 +2073,15 @@ wagons:
       by detecting linked-worktree condition and writing 'git config --worktree core.hooksPath'
       instead of the unscoped form (#793, Wave 12 contamination class, core.hooksPath
       danger key)
+    Y007: 'minimize likelihood of agent-upgrade-runs-that-die-on-eoferror-because-the-command-assumes-a-terminal
+      by resolving upgrader.py''s confirmation the way coach.py:255 already resolves
+      its own — explicit flag wins, else infer from isatty — so a no-TTY run proceeds
+      under a decision it states out loud while a human sees byte-identical prompts
+      (#1628, the remedy the #1449 push gate names but no agent could run)'
+    E008: minimize likelihood of concurrent-upgrade-runs-mutating-the-one-shared-install-that-sits-beneath-every-worktree
+      by serialising the mutating section on a lock scoped to the install rather than
+      the checkout, making an already-current run a no-op, and refusing loudly rather
+      than proceeding unlocked (#1628, ~60 agents share one pipx install)
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/
