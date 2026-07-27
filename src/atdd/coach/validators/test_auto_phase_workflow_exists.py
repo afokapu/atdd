@@ -72,6 +72,37 @@ def test_auto_phase_workflow_triggers_on_pr_close():
     )
 
 
+def test_auto_phase_workflow_can_be_re_driven_for_a_merged_pr():
+    """Issue #1611: an already-merged PR must be re-runnable at current main.
+
+    ``gh run rerun`` replays a run at the commit it ran on, so a fix to a COMPLETE
+    gate could never be exercised on the PRs that fix was written for — the run
+    would install the same broken code that failed the first time. A manual
+    dispatch taking a PR number runs the same command at current main instead.
+    """
+    wf = _load_workflow()
+    # PyYAML parses the bare key `on` as Python True; tolerate both.
+    triggers = wf.get("on") or wf.get(True) or {}
+    assert "workflow_dispatch" in triggers, (
+        "atdd-auto-phase.yml must offer `workflow_dispatch` so a merged PR can be "
+        f"re-driven without --force. Found triggers={sorted(triggers)!r}."
+    )
+    inputs = (triggers.get("workflow_dispatch") or {}).get("inputs") or {}
+    assert "pr_number" in inputs, (
+        "the `workflow_dispatch` trigger must take a `pr_number` input naming the "
+        f"merged PR to re-run. Found inputs={sorted(inputs)!r}."
+    )
+
+    job = (wf.get("jobs") or {}).get("auto-phase") or {}
+    assert "workflow_dispatch" in str(job.get("if") or ""), (
+        "the auto-phase job's `if:` gates on `pull_request.merged`, which is empty "
+        "on a manual dispatch — it must admit `workflow_dispatch` too."
+    )
+    assert "inputs.pr_number" in WORKFLOW_PATH.read_text(), (
+        "the dispatched PR number must reach the `atdd auto-phase` step."
+    )
+
+
 def test_auto_phase_workflow_gated_on_merged():
     """Must guard with `merged == true` so unmerged closes don't transition."""
     content = WORKFLOW_PATH.read_text()

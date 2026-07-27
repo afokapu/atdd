@@ -109,7 +109,11 @@ def test_complete_issues_artifacts_valid(github_complete_issues):
         if total == 0:
             continue
 
-        valid, messages = manager._verify_artifacts(artifacts, force=False)
+        # #1611: a COMPLETE issue's PR has merged by definition, so the claims are
+        # read against the commit that landed them — `main...HEAD` is empty here.
+        valid, messages = manager._verify_artifacts(
+            artifacts, force=False, issue_number=num,
+        )
         if not valid:
             failed_lines = [m for m in messages if "MISSING" in m or "NO CHANGES" in m or "STILL EXISTS" in m]
             failures.append(

@@ -160,18 +160,30 @@ def _removed_command_guard(argv, *, stream=None) -> int | None:
 
 
 def _substrate_root(args) -> str:
-    """Resolve the operational Control Root for substrate installs/reads (#1346).
+    """Resolve the operational Control Root for substrate installs/reads (#1346, #1601).
 
-    Extension/workspace installs are git-ignored operational ``.atdd/`` data and
-    must land in the single Control Root ``.atdd/`` — never a per-worktree copy.
-    Route ``--repo``/cwd through the #1177 control-root resolver so any worktree
-    resolves to the shared ``.atdd/``; a consumer repo with no resolvable Control
-    Root falls back to the given root unchanged.
+    Extension/workspace installs are operational ``.atdd/`` data and must land in
+    the single Control Root ``.atdd/`` — never a per-worktree copy. So the
+    *implicit* target (cwd, the bare command) still goes through the #1177
+    control-root resolver: from any worktree of a flat-sibling project that
+    resolves to the shared ``.atdd/``, and a consumer repo with no resolvable
+    Control Root falls back to the given root unchanged.
+
+    An *explicit* ``--repo PATH`` is honored verbatim (#1601). ``--repo`` is
+    documented as "target repository root": silently retargeting the one path the
+    operator named is not consolidation, it is discarding an instruction — and it
+    left no way at all to reach a worktree's own ``.atdd/``, which is where this
+    repo's *tracked* vendored extensions live (``.atdd/extensions/`` is committed
+    content here, not git-ignored data as #1346 assumed). Bare commands are
+    unchanged, so the consolidation #1346 bought is intact; only an operator who
+    names a root gets that root.
     """
     from pathlib import Path
     from atdd.state.paths import resolve_operational_root
-    start = Path(args.repo or ".").resolve()
-    return str(resolve_operational_root(start))
+    explicit = getattr(args, "repo", None)
+    if explicit:
+        return str(Path(explicit).resolve())
+    return str(resolve_operational_root(Path(".").resolve()))
 
 
 def _substrate_add(args) -> int:
