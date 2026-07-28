@@ -15,6 +15,7 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from atdd.version_check import (
     _is_pep668_error,
@@ -390,3 +391,111 @@ class TestInstalledCliVersionResolution:
         with patch("shutil.which", return_value="/usr/bin/atdd"), \
              patch("subprocess.run", side_effect=subprocess.TimeoutExpired("atdd", 10)):
             assert installed_cli_version() is None
+
+
+# ---------------------------------------------------------------------------
+# #1527: update_toolkit_version must not round-trip the document.
+#
+# The bug was a whole-document PyYAML load/dump to change one scalar, which
+# silently destroyed every comment in .atdd/config.yaml. These pin the
+# surgical write: if the round-trip is ever reintroduced, the comment
+# assertions below fail.
+# ---------------------------------------------------------------------------
+
+# A config carrying the three comment shapes the real file uses: a block
+# comment above a mapping, an inline trailing comment, and a comment that is
+# the last line of the file.
+_COMMENTED_CONFIG = """\
+version: '1.0'
+# Theme taxonomy (#1317). get_theme_map MERGES and cannot remove digits, so
+# digits 5-9 keep the game-domain defaults but are unused here.
+themes:
+  '0': commons
+  '5': player   # unused, do not delete
+toolkit:
+  last_version: 1.0.0
+github:
+  repo: afokapu/atdd
+# Trailing note that must survive the bump.
+"""
+
+
+def _comment_lines(text: str) -> list:
+    return [line for line in text.splitlines() if line.lstrip().startswith("#")]
+
+
+class TestUpdateToolkitVersionPreservesComments:
+    """#1527 — the version bump is a one-line write, not a re-serialisation."""
+
+    def _bump(self, tmp_path, source: str, version: str = "4.12.4"):
+        from atdd import version_check
+        config = tmp_path / "config.yaml"
+        config.write_text(source, encoding="utf-8")
+        with patch.object(version_check, "__version__", version):
+            assert version_check.update_toolkit_version(config) is True
+        return config.read_text(encoding="utf-8")
+
+    def test_every_comment_survives_the_bump(self, tmp_path):
+        """The regression pin. A round-trip through PyYAML drops all of these."""
+        result = self._bump(tmp_path, _COMMENTED_CONFIG)
+        assert _comment_lines(result) == _comment_lines(_COMMENTED_CONFIG)
+
+    def test_last_version_is_actually_updated(self, tmp_path):
+        result = self._bump(tmp_path, _COMMENTED_CONFIG)
+        assert yaml.safe_load(result)["toolkit"]["last_version"] == "4.12.4"
+
+    def test_only_the_last_version_line_changes(self, tmp_path):
+        """Key order, quoting and indentation stay byte-identical."""
+        result = self._bump(tmp_path, _COMMENTED_CONFIG)
+        before = _COMMENTED_CONFIG.splitlines()
+        after = result.splitlines()
+        assert len(before) == len(after)
+        differing = [i for i, (b, a) in enumerate(zip(before, after)) if b != a]
+        assert differing == [before.index("  last_version: 1.0.0")]
+        assert after[differing[0]] == "  last_version: 4.12.4"
+
+    def test_inline_comment_on_the_bumped_line_survives(self, tmp_path):
+        source = "toolkit:\n  last_version: 1.0.0  # stamped by atdd sync\n"
+        result = self._bump(tmp_path, source)
+        assert result == "toolkit:\n  last_version: 4.12.4  # stamped by atdd sync\n"
+
+    def test_key_absent_from_existing_toolkit_block(self, tmp_path):
+        source = "# lead\ntoolkit:\n  other: keep\nafter: 1\n"
+        result = self._bump(tmp_path, source)
+        assert yaml.safe_load(result)["toolkit"] == {"last_version": "4.12.4", "other": "keep"}
+        assert _comment_lines(result) == ["# lead"]
+
+    def test_toolkit_block_absent_entirely(self, tmp_path):
+        source = "# lead\nversion: '1.0'\n"
+        result = self._bump(tmp_path, source)
+        assert yaml.safe_load(result)["toolkit"] == {"last_version": "4.12.4"}
+        assert _comment_lines(result) == ["# lead"]
+
+    def test_missing_file_returns_false(self, tmp_path):
+        from atdd.version_check import update_toolkit_version
+        assert update_toolkit_version(tmp_path / "absent.yaml") is False
+
+    def test_nested_last_version_is_not_mistaken_for_the_real_key(self, tmp_path):
+        """Only a direct child of `toolkit:` is the version stamp."""
+        source = "toolkit:\n  nested:\n    last_version: 0.0.1\n  last_version: 1.0.0\n"
+        result = self._bump(tmp_path, source)
+        parsed = yaml.safe_load(result)
+        assert parsed["toolkit"]["last_version"] == "4.12.4"
+        assert parsed["toolkit"]["nested"]["last_version"] == "0.0.1"
+
+    def test_toolkit_key_nested_under_another_block_is_not_matched(self, tmp_path):
+        """`code.toolkit` is a path, not the version block — the real config has both."""
+        source = "code:\n  toolkit: src/atdd\ntoolkit:\n  last_version: 1.0.0\n"
+        result = self._bump(tmp_path, source)
+        assert yaml.safe_load(result)["code"]["toolkit"] == "src/atdd"
+        assert yaml.safe_load(result)["toolkit"]["last_version"] == "4.12.4"
+
+    def test_unwritable_shape_is_refused_rather_than_corrupted(self, tmp_path):
+        """A flow-style block cannot be edited by line; refuse, do not duplicate the key."""
+        from atdd import version_check
+        source = "toolkit: {}\n"
+        config = tmp_path / "config.yaml"
+        config.write_text(source, encoding="utf-8")
+        with patch.object(version_check, "__version__", "4.12.4"):
+            assert version_check.update_toolkit_version(config) is False
+        assert config.read_text(encoding="utf-8") == source

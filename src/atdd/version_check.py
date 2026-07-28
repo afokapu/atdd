@@ -292,9 +292,124 @@ def get_upgrade_notes(from_version: str, to_version: str) -> list:
     return notes
 
 
+# A top-level `toolkit:` mapping key — column 0, optional trailing comment.
+_TOOLKIT_KEY_RE = re.compile(r"^toolkit[ \t]*:[ \t]*(#.*)?$")
+# A `last_version:` entry nested under it. `rest` holds the value plus any
+# trailing comment; the two are split afterwards so the comment survives.
+_LAST_VERSION_RE = re.compile(r"^(?P<indent>[ \t]+)last_version[ \t]*:(?P<rest>.*)$")
+
+
+def _split_trailing_comment(rest: str) -> str:
+    """Return the trailing ``# ...`` comment of a scalar line, or ``""``.
+
+    A YAML comment must be preceded by whitespace (or start the value), so a
+    ``#`` embedded in an unquoted scalar is not treated as one.
+    """
+    match = re.search(r"(?:^|\s)\s*#.*$", rest)
+    return match.group(0) if match else ""
+
+
+def _rewrite_last_version(text: str, version: str) -> Optional[str]:
+    """Rewrite ``toolkit.last_version`` in raw YAML text.
+
+    Issue #1527: the previous implementation round-tripped the whole document
+    through PyYAML to change this one scalar. PyYAML cannot round-trip
+    comments, so every comment in ``.atdd/config.yaml`` was destroyed on each
+    version bump — silently, since nothing fails at strip time. The write is
+    textual so that the blast radius matches the mutation: one line.
+
+    Handles the key being absent from an existing ``toolkit:`` block, and the
+    block itself being absent. Returns ``None`` when the document's shape
+    cannot be edited by line — the caller then declines to write rather than
+    corrupting the file.
+    """
+    lines = text.splitlines(keepends=True)
+
+    toolkit_idx = next(
+        (i for i, line in enumerate(lines) if _TOOLKIT_KEY_RE.match(line.rstrip("\r\n"))),
+        None,
+    )
+
+    if toolkit_idx is None:
+        # No block-style `toolkit:` line. If the document nonetheless has a
+        # `toolkit` key it must be some other shape (flow-style, an anchor,
+        # a multi-document stream); appending would silently create a
+        # duplicate key that PyYAML resolves last-wins rather than rejecting.
+        try:
+            existing = yaml.safe_load(text)
+        except yaml.YAMLError:
+            logger.warning(
+                "Refusing version stamp: config.yaml does not parse",
+                extra={"phase": "version-stamp", "outcome": "unparseable"},
+            )
+            return None
+        if isinstance(existing, dict) and "toolkit" in existing:
+            logger.warning(
+                "Refusing version stamp: `toolkit` is not a block mapping; "
+                "rewrite it as a block to allow comment-preserving updates",
+                extra={"phase": "version-stamp", "outcome": "non-block-toolkit"},
+            )
+            return None
+        # Genuinely absent — append, leaving the rest untouched.
+        prefix = text if not text or text.endswith("\n") else text + "\n"
+        return f"{prefix}toolkit:\n  last_version: {version}\n"
+
+    block_end = len(lines)
+    block_indent = None  # indentation of `toolkit:`'s direct children
+    for j in range(toolkit_idx + 1, len(lines)):
+        body = lines[j].rstrip("\r\n")
+        if not body.strip() or body.lstrip().startswith("#"):
+            continue  # blanks and comments do not terminate the block
+        if not body[:1].isspace():
+            block_end = j  # dedented to column 0 — block is over
+            break
+
+        match = _LAST_VERSION_RE.match(body)
+        # Only a direct child counts. A `last_version` nested deeper (under a
+        # sub-mapping of `toolkit:`) is a different key and must not be hit.
+        if match and (block_indent is None or match.group("indent") == block_indent):
+            comment = _split_trailing_comment(match.group("rest"))
+            newline = lines[j][len(body):]
+            lines[j] = f"{match.group('indent')}last_version: {version}{comment}{newline}"
+            return "".join(lines)
+        if block_indent is None:
+            block_indent = body[: len(body) - len(body.lstrip(" \t"))]
+
+    # Block exists but carries no `last_version` — insert it as the first
+    # entry, matching the indentation the block already uses.
+    lines.insert(toolkit_idx + 1, f"{block_indent or '  '}last_version: {version}\n")
+    return "".join(lines)
+
+
+def _surgical_write_is_sound(text: str, version: str) -> bool:
+    """True when rewritten text parses and carries exactly the intended value.
+
+    The surgical write manipulates raw text, so it is verified structurally
+    before it is allowed to replace the file. Guards the shapes the line-based
+    rewrite cannot express — e.g. a flow-style ``toolkit: {}`` mapping, where
+    appending a block would produce a duplicate key.
+    """
+    try:
+        parsed = yaml.safe_load(text)
+    except yaml.YAMLError:
+        logger.warning(
+            "Refusing version stamp: rewritten config.yaml does not parse",
+            extra={"phase": "version-stamp", "outcome": "rewrite-unparseable"},
+        )
+        return False
+    return (
+        isinstance(parsed, dict)
+        and isinstance(parsed.get("toolkit"), dict)
+        and str(parsed["toolkit"].get("last_version")) == version
+    )
+
+
 def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
     """
     Update toolkit.last_version in .atdd/config.yaml to current installed version.
+
+    The file is rewritten surgically — only the ``last_version`` line changes,
+    so comments, key order, quoting and indentation survive verbatim (#1527).
 
     Args:
         config_path: Path to config file. Defaults to .atdd/config.yaml in cwd.
@@ -309,19 +424,18 @@ def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
         return False
 
     try:
-        with open(config_path) as f:
-            config = yaml.safe_load(f) or {}
+        text = config_path.read_text(encoding="utf-8")
+        updated = _rewrite_last_version(text, __version__)
+        if updated is None or not _surgical_write_is_sound(updated, __version__):
+            # Never trade a correct config for a preserved comment.
+            return False
 
-        # Update toolkit.last_version
-        if "toolkit" not in config:
-            config["toolkit"] = {}
-        config["toolkit"]["last_version"] = __version__
-
-        with open(config_path, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        tmp = config_path.with_suffix(config_path.suffix + ".tmp")
+        tmp.write_text(updated, encoding="utf-8")
+        tmp.replace(config_path)
 
         return True
-    except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow)
         return False
 
 
