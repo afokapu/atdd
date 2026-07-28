@@ -1,13 +1,10 @@
 # URN: test:govern-lifecycle:define-transition-autonomy:D020-SMOKE-001-shipped-package-loads-the-declared-machine
 # Acceptance: acc:govern-lifecycle:D020-SMOKE-001-shipped-package-loads-the-declared-machine
 # WMBT: wmbt:govern-lifecycle:D020
-# Phase: RED
+# Phase: SMOKE
 # Layer: backend.smoke
 # Assertion: behavioral
 """D020-SMOKE-001 — the real package loads the declared machine, unchanged.
-
-Phase: RED. The axis does not exist, so the subprocess reports no phase
-declaring it and the first assertion fails.
 
 Real infrastructure, no in-process shortcuts: a SEPARATE process, the real
 ``atdd`` package, the real ``load_conventions``, and the real
@@ -39,7 +36,7 @@ import pytest
 
 from atdd.coach.utils.repo import find_repo_root
 
-pytestmark = [pytest.mark.platform]
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 #: Measured 2026-07-26 before the axis existed. See D020-UNIT-004.
 _PRE_CHANGE_SNAPSHOT_HASH = (
@@ -97,7 +94,7 @@ def test_shipped_machine_declares_the_axis_in_a_real_process() -> None:
     """The declaration is present in the artifact the runtime actually resolves."""
     probe = _run_probe()
     assert probe["declaring_autonomy"], (
-        "Phase: RED — the phase machine resolved by the real package at "
+        "REGRESSION: the phase machine resolved by the real package at "
         f"{probe['resolved_path']} declares `autonomy` on no phase. GREEN adds "
         "the axis to the shipped convention, not to a test fixture."
     )

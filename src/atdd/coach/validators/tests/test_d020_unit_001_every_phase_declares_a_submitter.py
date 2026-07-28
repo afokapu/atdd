@@ -1,14 +1,10 @@
 # URN: test:govern-lifecycle:define-transition-autonomy:D020-UNIT-001-every-phase-declares-a-submitter
 # Acceptance: acc:govern-lifecycle:D020-UNIT-001-every-phase-declares-a-submitter
 # WMBT: wmbt:govern-lifecycle:D020
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Assertion: structural
 """D020-UNIT-001 — every phase declares who may SUBMIT its transition.
-
-Phase: RED. The ``autonomy`` axis does not exist in
-``src/atdd/coach/conventions/phase_machine.convention.yaml`` yet, so every
-assertion below fails on the absent key. GREEN adds one scalar per phase.
 
 The axis must be TOTAL: the point of the declaration is that no phase is silent
 about its submitter, because a silent phase is exactly the phase a worker stops
@@ -24,7 +20,7 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
-pytestmark = [pytest.mark.platform]
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 _MACHINE_REL = Path("src/atdd/coach/conventions/phase_machine.convention.yaml")
 
@@ -61,7 +57,7 @@ def test_every_phase_declares_the_autonomy_axis() -> None:
     phases = _phases()
     silent = sorted(name for name, spec in phases.items() if "autonomy" not in (spec or {}))
     assert not silent, (
-        "Phase: RED — these phases declare no `autonomy` key, so the machine "
+        "REGRESSION: these phases declare no `autonomy` key, so the machine "
         f"still cannot say who may submit their transition: {silent}. "
         "GREEN adds one `autonomy` scalar per phase in "
         f"{_MACHINE_REL}, beside the existing agent/transitions_to/pre_commit_gate."
@@ -89,7 +85,7 @@ def test_declared_values_equal_the_pinned_table() -> None:
     phases = _phases()
     actual = {name: (spec or {}).get("autonomy") for name, spec in phases.items()}
     assert actual == _PINNED, (
-        "Phase: RED — the declared autonomy table does not match the table pinned "
+        "REGRESSION: the declared autonomy table does not match the table pinned "
         f"on #1626.\n  expected: {_PINNED}\n  actual:   {actual}"
     )
 

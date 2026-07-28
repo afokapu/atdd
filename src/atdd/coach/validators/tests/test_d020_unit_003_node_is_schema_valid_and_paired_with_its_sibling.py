@@ -1,13 +1,10 @@
 # URN: test:govern-lifecycle:define-transition-autonomy:D020-UNIT-003-node-is-schema-valid-and-paired-with-its-sibling
 # Acceptance: acc:govern-lifecycle:D020-UNIT-003-node-is-schema-valid-and-paired-with-its-sibling
 # WMBT: wmbt:govern-lifecycle:D020
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Assertion: structural
 """D020-UNIT-003 — the node is well-formed and reads as a pair with its sibling.
-
-Phase: RED. ``coach.lifecycle.transition-autonomy.convention.yaml`` does not
-exist yet.
 
 The sibling is ``coach.execution.freedom-with-a-leash``: same shape, one axis
 over. That node governs which TOOLS run unattended (its terms are
@@ -24,7 +21,7 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
-pytestmark = [pytest.mark.platform]
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 _NODE_REL = Path(
     "src/atdd/coach/conventions/nodes/coach.lifecycle.transition-autonomy.convention.yaml"
@@ -41,7 +38,7 @@ _SIBLING_RULE_ID = "coach.execution.freedom-with-a-leash"
 def _node() -> dict:
     path = find_repo_root() / _NODE_REL
     assert path.is_file(), (
-        f"Phase: RED — {_NODE_REL} does not exist yet. GREEN authors it under "
+        f"REGRESSION: {_NODE_REL} does not exist yet. GREEN authors it under "
         "the existing convention-node pattern."
     )
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}

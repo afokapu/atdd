@@ -1,13 +1,10 @@
 # URN: test:govern-lifecycle:define-transition-autonomy:D020-UNIT-004-the-new-key-is-inert-in-the-loader
 # Acceptance: acc:govern-lifecycle:D020-UNIT-004-the-new-key-is-inert-in-the-loader
 # WMBT: wmbt:govern-lifecycle:D020
-# Phase: RED
+# Phase: GREEN
 # Layer: application
 # Assertion: behavioral
 """D020-UNIT-004 — adding the axis changes nothing the runtime can observe.
-
-Phase: RED. The axis does not exist, so the "the machine declares it" clause
-below fails; the inertness clauses are what GREEN must keep true.
 
 This is the acceptance that makes "declare first, enforce later" safe rather
 than merely sequenced. ``_phase_machine_from_data`` builds PhaseSpec by reading
@@ -16,9 +13,10 @@ from the built PhaseSpec objects — not from the YAML text. So a key PhaseSpec
 does not read cannot move the hash, and no in-flight run resuming from a frozen
 ``conventions.snapshot.yaml`` is invalidated by this issue.
 
-NOTE for GREEN: projecting ``autonomy`` onto PhaseSpec — which a mechanical
-submitter check will need — WILL move that hash. This test is the tripwire that
-makes that visible rather than silent.
+TRIPWIRE: projecting ``autonomy`` onto PhaseSpec — which a mechanical submitter
+check will need — WILL move that hash. These assertions are what make that
+visible rather than silent, so a later track cannot extend PhaseSpec without
+noticing it invalidates every frozen run snapshot.
 """
 from __future__ import annotations
 
@@ -30,7 +28,7 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
-pytestmark = [pytest.mark.platform]
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 _MACHINE_REL = Path("src/atdd/coach/conventions/phase_machine.convention.yaml")
 
@@ -62,7 +60,7 @@ def test_the_machine_declares_the_axis() -> None:
     phases = _machine_data().get("phases") or {}
     declaring = [name for name, spec in phases.items() if "autonomy" in (spec or {})]
     assert declaring, (
-        "Phase: RED — no phase declares `autonomy`, so 'the key is inert' would "
+        "REGRESSION: no phase declares `autonomy`, so 'the key is inert' would "
         "pass trivially and prove nothing. GREEN adds the axis; this assertion "
         "is what keeps the rest of this file honest."
     )
@@ -88,7 +86,7 @@ def _without_axis_guard(data: dict) -> dict:
     """Strip the axis, asserting it was actually present so the diff is meaningful."""
     stripped = _without_autonomy(data)
     assert stripped != data, (
-        "Phase: RED — stripping `autonomy` changed nothing, because the axis is "
+        "REGRESSION: stripping `autonomy` changed nothing, because the axis is "
         "not declared yet; the with/without comparison has no subject."
     )
     return stripped

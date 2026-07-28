@@ -1,12 +1,10 @@
 # URN: test:govern-lifecycle:define-transition-autonomy:D020-UNIT-002-escapes-are-never-autonomous
 # Acceptance: acc:govern-lifecycle:D020-UNIT-002-escapes-are-never-autonomous
 # WMBT: wmbt:govern-lifecycle:D020
-# Phase: RED
+# Phase: GREEN
 # Layer: unit
 # Assertion: structural
 """D020-UNIT-002 — BLOCKED and OBSOLETE are never entered autonomously.
-
-Phase: RED. The convention node stating the invariant does not exist yet.
 
 The per-phase ``autonomy`` scalar governs a phase's FORWARD transition only.
 That leaves the escape edges — every phase's transition into BLOCKED or
@@ -14,9 +12,11 @@ OBSOLETE — governed by nothing in the data, which is why the invariant has to
 be carried explicitly by the node's prose and asserted here. Without this the
 escapes would be the one part of the machine the axis silently does not cover.
 
-The escape set is DERIVED from the machine rather than hardcoded, so a tenth
-phase that behaves like an escape cannot fall outside the check by being added
-later. ``_derive_escape_targets`` recomputes it from the declared topology.
+The escape set is NAMED, not derived — see ``_ESCAPES``. D020-UNIT-002 asks for
+a derivation, but none is sound: BLOCKED does not appear in its own
+``transitions_to``, so any "reachable from every rung" rule silently drops it.
+``test_escape_set_agrees_with_the_ladder_walk`` is the achievable version, tying
+this constant to the one the State Store's ladder test already walks by.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
-pytestmark = [pytest.mark.platform]
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 _MACHINE_REL = Path("src/atdd/coach/conventions/phase_machine.convention.yaml")
 _NODE_REL = Path(
@@ -120,7 +120,7 @@ def test_the_node_states_the_escape_invariant() -> None:
     """The invariant lives in prose a reader can find, not only in a scalar's definition."""
     node_path = find_repo_root() / _NODE_REL
     assert node_path.is_file(), (
-        f"Phase: RED — {_NODE_REL} does not exist yet. GREEN authors the "
+        f"REGRESSION: {_NODE_REL} does not exist yet. GREEN authors the "
         "convention node that states the escape invariant."
     )
     node = yaml.safe_load(node_path.read_text(encoding="utf-8")) or {}
@@ -141,7 +141,7 @@ def test_leaving_blocked_is_operator_submitted() -> None:
     phases = _phases()
     blocked = phases.get("BLOCKED") or {}
     assert "autonomy" in blocked, (
-        "Phase: RED — BLOCKED declares no `autonomy` key, so nothing says who "
+        "REGRESSION: BLOCKED declares no `autonomy` key, so nothing says who "
         "may submit a transition out of it"
     )
     assert blocked["autonomy"] == "operator", (
