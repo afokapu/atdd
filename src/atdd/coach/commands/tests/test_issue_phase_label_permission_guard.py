@@ -104,17 +104,46 @@ def test_permission_refusal_names_the_credential_in_play(monkeypatch) -> None:
     assert "GH_TOKEN" in str(refused.value), str(refused.value)
 
 
-def test_an_ordinary_failure_is_not_reclassified(monkeypatch) -> None:
-    """Only a refusal is a refusal — a transport error stays a plain error."""
-    client = _run_gh_returning(
-        monkeypatch, 1, "error connecting to api.github.com: i/o timeout"
-    )
+#: Failures that are NOT refusals. Each would be actively harmed by the
+#: permission diagnosis, which tells the reader that retrying cannot help.
+_TRANSIENT_FAILURES = [
+    pytest.param(
+        "error connecting to api.github.com: i/o timeout",
+        id="transport-timeout",
+    ),
+    # GitHub answers a secondary rate limit with 403 — the SAME status as a
+    # refusal. Classifying on the status code rather than the wording is how a
+    # rate limit gets reported as a missing scope, which is the original defect
+    # pointed the other way: an operator who need only wait is sent to audit
+    # token scopes instead.
+    pytest.param(
+        "HTTP 403: You have exceeded a secondary rate limit and have been "
+        "temporarily blocked from content creation. Please retry your request "
+        "again later. (https://api.github.com/repos/afokapu/atdd/issues/1601/labels)",
+        id="secondary-rate-limit-403",
+    ),
+    pytest.param(
+        "HTTP 403: API rate limit exceeded for user ID 1. "
+        "(https://api.github.com/repos/afokapu/atdd/issues/1601/labels)",
+        id="primary-rate-limit-403",
+    ),
+]
+
+
+@pytest.mark.parametrize("stderr", _TRANSIENT_FAILURES)
+def test_an_ordinary_failure_is_not_reclassified(monkeypatch, stderr) -> None:
+    """Only a refusal is a refusal — a transient fault stays a plain error."""
+    client = _run_gh_returning(monkeypatch, 1, stderr)
 
     with pytest.raises(GitHubClientError) as failed:
         client.add_label(1601, ["atdd:COMPLETE"])
     assert not isinstance(failed.value, GitHubPermissionError), (
-        "a network timeout was reported as a permission problem; the two have "
-        "opposite remedies and must not be conflated"
+        f"a transient failure ({stderr[:60]}...) was reported as a permission "
+        "problem. The two have opposite remedies — one is waited out, the other "
+        "is never fixed by waiting — and must not be conflated."
+    )
+    assert "retrying cannot help" not in str(failed.value), (
+        "a retryable failure was told that retrying cannot help"
     )
 
 
@@ -201,3 +230,55 @@ def test_update_returns_nonzero_when_the_label_write_is_refused(monkeypatch) -> 
     monkeypatch.setattr(manager, "_update_manifest_status", lambda n, s: None)
 
     assert manager.update("1601", status="COMPLETE") == 1
+
+
+# ---------------------------------------------------------------------------
+# The repair path must not report a projection it did not make
+# ---------------------------------------------------------------------------
+
+def test_reprojection_reports_nothing_projected_when_the_write_is_refused(
+    monkeypatch,
+) -> None:
+    """The repair verb cannot claim to have closed the drift it was called to close.
+
+    ``reproject_phase_label`` exists to make a drifted label agree with the
+    store again (#1338). If its one write is refused and it still returns the
+    phase, the caller prints "label re-projected from the store := COMPLETE"
+    over a label that never moved — manufacturing exactly the store/label
+    disagreement the verb repairs, and reporting it as repaired.
+    """
+    manager = IssueManager(target_dir=Path("."))
+    refusing = _RefusingClient(GitHubPermissionError(f"refused\n{_LIVE_REFUSAL}"))
+
+    monkeypatch.setattr(
+        "atdd.coach.commands.auto_phase.read_store_phase",
+        lambda n, d: "COMPLETE",
+    )
+    monkeypatch.setattr(
+        manager,
+        "_resolve_issue",
+        lambda issue_id: (1601, {"labels": [{"name": "atdd:REFACTOR"}]}, refusing),
+    )
+
+    assert manager.reproject_phase_label(1601) is None, (
+        "a refused re-projection reported the phase as projected"
+    )
+
+
+def test_reprojection_still_reports_the_phase_when_the_write_lands(monkeypatch) -> None:
+    """The guard must not turn every repair into a failure."""
+    manager = IssueManager(target_dir=Path("."))
+    working = _WorkingClient()
+
+    monkeypatch.setattr(
+        "atdd.coach.commands.auto_phase.read_store_phase",
+        lambda n, d: "COMPLETE",
+    )
+    monkeypatch.setattr(
+        manager,
+        "_resolve_issue",
+        lambda issue_id: (1601, {"labels": [{"name": "atdd:REFACTOR"}]}, working),
+    )
+
+    assert manager.reproject_phase_label(1601) == "COMPLETE"
+    assert ("add", ["atdd:COMPLETE"]) in working.calls

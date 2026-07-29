@@ -1775,6 +1775,10 @@ class IssueManager:
 
         store_phase = read_store_phase(issue_number, self.target_dir)
         if not store_phase:
+            print(
+                f"Error: #{issue_number} has no phase in the store, so there is "
+                f"nothing to project the label from."
+            )
             return None
 
         resolved = self._resolve_issue(str(issue_number))
@@ -1786,7 +1790,12 @@ class IssueManager:
         if current_phase == store_phase:
             return store_phase
 
-        self._write_phase_label(client, issue_number, current_labels, store_phase)
+        if not self._write_phase_label(client, issue_number, current_labels, store_phase):
+            # The writer has already said why. Returning store_phase here would
+            # report a re-projection that did not happen — the repair verb
+            # claiming to have closed the very drift it was called to close
+            # (#1621).
+            return None
         return store_phase
 
     # -------------------------------------------------------------------------

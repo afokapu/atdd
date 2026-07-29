@@ -52,17 +52,39 @@ class GitHubPermissionError(GitHubClientError):
 #: How GitHub words "authenticated, but not authorised". The wording differs by
 #: credential kind — ``personal access token`` for a PAT, ``integration`` for
 #: GITHUB_TOKEN and GitHub Apps — and both mean the same thing to a caller.
+#:
+#: These are *phrases*, deliberately, not the status code. HTTP 403 is NOT a
+#: permission signature: GitHub also returns 403 for secondary rate limits and
+#: abuse detection, which are transient and for which retrying is precisely the
+#: remedy. Matching on the code would tell an operator waiting out a rate limit
+#: that their token lacks a scope — the same species of misdiagnosis this
+#: classification exists to end, merely pointing the other way.
 _PERMISSION_REFUSAL_SIGNATURES = (
     "resource not accessible by personal access token",
     "resource not accessible by integration",
-    "http 403",
     "must have admin rights",
+    "you do not have permission",
+    "requires one of the following scopes",
+    "resource protected by organization saml enforcement",
+)
+
+#: Wording that makes a failure transient no matter what else it resembles.
+#: Checked first, so the classifier fails toward "a plain error worth retrying"
+#: rather than toward a confident wrong diagnosis.
+_TRANSIENT_SIGNATURES = (
+    "rate limit",
+    "abuse detection",
+    "please retry",
+    "try again later",
+    "secondary rate",
 )
 
 
 def _is_permission_refusal(stderr: str) -> bool:
     """Whether ``stderr`` is GitHub declining for lack of scope, not a fault."""
     lowered = stderr.lower()
+    if any(sig in lowered for sig in _TRANSIENT_SIGNATURES):
+        return False
     return any(sig in lowered for sig in _PERMISSION_REFUSAL_SIGNATURES)
 
 

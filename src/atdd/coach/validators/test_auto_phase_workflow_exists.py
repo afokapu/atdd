@@ -234,3 +234,44 @@ def test_auto_phase_workflow_carries_no_stale_projectv2_rationale():
             f"{path.name} still describes ProjectV2 Status sync as a live reason. "
             "Issue #1621."
         )
+
+
+#: The expression itself, as an operator would copy it out of a doc. Split so
+#: this file's own assertion text cannot be what the scan trips over.
+_FALLBACK_EXPR_FRAGMENT = "secrets.PROJECT_TOKEN" + " || " + "secrets.GITHUB_TOKEN"
+
+
+def test_no_shipped_doc_instructs_an_operator_to_re_seed_the_fallback():
+    """Issue #1621: removing the expression is not enough while a doc still teaches it.
+
+    `docs/operator-projects-v2-token.md` survived #1051 and went on telling
+    operators to write
+
+        GH_TOKEN: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+
+    citing *this validator* as the thing that asserted the pattern — which it
+    did, until #1621 inverted it. A doc that contradicts the shipped guard is
+    how the defect comes back after the fix: the next operator follows the
+    written instruction, not the test.
+
+    #1051's own plan called for deleting that doc (see the E053 WMBT statement
+    and `decommission_projects_v2_board_sync.yaml`); the deletion was never
+    made. This assertion is the ratchet that keeps it deleted.
+    """
+    docs_dir = REPO_ROOT / "docs"
+    if not docs_dir.is_dir():
+        pytest.skip("no docs/ directory (consumer repo)")
+
+    offenders = [
+        path.relative_to(REPO_ROOT)
+        for path in sorted(docs_dir.rglob("*.md"))
+        if _FALLBACK_EXPR_FRAGMENT in path.read_text()
+    ]
+    assert not offenders, (
+        "These docs still instruct operators to write "
+        f"`{_FALLBACK_EXPR_FRAGMENT}` as GH_TOKEN: {offenders}. `||` is a "
+        "preference, not a fallback — with PROJECT_TOKEN set as a repo secret "
+        "GITHUB_TOKEN is never reached, and the job's `permissions: issues: "
+        "write` applies to GITHUB_TOKEN alone. Every label write then fails "
+        "with `Resource not accessible by personal access token`. Issue #1621."
+    )
