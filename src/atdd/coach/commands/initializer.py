@@ -98,9 +98,6 @@ def slug_to_branch_name(slug: str) -> str:
     return slug
 
 
-_DEFAULT_WORKSPACE_BG = "#FFC107"
-
-
 def _workspace_folders(parent: Path) -> List[dict]:
     """The git-worktree siblings to show as multi-root folders, ``main`` first."""
     folders = []
@@ -126,63 +123,6 @@ def _workspace_folders(parent: Path) -> List[dict]:
     return folders
 
 
-def _saved_workspace_color(config_path: Path) -> Optional[str]:
-    """The workspace color persisted in .atdd/config.yaml, if any."""
-    if not config_path.exists():
-        return None
-
-    try:
-        with open(config_path) as f:
-            config = yaml.safe_load(f) or {}
-        return config.get("workspace", {}).get("color")
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return None
-
-
-def _existing_workspace_color(workspace_path: Path) -> Optional[str]:
-    """A user-set title-bar color already present in the workspace file."""
-    try:
-        existing = json.loads(workspace_path.read_text())
-        return (
-            existing.get("settings", {})
-            .get("workbench.colorCustomizations", {})
-            .get("titleBar.activeBackground")
-        )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return None
-
-
-def _persist_workspace_color(config_path: Path, bg: str) -> None:
-    """Persist a discovered color to config so future runs reuse it."""
-    if not config_path.exists():
-        return
-
-    try:
-        with open(config_path) as f:
-            cfg = yaml.safe_load(f) or {}
-        cfg.setdefault("workspace", {})["color"] = bg
-        with open(config_path, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        pass
-
-
-def _resolve_workspace_color(config_path: Path, workspace_path: Path) -> str:
-    """Background color: config → existing workspace file → default yellow."""
-    bg = _saved_workspace_color(config_path) or _DEFAULT_WORKSPACE_BG
-
-    # Still default? An existing workspace file may carry a user-set color.
-    if bg != _DEFAULT_WORKSPACE_BG or not workspace_path.exists():
-        return bg
-
-    existing_bg = _existing_workspace_color(workspace_path)
-    if existing_bg and existing_bg != _DEFAULT_WORKSPACE_BG:
-        _persist_workspace_color(config_path, existing_bg)
-        return existing_bg
-
-    return bg
-
-
 def write_workspace(target_dir: Path) -> None:
     """Write a VS Code .code-workspace file in the parent directory.
 
@@ -197,21 +137,10 @@ def write_workspace(target_dir: Path) -> None:
     workspace_path = parent / f"{workspace_name}.code-workspace"
 
     folders = _workspace_folders(parent)
-    bg = _resolve_workspace_color(target_dir / ".atdd" / "config.yaml", workspace_path)
-
-    # Compute foreground via WCAG relative luminance
-    from atdd.coach.commands.color import ColorManager
-    fg = ColorManager._foreground(bg)
 
     workspace = {
         "folders": folders,
         "settings": {
-            "workbench.colorCustomizations": {
-                "titleBar.activeBackground": bg,
-                "titleBar.activeForeground": fg,
-                "statusBar.background": bg,
-                "statusBar.foreground": fg,
-            },
             # Minimal default layout: Explorer + Terminal only
             "workbench.panel.defaultLocation": "bottom",
             "panel.defaultVisibility": "hidden",
@@ -377,27 +306,6 @@ class ProjectInitializer:
             mapping[str(digit)] = theme
             digit += 1
         return mapping
-
-    def _prompt_workspace_color(self) -> None:
-        """Prompt user to pick a workspace color if unset or default yellow."""
-        config_path = self.target_dir / ".atdd" / "config.yaml"
-        if not config_path.exists():
-            return
-
-        try:
-            with open(config_path) as f:
-                config = yaml.safe_load(f) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            return
-
-        saved = config.get("workspace", {}).get("color")
-        if saved and saved != "#FFC107":
-            return
-
-        print("\nWorkspace color customization:")
-        from atdd.coach.commands.color import ColorManager
-        manager = ColorManager(self.target_dir)
-        manager.color()
 
     def _write_workspace(self) -> None:
         """Write a VS Code .code-workspace file (delegates to module-level)."""
@@ -614,9 +522,6 @@ class ProjectInitializer:
             )
             print(f"Substrate mode: {substrate_mode}")
 
-            # Prompt for workspace color if unset or default yellow
-            self._prompt_workspace_color()
-
             # Install git hooks (pre-commit worktree enforcement)
             self._install_hooks(force)
 
@@ -797,8 +702,8 @@ class ProjectInitializer:
         Create or update .atdd/config.yaml.
 
         When force=True and config already exists, deep-merges defaults into
-        the existing config — preserving user-set values (workspace.color,
-        github.*, customised release/sync settings) while filling in any
+        the existing config — preserving user-set values (github.*,
+        customised release/sync settings) while filling in any
         missing default keys and always updating toolkit.last_version.
 
         Args:
