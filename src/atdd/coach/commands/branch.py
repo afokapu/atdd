@@ -511,13 +511,6 @@ class BranchManager:
         # is-registered`, store-first) reads. Zero commits to local `main`.
         self._record_binding_in_store(issue_number, branch_name, worktree_path)
 
-        # Refresh VS Code workspace file
-        try:
-            from atdd.coach.commands.initializer import write_workspace
-            write_workspace(self.target_dir)
-        except Exception as e:
-            print(f"  Warning: Could not refresh workspace file: {e}")
-
         print(f"\n  cd {worktree_path}")
         return 0
 

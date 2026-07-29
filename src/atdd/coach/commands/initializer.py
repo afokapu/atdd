@@ -27,14 +27,11 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import yaml
 
 logger = logging.getLogger(__name__)
-
-# Known branch prefixes for slug → branch name mapping
-_BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
 
 
 # Domain-agnostic prompt copy for `atdd init` theme declaration (#291,
@@ -82,80 +79,6 @@ SUBSTRATE_MODE_TOOLKIT = "toolkit"
 SUBSTRATE_PLUGIN_ENTRY_POINT = "atdd.tester.substrate.plugin"
 SUBSTRATE_DEFAULT_TEST_ROOT = "tests/"
 SUBSTRATE_DEFAULT_PLAN_ROOT = "plan/"
-
-
-def slug_to_branch_name(slug: str) -> str:
-    """Convert worktree directory slug to branch-style name.
-
-    Maps the first hyphen after a known prefix back to '/':
-        feat-some-feature → feat/some-feature
-        fix-typo          → fix/typo
-        main              → main  (no prefix match)
-    """
-    for prefix in _BRANCH_PREFIXES:
-        if slug.startswith(prefix + "-"):
-            return prefix + "/" + slug[len(prefix) + 1:]
-    return slug
-
-
-def _workspace_folders(parent: Path) -> List[dict]:
-    """The git-worktree siblings to show as multi-root folders, ``main`` first."""
-    folders = []
-    for child in sorted(parent.iterdir()):
-        if not child.is_dir() or child.name.startswith("."):
-            continue
-
-        git_marker = child / ".git"
-        if not (git_marker.is_file() or git_marker.is_dir()):
-            continue
-
-        folders.append({
-            "path": child.name,
-            "name": slug_to_branch_name(child.name),
-        })
-
-    # Ensure main is listed first
-    main_entry = next((f for f in folders if f["path"] == "main"), None)
-    if main_entry:
-        folders.remove(main_entry)
-        folders.insert(0, main_entry)
-
-    return folders
-
-
-def write_workspace(target_dir: Path) -> None:
-    """Write a VS Code .code-workspace file in the parent directory.
-
-    Scans sibling directories for git worktrees and generates a multi-root
-    workspace so VS Code shows branch info per folder.
-
-    Args:
-        target_dir: The main checkout directory (e.g. .../project/main).
-    """
-    parent = target_dir.parent
-    workspace_name = parent.name
-    workspace_path = parent / f"{workspace_name}.code-workspace"
-
-    folders = _workspace_folders(parent)
-
-    workspace = {
-        "folders": folders,
-        "settings": {
-            # Minimal default layout: Explorer + Terminal only
-            "workbench.panel.defaultLocation": "bottom",
-            "panel.defaultVisibility": "hidden",
-            "workbench.sideBar.location": "left",
-            "workbench.activityBar.location": "top",
-            "editor.minimap.enabled": False,
-            "breadcrumbs.enabled": False,
-            "workbench.secondarySideBar.visible": False,
-        },
-    }
-
-    workspace_path.write_text(
-        json.dumps(workspace, indent=2) + "\n"
-    )
-    print(f"Wrote: {workspace_path}")
 
 
 class ProjectInitializer:
@@ -307,10 +230,6 @@ class ProjectInitializer:
             digit += 1
         return mapping
 
-    def _write_workspace(self) -> None:
-        """Write a VS Code .code-workspace file (delegates to module-level)."""
-        write_workspace(self.target_dir)
-
     def _migrate_to_worktree_layout(self) -> Path:
         """
         Move all repo contents into a main/ subdirectory.
@@ -367,7 +286,6 @@ class ProjectInitializer:
         """
         if layout == "worktree-ready":
             print("Already in worktree-ready layout (repo root is main/).")
-            self._write_workspace()
             return None
 
         if layout == "worktree":
@@ -393,7 +311,6 @@ class ProjectInitializer:
             new_root = self._migrate_to_worktree_layout()
             self._update_target_dir(new_root)
             print(f"Migrated to worktree layout: {new_root}")
-            self._write_workspace()
             print(f"\n  ** After init completes, run: cd main **\n")
         except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
