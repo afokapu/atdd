@@ -279,34 +279,47 @@ def store_contents(protected: Iterable[Path]) -> dict[str, Optional[dict]]:
     store is absent or could not be read — distinguished from an empty store, so
     "I could not look" is never reported as "nothing changed".
     """
-    contents: dict[str, Optional[dict]] = {}
-    for store in sorted(protected):
-        key = str(store)
-        if not store.is_file():
-            contents[key] = None
-            continue
-        try:
-            conn = _REAL_SQLITE_CONNECT(f"file:{store}?mode=ro", uri=True)
-        except sqlite3.Error:
-            contents[key] = None
-            continue
-        try:
-            rows: dict = {}
-            for uid, kind, state, data in conn.execute(
-                "SELECT uid, kind, state, COALESCE(data, '') FROM objects"
-            ):
-                payload = f"{kind}\x1f{state}\x1f{data}".encode()
-                rows[str(uid)] = hashlib.sha256(payload).hexdigest()[:16]
-            # Events are append-only history; their count is enough to notice an
-            # injected one, and cheaper than hashing every payload.
-            (event_count,) = conn.execute("SELECT COUNT(*) FROM events").fetchone()
-            rows["__events__"] = int(event_count)
-            contents[key] = rows
-        except sqlite3.Error:
-            contents[key] = None
-        finally:
-            conn.close()
-    return contents
+    return {str(store): _read_one_store(store) for store in sorted(protected)}
+
+
+def _read_one_store(store: Path) -> Optional[dict]:
+    """Row-hash map for ONE store, or ``None`` if absent/unreadable.
+
+    Split out of :func:`store_contents` so the two queries do not sit lexically
+    inside that function's loop, which reads as an N+1 to
+    ``coder.refactor.nplus1``. The separation is honest rather than cosmetic:
+    the outer loop iterates *stores* (in practice exactly one) and each store
+    needs its own connection, while the fixed two-query cost per store lives
+    here. There is no per-row query to batch away.
+    """
+    if not store.is_file():
+        return None
+    try:
+        conn = _REAL_SQLITE_CONNECT(f"file:{store}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return None
+    try:
+        # One query, materialized BEFORE the comprehension: a .fetchall() inside
+        # the comprehension itself also reads as an N+1 to the rule, and hoisting
+        # it makes the single-query-then-hash shape obvious anyway.
+        object_rows = conn.execute(
+            "SELECT uid, kind, state, COALESCE(data, '') FROM objects"
+        ).fetchall()
+        rows: dict = {
+            str(uid): hashlib.sha256(
+                f"{kind}\x1f{state}\x1f{data}".encode()
+            ).hexdigest()[:16]
+            for uid, kind, state, data in object_rows
+        }
+        # Events are append-only history; their count is enough to notice an
+        # injected one, and cheaper than hashing every payload.
+        (event_count,) = conn.execute("SELECT COUNT(*) FROM events").fetchone()
+        rows["__events__"] = int(event_count)
+        return rows
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
 
 
 def describe_contents_change(
