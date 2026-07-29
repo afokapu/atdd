@@ -24,6 +24,7 @@ it never proceeds unlocked, and there is no environment variable that skips it.
 import contextlib
 import errno
 import hashlib
+import logging
 import subprocess
 import sys
 import tempfile
@@ -47,6 +48,8 @@ try:  # POSIX advisory locking; the kernel drops it when the holder dies.
 except ImportError:  # pragma: no cover - non-POSIX
     fcntl = None  # type: ignore[assignment]
 
+
+logger = logging.getLogger(__name__)
 
 #: How long a run waits for the install lock before refusing. Waiting is not
 #: failure — a concurrent upgrade finishes in seconds — so this is generous.
@@ -83,6 +86,36 @@ def upgrade_lock_path() -> Path:
     return root / f"{digest}.lock"
 
 
+#: errnos a non-blocking flock raises when someone else already holds the lock.
+_CONTENDED = (errno.EAGAIN, errno.EACCES, errno.EWOULDBLOCK)
+
+
+def _try_flock(handle) -> bool:
+    """Take the lock without blocking. True if held, False if someone else has it.
+
+    Any errno other than contention is a real fault and propagates — a lock we
+    cannot reason about must not be mistaken for a lock we are merely waiting on.
+    """
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError as exc:
+        if exc.errno in _CONTENDED:
+            return False
+        raise
+
+
+def _acquire_or_refuse(handle, deadline: float, path: Path) -> None:
+    """Poll until the lock is held, or refuse once the bounded wait expires."""
+    while not _try_flock(handle):
+        if time.monotonic() >= deadline:
+            raise UpgradeLockUnavailable(
+                f"another atdd upgrade is in progress and holds the install "
+                f"lock ({path}); nothing here was changed — retry once it finishes"
+            )
+        time.sleep(0.05)
+
+
 @contextlib.contextmanager
 def upgrade_lock(timeout: Optional[float] = None) -> Iterator[Path]:
     """Hold the install-scoped upgrade lock, or refuse.
@@ -100,24 +133,10 @@ def upgrade_lock(timeout: Optional[float] = None) -> Iterator[Path]:
 
     wait = UPGRADE_LOCK_TIMEOUT if timeout is None else timeout
     path = upgrade_lock_path()
-    deadline = time.monotonic() + wait
 
     handle = open(path, "a+")
     try:
-        while True:
-            try:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except OSError as exc:
-                if exc.errno not in (errno.EAGAIN, errno.EACCES, errno.EWOULDBLOCK):
-                    raise
-                if time.monotonic() >= deadline:
-                    raise UpgradeLockUnavailable(
-                        f"another atdd upgrade is in progress and holds the "
-                        f"install lock ({path}); nothing here was changed — "
-                        f"retry once it finishes"
-                    ) from exc
-                time.sleep(0.05)
+        _acquire_or_refuse(handle, time.monotonic() + wait, path)
         try:
             yield path
         finally:
@@ -192,6 +211,11 @@ class Upgrader:
                                 )
                                 return 1
                     except UpgradeLockUnavailable as exc:
+                        logger.error(
+                            "upgrade refused, install lock contended: %s", exc,
+                            extra={"phase": "upgrade-lock", "step": "pypi-upgrade",
+                                   "outcome": "contended"},
+                        )
                         print(str(exc))
                         return 1
                     print(
@@ -273,6 +297,11 @@ class Upgrader:
                     update_toolkit_version(config_path)
                     print(f"\nUpdated toolkit.last_version to {installed}")
         except UpgradeLockUnavailable as exc:
+            logger.error(
+                "sync refused, install lock contended: %s", exc,
+                extra={"phase": "upgrade-lock", "step": "local-sync",
+                       "outcome": "contended"},
+            )
             print(str(exc))
             return 1
 

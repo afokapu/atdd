@@ -98,7 +98,15 @@ def test_e008_unit_006_second_run_finishes_the_sync_and_a_third_is_a_no_op(tmp_p
     monkeypatch.chdir(tmp_path)
 
     # Step two: the install is now current, the stamp is not.
+    #
+    # Both readers of "the installed version" must be patched. Upgrader prints
+    # its own `installed`, but update_toolkit_version re-derives it from
+    # atdd.version_check.__version__ and that is what actually lands in the
+    # stamp. Patching only the first leaves the fixture incoherent: the run
+    # reports 4.27.0 and writes whatever the machine really has. This surfaced
+    # when the shared install moved 4.27.0 -> 4.28.0 mid-session.
     with patch("atdd.coach.commands.upgrader.__version__", "4.27.0"), \
+         patch("atdd.version_check.__version__", "4.27.0"), \
          patch("atdd.coach.commands.upgrader.subprocess.run", return_value=_Ok()) as ran, \
          patch("sys.stdin.isatty", return_value=False), \
          patch("builtins.input", side_effect=exploding_input):
@@ -109,6 +117,7 @@ def test_e008_unit_006_second_run_finishes_the_sync_and_a_third_is_a_no_op(tmp_p
 
     # Step three: nothing left to do.
     with patch("atdd.coach.commands.upgrader.__version__", "4.27.0"), \
+         patch("atdd.version_check.__version__", "4.27.0"), \
          patch("atdd.coach.commands.upgrader.subprocess.run") as ran_again, \
          patch("sys.stdin.isatty", return_value=False), \
          patch("builtins.input", side_effect=exploding_input):
