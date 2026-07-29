@@ -8,12 +8,12 @@ context_clarifier: when atdd merge-cascade reads required checks via gh pr check
   event, link, name, startedAt, state, workflow) carry no conclusion, so the call
   exits 1 and reads nothing
 lens: functional.availability
-statement: "minimize likelihood of merge-cascade-ci-reads-that-ask-gh-pr-checks-for-a-json-field-the-installed-cli-does-not-expose\
-  \ by deriving the required-check verdict only from fields the installed gh actually\
-  \ advertises \u2014 the per-check bucket (pass/fail/pending/skipping/cancel) with\
-  \ state as the corroborating detail \u2014 so the query the tool sends is one the\
-  \ CLI accepts and every check reaches a pass, fail or pending verdict from data\
-  \ gh returned rather than from a field that never arrives"
+statement: minimize likelihood of merge-cascade-ci-reads-that-ask-gh-pr-checks-for-a-json-field-the-installed-cli-does-not-expose
+  by deriving the required-check verdict only from fields the installed gh actually
+  advertises — the per-check bucket (pass/fail/pending/skipping/cancel) with state
+  as the corroborating detail — so the query the tool sends is one the CLI accepts
+  and every check reaches a pass, fail or pending verdict from data gh returned rather
+  than from a field that never arrives
 acceptances:
 - identity:
     urn: acc:coach-ops:M003-UNIT-001-verdict-derives-from-advertised-fields
@@ -39,9 +39,8 @@ acceptances:
     - The all-pass payload yields pass, the fail payload yields fail and names the
       failing check, the pending payload yields pending, and the empty list still
       yields pass with 'no required checks'
-    - "Every field named in the captured --json argument is a member of the advertised\
-      \ field set, so conclusion \u2014 or any other unadvertised field \u2014 cannot\
-      \ be requested"
+    - Every field named in the captured --json argument is a member of the advertised
+      field set, so conclusion — or any other unadvertised field — cannot be requested
     - A check whose bucket is skipping or cancel does not read as a failure, so a
       skipped required check cannot halt a cascade that GitHub itself treats as satisfiable
 - identity:
@@ -56,16 +55,20 @@ acceptances:
     category: backend
   given:
     abstract:
-    - A real checkout with an authenticated gh on PATH and a real pull request whose
-      required checks have concluded
-    - The shipped fetch_ci_status, invoked with no stubbing of subprocess or gh
+    - A real checkout with an authenticated gh on PATH and a real pull request in
+      the repository, discovered at run time rather than pinned to a number
+    - The shipped fetch_ci_status, invoked with nothing substituted — no monkeypatch,
+      no recorded payload, no wrapper over subprocess, because tester.smoke.no-collaborator-substitution
+      forbids standing in for a production collaborator in a SMOKE test
   when:
     abstract: fetch_ci_status is called against that pull request through the real
-      gh binary
+      gh binary, and gh is asked separately to name its own advertised field set
   then:
     abstract:
-    - "gh exits zero and the call returns a pass or fail verdict \u2014 not unknown\
-      \ \u2014 proving the requested field list is one the installed CLI serves"
-    - The same field list is echoed back by gh's own advertised field set for pr checks,
-      so a future gh that drops a field fails this acceptance rather than the operator's
+    - The returned detail carries no 'Unknown JSON field' refusal, so the installed
+      gh accepted the query the shipped code sends
+    - The state is a real verdict — pass, fail or pending — never the pollable unknown
+      that wait_for_ci spends as polling
+    - The field set gh advertises still matches the set the unit sibling records,
+      so a gh that adds or drops a field fails this acceptance rather than the operator's
       cascade
