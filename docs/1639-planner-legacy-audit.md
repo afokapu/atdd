@@ -1,5 +1,34 @@
 # Audit — planner legacy convention monoliths (#1639, Deliverable 1)
 
+> **AMENDED AND IMPLEMENTED.** This audit was accepted, #1639 was re-scoped from
+> it, and the work shipped. Six corrections apply to the text below — read them
+> with it:
+>
+> 1. **§6 is wrong.** It deferred `theme.convention.yaml` on the grounds that
+>    rehoming the taxonomy was the out-of-scope shared-vocabulary work. It was
+>    not: `planner.theme.canonical-taxonomy` already carried the taxonomy as node
+>    terms (`theme_zero`, `canonical_theme`, `retired_digits`). The evaluator was
+>    repointed at the node and **all 17** monoliths were deleted, not 16.
+> 2. **§4 over-reached on one reader.** `tester/validators/test_acceptance_urn_separator.py`
+>    was marked "delete"; only its first test reads a monolith. The other two
+>    exercise `URNGrammar` and the acceptance schema and were kept.
+> 3. **§5's count was off by one.** `additional_verbs` holds **197** verbs, not
+>    196. The 218-verb lexicon total was correct.
+> 4. **§8 answer 1 stands but is incomplete.** Zero *new* component/interface
+>    nodes were needed, but two genuinely missing nodes were found and authored:
+>    `planner.smoke.feedback-loop-close-the-loop` and
+>    `planner.smoke.synthetic-fixture-bypass` — the 191-vs-189 gap §0 identified.
+> 5. **§3's fourth binding was replaced.** `planner.interface.orphan-detection`
+>    proved unbindable in either reading (literal subject has 0 instances;
+>    alternate reading restates `planner.contract.registry-coherence`).
+>    `planner.interface.tests-subdirectory` was bound instead.
+> 6. **The 142 documentation-only nodes are tracked separately** as #1642, not
+>    here.
+>
+> Everything else — the inertness proof (§1), the per-file classification (§2),
+> the enforcement-gap diagnosis (§3), and the sequencing (§7) — held under
+> implementation.
+
 **Status:** blocking audit. No convention file was edited to produce this.
 **Measured on:** branch `refactor/decommission-planner-legacy-conventions`, base `98b18337`, 2026-07-29.
 **Subject:** the 17 files matching `src/atdd/planner/conventions/*.convention.yaml` (4,815 lines).
