@@ -24,7 +24,7 @@ from atdd.state.db import connect, init_state_store
 from atdd.state.paths import resolve_control_root
 from atdd.state.providers import discover_providers
 from atdd.state.store import StateStore
-from atdd.state.sync_engine import apply_inbox, ingest_inbox, push_outbox
+from atdd.state.sync_engine import apply_inbox, assess_drainability, ingest_inbox, push_outbox
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -85,8 +85,15 @@ def run_sync_cli(argv: Optional[Sequence[str]] = None) -> int:
                 print(f"  - {e}")
             return 1 if pushed.failed else 0
 
-        pending = len(store.sync.pending_outbox())
-        print(f"outbox: {pending} pending (pass --push to send via registered providers)")
+        # Report mode used to print a bare pending count next to the remedy "pass
+        # --push". When nothing is registered for those rows' routing key that
+        # remedy cannot work, and naming it was the silence #1655 fixed.
+        report = assess_drainability(store, providers)
+        if report.stranded:
+            print(report.render())
+        else:
+            print(f"outbox: {report.pending} pending "
+                  f"(pass --push to send via registered providers)")
         return 0
     finally:
         conn.close()

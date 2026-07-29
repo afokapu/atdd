@@ -158,11 +158,57 @@ def _cmd_providers(args) -> int:
         return _fail(f"ERROR: {exc}")
     if not providers:
         print("no SyncProvider is registered — core runs provider-free (spec §8.1)")
+        print(_stranded_outbox_note(args))
         return 0
     for name in sorted(providers):
         print(name)
     print(f"{len(providers)} provider(s) registered")
+    print(_stranded_outbox_note(args))
     return 0
+
+
+def _stranded_outbox_note(args) -> str:
+    """What the provider-free state is currently costing, or "" if it costs nothing.
+
+    "core runs provider-free" is true and reassuring, and on its own it is exactly
+    the sentence #1655 found sitting on top of a backlog nothing could deliver. This
+    appends the count that sentence was hiding.
+
+    Two honesty constraints. It consults the **drain** registry
+    (:mod:`atdd.state.providers`, what ``push_outbox`` dispatches through), not the
+    mirror registry this verb lists — those are separate seams, and a note about
+    drainability that consulted the wrong one would be worse than none, so it says
+    which it used. And it never fails the command: no store, no repo, or an
+    unreadable store yields "" rather than an error, because reporting registration
+    must not depend on the store being resolvable.
+    """
+    try:
+        from atdd.state.db import connect, init_state_store
+        from atdd.state.paths import resolve_control_root
+        from atdd.state.providers import discover_providers as discover_drain_providers
+        from atdd.state.store import StateStore
+        from atdd.state.sync_engine import assess_drainability
+
+        resolution = resolve_control_root(_root(args))
+        conn = connect(init_state_store(start=resolution.control_root))
+        try:
+            report = assess_drainability(StateStore(conn), discover_drain_providers())
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001 — a note must never break the verb
+        _log.debug(
+            "could not assess outbox drainability for the providers report",
+            extra={"command": "providers", "error": str(exc)},
+        )
+        return ""
+    if not report.stranded:
+        return ""
+    return (
+        "\n" + report.render()
+        + "\n  (drainability assessed against the sync-provider registry that "
+          "`atdd state sync --push` dispatches through, not the mirror registry "
+          "listed above; run `atdd state outbox list` for the rows.)"
+    )
 
 
 def _cmd_extensions_lock(args) -> int:

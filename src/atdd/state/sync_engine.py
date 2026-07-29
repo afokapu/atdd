@@ -86,6 +86,92 @@ class ApplyResult:
     notes: List[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class DrainabilityReport:
+    """Whether the pending outbox can actually be drained by what is registered (#1655).
+
+    Zero registered providers is a **supported** state — core is provider-free by
+    design (`docs/ext40-phase2-core-seam-plan.md` decision 3). What was not supported
+    is core reporting that state as healthy while rows pile up behind it. This type
+    names the conjunction that matters: *the outbox is non-empty* **and** *no
+    registered provider claims those rows' routing key*.
+
+    Scope, stated honestly: core can detect exactly one drainability fault — a row
+    whose ``provider`` has no registered receiver. It deliberately does **not** claim
+    a routable row will succeed: :class:`SyncProvider` exposes no "do you handle this
+    operation?" hook, so whether a registered provider implements a given
+    ``operation`` is unknowable until ``push`` is called. ``unroutable`` is therefore
+    a lower bound on what cannot be drained, never an upper bound.
+    """
+
+    pending: int
+    routable: int
+    unroutable: int
+    #: unroutable pending rows, keyed by the routing provider nothing is registered for
+    unroutable_by_provider: Dict[str, int] = field(default_factory=dict)
+    #: ``created_at`` of the oldest unroutable row — how long the silence has run
+    oldest_unroutable_at: Optional[str] = None
+    registered: List[str] = field(default_factory=list)
+
+    @property
+    def stranded(self) -> bool:
+        """True when rows are queued that nothing registered can route."""
+        return self.unroutable > 0
+
+    def render(self) -> str:
+        """One operator-facing paragraph. Says what is wrong and what would fix it."""
+        if not self.stranded:
+            if not self.pending:
+                return "outbox: empty."
+            return f"outbox: {self.pending} pending, all routable to a registered provider."
+        keys = ", ".join(
+            f"{name} ({count})" for name, count in sorted(self.unroutable_by_provider.items())
+        )
+        registered = ", ".join(self.registered) if self.registered else "none"
+        since = f" oldest queued {self.oldest_unroutable_at}." if self.oldest_unroutable_at else ""
+        return (
+            f"STRANDED OUTBOX: {self.unroutable} of {self.pending} pending message(s) are "
+            f"routed to a provider that is not registered — nothing can deliver them, and "
+            f"they will accumulate silently.{since}\n"
+            f"  unrouted routing key(s): {keys}\n"
+            f"  registered provider(s):  {registered}\n"
+            f"  `atdd state sync --push` CANNOT drain these. Either register a provider for "
+            f"the key(s) above, or retire each row with a recorded reason via "
+            f"`atdd state outbox discard <id> --reason ...`."
+        )
+
+
+def assess_drainability(
+    store: StateStore,
+    providers: Mapping[str, SyncProvider],
+) -> DrainabilityReport:
+    """Partition the pending outbox into what the registry can route and what it cannot.
+
+    Read-only, and cheap enough to call from any surface that would otherwise report
+    health. Mirrors :func:`push_outbox`'s routing rule exactly — a message is
+    routable iff ``providers.get(msg.provider)`` is not ``None`` — so the report can
+    never disagree with what a real drain would do about routing.
+    """
+    pending = store.sync.pending_outbox()
+    unroutable_by_provider: Dict[str, int] = {}
+    oldest: Optional[str] = None
+    for msg in pending:
+        if providers.get(msg.provider) is not None:
+            continue
+        unroutable_by_provider[msg.provider] = unroutable_by_provider.get(msg.provider, 0) + 1
+        if msg.created_at and (oldest is None or msg.created_at < oldest):
+            oldest = msg.created_at
+    unroutable = sum(unroutable_by_provider.values())
+    return DrainabilityReport(
+        pending=len(pending),
+        routable=len(pending) - unroutable,
+        unroutable=unroutable,
+        unroutable_by_provider=unroutable_by_provider,
+        oldest_unroutable_at=oldest,
+        registered=sorted(providers),
+    )
+
+
 def push_outbox(
     store: StateStore,
     providers: Mapping[str, SyncProvider],

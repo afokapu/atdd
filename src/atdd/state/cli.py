@@ -150,6 +150,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     add_migrate_parsers(sub)
 
+    # Outbox drainability (#1655): list, check, discard — the surface that makes a
+    # backlog nothing registered can route loud instead of silent.
+    from atdd.state.outbox_cli import add_parsers as add_outbox_parsers
+
+    add_outbox_parsers(sub)
+
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
     add_verb(trace_sub, "list", "List Hub sessions.", root=None)
@@ -822,6 +828,11 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.op in MIGRATE_OPS:
         return migrate_dispatch(args)
+
+    from atdd.state.outbox_cli import OPS as OUTBOX_OPS, dispatch as outbox_dispatch
+
+    if args.op in OUTBOX_OPS:
+        return outbox_dispatch(args)
 
     parser.print_help()
     return 2
