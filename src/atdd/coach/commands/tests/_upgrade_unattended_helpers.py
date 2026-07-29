@@ -68,3 +68,23 @@ def find_upgrader_source() -> str:
     import atdd.coach.commands.upgrader as upgrader
 
     return Path(upgrader.__file__).read_text(encoding="utf-8")
+
+
+def subprocess_env() -> dict:
+    """Environment for a child process, pointed at the code under test.
+
+    pytest puts ``src`` on ``pythonpath`` for the in-process tests, but a child
+    started with ``sys.executable`` resolves ``atdd`` from site-packages — the
+    *installed* build, not this working tree. Without this every subprocess
+    assertion in the feature would be exercising a different copy of the code
+    and could never observe a change made here.
+    """
+    import os
+
+    import atdd
+
+    src_root = Path(atdd.__file__).resolve().parent.parent
+    env = dict(os.environ)
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = f"{src_root}{os.pathsep}{existing}" if existing else str(src_root)
+    return env

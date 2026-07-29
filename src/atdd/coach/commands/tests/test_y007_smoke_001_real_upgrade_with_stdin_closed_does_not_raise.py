@@ -22,6 +22,8 @@ import sys
 
 import pytest
 
+from ._upgrade_unattended_helpers import subprocess_env
+
 pytestmark = [pytest.mark.platform]
 
 
@@ -43,6 +45,7 @@ def test_y007_smoke_001_real_upgrade_with_stdin_closed_does_not_raise(tmp_path):
         capture_output=True,
         text=True,
         timeout=300,
+        env=subprocess_env(),
     )
 
     combined = proc.stdout + proc.stderr

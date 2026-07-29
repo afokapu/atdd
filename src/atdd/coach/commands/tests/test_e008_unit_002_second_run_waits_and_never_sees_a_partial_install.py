@@ -51,22 +51,26 @@ def test_e008_unit_002_mutating_sections_do_not_overlap(tmp_path, monkeypatch):
     results = {}
 
     def run_one(name, repo):
-        with patch("atdd.coach.commands.upgrader.__version__", "3.106.0"), \
-             patch(
-                 "atdd.coach.commands.upgrader.is_outdated",
-                 return_value=(True, "3.106.0", "4.27.0"),
-             ), \
-             patch("atdd.coach.commands.upgrader.auto_upgrade", side_effect=slow_upgrade):
-            results[name] = Upgrader(repo_root=repo).run(yes=True)
+        results[name] = Upgrader(repo_root=repo).run(yes=True)
 
-    threads = [
-        threading.Thread(target=run_one, args=("a", repo_a)),
-        threading.Thread(target=run_one, args=("b", repo_b)),
-    ]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join(timeout=30)
+    # The patches are applied once, in the main thread. unittest.mock patches
+    # module globals process-wide, so entering the same patch from two threads
+    # makes their exits restore each other's mocks — the runs then disagree
+    # about what auto_upgrade even is. Patch once, then fan out.
+    with patch("atdd.coach.commands.upgrader.__version__", "3.106.0"), \
+         patch(
+             "atdd.coach.commands.upgrader.is_outdated",
+             return_value=(True, "3.106.0", "4.27.0"),
+         ), \
+         patch("atdd.coach.commands.upgrader.auto_upgrade", side_effect=slow_upgrade):
+        threads = [
+            threading.Thread(target=run_one, args=("a", repo_a)),
+            threading.Thread(target=run_one, args=("b", repo_b)),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
 
     assert len(intervals) == 2, f"both runs must reach the mutating section; got {intervals}"
 

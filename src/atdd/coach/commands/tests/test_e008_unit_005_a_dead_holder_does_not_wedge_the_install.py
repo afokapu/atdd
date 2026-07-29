@@ -30,7 +30,7 @@ import time
 
 import pytest
 
-from ._upgrade_unattended_helpers import require_symbol
+from ._upgrade_unattended_helpers import require_symbol, subprocess_env
 
 pytestmark = [pytest.mark.platform]
 
@@ -55,6 +55,7 @@ def test_e008_unit_005_killed_holder_releases_the_install(tmp_path):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        env=subprocess_env(),
     )
     try:
         line = proc.stdout.readline()
@@ -88,6 +89,7 @@ def test_e008_unit_005_a_live_holder_is_still_respected(tmp_path):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        env=subprocess_env(),
     )
     try:
         line = proc.stdout.readline()

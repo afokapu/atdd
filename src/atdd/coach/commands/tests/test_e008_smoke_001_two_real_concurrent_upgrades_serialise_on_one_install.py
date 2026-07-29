@@ -21,6 +21,8 @@ import sys
 
 import pytest
 
+from ._upgrade_unattended_helpers import subprocess_env
+
 pytestmark = [pytest.mark.platform]
 
 
@@ -43,6 +45,7 @@ def test_e008_smoke_001_two_real_concurrent_upgrades_serialise_on_one_install(tm
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env=subprocess_env(),
         )
         for repo in (repo_a, repo_b)
     ]
