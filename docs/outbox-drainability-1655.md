@@ -116,10 +116,51 @@ Rows **16, 17, 18, 19 all decide the same version 4.16.0**, four times, because 
 cycle SET the store back to 4.15.0 and re-bumped. Row **21** decided 5.0.0 and was
 retracted the next day.
 
-**What published v4.23.0 … v4.28.0, then?** Not this outbox.
-`.github/workflows/publish.yml` is the authoritative path, and it runs in CI against
-a **fresh** store — `.gitignore:51` ignores `.atdd/state/state.sqlite*`, so the
-Control Root store never reaches CI. Each publish job does:
+**What published v4.23.0 … v4.28.0, then?** Not this outbox — and the answer is
+*not* "a clean CI pipeline" either. Named and verified:
+
+**`.github/workflows/publish.yml` → `atdd.extension.github`'s
+`release_worker.drain_version_decided`, running in CI against a fresh store.**
+`.gitignore:51` ignores `.atdd/state/state.sqlite*`, so the Control Root store never
+reaches CI. Verification, not inference:
+
+- every tag `v4.23.0` / `v4.26.0` / `v4.28.0` is an annotated tag whose tagger is
+  **`atdd-release-bot`** — the identity `publish.yml:90` configures;
+- PyPI genuinely holds `4.23.0 … 4.28.0` (`info.version == 4.28.0`);
+- `real_publish` (extension) orders side-effects **tag → push → build → twine upload
+  → `gh release create`**.
+
+But **every recent publish run is red.** `gh run list --workflow=publish.yml` shows
+failure on 2026-07-23, ×6 on 07-25, and 07-29. The 07-29 run (v4.28.0) failed like
+this:
+
+```
+Draining version_decided for version 4.28.0 (dry_run=false)...
+release publish failed; leaving outbox message pending
+drain reported 1 failure(s): ["outbox#N v4.28.0: publish of v4.28.0 failed:
+  ['gh','release','create','v4.28.0','--verify-tag','--generate-notes',...] exited 4:
+  gh: To use GitHub CLI in a GitHub Actions workflow, set the GH_TOKEN environment variable."]
+```
+
+So the tag was pushed and PyPI **was** uploaded; only the trailing, cosmetic
+GitHub-Release step failed, for want of `GH_TOKEN` in the workflow env. Because
+`real_publish` raises after a *successful* upload, the worker's documented contract
+("publish raises → leave the message pending, never a fake green") misfires in the
+one direction it cannot detect: the completion marker (`external_ref`) is never
+written, so **CI re-drains and re-publishes on every subsequent run**, saved from
+visible damage only by `twine upload --skip-existing` and the
+`git describe --exact-match HEAD` skip.
+
+Consequence for this issue: the stranding is **not only local**. Each red run also
+leaves its own freshly-enqueued `version_decided` row pending in CI's ephemeral
+store, which is then destroyed with the runner.
+
+Two follow-ups, both outside #1655's lane and neither fixed here: a one-line
+`GH_TOKEN:` addition to `publish.yml`'s drain step (core, `wagon:govern-lifecycle`),
+and `real_publish` distinguishing a failed *upload* from a failed *announcement*
+(extensions repo — explicitly out of scope per #1655).
+
+Each publish job does:
 
 ```
 LATEST=$(git describe --tags --abbrev=0)   # real released base
@@ -138,6 +179,20 @@ nothing has run `set` locally since 2026-07-22.
 | 12, 13, 14, 15 | 4.7.0, 4.9.0, 4.10.0, 4.14.0 | **DISCARD — superseded** | Each overtaken by the CI-published line. |
 | 16, 17, 18, 19 | 4.16.0 ×4 | **DISCARD — superseded + triplicate** | Same version decided four times; SET-retracted each cycle. |
 | 21 | 5.0.0 | **DISCARD — retracted** | Explicitly walked back by event 105 (`SET 5.0.0 → 4.22.0`) the following day. |
+| 22 | 4.23.0 | **DISCARD — born stranded** | See below. |
+
+#### Row 22 — the defect reproducing itself, live
+
+Row 22 did not exist when this triage began. It was enqueued at
+**2026-07-29 08:34:55**, *during* the work on #1655, by a local
+`atdd state version bump --class MINOR` against a store still reading `4.22.0`. It
+therefore decided **4.23.0** — a version tagged on 2026-07-23 and on PyPI for six
+days.
+
+It is the clearest possible statement of the defect: the row was **unroutable the
+instant it was written**, decided a version that had already shipped, and nothing
+told anyone. It also moves the live count to **20 undrained** (19 pending + 1
+failed) and confirms the accumulation is ongoing, not historical.
 
 #### Consequent finding (recorded, not fixed — out of #1655's lane)
 
@@ -186,6 +241,26 @@ neutral; the routing key is provider-named by an unconfigurable default.
 
 Recorded, not fixed: adding a real configuration surface is govern-lifecycle's call,
 and changing the default would strand these rows harder, not less.
+
+## 4b. Feature binding — the declared URN did not exist
+
+#1655's Metadata declared `Feature: feature:bind-substrate-runtime:state-sync-providers`.
+**That feature URN exists nowhere** in `plan/` or `contracts/` — the only feature in
+that wagon is `feature:bind-substrate-runtime:substrate-binding`, which is about
+binding locked extension packages to gating capabilities, a different concern.
+
+This is not cosmetic. `smoke_obligation._feature_live_smoke_urns`
+(`src/atdd/coach/gate/smoke_obligation.py:160-168`) resolves a feature URN to a plan
+file and, when there is none, logs at **debug** and returns `[]` — so a dangling
+Feature field **silently waives the issue's SMOKE obligation**. Left alone, E003's
+SMOKE acceptance would never be owed at the gate. (That it fails *silently* is the
+same defect class this issue exists to fix.)
+
+Resolved by revising the field to the authored home,
+`feature:isolate-provider-boundary:surface-undrainable-outbox`, via
+`atdd author issue --revise` (never `gh issue edit`). `wagon:isolate-provider-boundary`
+is the correct owner on the merits: it owns "core is provider-free" and the provider
+registry that a drainability assessment must consult.
 
 ## 5. Decision — `atdd.extension.github` is **NOT** installed in this repo
 
@@ -266,6 +341,7 @@ atdd state outbox discard 17 --reason "version 4.16.0 superseded + triplicate (�
 atdd state outbox discard 18 --reason "version 4.16.0 superseded + triplicate (§3c)"
 atdd state outbox discard 19 --reason "version 4.16.0 superseded + triplicate (§3c)"
 atdd state outbox discard 21 --reason "version 5.0.0 retracted by SET → 4.22.0 (§3c)"
+atdd state outbox discard 22 --reason "version 4.23.0 already tagged+on PyPI since 07-23; born stranded (§3c)"
 ```
 
 Row **6** is deliberately left pending: it is the one row whose content is still
