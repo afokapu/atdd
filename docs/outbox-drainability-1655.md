@@ -263,22 +263,35 @@ session and cannot say who moved it. A release-critical write with no attributio
 unauditable by construction — the same shape as the outbox that accumulated for
 twenty days without telling anyone, relocated onto the release path.
 
-Two related claims were checked and **could not be substantiated**, so they are
-recorded as open rather than as findings:
+**Why they were unattributable is simpler than it first looked, and it is not a
+circumvented guardrail.** An earlier draft of this section entertained the idea that
+a `permissions.deny` rule on `Bash(atdd state version*)` had been evaded by the
+`python -m atdd.cli …` invocation form. That framing is **withdrawn**: it does not
+survive measurement, and it should not be repeated.
 
-- A `permissions.deny` block naming `Bash(atdd coach transition*)` /
-  `Bash(atdd state version*)` was reported as the mechanism holding these hops.
-  Neither pattern appears in `.claude/settings.local.json` (its `deny` list is
-  empty) nor in `~/.claude/settings.json` — which in fact **allow**-lists
-  `Bash(atdd coach transition:*)`. The denials observed in this session came from
-  the harness's interactive prompt, not from a configured rule.
-- Consequently the "the guardrail leaks through the `python -m` invocation form"
-  claim cannot be confirmed here: there is no matching deny rule for an alternate
-  invocation form to evade.
+The agent worktrees carry **no** `.claude/settings.local.json` at all — not an empty
+deny list, no file:
 
-What survives verification, and what matters for this issue, is the first paragraph:
-the bumps happened, they each enqueued a stranded row, and **nothing records who did
-it**.
+```
+feat-outbox-stranded-no-sync-provider/.claude/settings.local.json   absent
+feat-author-issue-revise-drops-title/.claude/settings.local.json    absent
+feat-state-object-rename-rejects-live-uids/.claude/settings.local.json  absent
+```
+
+With no rule in force in these worktrees, there was nothing for an alternate
+invocation form to evade. The two bumps landed because **nothing governed them**, not
+because a guardrail was circumvented. (Deny rules do exist for the orchestrator's own
+session, in the checkout it runs from; they simply never governed the workers. A
+count of 18 deny entries was reported there — at the path readable from here that
+file currently shows 0, so the exact figure is not reproduced in this record and
+nothing here depends on it.)
+
+Separately, the denials observed in *this* session came from the harness's
+interactive permission prompt with no operator present to answer it — the accurate
+mechanism, and unrelated to any configured rule.
+
+None of this touches the finding. The bumps happened, they each enqueued a stranded
+row, and **nothing records who did it**.
 
 #### Consequent finding (recorded, not fixed — out of #1655's lane)
 
