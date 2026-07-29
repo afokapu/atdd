@@ -151,4 +151,10 @@ markers = [
     "convention_readonly: convention test that only reads the repo or the clean graph — safe under -n auto",
     "convention_inmemory_fault: convention test that injects its fault into a cloned graph — writes nothing, safe under -n auto",
     "convention_filesystem_mutation: convention test that writes the checkout (or spawns a subprocess over it) — MUST run serially",
+    # #1582 — sanctioned live-State-Store reader. The write guard
+    # (atdd.state.live_store_guard_plugin) refuses every other test's open of the
+    # production store; this marker permits the open for validators that audit
+    # the live corpus by design. Declared here as well as in the plugin so the
+    # marker resolves even when the plugin is disabled (-p no:...).
+    "live_store_read: test deliberately reads the live State Store; the fingerprint backstop still proves it wrote nothing",
 ]
