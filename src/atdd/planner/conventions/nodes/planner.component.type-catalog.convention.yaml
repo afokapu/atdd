@@ -6,29 +6,6 @@ name: 'Component: Type Catalog'
 statement: The canonical component type catalog enumerates every component type by
   side (backend|frontend), layer, file suffix per language, description, and complexity
   weight, derived from the coder backend/frontend conventions.
-implementation:
-  type: none
-source:
-  legacy_path: src/atdd/planner/conventions/component.convention.yaml
-  legacy_sha: sha256:8bfb25fd6c2bdb6e
-  extraction_mode: high_fidelity
-  legacy_section: type-catalog
-content:
-  summary: A single canonical catalog of component types, their file suffixes, and
-    complexity weights lets the planner derive components and estimate effort consistently
-    with the coder conventions, instead of inventing types or weights ad hoc.
-  operational_guidance: Derived from .claude/conventions/coder/{backend,frontend}.convention.yaml.
-    Side and layer values for component URNs are defined by this catalog's structure.
-  examples:
-  - backend.integration.engines → *_engine.py, weight 3 (highest complexity)
-  - backend.presentation.routes → *_routes.py, weight 0
-  - frontend.presentation.controllers → *_bloc.dart / *-store.ts, weight 2
-parity:
-  source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: true
-  reviewed_at: '2026-06-16'
 terms:
 - term_id: backend_catalog
   label: Backend component types
@@ -429,3 +406,31 @@ terms:
           typescript: '*-connector.ts'
         description: Real-time and streaming connections
         weight: 1
+implementation:
+  type: validator
+  ref: test_component_type_catalog::test_component_type_catalog
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+  legacy_section: type-catalog
+content:
+  summary: A single canonical catalog of component types, their file suffixes, and
+    complexity weights lets the planner derive components and estimate effort consistently
+    with the coder conventions, instead of inventing types or weights ad hoc.
+  operational_guidance: Derived from .claude/conventions/coder/{backend,frontend}.convention.yaml.
+    Side and layer values for component URNs are defined by this catalog's structure.
+  examples:
+  - "backend.integration.engines \u2192 *_engine.py, weight 3 (highest complexity)"
+  - "backend.presentation.routes \u2192 *_routes.py, weight 0"
+  - "frontend.presentation.controllers \u2192 *_bloc.dart / *-store.ts, weight 2"
+metadata:
+  severity: 2
+  disposition: advisory
+  introduced_in: 4.28.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
