@@ -13,7 +13,7 @@ template ships with — that placeholder is replaced at issue-creation time
 by `atdd issue <slug>` (Phase 2 of #682).
 
 Rule binding: `planner.issue-body.graph-context-required`
-Convention:   src/atdd/planner/conventions/issue-body.convention.yaml
+Convention:   src/atdd/planner/conventions/nodes/planner.issue-body.graph-context-required.convention.yaml
 
 The rule's disposition is `suppress-and-clean` — issues that genuinely have
 no useful graph context (infrastructure-only, docs, hotfix) can absorb the

@@ -12,7 +12,7 @@ tags on all `### Dependencies` entries. A bare `- #N` without `(prereq)`,
 dep in the merge-wait loop unconditionally — breaking dispatch for sibling issues.
 
 Rule binding: `planner.issue-body.dependency-entries-must-be-classified`
-Convention:   src/atdd/planner/conventions/issue-body.convention.yaml
+Convention:   src/atdd/planner/conventions/nodes/planner.issue-body.dependency-entries-must-be-classified.convention.yaml
 
 Disposition: warn-and-log — violations are surfaced but do not block CI.
 """
