@@ -105,11 +105,38 @@ def read_body(issue: int) -> str:
     return out or ""
 
 
+def update_issue(
+    issue: int, *, title: Optional[str] = None, body: Optional[str] = None
+) -> None:
+    """Edit *issue*'s title and/or body in a SINGLE ``gh issue edit`` call.
+
+    One call, not two, for the same reason E019 exists at all: the shared 5 000/hr
+    GraphQL budget has been exhausted often enough to stall the merge-watcher, so
+    a title change and a body change that describe one revision travel as one
+    mutation (#1654). It is also the only way the two cannot half-apply — a
+    body-only edit followed by a failed title edit is precisely the divergence
+    this closes.
+
+    The body goes over stdin (``--body-file -``) so a large body never hits argv
+    limits. Passing neither field is a no-op rather than an empty ``gh`` call.
+    """
+    if title is None and body is None:
+        return
+    args = ["issue", "edit", str(issue)]
+    if title is not None:
+        args += ["--title", title]
+    if body is not None:
+        args += ["--body-file", "-"]
+    _gh.run_gh(args, input_text=body if body is not None else None)
+
+
 def update_body(issue: int, body: str) -> None:
-    """Replace the issue body with *body*."""
-    _gh.run_gh(
-        ["issue", "edit", str(issue), "--body-file", "-"], input_text=body
-    )
+    """Replace the issue body with *body*.
+
+    Retained as the body-only spelling of :func:`update_issue`, which is the
+    surface to reach for when a title may travel with the body.
+    """
+    update_issue(issue, body=body)
 
 
 def create_issue(
@@ -153,4 +180,5 @@ __all__ = [
     "set_train",
     "read_body",
     "update_body",
+    "update_issue",
 ]

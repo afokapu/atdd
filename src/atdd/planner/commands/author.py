@@ -26,8 +26,10 @@ import yaml
 # (planner.theme.commons-coach-boundary, #970).
 from atdd.planner.commands.author_issue import (  # noqa: F401
     create_issue_body,
+    extract_issue_title,
     extract_issue_type,
     issue_type_enum,
+    title_violations,
     validate_issue_body,
 )
 
@@ -1151,7 +1153,10 @@ def build_parser() -> argparse.ArgumentParser:
     # (#1223). Peer of the other authored kinds; schema-driven generation +
     # the schema-driven compliance gate (--check). Planner-side + coach-free.
     iss = sub.add_parser("issue", help="author a schema-valid issue body, publish it store-first, or revise an existing issue")
-    iss.add_argument("--title", default=None, help="issue title (the H1 + Problem Statement subject)")
+    iss.add_argument("--title", default=None,
+                     help="issue title (the H1 + Problem Statement subject); with "
+                          "--revise it sets the title, and is refused when it "
+                          "contradicts the body's H1 (default: derive from the H1)")
     iss.add_argument("--slug", default=None,
                      help="work_item slug (the store uid); derived from --title when omitted (#1272)")
     iss.add_argument("--type", default=None, dest="issue_type",
@@ -1357,8 +1362,26 @@ def _run_issue_check(args) -> int:
     return 0
 
 
-def _revision_violations(body, issue_type) -> list:
-    """Schema + type-agreement violations for a `--revise` request."""
+def _revision_title(body, explicit_title):
+    """The title a `--revise` writes: the explicit one, else the body's H1.
+
+    Deriving is the default because the failure this closes (#1654) was a path
+    that had to be TOLD about the title and never was. An operator who edits an
+    H1 has already stated the new title; making them restate it as a flag is how
+    the two representations drift apart again.
+
+    Returns ``None`` when neither is available — a type-only revision, which
+    leaves ``data.title`` untouched rather than blanking it.
+    """
+    if explicit_title is not None:
+        return explicit_title
+    if body is not None:
+        return extract_issue_title(body)
+    return None
+
+
+def _revision_violations(body, issue_type, explicit_title=None) -> list:
+    """Schema + type/title-agreement violations for a `--revise` request."""
     violations: list[str] = []
     if body is not None:
         violations.extend(validate_issue_body(body))
@@ -1368,6 +1391,12 @@ def _revision_violations(body, issue_type) -> list:
                 f"body Type {body_type!r} does not match explicit --type "
                 f"{issue_type!r}"
             )
+        # An explicit --title that contradicts the body's own H1 asks the store
+        # to record two different answers to one question. Refuse before any
+        # write rather than pick a winner: guessing is what produced the
+        # divergence in the first place.
+        if explicit_title is not None:
+            violations.extend(title_violations(explicit_title, body))
     if issue_type is not None and issue_type not in issue_type_enum():
         violations.append(
             f"invalid --type {issue_type!r}: not in the issue type "
@@ -1409,7 +1438,7 @@ def _read_issue_body_file(path: str):
         return None, 2
 
 
-def _publish_revision(args, body) -> int:
+def _publish_revision(args, body, title) -> int:
     from atdd.planner.commands.author_publish import PublishError, revise_issue
 
     try:
@@ -1417,6 +1446,7 @@ def _publish_revision(args, body) -> int:
             args.revise,
             body=body,
             issue_type=args.issue_type,
+            title=title,
         )
     except PublishError as exc:
         logger.warning(
@@ -1433,9 +1463,10 @@ def _publish_revision(args, body) -> int:
 
 
 def _run_issue_revise(args) -> int:
-    if args.body_file is None and args.issue_type is None:
+    if args.body_file is None and args.issue_type is None and args.title is None:
         print(
-            "atdd author issue: --revise requires --body-file and/or explicit --type",
+            "atdd author issue: --revise requires --body-file, --title and/or "
+            "explicit --type",
             file=sys.stderr,
         )
         return 2
@@ -1446,11 +1477,14 @@ def _run_issue_revise(args) -> int:
         if err is not None:
             return err
 
-    violations = _revision_violations(body, args.issue_type)
+    violations = _revision_violations(body, args.issue_type, args.title)
     if violations:
         return _print_violations(
-            "atdd author issue: revised issue body/type is not schema-valid:", violations
+            "atdd author issue: revised issue body/type/title is not schema-valid:",
+            violations,
         )
+
+    title = _revision_title(body, args.title)
 
     if getattr(args, "dry_run", False):
         if body is not None:
@@ -1462,7 +1496,7 @@ def _run_issue_revise(args) -> int:
             )
         return 0
 
-    return _publish_revision(args, body)
+    return _publish_revision(args, body, title)
 
 
 def _print_publish_outcome(slug: str, result) -> None:

@@ -234,17 +234,26 @@ def revise_issue(
     *,
     body: Optional[str] = None,
     issue_type: Optional[str] = None,
+    title: Optional[str] = None,
     control_root: Optional[Path] = None,
 ) -> RevisionResult:
     """Revise an issue-backed work item store-first, then project to GitHub.
 
     The State Store is authoritative. A store lookup/write failure raises
-    :class:`PublishError` and no provider mutation is attempted. The GitHub body
+    :class:`PublishError` and no provider mutation is attempted. The GitHub
     update is best-effort projection: on failure it is recorded in the outbox so
     a retry path can replay it later.
+
+    ``title`` travels with ``body`` through both halves (#1654). The caller
+    derives it from the body's H1 when it is not given explicitly, so the
+    default behaviour of revising a body is that the title revises with it —
+    the failure this closes was a revise path that had to be *told* about the
+    title and never was.
     """
-    if body is None and issue_type is None:
-        raise PublishError("revision requires --body-file and/or explicit --type")
+    if body is None and issue_type is None and title is None:
+        raise PublishError(
+            "revision requires --body-file, --title and/or explicit --type"
+        )
 
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
@@ -263,19 +272,23 @@ def revise_issue(
     try:
         try:
             obj = revise_work_item_issue(
-                conn, issue_number, body=body, issue_type=issue_type,
+                conn, issue_number, body=body, issue_type=issue_type, title=title,
             )
         except Exception as exc:
             raise PublishError(
                 f"State Store revision failed for github issue #{issue_number}: {exc}"
             ) from exc
 
-        if body is not None:
+        # A type-only revision changes nothing GitHub renders, so it projects
+        # nothing. A title and/or body change goes over in ONE edit — see
+        # `update_issue`: two calls could half-apply, and half-applied is the
+        # divergence this whole path exists to prevent.
+        if body is not None or title is not None:
             store = StateStore(conn)
             try:
-                from atdd.integrations.github.issue_state import update_body
+                from atdd.integrations.github.issue_state import update_issue
 
-                update_body(issue_number, body)
+                update_issue(issue_number, title=title, body=body)
             except Exception as exc:
                 projection_deferred = True
                 store.sync.enqueue_outbox(
@@ -285,11 +298,12 @@ def revise_issue(
                         "issue_number": issue_number,
                         "slug": obj.uid,
                         "body": body,
+                        "title": title,
                         "type": issue_type,
                     },
                 )
                 logger.warning(
-                    "github issue body update deferred to outbox; store revision stands",
+                    "github issue update deferred to outbox; store revision stands",
                     extra={"issue_number": issue_number, "slug": obj.uid, "error": str(exc)},
                 )
     finally:

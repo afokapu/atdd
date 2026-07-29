@@ -70,7 +70,7 @@ def test_revise_updates_store_then_projects_body(tmp_path, monkeypatch):
     body_path.write_text(revised, encoding="utf-8")
     projected: list[tuple[int, str]] = []
 
-    def _fake_update_body(issue: int, body: str) -> None:
+    def _fake_update_issue(issue: int, *, title=None, body=None) -> None:
         store, conn = open_store(tmp_path)
         try:
             obj = store.objects.get("revise-probe")
@@ -81,9 +81,12 @@ def test_revise_updates_store_then_projects_body(tmp_path, monkeypatch):
         assert obj.data["type"] == "refactor"
         projected.append((issue, body))
 
+    # The projection is a single `gh issue edit` carrying whatever changed
+    # (#1654) — a title and a body that describe one revision must not be able
+    # to half-apply, so there is one call to intercept, not two.
     monkeypatch.setattr(
-        "atdd.integrations.github.issue_state.update_body",
-        _fake_update_body,
+        "atdd.integrations.github.issue_state.update_issue",
+        _fake_update_issue,
         raising=False,
     )
 
@@ -118,12 +121,12 @@ def test_revise_rejects_invalid_body_before_store_or_github_write(tmp_path, monk
     body_path = tmp_path / "invalid.md"
     body_path.write_text(invalid, encoding="utf-8")
 
-    def _fail_update_body(*_args, **_kwargs) -> None:
+    def _fail_update_issue(*_args, **_kwargs) -> None:
         raise AssertionError("invalid body must not reach GitHub projection")
 
     monkeypatch.setattr(
-        "atdd.integrations.github.issue_state.update_body",
-        _fail_update_body,
+        "atdd.integrations.github.issue_state.update_issue",
+        _fail_update_issue,
         raising=False,
     )
 
@@ -153,12 +156,12 @@ def test_revise_dry_run_validates_without_store_or_github(tmp_path, monkeypatch)
     body_path = tmp_path / "revised.md"
     body_path.write_text(revised, encoding="utf-8")
 
-    def _fail_update_body(*_args, **_kwargs) -> None:
+    def _fail_update_issue(*_args, **_kwargs) -> None:
         raise AssertionError("dry-run must not project to GitHub")
 
     monkeypatch.setattr(
-        "atdd.integrations.github.issue_state.update_body",
-        _fail_update_body,
+        "atdd.integrations.github.issue_state.update_issue",
+        _fail_update_issue,
         raising=False,
     )
 
