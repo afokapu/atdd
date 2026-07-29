@@ -77,9 +77,10 @@ features:
   - urn: "feature:govern-lifecycle:ship-package-data-and-consumer-ci"
   - urn: "feature:govern-lifecycle:coach-operator-safety-invariants"
   - urn: "feature:govern-lifecycle:smoke-execution-gate-satisfiability"
+  - urn: "feature:govern-lifecycle:define-transition-autonomy"
 
 wmbt:
-  total: 103
+  total: 106
   R006: "minimize drifted-lifecycle-records-that-no-verb-can-repair"
   R005: "minimize phase-labels-written-without-the-store-transition-behind-them"
   R001: "minimize stale local manifest status after a successful GitHub transition"
@@ -160,6 +161,7 @@ wmbt:
   E049: "minimize likelihood of config-driving-the-four-tier-validators-onto-src-atdd-lighting-up-the-full-legacy-debt-at-once-and-turning-validate-coder-red-on-untouched-pre-existing-files by grandfathering today's toolkit violations into a ratchet baseline (reusing the #482 suppress-and-clean disposition) so the gate fails only on new or growing violations, logging what is grandfathered (#958)"
   C007: "minimize likelihood of a-transition-with-several-registered-checks-passing-overall-while-one-failed by making evaluate_gate aggregate ALL results with AND-semantics: proceed is True only when every GateCheckResult passed and the failures tuple enumerates every failing check (#1020)"
   D019: "minimize likelihood of flipping-the-gate-from-advisory-to-blocking-failing-transitions-that-previously-proceeded by gating on BOTH is_transition_gated(config) (PLANNED->RED default, operator-toggleable; ungated transitions proceed without consulting checks) AND an empty default GATE_REGISTRY (a gated transition with no registered checks proceeds), so the mechanism ships inert until #958/#1017 register checks (#1020)"
+  D020: "minimize quantity of lifecycle-transitions-whose-submitting-authority-is-undeclared-so-a-worker-that-has-satisfied-its-phase-must-still-stop-on-the-operator by adding a per-phase `autonomy` scalar to phase_machine.convention.yaml beside agent/transitions_to/pre_commit_gate, plus the coach.lifecycle.transition-autonomy node stating the principle and its escape invariant, paired with coach.execution.freedom-with-a-leash which governs the same question on the tool axis; declarative only, nothing reads it yet, and ATDD keeps sole authority over transition legality (#1626)"
   E050: "minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the operator-gated transition: the check fails (so transition() returns non-zero and never reaches IssueManager.update()'s label/phase swap) unless an operator-signed, Feed-decoupled approval token exists for the exact (issue, from, to) tuple, produced by `atdd coach approve` (#1017)"
   E051: "minimize likelihood of residual-projects-v2-graphql-calls-on-the-coach-drive-paths-issue-transition-and-issue-creation by deleting sync_status_field / set_project_field_select / set_project_field_text / add_issue_to_project from both issue.py::update and the issue-creation path so transitions and creation drive off the atdd:<phase> label (REST) alone, retiring the ATDD_SKIP_BOARD_SYNC bridge (#1051)"
   E052: "minimize likelihood of the-train-gate-reading-the-projects-v2-board-instead-of-the-local-manifest by resolving the train from _manifest_train (.atdd/manifest.yaml) validated against plan/_trains.yaml and removing get_project_item_field_values from the gate, so the Train gate enforces with zero board GraphQL (#1051)"

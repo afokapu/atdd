@@ -1263,7 +1263,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 103
+    total: 106
     R006: minimize drifted-lifecycle-records-that-no-verb-can-repair
     R005: minimize phase-labels-written-without-the-store-transition-behind-them
     R001: minimize stale local manifest status after a successful GitHub transition
@@ -1486,6 +1486,12 @@ wagons:
       ungated transitions proceed without consulting checks) AND an empty default
       GATE_REGISTRY (a gated transition with no registered checks proceeds), so the
       mechanism ships inert until #958/#1017 register checks (#1020)'
+    D020: minimize quantity of lifecycle-transitions-whose-submitting-authority-is-undeclared-so-a-worker-that-has-satisfied-its-phase-must-still-stop-on-the-operator
+      by adding a per-phase `autonomy` scalar to phase_machine.convention.yaml beside
+      agent/transitions_to/pre_commit_gate, plus the coach.lifecycle.transition-autonomy
+      node stating the principle and its escape invariant, paired with coach.execution.freedom-with-a-leash
+      which governs the same question on the tool axis; declarative only, nothing
+      reads it yet, and ATDD keeps sole authority over transition legality (#1626)
     E050: 'minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval
       by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the
       operator-gated transition: the check fails (so transition() returns non-zero
