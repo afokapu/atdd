@@ -19,11 +19,12 @@ description: 'Immutable UID minting and slug rename semantics: uid alone drives 
   projection filename, while slug and title are mutable display metadata that never
   move a file (CORE-009).'
 sizing:
-  footprint_score: 7
+  footprint_score: 8
   footprint_size: M
-  wmbts: 2
+  wmbts: 3
 urn: feature:project-shared-state:mint-object-identity
 wagon: wagon:project-shared-state
 wmbts:
 - wmbt:project-shared-state:E004
 - wmbt:project-shared-state:Y001
+- wmbt:project-shared-state:Y002

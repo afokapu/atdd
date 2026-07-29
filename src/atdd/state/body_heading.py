@@ -1,14 +1,34 @@
 """Fence-aware access to a work-item body's leading H1 (#1653).
 
-**SHARED SURFACE.** ``#1654`` imports this module rather than re-implementing
-H1 parsing, by the ``#1652`` orchestrator ruling: the title/H1 agreement is one
-invariant, so it gets one parser. A second, privately-owned regex is exactly how
-the two writers drift apart again. A naive ``^# `` match is the specific trap —
-it fires inside fenced code blocks, and an ATDD issue body is *full* of fenced
-blocks showing shell commands whose lines start with ``#``.
+**SHARED SURFACE — THE H1 PARSER. Do not write a second one.**
 
-Two facts about the live corpus shape this module (measured over the 822 work
-items in the Control Root store, #1653):
+``#1654`` builds its ``title_violations`` predicate on top of this module, by the
+``#1652`` orchestrator ruling: the title/H1 agreement is one invariant, so it
+gets one parser. This module owns *reading and rewriting* a heading; the
+violation predicate and its semantics are #1654's and are deliberately not
+implemented here.
+
+That ruling was made after the duplication actually happened. #1653 and #1654
+each wrote a fence-aware parser into this package within the same minute, neither
+able to see the other. Over all 825 live bodies the two agreed exactly — and
+diverged on four CommonMark edge cases, none of which the corpus exercises yet.
+The worst was the ATX closing sequence: this module reads ``# Title #`` as
+``Title``, the other read ``Title #``. Ship both and ``rename --title Title``
+writes a heading that #1654's own checker then flags as inconsistent. Those four
+inputs are pinned by ``test_y002_unit_004_shared_h1_parser_pins_commonmark_edges``.
+
+The contract downstream code may rely on: **whatever :func:`retitle_h1` writes,
+:func:`first_h1` reads back as exactly the title that was written.** A
+consistency check rests on that round-trip, not on the spelling of any one
+heading.
+
+A naive ``^# `` match is the other trap — it fires inside fenced code blocks, and
+an ATDD issue body is *full* of fenced blocks showing shell commands whose lines
+start with ``#``.
+
+Two facts about the live corpus shape this module (measured over the Control Root
+store at 822 work items, #1653; the store reached 825 during the same session —
+the proportions below are as of that measurement, not a moving total):
 
 - **619 bodies carry no leading H1 at all.** Three bodies in four. Any rule that
   assumes an H1 exists is wrong for the majority, which is why

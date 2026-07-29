@@ -88,6 +88,7 @@ acceptances:
     phase: SMOKE
     purpose: "End-to-end: rename-addressability holds against a real checkout, the\
       \ installed atdd CLI, and a real state.sqlite \u2014 no manual patching."
+  execution_kind: live_smoke
   harness:
     type: integration
     category: backend
@@ -102,6 +103,32 @@ acceptances:
     abstract:
     - Each rename exits zero and reports the uid it renamed, with no manual patching
     - rename-addressability is observed to hold end-to-end against real infrastructure
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:project-shared-state:Y002-UNIT-004-shared-h1-parser-pins-commonmark-edges
+    id: AC-UNIT-004
+    phase: RED
+    purpose: pin the CommonMark edge cases where a second, independently-written H1
+      parser diverged, so the duplication cannot silently reopen
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - Bodies exercising an ATX closing sequence, an empty H1, and a longer fence enclosing
+      a shorter one
+  when:
+    abstract: the shared parser reads each heading and then rewrites it to a new title
+  then:
+    abstract:
+    - A trailing ATX closing sequence is not part of the heading text, and a bare
+      '#' reads as an empty heading rather than as absent
+    - A fence is closed only by a run at least as long as the one that opened it,
+      so a shorter run inside it is not a heading
+    - 'Every case round-trips: reading back a rewritten heading yields exactly the
+      title that was written'
   metadata:
     author: atdd:self-compliance
     created: '2026-07-29'
