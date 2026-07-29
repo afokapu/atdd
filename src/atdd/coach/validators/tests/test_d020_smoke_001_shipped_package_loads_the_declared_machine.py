@@ -13,16 +13,20 @@ back to the packaged one). Nothing is monkeypatched and no YAML is hand-built �
 the point is that the declaration is inert in the SHIPPED artifact, not merely
 under a synthetic loader.
 
-SCOPE NOTE (deliberate narrowing, see the RED report on #1626): the acceptance
-also asks that "the packaged copy carries the axis too, so a consumer installing
-the wheel reads the same declaration". Proving that requires BUILDING a wheel
-and inspecting its package data — the harness `_wheel_harness.py` exists for
-exactly that and is what C008/C009 use. Asserting it against the currently
-INSTALLED copy would instead fail whenever the local install is merely stale,
-which is a reason unrelated to this change. This file therefore asserts the
-resolution PATH behaves correctly and that the source of truth carries the axis;
-the wheel-shipping guarantee belongs to the package-data acceptances and is
-called out in the report rather than silently dropped.
+THE SHIPPED-ARTIFACT CLAIM (SMOKE, #1626). ``_phase_machine_path`` PREFERS the
+in-repo copy, so a probe run inside the checkout reads the worktree — which is
+NOT the claim this acceptance makes. The currently installed atdd (4.27.0)
+predates this change and carries neither the axis nor the node, and always will
+until a release ships, so asserting against it would assert "my unmerged change
+has been released" — unsatisfiable at SMOKE and a reason unrelated to the
+change.
+
+The claim that IS both real and satisfiable: the artifact a consumer WILL
+install carries the declaration. So the wheel-backed tests below build the wheel
+from this tree via the existing `_wheel_harness` (the same harness C008/C009
+use) and read the axis out of the unpacked wheel with NO source tree on the
+path — where a data file that did not ship is genuinely absent rather than
+shadowed by the checkout. That closes the narrowing flagged in the RED report.
 """
 from __future__ import annotations
 
@@ -33,10 +37,27 @@ import textwrap
 from pathlib import Path
 
 import pytest
+import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
+
+#: The autonomy table pinned by the operator on #1626. Kept beside the unit-tier
+#: copy in test_d020_unit_001 deliberately: this file asserts it against the
+#: SHIPPED artifact, so a divergence between the two spellings is itself a signal
+#: that the wheel and the checkout have drifted.
+_PINNED = {
+    "INIT": "operator",
+    "PLANNED": "operator",
+    "RED": "agent",
+    "GREEN": "agent",
+    "SMOKE": "agent",
+    "REFACTOR": "operator",
+    "COMPLETE": None,
+    "BLOCKED": "operator",
+    "OBSOLETE": None,
+}
 
 #: Measured 2026-07-26 before the axis existed. See D020-UNIT-004.
 _PRE_CHANGE_SNAPSHOT_HASH = (
@@ -137,4 +158,85 @@ def test_resolution_prefers_the_in_repo_copy_with_a_packaged_fallback() -> None:
     assert packaged.is_file(), (
         f"the packaged fallback {packaged} is absent, so a consumer installing "
         "the wheel would have no phase machine to fall back to"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The shipped-artifact half: assert against a real wheel, not the worktree.    #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.platform
+def test_built_wheel_ships_the_axis_and_the_node() -> None:
+    """Both files are package DATA, so a consumer's install actually contains them.
+
+    Reuses the C008/C009 harness. Package data is opt-in in this project's
+    packaging config, so a convention YAML that exists in the tree can silently
+    fail to ship — the exact class of miss #1474/#1602 were filed for.
+    """
+    from ._wheel_harness import extracted_wheel_root, wheel_members
+
+    members = wheel_members()
+    for rel in (
+        "atdd/coach/conventions/phase_machine.convention.yaml",
+        "atdd/coach/conventions/nodes/coach.lifecycle.transition-autonomy.convention.yaml",
+    ):
+        assert rel in members, (
+            f"{rel} is not in the built wheel, so a consumer installing atdd would "
+            "not receive it — the declaration would exist only in this checkout"
+        )
+
+    shipped = yaml.safe_load(
+        (extracted_wheel_root() / "atdd" / "coach" / "conventions"
+         / "phase_machine.convention.yaml").read_text(encoding="utf-8")
+    )["phases"]
+    assert {n: (s or {}).get("autonomy") for n, s in shipped.items()} == _PINNED, (
+        "the wheel's phase machine does not carry the pinned autonomy table; "
+        f"it carries {[(n, (s or {}).get('autonomy')) for n, s in shipped.items()]}"
+    )
+
+
+@pytest.mark.platform
+def test_consumer_install_loads_the_axis_with_no_source_tree_on_the_path() -> None:
+    """The packaged FALLBACK resolves the declared machine, not just the checkout.
+
+    Runs the loader against the unpacked wheel with the source tree absent from
+    sys.path and a repo root that holds no ``src/atdd``, so ``_phase_machine_path``
+    is forced down its packaged-copy branch — the branch a consumer always takes
+    and the one the in-repo probe above never exercises.
+    """
+    import os
+    import tempfile
+
+    from ._wheel_harness import extracted_wheel_root
+
+    with tempfile.TemporaryDirectory(prefix="atdd-consumer-") as tmp:
+        env = dict(os.environ, PYTHONPATH=str(extracted_wheel_root()))
+        env.pop("PYTHONHOME", None)
+        result = subprocess.run(
+            [sys.executable, "-c", _PROBE, tmp],
+            capture_output=True, text=True, timeout=180, cwd=tmp, env=env,
+        )
+        assert result.returncode == 0, (
+            "the consumer-shaped probe failed to load the shipped machine.\n"
+            f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        )
+        probe = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert not probe["prefers_in_repo"], (
+        "the probe still resolved an in-repo copy; the consumer fallback branch "
+        f"was not exercised (resolved {probe['resolved_path']})"
+    )
+    assert str(extracted_wheel_root()) in probe["resolved_path"], (
+        "the loader did not resolve the unpacked WHEEL's convention; it resolved "
+        f"{probe['resolved_path']} — the source tree is shadowing the artifact"
+    )
+    assert probe["autonomy_table"] == _PINNED, (
+        "a consumer installing this wheel reads a different autonomy table than "
+        f"the one declared: {probe['autonomy_table']}"
+    )
+    assert probe["phases"] == _EXPECTED_PHASES
+    assert probe["snapshot_hash"] == _PRE_CHANGE_SNAPSHOT_HASH, (
+        "the shipped artifact hashes differently from the pre-change baseline, "
+        "so installing it would invalidate a consumer's in-flight run snapshot"
     )
