@@ -30,6 +30,51 @@ _TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE"}
 _COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
 
 
+# The per-phase "Next:" hint, as DATA. `{number}` is the issue number.
+#
+# REFACTOR is the one advance an operator normally does NOT type:
+# .github/workflows/atdd-auto-phase.yml (#355) drives REFACTOR->COMPLETE from
+# `pull_request: closed` + merged == true, through `atdd coach transition` ->
+# IssueManager.update, so the store is written first and the atdd:<PHASE> label
+# is projected from it. Printing only the manual command reads as an instruction
+# and invites a hand-typed transition that races the workflow — the desync #1452
+# removed the raw label-write from post-merge-lifecycle.yml to stop. Name the
+# automatic path first, and keep the manual one for the cases that genuinely
+# need it (no PR, or auto-phase did not run — e.g. #1621).
+_NEXT_ACTION_HINTS = {
+    "INIT": (
+        "  Next: Fill issue scope, then transition:",
+        "         atdd coach transition {number} PLANNED",
+    ),
+    "PLANNED": (
+        "  Next: Write failing tests (RED phase), then transition:",
+        "         atdd coach transition {number} RED",
+    ),
+    "RED": (
+        "  Next: Implement to make tests pass (GREEN), then transition:",
+        "         atdd coach transition {number} GREEN",
+    ),
+    "GREEN": (
+        "  Next: Run tester SMOKE verification, then transition:",
+        "         atdd coach transition {number} SMOKE",
+    ),
+    "SMOKE": (
+        "  Next: Refactor to clean architecture, then transition:",
+        "         atdd coach transition {number} REFACTOR",
+    ),
+    "REFACTOR": (
+        "  Next: Merge the PR — REFACTOR → COMPLETE is automatic:",
+        "         .github/workflows/atdd-auto-phase.yml advances the",
+        "         phase on merge and projects the label from the store.",
+        "  Manual (only if there is no PR, or auto-phase did not run):",
+        "         atdd coach transition {number} COMPLETE",
+    ),
+    "COMPLETE": ("  This issue is COMPLETE. No further action needed.",),
+    "OBSOLETE": ("  This issue is OBSOLETE. No further action needed.",),
+    "BLOCKED": ("  This issue is BLOCKED. Resolve blockers, then transition back.",),
+}
+
+
 
 class IssueLifecycle:
     """Unified issue lifecycle orchestrator."""
@@ -290,30 +335,19 @@ class IssueLifecycle:
 
         # Next action
         print()
-        if status == "INIT":
-            print("  Next: Fill issue scope, then transition:")
-            print(f"         atdd coach transition {number} PLANNED")
-        elif status == "PLANNED":
-            print("  Next: Write failing tests (RED phase), then transition:")
-            print(f"         atdd coach transition {number} RED")
-        elif status == "RED":
-            print("  Next: Implement to make tests pass (GREEN), then transition:")
-            print(f"         atdd coach transition {number} GREEN")
-        elif status == "GREEN":
-            print("  Next: Run tester SMOKE verification, then transition:")
-            print(f"         atdd coach transition {number} SMOKE")
-        elif status == "SMOKE":
-            print("  Next: Refactor to clean architecture, then transition:")
-            print(f"         atdd coach transition {number} REFACTOR")
-        elif status == "REFACTOR":
-            print("  Next: Complete and close:")
-            print(f"         atdd coach transition {number} COMPLETE")
-        elif status in _TERMINAL_STATUSES:
-            print(f"  This issue is {status}. No further action needed.")
-        elif status == "BLOCKED":
-            print("  This issue is BLOCKED. Resolve blockers, then transition back.")
+        self._print_next_action(status, number)
         print("=" * 70)
         print()
+
+    def _print_next_action(self, status: str, number: int) -> None:
+        """Print the operator's next step for *status*.
+
+        Table-driven rather than an if/elif chain (#1626): the hints are DATA,
+        one entry per phase, so adding a phase is an entry here and the branch
+        count does not grow with the phase machine.
+        """
+        for line in _NEXT_ACTION_HINTS.get(status, ()):
+            print(line.format(number=number))
 
     def check(self, issue_number: int) -> int:
         """Run template compliance check against an issue body.
