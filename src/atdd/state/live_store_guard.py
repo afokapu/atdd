@@ -41,15 +41,11 @@ Dependency discipline: stdlib only (``hashlib``, ``os``, ``pathlib``).
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import sqlite3
 from pathlib import Path
 from typing import Iterable, Mapping, Optional
-
-#: Bound at import, BEFORE the pytest plugin patches ``sqlite3.connect``. The
-#: guard has to read the store it protects, and its own trap would otherwise
-#: refuse it — a guard cannot be its own first victim.
-_REAL_SQLITE_CONNECT = sqlite3.connect
 
 from atdd.state.paths import (
     CONTROL_ROOT_ENV,
@@ -57,6 +53,13 @@ from atdd.state.paths import (
     StateLayoutError,
     resolve_control_root,
 )
+
+_log = logging.getLogger(__name__)
+
+#: Bound at import, BEFORE the pytest plugin patches ``sqlite3.connect``. The
+#: guard has to read the store it protects, and its own trap would otherwise
+#: refuse it — a guard cannot be its own first victim.
+_REAL_SQLITE_CONNECT = sqlite3.connect
 
 #: Re-exported so the pytest plugin names the override in one place only — the
 #: variable whose precedence over ``start=`` is the entire defect (#1582).
@@ -66,8 +69,10 @@ __all__ = [
     "LiveStoreAccessError",
     "assert_not_live_store",
     "describe_change",
+    "describe_contents_change",
     "is_live_store",
     "protected_store_paths",
+    "store_contents",
     "store_digest",
     "store_fingerprint",
 ]
@@ -87,11 +92,9 @@ GUARD_TARGET_ENV = "ATDD_LIVE_STORE_GUARD_TARGET"
 #: That false positive was observed, not theorized — the sanctioned live-corpus
 #: reader tripped this guard before the sidecars came out.
 #:
-#: The main file is the honest signal: a writer's changes land in it when the
-#: connection closes and sqlite checkpoints, and every subprocess closes on exit,
-#: which is precisely the route G3 exists to cover. The residual gap — a writer
-#: that leaves a connection open past teardown, parking its commit in the WAL —
-#: is an unclosed-connection leak, and G2 already refuses in-process opens.
+#: This fingerprint is only the CHEAP STAGE: it decides whether reading rows is
+#: worth the cost. It is never the verdict, because a WAL checkpoint rewrites the
+#: main file without touching a row — :func:`store_contents` renders the verdict.
 _FINGERPRINTED_SUFFIXES = ("",)
 
 
@@ -296,7 +299,15 @@ def _read_one_store(store: Path) -> Optional[dict]:
         return None
     try:
         conn = _REAL_SQLITE_CONNECT(f"file:{store}?mode=ro", uri=True)
-    except sqlite3.Error:
+    except sqlite3.Error as exc:
+        # Not an error: a store mid-write or on an unreadable mount is exactly
+        # when the caller must fall back to the byte fingerprint. Said out loud
+        # so "we could not look" is a fact in the log rather than an inference
+        # from a guard that quietly reported nothing.
+        _log.debug(
+            "protected store could not be opened read-only; contents unavailable",
+            extra={"store": str(store), "error": str(exc)},
+        )
         return None
     try:
         # One query, materialized BEFORE the comprehension: a .fetchall() inside
@@ -316,7 +327,14 @@ def _read_one_store(store: Path) -> Optional[dict]:
         (event_count,) = conn.execute("SELECT COUNT(*) FROM events").fetchone()
         rows["__events__"] = int(event_count)
         return rows
-    except sqlite3.Error:
+    except sqlite3.Error as exc:
+        # Same asymmetry as above: an unreadable store yields None (unknown),
+        # never an empty dict (known-empty). Conflating them would let a failed
+        # read masquerade as "nothing changed".
+        _log.debug(
+            "protected store could not be queried; contents unavailable",
+            extra={"store": str(store), "error": str(exc)},
+        )
         return None
     finally:
         conn.close()
