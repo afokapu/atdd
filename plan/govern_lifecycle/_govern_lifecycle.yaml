@@ -78,6 +78,7 @@ features:
   - urn: "feature:govern-lifecycle:coach-operator-safety-invariants"
   - urn: "feature:govern-lifecycle:smoke-execution-gate-satisfiability"
   - urn: "feature:govern-lifecycle:define-transition-autonomy"
+  - urn: "feature:govern-lifecycle:bind-issue-feature"
 
 wmbt:
   total: 106
