@@ -88,7 +88,102 @@ def test_whitespace_only_body_counts_as_bodyless(conn):
     assert gate.evaluate(conn, BRANCH, check_provider=False).blocked
 
 
-# --- Blocking rule 2: Store phase and GitHub label must agree ---------------
+# --- Blocking rule 2: the stored title must agree with the body's H1 --------
+#
+# #1654. Both directions, as everywhere else in this file: a gate that has never
+# been seen to fail is a gate nobody knows the shape of.
+
+
+def _add_titled_work_item(conn, uid, *, title, body, **kw):
+    """A work item carrying an explicit ``data.title`` alongside its body."""
+    _add_work_item(conn, uid, body=body, **kw)
+    row = conn.execute("SELECT data FROM objects WHERE uid=?", (uid,)).fetchone()
+    data = json.loads(row[0])
+    data["title"] = title
+    conn.execute("UPDATE objects SET data=? WHERE uid=?", (json.dumps(data), uid))
+    conn.commit()
+
+
+def test_title_disagreeing_with_the_body_h1_blocks_the_push(conn):
+    """FAULT: the #1639 shape — the body was revised, the title was not."""
+    _add_titled_work_item(
+        conn,
+        "diverged-title",
+        title="Decommission planner legacy convention monoliths; atomize component",
+        body="# Decommission all 17 planner legacy convention monoliths\n\nProse.",
+    )
+
+    result = gate.evaluate(conn, BRANCH, check_provider=False)
+
+    assert result.blocked
+    assert result.exit_code == gate.EXIT_BLOCK
+    assert "disagrees with the body H1" in result.blocking[0]
+    # Both sides named — a diagnosis, not a verdict.
+    assert "Decommission all 17 planner legacy convention monoliths" in result.blocking[0]
+
+
+def test_title_agreeing_with_the_body_h1_allows_the_push(conn):
+    """CLEAN: same shape, the two agree."""
+    _add_titled_work_item(
+        conn, "agreed-title",
+        title="A perfectly ordinary issue",
+        body="# A perfectly ordinary issue\n\nProse.",
+    )
+
+    assert not gate.evaluate(conn, BRANCH, check_provider=False).blocked
+
+
+def test_a_body_with_no_h1_does_not_block(conn):
+    """619 of 822 stored work items carry no H1; blocking them disables the gate."""
+    _add_titled_work_item(
+        conn, "no-h1",
+        title="Some stored title",
+        body="## Issue Metadata\n\n| Field | Value |\n",
+    )
+
+    assert not gate.evaluate(conn, BRANCH, check_provider=False).blocked
+
+
+def test_a_hash_line_inside_a_fenced_block_does_not_block(conn):
+    """Fenced code is code. A fence-blind scan accused 105 rows; this is why."""
+    _add_titled_work_item(
+        conn, "fenced",
+        title="feat(atdd): TRAIN_STEP edges + journey mode in atdd urn viz",
+        body="## Scope\n\n```sh\n# plan/_trains/0205-renewal.yaml\n```\n",
+    )
+
+    assert not gate.evaluate(conn, BRANCH, check_provider=False).blocked
+
+
+def test_repo_wide_title_drift_is_advisory_not_blocking(conn):
+    """Pre-existing history is reported, never held against the branch pushing.
+
+    24 rows disagree today. A repo-wide blocking rule would refuse every push in
+    the repo until all 24 were corrected — which is how a gate gets deleted.
+    """
+    _add_titled_work_item(
+        conn, "on-branch",
+        title="Consistent here",
+        body="# Consistent here\n\nProse.",
+    )
+    # Someone ELSE's work item, on another branch, is divergent.
+    _add_titled_work_item(
+        conn, "elsewhere",
+        title="Stale title",
+        body="# A different title entirely\n\nProse.",
+        branch="feat/another-branch", issue="99",
+    )
+
+    result = gate.evaluate(conn, BRANCH, check_provider=False)
+
+    assert not result.blocked, "another branch's drift must not block this push"
+    assert any("repo-wide title drift" in line for line in result.advisory)
+    assert any("1/2" in line for line in result.advisory), (
+        "the advisory must count only rows that actually declare an H1"
+    )
+
+
+# --- Blocking rule 3: Store phase and GitHub label must agree ---------------
 
 
 def test_label_divergence_blocks_the_push(conn, monkeypatch):

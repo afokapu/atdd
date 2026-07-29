@@ -95,6 +95,52 @@ def _has_body(data: Dict[str, Any]) -> bool:
     return bool(str(data.get("body") or "").strip())
 
 
+def _title_disagreement(data: Dict[str, Any]) -> Optional[str]:
+    """The stored-title/body-H1 disagreement for ``data``, or None (#1654).
+
+    Delegates to ``atdd.state.issue_title`` rather than re-deriving the H1: that
+    module is the ONE fence-aware extractor, shared with the two title-writing
+    paths. A second parser here that disagreed with theirs would recreate, in
+    the checker itself, the one-fact-two-representations defect it exists to
+    catch.
+    """
+    from atdd.state.issue_title import title_violations
+
+    found = title_violations(data.get("title"), str(data.get("body") or ""))
+    return found[0] if found else None
+
+
+def repo_wide_title_drift(conn) -> Tuple[int, int]:
+    """Return ``(disagreeing, with_h1)`` across the whole Store.
+
+    Only rows whose body actually declares an H1 are in the denominator. A body
+    with no H1 has not stated a title to disagree with, and 619 of the 822 rows
+    are in that state legitimately — counting them as failures would drown the
+    real signal (24) in noise nobody can act on.
+
+    Evaluated in Python rather than SQL because the H1 read is fence-aware, and
+    a ``json_extract`` + ``LIKE`` would be exactly the naive scan that reported
+    105 false disagreements against this same corpus.
+    """
+    disagreeing = 0
+    with_h1 = 0
+    from atdd.state.issue_title import extract_issue_title
+
+    for raw in conn.execute(
+        "SELECT data FROM objects WHERE kind='work_item'"
+    ).fetchall():
+        try:
+            data = json.loads(raw[0]) if raw[0] else {}
+        except (TypeError, ValueError):
+            continue
+        if extract_issue_title(str(data.get("body") or "")) is None:
+            continue
+        with_h1 += 1
+        if _title_disagreement(data):
+            disagreeing += 1
+    return disagreeing, with_h1
+
+
 def repo_wide_drift(conn) -> Tuple[int, int]:
     """Return ``(bodyless_bound, total_bound)`` across the whole Store.
 
@@ -189,6 +235,14 @@ def evaluate(conn, branch: str, *, check_provider: bool = True) -> GateResult:
             f"(advisory — see #1516 for the backfill)"
         )
 
+    disagreeing, with_h1 = repo_wide_title_drift(conn)
+    if disagreeing:
+        result.advisory.append(
+            f"repo-wide title drift: {disagreeing}/{with_h1} work_items with an H1 "
+            f"carry a title that disagrees with it (advisory — pre-existing "
+            f"history; see #1654)"
+        )
+
     found = _work_item_for_branch(conn, branch)
     if found is None:
         result.advisory.append(
@@ -207,7 +261,21 @@ def evaluate(conn, branch: str, *, check_provider: bool = True) -> GateResult:
             f"  Fix: atdd author issue --revise {issue or '<issue>'} --body-file <path>"
         )
 
-    # Blocking check 2 — needs the provider, so it is skipped (loudly) offline.
+    # Blocking check 2 — also purely local (#1654). Scoped to THIS branch's work
+    # item for the same reason check 1 is: 24 rows of pre-existing history must
+    # not red-gate every push in the repo. Scoped, it asks only that the work
+    # item you are pushing agrees with itself.
+    disagreement = _title_disagreement(data)
+    if disagreement:
+        result.blocking.append(
+            f"work_item {uid!r} (branch {branch}) {disagreement}.\n"
+            f"  The stored title and the body's H1 are two representations of one\n"
+            f"  fact; a source of truth that contradicts itself is not one.\n"
+            f"  Fix: atdd author issue --revise {issue or '<issue>'} "
+            f"--body-file <path>  (the title follows the body's H1)"
+        )
+
+    # Blocking check 3 — needs the provider, so it is skipped (loudly) offline.
     if check_provider and issue:
         _check_divergence(result, issue, state)
 
