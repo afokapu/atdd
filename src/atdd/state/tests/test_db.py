@@ -35,7 +35,7 @@ _CORE_TABLES = {
 }
 
 #: Every migration currently defined. Bump this when a migration is added.
-_ALL_VERSIONS = [1, 2, 3]
+_ALL_VERSIONS = [1, 2, 3, 4]
 
 
 def _table_names(conn) -> set:
@@ -50,7 +50,8 @@ def test_apply_migrations_creates_all_core_tables(tmp_path):
     conn = connect(tmp_path / "s.sqlite")
     try:
         applied = apply_migrations(conn)
-        assert applied == _ALL_VERSIONS   # v1 core_tables, v2 release_kind, v3 overlay+metadata
+        # v1 core_tables, v2 release_kind, v3 overlay+metadata, v4 outbox_disposition
+        assert applied == _ALL_VERSIONS
         names = _table_names(conn)
         assert _CORE_TABLES.issubset(names)
         assert "schema_migrations" in names

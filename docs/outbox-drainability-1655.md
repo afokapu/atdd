@@ -7,10 +7,39 @@
 > Measured against the Control Root store
 > `/Users/alecfokapu/Github/atdd/.atdd/state/state.sqlite` on **2026-07-29**.
 
-## 0. Correcting the headline figure
+## 0. Correcting the headline figure — and how to state it
 
-The issue title says *21 stranded rows*. The table holds 21 rows, but the
-**undrained** set is **19**:
+The issue title says *21 stranded rows*. Two things are wrong with that, and the
+second matters more than the first.
+
+**First**, 21 is the row *total*, not the undrained set. At the first measurement
+(`2026-07-29T~07:00Z`) that was 18 pending + 1 failed = **19 undrained**, with 2
+`sent`.
+
+**Second — and this is the part to carry forward — any bare count is wrong by the
+time it is read.** This backlog is not a historical artifact; it grows during normal
+work. Measured counts, each anchored:
+
+| measured (UTC) | total | pending | failed | sent | undrained |
+|---|---|---|---|---|---|
+| 2026-07-29 ~07:00 | 21 | 18 | 1 | 2 | **19** |
+| 2026-07-29 10:16 | 26 | 23 | 1 | 2 | **24** |
+
+**Five rows were added during the single session that triaged this issue** (ids
+22–26): two `version_decided` from local version bumps, and three `update_issue`
+from workers dogfooding the repaired revise path. That is a ~26% growth in the
+backlog in about three hours of ordinary work, with no operator ever being told.
+
+So: **state any count as of a timestamp, with the method.** The method here is
+
+```sh
+atdd state outbox check --json     # anchored: emits measured_at alongside the counts
+```
+
+which is one of the reasons the `check` verb exists. A count without a timestamp in
+this table will be wrong before anyone acts on it — as mine was, twice.
+
+Status split at the first measurement:
 
 | status | rows | ids |
 |--------|------|-----|
@@ -194,6 +223,27 @@ instant it was written**, decided a version that had already shipped, and nothin
 told anyone. It also moves the live count to **20 undrained** (19 pending + 1
 failed) and confirms the accumulation is ongoing, not historical.
 
+#### Rows 23–26 — the same defect, four more times, in one session
+
+| id | op | queued (UTC) | what it is |
+|----|----|--------------|------------|
+| 23 | `version_decided` | 07-29 08:49 | decided **4.24.0** from a store reading 4.23.0 — same pattern as row 22 |
+| 24 | `update_issue` | 07-29 08:54 | a worker's revise of the #1654 issue body |
+| 25 | `update_issue` | 07-29 09:10 | a worker's revise of **#1478** |
+| 26 | `update_issue` | 07-29 09:22 | a worker's revise of **#1635** |
+
+Rows 24–26 are the sharper finding. They were produced by workers *correctly* using
+the repaired `atdd author issue --revise` path — the sanctioned write path, behaving
+as designed. Its GitHub projection failed, so each fell back to the outbox, which is
+exactly the durable-retry design. And `update_issue` is an operation **no shipped
+provider implements**, so all three were unroutable and undeliverable the instant
+they were written.
+
+The sanctioned write path, working as intended, feeds a queue that cannot deliver
+what it receives. That is the whole defect in one sentence, and it is why the signal
+had to go on the surfaces operators already run rather than into a new report nobody
+opens.
+
 #### Consequent finding (recorded, not fixed — out of #1655's lane)
 
 Every *local* `atdd state version bump` enqueues a durable, provider-routed publish
@@ -261,6 +311,15 @@ Resolved by revising the field to the authored home,
 `atdd author issue --revise` (never `gh issue edit`). `wagon:isolate-provider-boundary`
 is the correct owner on the merits: it owns "core is provider-free" and the provider
 registry that a drainability assessment must consult.
+
+**The general defect is already filed as #1635** ("Issues carry no resolvable feature
+binding, so nothing can find an issue's WMBTs and the coach reports 'none found' for
+every issue", OPEN at `atdd:RED`) — which is also why `atdd coach enter 1655` reports
+`WMBTs: none found`. It is **not** re-filed here: minting a second issue for a defect
+already in flight is precisely the duplicate-creation failure mode §3a documents.
+The evidence this issue contributes to it — the silent-waiver mechanism at
+`smoke_obligation.py:160-168`, and the census showing 3 of umbrella #1652's 4 issues
+carried dangling feature URNs — belongs on #1635, not in #1655's scope.
 
 ## 5. Decision — `atdd.extension.github` is **NOT** installed in this repo
 
@@ -344,10 +403,20 @@ atdd state outbox discard 21 --reason "version 5.0.0 retracted by SET → 4.22.0
 atdd state outbox discard 22 --reason "version 4.23.0 already tagged+on PyPI since 07-23; born stranded (§3c)"
 ```
 
+Rows **22–26** were queued after this list was drafted and need their own
+dispositions; re-run `atdd state outbox list` before acting, because the set will
+have moved again. Rows 24–26 in particular should be re-applied through the revise
+path (their targets are live issues) rather than discarded blind.
+
 Row **6** is deliberately left pending: it is the one row whose content is still
 live (§3b). It should be re-applied to #1361 through #1654's revise path and
-discarded then — leaving a bounded, explained remainder of exactly one row, which is
-what "bounded with a reason" means in the issue's own success criteria.
+discarded then — leaving a bounded, explained remainder, which is what "bounded with
+a reason" means in the issue's own success criteria.
 
-After that, `atdd state outbox check` reports one undrainable row instead of 19, and
-says why.
+`atdd state outbox check` then reports the bounded remainder instead of the whole
+backlog, and says why.
+
+**Not executed here, by instruction.** Three workers were reading this store
+concurrently, and running a disposition sweep against it mid-flight is an operator
+decision, not a worker's. Building the mechanism is #1655's deliverable; running it
+is not.

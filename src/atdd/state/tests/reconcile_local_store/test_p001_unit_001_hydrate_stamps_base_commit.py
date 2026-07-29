@@ -20,6 +20,7 @@ replays local work onto the wrong public state. Refs #1400.
 from __future__ import annotations
 
 from atdd.state import metadata
+from atdd.state.migrations import latest_version
 from atdd.state.reconcile import hydrate_store
 
 from ._helpers import UID_A, checkout, commit_all, document, store, write_projection
@@ -41,7 +42,10 @@ def test_p001_unit_001_hydrate_stamps_base_commit(tmp_path) -> None:
         assert metadata.base_commit(conn) == commit
 
         # The metadata also carries the store schema version and a clean dirty marker.
-        assert metadata.get(conn, metadata.SCHEMA_VERSION_KEY) == "3"
+        # Bound to the migration list rather than a literal: the claim is "hydrate
+        # stamps *the* schema version", which a hard-coded number quietly turns into
+        # "the schema is still v3" and breaks on every future migration.
+        assert metadata.get(conn, metadata.SCHEMA_VERSION_KEY) == str(latest_version())
         assert metadata.get(conn, metadata.DIRTY_KEY) == metadata.DIRTY_CLEAN
         assert metadata.is_marked_dirty(conn) is False
     finally:
