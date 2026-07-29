@@ -306,7 +306,16 @@ def record_toolkit_sync(root: Optional[Path] = None, version: Optional[str] = No
                 f,
             )
         return True
-    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except OSError as exc:
+        logger.debug(
+            "record_toolkit_sync: could not write the toolkit-sync record",
+            extra={
+                "phase": "sync",
+                "outcome": "write_failed",
+                "path": str(path),
+                "error": str(exc),
+            },
+        )
         return False
 
 
@@ -339,6 +348,17 @@ def _upgrade_sync_message(last_version: str) -> Optional[str]:
     return msg
 
 
+def _upgrade_notice_silenced() -> bool:
+    """Whether the banner must stay silent regardless of any recorded version.
+
+    Two unconditional mutes: the CI opt-out, and a development checkout, where
+    ``__version__`` is the ``0.0.0`` sentinel and no comparison is meaningful.
+    """
+    if os.environ.get("CI") == "true" and os.environ.get("ATDD_NO_UPGRADE_NOTICE", "").lower() in ("1", "true", "yes"):
+        return True
+    return __version__ == "0.0.0"
+
+
 def check_upgrade_sync_needed() -> Optional[str]:
     """
     Check whether this checkout needs sync after an ATDD upgrade.
@@ -350,12 +370,7 @@ def check_upgrade_sync_needed() -> Optional[str]:
     Returns:
         Message to display if sync needed, None otherwise.
     """
-    # Respect disable flag (CI only)
-    if os.environ.get("CI") == "true" and os.environ.get("ATDD_NO_UPGRADE_NOTICE", "").lower() in ("1", "true", "yes"):
-        return None
-
-    # Skip if running in development
-    if __version__ == "0.0.0":
+    if _upgrade_notice_silenced():
         return None
 
     # Fast path, deliberately FIRST. This function runs on every single CLI

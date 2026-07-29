@@ -1,3 +1,5 @@
+# Acceptance: acc:dispatch-ux-defaults-and-primer:Y002-UNIT-001-banner-muted-when-marker-exists
+# Acceptance: acc:dispatch-ux-defaults-and-primer:Y002-UNIT-002-atdd-sync-writes-marker
 """The toolkit-sync record survives what the tracked field did not (#1641).
 
 The upgrade banner used to read ``toolkit.last_version`` from the git-tracked
