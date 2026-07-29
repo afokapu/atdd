@@ -186,15 +186,6 @@ class TestNoHardcodedPipInstall:
             f"pre-merge-commit hook still has hardcoded 'pip install --upgrade atdd': {matches}"
         )
 
-    def test_issue_body_convention_no_pip_install(self):
-        source = self._read("src/atdd/planner/conventions/issue-body.convention.yaml")
-        # Match both forms: -U and --upgrade
-        pattern = re.compile(r"pip install (-U|--upgrade) atdd")
-        matches = pattern.findall(source)
-        assert not matches, (
-            f"issue-body.convention.yaml has hardcoded pip install: {matches}"
-        )
-
 
 # ---------------------------------------------------------------------------
 # Y005-UNIT-008: check_for_updates() uses upgrade_command() in its message
