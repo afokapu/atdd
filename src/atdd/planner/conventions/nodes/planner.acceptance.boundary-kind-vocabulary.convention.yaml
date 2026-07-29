@@ -3,25 +3,11 @@ rule_id: planner.acceptance.boundary-kind-vocabulary
 kind: family
 status: active
 name: Boundary kinds
-statement: Controlled vocabulary of named integration surfaces an acceptance exercises;
-  unknown values are rejected.
-terms:
-- term_id: boundary_kind
-  text: a named integration surface exercised by an acceptance.
-  values:
-    argv: Command-line argument vector passed to a process.
-    subprocess: A child process spawned and observed.
-    filesystem: Files and directories read or written.
-    git: A local git repository's objects, refs, and config.
-    http_wire: HTTP request/response envelopes (cassette when hermetic).
-    llm_wire: LLM prompt/response envelopes (recorded/deterministic when hermetic).
-    cmux_rpc: cmux RPC request/response messages.
-    env_config: Environment variables and configuration inputs.
-    db_wire: Database query/response envelopes.
-    event_wire: Event-bus publish/consume envelopes.
+statement: Controlled vocabulary of named integration surfaces an acceptance exercises; unknown values
+  are rejected.
 implementation:
   type: validator
-  ref: test_hermetic_integration_fixtures::test_e006_integration_005_unknown_boundary_kind_rejected
+  ref: tester.acceptance-violation.hermetic-fake-must-declare-contract
 source:
   legacy_path: src/atdd/planner/conventions/acceptance.convention.yaml
   legacy_section: boundary_kinds
@@ -36,3 +22,17 @@ parity:
   implementation_preserved: true
   fix_hint_preserved: false
   reviewed_at: '2026-06-16'
+terms:
+- term_id: boundary_kind
+  text: a named integration surface exercised by an acceptance.
+  values:
+    argv: Command-line argument vector passed to a process.
+    subprocess: A child process spawned and observed.
+    filesystem: Files and directories read or written.
+    git: A local git repository's objects, refs, and config.
+    http_wire: HTTP request/response envelopes (cassette when hermetic).
+    llm_wire: LLM prompt/response envelopes (recorded/deterministic when hermetic).
+    cmux_rpc: cmux RPC request/response messages.
+    env_config: Environment variables and configuration inputs.
+    db_wire: Database query/response envelopes.
+    event_wire: Event-bus publish/consume envelopes.

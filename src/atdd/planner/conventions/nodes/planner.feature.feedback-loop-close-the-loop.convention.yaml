@@ -3,8 +3,27 @@ rule_id: planner.feature.feedback-loop-close-the-loop
 kind: rule
 status: active
 name: Feedback-loop must close the loop
-statement: 'A feature marked kind: feedback-loop must declare at least one SMOKE acceptance
-  with a close_the_loop block containing consumer_reacted and drift_resolved.'
+statement: 'A feature marked kind: feedback-loop must declare at least one SMOKE acceptance with a close_the_loop
+  block containing consumer_reacted and drift_resolved.'
+implementation:
+  type: validator
+  ref: planner.smoke.feedback-loop-close-the-loop
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: feature_kind.valid_values.feedback-loop.enforcement
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+content:
+  normative_text: Success = (a) producer detected a condition and emitted a correction, (b) consumer received
+    and reacted, AND (c) the producer's predicate no longer fires next cycle (drift resolved).
+  examples:
+  - acc:<wagon>:<wmbt_id>-SMOKE-NNN-close-the-loop with close_the_loop:{consumer_reacted, drift_resolved}
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'
 terms:
 - term_id: close_the_loop
   text: the required SMOKE acceptance block for a feedback loop.
@@ -12,24 +31,3 @@ terms:
     required_fields:
     - consumer_reacted
     - drift_resolved
-implementation:
-  type: validator
-  ref: conventions/presence/test_feedback_loop_close_the_loop::test_feedback_loop_catches_injected_fault
-source:
-  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
-  legacy_section: feature_kind.valid_values.feedback-loop.enforcement
-  legacy_sha: 4a95544261fb9541
-  extraction_mode: high_fidelity
-content:
-  normative_text: Success = (a) producer detected a condition and emitted a correction,
-    (b) consumer received and reacted, AND (c) the producer's predicate no longer
-    fires next cycle (drift resolved).
-  examples:
-  - acc:<wagon>:<wmbt_id>-SMOKE-NNN-close-the-loop with close_the_loop:{consumer_reacted,
-    drift_resolved}
-parity:
-  source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: true
-  fix_hint_preserved: false
-  reviewed_at: '2026-06-16'
