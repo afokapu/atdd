@@ -1,0 +1,70 @@
+urn: wmbt:coach-ops:R001
+step: resolve
+direction: minimize
+dimension: likelihood
+object_of_control: gh-check-query-failures-classified-as-a-pollable-unknown-instead-of-a-terminal-error
+context_clarifier: "when fetch_ci_status catches a CalledProcessError whose stderr\
+  \ matches neither 'no required' nor 'no checks', returns unknown, and wait_for_ci\
+  \ \u2014 which exits only on pass or fail \u2014 sleeps on that verdict until the\
+  \ 1800s per-PR timeout"
+lens: functional.effectiveness
+statement: "minimize likelihood of gh-check-query-failures-classified-as-a-pollable-unknown-instead-of-a-terminal-error\
+  \ by making every outcome of the CI read carry whether it is worth retrying: a query\
+  \ gh refused, an unparseable payload or an unrecognised failure ends the wait immediately\
+  \ and surfaces gh's own stderr to the operator, while only a genuinely in-flight\
+  \ check keeps the poll loop alive \u2014 so a permanent fault can never again be\
+  \ spent as thirty minutes of silent polling"
+acceptances:
+- identity:
+    urn: acc:coach-ops:R001-UNIT-001-refused-query-ends-the-wait
+    id: AC-UNIT-001
+    purpose: A gh failure that is not a recognised benign case ends the CI wait at
+      once with gh's stderr, instead of being polled as an unknown until the timeout
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A gh invocation that raises CalledProcessError with an unrecognised stderr,
+      e.g. an unknown-JSON-field refusal, an auth failure, or a 404 for the pull request
+    - wait_for_ci driven by injected sleep and clock so elapsed polling time and sleep
+      count are observable
+  when:
+    abstract: wait_for_ci runs against that failing gh with the production 30s poll
+      interval and 1800s timeout
+  then:
+    abstract:
+    - It returns a non-merged, non-timeout result on the first read, having slept
+      zero times, and the detail carries gh's stderr verbatim so the operator sees
+      the real cause
+    - 'The two benign cases stay benign: stderr naming no required checks or no checks
+      still resolves to pass, and a genuinely in-flight check still polls'
+    - An unparseable stdout is treated as terminal on the same footing as a refused
+      query, since neither becomes readable by waiting
+- identity:
+    urn: acc:coach-ops:R001-SMOKE-001-cascade-fails-fast-on-a-refused-query
+    id: AC-SMOKE-001
+    purpose: Driving the real CLI with a query the installed gh refuses makes atdd
+      merge-cascade exit non-zero within seconds naming the gh error, rather than
+      polling to its per-PR timeout and merging nothing
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real checkout with an authenticated gh on PATH and a real pull request, with
+      the CI read configured to request a field the installed gh does not advertise
+    - atdd merge-cascade invoked through the shipped CLI with a short timeout, nothing
+      stubbed
+  when:
+    abstract: the cascade is run against that pull request and its exit code, elapsed
+      wall time and operator-visible output are captured
+  then:
+    abstract:
+    - "It exits non-zero within seconds \u2014 far inside the configured timeout \u2014\
+      \ and the output names the gh refusal, so the failure is diagnosable from the\
+      \ transcript alone"
+    - No merge is attempted for that PR, and the reported status is the terminal gh
+      error rather than 'no CI result after 1800s'
