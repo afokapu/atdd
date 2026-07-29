@@ -16,6 +16,7 @@ features:
 - urn: feature:isolate-provider-boundary:verify-remote-conformance
 - urn: feature:isolate-provider-boundary:lock-extension-digests
 - urn: feature:isolate-provider-boundary:validate-extension-integration
+- urn: feature:isolate-provider-boundary:surface-undrainable-outbox
 goal: make it impossible for a lifecycle decision to depend on GitHub, so an extension can be attached
   or removed without changing what core decides
 name: Isolate Provider Boundary

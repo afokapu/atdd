@@ -1,0 +1,95 @@
+urn: wmbt:isolate-provider-boundary:E003
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: undrainable-outbox-visibility
+context_clarifier: "Zero registered providers is a SUPPORTED state (docs/ext40-phase2-core-seam-plan.md\
+  \ decision 3), so the absence of a provider is not the defect. The defect is that\
+  \ core reports that state as healthy while the outbox grows behind it: `atdd state\
+  \ providers` prints \"core runs provider-free\" and exits 0, and `atdd state sync`\
+  \ prints a pending count alongside the remedy \"pass --push\", which cannot work\
+  \ when no registered provider claims those rows' routing key. Core can honestly\
+  \ detect exactly one drainability fault \u2014 a row whose `provider` routing key\
+  \ has no registered receiver \u2014 and that conjunction (non-empty outbox AND unroutable)\
+  \ must be named, reported by every operator surface that currently reports health,\
+  \ and dispositionable with a recorded reason rather than a silent DELETE.\n"
+lens: functional.effectiveness
+statement: 'maximize likelihood of undrainable-outbox-visibility, so that a non-empty
+  outbox whose rows no registered provider can route is named, surfaced by every operator
+  surface that would otherwise report health, and dispositionable with a recorded
+  reason
+
+  '
+acceptances:
+- identity:
+    urn: acc:isolate-provider-boundary:E003-UNIT-001-unroutable-rows-are-detected-and-named
+    id: AC-UNIT-001
+    phase: RED
+    purpose: core names the non-empty-outbox + no-registered-receiver conjunction
+      as a first-class condition
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a store whose outbox holds pending rows routed to a provider key
+    - a provider registry that registers no provider under that key
+  when:
+    abstract: drainability is assessed over the store and the registry
+  then:
+    abstract:
+    - the assessment reports the rows as unroutable rather than as merely pending
+    - it counts them per routing key and names the oldest row's age
+    - registering a receiver for that key flips the same rows to drainable
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:isolate-provider-boundary:E003-UNIT-002-discard-records-a-reason-and-refuses-a-sent-row
+    id: AC-UNIT-002
+    phase: RED
+    purpose: a backlog row leaves the queue only with a recorded reason, and never
+      by silent deletion
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - an outbox holding one pending row, one failed row, and one already-sent row
+  when:
+    abstract: each row is put through the discard path, with and without a reason
+  then:
+    abstract:
+    - discarding without a reason is refused
+    - a pending or failed row is discarded with its reason and disposal time persisted,
+      and the row itself is preserved
+    - discarding an already-sent row is refused, because a completed side-effect cannot
+      be un-decided
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:isolate-provider-boundary:E003-SMOKE-001-operator-surfaces-report-the-stranded-backlog
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: the surfaces that used to report health now report the stranded
+      backlog, against a real checkout, the installed atdd CLI, and a real state.sqlite.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout, the installed atdd CLI, and a real local State Store holding
+      an unroutable outbox row
+  when:
+    abstract: the operator runs the provider, sync and outbox surfaces through the
+      real CLI
+  then:
+    abstract:
+    - the provider and sync surfaces name the stranded backlog instead of reporting
+      provider-free health
+    - the outbox check surface exits non-zero and names the count and routing keys
+    - no surface claims a remedy that no registered provider could perform
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
