@@ -155,6 +155,18 @@ def test_an_empty_stored_title_against_a_declared_h1_disagrees():
     assert _violations()("", body) != []
 
 
+def test_an_absent_stored_title_is_skipped_like_an_absent_h1():
+    """``None`` means undeclared on BOTH sides, and undeclared cannot contradict.
+
+    A record that never stated a title is not one that stated a *wrong* title.
+    Treating the two the same is what keeps the check a diagnosis rather than a
+    census of everything not yet filled in.
+    """
+    body = "# A declared title\n\n## Scope\n"
+
+    assert _violations()(None, body) == []
+
+
 def test_surrounding_whitespace_is_not_a_disagreement():
     body = "# A declared title\n\n## Scope\n"
 
