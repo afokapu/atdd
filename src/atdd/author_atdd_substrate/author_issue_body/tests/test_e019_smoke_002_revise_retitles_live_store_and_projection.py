@@ -95,9 +95,10 @@ def _recording_gh(tmp_path: Path) -> tuple[str, Path]:
 
 
 @pytest.mark.smoke
-def test_e019_smoke_002_revise_retitles_the_live_store_and_the_projection(tmp_path):
+def test_e019_smoke_002_revise_retitles_the_live_store_and_the_projection(tmp_path, monkeypatch):
     control = tmp_path / "control"
     control.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(control))
     _seed_work_item(control)
 
     revised = _body(REVISED_TITLE, "refactor")
@@ -139,12 +140,13 @@ def test_e019_smoke_002_revise_retitles_the_live_store_and_the_projection(tmp_pa
 
 
 @pytest.mark.smoke
-def test_e019_smoke_002_the_revised_work_item_passes_the_consistency_check(tmp_path):
+def test_e019_smoke_002_the_revised_work_item_passes_the_consistency_check(tmp_path, monkeypatch):
     """The store the revise leaves behind must not be one the check would flag."""
     from atdd.planner.commands.author_issue import title_violations
 
     control = tmp_path / "control"
     control.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(control))
     _seed_work_item(control)
 
     revised = _body(REVISED_TITLE, "refactor")
