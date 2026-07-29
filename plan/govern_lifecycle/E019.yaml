@@ -56,7 +56,7 @@ acceptances:
     - The live State Store carries the revised body and type, and the lifecycle state
       is unchanged by the revision
     - An issue_revised event is recorded against the work item
-    - With a reachable provider the outbox is empty — nothing was deferred
+    - "With a reachable provider the outbox is empty \u2014 nothing was deferred"
     - With an unreachable provider the command still succeeds, the store revision
       stands, and the body update is deferred to the outbox rather than lost
   metadata:
@@ -87,3 +87,100 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-12'
+- identity:
+    urn: acc:govern-lifecycle:E019-UNIT-004-revise-writes-title-with-body
+    id: AC-UNIT-004
+    purpose: "`atdd author issue --revise` carries the title with the body: the store\
+      \ write that takes a new body also takes the title that body's H1 declares,\
+      \ and the provider projection re-titles the issue in the same edit \u2014 so\
+      \ data.title, the body H1, and the GitHub title cannot end a revision disagreeing"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - An existing store-registered issue work item whose data.title and body H1 agree
+    - A replacement body whose H1 states a different title
+  when:
+    abstract: atdd author issue --revise <N> --body-file <path> is called, once with
+      no --title, once with a --title that agrees with the H1, and once with a --title
+      that contradicts it
+  then:
+    abstract:
+    - With no --title the store write derives data.title from the replacement body's
+      H1, in the same upsert as the body
+    - An explicit --title that agrees with the H1 is accepted and written
+    - An explicit --title that contradicts the H1 is refused as a schema violation
+      before any store or provider write
+    - The provider projection carries the new title and the new body in a single issue
+      edit, not a body-only one
+    - A failed projection outboxes the title alongside the body, so the deferred retry
+      can restore both
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:govern-lifecycle:E019-UNIT-005-title-h1-consistency-check
+    id: AC-UNIT-005
+    purpose: A consistency check names any work item whose stored title disagrees
+      with its own body H1, so the two representations of one fact cannot drift apart
+      silently once the revise path is repaired
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'Work items covering the four cases: stored title equals the body H1; the two
+      disagree; the body carries no H1 at all; the body''s only ''#'' line sits inside
+      a fenced code block'
+  when:
+    abstract: The title/H1 consistency check is evaluated over each
+  then:
+    abstract:
+    - "The disagreeing work item is reported with both sides named \u2014 the stored\
+      \ title and the body H1 \u2014 never a bare 'mismatch'"
+    - The agreeing work item is not reported
+    - 'A body with no H1 is not reported: absent is not disagreeing, and the body-shape
+      schema owns that gap'
+    - A '#' line inside a fenced code block is not read as the H1, so a body quoting
+      a shell comment is not falsely accused
+    - The check is a planner-side predicate over a title and a body, so the coach
+      store-mirror gate can consume it without the boundary pointing coach-ward
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:govern-lifecycle:E019-SMOKE-002-revise-retitles-live-store-and-projection
+    id: AC-SMOKE-002
+    purpose: "Against a live State Store and a real gh subprocess, a revise that changes\
+      \ the body H1 changes the stored title too and re-titles the projected issue\
+      \ \u2014 the end-to-end shape of the defect that left #1639's stored title naming\
+      \ a superseded scope"
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, an initialized ATDD Control Root (State Store), and the
+      installed atdd author CLI
+    - An issue-backed work_item seeded in the live store, linked to a github issue
+      number, whose stored title matches its seeded body H1
+    - A stubbed `gh` on PATH that records the argv it was invoked with, so the projection
+      runs as a real subprocess without touching production GitHub
+  when:
+    abstract: atdd author issue --revise <N> --body-file <path> is run against the
+      Control Root with a replacement body whose H1 states a new title
+  then:
+    abstract:
+    - The live State Store carries both the revised body and the new title, and the
+      lifecycle state is unchanged by the revision
+    - The recorded gh argv carries the new title, so the projection was re-titled
+      rather than left naming the superseded scope
+    - "The store's title and its own body H1 agree after the revision \u2014 the consistency\
+      \ check passes on the work item the revise just wrote"
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'

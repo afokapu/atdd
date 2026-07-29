@@ -151,6 +151,7 @@ def revise_work_item_issue(
     *,
     body: Optional[str] = None,
     issue_type: Optional[str] = None,
+    title: Optional[str] = None,
 ) -> Object:
     """Revise an existing issue-backed work item through the State Store.
 
@@ -158,6 +159,13 @@ def revise_work_item_issue(
     work-item uid, merges the requested issue fields into the object's JSON data,
     and preserves the existing lifecycle state. This is the authoritative update;
     provider projection is a caller concern.
+
+    ``title`` moves in the same upsert as ``body`` (#1654). It used to be absent
+    from the update bag entirely, so a revise that replaced a body left
+    ``data.title`` naming whatever the issue used to be about — the store
+    disagreeing with itself, and the GitHub projection matching neither. The
+    caller derives the title from the body's H1; the two are one fact, so they
+    are written in one transaction or not at all.
     """
     store = StateStore(conn)
     ref = store.external_refs.resolve(
@@ -181,8 +189,10 @@ def revise_work_item_issue(
         updates["body"] = body
     if issue_type is not None:
         updates["type"] = issue_type
+    if title is not None:
+        updates["title"] = title
     if not updates:
-        raise ValueError("revision requires body and/or issue_type")
+        raise ValueError("revision requires body, title and/or issue_type")
 
     obj = store.objects.upsert(
         existing.uid,

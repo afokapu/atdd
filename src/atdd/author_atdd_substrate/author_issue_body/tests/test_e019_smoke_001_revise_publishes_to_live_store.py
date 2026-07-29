@@ -135,6 +135,10 @@ def test_e019_smoke_001_revise_writes_live_store_then_projects(tmp_path, monkeyp
     assert obj is not None, "the revised work item vanished from the live store"
     assert obj.data["body"] == revised, "the live store did not take the revised body"
     assert obj.data["type"] == "refactor", "the live store did not take the revised type"
+    assert obj.data["title"] == "Revised through the live store", (
+        "the live store kept the pre-revision title while taking the revised "
+        "body — the two are one fact and must move together (#1654)"
+    )
     assert obj.state == "INIT", "a revision must not move the lifecycle state"
     assert "issue_revised" in [e.event_type for e in events]
     assert pending == [], "a reachable provider must not leave a deferred projection"

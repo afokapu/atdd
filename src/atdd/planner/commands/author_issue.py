@@ -63,6 +63,20 @@ def _extract_status(body: str) -> str | None:
     return m.group(1) if m else None
 
 
+# The body's H1 is the issue TITLE — the same fact the store carries in
+# ``data.title`` (#1654). The extractor and the agreement predicate live in
+# ``atdd.state.issue_title`` and are re-exported here, NOT reimplemented: the
+# other title-writing path (``rename_work_item``, #1653) sits in
+# ``atdd.state.work_item_writer``, which is forbidden from importing
+# ``atdd.planner``, so a planner-side copy would have forced a second parser
+# into existence. Two H1 parsers that disagree would reproduce this issue's own
+# defect one layer down. See that module for why the fence tracking is load-bearing.
+from atdd.state.issue_title import (  # noqa: E402
+    extract_issue_title,
+    title_violations,
+)
+
+
 def extract_issue_type(body: str) -> str | None:
     """Return the body's declared Type value, or ``None`` if it carries none."""
     m = _TYPE_RE.search(body)
