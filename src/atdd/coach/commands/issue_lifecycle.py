@@ -306,7 +306,20 @@ class IssueLifecycle:
             print("  Next: Refactor to clean architecture, then transition:")
             print(f"         atdd coach transition {number} REFACTOR")
         elif status == "REFACTOR":
-            print("  Next: Complete and close:")
+            # REFACTOR->COMPLETE is the one advance an operator normally does NOT
+            # type: .github/workflows/atdd-auto-phase.yml (#355) drives it from
+            # `pull_request: closed` + merged == true, through `atdd coach
+            # transition` -> IssueManager.update, so the store is written first
+            # and the atdd:<PHASE> label is projected from it. Printing only the
+            # manual command here reads as an instruction and invites a hand-typed
+            # transition that races the workflow — the desync #1452 removed the
+            # raw label-write from post-merge-lifecycle.yml to stop. Name the
+            # automatic path first, and keep the manual one for the cases that
+            # genuinely need it (no PR, or auto-phase did not run — e.g. #1621).
+            print("  Next: Merge the PR — REFACTOR → COMPLETE is automatic:")
+            print("         .github/workflows/atdd-auto-phase.yml advances the")
+            print("         phase on merge and projects the label from the store.")
+            print("  Manual (only if there is no PR, or auto-phase did not run):")
             print(f"         atdd coach transition {number} COMPLETE")
         elif status in _TERMINAL_STATUSES:
             print(f"  This issue is {status}. No further action needed.")
