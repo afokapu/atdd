@@ -21,11 +21,10 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
+from ._d020_autonomy import NODE_REL, node_prose
+
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
-_NODE_REL = Path(
-    "src/atdd/coach/conventions/nodes/coach.lifecycle.transition-autonomy.convention.yaml"
-)
 _SIBLING_REL = Path(
     "src/atdd/coach/conventions/nodes/coach.execution.freedom-with-a-leash.convention.yaml"
 )
@@ -36,9 +35,9 @@ _SIBLING_RULE_ID = "coach.execution.freedom-with-a-leash"
 
 
 def _node() -> dict:
-    path = find_repo_root() / _NODE_REL
+    path = find_repo_root() / NODE_REL
     assert path.is_file(), (
-        f"REGRESSION: {_NODE_REL} does not exist yet. GREEN authors it under "
+        f"REGRESSION: {NODE_REL} does not exist yet. GREEN authors it under "
         "the existing convention-node pattern."
     )
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -90,10 +89,7 @@ def test_node_carries_the_declarative_first_posture() -> None:
 def test_node_names_its_sibling_explicitly() -> None:
     """The two must read as one model on two axes, not as unrelated nodes."""
     node = _node()
-    prose = " ".join(
-        [str(node.get("statement", "")), str(node.get("rationale", "")), str(node.get("notes", ""))]
-        + [str(t.get("text", "")) for t in (node.get("terms") or [])]
-    )
+    prose = node_prose(node)
     assert _SIBLING_RULE_ID in prose, (
         f"the node never names {_SIBLING_RULE_ID}, so a reader has no way to find "
         "the sibling that governs the same question on the tool axis"

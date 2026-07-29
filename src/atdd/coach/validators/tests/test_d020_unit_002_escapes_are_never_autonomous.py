@@ -20,24 +20,14 @@ this constant to the one the State Store's ladder test already walks by.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
+from ._d020_autonomy import NODE_REL, node_prose, phases as _phases
+
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
-
-_MACHINE_REL = Path("src/atdd/coach/conventions/phase_machine.convention.yaml")
-_NODE_REL = Path(
-    "src/atdd/coach/conventions/nodes/coach.lifecycle.transition-autonomy.convention.yaml"
-)
-
-
-def _phases() -> dict:
-    data = yaml.safe_load((find_repo_root() / _MACHINE_REL).read_text(encoding="utf-8")) or {}
-    return data.get("phases") or {}
 
 
 #: The escape set, NAMED rather than derived — the same constant, for the same
@@ -118,16 +108,12 @@ def test_escape_set_agrees_with_the_ladder_walk() -> None:
 @pytest.mark.platform
 def test_the_node_states_the_escape_invariant() -> None:
     """The invariant lives in prose a reader can find, not only in a scalar's definition."""
-    node_path = find_repo_root() / _NODE_REL
+    node_path = find_repo_root() / NODE_REL
     assert node_path.is_file(), (
-        f"REGRESSION: {_NODE_REL} does not exist yet. GREEN authors the "
+        f"REGRESSION: {NODE_REL} does not exist yet. GREEN authors the "
         "convention node that states the escape invariant."
     )
-    node = yaml.safe_load(node_path.read_text(encoding="utf-8")) or {}
-    prose = " ".join(
-        [str(node.get("statement", "")), str(node.get("rationale", "")), str(node.get("notes", ""))]
-        + [str(t.get("text", "")) for t in (node.get("terms") or [])]
-    )
+    prose = node_prose(yaml.safe_load(node_path.read_text(encoding="utf-8")) or {})
     for escape in sorted(_derive_escape_targets(_phases())):
         assert escape in prose, (
             f"the node's prose never names {escape}, so the escape invariant is "

@@ -41,33 +41,10 @@ import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
+from ._d020_autonomy import EXPECTED_PHASES, PINNED, PRE_CHANGE_SNAPSHOT_HASH
+
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
-#: The autonomy table pinned by the operator on #1626. Kept beside the unit-tier
-#: copy in test_d020_unit_001 deliberately: this file asserts it against the
-#: SHIPPED artifact, so a divergence between the two spellings is itself a signal
-#: that the wheel and the checkout have drifted.
-_PINNED = {
-    "INIT": "operator",
-    "PLANNED": "operator",
-    "RED": "agent",
-    "GREEN": "agent",
-    "SMOKE": "agent",
-    "REFACTOR": "operator",
-    "COMPLETE": None,
-    "BLOCKED": "operator",
-    "OBSOLETE": None,
-}
-
-#: Measured 2026-07-26 before the axis existed. See D020-UNIT-004.
-_PRE_CHANGE_SNAPSHOT_HASH = (
-    "88af3062dfd486ee0d206946e82bebe408a3718873673f11bc0960f14e4e0913"
-)
-
-_EXPECTED_PHASES = [
-    "BLOCKED", "COMPLETE", "GREEN", "INIT", "OBSOLETE",
-    "PLANNED", "RED", "REFACTOR", "SMOKE",
-]
 
 _PROBE = textwrap.dedent(
     """
@@ -129,7 +106,7 @@ def test_shipped_machine_declares_the_axis_in_a_real_process() -> None:
 def test_all_nine_phases_load_in_a_real_process() -> None:
     """The new key breaks no parse and drops no phase in the shipped artifact."""
     probe = _run_probe()
-    assert probe["phases"] == _EXPECTED_PHASES, (
+    assert probe["phases"] == EXPECTED_PHASES, (
         f"expected the nine phases, the real process loaded {probe['phases']}"
     )
 
@@ -138,10 +115,10 @@ def test_all_nine_phases_load_in_a_real_process() -> None:
 def test_snapshot_hash_is_unmoved_in_a_real_process() -> None:
     """Inertness holds in the shipped artifact, not only under a synthetic loader."""
     probe = _run_probe()
-    assert probe["snapshot_hash"] == _PRE_CHANGE_SNAPSHOT_HASH, (
+    assert probe["snapshot_hash"] == PRE_CHANGE_SNAPSHOT_HASH, (
         "the real package computes a conventions snapshot hash of "
         f"{probe['snapshot_hash']}, not the pre-change baseline "
-        f"{_PRE_CHANGE_SNAPSHOT_HASH} — an in-flight run would be invalidated"
+        f"{PRE_CHANGE_SNAPSHOT_HASH} — an in-flight run would be invalidated"
     )
 
 
@@ -190,7 +167,7 @@ def test_built_wheel_ships_the_axis_and_the_node() -> None:
         (extracted_wheel_root() / "atdd" / "coach" / "conventions"
          / "phase_machine.convention.yaml").read_text(encoding="utf-8")
     )["phases"]
-    assert {n: (s or {}).get("autonomy") for n, s in shipped.items()} == _PINNED, (
+    assert {n: (s or {}).get("autonomy") for n, s in shipped.items()} == PINNED, (
         "the wheel's phase machine does not carry the pinned autonomy table; "
         f"it carries {[(n, (s or {}).get('autonomy')) for n, s in shipped.items()]}"
     )
@@ -231,12 +208,12 @@ def test_consumer_install_loads_the_axis_with_no_source_tree_on_the_path() -> No
         "the loader did not resolve the unpacked WHEEL's convention; it resolved "
         f"{probe['resolved_path']} — the source tree is shadowing the artifact"
     )
-    assert probe["autonomy_table"] == _PINNED, (
+    assert probe["autonomy_table"] == PINNED, (
         "a consumer installing this wheel reads a different autonomy table than "
         f"the one declared: {probe['autonomy_table']}"
     )
-    assert probe["phases"] == _EXPECTED_PHASES
-    assert probe["snapshot_hash"] == _PRE_CHANGE_SNAPSHOT_HASH, (
+    assert probe["phases"] == EXPECTED_PHASES
+    assert probe["snapshot_hash"] == PRE_CHANGE_SNAPSHOT_HASH, (
         "the shipped artifact hashes differently from the pre-change baseline, "
         "so installing it would invalidate a consumer's in-flight run snapshot"
     )

@@ -51,7 +51,7 @@ acceptances:
         - "No transition into BLOCKED or OBSOLETE is autonomous under any phase's declaration, including the phases that declare `autonomy: agent`"
         - "The invariant is stated in the convention node in prose a reader can find, not left to be inferred from the scalar's definition"
         - "Leaving BLOCKED is likewise operator-submitted (BLOCKED declares `autonomy: operator`), so an escape is symmetric: an operator decision to enter, an operator decision to leave"
-        - "The check is expressed against the escape SET, so adding a tenth phase that is an escape does not silently fall outside it"
+        - "The escape set is NAMED, not derived, and is tied to the one the State Store's ladder walk already uses (test_phase_ladder_matches_projection_phases.ESCAPES) so the two cannot drift apart. REFACTOR note (#1626): the original wording asked for a derivation — 'expressed against the escape SET so a tenth escape does not silently fall outside it'. No sound derivation exists: an escape is reachable from every spine rung, but BLOCKED does not appear in its OWN transitions_to, so every 'reachable from all' rule drops it. The machine names its escapes; the check names them too, and the drift-guard is the achievable form of the original intent"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-26"
@@ -127,7 +127,7 @@ acceptances:
       abstract:
         - "The subprocess exits zero and reports all nine phases loaded, so the new key breaks no parse and no phase is dropped"
         - "The printed snapshot hash equals the pre-change hash, confirming inertness in the shipped artifact and not only under a synthetic loader"
-        - "The packaged copy carries the axis too, so a consumer installing the wheel reads the same declaration the repo does rather than an older machine"
+        - "The packaged copy carries the axis too, so a consumer installing the wheel reads the same declaration the repo does rather than an older machine — discharged at SMOKE against a wheel BUILT from the tree via the C008/C009 _wheel_harness and read back with no source tree on sys.path, since `_phase_machine_path` prefers the in-repo copy and would otherwise report the worktree; asserting against the INSTALLED copy is deliberately not the test, because that copy predates any unmerged change and would assert 'this change has been released'"
         - "A real transition is refused or allowed exactly as it was before this issue: INIT->PLANNED still requires the operator through the existing path, and PLANNED->RED still consults the approval-token gate — no transition changed behaviour because nothing reads autonomy yet"
     metadata:
       author: "atdd:self-compliance"

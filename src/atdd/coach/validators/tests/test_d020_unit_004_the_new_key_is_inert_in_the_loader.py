@@ -21,29 +21,14 @@ noticing it invalidates every frozen run snapshot.
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 
 import pytest
-import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 
+from ._d020_autonomy import PRE_CHANGE_SNAPSHOT_HASH, machine_data as _machine_data
+
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
-
-_MACHINE_REL = Path("src/atdd/coach/conventions/phase_machine.convention.yaml")
-
-#: The conventions snapshot hash measured on 2026-07-26, BEFORE the autonomy
-#: axis was authored, via load_conventions(repo_root).snapshot_hash. GREEN must
-#: not move it.
-_PRE_CHANGE_SNAPSHOT_HASH = (
-    "88af3062dfd486ee0d206946e82bebe408a3718873673f11bc0960f14e4e0913"
-)
-
-
-def _machine_data() -> dict:
-    return yaml.safe_load(
-        (find_repo_root() / _MACHINE_REL).read_text(encoding="utf-8")
-    ) or {}
 
 
 def _without_autonomy(data: dict) -> dict:
@@ -113,9 +98,9 @@ def test_live_snapshot_hash_equals_the_pre_change_baseline() -> None:
     from atdd.train.persistence import load_conventions
 
     conventions = load_conventions(find_repo_root())
-    assert conventions.snapshot_hash == _PRE_CHANGE_SNAPSHOT_HASH, (
+    assert conventions.snapshot_hash == PRE_CHANGE_SNAPSHOT_HASH, (
         "the conventions snapshot hash has moved from the pre-change baseline "
-        f"{_PRE_CHANGE_SNAPSHOT_HASH} to {conventions.snapshot_hash}. If this is "
+        f"{PRE_CHANGE_SNAPSHOT_HASH} to {conventions.snapshot_hash}. If this is "
         "because PhaseSpec now carries `autonomy`, that is the follow-up track's "
         "change and is out of scope for #1626 — see the module docstring."
     )
