@@ -244,6 +244,42 @@ what it receives. That is the whole defect in one sentence, and it is why the si
 had to go on the surfaces operators already run rather than into a new report nobody
 opens.
 
+#### A version bump is unattributable — the same silent shape, on the release path
+
+Recorded, not fixed. This is in scope because rows 22 and 23 *are* these two bumps,
+and because it is the identical failure mode: a write nobody is told about.
+
+Measured on the store, `2026-07-29`:
+
+| event | payload | queued |
+|---|---|---|
+| 254 | `{"change_class":"MINOR","from":"4.22.0","pr":null,"to":"4.23.0"}` | outbox#22 |
+| 256 | `{"change_class":"MINOR","from":"4.23.0","pr":null,"to":"4.24.0"}` | outbox#23 |
+
+The `version_bumped` payload is written at `src/atdd/state/version.py:315-319` and its
+schema is `{from, to, change_class, pr}`. **There is no actor field**, and `pr` is
+`null` for both. So the store records that the release version moved twice during one
+session and cannot say who moved it. A release-critical write with no attribution is
+unauditable by construction — the same shape as the outbox that accumulated for
+twenty days without telling anyone, relocated onto the release path.
+
+Two related claims were checked and **could not be substantiated**, so they are
+recorded as open rather than as findings:
+
+- A `permissions.deny` block naming `Bash(atdd coach transition*)` /
+  `Bash(atdd state version*)` was reported as the mechanism holding these hops.
+  Neither pattern appears in `.claude/settings.local.json` (its `deny` list is
+  empty) nor in `~/.claude/settings.json` — which in fact **allow**-lists
+  `Bash(atdd coach transition:*)`. The denials observed in this session came from
+  the harness's interactive prompt, not from a configured rule.
+- Consequently the "the guardrail leaks through the `python -m` invocation form"
+  claim cannot be confirmed here: there is no matching deny rule for an alternate
+  invocation form to evade.
+
+What survives verification, and what matters for this issue, is the first paragraph:
+the bumps happened, they each enqueued a stranded row, and **nothing records who did
+it**.
+
 #### Consequent finding (recorded, not fixed — out of #1655's lane)
 
 Every *local* `atdd state version bump` enqueues a durable, provider-routed publish
