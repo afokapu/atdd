@@ -290,6 +290,17 @@ class IssueLifecycle:
 
         # Next action
         print()
+        self._print_next_action(status, number)
+        print("=" * 70)
+        print()
+
+    def _print_next_action(self, status: str, number: int) -> None:
+        """Print the operator's next step for *status*.
+
+        Split out of ``_print_context`` (#1626): the per-phase hints are the part
+        of that method that actually changes, and keeping them here leaves the
+        context printer at a reviewable length.
+        """
         if status == "INIT":
             print("  Next: Fill issue scope, then transition:")
             print(f"         atdd coach transition {number} PLANNED")
@@ -325,8 +336,6 @@ class IssueLifecycle:
             print(f"  This issue is {status}. No further action needed.")
         elif status == "BLOCKED":
             print("  This issue is BLOCKED. Resolve blockers, then transition back.")
-        print("=" * 70)
-        print()
 
     def check(self, issue_number: int) -> int:
         """Run template compliance check against an issue body.
