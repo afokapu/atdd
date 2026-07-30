@@ -1,0 +1,220 @@
+urn: wmbt:integration-hardening:Y007
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: agent-upgrade-runs-that-die-on-eoferror-because-the-command-assumes-a-terminal
+context_clarifier: "when a worker with no controlling terminal runs `atdd upgrade`\
+  \ \u2014 the remedy the pre-push version gate (#1449) names in its own refusal \u2014\
+  \ and reaches either of upgrader.py's two unguarded `input()` calls (the PyPI 'Run\
+  \ `<cmd>` now? [Y/n]' at line 56 and the 'Proceed? [Y/n]' before sync + init --force),\
+  \ so the process raises EOFError, the gate stays closed, and every push in every\
+  \ worktree stays blocked until a human types Y; a `--yes` flag already exists (cli.py:1309)\
+  \ and already bypasses both prompts, so nothing ever decided upgrading should be\
+  \ human-only \u2014 upgrader.py simply contains no isatty call, while the same repo\
+  \ already resolves exactly this question for `atdd coach` in resolve_no_prompt (coach.py:255)"
+lens: functional.availability
+statement: "minimize likelihood of agent-upgrade-runs-that-die-on-eoferror-because-the-command-assumes-a-terminal\
+  \ by resolving upgrader.py's confirmation the way coach.py:255 already resolves\
+  \ its own \u2014 an explicit flag wins, and absent one the answer is taken from\
+  \ whether stdin is a terminal \u2014 so a no-TTY invocation proceeds under a decision\
+  \ it states out loud in its output rather than raising, while a human at a terminal\
+  \ sees byte-identical prompts and `--yes` keeps bypassing both, and nothing anywhere\
+  \ begins invoking `atdd upgrade` on its own: the command becomes runnable unattended,\
+  \ not automatic"
+acceptances:
+- identity:
+    urn: acc:integration-hardening:Y007-UNIT-001-no-tty-pypi-prompt-resolves-without-input
+    id: AC-UNIT-001
+    purpose: "With stdin not a terminal and a newer version on PyPI, Upgrader.run()\
+      \ must reach the upgrade decision without calling input() \u2014 the exact site\
+      \ (upgrader.py:56) that raised EOFError in the field"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - is_outdated() returns (True, '3.106.0', '4.27.0')
+    - stdin reports not-a-terminal (isatty() is False)
+    - auto_upgrade() is patched to return True and its invocation is tracked
+    - builtins.input is patched to raise EOFError if it is ever called, reproducing
+      the field failure exactly
+  when:
+    abstract: Upgrader.run() is called with yes=False
+  then:
+    abstract:
+    - input() is never called and no EOFError escapes
+    - The run resolves the confirmation to proceed and auto_upgrade() is invoked exactly
+      once
+    - The return code is 0
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:Y007-UNIT-002-no-tty-sync-prompt-resolves-without-input
+    id: AC-UNIT-002
+    purpose: 'The second prompt is guarded too: with stdin not a terminal and only
+      a stale local stamp to reconcile, Upgrader.run() runs sync + init --force without
+      asking ''Proceed? [Y/n]'''
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - no_pypi=True, so the PyPI branch is skipped entirely
+    - The repo config stamps toolkit.last_version at a value different from the installed
+      __version__
+    - stdin reports not-a-terminal
+    - builtins.input is patched to raise EOFError if called; subprocess.run is patched
+      to return success and its argv is recorded
+  when:
+    abstract: Upgrader.run() is called with yes=False and no_pypi=True
+  then:
+    abstract:
+    - input() is never called
+    - Both `atdd sync` and `atdd init --force` are invoked, in that order
+    - toolkit.last_version is stamped forward to the installed version and the return
+      code is 0
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:Y007-UNIT-003-tty-behaviour-is-byte-identical
+    id: AC-UNIT-003
+    purpose: "A human at a terminal sees exactly what they see today \u2014 both prompts\
+      \ are still asked, and a declining answer still skips or aborts with the same\
+      \ outcome; only the no-TTY path is new"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - stdin reports a terminal (isatty() is True)
+    - builtins.input is patched to return 'n' and its call count and prompt strings
+      are recorded
+  when:
+    abstract: Upgrader.run() is called with yes=False, once down the PyPI branch (is_outdated
+      True) and once down the local-sync branch (no_pypi True, stamp stale)
+  then:
+    abstract:
+    - The PyPI branch asks its prompt, and declining prints the skip notice and does
+      not call auto_upgrade()
+    - The local-sync branch asks 'Proceed? [Y/n]', and declining aborts with return
+      code 1 without running sync or init --force
+    - The prompt strings are unchanged from the pre-fix implementation
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:Y007-UNIT-004-yes-flag-still-bypasses-on-both-paths
+    id: AC-UNIT-004
+    purpose: 'The pre-existing escape hatch keeps working and keeps winning: --yes
+      bypasses both prompts whether or not stdin is a terminal, so the explicit flag
+      is never overridden by the TTY inference'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - builtins.input is patched to raise EOFError if called
+    - 'The scenario is run twice: once with stdin reporting a terminal, once reporting
+      not-a-terminal'
+  when:
+    abstract: Upgrader.run() is called with yes=True on both the PyPI branch and the
+      local-sync branch
+  then:
+    abstract:
+    - input() is never called in any of the four combinations
+    - Each run performs its action (upgrade, or sync + init --force) and returns 0
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:Y007-UNIT-005-non-interactive-decision-is-stated-not-silent
+    id: AC-UNIT-005
+    purpose: 'Match the repo''s loud-over-silent posture: a run that answered its
+      own prompt says so in its output, and there is no environment variable that
+      switches the behaviour back off'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - stdin reports not-a-terminal and a newer version is on PyPI
+    - The upgrader source file is also read from disk for a static scan
+  when:
+    abstract: Upgrader.run() is called with yes=False, and its stdout is captured
+  then:
+    abstract:
+    - The captured output states that no terminal was detected and that the confirmation
+      was answered non-interactively, naming the action it is about to take
+    - The output names the command a reader can run to do it by hand, so a log reader
+      can reproduce the decision
+    - "The upgrader defines no bypass environment variable for this behaviour \u2014\
+      \ the only override is the explicit --yes flag already on the CLI"
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:Y007-UNIT-006-runnable-does-not-become-automatic
+    id: AC-UNIT-006
+    purpose: This WMBT removes a barrier; it must not grant anyone licence to upgrade
+      unbidden. The pre-push gate keeps refusing and naming the remedy, and no code
+      path acquires a new self-triggered upgrade
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - is_outdated() returns (True, '3.106.0', '4.27.0') and auto_upgrade / Upgrader.run
+      are patched with call tracking
+  when:
+    abstract: _gate_main() is called (catching SystemExit), and the tree is scanned
+      for callers of Upgrader.run outside the `atdd upgrade` CLI entrypoint
+  then:
+    abstract:
+    - "_gate_main still exits 1 and still names `atdd upgrade` in its refusal, calling\
+      \ neither auto_upgrade() nor Upgrader.run() \u2014 the wmbt:integration-hardening:Y004\
+      \ guarantee is preserved unchanged"
+    - The only caller of Upgrader.run() remains the `atdd upgrade` CLI handler; no
+      hook, gate, or lifecycle transition invokes it
+    - Whether an agent should attempt an upgrade at all remains undecided here and
+      is left to the autonomy axis (#1626)
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:Y007-SMOKE-001-real-upgrade-with-stdin-closed-does-not-raise
+    id: AC-SMOKE-001
+    purpose: "SMOKE: the field failure, reproduced and closed \u2014 a real `atdd\
+      \ upgrade` subprocess with no stdin completes instead of raising EOFError from\
+      \ upgrader.py"
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real ATDD repo on disk with a .atdd/config.yaml whose toolkit.last_version
+      is stale relative to the installed version
+    - 'Nothing is mocked inside the child: the real CLI is invoked as a subprocess
+      with stdin=DEVNULL, so stdin genuinely is not a terminal'
+    - --no-pypi is passed so the smoke does not depend on network reachability or
+      mutate the shared install
+  when:
+    abstract: '`atdd upgrade --no-pypi` is run as a subprocess with stdin closed and
+      its stdout, stderr and exit code captured'
+  then:
+    abstract:
+    - The process exits 0
+    - Neither 'EOFError' nor 'EOF when reading a line' appears anywhere in the captured
+      output
+    - The output records that the confirmation was resolved non-interactively
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
