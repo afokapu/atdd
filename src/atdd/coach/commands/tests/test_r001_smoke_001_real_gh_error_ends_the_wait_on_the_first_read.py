@@ -59,10 +59,21 @@ def live_gh() -> None:
 def unresolvable_is_really_unresolvable(live_gh) -> str:
     """Confirm with the live API that the number really does not resolve.
 
-    Guards against the test passing because of some *other* failure: it pins
-    that the fault under test is the one GitHub emits for a missing PR.
+    Guards against the test passing — or failing — because of some *other*
+    failure: it pins that the fault under test is the one GitHub emits for a
+    missing PR, not whatever else the API happens to be saying today.
+
+    An exhausted GraphQL quota is the environment being unable to answer, so it
+    skips. Any other unexpected failure mode still fails loudly: the difference
+    matters, because a rate-limit error would otherwise be silently accepted as
+    evidence for a claim about missing pull requests.
     """
     probe = _gh("pr", "checks", str(UNRESOLVABLE_PR), "--json", "state")
+    if "rate limit" in (probe.stderr or "").lower():
+        pytest.skip(
+            "GitHub GraphQL quota is exhausted, so the API cannot report whether "
+            f"PR #{UNRESOLVABLE_PR} resolves: {probe.stderr.strip()}"
+        )
     assert probe.returncode != 0, (
         f"PR #{UNRESOLVABLE_PR} unexpectedly resolves; pick a higher number"
     )
