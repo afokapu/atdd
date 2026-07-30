@@ -492,6 +492,13 @@ class ProjectInitializer:
         - ``.atdd/state/backups/``         local pre-mutation store backups.
         - ``.atdd/manifest.migrated.yaml`` the one-shot manifest→store migration
           backup (``manifest_import._BACKUP_NAME``) (#1325 item 6).
+        - ``.atdd/runtime/``               per-checkout runtime state, including the
+          toolkit-sync record that mutes the upgrade banner (#1641). It MUST stay
+          untracked: its tracked predecessor was reverted by every branch switch,
+          which is what made the banner fire forever.
+        - ``.atdd/version_cache.json``     vestigial; the PyPI cache really lives at
+          ``~/.atdd/version_cache.json``. Ignored defensively so a stray copy left by
+          an older CLI cannot become untracked noise.
 
         **Never** ``.atdd/state/`` wholesale (#1580). That is what this wrote until the
         2026-07-20 mass-deletion, and it took ``.atdd/state/projection/`` — the *shared*
@@ -505,6 +512,8 @@ class ProjectInitializer:
         self._ensure_gitignore_entry(".atdd/state/state.sqlite*")
         self._ensure_gitignore_entry(".atdd/state/backups/")
         self._ensure_gitignore_entry(".atdd/manifest.migrated.yaml")
+        self._ensure_gitignore_entry(".atdd/runtime/")
+        self._ensure_gitignore_entry(".atdd/version_cache.json")
 
     def _ensure_gitignore_entry(self, entry: str) -> None:
         """Append *entry* to the repo .gitignore if not already present."""

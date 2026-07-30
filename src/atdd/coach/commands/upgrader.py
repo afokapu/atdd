@@ -15,7 +15,7 @@ from atdd.version_check import (
     get_upgrade_notes,
     _load_repo_config,
     _get_last_toolkit_version,
-    update_toolkit_version,
+    record_toolkit_sync,
     is_outdated,
     auto_upgrade,
     upgrade_command,
@@ -142,10 +142,10 @@ class Upgrader:
             print(f"atdd init --force failed (exit {rc})")
             return 1
 
-        # Update last_version
+        # Record the sync in this checkout's untracked runtime record (#1641).
         if config_path:
-            update_toolkit_version(config_path)
-            print(f"\nUpdated toolkit.last_version to {installed}")
+            record_toolkit_sync(config_path.parent.parent)
+            print(f"\nRecorded toolkit sync at {installed}")
 
         print(f"\nSync complete: {last_version} → {installed}")
         return 0
