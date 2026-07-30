@@ -1,4 +1,10 @@
-"""A label write refused for lack of permission must say so (#1621).
+# URN: test:govern-lifecycle:R009-UNIT-003-a-refused-phase-label-write-reports-the-divergence
+# Acceptance: acc:govern-lifecycle:R009-UNIT-003-a-refused-phase-label-write-reports-the-divergence
+# WMBT: wmbt:govern-lifecycle:R009
+# Phase: RED
+# Layer: backend.application
+# Assertion: behavioral
+"""R009-UNIT-003 — a label write refused for lack of permission must say so (#1621).
 
 The token bug is one line of YAML. The reason it survived two full investigations
 is this: when the write failed, it failed as an unhandled ``GitHubClientError``
@@ -11,10 +17,13 @@ no retry fixes a scope that was never granted. It also leaves real damage —
 the store write lands first (#1452), so a refused label write means
 ``objects.state`` has advanced and the ``atdd:<phase>`` label has not. The
 operator has to be told that, not handed a traceback.
+
+This file covers both callers of the authoritative writer: the transition path
+(``update``) and the repair path (``reproject_phase_label``). The classification
+that produces the refusal in the first place is R009-UNIT-002.
 """
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any, List
 
@@ -22,7 +31,6 @@ import pytest
 
 from atdd.coach.commands.issue import IssueManager
 from atdd.coach.github import (
-    GitHubClient,
     GitHubClientError,
     GitHubPermissionError,
 )
@@ -71,95 +79,6 @@ def _run_gh_returning(monkeypatch, returncode: int, stderr: str) -> GitHubClient
 
     monkeypatch.setattr("atdd.coach.github.subprocess.run", fake_run)
     return client
-
-
-# ---------------------------------------------------------------------------
-# _run_gh classifies the refusal
-# ---------------------------------------------------------------------------
-
-def test_permission_refusal_is_raised_as_its_own_type(monkeypatch) -> None:
-    """The refusal is distinguishable in code, not just in prose."""
-    client = _run_gh_returning(monkeypatch, 1, _LIVE_REFUSAL)
-
-    with pytest.raises(GitHubPermissionError) as refused:
-        client.remove_label(1601, ["atdd:REFACTOR"])
-
-    # Still a GitHubClientError, so existing handlers keep working.
-    assert isinstance(refused.value, GitHubClientError)
-    message = str(refused.value)
-    assert "permission" in message.lower(), message
-    # It names the failing call and quotes what GitHub actually said.
-    assert "issue" in message and "edit" in message, message
-    assert "Resource not accessible" in message, message
-
-
-def test_permission_refusal_names_the_credential_in_play(monkeypatch) -> None:
-    """"Which token?" is the first question, so the error answers it."""
-    monkeypatch.setenv("GH_TOKEN", "ghp_whatever")
-    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    client = _run_gh_returning(monkeypatch, 1, _LIVE_REFUSAL)
-
-    with pytest.raises(GitHubPermissionError) as refused:
-        client.add_label(1601, ["atdd:COMPLETE"])
-    assert "GH_TOKEN" in str(refused.value), str(refused.value)
-
-
-#: Failures that are NOT refusals. Each would be actively harmed by the
-#: permission diagnosis, which tells the reader that retrying cannot help.
-_TRANSIENT_FAILURES = [
-    pytest.param(
-        "error connecting to api.github.com: i/o timeout",
-        id="transport-timeout",
-    ),
-    # GitHub answers a secondary rate limit with 403 — the SAME status as a
-    # refusal. Classifying on the status code rather than the wording is how a
-    # rate limit gets reported as a missing scope, which is the original defect
-    # pointed the other way: an operator who need only wait is sent to audit
-    # token scopes instead.
-    pytest.param(
-        "HTTP 403: You have exceeded a secondary rate limit and have been "
-        "temporarily blocked from content creation. Please retry your request "
-        "again later. (https://api.github.com/repos/afokapu/atdd/issues/1601/labels)",
-        id="secondary-rate-limit-403",
-    ),
-    pytest.param(
-        "HTTP 403: API rate limit exceeded for user ID 1. "
-        "(https://api.github.com/repos/afokapu/atdd/issues/1601/labels)",
-        id="primary-rate-limit-403",
-    ),
-]
-
-
-@pytest.mark.parametrize("stderr", _TRANSIENT_FAILURES)
-def test_an_ordinary_failure_is_not_reclassified(monkeypatch, stderr) -> None:
-    """Only a refusal is a refusal — a transient fault stays a plain error."""
-    client = _run_gh_returning(monkeypatch, 1, stderr)
-
-    with pytest.raises(GitHubClientError) as failed:
-        client.add_label(1601, ["atdd:COMPLETE"])
-    assert not isinstance(failed.value, GitHubPermissionError), (
-        f"a transient failure ({stderr[:60]}...) was reported as a permission "
-        "problem. The two have opposite remedies — one is waited out, the other "
-        "is never fixed by waiting — and must not be conflated."
-    )
-    assert "retrying cannot help" not in str(failed.value), (
-        "a retryable failure was told that retrying cannot help"
-    )
-
-
-@pytest.mark.parametrize(
-    "stderr",
-    [
-        _LIVE_REFUSAL,
-        "GraphQL: Resource not accessible by integration (addLabelsToLabelable)",
-        "HTTP 403: Resource not accessible by integration",
-    ],
-)
-def test_both_token_flavours_of_refusal_are_recognised(monkeypatch, stderr) -> None:
-    """GitHub words it differently for a PAT and for GITHUB_TOKEN; both mean the same."""
-    client = _run_gh_returning(monkeypatch, 1, stderr)
-    with pytest.raises(GitHubPermissionError):
-        client.add_label(1601, ["atdd:COMPLETE"])
 
 
 # ---------------------------------------------------------------------------

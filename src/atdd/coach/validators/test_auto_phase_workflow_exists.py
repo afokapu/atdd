@@ -1,3 +1,9 @@
+# URN: test:govern-lifecycle:R009-UNIT-001-workflow-names-only-the-token-its-permissions-describe
+# Acceptance: acc:govern-lifecycle:R009-UNIT-001-workflow-names-only-the-token-its-permissions-describe
+# WMBT: wmbt:govern-lifecycle:R009
+# Phase: RED
+# Layer: backend.integration
+# Assertion: structural
 """
 Coach validator: assert the atdd-auto-phase GitHub Actions workflow exists.
 
