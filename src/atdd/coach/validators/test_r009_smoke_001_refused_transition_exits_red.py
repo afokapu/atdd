@@ -203,11 +203,18 @@ def _write_gh_stub(bin_dir: Path) -> None:
         "labels": [{"name": "atdd-issue"}, {"name": f"atdd:{FROM_PHASE}"}],
     }
     stub = bin_dir / "gh"
+    # DECODE the payload in the stub; do not interpolate it as a Python literal.
+    # `f"ISSUE = {json.dumps(issue)}"` works only while the payload happens to
+    # contain no booleans or nulls: JSON writes `true`/`false`/`null`, which are
+    # not Python names, so one `"merged": True` turns this stub into a file that
+    # fails to parse. It then exits non-zero on EVERY call, which reads as a
+    # refusal — the very condition under test — and the test would pass while
+    # verifying nothing. Found at SMOKE (#1621) by hitting it in a wider harness.
     stub.write_text(
         "#!/usr/bin/env python3\n"
         "import json, sys\n"
-        f"ISSUE = {json.dumps(issue)}\n"
-        f"REFUSAL = {json.dumps(_LIVE_REFUSAL)}\n"
+        "ISSUE = json.loads(r'''" + json.dumps(issue) + "''')\n"
+        "REFUSAL = json.loads(r'''" + json.dumps(_LIVE_REFUSAL) + "''')\n"
         "argv = sys.argv[1:]\n"
         # The label write — the operation under test. Refuse it exactly as
         # GitHub did, on stderr, with a non-zero exit.
@@ -227,6 +234,23 @@ def _write_gh_stub(bin_dir: Path) -> None:
         "    print('{}')\n"
     )
     stub.chmod(0o755)
+    # Prove the stub RUNS before trusting it. A broken stub exits non-zero on
+    # every call — indistinguishable from the refusal under test — so it would
+    # make these assertions pass while verifying nothing.
+    #
+    # Note the failure is a runtime NameError (`true` is a perfectly valid
+    # Python identifier, just an unbound one), so `compile()` does NOT catch it.
+    # Only executing the stub does. A read is the safe call to probe with: the
+    # write is the operation the stub is built to refuse.
+    probe = subprocess.run(
+        [str(stub), "issue", "view", str(ISSUE)],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert probe.returncode == 0, (
+        "the `gh` stub does not run, so every call to it would look like a "
+        f"refusal and this test would pass while asserting nothing.\n"
+        f"exit={probe.returncode}\nstderr:\n{probe.stderr}"
+    )
 
 
 def _seed_store(control_root: Path) -> None:
