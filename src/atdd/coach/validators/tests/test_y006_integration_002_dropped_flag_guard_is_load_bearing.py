@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import ast
 import re
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -42,9 +43,31 @@ pytestmark = [pytest.mark.platform]
 _STORE_MERGE = re.compile(r'updates\[\s*["\']feature["\']\s*\]\s*=\s*feature')
 _CLI_FORWARD = re.compile(r'feature\s*=\s*args\.feature')
 
+# `feature=args.feature` legitimately appears at other author call sites (the
+# create path, and the plan-session author), so the CLI-side anchor is scoped to
+# the function that performs the REVISE publish. A repo-wide count would match
+# unrelated hops and could not tell which one had been removed.
+_CLI_FORWARD_FN = ("atdd.planner.commands.author", "_publish_revision")
 
-def _inject(source: str, pattern: re.Pattern, what: str) -> str:
-    """Remove one link, proving the edit landed and the result still parses."""
+
+def _function_source(module_path: str, func_name: str) -> str:
+    """The dedented source of one top-level function, for a scoped anchor scan."""
+    tree = ast.parse(source_of(module_path))
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == func_name:
+            return textwrap.dedent(ast.get_source_segment(source_of(module_path), node) or "")
+    raise AssertionError(f"{module_path} has no top-level function {func_name!r}")
+
+
+def _inject(source: str, pattern: re.Pattern, what: str, replacement: str) -> str:
+    """Remove one link, proving the edit landed and the result still parses.
+
+    ``replacement`` is context-dependent: a statement-position link is cut to
+    ``pass``, an argument-position link is cut to a literal that stops carrying
+    the value. Both express the same fault — the hop no longer transports the
+    feature — while keeping the mutated module parseable, so a SyntaxError can
+    never masquerade as a removed guard.
+    """
     matched = len(pattern.findall(source))
     assert matched == 1, (
         f"fault-injection anchor for {what} matched {matched} times, expected "
@@ -52,7 +75,7 @@ def _inject(source: str, pattern: re.Pattern, what: str) -> str:
         f"does not exist yet, so there is no guard to remove and `--feature` is "
         f"discarded between the CLI and the store (#1635 Break 4)."
     )
-    mutated = pattern.sub("pass  # fault injected", source)
+    mutated = pattern.sub(replacement, source)
     assert mutated != source, "injection produced an identical source (no-op edit)"
     ast.parse(mutated)  # a SyntaxError would fail this test for the WRONG reason
     return mutated
@@ -61,13 +84,15 @@ def _inject(source: str, pattern: re.Pattern, what: str) -> str:
 def test_store_merge_link_exists_and_is_removable() -> None:
     """`revise_work_item_issue` must merge the feature into the object data."""
     source = source_of("atdd.state.work_item_writer")
-    _inject(source, _STORE_MERGE, "the store-side feature merge")
+    _inject(source, _STORE_MERGE, "the store-side feature merge",
+            "pass  # fault injected")
 
 
 def test_cli_forward_link_exists_and_is_removable() -> None:
     """The revise CLI path must forward `args.feature` into the publish call."""
-    source = source_of("atdd.planner.commands.author")
-    _inject(source, _CLI_FORWARD, "the CLI-side feature forward")
+    source = _function_source(*_CLI_FORWARD_FN)
+    _inject(source, _CLI_FORWARD, "the CLI-side feature forward",
+            "feature=None  # fault injected")
 
 
 def test_revise_signature_carries_feature_end_to_end() -> None:

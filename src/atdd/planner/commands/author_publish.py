@@ -76,6 +76,41 @@ def _github_labels(status: str) -> List[str]:
     return ["atdd-issue", f"atdd:{status}"]
 
 
+def _require_resolvable_feature(
+    feature: Optional[str], control_root: Optional[Path]
+) -> None:
+    """Refuse a feature URN that does not resolve against ``plan/`` (#1635).
+
+    Skipped when there is no ``plan/`` tree to resolve against: a hermetic caller
+    minting into a bare temp directory has no graph to check, and failing it for
+    the absence of one it never had would be a guard misfiring rather than
+    working. Where a plan tree exists, the binding must be real.
+    """
+    from atdd.planner.commands.feature_binding import plan_is_available, resolve_feature
+
+    if not plan_is_available(control_root):
+        return
+    verdict = resolve_feature(feature, control_root)
+    if not verdict.resolved:
+        raise PublishError(f"invalid --feature: {verdict.detail}")
+
+
+def _derive_feature(body: str, control_root: Optional[Path]) -> Optional[str]:
+    """The feature URN implied by the body's Metadata table, when it resolves.
+
+    Derivation is deliberately narrow: the body's ``Feature`` row is the only
+    declaration an author has already made, so it is the only thing there is to
+    derive FROM. Anything that does not resolve is not silently accepted — the
+    caller refuses instead, which is what makes the null binding unreachable.
+    """
+    from atdd.planner.commands.feature_binding import feature_in_body, resolve_feature
+
+    declared = feature_in_body(body)
+    if declared is None:
+        return None
+    return declared if resolve_feature(declared, control_root).resolved else None
+
+
 def publish_issue(
     slug: str,
     body: str,
@@ -100,6 +135,19 @@ def publish_issue(
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
     from atdd.state.work_item_writer import create_work_item
+    from atdd.planner.commands.feature_binding import plan_is_available
+
+    # DERIVE-OR-REQUIRE (#1635). Validated BEFORE the store connection is opened,
+    # so a refused binding mints nothing at all — no half-published record.
+    if plan_is_available(control_root):
+        if feature is None:
+            feature = _derive_feature(body, control_root)
+        if feature is None:
+            raise PublishError(
+                "no --feature: an issue must declare a feature URN that resolves "
+                "in plan/, and none could be derived from the body's Feature row"
+            )
+        _require_resolvable_feature(feature, control_root)
 
     data: Dict[str, Any] = {
         "title": title, "type": issue_type, "branch": branch,
@@ -234,6 +282,7 @@ def revise_issue(
     *,
     body: Optional[str] = None,
     issue_type: Optional[str] = None,
+    feature: Optional[str] = None,
     control_root: Optional[Path] = None,
 ) -> RevisionResult:
     """Revise an issue-backed work item store-first, then project to GitHub.
@@ -242,9 +291,19 @@ def revise_issue(
     :class:`PublishError` and no provider mutation is attempted. The GitHub body
     update is best-effort projection: on failure it is recorded in the outbox so
     a retry path can replay it later.
+
+    ``feature`` is the hop Break 4 was missing (#1635): the CLI accepted the flag
+    and this function had no parameter to carry it. A feature that does not
+    resolve against ``plan/`` is refused BEFORE the store write, so a refused
+    revision never mutates the binding.
     """
-    if body is None and issue_type is None:
-        raise PublishError("revision requires --body-file and/or explicit --type")
+    if body is None and issue_type is None and feature is None:
+        raise PublishError(
+            "revision requires --body-file, --feature and/or explicit --type"
+        )
+
+    if feature is not None:
+        _require_resolvable_feature(feature, control_root)
 
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
@@ -264,6 +323,7 @@ def revise_issue(
         try:
             obj = revise_work_item_issue(
                 conn, issue_number, body=body, issue_type=issue_type,
+                feature=feature,
             )
         except Exception as exc:
             raise PublishError(

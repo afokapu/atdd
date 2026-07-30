@@ -69,8 +69,17 @@ def repo(tmp_path):
     write_plan_tree(root)
     store = open_store(root)
     seed_issue(store, slug="smoke-binding-probe", issue_number=_ISSUE, feature=None)
+    # A schema-valid body: `_run_issue_revise` gates on `validate_issue_body`
+    # before it ever reaches the feature check, so a hand-rolled fragment would
+    # make the CLI exit non-zero for a schema reason and the assertions below
+    # would prove nothing about plan/ resolution.
+    from atdd.planner.commands.author_issue import create_issue_body
+
     body = tmp_path / "body.md"
-    body.write_text("| Feature | `%s` |\n" % FEATURE_URN, encoding="utf-8")
+    body.write_text(
+        create_issue_body({"title": "smoke binding probe", "feature": FEATURE_URN}),
+        encoding="utf-8",
+    )
     return root, store, body
 
 

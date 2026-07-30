@@ -66,18 +66,32 @@ def bound(tmp_path):
 
 @pytest.fixture()
 def no_gh(monkeypatch):
-    """Any subprocess call fails loudly — resolution must not shell out."""
+    """Any PROVIDER call fails loudly — resolution must not query GitHub.
+
+    Scoped to `gh` (and anything naming the retired `atdd-wmbt` label) rather
+    than to every subprocess: opening the State Store legitimately runs
+    `git rev-parse --git-common-dir` to locate the control root, and banning all
+    subprocesses would fail the test on that rather than on a provider query.
+    What must not happen is a call to the provider — that is the independence
+    this acceptance is about.
+    """
     import subprocess
 
-    def _forbidden(*args, **kwargs):  # pragma: no cover - the point is not to run
-        raise AssertionError(
-            f"the resolver shelled out to a subprocess: {args!r}. Resolution must "
-            "read plan/ off disk, not query a provider."
-        )
+    real_run = subprocess.run
 
-    monkeypatch.setattr(subprocess, "run", _forbidden)
-    monkeypatch.setattr(subprocess, "check_output", _forbidden)
-    return _forbidden
+    def _guarded(cmd, *args, **kwargs):
+        argv = cmd if isinstance(cmd, (list, tuple)) else [cmd]
+        rendered = " ".join(str(a) for a in argv)
+        if str(argv[0]).endswith("gh") or "atdd-wmbt" in rendered:
+            raise AssertionError(
+                f"the resolver queried the provider: {rendered!r}. Resolution "
+                "must read plan/ off disk — the lookup this replaces swallowed "
+                "gh failures and returned an empty list."
+            )
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", _guarded)
+    return _guarded
 
 
 def test_resolver_returns_the_declared_wmbts_in_order(bound, no_gh) -> None:
