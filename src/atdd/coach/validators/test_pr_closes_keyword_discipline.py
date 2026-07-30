@@ -42,7 +42,11 @@ from atdd.coach.commands.pr import PRManager
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._pr_scope import select_for_current_pr
 from atdd.coach.validators._violation import Violation
+from atdd.coach.validators.test_pr_merge_blocks_pre_smoke_close import (
+    _current_pr_number,
+)
 
 pytestmark = [pytest.mark.coach, pytest.mark.github_api]
 
@@ -235,6 +239,22 @@ def scan_open_prs_for_closes_keyword_discipline(
     return evaluate_closes_keyword_violations(records)
 
 
+def select_blocking_violations(
+    violations: Sequence[Violation], current_pr: Optional[int],
+) -> List[Violation]:
+    """The violations that should FAIL this strict gate on this CI run (#1478).
+
+    This gate scans every open PR, so without scoping one offending PR reds every
+    other contributor's build. Same treatment as the pre-SMOKE twin: only the PR
+    under validation blocks, and a run that cannot name its own PR is advisory-only.
+
+    Locations here are ``PR#<n>:body`` / ``PR#<n>:commit:<sha>``, so matching is by
+    the ``PR#<n>:`` prefix — an exact-location match would silently drop the
+    commit-injected form.
+    """
+    return select_for_current_pr(violations, current_pr)
+
+
 # ---------------------------------------------------------------------------
 # Unit tests — pure evaluator, synthetic fixtures (no network)
 # ---------------------------------------------------------------------------
@@ -377,14 +397,19 @@ def test_no_unintended_closes_keyword_in_open_prs():
             the disposition gate fails on. Strict disposition: bypass forbidden.
     """
     violations = scan_open_prs_for_closes_keyword_discipline(REPO_ROOT)
+    # Every offender is scanned and logged; only the PR under validation blocks
+    # this run (#1478). Without this the gate reds every contributor's branch for
+    # a stranger's offense.
+    blocking = select_blocking_violations(violations, _current_pr_number())
     assert_disposition_satisfied(
         validator_id=_VALIDATOR_ID,
-        violations=violations,
+        violations=blocking,
     )
 
 
 __all__ = [
     "evaluate_closes_keyword_violations",
     "scan_open_prs_for_closes_keyword_discipline",
+    "select_blocking_violations",
     "test_no_unintended_closes_keyword_in_open_prs",
 ]
