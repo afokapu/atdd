@@ -6,10 +6,13 @@ Simple script to remove consecutive duplicate lines in test files.
 from pathlib import Path
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
 
 
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
+# Declared in .atdd/config.yaml, not frozen here
+# (coach.graph.implementation-root-resolution). None == no python stack.
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
 
 
 def remove_consecutive_duplicates(content: str) -> tuple[str, bool]:
@@ -39,7 +42,7 @@ def remove_consecutive_duplicates(content: str) -> tuple[str, bool]:
 
 def find_test_files() -> list:
     """Find all Python test files."""
-    if not PYTHON_DIR.exists():
+    if PYTHON_DIR is None or not PYTHON_DIR.exists():
         return []
 
     test_files = []

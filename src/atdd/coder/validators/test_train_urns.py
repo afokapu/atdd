@@ -23,12 +23,18 @@ from typing import List, Dict, Set, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
+
+
+def _under(root, *parts):
+    """Join *parts* under a resolved stack root, or None when it is undeclared."""
+    return None if root is None else root.joinpath(*parts)
 
 
 # Path constants
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
-ORCHESTRATORS_DIR = REPO_ROOT / "python" / "trains" / "orchestrators"
+ORCHESTRATORS_DIR = _under(resolve_code_root("python", REPO_ROOT), "trains", "orchestrators")
 TRAINS_DIR = REPO_ROOT / "plan" / "_trains"
 
 # Package resources (conventions, schemas)
@@ -38,7 +44,7 @@ TRAIN_CONVENTION = ATDD_PKG_DIR / "planner" / "conventions" / "train.convention.
 
 def find_theme_orchestrators() -> List[Path]:
     """Find all theme orchestrator files in python/trains/orchestrators/."""
-    if not ORCHESTRATORS_DIR.exists():
+    if ORCHESTRATORS_DIR is None or not ORCHESTRATORS_DIR.exists():
         return []
 
     orchestrators = []
@@ -98,7 +104,7 @@ def load_train_spec(train_file: Path) -> Dict:
 
 def test_theme_orchestrators_exist():
     """Theme orchestrators should exist in python/trains/orchestrators/ directory."""
-    if not ORCHESTRATORS_DIR.exists():
+    if ORCHESTRATORS_DIR is None or not ORCHESTRATORS_DIR.exists():
         pytest.skip("python/trains/orchestrators/ not found")
 
     orchestrators = find_theme_orchestrators()

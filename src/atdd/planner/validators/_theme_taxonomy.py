@@ -79,7 +79,6 @@ ARCHETYPE_THEME_ROOTS: Dict[str, str] = {
 #: applied. SINGLE SOURCE — delete entries here as #951 re-themes each wagon.
 DEFERRED_RETHEME_WAGONS: frozenset = frozenset(
     {
-        "mediate-worker-decisions",
         # consolidate-coach-workspace is coach functionality currently themed
         # commons; its enforce-surface-conformance feature legitimately reuses the
         # #470 coach naming primitive + the coach multiplexer (live smoke). The

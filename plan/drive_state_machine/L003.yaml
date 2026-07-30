@@ -1,0 +1,70 @@
+urn: "wmbt:drive-state-machine:L003"
+step: "locate"
+direction: "minimize"
+dimension: "effort"
+object_of_control: "effort-to-locate-the-session-to-resume-after-a-crash"
+context_clarifier: "The point of recording identity is recovery. After a crash an orchestrator must be able to re-enter the fleet from the store alone: for each work_item, learn which sessions touched it, when each was last seen, and the literal command to resume the right one — with no multiplexer installed. Today that depends on the multiplexer's own session file, a single-provider artifact with one rollback slot; when it is lost, nothing survives. The projection extends the existing read surface (`state/cli.py`, beyond `trace list/export`) and emits a runnable command built from the session id and the cwd captured at participation. Roles are never stored, so the projection does not print one — it prints the facts that make inference tractable: a session participating only in the worktree matching its own launch cwd behaves as a worker; one participating across many behaves as an orchestrator acting on others' behalf. Inference is the reader's, at read time."
+lens: "functional.efficiency"
+statement: "minimize effort-to-locate-the-session-to-resume-after-a-crash by projecting, per work_item, each session that touched it with its `last_seen_at` and a runnable resume command composed of the session id and the worktree path captured at participation — emitted from the store alone with no multiplexer installed and no role asserted"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:L003-UNIT-001-projection-emits-runnable-resume-command"
+      id: "AC-UNIT-001"
+      purpose: "The projection emits a runnable resume command carrying session id and cwd per session"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store with a work item carrying several participating sessions, each with a worktree path and recency"
+    when:
+      abstract: "The session projection is rendered for that work item"
+    then:
+      abstract:
+        - "One entry per session is emitted, ordered by `last_seen_at`"
+        - "Each entry carries a resume command containing that session's id and its captured cwd"
+        - "No role is asserted in the output"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:L003-UNIT-002-projection-reads-store-only"
+      id: "AC-UNIT-002"
+      purpose: "The projection resolves entirely from the store, with no multiplexer present"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A store carrying session participations and no multiplexer state file or binary available"
+    when:
+      abstract: "The session projection is rendered"
+    then:
+      abstract:
+        - "It renders successfully from the store alone"
+        - "No multiplexer is read or invoked"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:L003-SMOKE-001-resume-command-is-runnable-after-recovery"
+      id: "AC-SMOKE-001"
+      purpose: "The emitted resume command is well-formed and runnable against a real recorded session"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real control-root store in which a session was recorded through the real chokepoints"
+    when:
+      abstract: "The projection is rendered and the emitted command is inspected"
+    then:
+      abstract:
+        - "The command names the recorded session id and the recorded worktree path"
+        - "It is syntactically runnable as emitted, requiring no hand-editing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"

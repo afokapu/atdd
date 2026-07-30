@@ -1,0 +1,86 @@
+urn: "wmbt:bind-extension-conventions:L001"
+step: "locate"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "an-unbound-gating-obligation-or-a-phantom-binding-going-unnamed"
+context_clarifier: "the binding lock is a projection of the obligations that gate, but today it is a lossy one: 50 extension convention nodes are declared, only 26 are bound, and the two sets are not nested — 28 declared nodes have no binding and 4 bound entries have no extension node. Before anything can be bound the gap must be NAMED, and named in both directions: every declared-but-unbound obligation (a convention with no mechanism) AND every bound-but-undeclared phantom (a mechanism married to an obligation no extension node wrote down). The inventory is a pure partition over (declared-with-disposition, bound): overlap, declared-not-bound, bound-not-declared. Of the 28 declared-not-bound, 26 carry a gating disposition (strict/advisory/suppress-and-clean) and 2 are documentation-only (coder.performance.perf, tester.migration.naming) which are exempt from binding. The 4 phantom entries are the tester.* detectors whose obligation is declared in core rather than under .atdd/extensions. Naming the gap is the diagnosis the fan-out then closes; leaving any member unnamed lets an obligation silently default or a phantom silently enforce."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of an unbound gating obligation or a phantom binding going unnamed by computing a pure partition over the declared extension nodes and the bound lock entries that names every declared-but-unbound obligation and every bound-but-undeclared phantom, separating the 26 gating obligations from the 2 documentation-only exemptions"
+acceptances:
+  - identity:
+      urn: "acc:bind-extension-conventions:L001-UNIT-001-inventory-partitions-declared-bound-and-phantom"
+      id: "AC-UNIT-001"
+      purpose: "The inventory partitions the declared extension nodes and bound lock entries into overlap, declared-not-bound, and bound-not-declared with the measured cardinalities"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-fanout snapshot: 50 declared extension nodes carrying their dispositions and the 26 bound convention ids"
+    when:
+      abstract: "The binding-gap inventory is computed over the snapshot"
+      action: "invoke"
+    then:
+      abstract:
+        - "The overlap is 22, declared-not-bound is 28, and bound-not-declared is 4"
+        - "Within declared-not-bound, 26 carry a gating disposition and 2 are documentation-only"
+      assertions:
+        - type: "equals"
+        - type: "partition"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"
+  - identity:
+      urn: "acc:bind-extension-conventions:L001-UNIT-002-inventory-names-every-gating-unbound-and-phantom"
+      id: "AC-UNIT-002"
+      purpose: "The inventory names each declared-but-unbound gating obligation and each bound-but-undeclared phantom, not just their counts"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The pre-fanout snapshot of declared extension nodes and bound convention ids"
+    when:
+      abstract: "The binding-gap inventory is computed and its named sets are read"
+      action: "invoke"
+    then:
+      abstract:
+        - "The gating-unbound set is exactly the 26 named coder.* obligations the multi-rule detectors emit"
+        - "The phantom set is exactly the 4 named tester.* bindings with no extension node"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"
+  - identity:
+      urn: "acc:bind-extension-conventions:L001-SMOKE-001-live-inventory-is-coherent-after-fanout"
+      id: "AC-SMOKE-001"
+      purpose: "Over the real committed substrate the live inventory shows every gating obligation bound and only the documentation-only nodes left unbound"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "The toolkit's own real .atdd/extensions convention nodes and committed binding.lock.yaml after the fan-out"
+    when:
+      abstract: "The binding-gap inventory is computed over the live substrate"
+      action: "invoke"
+    then:
+      abstract:
+        - "No gating obligation remains unbound and the only declared-not-bound nodes are the two documentation-only exemptions"
+        - "The partition is exhaustive: every bound entry is classified and every declared node is accounted for"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the gating-node validator reads the same inventory and passes because every gating obligation it names is bound"
+      drift_resolved: "the only declared-not-bound nodes the live inventory reports are coder.performance.perf and tester.migration.naming"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"

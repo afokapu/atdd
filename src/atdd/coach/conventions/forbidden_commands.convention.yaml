@@ -2,7 +2,25 @@ version: "1.0"
 name: "Forbidden Commands Registry"
 description: |
   YAML-backed registry of commands blocked or rate-limited by the
-  claude-pre-tool-use hook (issue #668, L1 enforcement).
+  command classifier (issue #668).
+
+  SCOPE NOTE (#1556): this registry is read by a per-agent interception hook.
+  Interception can only be implemented per-agent — one agent has a pre-tool-use
+  seam, another has a different shape, a human at a terminal has none — so N
+  agents means N couplings, and core must name no agent. Decommissioning that
+  hook is DEFERRED to #1557, which builds the agent-agnostic replacement:
+  removing it before the replacement exists leaves the acceptances in
+  wmbt:integration-hardening:E006 declaring harness.type with no anchored test,
+  which the strict, unsuppressible repo-contract rule
+  tester.acceptance-violation.validator-binding-must-be-bidirectional rejects.
+
+  Until then this file retains its enforcement role. Do not describe it as
+  advisory while a live consumer still parses it.
+
+  Not covered by any agent-agnostic mechanism today (the PATH shims cover
+  `gh issue create` and the git-config danger keys, and nothing else):
+  ATDD-FORBID-GH-PR-CREATE, ATDD-FORBID-CMUX-SEND-CLAUDE, ATDD-LOOP-GH-PR-POLL.
+  Those three are #1557's to re-home.
 
   match_type values:
     hard_block  — always blocked, exits 2 with educational error
@@ -12,29 +30,10 @@ description: |
                   loop_detection.threshold times within loop_detection.ttl_seconds
 
   match spec fields (within each pattern's "match:" key):
-    argv           — list of argv tokens that must appear as a CONSECUTIVE run
-                     in the shlex-tokenized command. Matches an *invocation*,
-                     not a mention: `grep -rn "gh issue create"` collapses the
-                     quoted string into ONE token, so it cannot match the
-                     three-token run [gh, issue, create] and is correctly
-                     allowed. Prefer this for any prohibition on a plain
-                     command — the substring forms below FALSE-POSITIVE on
-                     greps, commit messages, and docs that merely quote the
-                     command.
-                     When the command cannot be tokenized (unbalanced quote),
-                     an argv rule DEGRADES to a substring test on the joined
-                     tokens — block on doubt. Allowing outright would make
-                     `gh issue create --title "unclosed` a one-character bypass
-                     of the prohibition. This is distinct from the classifier
-                     CRASH path, which still fails OPEN (see fail_behavior).
     contains       — substring that must appear in the command
     contains_all   — list of substrings that must ALL appear
     contains_any   — list of substrings where ANY one is sufficient
     regex          — Python re.search pattern applied to the command
-
-  The substring forms are retained for the rules below whose targets are not
-  clean argv runs (a cmux payload, a git flag combination, a polling verb set).
-  They still match mentions as well as invocations — see issue #1454.
 
   Classifier decision 6 (issue #668): on registry load failure the classifier
   fails OPEN — every tool call is allowed and a warning is printed to stderr.
@@ -47,7 +46,7 @@ patterns:
     match_type: hard_block
     description: "gh issue create bypasses atdd manifest registration and WMBT sub-issue generation"
     match:
-      argv: ["gh", "issue", "create"]
+      contains: "gh issue create"
     reason: >
       gh issue create bypasses atdd manifest registration, WMBT sub-issue
       generation, and Project v2 field setup. Any issue created this way will
@@ -59,7 +58,7 @@ patterns:
     match_type: hard_block
     description: "gh pr create bypasses --base validation against the repo default branch"
     match:
-      argv: ["gh", "pr", "create"]
+      contains: "gh pr create"
     reason: >
       gh pr create bypasses --base validation against the repo default branch.
       Incident: PR #475 was opened with a sibling branch as base; when the

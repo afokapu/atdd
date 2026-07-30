@@ -29,6 +29,7 @@ from typing import Optional
 import yaml
 
 from atdd.state import dispositions, merge_authority, policy
+from atdd.state.cli_support import NO_ROOT, REPO_ROOT_HELP, add_verb, opt
 from atdd.state.merge_authority import MergeAuthorityError, REQUIRED_CHECKS
 from atdd.state.trailers import TrailerParseError, parse_trailers
 
@@ -40,34 +41,38 @@ OPS = ("trailers", "merge-authority", "policy-check", "disposition-check")
 
 def add_parsers(sub) -> None:
     """Register the merge-authority verbs on the ``atdd state`` sub-parser."""
-    tr = sub.add_parser("trailers", help="Parse a commit's ATDD trailer group (refuses malformed).")
+    # `trailers` reads the message from exactly one source, so its two flags are a mutually
+    # exclusive group rather than plain options — the one verb here `add_verb` cannot express.
+    tr = add_verb(
+        sub, "trailers", "Parse a commit's ATDD trailer group (refuses malformed).", root=NO_ROOT,
+    )
     source = tr.add_mutually_exclusive_group()
     source.add_argument("--commit", default="HEAD", help="Commit to read (default: HEAD).")
     source.add_argument("--message-file", default=None, help="Read the message from a file.")
-    tr.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    tr.add_argument("--root", default=None, help=REPO_ROOT_HELP)
 
-    ma = sub.add_parser(
-        "merge-authority",
-        help="CI gate: run the section-4 required-check set over the projection diff.")
-    ma.add_argument("--base", default=None,
-                    help="Base ref the diff is taken against (e.g. origin/main).")
-    ma.add_argument("--head", default="HEAD", help="Head ref (default: HEAD).")
-    ma.add_argument("--check", default=None, choices=list(REQUIRED_CHECKS),
-                    help="Run one check instead of the whole set.")
-    ma.add_argument("--actor", default="",
-                    help="The writer of the diff (a 'bot:'-prefixed actor is an extension).")
-    ma.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "merge-authority",
+        "CI gate: run the section-4 required-check set over the projection diff.",
+        opt("--base", default=None,
+            help="Base ref the diff is taken against (e.g. origin/main)."),
+        opt("--head", default="HEAD", help="Head ref (default: HEAD)."),
+        opt("--check", default=None, choices=list(REQUIRED_CHECKS),
+            help="Run one check instead of the whole set."),
+        opt("--actor", default="",
+            help="The writer of the diff (a 'bot:'-prefixed actor is an extension)."),
+    )
 
-    pol = sub.add_parser(
-        "policy-check",
-        help="Prove the required-check policy and the merge-authority workflow are equal sets.")
-    pol.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "policy-check",
+        "Prove the required-check policy and the merge-authority workflow are equal sets.",
+    )
 
-    dis = sub.add_parser(
-        "disposition-check",
-        help="Prove every convention node this train authors ships strict (or a paid advisory).")
-    dis.add_argument("--train", default=dispositions.TRAIN_ID, help="The authoring train.")
-    dis.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "disposition-check",
+        "Prove every convention node this train authors ships strict (or a paid advisory).",
+        opt("--train", default=dispositions.TRAIN_ID, help="The authoring train."),
+    )
 
 
 def _root(args) -> Path:

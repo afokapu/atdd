@@ -1,0 +1,33 @@
+urn: "wmbt:govern-lifecycle:E069"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-smoke-execution-gate-that-no-run-can-ever-satisfy-because-the-repo-declares-zero-live-smoke-acceptances-so-smoke-to-refactor-is-reachable-only-by-force"
+context_clarifier: "when the #1602 SmokeExecutionGateCheck is enabled on SMOKE->REFACTOR while plan/ declares no execution_kind: live_smoke acceptance — the attestation hook resolves the tests it must attest for by walking plan/ for live_smoke acceptances (smoke_attestation.live_smoke_test_files), so with none declared it is a no-op, no run can write an attestation, every transition out of SMOKE fails closed, and the only remaining exit is --force, which converts a fail-closed gate into a rubber stamp and makes the gate worse than no gate at all; the same absence leaves E060's constant-evidence gate dormant for want of a subject (#1602, after #1151 and #1298)"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-smoke-execution-gate-that-no-run-can-ever-satisfy-because-the-repo-declares-zero-live-smoke-acceptances-so-smoke-to-refactor-is-reachable-only-by-force by declaring an execution_kind: live_smoke acceptance whose anchored test drives the whole #1602 chain against real infrastructure through the shipped harness atdd.coach.gate.live_smoke — a real git repository, a real pytest subprocess that loads the substrate plugin through the same pytest11 entry point a consumer's pip install materializes, a real State Store, and the real SmokeExecutionGateCheck — so a run that executes writes an attestation that OPENS the gate while a run that never executes leaves it CLOSED, making the gate satisfiable by running smoke rather than by forcing past it, and giving the E060 constant-evidence gate its first real harness to police"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E069-SMOKE-001-live-smoke-run-attests-and-opens-the-gate"
+      id: "AC-SMOKE-001"
+      purpose: "Driving the #1602 chain against real infrastructure — a real git repository, a real pytest subprocess auto-loading the substrate plugin from materialized pytest11 distribution metadata, a real State Store, the real SmokeExecutionGateCheck — records an attestation naming the acceptance, the execution kind, a non-zero duration and the commit it exercised, and that attestation is what opens SMOKE->REFACTOR; the same chain driven with a test that never executes records a non-passing outcome and leaves the gate closed, so the gate is satisfiable by running smoke and by nothing else"
+      phase: "SMOKE"
+    execution_kind: "live_smoke"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.coach.gate.live_smoke ships the live-smoke harness: it builds a genuine ATDD repository with real git history, a plan/ declaring an execution_kind: live_smoke acceptance, an anchored probe test and a State Store work item bound to the issue"
+        - "The harness materializes the .dist-info a pip install atdd would leave behind, with the pytest11 entry points read out of this repo's pyproject.toml, so the subprocess loads the substrate plugin through importlib.metadata rather than through a -p flag the harness supplied"
+        - "Nothing in the chain is stubbed: the git binary, the pytest subprocess, the SQLite State Store and SmokeExecutionGateCheck are all the real ones, and the harness itself has no way to write an attestation — it can only run pytest and then look"
+    when:
+      abstract: "smoke_execution_chain(workdir) drives both directions — one fixture repository whose probe executes and passes, one whose probe never executes despite a green suite — and returns evidence read back out of the real subprocess, the real store and the real gate verdicts"
+    then:
+      abstract:
+        - "The executing run writes exactly one attestation: outcome passed, a non-zero measured duration, commit_sha equal to the fixture repository's HEAD, execution_kind live_smoke, and the acceptance URN it discharges"
+        - "SmokeExecutionGateCheck refuses SMOKE->REFACTOR before that run and passes after it, so the attestation — not the harness, and not a typed stamp — is what opened the gate"
+        - "The run that never executes records a non-passing outcome and SmokeExecutionGateCheck still refuses SMOKE->REFACTOR, so a green suite that skipped its live-smoke test cannot pass for executed smoke"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-25"

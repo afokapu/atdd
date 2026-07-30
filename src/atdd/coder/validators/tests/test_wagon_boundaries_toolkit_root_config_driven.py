@@ -27,6 +27,10 @@ import pytest
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coder.validators._toolkit_roots import ScanRoot, resolve_scan_roots
+from atdd.coder.validators.tests._four_tier_exemplar import (
+    NO_FOUR_TIER_FEATURE,
+    find_four_tier_feature,
+)
 from atdd.coder.validators.test_wagon_boundaries import (
     find_implementation_files,
     get_wagon_from_path,
@@ -52,14 +56,20 @@ def test_toolkit_implementation_files_discovered_and_fixtures_excluded():
     impls = find_implementation_files(roots=[scan_root])
     posix = {p.as_posix() for p in impls}
 
-    known = (
-        REPO_ROOT
-        / "src/atdd/consolidate_coach_workspace/enforce_surface_conformance"
-        / "src/application/apply_layout_use_case.py"
-    )
-    assert known.as_posix() in posix, "a known toolkit impl file must be discovered"
+    # Fixture exclusion is not exemplar-specific — it stays live unconditionally.
     assert not any("coder/validators/fixtures" in p for p in posix), (
         "negative fixtures under coder/validators/fixtures/ must be excluded"
+    )
+
+    # Discovering a known impl file needs a real four-tier feature to point at.
+    # Skips on absence of the *subject*, never on the identity of the repo.
+    feature_dir = find_four_tier_feature(scan_root.discovery_root)
+    if feature_dir is None:
+        pytest.skip(NO_FOUR_TIER_FEATURE)
+    application = feature_dir / "src" / "application"
+    expected = {p.as_posix() for p in application.glob("*.py") if p.name != "__init__.py"}
+    assert expected & posix, (
+        f"a known toolkit impl file under {application} must be discovered"
     )
 
 

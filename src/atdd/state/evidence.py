@@ -24,14 +24,28 @@ out of it and are the whole of the validator's contract:
 Every rejection carries the uid, the attempted transition, and the failed clause — a
 report that names only "illegal" gives an operator nothing to act on.
 
+The second half of this module (below the divider) is the **smoke-execution
+attestation** (#1602): the record that a live-smoke test actually RAN. It is a
+different kind of evidence from the projection-diff tokens above — those are
+*derived from a commit* at merge-authority time, this one is *captured by the
+test run itself* — so the two are kept apart deliberately and share nothing but
+this file. In particular ``evidence_for``'s ``smoke_evidence_artifact``
+derivation is NOT extended to read it: the merge authority may only read what is
+in the commit, and a run artifact is not.
+
 Dependency discipline: stdlib + ``atdd.state`` only. No provider, and in particular no
-``external_refs`` is ever consulted for a lifecycle decision (I7, spec §8.2 rule 5).
+``external_refs`` is ever consulted for a lifecycle decision (I7, spec §8.2 rule 5) —
+which is why every attestation function below is keyed by **work-item uid** and never
+by a provider-side issue number. Resolving an issue number to a uid is the caller's
+job, one layer up.
 """
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import (
+    Any, Dict, FrozenSet, Iterable, List, Mapping, Optional, Sequence, Set, Tuple,
+)
 
 from atdd.state.projection import STATE_TOMBSTONED
 
@@ -43,7 +57,18 @@ TOMBSTONED = "TOMBSTONED"
 
 #: The phase ladder, in order. Position is what makes "backward" and "skipping"
 #: meaningful; a phase outside it has no rung, so no transition can be derived for it.
-PHASE_LADDER: Tuple[str, ...] = ("INIT", "PLANNED", "RED", "GREEN", "SMOKE", "COMPLETE")
+#:
+#: It is the linear spine of the phase machine
+#: (``src/atdd/coach/conventions/phase_machine.convention.yaml``), and it must stay that
+#: way: ``REFACTOR`` was missing here while :data:`atdd.state.projection.PHASES` carried
+#: it, so every ``SMOKE -> REFACTOR`` advance — the only legal way out of SMOKE — read as
+#: ``unknown_transition`` and hard-failed the merge (#1602). ``BLOCKED`` and ``OBSOLETE``
+#: are deliberately absent: they are escapes off the spine, not rungs on it, and they have
+#: no ordering relative to the rungs. ``test_phase_ladder_matches_projection_phases.py``
+#: is the tie that keeps the three in step.
+PHASE_LADDER: Tuple[str, ...] = (
+    "INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE",
+)
 
 #: Rung index by phase.
 PHASE_RANK: Dict[str, int] = {phase: index for index, phase in enumerate(PHASE_LADDER)}
@@ -80,7 +105,18 @@ EVIDENCE_POLICY: Dict[str, Any] = {
             "requires": ["smoke_evidence_artifact"],
         },
         {
+            # The only legal way out of SMOKE (phase_machine.convention.yaml). It demands
+            # the same artifact GREEN->SMOKE did, which is the point rather than an
+            # oversight: it is the gate COACH-RATCHET-PRES-001 already enforces locally
+            # (`.atdd/smoke-evidence/<N>.yaml`), restated where the merge authority can
+            # see it. A rung that demanded nothing could not exist — `requires` is
+            # `minItems: 1` in commons:projection-evidence.
             "from": "SMOKE",
+            "to": "REFACTOR",
+            "requires": ["smoke_evidence_artifact"],
+        },
+        {
+            "from": "REFACTOR",
             "to": "COMPLETE",
             "requires": ["derived_from_merge_to_main"],
             "derived": True,
@@ -301,6 +337,13 @@ def diff_phases(
     return changes
 
 
+#: Prefix of the committed merge-authority evidence artifact. It must stay equal to
+#: ``merge_driver.EVIDENCE_RELATIVE``, which is the module that OWNS the path; it is
+#: restated rather than imported to keep this module's hot path free of the driver,
+#: and ``test_evidence_token_derivation_paths.py`` is the tie that stops the two
+#: literals from drifting apart.
+_MERGE_EVIDENCE_PREFIX = ".atdd/evidence/"
+
 #: The evidence tokens a *document* can attest to on its own.
 _DOCUMENT_TOKENS: FrozenSet[str] = frozenset({
     "uid_generated", "body_initialized", "plan_complete", "acceptance_or_wmbt_refs",
@@ -358,7 +401,22 @@ def evidence_for(
             tokens.add("passing_test_evidence")
             if "smoke" in name or "/smoke" in path:
                 tokens.add("smoke_evidence_artifact")
-        elif path.startswith(".atdd/evidence/"):
+        elif path.startswith(_MERGE_EVIDENCE_PREFIX):
+            # ``.atdd/evidence/<uid>/<gate>.yaml`` — the COMMITTED, per-gate merge
+            # authority artifact (``merge_driver.EVIDENCE_RELATIVE``), read back out
+            # of the object database by ``govern_cli._evidence_at``. Committed is the
+            # requirement, not an accident: evidence a merge cannot see is evidence
+            # the merge does not have (spec §6).
+            #
+            # NOT to be "aligned" with ``.atdd/smoke-evidence/<N>.yaml``, which looks
+            # like a near-miss of this name and is a different artifact entirely: the
+            # #358 presentation ratchet's local, .gitignore'd, operator-TYPED stamp,
+            # writable by `atdd validate coder --smoke-required` without running a
+            # test. Pointing this branch at it would either never fire (a gitignored
+            # path never appears in a commit's changed paths) or, if that ignore were
+            # lifted, mint smoke_evidence_artifact from a typed stamp — inventing a
+            # brand-new false green in the merge authority. #1602 closed that bug
+            # class; ``test_evidence_token_derivation_paths.py`` keeps it closed.
             tokens.add("smoke_evidence_artifact")
         elif path.startswith("src/") and path.endswith(".py"):
             tokens.add("implementation_diff")

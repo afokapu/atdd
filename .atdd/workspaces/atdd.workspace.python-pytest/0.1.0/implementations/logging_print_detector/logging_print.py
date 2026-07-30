@@ -1,6 +1,6 @@
 """python-pytest detector for coder.logging.print.
 
-Realizes the agnostic obligation `coder.logging.print` (atdd.extension.coder) for
+Realizes the agnostic obligation `coder.logging.print` (atdd.extension.coder.base) for
 the Python stack: production code must not emit diagnostics via the builtin
 `print()` — it must use a structured logger.
 

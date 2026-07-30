@@ -31,6 +31,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 COUNTER_PLUGIN = "atdd.validators.conventions.tests.graph_build_counter"
 
 # `pytest -q --collect-only` on b6a42f17, before this issue added its own gates.

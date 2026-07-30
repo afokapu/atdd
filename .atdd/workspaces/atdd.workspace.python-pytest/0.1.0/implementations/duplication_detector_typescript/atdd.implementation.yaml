@@ -5,7 +5,7 @@ targets_workspace: atdd.workspace.python-pytest
 contract_version: "1.1.0"
 
 # Back-reference to the agnostic obligation this detector realizes. The
-# convention node lives in atdd.extension.coder; this implementation is the
+# convention node lives in atdd.extension.coder.base; this implementation is the
 # python-pytest realization of it (two-layer model). NOTE: the detector runtime
 # is still python-pytest — it inspects TypeScript SOURCE via regex normalization,
 # it does not execute TS. The obligation is the TS sibling of the Python rule.

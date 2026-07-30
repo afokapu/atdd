@@ -24,11 +24,18 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import ClassVar, Optional, Sequence
 
 import yaml
 
+from atdd.enforce.dispositions import STRICT, TREATMENT_DISPOSITIONS
+
 _log = logging.getLogger(__name__)
+
+
+class UnknownDispositionError(ValueError):
+    """A convention node declares a ``metadata.disposition`` outside the treatment
+    vocabulary (#1424 E002) — a wiring/authoring error, not a verdict."""
 
 # Rules that exempt the toolkit's own CLI source tree. Mirrors the legacy
 # in-core ``coder.logging.print`` exemption of ``src/atdd`` (V4 / scan_policy
@@ -91,12 +98,46 @@ _RULE_DEFAULT_EXCLUDES: dict[str, tuple[str, ...]] = {
 # pyproject itself). See docs/PARITY-AUDIT-26.md row 1 / REGRESSION #3.
 _ENTRY_POINT_ROOT_RULES = frozenset({"coder.dead-code.reachability"})
 
+# The train-interlocking detector resolves its scan surfaces with precedence:
+# (1) the env var this layer emits, (2) the extension's own scope selectors,
+# (3) its hardcoded defaults. A repo whose layout differs from those defaults
+# DECLARES it once, under the OPTIONAL top-level ``interlocking_layout:`` key of
+# the per-repo ``.atdd/config.yaml`` that ``runner.load_config`` already reads
+# (#1595):
+#
+#   interlocking_layout:
+#     interlocking_yaml: ["plan/_trains/_interlockings/*.yaml"]
+#     e2e_tests:         ["e2e/**/*.py"]
+#
+# Core's surface ENDS at forwarding that declaration to the provider subprocess
+# for the rules that consume it — it never interprets the globs, and it never
+# supplies a default (absent block -> no env var -> detector falls back).
+_INTERLOCKING_LAYOUT_CONFIG_KEY = "interlocking_layout"
+_INTERLOCKING_LAYOUT_RULE_PREFIX = "coder.train.interlocking-"
+# The selector ids of the contract, exactly. An unrecognized id is dropped with a
+# warning rather than forwarded: the detector would silently ignore it, and a
+# typo'd surface that looks declared but never scans is the failure mode this
+# whole key exists to remove.
+_INTERLOCKING_LAYOUT_SELECTOR_IDS: tuple[str, ...] = (
+    "interlocking_yaml",
+    "train_yaml",
+    "python_runtime",
+    "station_master",
+    "e2e_tests",
+)
+
 
 @dataclass(frozen=True)
 class RuleMetadata:
     rule_id: str
     severity: Optional[int]
-    disposition: str  # strict | suppress-and-clean | advisory
+    disposition: str  # a member of VOCABULARY (the TREATMENT namespace)
+
+    #: The treatment disposition vocabulary (E002). A node whose
+    #: ``metadata.disposition`` is outside this set is rejected by
+    #: :func:`rule_metadata`. Sourced from the shared disposition model so the
+    #: treatment namespace is named in exactly one place.
+    VOCABULARY: ClassVar[frozenset] = TREATMENT_DISPOSITIONS
 
 
 def _convention_node_path(substrate_home: Path, rule_id: str) -> Optional[Path]:
@@ -129,11 +170,19 @@ def rule_metadata(substrate_home: Path, rule_id: str) -> RuleMetadata:
     meta = data.get("metadata") if isinstance(data, dict) else None
     meta = meta if isinstance(meta, dict) else {}
     sev = meta.get("severity")
-    disp = meta.get("disposition") or "strict"
+    # A missing disposition defaults to strict (in-vocabulary); an explicitly
+    # declared out-of-vocabulary value is REJECTED (#1424 E002) — a typo or a
+    # stray wiring value must not fall through to the verdict mapping.
+    disp = str(meta.get("disposition") or STRICT)
+    if disp not in RuleMetadata.VOCABULARY:
+        raise UnknownDispositionError(
+            f"convention node {node} declares metadata.disposition {disp!r}, "
+            f"outside the treatment vocabulary {sorted(RuleMetadata.VOCABULARY)}"
+        )
     return RuleMetadata(
         rule_id=rule_id,
         severity=int(sev) if isinstance(sev, int) else None,
-        disposition=str(disp),
+        disposition=disp,
     )
 
 
@@ -318,6 +367,68 @@ def compute_scan_policy(
         exempt_reason=exempt_reason,
         graph_roots=graph_roots,
     )
+
+
+def is_interlocking_rule(rule_id: str) -> bool:
+    """True iff ``rule_id`` is one of the ``coder.train.interlocking-*`` rules the
+    train-interlocking detector realizes (the only rules the layout env is scoped to)."""
+    return rule_id.startswith(_INTERLOCKING_LAYOUT_RULE_PREFIX)
+
+
+def _layout_globs_for(selector_id: object, globs: object) -> Optional[list[str]]:
+    """Normalized globs for one declared selector, or ``None`` (with a warning).
+
+    The per-entry half of :func:`resolve_interlocking_layout`, split out so the
+    caller's loop body stays flat. Both rejections are warn-and-drop for the same
+    reason the caller documents: a layout hint must never sink an enforce run.
+    """
+    if selector_id not in _INTERLOCKING_LAYOUT_SELECTOR_IDS:
+        _log.warning(
+            "ignoring unknown interlocking_layout selector id",
+            extra={"selector_id": str(selector_id),
+                   "known": list(_INTERLOCKING_LAYOUT_SELECTOR_IDS)},
+        )
+        return None
+    as_list = _as_str_list(globs)
+    if not as_list:
+        _log.warning(
+            "ignoring empty/malformed interlocking_layout globs for selector",
+            extra={"selector_id": str(selector_id)},
+        )
+        return None
+    return as_list
+
+
+def resolve_interlocking_layout(config: dict) -> Optional[dict[str, list[str]]]:
+    """Read the OPTIONAL per-repo ``interlocking_layout`` declaration, or ``None``.
+
+    Reused surface (#1595): the block lives under the top-level
+    ``interlocking_layout:`` key of the ``.atdd/config.yaml`` the runner already
+    loads — no new file, no new schema object. Returns a normalized
+    ``{selector_id: [globs]}`` mapping restricted to the contract's selector ids,
+    or ``None`` when the key is absent/empty so the caller emits no env var and the
+    detector falls back to its own selectors (contract step 2/3).
+
+    Malformed shapes are tolerated defensively (this is a scan-surface HINT, not a
+    verdict input): a non-mapping block, an unknown selector id, or a non-list
+    value is dropped with a warning rather than raised — a bad layout hint must
+    not sink an enforce run.
+    """
+    block = config.get(_INTERLOCKING_LAYOUT_CONFIG_KEY) if isinstance(config, dict) else None
+    if block is None:
+        return None
+    if not isinstance(block, dict):
+        _log.warning(
+            "ignoring non-mapping interlocking_layout block",
+            extra={"type": type(block).__name__},
+        )
+        return None
+    layout: dict[str, list[str]] = {}
+    for selector_id, globs in block.items():
+        as_list = _layout_globs_for(selector_id, globs)
+        if as_list is not None:
+            layout[str(selector_id)] = as_list
+    return layout or None
 
 
 def _dedupe(items: list[str]) -> list[str]:

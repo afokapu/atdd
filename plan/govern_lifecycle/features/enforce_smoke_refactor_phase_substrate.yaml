@@ -8,7 +8,7 @@ sizing:
 wmbts:
   - "wmbt:govern-lifecycle:E003"
   - "wmbt:govern-lifecycle:E056"
-  - "wmbt:govern-lifecycle:E062"
+  - "wmbt:govern-lifecycle:E070"
 components:
   backend:
     presentation:

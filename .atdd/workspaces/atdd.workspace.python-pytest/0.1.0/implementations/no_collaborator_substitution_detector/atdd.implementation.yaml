@@ -6,10 +6,10 @@ contract_version: "1.1.0"
 
 # Back-reference to the agnostic obligation this detector realizes. Unlike the
 # coder implementations (whose convention nodes were migrated into
-# atdd.extension.coder), the tester OBLIGATION stays in CORE as an agnostic ATDD
+# atdd.extension.coder.base), the tester OBLIGATION stays in CORE as an agnostic ATDD
 # methodology node (tester.smoke.no-collaborator-substitution). This detector is
 # the python-pytest REALIZATION of that core node — it is NOT a new node and does
-# NOT live in atdd.extension.tester. The package validator reports it as
+# NOT live in atdd.extension.tester.base. The package validator reports it as
 # "realizes core node(s)".
 realizes_convention: tester.smoke.no-collaborator-substitution
 

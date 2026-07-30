@@ -7,6 +7,10 @@ description: 'Authoring substrate train: define canonical schemas + flat homes, 
 themes:
 - commons
 primary_wagon: author-atdd-substrate
+route_space:
+  classification: single-route
+  basis: not-yet-assessed
+  retires_with: 1549
 participants:
 - wagon:author-atdd-substrate
 - wagon:author-plan-substrate

@@ -33,7 +33,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import shlex
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,11 +51,6 @@ _LOOP_STATE_RELPATH = ".atdd/runtime/tool_use_counts.json"
 
 # Command tokens that indicate the command itself is a loop construct.
 _LOOP_TOKENS = ("while ", "until ", "for ")
-
-# Shell control punctuation that clings to an argv token when a command is
-# chained without spaces (``gh issue create;``, ``foo;gh``).  Stripped before
-# comparison so ``create;`` still matches the ``create`` token.
-_SHELL_PUNCTUATION = ";&|()"
 
 
 @dataclass(frozen=True)
@@ -80,65 +74,8 @@ def _load_registry(convention_path: Path) -> List[dict]:
         return []
 
 
-def _tokenize(command: str) -> Optional[List[str]]:
-    """Split *command* into argv tokens; None when it cannot be parsed.
-
-    ``shlex.split`` raises on an unbalanced quote.  Returning None lets the
-    caller degrade to substring matching (block on doubt) — see ``_matches``.
-
-    A tokenizer failure is NOT a classifier crash.  A crash is our own bug and
-    must fail OPEN so the guard cannot brick every tool call (Decision 6, issue
-    #668) — that contract lives at the hook boundary and is unaffected here.
-    An untokenizable command is malformed INPUT, and allowing it outright would
-    make an unbalanced quote the bypass for the entire prohibition.
-    """
-    try:
-        tokens = shlex.split(command)
-    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Untokenizable input degrades to substring matching, not to allow
-        _logger.warning("forbidden_command_classifier: untokenizable command, falling back to substring match: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-01
-        return None
-    return [t.strip(_SHELL_PUNCTUATION) for t in tokens]
-
-
-def _has_consecutive_run(tokens: List[str], run: List[str]) -> bool:
-    """Return True when *run* appears as a consecutive subsequence of *tokens*."""
-    if not run or len(run) > len(tokens):
-        return False
-    for start in range(len(tokens) - len(run) + 1):
-        if tokens[start:start + len(run)] == run:
-            return True
-    return False
-
-
 def _matches(command: str, match_spec: dict) -> bool:
-    """Return True when *command* satisfies the match specification.
-
-    ``argv`` matches an *invocation*: the named tokens must appear as a
-    consecutive run in the tokenized command.  This is what distinguishes
-    running ``gh issue create`` from merely mentioning it — a quoted mention
-    (``grep -rn "gh issue create"``) collapses into ONE token and cannot match a
-    three-token run.  Scanning the whole token list rather than only the head
-    keeps ``&&``/``;`` chains and leading env assignments blocked.
-
-    When the command cannot be tokenized (unbalanced quote) the argv rule
-    degrades to the substring test on the joined tokens — block on doubt.
-    Allowing outright would make ``gh issue create --title "unclosed`` a
-    one-character bypass of the whole prohibition.  The fallback is safe for
-    false positives too: an innocuous mention (``grep -rn "gh issue create"``)
-    tokenizes fine and never reaches it, so a command must be BOTH malformed
-    AND name the forbidden phrase to be blocked this way.
-
-    The substring forms below are retained for rules whose targets are not
-    clean argv runs (see the registry's cmux/git-config/loop rules), but any
-    NEW prohibition on a plain command should use ``argv``.
-    """
-    if "argv" in match_spec:
-        argv = [str(t) for t in match_spec["argv"]]
-        tokens = _tokenize(command)
-        if tokens is None:
-            return " ".join(argv) in command  # Untokenizable → block on doubt
-        return _has_consecutive_run(tokens, argv)
-
+    """Return True when *command* satisfies the match specification."""
     if "contains" in match_spec:
         return match_spec["contains"] in command
 

@@ -1,0 +1,84 @@
+urn: wmbt:govern-lifecycle:C009
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: a-packaging-regression-reaching-a-consumer-repo-undetected-because-no-ci-job-ever-installs-the-wheel-and-every-job-runs-the-toolkit-from-its-own-source-tree
+context_clarifier: "`.github/workflows/atdd-validate.yml` pip-installs the toolkit's\
+  \ DEPENDENCIES and then runs `PYTHONPATH=src python -m pytest src/atdd/<phase>/validators/`.\
+  \ `atdd.__file__` therefore always points into the working tree, where every file\
+  \ exists by definition and `[tool.setuptools.package-data]` is never consulted.\
+  \ The wheel is built only at publish time, after merge \u2014 so no PR can ever\
+  \ go red for a packaging defect, and #663 (open since 3.47.0), #952, #1369 and the\
+  \ packaging half of #1341 each had to be discovered by a downstream user months\
+  \ later. Measured on the current wheel: `atdd validate tester` and `atdd validate\
+  \ coder` abort with 15 pytest COLLECTION errors each in a consumer repo, because\
+  \ `bind_rule()` raises `RuleNotInRegistryError` at module import."
+lens: functional.effectiveness
+statement: "minimize likelihood of a-packaging-regression-reaching-a-consumer-repo-undetected-because-no-ci-job-ever-installs-the-wheel-and-every-job-runs-the-toolkit-from-its-own-source-tree\
+  \ by adding a required `validate-consumer` CI job that builds the wheel, `pip install`s\
+  \ it into a clean venv, and runs the toolkit's own shipped validators from a synthetic\
+  \ consumer repo that has no `src/atdd/` \u2014 gating on the two signals a packaging\
+  \ defect actually produces there: the wheel-completeness scan must pass against\
+  \ the installed package, and all four phase sweeps must collect with ZERO errors,\
+  \ since a data file missing from the wheel surfaces as an import-time failure at\
+  \ pytest collection"
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C009-UNIT-001-workflow-declares-a-wheel-installing-consumer-job
+    id: AC-UNIT-001
+    purpose: "The oracle exists and is wired as a gate: `atdd-validate.yml` declares\
+      \ a `validate-consumer` job that installs the BUILT WHEEL rather than running\
+      \ from the source tree, and it is a required check \u2014 a job that exists\
+      \ but is optional, or that quietly falls back to `PYTHONPATH=src`, reintroduces\
+      \ the exact blindness it was added to remove"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The committed `.github/workflows/atdd-validate.yml`
+  when:
+    abstract: The `validate-consumer` job definition is parsed
+  then:
+    abstract:
+    - "The job builds the wheel (`python -m build`) and `pip install`s that wheel\
+      \ artifact \u2014 it never puts the repo's `src/` on `PYTHONPATH`, which is\
+      \ what makes every other job blind to package-data"
+    - "It runs the toolkit's validators from a synthetic consumer directory that contains\
+      \ no `src/atdd/` \u2014 so the shipped code is exercised through its install\
+      \ path, the way a consumer exercises it"
+    - 'It gates: the job is in the workflow''s required-check set, so a packaging
+      regression turns the PR red rather than being reported and ignored'
+- identity:
+    urn: acc:govern-lifecycle:C009-SMOKE-001-consumer-sweep-collects-with-zero-errors-off-the-installed-wheel
+    id: AC-SMOKE-001
+    purpose: "The oracle actually catches THIS bug: with the wheel installed in a\
+      \ clean venv and the working directory a synthetic consumer repo, all four phase\
+      \ sweeps collect with zero errors \u2014 where the pre-fix wheel produces 15\
+      \ collection errors in `tester` and 15 in `coder` (`RuleNotInRegistryError`\
+      \ at import, from the absent `conventions/nodes/` trees), aborting those sweeps\
+      \ before a single test runs"
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - "A wheel built from the repo and `pip install`ed into a freshly created virtualenv\
+      \ \u2014 no editable install, no `PYTHONPATH=src`, nothing from the checkout\
+      \ on the import path"
+    - A synthetic consumer repo (a `git init`'d directory with no `src/atdd/`) as
+      the working directory
+  when:
+    abstract: Each of the four phase validator sweeps shipped inside the installed
+      package is collected by pytest from that consumer directory
+  then:
+    abstract:
+    - "All four phases collect with ZERO errors \u2014 the packaging defect this issue\
+      \ fixes produces collection errors, so zero is the invariant the gate asserts"
+    - The `coder` and `tester` sweeps collect strictly MORE tests than the pre-fix
+      wheel does, proving the previously-erroring validator modules now import rather
+      than merely being counted differently
+    - "The wheel-completeness gate, run against the installed package, passes \u2014\
+      \ the empirical statement that every data file shipped"

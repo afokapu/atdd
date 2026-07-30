@@ -27,6 +27,13 @@ from atdd.state.db import current_version
 #: The commit the store was last hydrated from (a 40-char sha, or absent).
 BASE_COMMIT_KEY = "store_base_commit"
 
+#: The ``source_generation`` a tombstone records when the store has no base commit yet
+#: (#1580). A cold-start store can legitimately retire something before it is anchored,
+#: and the retirement still has to say which generation it was decided in. "None" would
+#: read as a missing field — an unattributable retirement — so the unanchored case is
+#: named explicitly instead: it is a fact about the retirement, not an absence of one.
+UNANCHORED_GENERATION = "unanchored"
+
 #: The store's schema version at the last stamp — recorded alongside the base
 #: commit so an operator reading the metadata sees *what* was hydrated as well as
 #: *from where*.

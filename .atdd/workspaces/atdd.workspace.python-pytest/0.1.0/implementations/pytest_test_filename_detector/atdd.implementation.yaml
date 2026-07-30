@@ -7,7 +7,7 @@ contract_version: "1.1.0"
 # Back-reference to the obligation this detector realizes. Unlike the tester
 # detectors that realize a CORE node (e.g. no_collaborator_substitution_detector),
 # this one realizes the EXTENSION obligation node authored in this decomposition:
-# atdd.extension.tester/conventions/tester.filename.urn.convention.yaml — the
+# atdd.extension.tester.base/conventions/tester.filename.urn.convention.yaml — the
 # per-stack FILENAME rendering of a test's acceptance/test URN. The package
 # validator reports it as "realizes extension node tester.filename.urn".
 realizes_convention: tester.filename.urn

@@ -5,7 +5,14 @@ targets_workspace: atdd.workspace.python-pytest
 contract_version: "1.1.0"
 
 # Back-reference to the agnostic obligation this detector primarily realizes.
-realizes_convention: coder.design.primitives
+realizes_convention:
+  - coder.design.primitives
+  - coder.design.token-color
+  - coder.design.orphan-export
+  - coder.design.foundations
+  - coder.design.hierarchy-import
+  - coder.design.token-hardcoded
+  - coder.design.orphan-ui
 
 # One run surfaces SEVEN distinct rule_ids — all `strict` — exercising the v1.1
 # multi-rule output channel (PROVIDER-CONTRACT-v1.1.md §3). One core validator

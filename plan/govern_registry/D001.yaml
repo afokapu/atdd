@@ -1,0 +1,69 @@
+urn: "wmbt:govern-registry:D001"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "registry-scope-ambiguity"
+context_clarifier: "atdd validate (Path A) builds its rule registry from find_convention_files(), whose default roots are src/atdd only — zero of its files live under .atdd/extensions; every extension convention node is a high_fidelity MIRROR of a live core rule (each carries source.legacy_path + legacy_rule_id) so the 50 extension rule_ids are a subset of the 373 core rule_ids; wiring Path A to also read the extensions tree would therefore add zero new rules and 50 duplicate ids, so the registry stays core-only BY DESIGN and the decision is recorded rather than left to assumption"
+lens: "functional.sustainability"
+statement: "minimize likelihood of registry-scope-ambiguity by keeping the atdd validate rule registry rooted at the core src/atdd tree alone, recording the core-only decision with its evidence, and proving that admitting the extension mirror nodes would add no new rule and only duplicate ids"
+acceptances:
+  - identity:
+      urn: "acc:govern-registry:D001-UNIT-001-admitting-extensions-adds-no-rule-only-duplicates"
+      id: "AC-UNIT-001"
+      purpose: "over a core rule set and an extension mirror set, admitting the extensions into the registry contributes zero NEW rule_ids and exactly one duplicate per mirrored rule — the evidence that Path A gains nothing by reading extensions"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a core rule_id set and an extension rule_id set where every extension id mirrors a core id (the extension set is a subset of the core set)"
+    when:
+      abstract: "the registry-scope helpers compute the rules that admitting the extensions would ADD versus the rule_ids that would COLLIDE"
+    then:
+      abstract:
+        - "the set of new rule_ids contributed by the extensions is empty (admitting them adds no rule)"
+        - "the set of duplicate rule_ids equals the full extension set (each mirror only duplicates its core twin)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-registry:D001-UNIT-002-core-only-decision-is-recorded-with-evidence"
+      id: "AC-UNIT-002"
+      purpose: "the Path-A-stays-core-only decision is written down with its rationale and evidence, not left to assumption — a durable decision record a reader can audit"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "the committed registry-scope decision document"
+    when:
+      abstract: "the decision record is read"
+    then:
+      abstract:
+        - "it records that the atdd validate rule registry stays core-only by design"
+        - "it names the evidence: find_convention_files roots at src/atdd only, the core and extension rule_id counts, and that every extension node mirrors a live core rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-registry:D001-SMOKE-001-real-registry-roots-at-core-only"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real substrate the core rule registry admits zero extension files and every real extension rule_id already exists in the core registry, so the core-only scope holds live"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real src/atdd core convention tree and its vendored .atdd/extensions convention nodes"
+    when:
+      abstract: "the core rule registry (find_convention_files over the default roots) and the extension rule_id set are both computed over the real substrate"
+    then:
+      abstract:
+        - "no file admitted into the core registry lives under .atdd/extensions"
+        - "every extension rule_id is already present in the core rule_id set (the extension-only set is empty)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"

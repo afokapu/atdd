@@ -1,91 +1,88 @@
-urn: "wmbt:govern-lifecycle:E062"
-step: "execute"
-direction: "minimize"
-dimension: "likelihood"
-object_of_control: "pr-under-validation-scoping-silently-degrading-to-a-repo-wide-block"
-context_clarifier: "E056 (#1165) scoped the strict coach.pr.merge-blocks-on-pre-smoke-close gate to the PR under test, but the branch leg of that resolver never worked: _branch_pr_number calls int() on PRManager._existing_pr_for_branch(), which returns a URL, so the ValueError is swallowed by a bare except and the resolver returns None — whereupon select_blocking_violations falls back to blocking repo-wide, exactly the coupling E056 set out to remove; the pull_request CI event masks this because GITHUB_REF=refs/pull/<N>/merge resolves without touching the branch leg, while the push event (which atdd-validate.yml also triggers on) falls straight into it, so every contributor's branch run is failed by whichever open PR currently auto-closes a pre-SMOKE issue (PR #1456 then #1461, both against #1193); the twin gate coach.pr.closes-keyword-discipline has no scoping at all and carries the same latent blast radius; the resolver must resolve the branch's PR through one shared PRManager seam, and an unresolvable PR must degrade to advisory-only rather than to a repo-wide block, so a stranger's offense can never fail your branch while every offender stays blocked on its own CI"
-lens: "functional.effectiveness"
-statement: "minimize likelihood of pr-under-validation-scoping-silently-degrading-to-a-repo-wide-block by resolving the branch's PR number through a single PRManager.pr_number_for_branch seam instead of int()-ing a URL behind a swallowing except, by degrading an unresolvable PR to advisory-only instead of a repo-wide block, and by extending the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline"
+urn: wmbt:govern-lifecycle:E062
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: a-non-py-file-that-shipped-code-reads-at-runtime-being-omitted-from-the-built-wheel-because-a-hand-enumerated-package-data-glob-was-never-added-for-it
+context_clarifier: '`[tool.setuptools.package-data]` enumerates one glob per package directory, so a new
+  non-.py data directory ships only if someone remembers to add a glob for it. Nobody did: `atdd.coder.conventions`
+  and `atdd.tester.conventions` carry `["*.yaml"]` and never gained the `nodes/*.yaml` entry their coach/planner
+  siblings have, so 78 rule-node YAMLs that `bind_rule()` reads AT IMPORT never ship (#1369); `atdd.coach.schemas`
+  carries `["*.json"]` so its 4 `.md` docs never ship (#663); `coach/templates/bin/` and `coach/schemas/fixtures/`
+  have no key at all (#952). 174 of the 610 non-.py files in `src/atdd/` are absent from the wheel today,
+  including `coach/templates/persona/*/*.tmpl` and `validators/conventions/registry.yaml`. Enumeration
+  is the defect: it fails open and drifts silently. NOTE (corrected during GREEN): the deny-list must
+  NOT also exclude `**/*.py` on the reasoning that setuptools installs .py as modules anyway. The 21 `.py`
+  under `**/validators/fixtures/**` are NOT modules — `[tool.setuptools.packages.find] exclude` deliberately
+  keeps those directories from being importable — so they ship as DATA or not at all, and a blanket .py
+  exclusion silently drops them. Excluding nothing but cruft sidesteps the module-or-data question the
+  packaging config has no business having to answer.'
+lens: functional.sustainability
+statement: minimize likelihood of a-non-py-file-that-shipped-code-reads-at-runtime-being-omitted-from-the-built-wheel-because-a-hand-enumerated-package-data-glob-was-never-added-for-it
+  by replacing the per-directory package-data enumeration with a broad-ship policy (`"atdd" = ["**/*"]`)
+  plus an explicit `[tool.setuptools.exclude-package-data]` deny-list naming ONLY build/OS cruft (byte-code,
+  __pycache__, .pytest_cache, .DS_Store) — so the invariant is simply "the installed package is the source
+  tree minus cruft", a new data directory ships by default, and omitting one requires a deliberate exclusion
+  rather than a forgotten inclusion
 acceptances:
-  - identity:
-      urn: "acc:govern-lifecycle:E062-UNIT-001-branch-pr-resolves-through-prmanager-seam"
-      id: "AC-UNIT-001"
-      purpose: "the branch leg of the current-PR resolver returns the PR number for a branch that has an open PR, instead of swallowing a ValueError and returning None"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A PRManager whose underlying gh query yields the open PR for a branch as the URL form GitHub actually returns (https://github.com/<owner>/<repo>/pull/<N>), plus a branch with no open PR"
-    when:
-      abstract: "the shared PRManager.pr_number_for_branch seam resolves the branch, and the pre-smoke-close gate's current-PR resolver falls through to it with no CI environment set"
-    then:
-      abstract:
-        - "pr_number_for_branch returns the integer PR number parsed from the URL"
-        - "pr_number_for_branch returns None for a branch with no open PR"
-        - "the pre-smoke-close gate's current-PR resolver returns that same PR number from the branch alone, with no GITHUB_REF or PR_NUMBER set"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-07-13"
-  - identity:
-      urn: "acc:govern-lifecycle:E062-UNIT-002-unresolvable-pr-degrades-to-advisory"
-      id: "AC-UNIT-002"
-      purpose: "when no PR under validation can be resolved, offenders are logged as advisories and block nothing, superseding E056's repo-wide fallback"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "A set of PR resolutions containing an offending PR that auto-closes an issue at a pre-SMOKE phase, and no resolvable PR under validation (no CI environment, no branch PR)"
-    when:
-      abstract: "each of the two coach PR gates selects the violations that block its disposition"
-    then:
-      abstract:
-        - "no violation is selected as blocking — an unresolvable PR under validation can never fail a run on another PR's offense"
-        - "every offender is still produced and logged for repo-health visibility"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-07-13"
-  - identity:
-      urn: "acc:govern-lifecycle:E062-UNIT-003-closes-keyword-gate-scopes-to-pr-under-validation"
-      id: "AC-UNIT-003"
-      purpose: "the twin gate coach.pr.closes-keyword-discipline scopes its strict failure to the PR under validation, as the pre-smoke-close gate does"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "Violations from the closes-keyword-discipline scan for an offending PR B, evaluated once with a clean PR A as the PR under validation and once with the offending PR B as the PR under validation"
-    when:
-      abstract: "the closes-keyword-discipline gate selects the violations that block its disposition"
-    then:
-      abstract:
-        - "with the clean PR A under validation, no violation blocks even though PR B is offending"
-        - "with the offending PR B under validation, exactly its own violations block"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-07-13"
-  - identity:
-      urn: "acc:govern-lifecycle:E062-SMOKE-001-innocent-branch-not-blocked-by-a-sibling-offender"
-      id: "AC-SMOKE-001"
-      purpose: "the real gate modules, resolving the PR under validation from the branch alone (the push-event path that reds every contributor today), do not fail an innocent PR on a sibling PR's pre-SMOKE close violation, while the offending PR still fails on its own"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "The real coach.pr.merge-blocks-on-pre-smoke-close validator module, a push-event environment (GITHUB_REF=refs/heads/<branch>, no PR_NUMBER) as GitHub Actions sets it, and scanned resolutions in which a sibling PR auto-closes an issue at a pre-SMOKE phase while the branch's own PR is clean"
-    when:
-      abstract: "the validator's real scoping path runs end to end — real branch resolution through PRManager, real evaluator, real selection"
-    then:
-      abstract:
-        - "the PR under validation is resolved from the branch on a push-event ref"
-        - "the disposition gate receives no blocking violation and passes for the innocent branch"
-        - "the same path run on the offending PR's own branch does receive its violation and fails"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-07-13"
+- identity:
+    urn: acc:govern-lifecycle:E062-SMOKE-001-built-wheel-carries-every-non-py-source-file
+    id: AC-SMOKE-001
+    purpose: 'A wheel built from the real repo by the real build backend carries EVERY non-.py file under
+      src/atdd/ that is not on the explicit deny-list — the empirical proof that the broad-ship policy
+      closes #663/#952/#1369, asserted against the artifact consumers actually install rather than against
+      the glob text'
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - The repo checkout, built with `python -m build --wheel` in an isolated build environment (the real
+      PEP-517 path, in-tree backend included)
+    - The set of every file under `src/atdd/` that is not a `.py` module and not byte-code/cache/OS cruft
+      — the files shipped code reads at runtime
+  when:
+    abstract: The built wheel is opened and its member list is diffed against that source-tree set
+  then:
+    abstract:
+    - Every non-.py, non-cruft source file is present in the wheel at its corresponding `atdd/...` path
+      — the missing-set is empty, where today it holds 174 files including `coder/conventions/nodes/`,
+      `tester/conventions/nodes/`, `coach/schemas/*.md`, `coach/templates/bin/*.shim` and `coach/schemas/fixtures/`
+    - Every `.py` ships too — both the importable modules AND the 21 non-module fixture sources under
+      `**/validators/fixtures/**`, which have no module code path to fall back on and would be silently
+      dropped by a `**/*.py` deny-list entry
+    - 'No `__pycache__/`, `*.pyc`, `*.pyo` or `.DS_Store` member appears in the wheel — the broad glob
+      does not sweep build cruft in (which also requires building from a clean tree: setuptools never
+      cleans `build/lib`, and bdist packs it wholesale, so a stale artifact there survives into every
+      later wheel)'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-13'
+- identity:
+    urn: acc:govern-lifecycle:E062-UNIT-001-bind-rule-resolves-from-an-installed-wheel
+    id: AC-UNIT-001
+    purpose: 'The concrete #1369 failure mode — `bind_rule()` raising RuleNotInRegistryError at IMPORT
+      because the coder/tester rule-node YAMLs are not in the wheel, which aborts `atdd validate coder`
+      at pytest COLLECTION before a single test runs — is gone: the rule registry resolves every coder
+      and tester rule id from the wheel''s own package directory'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A package root laid out like an installed wheel (no `src/` parent, no repo checkout reachable) whose
+      contents are exactly what the package-data policy ships
+    - The set of rule ids declared by the coder and tester convention-node trees — the ids their shipped
+      validators pass to `bind_rule()` at module import
+  when:
+    abstract: The rule registry is resolved against that wheel-shaped package root and each id is bound
+  then:
+    abstract:
+    - Every coder and tester rule id binds — none raises `RuleNotInRegistryError`, because `coder/conventions/nodes/`
+      and `tester/conventions/nodes/` are present in the package root
+    - 'The registry the wheel exposes is not a strict subset of the source tree''s: the coder and tester
+      node counts match the source tree exactly, so no rule is silently dropped'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-13'

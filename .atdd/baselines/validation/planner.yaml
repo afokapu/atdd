@@ -1,5 +1,5 @@
 phase: planner
-passed_at: '2026-07-12T02:31:30.749809+00:00'
-source_hash: 875830f4f2d1b96ac5a0b44951d1891f3144a24d3a11fb24d32ccedbf0cf689b
-atdd_version: 4.2.6
-skipped_api: true
+passed_at: '2026-07-20T22:51:02.470799+00:00'
+source_hash: 2e45aa39834e0321dd96842be1fc90ebea76249e7e1b21cd7ac3982d0ce53b52
+atdd_version: 4.20.1
+skipped_api: false

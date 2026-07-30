@@ -44,7 +44,15 @@ from typing import List, Optional
 
 import yaml
 
-from atdd.enforce.conventions import RuleMetadata, compute_scan_policy, rule_metadata
+from atdd.enforce.conventions import (
+    RuleMetadata,
+    compute_scan_policy,
+    is_interlocking_rule,
+    resolve_interlocking_layout,
+    rule_metadata,
+)
+from atdd.enforce.dispositions import fails_on_violation
+from atdd.enforce.provider_env import provider_env
 from atdd.enforce.resolution import (
     ProviderResolutionError,
     ResolvedProvider,
@@ -196,6 +204,7 @@ def _invoke_provider(
     scan_excludes: list[str],
     graph_roots: Optional[list[str]] = None,
     impls_root: Optional[Path] = None,
+    interlocking_layout: Optional[dict] = None,
 ) -> list[dict]:
     """Subprocess the provider CLI over ``scan_roots``; parse RAW v1.1 JSON.
 
@@ -203,25 +212,18 @@ def _invoke_provider(
     v1.1 JSON array off stdout". A non-zero provider exit is a run/usage failure
     of the provider itself (stdout empty), raised rather than mis-read as clean.
 
-    ``graph_roots`` (the consumer's resolved CLI entry-point module files) are
-    forwarded as ``ATDD_GRAPH_ROOTS`` for reachability detectors that consume
-    explicit extra roots. KNOWN GAP (#1238 / docs/PARITY-AUDIT-26.md REGRESSION
-    #3): the enforce layer supplies them, but the vendored python-pytest
-    dead-code detector does not yet READ ``ATDD_GRAPH_ROOTS`` — that detector-side
-    consumption awaits the extension re-vendor. Forwarding it now means parity
-    closes the moment the fixed detector is re-vendored, with no further core
-    change. (We cannot patch the vendored detector here: it is digest-locked by
-    ``.atdd/substrate.lock.yaml`` and re-vendoring is the convergence step.)
+    What the subprocess is told — the scan surface, ``graph_roots``, the
+    ``interlocking_layout`` and the cache suppression — is
+    :func:`atdd.enforce.provider_env.provider_env`; this function only runs it and
+    reads the result.
     """
-    env = {
-        **os.environ,
-        "ATDD_SCAN_ROOTS": json.dumps([str(r) for r in scan_roots]),
-        "ATDD_IMPL_ID": implementation_id,
-    }
-    if scan_excludes:
-        env["ATDD_SCAN_EXCLUDES"] = json.dumps([str(e) for e in scan_excludes])
-    if graph_roots:
-        env["ATDD_GRAPH_ROOTS"] = json.dumps([str(r) for r in graph_roots])
+    env = provider_env(
+        implementation_id,
+        scan_roots,
+        scan_excludes,
+        graph_roots=graph_roots,
+        interlocking_layout=interlocking_layout,
+    )
     argv = [sys.executable, str(provider.provider_cli_path)]
     if impls_root is not None:
         # Without this the provider CLI defaults to its OWN implementations/ dir and
@@ -277,11 +279,18 @@ def _records_for_rule(raw: list[dict], rule_id: str) -> list[dict]:
 
 
 def _verdict_for_rule(meta: RuleMetadata, raw: list[dict]) -> str:
-    """Non-raising disposition verdict (D-2): strict/suppress-and-clean fail on
-    any violation; advisory always passes."""
-    if meta.disposition == "advisory":
+    """Non-raising disposition verdict (D-2), TOTAL over the treatment vocabulary
+    (#1424 E001).
+
+    strict / suppress-and-clean fail on any violation; advisory /
+    documentation-only never fail. The mapping is delegated to the disposition
+    model's :func:`fails_on_violation` so the treatment namespace is named in
+    exactly one place. Previously ONLY ``advisory`` was special-cased, so
+    ``documentation-only`` fell through to fail-on-any and failed builds it must
+    not have (e.g. the bound documentation-only rule ``tester.filename.urn``)."""
+    if not raw:
         return "pass"
-    return "fail" if raw else "pass"
+    return "fail" if fails_on_violation(meta.disposition) else "pass"
 
 
 # --------------------------------------------------------------------------- #
@@ -355,6 +364,16 @@ def enforce(
                 ) from exc
         provider = provider_cache[cache_key]
 
+        # Scope the per-repo interlocking layout to the interlocking rules only —
+        # resolve the declared block once and forward it via env ONLY for a
+        # coder.train.interlocking-* subprocess, never leaking it onto unrelated
+        # rule subprocesses (#1595).
+        layout = (
+            resolve_interlocking_layout(config)
+            if is_interlocking_rule(rule_id)
+            else None
+        )
+
         raw = _invoke_provider(
             provider,
             impl_id,
@@ -362,6 +381,7 @@ def enforce(
             policy.scan_excludes,
             policy.graph_roots,
             impls_root=impls_root,
+            interlocking_layout=layout,
         )
         # A multi-rule detector emits several rule_ids in one run; judge this
         # bound convention only on its own rule_id's records.

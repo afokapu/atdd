@@ -32,6 +32,33 @@ fi
 
 # --- Count staged deletions ---
 DEL_FILES=$(git diff --cached --name-only --diff-filter=D 2>/dev/null | wc -l | tr -d ' ')
+
+# --- Merge commits: skip the ordinary threshold, keep a hard backstop ---
+# The threat this guard defends is bare-mode contamination: a working tree that
+# silently mass-deletes its OWN files (Wave 12). Contamination enters at the
+# ORIGINATING commit — an ordinary (non-merge) commit, where this guard still
+# fires unchanged. A merge commit's deletions were authored and reviewed on the
+# branch being merged; re-challenging them here only re-interrogates history that
+# was already accepted (every PR catching up to a main that deleted files trips
+# the >50-file threshold), which trained operators to reach for
+# [mass-delete-approved] / `atdd emergency` — i.e. it taught people to bypass a
+# real guard. So merges skip the ordinary threshold but keep a catastrophic
+# backstop: a merge that would delete more than MERGE_DEL_BACKSTOP files still
+# blocks, so a contaminated tree cannot sweep its whole checkout in behind a merge.
+MERGE_DEL_BACKSTOP=500
+IS_MERGE=0
+if git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
+    IS_MERGE=1
+    # At or below the backstop: an ordinary upstream catch-up — allow outright,
+    # no token needed. ABOVE it: do NOT exit here. Fall through to the same escape
+    # check every blocked commit reaches, so the [mass-delete-approved] escape the
+    # block message advertises actually works. (Exiting here bypassed the escape,
+    # which made the advice a lie and would drive a legitimate large merge straight
+    # to `atdd emergency` — the exact bypass-training this fix exists to end.)
+    if [ "${DEL_FILES:-0}" -le "$MERGE_DEL_BACKSTOP" ]; then
+        exit 0
+    fi
+fi
 DEL_LINES=$(git diff --cached --numstat 2>/dev/null | awk '{sum+=$2} END {print sum+0}')
 
 # Fast path: not a mass delete, nothing to do.
@@ -60,6 +87,25 @@ FIRST_LINE=$(printf '%s\n' "$MSG_BODY" | head -1)
 if printf '%s' "$FIRST_LINE" | grep -qE '^(chore\(decom|refactor\(remove|chore\(archive)' \
         || printf '%s' "$MSG_BODY" | grep -qF '[mass-delete-approved]'; then
     exit 0
+fi
+
+if [ "$IS_MERGE" -eq 1 ]; then
+    cat >&2 <<MERGE_BACKSTOP_MSG
+
+ATDD: Merge blocked — deletes ${DEL_FILES} files (backstop: ${MERGE_DEL_BACKSTOP}).
+
+A merge this destructive looks like tree contamination swept in behind a merge,
+not an ordinary upstream catch-up. Verify the merge base first:
+  1. git config core.bare         # check if = true (the Wave 12 cause)
+  2. git diff --cached --stat     # confirm what is staged
+
+If the merge is genuinely correct, include the literal token
+[mass-delete-approved] anywhere in the merge commit message and re-run.
+
+For genuine emergencies: atdd emergency --reason "<reason>"
+
+MERGE_BACKSTOP_MSG
+    exit 1
 fi
 
 cat >&2 <<MASSDELETE_MSG

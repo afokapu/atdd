@@ -38,6 +38,8 @@ from typing import Iterable, List, Optional
 
 import yaml
 
+from atdd.state.cli_support import add_verb, opt
+
 from atdd.state import merge_driver, merge_matrix, ownership, tombstone
 from atdd.state.merge_driver import EVIDENCE_RELATIVE, MergeDriverError
 from atdd.state.ownership import OwnershipError, PolicyNotFound
@@ -53,46 +55,46 @@ OPS = (
 
 def add_parsers(sub) -> None:
     """Register the field-governance verbs on the ``atdd state`` sub-parser."""
-    own = sub.add_parser(
-        "ownership-check",
-        help="Prove every projection field resolves to one declared writer and merge rule.")
-    own.add_argument("--policy", default=None, help="Policy file (default: the committed one).")
-    own.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "ownership-check",
+        "Prove every projection field resolves to one declared writer and merge rule.",
+        opt("--policy", default=None, help="Policy file (default: the committed one)."),
+    )
 
-    fw = sub.add_parser(
-        "field-writer",
-        help="CI gate: refuse a projection diff whose writer does not own a field it touched.")
-    fw.add_argument("--base", default=None, help="Base ref the diff is taken against.")
-    fw.add_argument("--head", default="HEAD", help="Head ref (default: HEAD).")
-    fw.add_argument("--actor", default=None,
-                    help="The committing actor (default: the head commit's git author).")
-    fw.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "field-writer",
+        "CI gate: refuse a projection diff whose writer does not own a field it touched.",
+        opt("--base", default=None, help="Base ref the diff is taken against."),
+        opt("--head", default="HEAD", help="Head ref (default: HEAD)."),
+        opt("--actor", default=None,
+            help="The committing actor (default: the head commit's git author)."),
+    )
 
-    md = sub.add_parser(
-        "merge-projection",
-        help="git merge driver for the per-uid projection: safe merges only, conflicts by design.")
-    md.add_argument("--base", default=None, help="The merge base of the file (git's %%O).")
-    md.add_argument("--ours", required=True, help="Our version (git's %%A; the result is written here).")
-    md.add_argument("--theirs", required=True, help="Their version (git's %%B).")
-    md.add_argument("--output", default=None, help="Write the merged object here instead of --ours.")
-    md.add_argument("--ours-evidence", default=None,
-                    help="Comma-separated evidence tokens our side carries (default: from git).")
-    md.add_argument("--theirs-evidence", default=None,
-                    help="Comma-separated evidence tokens their side carries (default: from git).")
-    md.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "merge-projection",
+        "git merge driver for the per-uid projection: safe merges only, conflicts by design.",
+        opt("--base", default=None, help="The merge base of the file (git's %%O)."),
+        opt("--ours", required=True, help="Our version (git's %%A; the result is written here)."),
+        opt("--theirs", required=True, help="Their version (git's %%B)."),
+        opt("--output", default=None, help="Write the merged object here instead of --ours."),
+        opt("--ours-evidence", default=None,
+            help="Comma-separated evidence tokens our side carries (default: from git)."),
+        opt("--theirs-evidence", default=None,
+            help="Comma-separated evidence tokens their side carries (default: from git)."),
+    )
 
-    mm = sub.add_parser(
-        "merge-matrix-check",
-        help="Prove every declared merge rule is exercised against every divergence case.")
-    mm.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "merge-matrix-check",
+        "Prove every declared merge rule is exercised against every divergence case.",
+    )
 
-    ca = sub.add_parser(
-        "compact-archive",
-        help="Archival: physically remove TOMBSTONED projection files (the only deletion path).")
-    ca.add_argument("--uid", action="append", default=None,
-                    help="Restrict to these uids (repeatable; default: every tombstoned object).")
-    ca.add_argument("--from", dest="from_dir", default=None, help="Projection directory.")
-    ca.add_argument("--root", default=None, help="Repository root (default: cwd).")
+    add_verb(
+        sub, "compact-archive",
+        "Archival: physically remove TOMBSTONED projection files (the only deletion path).",
+        opt("--uid", action="append", default=None,
+            help="Restrict to these uids (repeatable; default: every tombstoned object)."),
+        opt("--from", dest="from_dir", default=None, help="Projection directory."),
+    )
 
 
 def _root(args) -> Path:

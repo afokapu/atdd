@@ -329,6 +329,30 @@ def project_event(
 # --------------------------------------------------------------------------- #
 # The guard (E001-UNIT-002) — no object write without an event to explain it
 # --------------------------------------------------------------------------- #
+#: The SQL name of the function the trigger hands the offending uid to, so the
+#: refusal can point at the object without putting an expression inside ``RAISE()``.
+_GUARD_WITNESS_FN = "_atdd_overlay_guard_witness"
+
+
+class _GuardWitness:
+    """Remembers the uid the guard trigger refused, for the length of one session.
+
+    The uid cannot travel in the ``RAISE()`` message: SQLite's grammar takes a string
+    **literal** there, and the builds that tolerate an expression are newer than the
+    ones this ships on (#1613 — ``near "||": syntax error`` on the CI runner). Nor can
+    it travel in a temp table: ``ABORT`` backs out everything the offending statement
+    did, the trigger's own writes included. So the trigger calls into Python *before*
+    it raises, and Python state is the one thing ``ABORT`` cannot roll back.
+    """
+
+    def __init__(self) -> None:
+        self.uid: Optional[str] = None
+
+    def note(self, uid: Optional[str]) -> int:
+        self.uid = uid
+        return 1  # a value, so the trigger's SELECT has something to yield
+
+
 #: A TEMP trigger, so it guards *authoring* only. ``hydrate`` and ``replay`` write
 #: public state — state that already exists in the shared truth or in the log — and
 #: are not authoring, so they run outside a session and are not guarded.
@@ -340,14 +364,16 @@ CREATE TEMP TRIGGER _atdd_overlay_guard_insert BEFORE INSERT ON objects
 WHEN NEW.kind = '{WORK_ITEM_KIND}'
  AND NOT EXISTS (SELECT 1 FROM temp._atdd_overlay_ticket WHERE uid = NEW.uid)
 BEGIN
-    SELECT RAISE(ABORT, '{_GUARD_SENTINEL} ' || NEW.uid);
+    SELECT {_GUARD_WITNESS_FN}(NEW.uid);
+    SELECT RAISE(ABORT, '{_GUARD_SENTINEL}');
 END;
 
 CREATE TEMP TRIGGER _atdd_overlay_guard_update BEFORE UPDATE ON objects
 WHEN NEW.kind = '{WORK_ITEM_KIND}'
  AND NOT EXISTS (SELECT 1 FROM temp._atdd_overlay_ticket WHERE uid = NEW.uid)
 BEGIN
-    SELECT RAISE(ABORT, '{_GUARD_SENTINEL} ' || NEW.uid);
+    SELECT {_GUARD_WITNESS_FN}(NEW.uid);
+    SELECT RAISE(ABORT, '{_GUARD_SENTINEL}');
 END;
 """
 
@@ -358,12 +384,9 @@ DELETE FROM temp._atdd_overlay_ticket;
 """
 
 
-def _uid_from_guard_error(exc: sqlite3.IntegrityError) -> Optional[str]:
-    """The uid the guard trigger named, so the refusal can point at the object."""
-    message = str(exc)
-    if _GUARD_SENTINEL not in message:
-        return None
-    return message.split(_GUARD_SENTINEL, 1)[1].strip() or None
+def _is_guard_error(exc: sqlite3.IntegrityError) -> bool:
+    """Whether this constraint failure is our guard, not a genuine one."""
+    return _GUARD_SENTINEL in str(exc)
 
 
 class AuthoringSession:
@@ -412,15 +435,17 @@ def authoring_session(conn: sqlite3.Connection) -> Iterator[AuthoringSession]:
     that reconcile has no event to replay.
     """
     conn.commit()  # close any implicit transaction so the guard owns a clean one
+    witness = _GuardWitness()
+    conn.create_function(_GUARD_WITNESS_FN, 1, witness.note)
     conn.executescript(_GUARD_SQL)
     conn.execute("BEGIN")
     try:
         yield AuthoringSession(conn)
     except sqlite3.IntegrityError as exc:
         conn.rollback()
-        uid = _uid_from_guard_error(exc)
-        if uid is None:
+        if not _is_guard_error(exc):
             raise
+        uid = witness.uid
         _log.warning("overlay refused an unlogged object write", extra={"uid": uid})
         raise OverlayLogError(
             f"refusing an object write with no overlay event to explain it: {uid}. "
@@ -435,6 +460,7 @@ def authoring_session(conn: sqlite3.Connection) -> Iterator[AuthoringSession]:
         conn.commit()
     finally:
         conn.executescript(_GUARD_TEARDOWN_SQL)
+        conn.create_function(_GUARD_WITNESS_FN, 1, None)
 
 
 def author(

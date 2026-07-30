@@ -126,6 +126,7 @@ runtime_placement:
     journey_test_format: |
       # URN: test:train:{train_id}:{HARNESS}-{NNN}-{slug}
       # Train: train:{train_id}
+      # Train-Acceptance: acc:{train_id}:{acceptance-slug}   # optional; required when the train acceptance declares harness.type
       # Phase: RED|GREEN|SMOKE|REFACTOR
       # Layer: assembly
       # Runtime: {python|supabase|dart}
@@ -136,6 +137,14 @@ runtime_placement:
       - "Every test file must include exactly one test: URN (file-level identity)"
       - "Acceptance tests MUST include Acceptance: and WMBT: lines, MUST omit Train:"
       - "Journey tests MUST include Train: line, MUST omit Acceptance: and WMBT:"
+      # Train-Acceptance: is the journey tier's execution binding (#1548). It is a
+      # DISTINCT key, not a second spelling of Acceptance:, precisely because the
+      # rule above forbids Acceptance: on a journey test — reusing that key would
+      # make every harness-backed train acceptance unsatisfiable. The hyphenated
+      # key is invisible to the Acceptance:/Train: parsers, so the mutual
+      # exclusion above still holds verbatim for a journey test that carries it.
+      - "Journey tests MAY include Train-Acceptance: acc:{train_id}:{slug} to bind a train acceptance"
+      - "A train acceptance declaring harness.type MUST have a journey test carrying its Train-Acceptance: line (bidirectional binding, spec §7.3)"
       - "Phase MUST be one of RED, GREEN, SMOKE, REFACTOR"
       - "Layer MUST be one of presentation, application, domain, integration, assembly"
       - "Assertion (when declared) MUST be one of structural, behavioral; absent value means legacy/unclassified"
@@ -725,7 +734,6 @@ file_patterns:
       platform_tests:
         - "test_acceptance_urn_filename_mapping.py"
         - "test_dart_test_naming.py"
-        - "test_typescript_test_naming.py"
 
       convention_tests:
         - "conventions/tester/tests/filename/test_convention_completeness.py"

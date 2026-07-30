@@ -86,7 +86,7 @@ boundary:
     - "multiplexer / pane spawning"
     - "durable run persistence"
     - "the Feed daemon"
-    - "worker-decision mediation (mediate-worker-decisions — pending re-theme, #951)"
+    - "worker-decision mediation"
   bindable_form: >-
     For a wagon themed `commons`, no module under its src tree may
     `import atdd.coach` (or `from atdd.coach ...`). Coach-only machinery must

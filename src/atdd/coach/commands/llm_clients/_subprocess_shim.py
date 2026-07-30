@@ -11,7 +11,7 @@ import re
 import subprocess
 from typing import Any
 
-from atdd.coach.commands.judge import LLMUnavailable
+from atdd.coach.commands.llm_clients.registry import LLMUnavailable
 
 
 def _extract_json(text: str) -> Any:

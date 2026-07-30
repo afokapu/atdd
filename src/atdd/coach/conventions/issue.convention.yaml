@@ -72,7 +72,6 @@ workflow:
         - "atdd/tester/validators/test_contract_schema_compliance.py"
         - "atdd/tester/validators/test_acceptance_urn_filename_mapping.py"
         - "atdd/tester/validators/test_python_test_naming.py"
-        - "atdd/tester/validators/test_typescript_test_naming.py"
       gate_command: "atdd validate tester"
       gate_expected: "PASS"
       red_phase:
@@ -101,7 +100,6 @@ workflow:
           convention: "atdd/coder/conventions/green.convention.yaml"
       validators:
         - "atdd/coder/validators/test_python_architecture.py"
-        - "atdd/coder/validators/test_typescript_architecture.py"
         - "atdd/coder/validators/test_import_boundaries.py"
         - "atdd/coder/validators/test_wagon_boundaries.py"
       gate_command: "atdd validate coder"
@@ -244,7 +242,6 @@ github_issue_tracking:
     issue_close_wmbt: "atdd coach close-wmbt <NN> <ID> — closes WMBT sub-issue"
     issue_open: "atdd coach issues open — lists open issues"
     issue_check: "atdd coach check <NN> — template compliance check"
-    issue_sync_wmbts: "atdd coach sync-wmbts <NN> — backfills WMBT sub-issues from plan YAMLs"
     issue_sync_labels: "atdd coach sync-labels [<NN>|--all] — re-derives labels from body metadata"
     issue_reconcile: "atdd coach reconcile — backfills missing issues from GitHub"
     issue_is_registered: "atdd coach is-registered <branch> — store-backed branch-registration check"
@@ -253,7 +250,6 @@ github_issue_tracking:
     branch: "atdd worktree create <NN> — creates worktree branch from issue metadata"
     validate: "atdd validate coach — validates Project fields + sub-issue state"
     # Deprecated aliases (still work, print warning):
-    # atdd new <slug>               → atdd author issue --title <t> --slug <s>
     # atdd update <NN> --status <S> → atdd coach transition <NN> <S>
     # atdd close-wmbt <NN> <ID>     → atdd coach close-wmbt <NN> <ID>
     # atdd archive <NN>             → atdd coach transition <NN> COMPLETE
@@ -982,7 +978,7 @@ gate_tests:
       - command: "cd web && npm run typecheck"
         atdd_validator: "manual"
       - command: "atdd validate coder"
-        atdd_validator: "atdd/coder/validators/test_typescript_architecture.py"
+        atdd_validator: "manual"
 
     contracts:
       - command: "atdd validate tester"
