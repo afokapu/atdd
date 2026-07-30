@@ -151,6 +151,21 @@ class PRManager:
             pass
         return None
 
+    def pr_number_for_branch(self, branch: str) -> Optional[int]:
+        """The open PR number for *branch*, or None when none is open.
+
+        The one seam callers resolve a branch's PR through. ``_existing_pr_for_branch``
+        returns the URL ``gh`` prints, and the number is its last path segment; E056's
+        resolver called ``int()`` on that URL directly, so every branch resolution
+        raised ValueError, was swallowed, and returned None — which the pre-SMOKE gate
+        read as "block repo-wide" (#1478).
+        """
+        url = self._existing_pr_for_branch(branch)
+        if not url:
+            return None
+        tail = url.rstrip("/").rsplit("/", 1)[-1]
+        return int(tail) if tail.isdigit() else None
+
     def _merged_pr_for_branch(self, branch: str) -> Optional[str]:
         """Check if a merged PR exists for the given branch. Returns PR URL or None."""
         try:

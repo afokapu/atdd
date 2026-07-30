@@ -136,6 +136,24 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: 'the autonomy axis is a per-phase field OF the phase machine: it names who may submit the transition a phase already declares as legal, so it has no meaning without the machine that declares agent/transitions_to'
+  source_ref: coach.lifecycle.transition-autonomy
+  strength: critical
+  target_ref: coach.lifecycle.phase-machine
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'one model on two axes: freedom-with-a-leash governs which TOOLS run unattended, transition-autonomy which TRANSITIONS may be submitted unattended — the second reuses the first''s freedom_set/leash vocabulary rather than coining a parallel one, so reading either alone understates the model'
+  source_ref: coach.lifecycle.transition-autonomy
+  strength: important
+  target_ref: coach.execution.freedom-with-a-leash
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: required phases are a subset of the phase machine
   source_ref: coach.lifecycle.session-type-required-phases
   strength: important

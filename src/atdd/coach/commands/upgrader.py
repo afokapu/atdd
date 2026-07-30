@@ -37,7 +37,8 @@ from atdd.version_check import (
     get_upgrade_notes,
     _load_repo_config,
     _get_last_toolkit_version,
-    update_toolkit_version,
+    _read_sync_record,
+    record_toolkit_sync,
     is_outdated,
     auto_upgrade,
     upgrade_command,
@@ -226,8 +227,21 @@ class Upgrader:
             elif not latest:
                 print("(Could not reach PyPI — skipping live version check.)")
 
-        # 2. Local sync path: compare stamped last_version against installed.
-        last_version = _get_last_toolkit_version(config) or "unknown"
+        # 2. Local sync path: compare the last recorded sync against installed.
+        #
+        # Read the untracked runtime record FIRST, then fall back to the retired
+        # `toolkit.last_version` field, mirroring the order check_for_updates
+        # already uses. Reading only the legacy field — as this did before the
+        # #1641 merge — compares against a git-tracked value that record_toolkit_sync
+        # no longer writes, so `last_version == installed` never becomes true and
+        # the sync step re-runs sync + init --force on every single invocation.
+        # #1628 requires an already-current run to be a no-op (E008-UNIT-003), and
+        # it cannot be one while the write and the read address different stores.
+        last_version = (
+            _read_sync_record(self.repo_root)
+            or _get_last_toolkit_version(config)
+            or "unknown"
+        )
 
         print(f"ATDD sync: {last_version} → {installed}")
         print()
@@ -292,10 +306,13 @@ class Upgrader:
                     print(f"atdd init --force failed (exit {rc})")
                     return 1
 
-                # Update last_version
+                # Record the sync in this checkout's untracked runtime record
+                # (#1641). Held inside the lock: it is the last step of the
+                # mutating section, and a record written outside it could claim
+                # a sync that a contended run never finished.
                 if config_path:
-                    update_toolkit_version(config_path)
-                    print(f"\nUpdated toolkit.last_version to {installed}")
+                    record_toolkit_sync(config_path.parent.parent)
+                    print(f"\nRecorded toolkit sync at {installed}")
         except UpgradeLockUnavailable as exc:
             logger.error(
                 "sync refused, install lock contended: %s", exc,

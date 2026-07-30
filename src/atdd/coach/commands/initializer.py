@@ -27,14 +27,11 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import yaml
 
 logger = logging.getLogger(__name__)
-
-# Known branch prefixes for slug → branch name mapping
-_BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
 
 
 # Domain-agnostic prompt copy for `atdd init` theme declaration (#291,
@@ -82,151 +79,6 @@ SUBSTRATE_MODE_TOOLKIT = "toolkit"
 SUBSTRATE_PLUGIN_ENTRY_POINT = "atdd.tester.substrate.plugin"
 SUBSTRATE_DEFAULT_TEST_ROOT = "tests/"
 SUBSTRATE_DEFAULT_PLAN_ROOT = "plan/"
-
-
-def slug_to_branch_name(slug: str) -> str:
-    """Convert worktree directory slug to branch-style name.
-
-    Maps the first hyphen after a known prefix back to '/':
-        feat-some-feature → feat/some-feature
-        fix-typo          → fix/typo
-        main              → main  (no prefix match)
-    """
-    for prefix in _BRANCH_PREFIXES:
-        if slug.startswith(prefix + "-"):
-            return prefix + "/" + slug[len(prefix) + 1:]
-    return slug
-
-
-_DEFAULT_WORKSPACE_BG = "#FFC107"
-
-
-def _workspace_folders(parent: Path) -> List[dict]:
-    """The git-worktree siblings to show as multi-root folders, ``main`` first."""
-    folders = []
-    for child in sorted(parent.iterdir()):
-        if not child.is_dir() or child.name.startswith("."):
-            continue
-
-        git_marker = child / ".git"
-        if not (git_marker.is_file() or git_marker.is_dir()):
-            continue
-
-        folders.append({
-            "path": child.name,
-            "name": slug_to_branch_name(child.name),
-        })
-
-    # Ensure main is listed first
-    main_entry = next((f for f in folders if f["path"] == "main"), None)
-    if main_entry:
-        folders.remove(main_entry)
-        folders.insert(0, main_entry)
-
-    return folders
-
-
-def _saved_workspace_color(config_path: Path) -> Optional[str]:
-    """The workspace color persisted in .atdd/config.yaml, if any."""
-    if not config_path.exists():
-        return None
-
-    try:
-        with open(config_path) as f:
-            config = yaml.safe_load(f) or {}
-        return config.get("workspace", {}).get("color")
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return None
-
-
-def _existing_workspace_color(workspace_path: Path) -> Optional[str]:
-    """A user-set title-bar color already present in the workspace file."""
-    try:
-        existing = json.loads(workspace_path.read_text())
-        return (
-            existing.get("settings", {})
-            .get("workbench.colorCustomizations", {})
-            .get("titleBar.activeBackground")
-        )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return None
-
-
-def _persist_workspace_color(config_path: Path, bg: str) -> None:
-    """Persist a discovered color to config so future runs reuse it."""
-    if not config_path.exists():
-        return
-
-    try:
-        with open(config_path) as f:
-            cfg = yaml.safe_load(f) or {}
-        cfg.setdefault("workspace", {})["color"] = bg
-        with open(config_path, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        pass
-
-
-def _resolve_workspace_color(config_path: Path, workspace_path: Path) -> str:
-    """Background color: config → existing workspace file → default yellow."""
-    bg = _saved_workspace_color(config_path) or _DEFAULT_WORKSPACE_BG
-
-    # Still default? An existing workspace file may carry a user-set color.
-    if bg != _DEFAULT_WORKSPACE_BG or not workspace_path.exists():
-        return bg
-
-    existing_bg = _existing_workspace_color(workspace_path)
-    if existing_bg and existing_bg != _DEFAULT_WORKSPACE_BG:
-        _persist_workspace_color(config_path, existing_bg)
-        return existing_bg
-
-    return bg
-
-
-def write_workspace(target_dir: Path) -> None:
-    """Write a VS Code .code-workspace file in the parent directory.
-
-    Scans sibling directories for git worktrees and generates a multi-root
-    workspace so VS Code shows branch info per folder.
-
-    Args:
-        target_dir: The main checkout directory (e.g. .../project/main).
-    """
-    parent = target_dir.parent
-    workspace_name = parent.name
-    workspace_path = parent / f"{workspace_name}.code-workspace"
-
-    folders = _workspace_folders(parent)
-    bg = _resolve_workspace_color(target_dir / ".atdd" / "config.yaml", workspace_path)
-
-    # Compute foreground via WCAG relative luminance
-    from atdd.coach.commands.color import ColorManager
-    fg = ColorManager._foreground(bg)
-
-    workspace = {
-        "folders": folders,
-        "settings": {
-            "workbench.colorCustomizations": {
-                "titleBar.activeBackground": bg,
-                "titleBar.activeForeground": fg,
-                "statusBar.background": bg,
-                "statusBar.foreground": fg,
-            },
-            # Minimal default layout: Explorer + Terminal only
-            "workbench.panel.defaultLocation": "bottom",
-            "panel.defaultVisibility": "hidden",
-            "workbench.sideBar.location": "left",
-            "workbench.activityBar.location": "top",
-            "editor.minimap.enabled": False,
-            "breadcrumbs.enabled": False,
-            "workbench.secondarySideBar.visible": False,
-        },
-    }
-
-    workspace_path.write_text(
-        json.dumps(workspace, indent=2) + "\n"
-    )
-    print(f"Wrote: {workspace_path}")
 
 
 class ProjectInitializer:
@@ -378,31 +230,6 @@ class ProjectInitializer:
             digit += 1
         return mapping
 
-    def _prompt_workspace_color(self) -> None:
-        """Prompt user to pick a workspace color if unset or default yellow."""
-        config_path = self.target_dir / ".atdd" / "config.yaml"
-        if not config_path.exists():
-            return
-
-        try:
-            with open(config_path) as f:
-                config = yaml.safe_load(f) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            return
-
-        saved = config.get("workspace", {}).get("color")
-        if saved and saved != "#FFC107":
-            return
-
-        print("\nWorkspace color customization:")
-        from atdd.coach.commands.color import ColorManager
-        manager = ColorManager(self.target_dir)
-        manager.color()
-
-    def _write_workspace(self) -> None:
-        """Write a VS Code .code-workspace file (delegates to module-level)."""
-        write_workspace(self.target_dir)
-
     def _migrate_to_worktree_layout(self) -> Path:
         """
         Move all repo contents into a main/ subdirectory.
@@ -459,7 +286,6 @@ class ProjectInitializer:
         """
         if layout == "worktree-ready":
             print("Already in worktree-ready layout (repo root is main/).")
-            self._write_workspace()
             return None
 
         if layout == "worktree":
@@ -485,7 +311,6 @@ class ProjectInitializer:
             new_root = self._migrate_to_worktree_layout()
             self._update_target_dir(new_root)
             print(f"Migrated to worktree layout: {new_root}")
-            self._write_workspace()
             print(f"\n  ** After init completes, run: cd main **\n")
         except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
@@ -614,9 +439,6 @@ class ProjectInitializer:
             )
             print(f"Substrate mode: {substrate_mode}")
 
-            # Prompt for workspace color if unset or default yellow
-            self._prompt_workspace_color()
-
             # Install git hooks (pre-commit worktree enforcement)
             self._install_hooks(force)
 
@@ -670,6 +492,13 @@ class ProjectInitializer:
         - ``.atdd/state/backups/``         local pre-mutation store backups.
         - ``.atdd/manifest.migrated.yaml`` the one-shot manifest→store migration
           backup (``manifest_import._BACKUP_NAME``) (#1325 item 6).
+        - ``.atdd/runtime/``               per-checkout runtime state, including the
+          toolkit-sync record that mutes the upgrade banner (#1641). It MUST stay
+          untracked: its tracked predecessor was reverted by every branch switch,
+          which is what made the banner fire forever.
+        - ``.atdd/version_cache.json``     vestigial; the PyPI cache really lives at
+          ``~/.atdd/version_cache.json``. Ignored defensively so a stray copy left by
+          an older CLI cannot become untracked noise.
 
         **Never** ``.atdd/state/`` wholesale (#1580). That is what this wrote until the
         2026-07-20 mass-deletion, and it took ``.atdd/state/projection/`` — the *shared*
@@ -683,6 +512,8 @@ class ProjectInitializer:
         self._ensure_gitignore_entry(".atdd/state/state.sqlite*")
         self._ensure_gitignore_entry(".atdd/state/backups/")
         self._ensure_gitignore_entry(".atdd/manifest.migrated.yaml")
+        self._ensure_gitignore_entry(".atdd/runtime/")
+        self._ensure_gitignore_entry(".atdd/version_cache.json")
 
     def _ensure_gitignore_entry(self, entry: str) -> None:
         """Append *entry* to the repo .gitignore if not already present."""
@@ -797,8 +628,8 @@ class ProjectInitializer:
         Create or update .atdd/config.yaml.
 
         When force=True and config already exists, deep-merges defaults into
-        the existing config — preserving user-set values (workspace.color,
-        github.*, customised release/sync settings) while filling in any
+        the existing config — preserving user-set values (github.*,
+        customised release/sync settings) while filling in any
         missing default keys and always updating toolkit.last_version.
 
         Args:

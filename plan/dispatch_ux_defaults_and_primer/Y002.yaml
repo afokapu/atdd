@@ -10,22 +10,29 @@ acceptances:
   - identity:
       urn: "acc:dispatch-ux-defaults-and-primer:Y002-UNIT-001-banner-muted-when-marker-exists"
       id: "AC-UNIT-001"
-      purpose: "should_emit_upgrade_banner returns False when a sync-acknowledged marker file exists for the current version"
+      purpose: "check_upgrade_sync_needed returns None (no banner) when the toolkit-sync record names the installed version"
       phase: "RED"
+    given:
+      abstract:
+        - "src/atdd/version_check.py exposes check_upgrade_sync_needed() and _read_sync_record(root)"
+        - "A sync record at '.atdd/runtime/toolkit-sync.json' names the installed version"
+    when:
+      abstract: "check_upgrade_sync_needed is called on that checkout"
+    then:
+      abstract:
+        - "The return value is None — no banner is emitted"
+        - "When no record exists, the reader returns None and the check falls back to the legacy toolkit.last_version field"
+        - "When the record names a DIFFERENT (older) version, a banner is returned reporting that version as the from-version (new upgrade)"
+    notes: |
+      #1641 supersedes the per-version marker-file mechanism this WMBT originally
+      prescribed ('sync_acknowledged_{version}' + should_emit_upgrade_banner). The
+      control objective is unchanged and the directory is the one named here
+      (.atdd/runtime/); only the representation changed, to a single JSON record
+      that carries the synced version instead of one file per version. The URN is
+      retained as a stable identity — 'marker' in it now means that record.
     harness:
       type: "unit"
       category: "backend"
-    given:
-      abstract:
-        - "src/atdd/__main__.py or a banner module exposes should_emit_upgrade_banner(current_version, marker_dir)"
-        - "A marker file named 'sync_acknowledged_{current_version}' exists in marker_dir"
-    when:
-      abstract: "should_emit_upgrade_banner is called with the current version and marker_dir"
-    then:
-      abstract:
-        - "The return value is False"
-        - "When no marker file exists, the return value is True"
-        - "When a marker file exists for a DIFFERENT version, the return value is True (new upgrade)"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
@@ -52,21 +59,27 @@ acceptances:
   - identity:
       urn: "acc:dispatch-ux-defaults-and-primer:Y002-UNIT-002-atdd-sync-writes-marker"
       id: "AC-UNIT-002"
-      purpose: "Running atdd sync writes the sync-acknowledged marker file for the current version"
+      purpose: "Running atdd sync records the installed toolkit version in this checkout's toolkit-sync record"
       phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
     given:
       abstract:
         - "The atdd sync command (or its main function) is invoked"
-        - "A tmp marker_dir is passed or monkeypatched"
+        - "A tmp repo root is passed or monkeypatched"
     when:
       abstract: "atdd sync completes successfully"
     then:
       abstract:
-        - "A marker file named 'sync_acknowledged_{current_version}' exists in marker_dir"
-        - "A subsequent call to should_emit_upgrade_banner returns False"
+        - "'.atdd/runtime/toolkit-sync.json' exists and its last_synced_version is the installed version"
+        - "A subsequent call to check_upgrade_sync_needed returns None"
+        - "The write leaves the git working tree clean, because .atdd/runtime/ is gitignored"
+    notes: |
+      #1641 supersedes the marker-file mechanism (see AC-UNIT-001 notes). The
+      writer is record_toolkit_sync(root), replacing update_toolkit_version,
+      which wrote toolkit.last_version into the git-tracked .atdd/config.yaml —
+      a correct but ephemeral write that every checkout/stash/reset reverted.
+    harness:
+      type: "unit"
+      category: "backend"
     metadata:
       author: "atdd:planner"
       created: "2026-05-20"
