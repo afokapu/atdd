@@ -267,13 +267,6 @@ class IssueLifecycle:
         # (#1051); the Projects v2 "ATDD Branch" field is decommissioned, so no
         # board write happens here.
 
-        # Refresh workspace
-        try:
-            from atdd.coach.commands.initializer import write_workspace
-            write_workspace(self.target_dir)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            pass
-
         return worktree_path
 
     def _run_gate(self, worktree_path: Path) -> int:

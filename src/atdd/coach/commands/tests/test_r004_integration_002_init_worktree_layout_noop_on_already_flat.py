@@ -73,7 +73,6 @@ def test_r004_integration_002_init_worktree_layout_noop_on_already_flat(
             init, "_migrate_to_worktree_layout",
             lambda: migrate_calls.append(1),  # type: ignore[arg-type]
         )
-        monkeypatch.setattr(init, "_write_workspace", lambda: None)
 
         capsys.readouterr()  # drain
         init.init(worktree_layout=True, force=False)

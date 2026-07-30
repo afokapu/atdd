@@ -259,10 +259,10 @@ def create_issue_body(spec: dict | None = None) -> str:
 
     parts.append(
         "## Release Gate\n\n"
-        "INTERIM (see #1172): bump the version manually. `publish.yml` tags + "
-        "publishes from the version on main.\n\n"
+        "The release version lives in the State Store and is projected into the "
+        "build automatically (#1172) — there is no version line to hand-edit.\n\n"
         "- [ ] Rebase on main.\n"
-        "- [ ] Bump the version per branch prefix + change class.\n"
+        "- [ ] `atdd state version bump --class PATCH|MINOR|MAJOR`\n"
         "- [ ] Merge the PR."
     )
 
