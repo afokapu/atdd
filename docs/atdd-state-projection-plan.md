@@ -530,11 +530,21 @@ Build core first. The GitHub extension should not begin deep mirror behavior unt
 | CORE-028 | Add import-boundary static test | P0 | M5 |
 | CORE-029 | Add non-GitHub remote conformance suite | P0 | M5 |
 | CORE-030 | Implement `.atdd/extensions.lock` | P0 | M5 |
-| CORE-031 | Implement manifest-to-projection migration tool | P0 | M8 |
+| CORE-031 | ~~Implement manifest-to-projection migration tool~~ **DEAD** — superseded by CORE-036 | P0 | M8 |
 | CORE-032 | Add shadow-mode projection CI | P1 | M8 |
 | CORE-033 | Remove GitHub hot-path reads | P0 | M8 |
 | CORE-034 | Decommission manifest read-fallback | P1 | M8 |
 | CORE-035 | Write core migration/developer docs | P1 | M8 |
+| CORE-036 | Implement store-to-projection migration tool | P0 | M8 |
+
+**CORE-031 is dead, and its death is load-bearing.** It migrates
+`.atdd/manifest.yaml` into the projection, and CORE-034 deleted that file — so its
+only input no longer exists and it cannot run at all. `manifest_migration.migrate`
+and `mint_uids` remain in the tree because they are still the manifest's history,
+but nothing can reach them. Identity is minted **in the State Store** instead, by
+`manifest_migration.migrate_store` (CORE-036, #1622), because after CORE-034 the
+store is the only surviving source of truth. Anything that still names CORE-031 as
+the path to a first projection is describing a route that no longer connects.
 
 ### GitHub extension repo
 
