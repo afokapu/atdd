@@ -1,0 +1,85 @@
+urn: wmbt:govern-providers:E004
+step: execute
+direction: minimize
+dimension: quantity
+object_of_control: off-target-rule-execution
+context_clarifier: "enforce() fans out to every convention whose disposition is bound\
+  \ \u2014 62 of them in the toolkit's own binding.lock.yaml \u2014 and each one costs\
+  \ a provider subprocess that itself subprocesses the runtime; so a caller that needs\
+  \ the verdict for a single rule must pay for and parse every unrelated detector,\
+  \ which makes a per-artifact authoring gate impossible; a rule selection must also\
+  \ refuse an unknown rule id rather than resolve to an empty set, because an empty\
+  \ set reports clean"
+lens: functional.efficiency
+statement: minimize quantity of off-target-rule-execution by letting a caller name
+  the rules enforce() runs and refusing a selection that names an unknown rule, so
+  a single-rule verdict costs one provider subprocess instead of the whole bound set
+  and a mistyped rule id fails loudly instead of reporting clean
+acceptances:
+- identity:
+    urn: acc:govern-providers:E004-UNIT-001-rule-selection-narrows-the-bound-set
+    id: AC-UNIT-001
+    purpose: naming a subset of the bound rules resolves to exactly those entries,
+      so the runner spawns one provider per selected rule instead of one per bound
+      rule
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a binding lock declaring three bound conventions and one unbound convention
+  when:
+    abstract: the bound set is resolved with a selection naming two of the three bound
+      conventions
+  then:
+    abstract:
+    - the resolved set carries exactly the two named conventions
+    - the third bound convention and the unbound convention are both absent
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
+- identity:
+    urn: acc:govern-providers:E004-UNIT-002-unknown-rule-selection-refuses
+    id: AC-UNIT-002
+    purpose: a selection naming a rule that no bound convention declares raises a
+      usage error rather than resolving to an empty set, because an empty set runs
+      no detector and reports clean
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a binding lock declaring two bound conventions
+  when:
+    abstract: the bound set is resolved with a selection naming a convention id absent
+      from the lock
+  then:
+    abstract:
+    - a usage error is raised naming the unknown rule id
+    - no verdict is produced and no clean result is returned
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
+- identity:
+    urn: acc:govern-providers:E004-UNIT-003-no-selection-enforces-every-bound-rule
+    id: AC-UNIT-003
+    purpose: omitting the selection preserves the whole-bound-set behavior, so adding
+      rule selection changes nothing for existing callers
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a binding lock declaring three bound conventions and one unbound convention
+  when:
+    abstract: the bound set is resolved with no selection supplied
+  then:
+    abstract:
+    - the resolved set carries all three bound conventions
+    - the unbound convention remains absent
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'

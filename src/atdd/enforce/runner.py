@@ -136,17 +136,39 @@ def load_config(repo_root: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def _bound_conventions(substrate_home: Path) -> list[dict]:
+def _bound_conventions(substrate_home: Path, rules: Optional[set] = None) -> list[dict]:
+    """The ``bound`` convention entries, optionally narrowed to ``rules``.
+
+    ``rules`` is a SELECTION, not a filter: every named rule must resolve to a bound
+    convention or this raises. Silently dropping an unknown id would leave the caller
+    running fewer detectors than it asked for — and a selection that resolves to
+    nothing spawns no provider at all, which reports CLEAN. A mistyped rule id would
+    then turn a gate into a rubber stamp, so an unresolvable selection is a usage
+    error (the same fail-closed stance the runner takes on a crashed provider).
+    """
     lock_path = substrate_home / ".atdd" / "binding.lock.yaml"
-    if not lock_path.is_file():
-        return []
-    try:
-        lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        raise EnforceUsageError(f"malformed binding.lock.yaml: {exc}") from exc
+    lock: dict = {}
+    if lock_path.is_file():
+        try:
+            lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            raise EnforceUsageError(f"malformed binding.lock.yaml: {exc}") from exc
     conventions = lock.get("conventions") if isinstance(lock, dict) else None
     conventions = conventions if isinstance(conventions, list) else []
-    return [c for c in conventions if isinstance(c, dict) and c.get("disposition") == "bound"]
+    bound = [c for c in conventions if isinstance(c, dict) and c.get("disposition") == "bound"]
+    if rules is None:
+        return bound
+    known = {str(c.get("convention_id")) for c in bound}
+    unknown = sorted(set(rules) - known)
+    if unknown:
+        # Name ONLY the unresolvable ids — listing the resolvable ones back would bury
+        # the typo in noise on a repo with dozens of bound rules.
+        raise EnforceUsageError(
+            "rule selection names no bound convention: " + ", ".join(unknown)
+        )
+    # Lock order, not selection order: the run is reproducible regardless of how the
+    # caller spelled the set.
+    return [c for c in bound if str(c.get("convention_id")) in rules]
 
 
 def _candidate_roots(substrate_home: Path) -> list[Path]:
@@ -300,8 +322,14 @@ def enforce(
     repo_root: Path,
     *,
     path_override: Optional[list[str]] = None,
+    rules: Optional[set] = None,
 ) -> EnforceResult:
     """Enforce every ``bound`` convention against ``repo_root``.
+
+    ``rules`` narrows the run to the named conventions — one provider subprocess per
+    selected rule instead of one per bound rule. Omitted, every bound convention runs,
+    so existing callers (`atdd enforce`, the post-commit hook, CI) are unaffected. A
+    selection naming an unbound or unknown rule raises rather than running nothing.
 
     Raises :class:`EnforceUsageError` (exit 2) on a wiring failure (malformed
     config/lock, unresolvable provider, provider crash).
@@ -309,7 +337,7 @@ def enforce(
     repo_root = repo_root.resolve()
     substrate_home = resolve_substrate_home(repo_root)
     config = load_config(repo_root)  # may raise EnforceUsageError (exit 2)
-    bound = _bound_conventions(substrate_home)
+    bound = _bound_conventions(substrate_home, rules)
 
     if not bound:
         return EnforceResult(verdicts=[], report="enforce: no bound conventions — clean no-op.")

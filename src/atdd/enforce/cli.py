@@ -74,6 +74,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "baseline, then exit 0. Use to pay debt down, NEVER to green a red build."
         ),
     )
+    parser.add_argument(
+        "--rule", action="append", default=None, metavar="RULE_ID", dest="rules",
+        help=(
+            "Enforce only this convention (repeatable). One provider subprocess per "
+            "selected rule instead of one per bound rule. Omitted, every bound "
+            "convention runs. A rule id that is not bound is an error, not an empty "
+            "run — an empty run spawns no detector and would report clean."
+        ),
+    )
     return parser
 
 
@@ -138,7 +147,11 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return 0 if ok else 1
 
     try:
-        result = enforce(repo_root, path_override=args.paths)
+        result = enforce(
+            repo_root,
+            path_override=args.paths,
+            rules=set(args.rules) if args.rules else None,
+        )
     except EnforceUsageError as exc:
         _log.warning("enforce usage error", extra={"error": str(exc)})
         print(f"atdd enforce: {exc}")
