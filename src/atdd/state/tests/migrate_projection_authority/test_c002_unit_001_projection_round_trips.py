@@ -65,8 +65,8 @@ def test_projecting_hydrating_and_reprojecting_is_byte_identical(tmp_path) -> No
 
     documents = read_projection(out_dir)
 
-    with memory_store() as (conn2, store2):
-        hydrate(conn2, documents)
+    with memory_store() as (_conn, store2):
+        hydrate(out_dir, store2)
         second = project(store2, out_dir)
 
         reproduced = {
