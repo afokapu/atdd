@@ -15,6 +15,7 @@ description: 'M8 of the state-projection collaboration model: move the shared so
   (X-006).'
 features:
 - urn: feature:migrate-projection-authority:migrate-manifest-projection
+- urn: feature:migrate-projection-authority:migrate-store-projection
 - urn: feature:migrate-projection-authority:compare-shadow-projection
 - urn: feature:migrate-projection-authority:remove-github-reads
 - urn: feature:migrate-projection-authority:decommission-manifest-fallback
