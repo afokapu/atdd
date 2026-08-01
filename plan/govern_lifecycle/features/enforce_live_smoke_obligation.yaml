@@ -1,0 +1,62 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: "evaluate_feature_live_smoke_obligation \u2014 the pure evaluator\
+        \ deciding whether a feature's integration components oblige a live_smoke\
+        \ acceptance reachable through its WMBTs; and evaluate_smoke_execution_kind_declared\
+        \ \u2014 the pure evaluator flagging a -SMOKE-NNN acceptance that declares\
+        \ no execution_kind"
+      type: use_cases
+    domain:
+    - count: 0
+      rationale: Reuses the Violation domain dataclass; the obligation is a predicate
+        over plan documents, not a new runtime concept
+      type: entities
+    integration:
+    - count: 0
+      rationale: "Reuses the existing plan traversal \u2014 iter_wmbt_files / _acceptance_walker\
+        \ for the acceptance walk and the same feature -> WMBT URN-to-path resolution\
+        \ atdd.coach.gate.smoke_obligation performs \u2014 plus assert_substrate_strict\
+        \ for strict-disposition plumbing; no new infrastructure. NOTE this zero is\
+        \ what makes C011 inapplicable to its own feature; the dogfooding lands through\
+        \ C012 instead, which this feature's own SMOKE acceptances satisfy by declaring\
+        \ execution_kind: live_smoke explicitly."
+      type: repositories
+    presentation:
+    - count: 0
+      rationale: "No new CLI surface \u2014 both rules are reached through the existing\
+        \ atdd validate planner entry point and resolved by atdd rules show"
+      type: controllers
+description: "Closes the opt-out-by-omission hole the #1602 smoke-execution gate was\
+  \ knowingly shipped with (#1609). atdd.coach.gate.smoke_obligation is opt-in by\
+  \ construction \u2014 an issue owes a live-smoke run only when its own plan scope\
+  \ declares an execution_kind: live_smoke acceptance \u2014 and its closing docstring\
+  \ defers the question of which issues are REQUIRED to declare one to the planner\
+  \ as a separate concern. Measured, that deferral is near-total: of 1120 acceptances\
+  \ under plan/, exactly ONE (acc:govern-lifecycle:E069-SMOKE-001) declares execution_kind\
+  \ at all, so SmokeExecutionGateCheck resolves every other issue in the repo to not-applicable.\
+  \ This feature states the planner-side obligation in two sequenced rules. C011 declares\
+  \ planner.feature.integration-requires-live-smoke: a feature whose components.backend.integration\
+  \ count is non-zero must reach at least one execution_kind: live_smoke acceptance\
+  \ through its wmbts[], which names WHICH work owes a live smoke using the one signal\
+  \ that is actually adopted (89 of 162 feature files qualify) and mirrors exactly\
+  \ the feature -> WMBT -> acceptances walk the coach gate already performs. C012\
+  \ declares planner.acceptance.smoke-must-declare-execution-kind: an acceptance carrying\
+  \ the -SMOKE-NNN harness token must declare execution_kind explicitly, removing\
+  \ silence as an answer on the runtime-environment axis (#690) that satisfying the\
+  \ orthogonal harness-axis rule planner.wmbt.must-have-smoke-acceptance currently\
+  \ lets 296 acceptances skip. Both ship suppress-and-clean with UNTIL-dated inline\
+  \ markers, the disposition their sibling planner.wmbt.must-have-smoke-acceptance\
+  \ already uses, so the gate hole closes at C011 without the C012 classification\
+  \ backlog blocking it. Core states the rules; the validators are pure evaluators\
+  \ over plan/ reusing the existing Violation dataclass and plan traversal."
+sizing:
+  footprint_score: 7
+  footprint_size: S
+  wmbts: 2
+urn: feature:govern-lifecycle:enforce-live-smoke-obligation
+wagon: wagon:govern-lifecycle
+wmbts:
+- wmbt:govern-lifecycle:C011
+- wmbt:govern-lifecycle:C012

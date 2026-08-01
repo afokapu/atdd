@@ -1,0 +1,108 @@
+urn: wmbt:govern-lifecycle:C012
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: a-smoke-acceptance-that-stays-silent-on-the-runtime-environment-axis-so-omission-reads-as-no-obligation-and-the-execution-kind-substrate-stays-dead
+context_clarifier: "when an acceptance carries the -SMOKE-NNN harness token and so\
+  \ satisfies planner.wmbt.must-have-smoke-acceptance on the harness axis while declaring\
+  \ no execution_kind at all on the orthogonal runtime-environment axis (#690) \u2014\
+  \ which 296 of the repo's 297 SMOKE acceptances do today, leaving the E006 pairing\
+  \ rule, the E055 must-execute rule, the E060 constant-evidence rule and the #1602\
+  \ gate with almost no subject to police"
+lens: functional.effectiveness
+statement: "minimize likelihood of a-smoke-acceptance-that-stays-silent-on-the-runtime-environment-axis-so-omission-reads-as-no-obligation-and-the-execution-kind-substrate-stays-dead\
+  \ by declaring planner.acceptance.smoke-must-declare-execution-kind, a strict planner\
+  \ rule whose validator walks every acceptance carrying the -SMOKE-NNN harness token\
+  \ and emits a Violation when execution_kind is absent \u2014 so an author chooses\
+  \ live_smoke or hermetic_integration on the record instead of leaving the choice\
+  \ to silence, the 296 acceptances that qualify today are either classified or carry\
+  \ a dated suppression naming the debt, and the enforcement chain downstream of the\
+  \ axis finally has subjects"
+acceptances:
+- given:
+    abstract:
+    - evaluate_smoke_execution_kind_declared is a pure evaluator over already-loaded
+      (path, document) pairs, so the cases are synthetic WMBT documents with no disk
+      writes
+    - 'One WMBT carrying four acceptances: a -SMOKE-NNN acceptance with execution_kind
+      live_smoke, a -SMOKE-NNN acceptance with execution_kind hermetic_integration,
+      a -SMOKE-NNN acceptance with no execution_kind key at all, and a -UNIT-NNN acceptance
+      with no execution_kind key'
+    - A second WMBT whose single -SMOKE-NNN acceptance declares execution_kind with
+      a value outside the two-value vocabulary
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: "The rule bites on silence and on nothing else, so it must flag a -SMOKE-NNN\
+      \ acceptance with no execution_kind, stay clean for either declared value, and\
+      \ never reach an acceptance whose URN carries a different harness token \u2014\
+      \ the orthogonality (#690) the rule depends on is what stops it becoming a tax\
+      \ on every acceptance in plan/"
+    urn: acc:govern-lifecycle:C012-UNIT-001-silent-smoke-acceptance-is-flagged
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
+  then:
+    abstract:
+    - The silent -SMOKE-NNN acceptance is flagged with rule planner.acceptance.smoke-must-declare-execution-kind,
+      located at that acceptance's line so an inline suppression marker can anchor
+      there rather than on the whole WMBT
+    - "Both explicitly-declared -SMOKE-NNN acceptances are clean, so the rule demands\
+      \ a choice and never a particular one \u2014 an author who declares hermetic_integration\
+      \ satisfies it exactly as fully as one who declares live_smoke"
+    - The -UNIT-NNN acceptance is untouched however it is written, proving the rule
+      is scoped by harness token and does not silently extend the axis to the whole
+      plan tree
+    - The out-of-vocabulary value is reported as its own distinct violation detail
+      rather than being counted as silence, so a typo cannot be repaired by deleting
+      the key
+  when:
+    abstract: evaluate_smoke_execution_kind_declared is called once over both synthetic
+      WMBT documents
+- execution_kind: live_smoke
+  given:
+    abstract:
+    - "The real plan/ tree of this repository under REPO_ROOT \u2014 not a fixture\
+      \ \u2014 carrying whatever acceptances are committed at the time the smoke runs"
+    - The shipped validator for planner.acceptance.smoke-must-declare-execution-kind
+      imported from the installed package, together with the shipped disposition gate
+      that reads inline atdd:suppress markers and their UNTIL dates
+    - The date the run observes is the real clock, so an expired suppression is an
+      expired suppression rather than a value the test chose
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: "A suppress-and-clean rule is only honest if its debt is measured rather\
+      \ than asserted, so this runs the shipped validator over this repository's real\
+      \ plan/ tree and proves the flagged set is exactly the silent -SMOKE-NNN acceptances\
+      \ actually committed, that every suppression carries a live UNTIL date, and\
+      \ that this feature's own SMOKE acceptances are not among the flagged \u2014\
+      \ the dogfooding E071 cannot supply because its integration count is zero"
+    urn: acc:govern-lifecycle:C012-SMOKE-001-real-plan-tree-debt-is-measured-and-only-ever-falls
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
+  then:
+    abstract:
+    - The flagged set equals the independently walked set of -SMOKE-NNN acceptances
+      committed with no execution_kind, so the reported debt is a measurement of the
+      tree and not a number the validator invented
+    - Every suppression marker the disposition gate honours carries an UNTIL date
+      that has not passed, so the migration cannot be parked indefinitely by a marker
+      nobody revisits
+    - 'Both acceptances of this feature''s own WMBTs are absent from the flagged set
+      because each declares execution_kind: live_smoke explicitly, so the rule is
+      dogfooded by the change that introduces it'
+    - 'The run cannot self-skip and cannot pass on constant evidence: every assertion
+      is computed from the real validator output over the committed tree, so an empty
+      plan/ or an unimportable validator fails the smoke instead of greening it'
+  when:
+    abstract: the shipped validator is run over the real plan/ tree and its output
+      is compared against an independent walk of the committed acceptances performed
+      by the test

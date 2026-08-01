@@ -1,0 +1,112 @@
+urn: wmbt:govern-lifecycle:C011
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: a-feature-that-builds-real-integration-components-yet-reaches-no-live-smoke-acceptance-so-every-issue-bound-to-it-owes-the-smoke-execution-gate-nothing
+context_clarifier: "when a feature declares a non-zero components.backend.integration\
+  \ count but none of the WMBTs in its wmbts[] carries an execution_kind: live_smoke\
+  \ acceptance, so live_smoke_obligation resolves that feature to an empty SmokeObligation\
+  \ and SmokeExecutionGateCheck passes every bound issue through SMOKE->REFACTOR as\
+  \ not-applicable \u2014 the opt-out-by-omission the #1602 gate was knowingly shipped\
+  \ with (#1609)"
+lens: functional.effectiveness
+statement: "minimize likelihood of a-feature-that-builds-real-integration-components-yet-reaches-no-live-smoke-acceptance-so-every-issue-bound-to-it-owes-the-smoke-execution-gate-nothing\
+  \ by declaring planner.feature.integration-requires-live-smoke, a strict planner\
+  \ rule whose validator walks plan/<wagon>/features/*.yaml, resolves each feature\
+  \ declaring a non-zero backend.integration count through the same wmbts[] -> acceptances[]\
+  \ path atdd.coach.gate.smoke_obligation already walks, and emits a Violation when\
+  \ that path reaches zero execution_kind: live_smoke acceptances \u2014 so the coach\
+  \ gate's opt-in question is answered by an obligation the planner states rather\
+  \ than by an author's silence, and the 89 of 162 feature files that qualify today\
+  \ either declare the acceptance or carry a dated suppression that says out loud\
+  \ they have not"
+acceptances:
+- given:
+    abstract:
+    - evaluate_feature_live_smoke_obligation is a pure evaluator taking already-loaded
+      (path, document) pairs for features and the WMBTs their wmbts[] names, so no
+      fixture writes to disk
+    - 'Three synthetic features: one with backend.integration count 3 reaching a WMBT
+      whose acceptances[] contains an execution_kind: live_smoke entry; one with the
+      same integration count reaching only acceptances that declare hermetic_integration
+      or nothing at all; one with every integration count at 0 and no live_smoke acceptance
+      anywhere'
+    - A fourth synthetic feature names a WMBT URN that resolves to no document, standing
+      for the typo case
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: 'The obligation is a pure predicate over plan documents, so it can be
+      driven from synthetic feature/WMBT pairs with no repo state: a feature declaring
+      integration components and reaching a live_smoke acceptance is clean, the same
+      feature reaching only non-live_smoke acceptances is flagged, and a feature declaring
+      zero integration components is never flagged however its acceptances are written'
+    urn: acc:govern-lifecycle:C011-UNIT-001-integration-feature-without-live-smoke-is-flagged
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
+  then:
+    abstract:
+    - 'Exactly one Violation is emitted, against the integration-bearing feature that
+      reaches no live_smoke acceptance, bound to rule planner.feature.integration-requires-live-smoke
+      and located at that feature file''s urn: line so an inline suppression marker
+      has something to anchor on'
+    - The integration-bearing feature that DOES reach a live_smoke acceptance is clean,
+      proving the rule is discharged by declaring the acceptance rather than by the
+      feature's shape
+    - The zero-integration feature is clean, proving the predicate gates on the declared
+      integration count and does not tax every feature in the repo
+    - The feature naming an unresolvable WMBT contributes no Violation, matching smoke_obligation's
+      rule that an unreadable reference is a planner-side fault for other validators
+      and never an invented obligation here
+  when:
+    abstract: evaluate_feature_live_smoke_obligation is called once over all four
+      synthetic features
+- execution_kind: live_smoke
+  given:
+    abstract:
+    - "The real plan/ tree of this repository under REPO_ROOT \u2014 not a fixture\
+      \ \u2014 carrying whatever features and acceptances are committed at the time\
+      \ the smoke runs"
+    - The shipped validator for planner.feature.integration-requires-live-smoke and
+      the shipped atdd.coach.gate.smoke_obligation.live_smoke_obligation, both imported
+      from the installed package; nothing in the chain is stubbed and the test supplies
+      no plan document of its own
+    - A real on-disk State Store work item whose data bag names a feature URN, built
+      the way the ordinary authoring path writes it, so the gate resolves its plan
+      scope through the same projection a live transition would
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: "The rule is only worth stating if it answers the question the coach\
+      \ gate actually asks, so this drives the shipped validator and the shipped atdd.coach.gate.smoke_obligation\
+      \ over this repository's own plan/ tree and asserts they agree feature-for-feature\
+      \ \u2014 a feature the rule reports as clean is a feature whose bound issue\
+      \ live_smoke_obligation resolves to a non-empty obligation, and the SMOKE->REFACTOR\
+      \ verdict follows from that and from nothing the test supplied"
+    urn: acc:govern-lifecycle:C011-SMOKE-001-rule-and-gate-agree-over-the-real-plan-tree
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
+  then:
+    abstract:
+    - 'Every integration-bearing feature the rule reports clean resolves to a non-empty
+      SmokeObligation naming at least one acceptance URN, so a rule-clean feature
+      is one whose issues the #1602 gate genuinely holds rather than waves through'
+    - Every feature the rule flags resolves to an empty SmokeObligation, so the flagged
+      set is exactly the set the gate is currently blind to and the violation count
+      is a measured debt figure rather than an estimate
+    - 'The run cannot self-skip and cannot pass on constant evidence: the assertions
+      are computed from the real validator output and the real gate resolution over
+      the committed tree, so an empty plan/ or an unimportable validator fails the
+      smoke instead of greening it'
+  when:
+    abstract: the validator is run over the real plan/ tree and, for every integration-bearing
+      feature it reports clean, live_smoke_obligation is resolved against a work item
+      bound to that feature
