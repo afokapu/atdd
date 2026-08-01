@@ -1,5 +1,18 @@
 """Legacy manifest → committed projection (#1400 migrate-projection-authority, CORE-031).
 
+.. note::
+
+   **CORE-031 no longer has an input.** ``decommission-manifest`` (CORE-034) deleted
+   ``.atdd/manifest.yaml``, so :func:`migrate` and :func:`mint_uids` — everything above the
+   store-native section at the foot of this module — cannot run against a real repo. They are
+   kept because they are the manifest's history and its tests still pin the refusal contract
+   they established, not because anything reaches them.
+
+   The live path is :func:`migrate_store` (CORE-036, #1622), which mints identity **in the
+   State Store**, that being the only surviving source of truth. It inherits this module's one
+   real idea — refuse the whole run before the first write — and owes it a sharper debt: it
+   mutates the store in place, where the manifest migration only ever wrote a derived tree.
+
 The one-way door. ``.atdd/manifest.yaml`` is a hand-editable ledger keyed by a **mutable slug**;
 ``.atdd/state/projection/<uid>.yaml`` is a derived, canonical document keyed by an **immutable
 uid** (spec §10 rule 1). This module walks a repo across that gap: it reads the legacy manifest,
