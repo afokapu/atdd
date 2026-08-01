@@ -81,7 +81,10 @@ features:
   - urn: "feature:govern-lifecycle:bind-issue-feature"
 
 wmbt:
-  total: 106
+  total: 110
+  Y006: "minimize an-issue-feature-binding-no-command-can-write-because-create-derives-nothing-and-revise-accepts-the-feature-flag-then-drops-it"
+  C011: "minimize a-declared-feature-urn-that-resolves-to-nothing-in-plan-and-drifts-unseen-because-no-validator-holds-an-atdd-issue-body-or-its-stored-binding-to-the-plan-graph"
+  L003: "minimize wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them"
   R006: "minimize drifted-lifecycle-records-that-no-verb-can-repair"
   R005: "minimize phase-labels-written-without-the-store-transition-behind-them"
   R001: "minimize stale local manifest status after a successful GitHub transition"
