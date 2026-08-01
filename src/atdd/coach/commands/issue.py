@@ -1686,11 +1686,25 @@ class IssueManager:
         phase_labels = [
             l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"
         ]
+        # The swap is two calls, so a refusal can land between them. Which one
+        # was refused changes what the label now reads, and this diagnosis must
+        # not assert the wrong one: an error that overstates what it knows is
+        # the failure mode #1621 is about, and reporting "the label still reads
+        # atdd:REFACTOR" over a label that was just removed would be one.
+        removed: List[str] = []
         try:
             if phase_labels:
                 client.remove_label(issue_number, phase_labels)
+                removed = phase_labels
             client.add_label(issue_number, [f"atdd:{status}"])
         except GitHubPermissionError as exc:
+            if removed:
+                label_now = (
+                    f"no atdd:<phase> label at all — {', '.join(removed)} came off "
+                    f"before the write of atdd:{status} was refused"
+                )
+            else:
+                label_now = ", ".join(phase_labels) or "(none)"
             logger.error(
                 "phase label write refused for lack of permission",
                 extra={"issue": issue_number, "status": status, "error": str(exc)},
@@ -1701,7 +1715,7 @@ class IssueManager:
                 f"  {exc}\n"
                 f"  This is NOT an API glitch and retrying will not clear it.\n"
                 f"  The store moved first (#1452), so objects.state is now {status} "
-                f"while the label still reads {', '.join(phase_labels) or '(none)'} "
+                f"while the label reads {label_now} "
                 f"— they disagree until the label is written.\n"
                 f"  In CI: the job's `permissions:` block grants issues:write to "
                 f"GITHUB_TOKEN only; check GH_TOKEN names that token (#1621)."

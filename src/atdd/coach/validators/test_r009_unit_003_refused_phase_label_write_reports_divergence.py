@@ -69,16 +69,24 @@ class _WorkingClient:
         self.calls.append(("add", labels))
 
 
-def _run_gh_returning(monkeypatch, returncode: int, stderr: str) -> GitHubClient:
-    """A GitHubClient whose every `gh` invocation fails with ``stderr``."""
-    monkeypatch.setattr(GitHubClient, "_check_gh", lambda self: None)
-    client = GitHubClient(repo="afokapu/atdd")
+class _RefusingTheAddClient:
+    """Removal lands; the add is refused — a refusal *between* the two calls.
 
-    def fake_run(cmd, **kwargs):
-        return subprocess.CompletedProcess(cmd, returncode, stdout="", stderr=stderr)
+    The swap is two `gh` calls, so this state is reachable, and it is the one
+    where a diagnosis is easiest to get wrong: by the time the write is refused
+    the old label is already gone.
+    """
 
-    monkeypatch.setattr("atdd.coach.github.subprocess.run", fake_run)
-    return client
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+        self.calls: List[Any] = []
+
+    def remove_label(self, issue_number: int, labels: List[str]) -> None:
+        self.calls.append(("remove", labels))
+
+    def add_label(self, issue_number: int, labels: List[str]) -> None:
+        self.calls.append(("add", labels))
+        raise self.error
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +112,40 @@ def test_refused_label_write_reports_and_does_not_raise(capsys) -> None:
     # It must name the cause as permission, not leave the reader guessing.
     assert "permission" in out.lower(), out
     # And it must name the damage: the store already moved (#1452).
+    assert "objects.state" in out or "store" in out.lower(), out
+
+
+def test_the_diagnosis_does_not_claim_a_label_that_is_no_longer_there(capsys) -> None:
+    """A refusal *between* the two calls must not report the old label as current.
+
+    `remove_label` then `add_label` is two `gh` calls. If the first lands and the
+    second is refused, the issue carries NO `atdd:<phase>` label — and a message
+    that says "the label still reads atdd:REFACTOR" is then simply false.
+
+    This is small, and it is the same species of defect as the one this whole
+    issue removes: an error message asserting more than it knows. #1621 exists
+    because a diagnosis that misdescribes the state sends the reader somewhere
+    wrong, and an operator told the old label survived will not think to restore
+    one that did not.
+    """
+    client = _RefusingTheAddClient(
+        GitHubPermissionError(f"refused adding the label\n{_LIVE_REFUSAL}")
+    )
+
+    written = IssueManager._write_phase_label(
+        client, 1601, ["atdd-issue", "atdd:REFACTOR"], "COMPLETE"
+    )
+
+    assert written is False
+    out = capsys.readouterr().out
+    assert "the label reads atdd:REFACTOR" not in out, (
+        "the diagnosis claimed the previous label was still on the issue, but "
+        f"the remove landed and only the add was refused:\n{out}"
+    )
+    assert "no atdd:<phase> label at all" in out, (
+        f"the diagnosis did not say the issue is now unlabelled:\n{out}"
+    )
+    # The damage report is still there — this is a correction, not a removal.
     assert "objects.state" in out or "store" in out.lower(), out
 
 
