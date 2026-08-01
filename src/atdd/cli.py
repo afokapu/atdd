@@ -959,20 +959,6 @@ Phase descriptions:
     close_wmbt_top_parser.add_argument("wmbt_id", type=str, help="WMBT ID (e.g., D001, E003)")
     close_wmbt_top_parser.add_argument("--force", "-f", action="store_true", help="Close even if ATDD cycle checkboxes are unchecked")
 
-    # ----- atdd color [value] -----
-    color_parser = subparsers.add_parser(
-        "color",
-        help="Set workspace title/status bar color",
-        description="Set workspace color via named preset or hex value",
-    )
-    color_parser.add_argument(
-        "value",
-        nargs="?",
-        type=str,
-        default=None,
-        help="Color preset name (yellow, blue, green, red, orange, purple) or hex (#RRGGBB)",
-    )
-
     # ----- atdd hooks -----
     # The resolution seam the installed hook dispatchers call on every git
     # operation (#1492). Keep it fast and side-effect free.
@@ -2380,12 +2366,6 @@ Phase descriptions:
             return BranchManager().remove_worktree(args.target)
         worktree_parser.print_help()
         return 1
-
-    # atdd color [value]
-    elif args.command == "color":
-        from atdd.coach.commands.color import ColorManager
-        manager = ColorManager()
-        return manager.color(value=args.value)
 
     # atdd schemas
     elif args.command == "schemas":

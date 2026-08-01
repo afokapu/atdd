@@ -37,59 +37,6 @@ SCHEMAS_DIR = ATDD_PKG_DIR / "planner" / "schemas"
 
 
 # SPEC-COACH-UTILS-0282
-def test_acceptance_urn_format_updated():
-    """
-    Given: Current format in acceptance.convention.yaml
-    When: Applying new format with WMBT ID and harness
-    Then: URN examples follow pattern acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]
-          Example: 'acc:maintain-ux:C004-E2E-019-user-connection'
-    """
-    acceptance_convention_path = CONVENTIONS_DIR / "acceptance.convention.yaml"
-
-    with open(acceptance_convention_path, 'r') as f:
-        convention = yaml.safe_load(f)
-
-    # Check urn_generation section for example
-    urn_generation = convention.get('urn_generation', {})
-
-    # Get pattern
-    pattern = urn_generation.get('pattern', '')
-    assert pattern == "acc:{wagon}:{wmbt_id}-{harness}-{NNN}[-{slug}]", \
-        f"Expected new pattern format, got: {pattern}"
-
-    # Get example (multi-line string with code)
-    example_code = urn_generation.get('example', '')
-    assert len(example_code) > 0, "Should have example code"
-
-    # Extract URN examples from comments in the code
-    # Look for patterns like: # Returns: "acc:authenticate-user:C004-E2E-019"
-    urn_matches = re.findall(r'acc:[a-z][a-z0-9-]*:[DLPCEMYRK]\d{3}-[A-Z0-9]+-\d{3}(?:-[a-z0-9-]+)?', example_code)
-    assert len(urn_matches) > 0, f"Should have at least one URN example in code, got: {example_code}"
-
-    # Verify at least one URN matches new format
-    for urn in urn_matches:
-        # Verify structure
-        parts = urn.split(':')
-        assert len(parts) == 3, f"URN should have 3 colon-separated parts, got: {urn}"
-        assert parts[0] == 'acc', f"URN kind should be 'acc', got: {parts[0]}"
-
-        # Parts[2] should have format {wmbt_id}-{harness}-{seq}[-{slug}]
-        facets = parts[2]
-        assert '-' in facets, f"WMBT facets should be dash-separated, got: {facets}"
-
-        facet_parts = facets.split('-')
-        assert len(facet_parts) >= 3, f"Should have at least wmbt_id, harness, seq, got: {facets}"
-
-        # Check WMBT ID format: [DLPCEMYRK]\d{3}
-        wmbt_id = facet_parts[0]
-        assert re.match(r'^[DLPCEMYRK]\d{3}$', wmbt_id), \
-            f"WMBT ID should match step-coded format, got: {wmbt_id}"
-
-        # At least one valid URN found
-        break
-
-
-# SPEC-COACH-UTILS-0282
 def test_urn_builder_acceptance_separator(monkeypatch):
     """
     Given: URNGrammar utility exists

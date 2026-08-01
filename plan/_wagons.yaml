@@ -1627,6 +1627,12 @@ wagons:
       that opens SMOKE->REFACTOR and a run that never executes leaves it closed —
       the gate becomes satisfiable by running smoke instead of by --force, and E060''s
       constant-evidence gate gains its first real subject (#1602)'
+    E070: minimize likelihood of pr-under-validation-scoping-silently-degrading-to-a-repo-wide-block
+      by resolving the branch's PR number through a single PRManager.pr_number_for_branch
+      seam instead of int()-ing a URL behind a swallowing except, by degrading an
+      unresolvable PR to advisory-only instead of a repo-wide block, and by extending
+      the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline
+      (#1478; renumbered from E062 which origin/main claimed)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -2040,7 +2046,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 22
+    total: 24
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2079,6 +2085,15 @@ wagons:
       by detecting linked-worktree condition and writing 'git config --worktree core.hooksPath'
       instead of the unscoped form (#793, Wave 12 contamination class, core.hooksPath
       danger key)
+    Y007: 'minimize likelihood of agent-upgrade-runs-that-die-on-eoferror-because-the-command-assumes-a-terminal
+      by resolving upgrader.py''s confirmation the way coach.py:255 already resolves
+      its own — explicit flag wins, else infer from isatty — so a no-TTY run proceeds
+      under a decision it states out loud while a human sees byte-identical prompts
+      (#1628, the remedy the #1449 push gate names but no agent could run)'
+    E008: minimize likelihood of concurrent-upgrade-runs-mutating-the-one-shared-install-that-sits-beneath-every-worktree
+      by serialising the mutating section on a lock scoped to the install rather than
+      the checkout, making an already-current run a no-op, and refusing loudly rather
+      than proceeding unlocked (#1628, ~60 agents share one pipx install)
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/

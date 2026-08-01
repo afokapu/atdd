@@ -109,7 +109,6 @@ def test_new_branch_starts_at_origin_main_not_stale_local(tmp_path):
     # Patch GitHub calls (no real GitHub needed for this structural test)
     with patch.object(BranchManager, "_create_draft_pr", return_value=None), \
          patch("atdd.coach.utils.repo.detect_worktree_layout", return_value="worktree-ready"), \
-         patch("atdd.coach.commands.initializer.write_workspace", return_value=None), \
          patch("atdd.coach.commands.branch.ProjectConfig"), \
          patch("atdd.coach.commands.branch.GitHubClient"):
         mgr = BranchManager(target_dir=main_wt)
