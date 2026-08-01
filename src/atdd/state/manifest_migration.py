@@ -60,6 +60,7 @@ from atdd.state.identity import is_uid, mint_uid
 from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
 from atdd.state.projection import (
     ARCHIVED_PHASES,
+    FIELD_TYPES,
     PHASES,
     PROJECTION_RELATIVE,
     STATE_ACTIVE,
@@ -68,7 +69,7 @@ from atdd.state.projection import (
     project,
     validate_document,
 )
-from atdd.state.store import StateStore
+from atdd.state.store import Object, StateStore
 
 _log = logging.getLogger(__name__)
 
@@ -107,6 +108,10 @@ DEFECT_MISSING_UID = "missing-uid"
 DEFECT_DUPLICATE_UID = "duplicate-uid"
 DEFECT_MALFORMED_UID = "malformed-uid"
 DEFECT_UNKNOWN_PHASE = "unknown-phase"
+
+#: Store-native defects (CORE-036) — see :func:`inspect_store`.
+DEFECT_MISSING_SLUG = "missing-slug"
+DEFECT_UNPROJECTABLE_FIELD = "unprojectable-field"
 
 
 class MigrationError(RuntimeError):
@@ -430,6 +435,180 @@ def migrate(
     return report
 
 
+# --------------------------------------------------------------------------- #
+# The store-native migration (CORE-036, #1622) — the manifest is gone
+# --------------------------------------------------------------------------- #
+#: What a store object's ``data`` bag is allowed to carry once migrated: exactly the
+#: contract's fields, minus the two the projector supplies from columns rather than
+#: from the bag (``uid`` is the row key, ``phase`` is ``objects.state``).
+_PROJECTABLE_DATA_FIELDS = frozenset(FIELD_TYPES) - {"uid", "phase"}
+
+
+@dataclass(frozen=True)
+class StoreMigrationReport:
+    """What a completed :func:`migrate_store` run did."""
+
+    #: old uid → the minted uid it now lives under.
+    rekeyed: Dict[str, str] = field(default_factory=dict)
+    #: uids that gained an ``owner_actor`` they did not carry.
+    attributed: List[str] = field(default_factory=list)
+    #: Objects already carrying contract-shaped identity; left exactly as they were.
+    untouched: int = 0
+
+    @property
+    def migrated(self) -> int:
+        return len(self.rekeyed)
+
+    def render(self) -> str:
+        return "\n".join([
+            f"migrated {self.migrated} work item(s) in the State Store",
+            f"  minted identity     {self.migrated} object(s) rekeyed to wi_<ULID>",
+            f"  attributed          {len(self.attributed)} object(s) gained an owner_actor",
+            f"  already migrated    {self.untouched} object(s) left untouched",
+        ])
+
+
+def _slug_of(obj: Object) -> str:
+    """The object's slug: its ``data`` slug, or its uid when the uid *is* the slug.
+
+    A legacy object was keyed by its slug, so its uid is the only slug it ever had. An
+    object whose uid is already contract-shaped has no such fallback — a ULID is not a
+    slug — so one without ``data.slug`` genuinely has none, and that is a defect.
+    """
+    recorded = obj.data.get(SLUG_KEY)
+    if recorded:
+        return str(recorded)
+    return "" if is_uid(obj.uid) else obj.uid
+
+
+def inspect_store(store: StateStore) -> List[MigrationDefect]:
+    """Every reason the store cannot be migrated and projected. ``[]`` means: safe to run.
+
+    Pure — it writes nothing and returns the *whole* list, so :func:`migrate_store` can
+    refuse in one piece. Three kinds of defect, each for a different reason:
+
+    ``missing-slug``
+        The object has no resolvable prior identity. Identity is about to move to a minted
+        uid, and the slug is the only thing that still connects the new uid to every branch
+        name, worktree and reference that named the old one. Migrating without it does not
+        lose a display string — it orphans the object.
+
+    ``unknown-phase``
+        The lifecycle phase is outside the vocabulary, so no legal projection document can
+        be built for it and inventing one is the lossy write C001 exists to prevent.
+
+    ``unprojectable-field``
+        The ``data`` bag carries a key the contract has no field for
+        (``additionalProperties: false``). Reported, deliberately, rather than stripped:
+        which of these to grow into a real field, which to strip at projection and which to
+        drop outright is a per-key decision with live readers on the other side of it (#1622
+        dispositions), and a migration that silently dropped them would take `wagon` — read
+        by two declared ``hot_path.DECISION_MODULES``, both behind ``except: return {}`` —
+        with it, and nothing would raise.
+
+    Only **projectable** objects are judged on phase and fields: a ``COMPLETE`` object has
+    no legal projection document by design (spec §18 decision 1), so the keys it carries
+    cannot block a projection it was never part of. Every object is judged on its slug,
+    because identity is a property of the store, not of the projection.
+    """
+    defects: List[MigrationDefect] = []
+    for index, obj in enumerate(store.objects.list(kind=WORK_ITEM_KIND)):
+        slug = _slug_of(obj)
+        if not slug:
+            defects.append(MigrationDefect(
+                DEFECT_MISSING_SLUG, index, obj.uid, SLUG_KEY,
+                "no slug; the object's prior identity is unresolvable, so minting a uid for "
+                "it would orphan every reference that named it",
+            ))
+        if obj.state in ARCHIVED_PHASES:
+            continue
+        if obj.state not in PHASES:
+            defects.append(MigrationDefect(
+                DEFECT_UNKNOWN_PHASE, index, slug, PHASE_KEY,
+                f"phase {obj.state!r} is outside the lifecycle vocabulary "
+                f"{list(PHASES) + [COMPLETE_PHASE]}",
+            ))
+        for key in sorted(set(obj.data) - _PROJECTABLE_DATA_FIELDS):
+            defects.append(MigrationDefect(
+                DEFECT_UNPROJECTABLE_FIELD, index, slug, key,
+                f"the projection contract has no field {key!r} and forbids extra properties; "
+                "it must be grown into a field, stripped at projection, or dropped — "
+                "a migration may not decide that silently",
+            ))
+    return defects
+
+
+def migrate_store(
+    conn: sqlite3.Connection,
+    *,
+    owner_actor: str = UNATTRIBUTED_OWNER,
+) -> StoreMigrationReport:
+    """Mint contract-shaped identity and an owner for every work item **in the store** (E002).
+
+    The store-native successor to :func:`migrate`. That one reads ``.atdd/manifest.yaml``
+    and cannot run at all: ``decommission-manifest`` deleted the file, so the manifest-keyed
+    path has no input and identity has nowhere to come from. This one takes the store as
+    both source and target, because the store is now the only surviving source of truth.
+
+    Two things happen to each object, and nothing else:
+
+    - a slug-keyed object is **rekeyed** to a freshly minted ``wi_<ULID>``, with its former
+      uid preserved as ``data.slug`` so every reference that named it still resolves
+      (:meth:`~atdd.state.store.ObjectStore.rekey` carries its refs, events and edges over);
+    - an object with no ``owner_actor`` gains one — ``UNATTRIBUTED_OWNER`` by default,
+      because the contract requires the field and naming a person nobody recorded would be
+      a fabrication, not a default.
+
+    **Refuse before you write.** :func:`inspect_store` judges the whole store first, and a
+    single unmigratable object raises :class:`LossyMigrationError` before the first write.
+    That line matters more here than it did for the manifest: this migration mutates the
+    store *in place*, so a partial run damages the only surviving source of truth rather
+    than a derived tree — and a half-migrated store cannot be told apart from an unmigrated
+    one, leaving the operator no way back.
+
+    Idempotent: an object already carrying a contract-shaped uid and an owner is left
+    untouched, so a second run is a no-op and mints nothing.
+    """
+    store = StateStore(conn)
+    defects = inspect_store(store)
+    if defects:
+        _log.warning(
+            "refusing a lossy store migration; no object was mutated",
+            extra={"defects": [d.render() for d in defects]},
+        )
+        raise LossyMigrationError(defects)
+
+    rekeyed: Dict[str, str] = {}
+    attributed: List[str] = []
+    untouched = 0
+    for obj in store.objects.list(kind=WORK_ITEM_KIND):
+        data = dict(obj.data)
+        needs_owner = not data.get("owner_actor")
+        needs_uid = not is_uid(obj.uid)
+        if not needs_owner and not needs_uid and data.get(SLUG_KEY):
+            untouched += 1
+            continue
+        data[SLUG_KEY] = _slug_of(obj)
+        if needs_owner:
+            data["owner_actor"] = owner_actor
+            attributed.append(obj.uid)
+        data.setdefault("state", STATE_ACTIVE)
+        store.objects.upsert(  # noqa: N+1 — one write per work item; a bulk migration
+            obj.uid, WORK_ITEM_KIND, state=obj.state, data=data,
+        )
+        if needs_uid:
+            minted = mint_uid()
+            store.objects.rekey(obj.uid, minted)  # noqa: N+1 — see above
+            rekeyed[obj.uid] = minted
+
+    report = StoreMigrationReport(rekeyed=rekeyed, attributed=attributed, untouched=untouched)
+    _log.info(
+        "state store migrated to contract-shaped identity",
+        extra={"migrated": report.migrated, "attributed": len(attributed), "untouched": untouched},
+    )
+    return report
+
+
 class _store_or:  # noqa: N801 — a context-manager helper, used as `with _store_or(...)`
     """Use the caller's store, or open the repo's own for the duration of the run."""
 
@@ -452,9 +631,11 @@ class _store_or:  # noqa: N801 — a context-manager helper, used as `with _stor
 
 
 __all__ = [
-    "COMPLETE_PHASE", "DEFECT_DUPLICATE_UID", "DEFECT_MALFORMED_UID", "DEFECT_MISSING_UID",
-    "DEFECT_UNKNOWN_PHASE", "LossyMigrationError", "MANIFEST_RELATIVE", "MigrationDefect",
+    "COMPLETE_PHASE", "DEFECT_DUPLICATE_UID", "DEFECT_MALFORMED_UID", "DEFECT_MISSING_SLUG",
+    "DEFECT_MISSING_UID", "DEFECT_UNKNOWN_PHASE", "DEFECT_UNPROJECTABLE_FIELD",
+    "LossyMigrationError", "MANIFEST_RELATIVE", "MigrationDefect",
     "MigrationError", "MigrationReport", "PHASE_KEY", "SESSIONS_KEY", "SLUG_KEY",
-    "UID_KEY", "UNATTRIBUTED_OWNER", "build_document", "build_documents", "hydrate_store",
-    "inspect", "manifest_path", "migrate", "mint_uids", "read_manifest", "sessions_of",
+    "StoreMigrationReport", "UID_KEY", "UNATTRIBUTED_OWNER", "build_document",
+    "build_documents", "hydrate_store", "inspect", "inspect_store", "manifest_path",
+    "migrate", "migrate_store", "mint_uids", "read_manifest", "sessions_of",
 ]
