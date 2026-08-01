@@ -74,6 +74,7 @@ acceptances:
     phase: SMOKE
     purpose: 'End-to-end: the surfaces that used to report health now report the stranded
       backlog, against a real checkout, the installed atdd CLI, and a real state.sqlite.'
+  execution_kind: live_smoke
   harness:
     type: integration
     category: backend
