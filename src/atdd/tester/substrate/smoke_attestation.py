@@ -134,7 +134,11 @@ def resolve_work_item_uid(repo_root: Path, store) -> Optional[str]:
         return None
     slug = branch.split("/", 1)[-1] if "/" in branch else branch
     try:
-        obj = store.objects.get(slug)
+        # No issue number is passed, so the resolver never touches external_refs — the
+        # I7 quarantine above holds. It resolves the slug through the object's own data.
+        from atdd.state.work_item_writer import resolve_work_item
+
+        obj = resolve_work_item(store, slug)
     except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
         _logger.debug(
             "smoke attestation: store lookup for %r failed: %s", slug, exc,

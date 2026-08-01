@@ -169,10 +169,13 @@ def publish_issue(
         # ref, it is ALREADY published — reuse that number and NEVER create a
         # second GitHub issue (a duplicate is precisely the #1271 failure this
         # closes). The re-link is a no-op on the one-per-issue unique key (#1220).
+        from atdd.state.work_item_writer import resolve_work_item
+
+        found = resolve_work_item(store, slug)
         existing = [
-            r for r in store.external_refs.for_object(slug)
+            r for r in store.external_refs.for_object(found.uid)
             if r.provider == _GITHUB_PROVIDER and r.ref_kind == "issue"
-        ]
+        ] if found is not None else []
         if existing:
             github_number = int(existing[0].ref_value)
             create_work_item(

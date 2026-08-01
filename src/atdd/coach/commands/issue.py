@@ -305,8 +305,9 @@ class IssueManager:
 
         #1270 slice C: the store-backed replacement for the pre-commit hook's
         ``grep "slug:" .atdd/manifest.yaml``. Resolves the branch → slug (strips
-        the ``prefix/`` segment; a work item is keyed in the store by its slug
-        uid) and asks the State Store.
+        the ``prefix/`` segment) and asks the State Store, through the shared
+        slug→uid resolver — a work item is keyed by its minted uid, so the slug is
+        a display field to be looked up, not the key to fetch by.
 
         #1400 CORE-034 (Y002): the manifest fallback that followed is retired. It made this
         gate answer from whichever source happened to be populated — and the two could disagree,
@@ -325,11 +326,12 @@ class IssueManager:
             from atdd.state.db import connect, init_state_store
             from atdd.state.manifest_import import WORK_ITEM_KIND
             from atdd.state.store import StateStore
+            from atdd.state.work_item_writer import resolve_work_item
 
             conn = connect(init_state_store(start=self.target_dir))
             try:
                 store = StateStore(conn)
-                if store.objects.get(slug) is not None:
+                if resolve_work_item(store, slug) is not None:
                     return True
                 store_has_items = bool(store.objects.list(kind=WORK_ITEM_KIND))
             finally:

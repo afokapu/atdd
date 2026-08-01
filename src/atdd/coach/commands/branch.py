@@ -338,20 +338,20 @@ class BranchManager:
 
         try:
             from atdd.state.db import connect, init_state_store
-            from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
-            from atdd.state.store import StateStore
+            from atdd.state.work_item_writer import create_work_item
 
             conn = connect(init_state_store(start=self.target_dir))
             try:
-                store = StateStore(conn)
-                store.objects.upsert(
-                    slug, WORK_ITEM_KIND, state=status,
+                # Through the one writer, so the self-heal mints identity the same way
+                # every other create does. Seeding the object directly used to key it by
+                # slug, which is how a store fills with objects the projection contract
+                # cannot accept (#1622).
+                create_work_item(
+                    conn, slug, state=status,
                     data={k: v for k, v in entry.items()
                           if k not in ("slug", "status", "issue_number")},
-                )
-                store.external_refs.link(
-                    slug, GITHUB_PROVIDER, "issue", str(issue_number),
-                    data={"source": "branch-self-heal"},
+                    github_number=issue_number,
+                    ref_source="branch-self-heal",
                 )
             finally:
                 conn.close()

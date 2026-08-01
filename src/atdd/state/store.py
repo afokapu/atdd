@@ -157,10 +157,76 @@ class ObjectStore(_BaseStore):
             ).fetchall()
         return [Object._from_row(r) for r in rows]
 
+    def find_by_field(self, kind: str, field_name: str, value: Any) -> List[Object]:
+        """Every object of ``kind`` whose ``data[field_name]`` equals ``value``.
+
+        Identity is the uid (spec §10 rule 1), so anything a caller once looked up by
+        *slug* now has to be looked up by a field **inside** the data bag instead. That
+        is a lookup the ``objects`` table has no column for, hence ``json_extract``.
+
+        Returns a list, never a single object, because a data field is not a key: two
+        work items may legitimately carry the same slug, and a resolver that silently
+        picked one of them would reintroduce exactly the identity guessing the uid
+        exists to end. Ordered by uid, so the answer does not depend on row order.
+        """
+        rows = self._conn.execute(
+            "SELECT * FROM objects WHERE kind=? AND json_extract(data, ?) = ? ORDER BY uid",
+            (kind, f"$.{field_name}", value),
+        ).fetchall()
+        return [Object._from_row(r) for r in rows]
+
     def delete(self, uid: str) -> bool:
         with self._conn:
             cur = self._conn.execute("DELETE FROM objects WHERE uid=?", (uid,))
         return cur.rowcount > 0
+
+    def rekey(self, old_uid: str, new_uid: str) -> Object:
+        """Move the object at ``old_uid`` to ``new_uid``, carrying everything that hung off it.
+
+        The uid is immutable *by policy* (spec §7.1) — this is the one sanctioned exception,
+        and it exists for exactly one caller: the store-native migration that gives a
+        slug-keyed legacy object the contract-shaped identity it was never minted with
+        (:func:`~atdd.state.manifest_migration.migrate_store`). It is not an edit surface.
+
+        Every child table is re-pointed **before** the old row is deleted, and the whole move
+        is one transaction. That order is the point: ``relationships``, ``events`` and
+        ``external_refs`` all declare ``ON DELETE CASCADE`` against ``objects(uid)``, so
+        deleting first — or moving in two transactions and dying in between — would silently
+        take the object's entire history with it. ``overlay_events`` carries no FK (an event
+        outlives its object) and is re-pointed for the same reason: an overlay that still
+        names the old uid would replay onto an object that no longer exists.
+
+        Raises :class:`KeyError` if ``old_uid`` does not exist, and :class:`ValueError` if
+        ``new_uid`` is already taken — silently merging two objects is not a re-key.
+        """
+        if self.get(old_uid) is None:
+            raise KeyError(f"object not found: {old_uid}")
+        if old_uid == new_uid:
+            return self.get(old_uid)  # type: ignore[return-value]
+        if self.get(new_uid) is not None:
+            raise ValueError(
+                f"refusing to rekey {old_uid!r} onto {new_uid!r}: that uid is already taken "
+                "(a uid is globally unique and never reused — spec §10 rule 1)"
+            )
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO objects (uid, kind, state, data, created_at, updated_at) "
+                "SELECT ?, kind, state, data, created_at, updated_at FROM objects WHERE uid=?",
+                (new_uid, old_uid),
+            )
+            for sql in (
+                "UPDATE relationships SET src_uid=? WHERE src_uid=?",
+                "UPDATE relationships SET dst_uid=? WHERE dst_uid=?",
+                "UPDATE events SET object_uid=? WHERE object_uid=?",
+                "UPDATE external_refs SET object_uid=? WHERE object_uid=?",
+                "UPDATE overlay_events SET object_uid=? WHERE object_uid=?",
+            ):
+                self._conn.execute(sql, (new_uid, old_uid))
+            self._conn.execute("DELETE FROM objects WHERE uid=?", (old_uid,))
+        moved = self.get(new_uid)
+        assert moved is not None  # just written
+        _log.info("object rekeyed", extra={"old_uid": old_uid, "new_uid": new_uid})
+        return moved
 
 
 class RelationshipStore(_BaseStore):
