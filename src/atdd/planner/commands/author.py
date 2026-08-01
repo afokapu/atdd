@@ -418,6 +418,31 @@ class ArtifactReviewError(Exception):
         self.findings = list(findings)
 
 
+def _dispatch_review_errors(runner, args, ctx, root) -> int:
+    """Run ``runner``, rendering a refused write as ONE parseable JSON object + exit 2.
+
+    The authoring agent's whole correction loop is "read the findings, fix the prose,
+    re-run the same command" — core deliberately owns no LLM, so the refusal has to be
+    machine-readable or the loop does not close. A traceback would not close it.
+
+    Written to stdout, not stderr: stderr already carries provider chatter and log
+    lines, and the agent needs the payload to be the entire stream it parses.
+    """
+    try:
+        return runner(args, ctx, root)
+    except ArtifactReviewError as exc:
+        logger.warning(
+            "atdd author refused a write on artifact review",
+            extra={"artifact_kind": exc.artifact_kind, "finding_count": len(exc.findings)},
+        )
+        print(json.dumps({
+            "error": "artifact-review",
+            "artifact_kind": exc.artifact_kind,
+            "findings": exc.findings,
+        }, indent=2))
+        return 2
+
+
 def _repo_root_for(path: Path) -> Optional[Path]:
     """Nearest ancestor of ``path`` holding an ``.atdd/`` directory, if any."""
     for candidate in [path, *path.parents]:
@@ -1917,4 +1942,4 @@ def run(argv: list[str]) -> int:
         print(f"atdd author: {exc}", file=sys.stderr)
         return 2
 
-    return runner(args, ctx, root)
+    return _dispatch_review_errors(runner, args, ctx, root)

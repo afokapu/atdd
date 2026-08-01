@@ -81,3 +81,25 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-08-01'
+- identity:
+    urn: acc:author-atdd-substrate:E009-UNIT-004-refused-write-exits-two-with-json-findings
+    id: AC-UNIT-004
+    purpose: the command surfaces the findings as a single parseable JSON object on
+      exit code 2, because the authoring agent's only correction loop is reading them
+      and re-running the command
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - an authoring command whose write is refused by a declared review rule
+  when:
+    abstract: the command runs through its CLI dispatch boundary
+  then:
+    abstract:
+    - the process exit code is 2
+    - stdout carries one JSON object naming the artifact kind and the findings
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
