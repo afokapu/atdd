@@ -51,6 +51,7 @@ from atdd.enforce.conventions import (
     resolve_interlocking_layout,
     rule_metadata,
 )
+from atdd.enforce import selection
 from atdd.enforce.dispositions import fails_on_violation
 from atdd.enforce.provider_env import provider_env
 from atdd.enforce.resolution import (
@@ -139,36 +140,11 @@ def load_config(repo_root: Path) -> dict:
 def _bound_conventions(substrate_home: Path, rules: Optional[set] = None) -> list[dict]:
     """The ``bound`` convention entries, optionally narrowed to ``rules``.
 
-    ``rules`` is a SELECTION, not a filter: every named rule must resolve to a bound
-    convention or this raises. Silently dropping an unknown id would leave the caller
-    running fewer detectors than it asked for — and a selection that resolves to
-    nothing spawns no provider at all, which reports CLEAN. A mistyped rule id would
-    then turn a gate into a rubber stamp, so an unresolvable selection is a usage
-    error (the same fail-closed stance the runner takes on a crashed provider).
+    Thin seam over :mod:`atdd.enforce.selection`; kept here because it is the name
+    callers and tests already bind to.
     """
-    lock_path = substrate_home / ".atdd" / "binding.lock.yaml"
-    lock: dict = {}
-    if lock_path.is_file():
-        try:
-            lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
-        except yaml.YAMLError as exc:
-            raise EnforceUsageError(f"malformed binding.lock.yaml: {exc}") from exc
-    conventions = lock.get("conventions") if isinstance(lock, dict) else None
-    conventions = conventions if isinstance(conventions, list) else []
-    bound = [c for c in conventions if isinstance(c, dict) and c.get("disposition") == "bound"]
-    if rules is None:
-        return bound
-    known = {str(c.get("convention_id")) for c in bound}
-    unknown = sorted(set(rules) - known)
-    if unknown:
-        # Name ONLY the unresolvable ids — listing the resolvable ones back would bury
-        # the typo in noise on a repo with dozens of bound rules.
-        raise EnforceUsageError(
-            "rule selection names no bound convention: " + ", ".join(unknown)
-        )
-    # Lock order, not selection order: the run is reproducible regardless of how the
-    # caller spelled the set.
-    return [c for c in bound if str(c.get("convention_id")) in rules]
+    bound = selection.load_bound(substrate_home, EnforceUsageError)
+    return selection.select(bound, rules, EnforceUsageError)
 
 
 def _candidate_roots(substrate_home: Path) -> list[Path]:
