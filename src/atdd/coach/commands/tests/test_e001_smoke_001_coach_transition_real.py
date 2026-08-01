@@ -114,13 +114,18 @@ def _seed_store_red(control_root: Path) -> None:
 
 
 def _store_state(control_root: Path) -> str | None:
-    """Read the throwaway work item's lifecycle state straight from the store."""
+    """Read the throwaway work item's lifecycle state straight from the store.
+
+    Resolved through the slug, not fetched by it: identity is a minted uid (#1622),
+    so the slug is a field to look up rather than the key to read at.
+    """
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
+    from atdd.state.work_item_writer import resolve_work_item
 
     conn = connect(init_state_store(start=control_root))
     try:
-        obj = StateStore(conn).objects.get(_SLUG)
+        obj = resolve_work_item(StateStore(conn), _SLUG)
         return obj.state if obj is not None else None
     finally:
         conn.close()
