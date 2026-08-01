@@ -247,8 +247,22 @@ def test_auto_phase_workflow_carries_no_stale_projectv2_rationale():
 _FALLBACK_EXPR_FRAGMENT = "secrets.PROJECT_TOKEN" + " || " + "secrets.GITHUB_TOKEN"
 
 
+def _prose_that_could_re_seed_the_fallback():
+    """Every shipped file an operator or an agent would take instruction from.
+
+    Two surfaces, not one. `docs/` is where the human looks;
+    `src/atdd/*/conventions/*.yaml` is where the AGENT looks — CLAUDE.md's
+    canonical-source pointers send it there by name, which makes a convention
+    the more authoritative of the two and the worse place to leave the
+    expression lying around.
+    """
+    docs = (REPO_ROOT / "docs").rglob("*.md")
+    conventions = (REPO_ROOT / "src" / "atdd").glob("*/conventions/**/*.yaml")
+    return sorted(set(docs) | set(conventions))
+
+
 def test_no_shipped_doc_instructs_an_operator_to_re_seed_the_fallback():
-    """Issue #1621: removing the expression is not enough while a doc still teaches it.
+    """Issue #1621: removing the expression is not enough while prose still teaches it.
 
     `docs/operator-projects-v2-token.md` survived #1051 and went on telling
     operators to write
@@ -256,25 +270,34 @@ def test_no_shipped_doc_instructs_an_operator_to_re_seed_the_fallback():
         GH_TOKEN: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
 
     citing *this validator* as the thing that asserted the pattern — which it
-    did, until #1621 inverted it. A doc that contradicts the shipped guard is
+    did, until #1621 inverted it. Prose that contradicts the shipped guard is
     how the defect comes back after the fix: the next operator follows the
     written instruction, not the test.
 
     #1051's own plan called for deleting that doc (see the E053 WMBT statement
     and `decommission_projects_v2_board_sync.yaml`); the deletion was never
     made. This assertion is the ratchet that keeps it deleted.
+
+    The scan covers conventions as well as docs because deleting the doc alone
+    left the expression alive in
+    `issue.convention.yaml::status.auto_transition_on_merge.projects_access_fallback`
+    — a block that also declared `enabled: true` for a degraded mode whose
+    trigger string this same issue reclassified into a hard refusal. A
+    docs-only ratchet could not see it, so the success criterion it backed
+    ("no shipped doc instructs an operator to write the `||` expression") was
+    asserted without being true.
     """
-    docs_dir = REPO_ROOT / "docs"
-    if not docs_dir.is_dir():
-        pytest.skip("no docs/ directory (consumer repo)")
+    candidates = _prose_that_could_re_seed_the_fallback()
+    if not candidates:
+        pytest.skip("no shipped docs or conventions (consumer repo)")
 
     offenders = [
         path.relative_to(REPO_ROOT)
-        for path in sorted(docs_dir.rglob("*.md"))
+        for path in candidates
         if _FALLBACK_EXPR_FRAGMENT in path.read_text()
     ]
     assert not offenders, (
-        "These docs still instruct operators to write "
+        "These shipped files still instruct an operator to write "
         f"`{_FALLBACK_EXPR_FRAGMENT}` as GH_TOKEN: {offenders}. `||` is a "
         "preference, not a fallback — with PROJECT_TOKEN set as a repo secret "
         "GITHUB_TOKEN is never reached, and the job's `permissions: issues: "
