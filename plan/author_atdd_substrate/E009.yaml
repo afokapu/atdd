@@ -1,0 +1,83 @@
+urn: wmbt:author-atdd-substrate:E009
+step: execute
+direction: minimize
+dimension: quantity
+object_of_control: unreviewed-authored-prose
+context_clarifier: "the seam is AGNOSTIC \u2014 core names no checker, no rule and\
+  \ no controlled-language vocabulary; the gating rule ids come from the repo's own\
+  \ config, so an install that declares none authors exactly as before and an install\
+  \ that declares some pays one provider subprocess per declared rule (the rule selection\
+  \ from wmbt:govern-providers:E004); the staged copy lives outside the artifact's\
+  \ canonical path, so a refused write leaves no artifact behind"
+lens: functional.effectiveness
+statement: minimize quantity of unreviewed-authored-prose by routing every authoring
+  write through a pre-write review that enforces only the repo-declared review rules
+  over a staged copy and refuses the write when any of them fires, so a prose finding
+  surfaces before the artifact exists rather than after it is committed
+acceptances:
+- identity:
+    urn: acc:author-atdd-substrate:E009-UNIT-001-no-declared-review-rules-is-a-no-op
+    id: AC-UNIT-001
+    purpose: a repo that declares no review rules authors exactly as before, so core
+      carries no controlled-language dependency and an install without a review extension
+      is unaffected
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo whose config declares no authoring review rules
+  when:
+    abstract: an artifact is authored through the shared write path
+  then:
+    abstract:
+    - the artifact is written to its canonical path unchanged
+    - no convention enforcement is invoked at all
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
+- identity:
+    urn: acc:author-atdd-substrate:E009-UNIT-002-declared-rule-violation-refuses-the-write
+    id: AC-UNIT-002
+    purpose: when a declared review rule reports a violation the artifact never reaches
+      its canonical path, and the raised error carries the findings the authoring
+      agent needs to correct its input
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo declaring one authoring review rule, and a review that reports one violation
+      against the staged copy
+  when:
+    abstract: an artifact is authored through the shared write path
+  then:
+    abstract:
+    - the canonical path does not exist after the attempt
+    - the raised error carries the reported findings
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
+- identity:
+    urn: acc:author-atdd-substrate:E009-UNIT-003-clean-review-writes-the-artifact
+    id: AC-UNIT-003
+    purpose: a declared review rule that reports nothing lets the write through unchanged,
+      so the gate costs correctness nothing when the prose is already clean
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo declaring one authoring review rule, and a review that reports no violations
+  when:
+    abstract: an artifact is authored through the shared write path
+  then:
+    abstract:
+    - the artifact is written to its canonical path
+    - its content is byte-identical to the same artifact authored with review disabled
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
