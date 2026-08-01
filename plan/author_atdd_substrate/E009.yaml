@@ -103,3 +103,25 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-08-01'
+- identity:
+    urn: acc:author-atdd-substrate:E009-SMOKE-001-real-repo-declares-no-review-rules
+    id: AC-SMOKE-001
+    purpose: the toolkit's own repo declares no author_review rules, so the real config
+      resolves to an empty rule set and the authoring path stays unguarded, proving the
+      seam costs an install without a review extension nothing
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - the toolkit's real committed .atdd/config.yaml
+  when:
+    abstract: the declared authoring review rules are resolved from that config
+  then:
+    abstract:
+    - the resolved rule list is empty
+    - an artifact write carrying an artifact kind is therefore unguarded
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'

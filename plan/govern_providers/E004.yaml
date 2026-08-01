@@ -83,3 +83,26 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-08-01'
+- identity:
+    urn: acc:govern-providers:E004-SMOKE-001-real-lock-narrows-to-one-selected-rule
+    id: AC-SMOKE-001
+    purpose: against the toolkit's own committed binding.lock.yaml, selecting a single
+      bound rule resolves to exactly that rule while the unselected resolution carries
+      the whole bound set, so the narrowing is proven on real data and not only on fixtures
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - the toolkit's real committed .atdd/binding.lock.yaml
+  when:
+    abstract: the bound set is resolved once with no selection and once naming a single
+      convention id taken from that lock
+  then:
+    abstract:
+    - the unselected resolution carries more than one bound convention
+    - the selected resolution carries exactly the one named convention
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-01'
