@@ -10,7 +10,12 @@ wmbts:
   - "wmbt:govern-lifecycle:E052"
   - "wmbt:govern-lifecycle:E053"
 references:
-  - "docs/operator-projects-v2-token.md"
+  # docs/operator-projects-v2-token.md was a reference here until #1621 deleted it.
+  # This feature's own statement (E053) called for deleting the Projects-v2 docs;
+  # the deletion was never made, and the doc went on instructing operators to set
+  # GH_TOKEN to the PAT with a `||` fallback — the expression that made every
+  # auto-phase label write fail. Deleting it completes this feature's plan, so the
+  # reference goes with it rather than the file being restored to satisfy a link.
   - "docs/coach-decomposition.md"
 components:
   backend:

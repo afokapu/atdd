@@ -1618,7 +1618,10 @@ class IssueManager:
             # Project the store's new state onto GitHub. This is the sole
             # authoritative `atdd:*` label write in the codebase — enforced by
             # coach.issue.phase-label-projection-only.
-            self._write_phase_label(client, issue_number, current_labels, status)
+            if not self._write_phase_label(client, issue_number, current_labels, status):
+                # Exit red. Reporting success here is how a half-applied transition
+                # becomes an invisible one: CI reads 0 and moves on (#1621).
+                return 1
             updated.append(f"status: {status}")
 
         # Validate branch prefix (every branch = a worktree)
@@ -1665,14 +1668,60 @@ class IssueManager:
     @staticmethod
     def _write_phase_label(
         client: Any, issue_number: int, current_labels: List[str], status: str
-    ) -> None:
-        """Swap the atdd:<phase> label — the sole authoritative phase write (#1051)."""
+    ) -> bool:
+        """Swap the atdd:<phase> label — the sole authoritative phase write (#1051).
+
+        Returns False, having explained itself, when the credential is refused. The
+        store has already moved by the time this runs — that ordering is deliberate
+        (#1452) — so a refusal leaves ``objects.state`` ahead of the label, and the
+        operator needs to be told exactly that.
+
+        #1621: this used to let the refusal escape as an unhandled
+        ``GitHubClientError``. Every auto-phase label write was failing that way,
+        and twice the traceback was read as GitHub flakiness, because nothing in it
+        said "your token cannot do this".
+        """
+        from atdd.coach.github import GitHubPermissionError
+
         phase_labels = [
             l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"
         ]
-        if phase_labels:
-            client.remove_label(issue_number, phase_labels)
-        client.add_label(issue_number, [f"atdd:{status}"])
+        # The swap is two calls, so a refusal can land between them. Which one
+        # was refused changes what the label now reads, and this diagnosis must
+        # not assert the wrong one: an error that overstates what it knows is
+        # the failure mode #1621 is about, and reporting "the label still reads
+        # atdd:REFACTOR" over a label that was just removed would be one.
+        removed: List[str] = []
+        try:
+            if phase_labels:
+                client.remove_label(issue_number, phase_labels)
+                removed = phase_labels
+            client.add_label(issue_number, [f"atdd:{status}"])
+        except GitHubPermissionError as exc:
+            if removed:
+                label_now = (
+                    f"no atdd:<phase> label at all — {', '.join(removed)} came off "
+                    f"before the write of atdd:{status} was refused"
+                )
+            else:
+                label_now = ", ".join(phase_labels) or "(none)"
+            logger.error(
+                "phase label write refused for lack of permission",
+                extra={"issue": issue_number, "status": status, "error": str(exc)},
+            )
+            print(
+                f"\nError: refused writing atdd:{status} to #{issue_number} — the "
+                f"credential lacks permission to change labels.\n"
+                f"  {exc}\n"
+                f"  This is NOT an API glitch and retrying will not clear it.\n"
+                f"  The store moved first (#1452), so objects.state is now {status} "
+                f"while the label reads {label_now} "
+                f"— they disagree until the label is written.\n"
+                f"  In CI: the job's `permissions:` block grants issues:write to "
+                f"GITHUB_TOKEN only; check GH_TOKEN names that token (#1621)."
+            )
+            return False
+        return True
 
     @staticmethod
     def _branch_prefix_allowed(branch: str) -> bool:
@@ -1740,6 +1789,10 @@ class IssueManager:
 
         store_phase = read_store_phase(issue_number, self.target_dir)
         if not store_phase:
+            print(
+                f"Error: #{issue_number} has no phase in the store, so there is "
+                f"nothing to project the label from."
+            )
             return None
 
         resolved = self._resolve_issue(str(issue_number))
@@ -1751,7 +1804,12 @@ class IssueManager:
         if current_phase == store_phase:
             return store_phase
 
-        self._write_phase_label(client, issue_number, current_labels, store_phase)
+        if not self._write_phase_label(client, issue_number, current_labels, store_phase):
+            # The writer has already said why. Returning store_phase here would
+            # report a re-projection that did not happen — the repair verb
+            # claiming to have closed the very drift it was called to close
+            # (#1621).
+            return None
         return store_phase
 
     # -------------------------------------------------------------------------

@@ -526,27 +526,27 @@ status:
       - OBSOLETE
     validator: "src/atdd/coach/validators/test_auto_phase_workflow_exists.py"
 
-    # Issue #384/#404: ProjectV2 sync may be unavailable when the workflow
-    # token lacks Projects: R/W (the default GITHUB_TOKEN cannot grant the
-    # account-level Projects scope at all). `IssueManager.update` catches
-    # the narrow "Resource not accessible by integration" GitHubClientError,
-    # logs a WARNING, and continues with label-only sync via the existing
-    # `atdd:<PHASE>` swap. Non-matching GitHubClientError instances still
-    # abort. Issue #404 made full sync OPT-IN via a fine-grained PAT in
-    # PROJECT_TOKEN; default consumers run on GITHUB_TOKEN and never hit
-    # preflight failure.
-    projects_access_fallback:
-      enabled: true
-      trigger: "GitHubClientError matching 'Resource not accessible by integration'"
-      behavior: "label-only sync (atdd:<PHASE> swap); ProjectV2 fields skipped"
-      log_level: "WARNING"
-      remediation: |
-        Set the optional PROJECT_TOKEN secret (fine-grained PAT, scope:
-        account → Projects R/W) to enable full ProjectV2 Status sync; default
-        falls back to label-only sync via the workflow's fallback expression
-        ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }} (issue #404).
-      template: "src/atdd/coach/templates/workflows/atdd-auto-phase.yml"
-      validator: "src/atdd/coach/commands/tests/test_issue_update_fallback.py"
+    # #1621 removed the `projects_access_fallback` block that stood here. It
+    # described #384/#404's degraded mode — catch "Resource not accessible by
+    # integration", warn, continue with label-only sync — and told operators to
+    # set a PROJECT_TOKEN PAT and write `GH_TOKEN: ${{ secrets.PROJECT_TOKEN ||
+    # <the default token> }}`. Every clause of it was false by the time it was
+    # deleted, and one was actively harmful:
+    #
+    #   * #1051 decommissioned ProjectV2, so the sync it degraded FROM is gone.
+    #   * Its `validator:` named test_issue_update_fallback.py, deleted by #1051.
+    #   * Its `template:` claimed the shipped workflow carried the `||`
+    #     expression; #1621 removed it from both the workflow and the template.
+    #   * Its `trigger:` string is now a PERMISSION REFUSAL — see
+    #     `_PERMISSION_REFUSAL_SIGNATURES` in src/atdd/coach/github.py. That
+    #     wording raises GitHubPermissionError and exits 1; it does not warn and
+    #     continue. A convention that says otherwise contradicts the code.
+    #
+    # It is called out rather than silently dropped because this block is where
+    # the defect was re-seeded from: agents read conventions as authority, and
+    # a doc that outlives its subsystem teaches the bug back. The ratchet is
+    # `test_no_shipped_doc_instructs_an_operator_to_re_seed_the_fallback`,
+    # which now scans conventions as well as docs/.
 
 # Infrastructure archetypes - what can be changed
 archetypes:
