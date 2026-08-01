@@ -12,7 +12,7 @@ This validator also exercises the theme-discovery scan across plan/ described by
 wmbt:govern-lifecycle:L001 (previously unbound — RULEID-0007 gap closed here).
 
 Rule: planner.theme.archetype-alignment (severity 2, documentation-only)
-Convention: src/atdd/planner/conventions/theme.convention.yaml::rules
+Convention: src/atdd/planner/conventions/nodes/planner.theme.archetype-alignment.convention.yaml
 """
 from __future__ import annotations
 
