@@ -26,7 +26,13 @@ from atdd.state.agent_session import (
     REL_SESSION_CREATED_WORK_ITEM,
 )
 
-from ._publish_helpers import open_store, run_author_issue, stub_github_create
+from ._publish_helpers import (
+    open_store,
+    run_author_issue,
+    stub_github_create,
+    work_item,
+    work_item_uid,
+)
 
 pytestmark = [pytest.mark.platform]
 
@@ -65,7 +71,10 @@ def test_e009_unit_001_mint_records_creating_session(tmp_path, monkeypatch):
         rels = store.relationships.list(src_uid=ref.object_uid)
         creator = [r for r in rels if r.rel_type == REL_SESSION_CREATED_WORK_ITEM]
         assert len(creator) == 1, f"expected one creator edge, got {rels}"
-        assert creator[0].dst_uid == SLUG
+        # The creator edge points at the work item's MINTED uid (#1622). It used
+        # to be the slug, which is why relationships.dst_uid — a foreign key onto
+        # objects(uid) — now names a row that actually exists.
+        assert creator[0].dst_uid == work_item_uid(store, SLUG)
     finally:
         conn.close()
 
@@ -77,7 +86,7 @@ def test_e009_unit_001_no_role_is_written(tmp_path, monkeypatch):
     store, conn = open_store(tmp_path)
     try:
         blobs = [r.data or {} for r in store.external_refs.all()]
-        blobs += [o.data or {} for o in [store.objects.get(SLUG)] if o is not None]
+        blobs += [o.data or {} for o in [work_item(store, SLUG)] if o is not None]
         for rel in store.relationships.list():
             blobs.append(rel.data or {})
     finally:

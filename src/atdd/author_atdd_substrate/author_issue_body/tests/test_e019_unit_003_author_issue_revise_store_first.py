@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ._publish_helpers import open_store, run_author_issue
+from ._publish_helpers import open_store, run_author_issue, work_item, work_item_uid
 
 ISSUE_NUMBER = 1430
 
@@ -73,7 +73,7 @@ def test_revise_updates_store_then_projects_body(tmp_path, monkeypatch):
     def _fake_update_body(issue: int, body: str) -> None:
         store, conn = open_store(tmp_path)
         try:
-            obj = store.objects.get("revise-probe")
+            obj = work_item(store, "revise-probe")
         finally:
             conn.close()
         assert obj is not None
@@ -99,8 +99,8 @@ def test_revise_updates_store_then_projects_body(tmp_path, monkeypatch):
 
     store, conn = open_store(tmp_path)
     try:
-        obj = store.objects.get("revise-probe")
-        events = store.events.list(object_uid="revise-probe")
+        obj = work_item(store, "revise-probe")
+        events = store.events.list(object_uid=work_item_uid(store, "revise-probe"))
     finally:
         conn.close()
 
@@ -136,8 +136,8 @@ def test_revise_rejects_invalid_body_before_store_or_github_write(tmp_path, monk
     assert code == 1
     store, conn = open_store(tmp_path)
     try:
-        obj = store.objects.get("revise-probe")
-        events = store.events.list(object_uid="revise-probe")
+        obj = work_item(store, "revise-probe")
+        events = store.events.list(object_uid=work_item_uid(store, "revise-probe"))
     finally:
         conn.close()
 
