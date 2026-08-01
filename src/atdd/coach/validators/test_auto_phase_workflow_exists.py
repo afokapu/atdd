@@ -257,7 +257,14 @@ def _prose_that_could_re_seed_the_fallback():
     expression lying around.
     """
     docs = (REPO_ROOT / "docs").rglob("*.md")
-    conventions = (REPO_ROOT / "src" / "atdd").glob("*/conventions/**/*.yaml")
+    # Resolve the toolkit root package-relatively, never as REPO_ROOT/src/atdd:
+    # that layout does not exist once atdd ships as an installed package, and
+    # coach.code-roots.no-hardcoded-toolkit-root exists to keep the toolkit
+    # working for consumers it dogfoods itself against.
+    import atdd
+
+    package_root = Path(atdd.__file__).resolve().parent
+    conventions = package_root.glob("*/conventions/**/*.yaml")
     return sorted(set(docs) | set(conventions))
 
 
