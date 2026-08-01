@@ -120,7 +120,10 @@ def publish_issue(
     projection_deferred = False
     try:
         try:
-            create_work_item(conn, slug, state=status, data=data)
+            # The returned object carries the identity everything below must use:
+            # the slug is display metadata now, and the uid it was minted under is
+            # the only thing objects(uid) — and every foreign key onto it — knows.
+            work_item = create_work_item(conn, slug, state=status, data=data)
         except Exception as exc:
             raise PublishError(
                 f"State Store write failed for work_item {slug!r} "
@@ -140,7 +143,7 @@ def publish_issue(
         # swallowing the failure would manufacture the violation it is meant to
         # prevent. A store that cannot append is a store failure — fail loud.
         try:
-            provenance.record_authored(store, slug, command="atdd author issue")
+            provenance.record_authored(store, work_item.uid, command="atdd author issue")
         except Exception as exc:
             raise PublishError(
                 f"provenance stamp failed for work_item {slug!r} — refusing to mint "
@@ -158,7 +161,7 @@ def publish_issue(
         try:
             from atdd.state import agent_session as _agent_session
 
-            _agent_session.record_creator(store, slug)
+            _agent_session.record_creator(store, work_item.uid)
         except Exception as exc:  # never fail the mint over telemetry
             logger.warning(
                 "agent session capture failed; the mint stands",
@@ -169,13 +172,10 @@ def publish_issue(
         # ref, it is ALREADY published — reuse that number and NEVER create a
         # second GitHub issue (a duplicate is precisely the #1271 failure this
         # closes). The re-link is a no-op on the one-per-issue unique key (#1220).
-        from atdd.state.work_item_writer import resolve_work_item
-
-        found = resolve_work_item(store, slug)
         existing = [
-            r for r in store.external_refs.for_object(found.uid)
+            r for r in store.external_refs.for_object(work_item.uid)
             if r.provider == _GITHUB_PROVIDER and r.ref_kind == "issue"
-        ] if found is not None else []
+        ]
         if existing:
             github_number = int(existing[0].ref_value)
             create_work_item(

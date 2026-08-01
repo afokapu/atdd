@@ -118,10 +118,12 @@ def _is_dirty(repo_root: Path) -> bool:
 def resolve_work_item_uid(repo_root: Path, store) -> Optional[str]:
     """The work-item uid the current branch is bound to, or ``None``.
 
-    A work item is keyed in the store by its **slug**, and a branch is
-    ``<prefix>/<slug>`` — the same derivation
-    ``IssueManager.branch_is_registered`` uses for the pre-commit hook, so the
-    attestation lands under the uid every other store reader already expects.
+    A branch is ``<prefix>/<slug>`` — the same derivation
+    ``IssueManager.branch_is_registered`` uses for the pre-commit hook — and the
+    slug is then resolved to the object's **minted uid**, which is what the
+    attestation must be recorded under. Returning the slug would name no row:
+    ``events.object_uid`` is a foreign key onto ``objects(uid)``, so the
+    attestation would be refused outright (#1622).
 
     Resolving from the BRANCH rather than from an issue number is deliberate: a
     pytest run knows what checkout it is in and nothing about GitHub, and
@@ -145,7 +147,7 @@ def resolve_work_item_uid(repo_root: Path, store) -> Optional[str]:
             extra={"slug": slug, "error_type": type(exc).__name__},
         )
         return None
-    return slug if obj is not None else None
+    return obj.uid if obj is not None else None
 
 
 # --------------------------------------------------------------------------- #
