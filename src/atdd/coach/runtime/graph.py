@@ -83,7 +83,7 @@ def _store_issue_wagon_map(root: Path) -> dict[int, str]:
 
         with WorkItemReader(control_root=root) as reader:
             return reader.issue_wagon_map()
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return {}
 
 

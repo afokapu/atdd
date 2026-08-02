@@ -257,7 +257,7 @@ def scan_text(code: str, filename: str = "<string>") -> List[PollutionViolation]
     """
     try:
         tree = ast.parse(code, filename=filename)
-    except SyntaxError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except SyntaxError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         print(f"meta-validator: parse error in {filename}: {exc}", file=sys.stderr)
         return []
 

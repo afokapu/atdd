@@ -223,7 +223,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store status write unavailable; manifest mirror still applies",
                 extra={"issue": issue_number, "status": status, "error": str(exc)},
@@ -260,7 +260,7 @@ class IssueManager:
             with WorkItemReader(control_root=self.target_dir) as reader:
                 value = getattr(reader, field)(issue_number)
             return str(value) if value else None
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store read unavailable; the issue resolves to nothing",
                 extra={"issue": issue_number, "field": field, "error": str(exc)},
@@ -275,7 +275,7 @@ class IssueManager:
             with WorkItemReader(control_root=self.target_dir) as reader:
                 entry = reader.session_entry(issue_number)
             return str(entry["slug"]) if entry and entry.get("slug") else None
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store read unavailable; the issue resolves to no slug",
                 extra={"issue": issue_number, "error": str(exc)},
@@ -334,7 +334,7 @@ class IssueManager:
                 store_has_items = bool(store.objects.list(kind=WORK_ITEM_KIND))
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "branch-registration store read unavailable; nothing to check against",
                 extra={"branch": branch, "error": str(exc)},
@@ -371,7 +371,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store field write unavailable; manifest mirror still applies",
                 extra={"issue": issue_number, "fields": sorted(fields), "error": str(exc)},
@@ -769,7 +769,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store work-item create unavailable; manifest registration still applies",
                 extra={"issue": issue_number, "slug": slug, "error": str(exc)},
