@@ -48,10 +48,11 @@ from atdd.enforce.conventions import (
     RuleMetadata,
     compute_scan_policy,
     is_interlocking_rule,
+    load_bound,
     resolve_interlocking_layout,
     rule_metadata,
+    select_rules,
 )
-from atdd.enforce import selection
 from atdd.enforce.dispositions import fails_on_violation
 from atdd.enforce.provider_env import provider_env
 from atdd.enforce.resolution import (
@@ -140,11 +141,11 @@ def load_config(repo_root: Path) -> dict:
 def _bound_conventions(substrate_home: Path, rules: Optional[set] = None) -> list[dict]:
     """The ``bound`` convention entries, optionally narrowed to ``rules``.
 
-    Thin seam over :mod:`atdd.enforce.selection`; kept here because it is the name
-    callers and tests already bind to.
+    Thin seam over the resolution helpers in :mod:`atdd.enforce.conventions`; kept
+    here because it is the name callers and tests already bind to.
     """
-    bound = selection.load_bound(substrate_home, EnforceUsageError)
-    return selection.select(bound, rules, EnforceUsageError)
+    bound = load_bound(substrate_home, EnforceUsageError)
+    return select_rules(bound, rules, EnforceUsageError)
 
 
 def _candidate_roots(substrate_home: Path) -> list[Path]:
