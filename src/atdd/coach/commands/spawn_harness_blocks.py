@@ -44,7 +44,7 @@ from atdd.coach.utils.rule_binding import RuleMetadata
 
 try:
     from atdd.coach.runtime import integration_logger as _ilog
-except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
     _ilog = None  # type: ignore[assignment]
 
 

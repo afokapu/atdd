@@ -215,7 +215,7 @@ def _fetch_issue_body(issue_number: int) -> str:
             text=True,
             timeout=30,
         )
-    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return f"(issue #{issue_number} body unavailable — `gh issue view` could not be run)"
     if proc.returncode != 0:
         return f"(issue #{issue_number} body unavailable — `gh issue view` exited {proc.returncode})"
@@ -618,7 +618,7 @@ def run(
                 issue_body=issue_body,
                 graph_context=graph_context,
             ))
-        except llm_registry.LLMUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except llm_registry.LLMUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             _print_error(f"LLM unavailable ({llm_id!r}): {exc}")
             return 5
 
@@ -629,7 +629,7 @@ def run(
                 llm_id=llm_id,
                 raw_response=raw if isinstance(raw, dict) else {},
             )
-        except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             _print_error(f"pass {i}/{llm_id} invalid response: {exc}")
             return 4
 
@@ -641,7 +641,7 @@ def run(
         # `_resolve_finding_rule_ids` with an unhandled AttributeError.
         try:
             _validate_pass_record(record)
-        except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             field = ".".join(str(p) for p in exc.absolute_path) or "<root>"
             _print_error(
                 f"pass {i}/{llm_id} schema violation at {field!r}: {exc.message}"
@@ -653,7 +653,7 @@ def run(
         # place without needing re-validation.
         try:
             _resolve_finding_rule_ids(record)
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             _print_error(f"pass {i}/{llm_id} rule binding failed: {exc}")
             return 4
 
@@ -666,7 +666,7 @@ def run(
     )
     try:
         jsonschema.Draft202012Validator(_aggregate_schema()).validate(aggregate)
-    except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except jsonschema.ValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         field = ".".join(str(p) for p in exc.absolute_path) or "<root>"
         _print_error(
             f"aggregate schema violation at {field!r}: {exc.message}"

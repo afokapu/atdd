@@ -1359,7 +1359,7 @@ def bind_rule(rule_id: str) -> RuleMetadata:
     for hook in _bind_rule_hooks:
         try:
             hook(result)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             pass
     return result
 

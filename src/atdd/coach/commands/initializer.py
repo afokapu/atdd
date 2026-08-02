@@ -119,7 +119,7 @@ class ProjectInitializer:
             if common.returncode != 0 or git_dir.returncode != 0:
                 return False
             return common.stdout.strip() != git_dir.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return False
 
     def _ensure_worktree_config_extension(self) -> None:

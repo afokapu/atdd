@@ -184,7 +184,7 @@ def _infer_module_path_str(archetype: str, module_basename: str) -> str:
         s = str(path)
         idx = s.find(marker)
         return s[idx:] if idx != -1 else s
-    except ValidatorResolutionError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except ValidatorResolutionError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         # Discovery surface, not a validator — the resolution miss is the
         # expected branch for `repo.*` archetypes whose dispatcher lives
         # outside ``src/atdd/<archetype>/validators/``. We render a
@@ -209,7 +209,7 @@ def _resolve_callsites(meta: RuleMetadata) -> List[_Callsite]:
     archetype = _archetype_of(meta.rule_id)
     try:
         module_basename, _func = parse_validator_field(meta.validator)
-    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         # Malformed validator field — surface the raw string with a
         # ``<malformed>`` marker so the operator can grep for it. This
         # is a discovery CLI; raising would crash the entire `where`
