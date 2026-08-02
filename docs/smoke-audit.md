@@ -29,6 +29,44 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 | acc:drive-state-machine:E010-SMOKE-001-survives-no-verify-and-never-blocks-the-commit | real (a real git repo in /tmp with the packaged post-commit dispatcher installed and a real on-disk control-root State Store; commits made via a real `git commit --no-verify` subprocess) | the `--no-verify` commit still records the session participation (proving post-commit is NOT skipped the way pre-commit is), and a commit whose hook exits non-zero still succeeds with the commit object present | `git commit --no-verify` → packaged post-commit → `atdd state sessions capture` → `capture_post_commit` → store | #1540 (Decision 2 asserted against real git rather than trusted: agents use `--no-verify` routinely, so a pre-commit capture would miss exactly the commits it most needs; hermetic tmp repo, no network) |
 | acc:drive-state-machine:L003-SMOKE-001-resume-command-is-runnable-after-recovery | real (a real on-disk control-root State Store in /tmp, recorded through the real capture path against the SHIPPED provider table, with a worktree path containing a space) | the emitted command names the recorded session id and worktree, carries no unrendered placeholders, and survives a `shlex` round-trip with the spaced path as ONE token | `capture_post_commit` → `sessions_for_work_item` → provider `resume_template` render | #1540 (the recovery payoff: store-only, no multiplexer installed; the spaced-path case caught a real unquoted-template defect during RED) |
 | acc:version-source-of-truth:LIVE-SMOKE-001-installed-metadata-version-matches-store-bump | real (real on-disk Control Root + State Store; a REAL `pip wheel` build via the in-tree PEP 517 backend (`build_meta_shim/atdd_version_backend.py`) under build isolation; a REAL `pip install --no-deps` of that wheel into an isolated `python -m venv`; no mocks, no skip) | `importlib.metadata.version("atdd")` in the installed venv == the store-bumped version (4.1.1 after MAJOR+MINOR+PATCH), asserted distinct from both the seed (3.149.0) and the `0.0.0+local` no-store fallback — the load-bearing leg #1269 left as a gap | store `release` object → `state/version.py` bump → build backend resolver (reads store via `ATDD_CONTROL_ROOT`) → `pip wheel` → `pip install` → `importlib.metadata.version` | #1281 (closes the #1269 gap: no committed test asserted `importlib.metadata.version("atdd")` after a real build; anchored to `src/atdd/state/tests/test_version_live_smoke.py`, cannot self-skip; live verified 2026-07-01 — wheel `atdd-4.1.1-py3-none-any.whl`, installed metadata == 4.1.1) |
+| acc:coach-ops:M003-SMOKE-001-installed-gh-accepts-the-query | real (the real `gh` binary against the live GitHub API; nothing substituted — no monkeypatch, no recorded payload, no wrapper over `subprocess`) | `gh` returns no `Unknown JSON field` refusal, the read yields a real verdict rather than `unknown`, and gh's advertised field set still matches the set the unit sibling records | `fetch_ci_status` → real `gh pr checks --json name,bucket,state` → verdict | #1612 (live-verified 2026-07-30, evidence below; the field list is read from gh at run time, never hardcoded) |
+| acc:coach-ops:R001-SMOKE-001-real-gh-error-ends-the-wait-on-the-first-read | real (the shipped `wait_for_ci` driving the real `gh` binary against the live GitHub API; `sleep`/`clock` injected as observers only, nothing about `gh` stubbed) | zero sleeps on the first read, non-timeout status, and gh's own `Could not resolve` stderr in the reported detail | `wait_for_ci` → `fetch_ci_status` → real `gh pr checks` → live GraphQL error → terminal `ci_error` | #1612 (live-verified 2026-07-30, evidence below; retargeted at RED from a CLI-level test that could not reach the CI read — `cascade()` halts in `update_branch` first — see `revision_reason` in `plan/coach_ops/R001.yaml`) |
+
+## coach-ops M003 / R001 live evidence (2026-07-30)
+
+Captured against real `gh` 2.96.0 and the live GitHub API, driving the worktree
+source (`PYTHONPATH=src`) at the **production** poll settings (30s interval,
+1800s timeout). Anchored tests: 6/6 passed, zero skips.
+
+```
+=== shipped wait_for_ci, real gh, production 30s/1800s settings ===
+real PR, checks red     pr=1650      status=ci_failed  sleeps=0  elapsed=1.32s
+                        detail=failed: validate-gate (FAILURE), validate-gate (FAILURE)
+PR that does not exist  pr=99999999  status=ci_error   sleeps=0  elapsed=0.44s
+                        detail=CI read failed: GraphQL: Could not resolve to a
+                               PullRequest with the number of 99999999. (repository.pullRequest)
+
+=== fetch_ci_status across 12 real PRs ===
+  #1649 MERGED -> pass  2 check(s) passed        #1667 OPEN -> fail  validate-gate (FAILURE)
+  #1645 MERGED -> pass  2 check(s) passed        #1650 OPEN -> fail  validate-gate (FAILURE) x2
+  #1633 MERGED -> pass  2 check(s) passed        #1651 OPEN -> fail  validate-gate (FAILURE)
+  verdict classes observed: pass, fail
+```
+
+Both halves of the issue's Done-when, against real infrastructure: a green PR
+reads `pass` (so a cascade would merge it) and a `gh` refusal is reported as a
+real error in under half a second instead of spinning. Before the fix every one
+of those twelve PRs read `unknown`, and both `wait_for_ci` drives slept 245-255
+times before reporting `no CI result after 1800s`.
+
+**Measurement note, recorded because it nearly produced a false negative.** The
+first evidence run used a bare `python -c`, which imports `atdd` from the
+installed pipx venv (4.30.0) — not the worktree. It faithfully reproduced the
+OLD behaviour and would have read as "the fix does not work". The anchored tests
+were never affected: they live inside the package, so pytest's rootdir insertion
+resolves `atdd` to `src/`. Verified explicitly with an in-package import probe
+before trusting either result. Any future live check here must set
+`PYTHONPATH=src`, or it is measuring the last release.
 
 ## E043-SMOKE-001 live evidence (2026-06-05)
 
@@ -224,6 +262,7 @@ of bypass patterns.
 | acc:govern-lifecycle:E052-SMOKE-001-train-gate-enforces-offline-zero-board-graphql | real (Train gate over `.atdd/manifest.yaml` validated against `plan/_trains.yaml`) | the Train gate resolves the train from the manifest and enforces validity with zero `get_project_item_field_values` board read or fallback | manifest `_manifest_train` → validate vs plan/_trains.yaml | #1051 (offline train gate; board read deleted, no fallback) |
 | acc:govern-lifecycle:E053-SMOKE-001-config-loads-and-github-imports-without-projects-v2 | real (live import of `atdd.integrations.github` + config load with no `project_id`) | `projects_v2` module is genuinely absent from shipped code; `integrations.github` exposes no projects_v2 attr; config loads cleanly without `project_id` | import surface + config loader (no board plumbing) | #1051 (substrate removal; real import/load, no mocks) |
 | acc:govern-lifecycle:E054-SMOKE-001-issue-reconcile-runs-without-unboundlocalerror | real (`atdd issue reconcile` invoked through a real subprocess against the live CLI dispatch, no monkeypatching) | the reconcile command's combined output never contains `UnboundLocalError` or "cannot access local variable 'IssueManager'" — the module-level import is in effect on the reconcile path | real CLI entry → main() dispatch → `manager = IssueManager()` (module global) → reconcile() | #1056 (scoping-regression fix; real subprocess proves the constructor binds, not just source inspection) |
+| acc:govern-lifecycle:R009-SMOKE-001-a-refused-transition-exits-red-with-a-diagnosis | real (`atdd coach transition` invoked as a real subprocess against a real `.atdd` store, with a `gh` on PATH that refuses label writes using GitHub's not-authorised wording) | the process exits non-zero, its output names the credential and the missing permission and says retrying cannot help, and it contains no Python traceback | real CLI entry → `IssueManager.update` → store write (#1452) → `_write_phase_label` → `GitHubClient._run_gh` refusal classification | #1621 (the refusal is the thing under test; a real subprocess proves the diagnosis reaches stdout rather than escaping as an exception) |
 | acc:author-atdd-substrate:D001-SMOKE-001-schemas-load-and-validate | real (the four on-disk canonical schemas loaded + a known-good authored fixture per kind) | all four canonical schemas load from their flat home and each known-good fixture validates against its schema | canonical schema files → load_schema(kind) → jsonschema validate fixture | #1097 (planned; substrate-spine canonical schemas + flat homes) |
 | acc:author-atdd-substrate:C001-SMOKE-001-cli-refuses-bad-input | real (installed `atdd author` CLI in a real checkout; invalid role/id/path) | the process exits non-zero with a validation error and no artifact file is created or modified | shell → atdd author spine → validate_author_input (role/id/path) | #1097 (planned; shared author spine input guard) |
 | acc:author-atdd-substrate:P001-SMOKE-001-cli-extension-default-and-core-flag | real (installed `atdd author` CLI in a real checkout; --extension, --core, and neither) | --extension writes inside extensions/<id>/ and not into src/atdd/; --core writes the core path; neither flag exits non-zero without writing | shell → atdd author → resolve_context → context-aware home | #1097 (planned; extension-first context resolution) |

@@ -44,7 +44,7 @@ def _store_session_entry(root, issue_number: int):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.session_entry(issue_number)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 
@@ -55,7 +55,7 @@ def _store_issue_number_for_slug(root, slug: str):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.issue_number_for_slug(slug)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 

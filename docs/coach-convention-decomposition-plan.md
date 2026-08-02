@@ -390,14 +390,16 @@ rows:
     reason: GitHub Issues/Labels/Projects v2/sub-issues, gh CLI hard deps, GitHub-issue-body templates. Heavy platform binding.
     notes: The three-layer (body/fields/sub-issues) model, label taxonomy, and templates all assume GitHub. cli_commands wrap GitHub.
   - source_file: issue.convention.yaml
-    source_section: "status.auto_transition_on_merge.{workflow,projects_access_fallback}"
+    source_section: "status.auto_transition_on_merge.workflow"
     source_rule_id: null
     classification: extension
     target_package_kind: extension
     target_package_id: atdd.extension.github
     candidate_rule_id: null
-    reason: PR-merge trigger, atdd-auto-phase.yml workflow, ProjectV2 token fallback — GitHub mechanics.
-    notes: Pairs with the core single-step-advance rule; this is its github realization.
+    reason: PR-merge trigger and the atdd-auto-phase.yml workflow — GitHub mechanics.
+    notes: Pairs with the core single-step-advance rule; this is its github realization. The
+      projects_access_fallback half of this row was deleted by #1621 — it described a ProjectV2
+      token fallback whose subsystem #1051 decommissioned.
   - source_file: issue.convention.yaml
     source_section: "workflow.phases.{planner,tester,coder}.{artifacts,validators,gate_command} + gate_tests.required_by_archetype + gate_tests.atdd_cycle"
     source_rule_id: null

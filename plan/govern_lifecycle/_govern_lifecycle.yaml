@@ -79,9 +79,11 @@ features:
   - urn: "feature:govern-lifecycle:smoke-execution-gate-satisfiability"
   - urn: "feature:govern-lifecycle:define-transition-autonomy"
   - urn: "feature:govern-lifecycle:bind-issue-feature"
+  - urn: "feature:govern-lifecycle:fix-auto-phase-label-write-credential"
 
 wmbt:
-  total: 110
+  total: 111
+  R009: "minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe (#1621)"
   Y006: "minimize an-issue-feature-binding-no-command-can-write-because-create-derives-nothing-and-revise-accepts-the-feature-flag-then-drops-it"
   C011: "minimize a-declared-feature-urn-that-resolves-to-nothing-in-plan-and-drifts-unseen-because-no-validator-holds-an-atdd-issue-body-or-its-stored-binding-to-the-plan-graph"
   L003: "minimize wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them"
