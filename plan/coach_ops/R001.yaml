@@ -1,0 +1,87 @@
+urn: wmbt:coach-ops:R001
+step: resolve
+direction: minimize
+dimension: likelihood
+object_of_control: gh-check-query-failures-classified-as-a-pollable-unknown-instead-of-a-terminal-error
+context_clarifier: "when fetch_ci_status catches a CalledProcessError whose stderr\
+  \ matches neither 'no required' nor 'no checks', returns unknown, and wait_for_ci\
+  \ \u2014 which exits only on pass or fail \u2014 sleeps on that verdict until the\
+  \ 1800s per-PR timeout"
+lens: functional.effectiveness
+statement: "minimize likelihood of gh-check-query-failures-classified-as-a-pollable-unknown-instead-of-a-terminal-error\
+  \ by making every outcome of the CI read carry whether it is worth retrying: a query\
+  \ gh refused, an unparseable payload or an unrecognised failure ends the wait immediately\
+  \ and surfaces gh's own stderr to the operator, while only a genuinely in-flight\
+  \ check keeps the poll loop alive \u2014 so a permanent fault can never again be\
+  \ spent as thirty minutes of silent polling"
+acceptances:
+- identity:
+    urn: acc:coach-ops:R001-UNIT-001-refused-query-ends-the-wait
+    id: AC-UNIT-001
+    purpose: A gh failure that is not a recognised benign case ends the CI wait at
+      once with gh's stderr, instead of being polled as an unknown until the timeout
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A gh invocation that raises CalledProcessError with an unrecognised stderr,
+      e.g. an unknown-JSON-field refusal, an auth failure, or a 404 for the pull request
+    - wait_for_ci driven by injected sleep and clock so elapsed polling time and sleep
+      count are observable
+  when:
+    abstract: wait_for_ci runs against that failing gh with the production 30s poll
+      interval and 1800s timeout
+  then:
+    abstract:
+    - It returns a non-merged, non-timeout result on the first read, having slept
+      zero times, and the detail carries gh's stderr verbatim so the operator sees
+      the real cause
+    - 'The two benign cases stay benign: stderr naming no required checks or no checks
+      still resolves to pass, and a genuinely in-flight check still polls'
+    - An unparseable stdout is treated as terminal on the same footing as a refused
+      query, since neither becomes readable by waiting
+- identity:
+    urn: acc:coach-ops:R001-SMOKE-001-real-gh-error-ends-the-wait-on-the-first-read
+    id: AC-SMOKE-001
+    purpose: Driving the shipped wait_for_ci against the real installed gh with a pull
+      request gh cannot resolve ends the wait on the first read carrying gh's own error,
+      rather than spending a permanent fault as polling until the per-PR timeout
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real checkout with an authenticated gh on PATH; the gh binary, the network
+      and the GitHub API are the real ones and no payload is recorded or replayed
+    - A pull request number that does not exist in the repository, so real gh exits
+      non-zero with a GraphQL resolution error whose stderr matches neither benign
+      phrase the handler recognises
+    - wait_for_ci driven with a recording sleep and a fake clock, so reads and sleeps
+      are countable and the test itself never waits
+  when:
+    abstract: wait_for_ci runs against that unresolvable pull request number through
+      the real gh binary, and then against one that does exist
+  then:
+    abstract:
+    - The unresolvable number returns on the FIRST read with a non-merged, non-timeout
+      status, having slept zero times
+    - The detail carries the real gh stderr, so the operator reads GitHub's own diagnosis
+      instead of 'no CI result after 1800s'
+    - A pull request that does exist still reaches a real pass, fail or pending verdict
+      through the same code path, so ending the wait is scoped to genuine failures
+      and does not swallow a working read
+  metadata:
+    author: atdd:tester
+    created: '2026-07-29'
+    revised_from: acc:coach-ops:R001-SMOKE-001-cascade-fails-fast-on-a-refused-query
+    revision_reason: The original acceptance required the shipped `atdd merge-cascade`
+      CLI to be "configured to request a field the installed gh does not advertise".
+      No such configuration exists, and the issue plans none \u2014 the field list is a
+      literal inside fetch_ci_status. Driving the whole CLI cannot reach the CI read
+      at all for an unresolvable PR, because cascade() runs update_branch first and
+      halts there, so the test would have passed for the wrong reason. Retargeted at
+      the same governed behaviour through an entry point that real infrastructure can
+      actually reach.

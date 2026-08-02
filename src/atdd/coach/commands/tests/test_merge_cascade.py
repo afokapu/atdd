@@ -66,8 +66,14 @@ def test_update_branch_conflict():
 # ---------------------------------------------------------------------------
 
 
+# Payloads below carry `bucket`, which is what `gh pr checks --json` actually
+# returns. They used to carry `conclusion` — a field gh does not serve on this
+# command — so they asserted the old verdict against data no real gh produces
+# and stayed green throughout #1612. See acc:coach-ops:M003-UNIT-001.
+
+
 def test_fetch_ci_status_pass():
-    json_out = '[{"state":"COMPLETED","name":"ci","conclusion":"SUCCESS"}]'
+    json_out = '[{"state":"SUCCESS","name":"ci","bucket":"pass"}]'
     with patch(
         "atdd.coach.commands.merge_cascade._run_gh",
         return_value=_gh_ok(json_out),
@@ -77,7 +83,7 @@ def test_fetch_ci_status_pass():
 
 
 def test_fetch_ci_status_pending():
-    json_out = '[{"state":"IN_PROGRESS","name":"ci","conclusion":""}]'
+    json_out = '[{"state":"IN_PROGRESS","name":"ci","bucket":"pending"}]'
     with patch(
         "atdd.coach.commands.merge_cascade._run_gh",
         return_value=_gh_ok(json_out),
@@ -87,7 +93,7 @@ def test_fetch_ci_status_pending():
 
 
 def test_fetch_ci_status_fail():
-    json_out = '[{"state":"COMPLETED","name":"ci","conclusion":"FAILURE"}]'
+    json_out = '[{"state":"FAILURE","name":"ci","bucket":"fail"}]'
     with patch(
         "atdd.coach.commands.merge_cascade._run_gh",
         return_value=_gh_ok(json_out),

@@ -13,6 +13,7 @@ outcome: "atdd coach watch + atdd agent wait-ci commands backed by a reusable co
 features:
   - urn: "feature:coach-ops:pr-watcher-module"
   - urn: "feature:coach-ops:worker-grid-dashboard"
+  - urn: "feature:coach-ops:read-check-status"
 
 produce:
   - name: commons:coach:pr-watcher-module
@@ -31,10 +32,16 @@ produce:
     contract: "contract:commons:coach:dashboard-card"
     telemetry: null
     to: external
+  - name: commons:coach:check-status-read
+    contract: null
+    telemetry: null
+    to: external
 
 consume: []
 
 wmbt:
-  total: 2
+  total: 4
   M001: "minimize likelihood of secondary-rate-limit-hits-during-batched-pr-polling"
   M002: "minimize time to assess live-coach-worker-state during a wave"
+  M003: "minimize likelihood of merge-cascade-ci-reads-that-ask-gh-pr-checks-for-a-json-field-the-installed-cli-does-not-expose when atdd merge-cascade reads required checks via gh pr checks --json on gh 2.96.0, whose advertised fields carry no conclusion, so the call exits 1 and reads nothing (#1612)"
+  R001: "minimize likelihood of gh-check-query-failures-classified-as-a-pollable-unknown-instead-of-a-terminal-error when fetch_ci_status returns unknown for an unrecognised gh failure and wait_for_ci — which exits only on pass or fail — sleeps on it until the 1800s per-PR timeout (#1612)"
