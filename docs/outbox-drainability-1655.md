@@ -370,6 +370,57 @@ The evidence this issue contributes to it — the silent-waiver mechanism at
 `smoke_obligation.py:160-168`, and the census showing 3 of umbrella #1652's 4 issues
 carried dangling feature URNs — belongs on #1635, not in #1655's scope.
 
+## 4c. This issue's own final gate passed on an empty obligation
+
+Recorded because it would be indefensible not to. #1655 exists to stop guardrails
+passing quietly; its own `SMOKE→REFACTOR` gate passed quietly, and the record should
+say so rather than let a green label imply verification.
+
+Evaluated directly before the transition ran (2026-08-02):
+
+```
+SmokeExecutionGateCheck  passed = True
+message: SMOKE->REFACTOR not applicable: #1655 declares no live_smoke acceptance,
+         so smoke execution is not required for this transition
+         (its work item declares no plan scope (no feature, no train))
+```
+
+The gate is opt-in per issue: it asks whether *this issue* declares an
+`execution_kind: live_smoke` acceptance, and passes as "not applicable" when none
+resolves. For #1655 none resolves, for a reason §4b already documents — the store's
+typed `data.feature` is `None` (and `data.train` likewise), and
+`live_smoke_obligation` reads those typed fields, not the body table that carries the
+correct URN.
+
+Half of that was fixable here and was fixed: E003-SMOKE-001 now declares
+`execution_kind: live_smoke`, so the plan side owes a real acceptance. Proof, run
+side-by-side against the same plan:
+
+```
+A. data.feature = None  (the store as it is) → acceptance_urns owed: ()
+B. data.feature = feature:isolate-provider-boundary:surface-undrainable-outbox
+                                              → owed: acc:isolate-provider-boundary:
+                                                      E003-SMOKE-001-operator-surfaces-...
+```
+
+The other half is not reachable from here: **no supported route writes
+`data.feature` on an existing work item.** `atdd update --feature-urn` is a silent
+no-op (#1676); `revise_issue(issue_number, *, body, issue_type, control_root)` and
+`revise_work_item_issue(conn, issue_number, *, body, issue_type)` take no `feature`
+argument, so `--feature` is create-only; `atdd state author` has no `feature` verb;
+`atdd state object` is mint/rename only; and `atdd state field-writer` is a
+merge-authority *check*, not a writer. Tracked by **#1635** / **#1676**.
+
+**So the green on this transition attests to nothing.** The actual evidence that
+E003-SMOKE-001 holds is the test itself, which passes at HEAD against a throwaway
+checkout on a bare git remote, a real `.atdd/state/state.sqlite`, and the installed
+CLI as a subprocess — independent of the gate that failed to ask for it.
+
+Related, same shape, same section: **RED was never literally true on this branch.**
+Implementation and tests were written together, so no failing-test commit ever
+existed. The phase machine requires passing through RED; nothing was retro-fitted to
+make that look otherwise.
+
 ## 5. Decision — `atdd.extension.github` is **NOT** installed in this repo
 
 Deliberate, and recorded here as the "deliberate, documented configuration" the
