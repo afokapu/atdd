@@ -103,9 +103,9 @@ def test_k001_smoke_001_collaborates_through_projection_only(tmp_path) -> None:
     # The developer's store is PRIVATE and gitignored — that is the scoped-truth rule (spec §1),
     # and it is why the committed projection has to exist at all. If the store travelled with the
     # branch, this whole wagon would be unnecessary.
-    (seed / ".gitignore").write_text(
-        ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n", encoding="utf-8",
-    )
+    from atdd.state.bare_remote import STORE_GITIGNORE
+
+    (seed / ".gitignore").write_text(STORE_GITIGNORE, encoding="utf-8")
     _git(seed, "add", "-A")
     _git(seed, "commit", "--quiet", "-m", "an atdd repo with no manifest")
     _git(seed, "remote", "add", "origin", str(remote))

@@ -1361,7 +1361,7 @@ Children #894, #895, and #896 carry historical slugs that include `workflow` (e.
 - Implement `issue_state.transition_phase()` as the atomic label+Projects-v2 swap.
 - Migrate all call sites in `atdd.coach.commands.coach` and elsewhere to use the new adapter (preserve a thin compatibility shim in the old location).
 - Add integration tests against gh CLI JSON fixtures (no live API).
-- Document `PROJECT_TOKEN` setup in `docs/operator-projects-v2-token.md`.
+- Document `PROJECT_TOKEN` setup in `docs/operator-projects-v2-token.md`. *(Historical — the doc no longer exists. #1051 decommissioned Projects v2; #1621 deleted the doc, which was still instructing operators to set `GH_TOKEN` to the PAT with a `||` fallback to `GITHUB_TOKEN`. `||` is a preference, not a fallback: with the secret set the PAT always won, and since the job's `permissions: issues: write` binds to `GITHUB_TOKEN` alone, every auto-phase label write failed.)*
 
 **Out of scope:**
 - Removing the old call sites (they're shimmed, removed in Child 10).

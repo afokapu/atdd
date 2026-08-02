@@ -1275,7 +1275,9 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 103
+    total: 107
+    R009: minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe
+      (#1621)
     R006: minimize drifted-lifecycle-records-that-no-verb-can-repair
     R005: minimize phase-labels-written-without-the-store-transition-behind-them
     R001: minimize stale local manifest status after a successful GitHub transition
@@ -1498,6 +1500,12 @@ wagons:
       ungated transitions proceed without consulting checks) AND an empty default
       GATE_REGISTRY (a gated transition with no registered checks proceeds), so the
       mechanism ships inert until #958/#1017 register checks (#1020)'
+    D020: minimize quantity of lifecycle-transitions-whose-submitting-authority-is-undeclared-so-a-worker-that-has-satisfied-its-phase-must-still-stop-on-the-operator
+      by adding a per-phase `autonomy` scalar to phase_machine.convention.yaml beside
+      agent/transitions_to/pre_commit_gate, plus the coach.lifecycle.transition-autonomy
+      node stating the principle and its escape invariant, paired with coach.execution.freedom-with-a-leash
+      which governs the same question on the tool axis; declarative only, nothing
+      reads it yet, and ATDD keeps sole authority over transition legality (#1626)
     E050: 'minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval
       by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the
       operator-gated transition: the check fails (so transition() returns non-zero
@@ -1633,6 +1641,12 @@ wagons:
       that opens SMOKE->REFACTOR and a run that never executes leaves it closed —
       the gate becomes satisfiable by running smoke instead of by --force, and E060''s
       constant-evidence gate gains its first real subject (#1602)'
+    E070: minimize likelihood of pr-under-validation-scoping-silently-degrading-to-a-repo-wide-block
+      by resolving the branch's PR number through a single PRManager.pr_number_for_branch
+      seam instead of int()-ing a URL behind a swallowing except, by degrading an
+      unresolvable PR to advisory-only instead of a repo-wide block, and by extending
+      the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline
+      (#1478; renumbered from E062 which origin/main claimed)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -2046,7 +2060,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 22
+    total: 24
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2085,6 +2099,15 @@ wagons:
       by detecting linked-worktree condition and writing 'git config --worktree core.hooksPath'
       instead of the unscoped form (#793, Wave 12 contamination class, core.hooksPath
       danger key)
+    Y007: 'minimize likelihood of agent-upgrade-runs-that-die-on-eoferror-because-the-command-assumes-a-terminal
+      by resolving upgrader.py''s confirmation the way coach.py:255 already resolves
+      its own — explicit flag wins, else infer from isatty — so a no-TTY run proceeds
+      under a decision it states out loud while a human sees byte-identical prompts
+      (#1628, the remedy the #1449 push gate names but no agent could run)'
+    E008: minimize likelihood of concurrent-upgrade-runs-mutating-the-one-shared-install-that-sits-beneath-every-worktree
+      by serialising the mutating section on a lock scoped to the install rather than
+      the checkout, making an already-current run a no-op, and refusing loudly rather
+      than proceeding unlocked (#1628, ~60 agents share one pipx install)
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/

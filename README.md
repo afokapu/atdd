@@ -187,7 +187,6 @@ Typical structure after `atdd init`:
 
 ```text
 your-project/
-├── your-project.code-workspace
 ├── main/
 ├── feat-some-feature/
 ├── CLAUDE.md

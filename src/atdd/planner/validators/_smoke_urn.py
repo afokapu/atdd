@@ -13,7 +13,7 @@ infrastructure to verify can opt out by adding
 ``# atdd:suppress(planner.wmbt.must-have-smoke-acceptance) UNTIL=YYYY-MM-DD``
 on the WMBT YAML's ``urn:`` line. The disposition gate reads that marker.
 
-Convention: ``src/atdd/planner/conventions/wmbt.convention.yaml``
+Convention: ``src/atdd/planner/conventions/nodes/planner.wmbt.urn-naming.convention.yaml``
             (rule ``planner.wmbt.must-have-smoke-acceptance``).
 
 Run: ``atdd validate planner``
@@ -44,7 +44,7 @@ _WMBT_FILENAME_RE = re.compile(r"^[DLPCEMYRK]\d{3}\.yaml$")
 
 # A SMOKE acceptance URN ends with the literal harness token "-SMOKE-NNN"
 # (optionally followed by a kebab slug). See
-# src/atdd/planner/conventions/acceptance.convention.yaml::urn for the
+# src/atdd/planner/conventions/nodes/planner.acceptance.urn-generation.convention.yaml for the
 # canonical pattern; SMOKE is not currently in the schema enum but is
 # in active use across plan/ (e.g. plan/integration_hardening/E001.yaml).
 _SMOKE_URN_RE = re.compile(
