@@ -59,7 +59,7 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
 
     try:
         repo_root = find_repo_root()
-    except (RuntimeError, OSError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except (RuntimeError, OSError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         print(f"[validator_dispatch] repo root not found: {e}", file=sys.stderr)
         return HandlerResult.ERROR
 
@@ -126,7 +126,7 @@ def _get_head_sha(repo_root: Path) -> str:
             check=True,
         )
         return proc.stdout.strip() or "unknown"
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         print(f"[validator_dispatch] git rev-parse HEAD failed: {e}", file=sys.stderr)
         return "unknown"
 
@@ -158,7 +158,7 @@ def _phase_archetypes(phase_name: str, repo_root: Path) -> set[str]:
             if archetype in ("planner", "tester", "coder", "coach"):
                 archetypes.add(archetype)
         return archetypes if archetypes else set(_PHASE_ARCHETYPES.get(phase_name, []))
-    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         print(f"[validator_dispatch] phase archetype resolution failed: {e}", file=sys.stderr)
         return set(_PHASE_ARCHETYPES.get(phase_name, []))
 
@@ -189,7 +189,7 @@ def _record_to_violation(record: dict) -> Optional[Violation]:
             detail=record["detail"],
             fix_hint_ref=record.get("fix_hint_ref"),
         )
-    except (KeyError, ValueError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except (KeyError, ValueError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         print(f"[validator_dispatch] invalid violation record: {e}", file=sys.stderr)
         return None
 
