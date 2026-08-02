@@ -19,12 +19,15 @@ minted those labels with no replacement. Nothing here touches a provider.
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 #: ``feature:<wagon>:<name>`` — the only shape that is a feature identity.
 #: A train identity (``train:<subject>:<slug>``) deliberately does not match:
@@ -117,6 +120,13 @@ def resolve_feature(urn: Optional[str], start: Optional[Path] = None) -> Feature
     try:
         doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
+        # Observably react, do not merely return (coder.logging.coach-silent-swallow).
+        # The detail below reaches whoever inspects the binding, but an operator
+        # watching logs would otherwise never learn a plan file is unreadable.
+        logger.warning(
+            "feature names an unreadable YAML",
+            extra={"urn": urn, "path": str(path), "error": str(exc)},
+        )
         return FeatureBinding(
             urn=urn, resolved=False, reason="unresolved",
             detail=f"feature {urn} names an unreadable YAML at {path}: {exc}",
