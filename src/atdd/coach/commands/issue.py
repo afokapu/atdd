@@ -976,106 +976,6 @@ class IssueManager:
     # -------------------------------------------------------------------------
 
     @staticmethod
-    def _parse_gate_tests(body: str) -> List[Dict[str, str]]:
-        """Parse gate test table rows from issue body markdown.
-
-        Expected table format (under ## Validation → ### Gate Tests):
-        | ID | Phase | Command | Expected | ATDD Validator | Status |
-
-        Returns list of dicts with keys: id, phase, command, expected, validator, status
-        """
-        gates = []
-        # Find the Gate Tests table — look for header row with ID|Phase|Command
-        in_table = False
-        for line in body.splitlines():
-            stripped = line.strip()
-            if not stripped.startswith("|"):
-                if in_table:
-                    break  # End of table
-                continue
-
-            cells = [c.strip() for c in stripped.split("|")[1:-1]]  # strip empty first/last
-            if len(cells) < 6:
-                continue
-
-            # Skip header and separator rows
-            if cells[0] in ("ID", "") or cells[0].startswith("-"):
-                if cells[0] == "ID":
-                    in_table = True
-                continue
-
-            if not in_table:
-                continue
-
-            gate = IssueManager._gate_row(cells)
-            if gate:
-                gates.append(gate)
-
-        return gates
-
-    @staticmethod
-    def _gate_row(cells: List[str]) -> Optional[Dict[str, str]]:
-        """One gate-test table row; None when it declares no command."""
-        # Extract command — strip backticks
-        command = cells[2].strip("`").strip()
-        if not command:
-            return None
-
-        return {
-            "id": cells[0].strip(),
-            "phase": cells[1].strip(),
-            "command": command,
-            "expected": cells[3].strip(),
-            "validator": cells[4].strip("`").strip(),
-            "status": cells[5].strip(),
-        }
-
-    def _run_gate_tests(
-        self, gates: List[Dict[str, str]], force: bool = False,
-    ) -> Tuple[bool, List[str]]:
-        """Run gate test commands and return (all_passed, messages).
-
-        Each gate command is executed via subprocess. Exit code 0 = PASS.
-        If force=True, logs warnings but does not block.
-        """
-        messages = []
-        all_passed = True
-
-        for gate in gates:
-            gate_id = gate["id"]
-            command = gate["command"]
-
-            if force:
-                messages.append(f"  {gate_id}: SKIPPED (--force) — {command}")
-                continue
-
-            print(f"  Running {gate_id}: {command} ...", end=" ", flush=True)
-
-            result = subprocess.run(
-                command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=str(self.target_dir),
-                timeout=300,  # 5 min max per gate
-            )
-
-            if result.returncode == 0:
-                print("PASS")
-                messages.append(f"  {gate_id}: PASS — {command}")
-            else:
-                print("FAIL")
-                all_passed = False
-                stderr_snippet = result.stderr.strip().splitlines()[-3:] if result.stderr else []
-                messages.append(
-                    f"  {gate_id}: FAIL (exit {result.returncode}) — {command}"
-                )
-                for line in stderr_snippet:
-                    messages.append(f"    {line}")
-
-        return all_passed, messages
-
-    @staticmethod
     def _parse_artifacts(body: str) -> Dict[str, List[str]]:
         """Parse Artifacts section from issue body markdown.
 
@@ -2010,9 +1910,19 @@ class IssueManager:
         self, issue_number: int, issue_id: str, issue_body: str, force: bool
     ) -> bool:
         """Everything COMPLETE requires: rebase, gate tests, artifacts, release."""
+        # No gate-test execution here by design (#1683). This gate used to parse a
+        # markdown table out of ``issue_body`` and run each cell through ``sh``, which
+        # made an ordinary cell like `cmd` (note) an unbalanced backquote and killed
+        # the shell before it ran anything. Worse, a body with no table passed the gate
+        # for free — so documenting validation made an issue HARDER to complete.
+        #
+        # Nothing reaches main without the required ``validate-gate`` status check
+        # passing (branch protection, strict), so by the time this runs the code has
+        # already been validated by the repository's own gate. Re-running a hand-copied
+        # approximation of those commands, transcribed into prose and never itself
+        # verified, added no safety — only a way to fail.
         return (
             self._gate_rebased(issue_id, force)
-            and self._gate_tests(issue_number, issue_id, issue_body, force)
             and self._gate_artifacts(issue_number, issue_id, issue_body, force)
             and self._gate_release(issue_number, issue_id, force)
         )
@@ -2031,35 +1941,6 @@ class IssueManager:
             print(f"  Fix: git fetch origin main && git rebase origin/main")
             print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
             return False
-        return True
-
-    def _gate_tests(
-        self, issue_number: int, issue_id: str, issue_body: str, force: bool
-    ) -> bool:
-        """The gate tests the issue body declares all pass."""
-        gates = self._parse_gate_tests(issue_body)
-        if not gates:
-            if not force:
-                print(f"\n  Warning: No gate tests found in issue body")
-            return True
-
-        if force:
-            print(f"\n  Bypassing {len(gates)} gate tests (--force)")
-        else:
-            print(f"\nRunning {len(gates)} gate tests for #{issue_number}:")
-
-        all_passed, gate_messages = self._run_gate_tests(gates, force=force)
-        for msg in gate_messages:
-            print(msg)
-
-        if not all_passed:
-            print(f"\nError: Gate tests failed — cannot transition to COMPLETE")
-            print(f"  Fix: Resolve failing gates, then retry")
-            print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
-            return False
-
-        if not force:
-            print()  # blank line after gate results
         return True
 
     def _gate_artifacts(
