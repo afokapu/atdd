@@ -35,7 +35,9 @@ content:
       4. For a backlog of unbound issues run the backfill rather than editing
          each by hand. It derives only from a body Feature row that resolves
          and reports the rest instead of guessing:
-           atdd.coach.commands.issue_feature_binding.backfill_feature_bindings
+           atdd coach backfill-bindings --dry-run    # report only
+           atdd coach backfill-bindings              # write
+         Never overwrites an existing binding, so re-running is a no-op.
 
     See #1635 for the four breaks in this chain, and #1630 for the consumer
     that this binding lets be fixed exactly rather than heuristically.
