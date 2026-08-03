@@ -36,6 +36,11 @@ GRAPH_CONTEXT_UNAVAILABLE = (
     "`atdd issue <N> --refresh-graph`)"
 )
 
+# Uid prefix minted by the store backfill (#1579) when a work item's semantic slug
+# could not be recovered, e.g. `unverified:issue-1527`. Such a uid is a placeholder
+# identity, never a slug — see `branch_is_registered`.
+_PROVISIONAL_UID_PREFIX = "unverified:"
+
 # Issue type → conventional commit / branch prefix mapping, and the allowed
 # branch prefixes. MOVED to the neutral ``issue_prefixes`` module by C5a (#1382)
 # so branch.py/pr.py no longer hard-depend on this monolith; re-exported here
@@ -318,6 +323,14 @@ class IssueManager:
         a barely-initialised repo is never falsely blocked. Returns False only when the repo IS
         atdd-managed (the store holds work items) yet the slug is absent. Never raises; makes no
         GitHub calls.
+
+        #1583: "nothing to check against" covers an *untrustworthy* index as well as an empty
+        one. If any work item carries a provisional `unverified:issue-<N>` uid (minted by the
+        #1579 backfill), the slug index is incomplete: a miss cannot distinguish "not
+        registered" from "registered under a provisional uid". That evidence is ambiguous, and
+        ambiguous evidence must not block a commit. Only a store with zero provisional uids can
+        prove absence, and there the gate still blocks — which is what keeps it a gate rather
+        than a no-op. The tolerance self-expires once #1579 promotes the uids to real slugs.
         """
         slug = branch.split("/", 1)[-1] if "/" in branch else branch
         store_has_items = False
@@ -331,7 +344,19 @@ class IssueManager:
                 store = StateStore(conn)
                 if store.objects.get(slug) is not None:
                     return True
-                store_has_items = bool(store.objects.list(kind=WORK_ITEM_KIND))
+                items = store.objects.list(kind=WORK_ITEM_KIND)
+                # #1583: the backfill (#1579) re-keyed work items onto provisional
+                # `unverified:issue-<N>` uids. Any such uid means the slug index is
+                # INCOMPLETE, so a miss no longer distinguishes "not registered" from
+                # "registered under a provisional uid" — the evidence is ambiguous,
+                # and ambiguous evidence must not block. The real store is mixed
+                # (provisional items plus slugs authored after recovery), so testing
+                # for an *entirely* provisional store would never fire. Only a store
+                # with zero provisional uids has an index trustworthy enough to prove
+                # absence; the condition self-expires once #1579 promotes the uids.
+                store_has_items = bool(items) and not any(
+                    obj.uid.startswith(_PROVISIONAL_UID_PREFIX) for obj in items
+                )
             finally:
                 conn.close()
         except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
