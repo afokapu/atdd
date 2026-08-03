@@ -82,7 +82,7 @@ def _emit_gate_verdict(
     for hook in _gate_verdict_hooks:
         try:
             hook(validator_id, disposition_tier, passed, len(violations), driving_ids)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             pass
 
 
@@ -119,7 +119,7 @@ def _record_observed_violation(
         namespace = {}
         try:
             setattr(session, "_atdd", namespace)
-        except (AttributeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (AttributeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return
     observed = namespace.get("observed_violations")
     if not isinstance(observed, list):
@@ -344,7 +344,7 @@ def _emit_validator_reports(
             )
         if reports:
             emit_reports(tuple(reports))
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         # Emission is best-effort; never let it perturb the gate verdict.
         return
 

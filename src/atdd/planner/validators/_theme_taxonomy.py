@@ -7,7 +7,7 @@ theme validators (``test_theme_must_be_canonical``,
 ``test_theme_archetype_alignment``, ``test_theme_zero_mandatory``) import from
 here so the taxonomy lives in exactly one place.
 
-Convention: src/atdd/planner/conventions/theme.convention.yaml
+Convention: src/atdd/planner/conventions/nodes/planner.theme.canonical-taxonomy.convention.yaml
 
 The digit-0 token is LOCKED to "commons" (operator decision #970).
 """

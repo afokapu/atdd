@@ -223,6 +223,8 @@ def revise_work_item_issue(
     *,
     body: Optional[str] = None,
     issue_type: Optional[str] = None,
+    feature: Optional[str] = None,
+    title: Optional[str] = None,
 ) -> Object:
     """Revise an existing issue-backed work item through the State Store.
 
@@ -230,6 +232,22 @@ def revise_work_item_issue(
     work-item uid, merges the requested issue fields into the object's JSON data,
     and preserves the existing lifecycle state. This is the authoritative update;
     provider projection is a caller concern.
+
+    ``feature`` completes the revise chain (#1635). It was previously accepted by
+    ``atdd author issue --revise`` and dropped here: this function had no
+    parameter for it, so the value was discarded between the CLI and the store.
+    Measured across eight issues on 2026-07-28 — the body updated on all eight
+    and ``data.feature`` stayed NULL on all eight. A revision that names no
+    feature leaves an existing binding untouched (``None`` means "unchanged",
+    never "clear it").
+
+    ``title`` closes the same gap for the last flag that had it (#1661). It was
+    accepted by ``atdd author issue --revise`` and dropped here for the same
+    reason: no parameter to carry it. Measured 2026-08-02 — ``--revise --title X
+    --type bug`` exited 0 with ``data.title`` unchanged. Where a body accompanied
+    it the result was worse than a no-op: the body's H1 moved and the issue title
+    did not, so the two disagreed until an operator repaired it by hand (#1636).
+    ``None`` means "unchanged" here too.
     """
     store = StateStore(conn)
     ref = store.external_refs.resolve(
@@ -253,8 +271,12 @@ def revise_work_item_issue(
         updates["body"] = body
     if issue_type is not None:
         updates["type"] = issue_type
+    if feature is not None:
+        updates["feature"] = feature
+    if title is not None:
+        updates["title"] = title
     if not updates:
-        raise ValueError("revision requires body and/or issue_type")
+        raise ValueError("revision requires body, issue_type, feature and/or title")
 
     obj = store.objects.upsert(
         existing.uid,

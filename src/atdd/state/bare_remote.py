@@ -23,10 +23,23 @@ import subprocess
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
-#: What a Control Root never shares. The store is the private authoring workspace (spec §2.1);
-#: ``version_cache.json`` is the CLI's per-checkout upgrade-check cache. Committing either would
-#: push one developer's private state at another.
-STORE_GITIGNORE = ".atdd/state/state.sqlite*\n.atdd/version_cache.json\n"
+#: What a Control Root never shares — one developer's private state must never be
+#: pushed at another. The store is the private authoring workspace (spec §2.1).
+#:
+#: The other two entries are per-checkout CLI state:
+#:
+#: - ``.atdd/runtime/`` holds the toolkit-sync record (#1641), which records the
+#:   version this checkout was last synced against.
+#: - ``.atdd/version_cache.json`` is vestigial: the PyPI upgrade-check cache
+#:   actually lives at ``~/.atdd/version_cache.json`` (``version_check.CACHE_FILE``),
+#:   and no code writes a repo-local copy. The entry is retained defensively so a
+#:   stray file left by an older CLI — or by a run with ``HOME`` redirected into
+#:   the repo — cannot show up as untracked noise or be committed by accident.
+STORE_GITIGNORE = (
+    ".atdd/state/state.sqlite*\n"
+    ".atdd/runtime/\n"
+    ".atdd/version_cache.json\n"
+)
 
 #: What the ``gh`` shim says on stderr when something reaches for it.
 GH_UNAVAILABLE = "gh is not available: core runs against a bare remote"

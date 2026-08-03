@@ -30,6 +30,51 @@ _TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE"}
 _COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
 
 
+# The per-phase "Next:" hint, as DATA. `{number}` is the issue number.
+#
+# REFACTOR is the one advance an operator normally does NOT type:
+# .github/workflows/atdd-auto-phase.yml (#355) drives REFACTOR->COMPLETE from
+# `pull_request: closed` + merged == true, through `atdd coach transition` ->
+# IssueManager.update, so the store is written first and the atdd:<PHASE> label
+# is projected from it. Printing only the manual command reads as an instruction
+# and invites a hand-typed transition that races the workflow — the desync #1452
+# removed the raw label-write from post-merge-lifecycle.yml to stop. Name the
+# automatic path first, and keep the manual one for the cases that genuinely
+# need it (no PR, or auto-phase did not run — e.g. #1621).
+_NEXT_ACTION_HINTS = {
+    "INIT": (
+        "  Next: Fill issue scope, then transition:",
+        "         atdd coach transition {number} PLANNED",
+    ),
+    "PLANNED": (
+        "  Next: Write failing tests (RED phase), then transition:",
+        "         atdd coach transition {number} RED",
+    ),
+    "RED": (
+        "  Next: Implement to make tests pass (GREEN), then transition:",
+        "         atdd coach transition {number} GREEN",
+    ),
+    "GREEN": (
+        "  Next: Run tester SMOKE verification, then transition:",
+        "         atdd coach transition {number} SMOKE",
+    ),
+    "SMOKE": (
+        "  Next: Refactor to clean architecture, then transition:",
+        "         atdd coach transition {number} REFACTOR",
+    ),
+    "REFACTOR": (
+        "  Next: Merge the PR — REFACTOR → COMPLETE is automatic:",
+        "         .github/workflows/atdd-auto-phase.yml advances the",
+        "         phase on merge and projects the label from the store.",
+        "  Manual (only if there is no PR, or auto-phase did not run):",
+        "         atdd coach transition {number} COMPLETE",
+    ),
+    "COMPLETE": ("  This issue is COMPLETE. No further action needed.",),
+    "OBSOLETE": ("  This issue is OBSOLETE. No further action needed.",),
+    "BLOCKED": ("  This issue is BLOCKED. Resolve blockers, then transition back.",),
+}
+
+
 
 class IssueLifecycle:
     """Unified issue lifecycle orchestrator."""
@@ -63,31 +108,22 @@ class IssueLifecycle:
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return None
 
-    def _fetch_sub_issues(self, issue_number: int, slug: str) -> list:
-        """Fetch WMBT sub-issues for this parent issue.
+    def _resolve_wmbts(self, issue_number: int):
+        """Resolve this issue's WMBTs through its feature binding (#1635).
 
-        Matches by slug in WMBT title (wmbt:<slug>:<ID>) or by #N reference.
+        Replaces the provider-label lookup entirely. The previous implementation
+        shelled out to ``gh issue list --label atdd-wmbt`` and never read
+        ``plan/``; #1477 removed the command that minted those labels with no
+        replacement, so it reported nothing for every issue in the repo. It also
+        swallowed subprocess failure and returned ``[]``, which is
+        indistinguishable from a correct empty answer.
+
+        Returns a ``WmbtResolution`` — three distinct outcomes (unbound,
+        unresolved, resolved) rather than one possibly-empty list.
         """
-        repo = self._get_repo()
-        if not repo:
-            return []
-        try:
-            # Search for WMBTs mentioning this slug in title
-            result = subprocess.run(
-                ["gh", "issue", "list", "--repo", repo,
-                 "--label", "atdd-wmbt", "--state", "all",
-                 "--search", f"wmbt:{slug} in:title",
-                 "--json", "number,title,state",
-                 "--limit", "50"],
-                capture_output=True, text=True, timeout=15,
-                cwd=self.target_dir,
-            )
-            if result.returncode != 0:
-                return []
-            import json
-            return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            return []
+        from atdd.coach.commands.issue_feature_binding import resolve_wmbts_for_issue
+
+        return resolve_wmbts_for_issue(issue_number, control_root=self.target_dir)
 
     def _get_status_from_labels(self, labels: list) -> str:
         """Extract ATDD status from issue labels."""
@@ -222,13 +258,6 @@ class IssueLifecycle:
         # (#1051); the Projects v2 "ATDD Branch" field is decommissioned, so no
         # board write happens here.
 
-        # Refresh workspace
-        try:
-            from atdd.coach.commands.initializer import write_workspace
-            write_workspace(self.target_dir)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            pass
-
         return worktree_path
 
     def _run_gate(self, worktree_path: Path) -> int:
@@ -277,43 +306,30 @@ class IssueLifecycle:
         if worktree_path:
             print(f"  Worktree: {worktree_path}")
 
-        # WMBTs
-        if sub_issues:
-            open_wmbts = [w for w in sub_issues if w.get("state") == "OPEN"]
-            closed_wmbts = [w for w in sub_issues if w.get("state") == "CLOSED"]
-            print(f"\n  WMBTs: {len(open_wmbts)} open, {len(closed_wmbts)} closed")
-            for w in sorted(sub_issues, key=lambda x: x["number"]):
-                marker = "[ ]" if w.get("state") == "OPEN" else "[x]"
-                print(f"    {marker} #{w['number']} {w['title'][:60]}")
-        else:
-            print("\n  WMBTs: none found")
+        # WMBTs — resolved from plan/ through the issue's feature binding.
+        # `sub_issues` is a WmbtResolution (#1635), not a list of GitHub issues:
+        # an unbound issue and a broken binding now read differently from a
+        # genuinely undecomposed one instead of collapsing into "none found".
+        from atdd.coach.commands.issue_feature_binding import render_wmbt_section
+
+        print()
+        print(render_wmbt_section(sub_issues))
 
         # Next action
         print()
-        if status == "INIT":
-            print("  Next: Fill issue scope, then transition:")
-            print(f"         atdd coach transition {number} PLANNED")
-        elif status == "PLANNED":
-            print("  Next: Write failing tests (RED phase), then transition:")
-            print(f"         atdd coach transition {number} RED")
-        elif status == "RED":
-            print("  Next: Implement to make tests pass (GREEN), then transition:")
-            print(f"         atdd coach transition {number} GREEN")
-        elif status == "GREEN":
-            print("  Next: Run tester SMOKE verification, then transition:")
-            print(f"         atdd coach transition {number} SMOKE")
-        elif status == "SMOKE":
-            print("  Next: Refactor to clean architecture, then transition:")
-            print(f"         atdd coach transition {number} REFACTOR")
-        elif status == "REFACTOR":
-            print("  Next: Complete and close:")
-            print(f"         atdd coach transition {number} COMPLETE")
-        elif status in _TERMINAL_STATUSES:
-            print(f"  This issue is {status}. No further action needed.")
-        elif status == "BLOCKED":
-            print("  This issue is BLOCKED. Resolve blockers, then transition back.")
+        self._print_next_action(status, number)
         print("=" * 70)
         print()
+
+    def _print_next_action(self, status: str, number: int) -> None:
+        """Print the operator's next step for *status*.
+
+        Table-driven rather than an if/elif chain (#1626): the hints are DATA,
+        one entry per phase, so adding a phase is an entry here and the branch
+        count does not grow with the phase machine.
+        """
+        for line in _NEXT_ACTION_HINTS.get(status, ()):
+            print(line.format(number=number))
 
     def check(self, issue_number: int) -> int:
         """Run template compliance check against an issue body.
@@ -475,7 +491,7 @@ class IssueLifecycle:
         labels = issue.get("labels", [])
         status = self._get_status_from_labels(labels)
         slug, prefix = self._get_slug_and_prefix(issue)
-        sub_issues = self._fetch_sub_issues(issue_number, slug)
+        sub_issues = self._resolve_wmbts(issue_number)
 
         self._print_context(issue, status, sub_issues, slug, prefix, None)
         return 0
@@ -531,7 +547,7 @@ class IssueLifecycle:
         slug, prefix = self._get_slug_and_prefix(issue)
 
         # Fetch sub-issues (WMBTs)
-        sub_issues = self._fetch_sub_issues(issue_number, slug)
+        sub_issues = self._resolve_wmbts(issue_number)
 
         worktree_path = None
 

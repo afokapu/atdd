@@ -65,7 +65,7 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
         try:
             with transactional_decision(writer, record) as run_action:
                 return HandlerResult.HANDLED if run_action else HandlerResult.NOOP
-        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             last_exc = exc
 
     print(

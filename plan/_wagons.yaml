@@ -141,7 +141,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 26
+    total: 27
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -198,6 +198,10 @@ wagons:
       (back-compat)
     E008: maximize likelihood of issue-publish-to-store when authoring via `atdd author
       issue` (store-first work_item + exactly one github external_ref, by default)
+    E009: minimize quantity of unreviewed-authored-prose by routing every authoring
+      write through a pre-write review that enforces only the repo-declared review
+      rules over a staged copy and refuses the write when any of them fires, so a
+      prose finding surfaces before the artifact exists rather than after it is committed
     C012: minimize likelihood of author-without-publish by requiring the generate
       path to reach the store-first publish and to fail loud (no body-only degrade)
       when the store is unreachable
@@ -468,11 +472,23 @@ wagons:
     contract: contract:commons:coach:dashboard-card
     telemetry: null
     to: external
+  - name: commons:coach:check-status-read
+    contract: null
+    telemetry: null
+    to: external
   consume: []
   wmbt:
-    total: 2
+    total: 4
     M001: minimize likelihood of secondary-rate-limit-hits-during-batched-pr-polling
     M002: minimize time to assess live-coach-worker-state during a wave
+    M003: minimize likelihood of merge-cascade-ci-reads-that-ask-gh-pr-checks-for-a-json-field-the-installed-cli-does-not-expose
+      when atdd merge-cascade reads required checks via gh pr checks --json on gh
+      2.96.0, whose advertised fields carry no conclusion, so the call exits 1 and
+      reads nothing (#1612)
+    R001: minimize likelihood of gh-check-query-failures-classified-as-a-pollable-unknown-instead-of-a-terminal-error
+      when fetch_ci_status returns unknown for an unrecognised gh failure and wait_for_ci
+      — which exits only on pass or fail — sleeps on it until the 1800s per-PR timeout
+      (#1612)
   total: 0
   manifest: plan/coach_ops/_coach_ops.yaml
   path: plan/coach_ops/
@@ -602,6 +618,9 @@ wagons:
       naming is validator-backed and bound
     Y001: minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes
       through the elicit channel
+    Y002: minimize likelihood of stale-stage-vocabulary-on-the-plan-cli-surface —
+      the session gates read Intent/Attach/Compose/Ratify across the enum, CLI, guidelines
+      and README
   total: 0
   manifest: plan/define_plans/_define_plans.yaml
   path: plan/define_plans/
@@ -1263,7 +1282,14 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 103
+    total: 112
+    R009: minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe
+      (#1621)
+    Y007: minimize a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer
+      (#1661)
+    Y006: minimize an-issue-feature-binding-no-command-can-write-because-create-derives-nothing-and-revise-accepts-the-feature-flag-then-drops-it
+    C011: minimize a-declared-feature-urn-that-resolves-to-nothing-in-plan-and-drifts-unseen-because-no-validator-holds-an-atdd-issue-body-or-its-stored-binding-to-the-plan-graph
+    L003: minimize wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them
     R006: minimize drifted-lifecycle-records-that-no-verb-can-repair
     R005: minimize phase-labels-written-without-the-store-transition-behind-them
     R001: minimize stale local manifest status after a successful GitHub transition
@@ -1486,6 +1512,12 @@ wagons:
       ungated transitions proceed without consulting checks) AND an empty default
       GATE_REGISTRY (a gated transition with no registered checks proceeds), so the
       mechanism ships inert until #958/#1017 register checks (#1020)'
+    D020: minimize quantity of lifecycle-transitions-whose-submitting-authority-is-undeclared-so-a-worker-that-has-satisfied-its-phase-must-still-stop-on-the-operator
+      by adding a per-phase `autonomy` scalar to phase_machine.convention.yaml beside
+      agent/transitions_to/pre_commit_gate, plus the coach.lifecycle.transition-autonomy
+      node stating the principle and its escape invariant, paired with coach.execution.freedom-with-a-leash
+      which governs the same question on the tool axis; declarative only, nothing
+      reads it yet, and ATDD keeps sole authority over transition legality (#1626)
     E050: 'minimize likelihood of a-worker-agent-advancing-the-phase-via-atdd-issue-status-red-without-an-operator-signed-approval
       by registering an ApprovalTokenGateCheck into the #1020 GATE_REGISTRY for the
       operator-gated transition: the check fails (so transition() returns non-zero
@@ -1621,6 +1653,12 @@ wagons:
       that opens SMOKE->REFACTOR and a run that never executes leaves it closed —
       the gate becomes satisfiable by running smoke instead of by --force, and E060''s
       constant-evidence gate gains its first real subject (#1602)'
+    E070: minimize likelihood of pr-under-validation-scoping-silently-degrading-to-a-repo-wide-block
+      by resolving the branch's PR number through a single PRManager.pr_number_for_branch
+      seam instead of int()-ing a URL behind a swallowing except, by degrading an
+      unresolvable PR to advisory-only instead of a repo-wide block, and by extending
+      the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline
+      (#1478; renumbered from E062 which origin/main claimed)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1740,7 +1778,7 @@ wagons:
     to: internal
   consume: []
   wmbt:
-    total: 4
+    total: 5
     D001: minimize likelihood of provider-boundary-erosion by resolving a workspace
       provider to a subprocess CLI handle that core never imports, requiring the provider
       to declare a contract_version, and refusing resolution when no installed contract
@@ -1757,6 +1795,10 @@ wagons:
       from convention, implementation, workspace and contract fields alone and never
       emitting the extension package identity, so a package rename is a lock regeneration
       rather than a rule migration
+    E004: minimize quantity of off-target-rule-execution by letting a caller name
+      the rules enforce() runs and refusing a selection that names an unknown rule,
+      so a single-rule verdict costs one provider subprocess instead of the whole
+      bound set and a mistyped rule id fails loudly instead of reporting clean
   total: 0
   manifest: plan/govern_providers/_govern_providers.yaml
   path: plan/govern_providers/
@@ -2034,7 +2076,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 22
+    total: 24
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2073,6 +2115,15 @@ wagons:
       by detecting linked-worktree condition and writing 'git config --worktree core.hooksPath'
       instead of the unscoped form (#793, Wave 12 contamination class, core.hooksPath
       danger key)
+    Y007: 'minimize likelihood of agent-upgrade-runs-that-die-on-eoferror-because-the-command-assumes-a-terminal
+      by resolving upgrader.py''s confirmation the way coach.py:255 already resolves
+      its own — explicit flag wins, else infer from isatty — so a no-TTY run proceeds
+      under a decision it states out loud while a human sees byte-identical prompts
+      (#1628, the remedy the #1449 push gate names but no agent could run)'
+    E008: minimize likelihood of concurrent-upgrade-runs-mutating-the-one-shared-install-that-sits-beneath-every-worktree
+      by serialising the mutating section on a lock scoped to the install rather than
+      the checkout, making an already-current run a no-op, and refusing loudly rather
+      than proceeding unlocked (#1628, ~60 agents share one pipx install)
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/

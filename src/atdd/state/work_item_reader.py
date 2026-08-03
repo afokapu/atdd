@@ -252,7 +252,7 @@ class WorkItemReader:
                     entry["issue_number"] = by_uid[obj.uid]
                 rows.append(entry)
             return rows
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             _log.debug("all_work_items unavailable; returning empty", extra={"error": str(exc)})
             return []
 

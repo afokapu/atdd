@@ -12,7 +12,7 @@ tags on all `### Dependencies` entries. A bare `- #N` without `(prereq)`,
 dep in the merge-wait loop unconditionally — breaking dispatch for sibling issues.
 
 Rule binding: `planner.issue-body.dependency-entries-must-be-classified`
-Convention:   src/atdd/planner/conventions/issue-body.convention.yaml
+Convention:   src/atdd/planner/conventions/nodes/planner.issue-body.dependency-entries-must-be-classified.convention.yaml
 
 Disposition: warn-and-log — violations are surfaced but do not block CI.
 """
@@ -159,7 +159,7 @@ def _open_atdd_issues() -> List[Dict[str, Any]]:
             if "created_at" in issue and "createdAt" not in issue:
                 issue["createdAt"] = issue["created_at"]
         return issues
-    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         pytest.skip(f"Cannot query GitHub issues: {e}")
 
 

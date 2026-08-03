@@ -16,7 +16,9 @@ import logging
 import os
 import re
 import sys
+import tempfile
 from pathlib import Path
+from typing import Optional
 
 import yaml
 
@@ -400,7 +402,116 @@ def _plan_root(root: Path | str | None) -> Path:
     return (Path(root) if root is not None else Path.cwd()) / _PLAN_ROOT
 
 
-def _write_yaml(path: Path, doc: dict) -> Path:
+class ArtifactReviewError(Exception):
+    """A declared authoring-review rule fired; the artifact was NOT written.
+
+    ``findings`` carries the reported records so the authoring agent can correct its
+    prose and re-run the same command — that agent-command round trip IS the
+    correction loop, which is why core needs no LLM of its own.
+    """
+
+    def __init__(self, artifact_kind: str, findings: list) -> None:
+        super().__init__(
+            f"{artifact_kind}: {len(findings)} authoring-review finding(s); refusing to write"
+        )
+        self.artifact_kind = artifact_kind
+        self.findings = list(findings)
+
+
+def _dispatch_review_errors(runner, args, ctx, root) -> int:
+    """Run ``runner``, rendering a refused write as ONE parseable JSON object + exit 2.
+
+    The authoring agent's whole correction loop is "read the findings, fix the prose,
+    re-run the same command" — core deliberately owns no LLM, so the refusal has to be
+    machine-readable or the loop does not close. A traceback would not close it.
+
+    Written to stdout, not stderr: stderr already carries provider chatter and log
+    lines, and the agent needs the payload to be the entire stream it parses.
+    """
+    try:
+        return runner(args, ctx, root)
+    except ArtifactReviewError as exc:
+        logger.warning(
+            "atdd author refused a write on artifact review",
+            extra={"artifact_kind": exc.artifact_kind, "finding_count": len(exc.findings)},
+        )
+        print(json.dumps({
+            "error": "artifact-review",
+            "artifact_kind": exc.artifact_kind,
+            "findings": exc.findings,
+        }, indent=2))
+        return 2
+
+
+def _repo_root_for(path: Path) -> Optional[Path]:
+    """Nearest ancestor of ``path`` holding an ``.atdd/`` directory, if any."""
+    for candidate in [path, *path.parents]:
+        if (candidate / ".atdd").is_dir():
+            return candidate
+    return None
+
+
+def _declared_review_rules(path: Path) -> list:
+    """Rule ids the REPO declares as pre-write authoring gates.
+
+    Core names no rule, no checker and no vocabulary of its own — it only reads what
+    the repo opted into under ``author_review.rules``. A repo that declares none gets
+    the unguarded write path unchanged, which is what keeps an install with no review
+    extension free of any controlled-language dependency.
+
+    A malformed config is NOT swallowed: silently returning ``[]`` would disable the
+    gate on a typo, and a gate that disables itself quietly is worse than no gate.
+    """
+    root = _repo_root_for(path)
+    if root is None:
+        return []
+    cfg = root / ".atdd" / "config.yaml"
+    if not cfg.is_file():
+        return []
+    data = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
+    block = data.get("author_review") if isinstance(data, dict) else None
+    rules = (block or {}).get("rules") if isinstance(block, dict) else None
+    return [r for r in (rules or []) if isinstance(r, str) and r.strip()]
+
+
+def review_authored_document(artifact_kind: str, doc: dict, *, repo_root: Path, rules: list) -> list:
+    """Enforce the declared review ``rules`` over a STAGED copy of ``doc``.
+
+    The staged copy lives in a temp directory outside the repo, so a refused write
+    leaves nothing behind at the canonical path. Returns the findings; empty means the
+    write may proceed.
+    """
+    from atdd.enforce.runner import enforce  # local: avoids an import cycle at module load
+
+    with tempfile.TemporaryDirectory(prefix="atdd-author-review-") as staging:
+        staged = Path(staging) / f"{artifact_kind}.yaml"
+        with staged.open("w", encoding="utf-8") as fh:
+            yaml.safe_dump(doc, fh, sort_keys=False, default_flow_style=False)
+        result = enforce(Path(repo_root), path_override=[str(staging)], rules=set(rules))
+
+    return [
+        {"rule_id": v.rule_id, "locations": list(v.locations), "detail": v.detail}
+        for v in result.verdicts
+        if v.failed
+    ]
+
+
+def _write_yaml(path: Path, doc: dict, *, artifact_kind: str | None = None) -> Path:
+    """Write ``doc`` to ``path``, gated by the repo's declared authoring review.
+
+    ``artifact_kind`` opts this write into the gate. With no kind, or with no rules
+    declared, this is the original unguarded write — byte-for-byte.
+    """
+    if artifact_kind:
+        rules = _declared_review_rules(path)
+        if rules:  # nothing declared -> the review path is never even consulted
+            root = _repo_root_for(path)
+            findings = review_authored_document(
+                artifact_kind, doc, repo_root=root, rules=rules
+            )
+            if findings:
+                raise ArtifactReviewError(artifact_kind, findings)
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:
         yaml.safe_dump(doc, fh, sort_keys=False, default_flow_style=False)
@@ -439,7 +550,7 @@ def create_wagon(spec: dict, *, root: Path | str | None = None) -> Path:
     manifest["consume"] = spec.get("consume", [])
     manifest["wmbt"] = spec.get("wmbt", {"total": 0})
     validate_wagon(manifest)
-    return _write_yaml(path, manifest)
+    return _write_yaml(path, manifest, artifact_kind="wagon")
 
 
 def validate_feature(feature: dict) -> None:
@@ -458,7 +569,7 @@ def create_feature(spec: dict, *, root: Path | str | None = None) -> Path:
     path = plan / _slug_to_dir(wagon_slug) / "features" / f"{_slug_to_dir(name)}.yaml"
     validate_plan_author_input(wagon_slug, urn, path, plan_root=str(plan))
     validate_feature(spec)
-    return _write_yaml(path, dict(spec))
+    return _write_yaml(path, dict(spec), artifact_kind="feature")
 
 
 def _seed_smoke_acceptance(wagon_slug: str, code: str) -> dict:
@@ -504,7 +615,7 @@ def create_wmbt(spec: dict, *, root: Path | str | None = None) -> Path:
             wmbt[k] = spec[k]
     validate_wmbt(wmbt)
     wmbt["acceptances"] = list(spec.get("acceptances") or []) or [_seed_smoke_acceptance(wagon_slug, code)]
-    return _write_yaml(path, wmbt)
+    return _write_yaml(path, wmbt, artifact_kind="wmbt")
 
 
 def validate_train(spec: dict) -> None:
@@ -1156,8 +1267,11 @@ def build_parser() -> argparse.ArgumentParser:
                      help="work_item slug (the store uid); derived from --title when omitted (#1272)")
     iss.add_argument("--type", default=None, dest="issue_type",
                      help="issue Type (e.g. implementation, bug, refactor)")
-    iss.add_argument("--status", default="INIT",
-                     help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...)")
+    # default=None, not "INIT": the revise path must be able to tell "--status
+    # was supplied" from "--status was omitted" so it can refuse the former
+    # (#1661). The create path applies the INIT default itself.
+    iss.add_argument("--status", default=None,
+                     help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...); default INIT")
     iss.add_argument("--branch", default=None, help="the issue's worktree branch")
     iss.add_argument("--train", default=None, help="train id the issue belongs to")
     iss.add_argument("--feature", default=None, help="feature urn the issue lands")
@@ -1417,6 +1531,8 @@ def _publish_revision(args, body) -> int:
             args.revise,
             body=body,
             issue_type=args.issue_type,
+            feature=args.feature,
+            title=args.title,
         )
     except PublishError as exc:
         logger.warning(
@@ -1428,14 +1544,76 @@ def _publish_revision(args, body) -> int:
 
     if body is not None:
         sys.stdout.write(body)
+    if args.feature:
+        # Name the binding that landed. Without this an operator cannot tell a
+        # successful write from a silently-ignored flag — the ambiguity that let
+        # Break 4 survive eight measured revisions (#1635).
+        print(
+            f"atdd author issue: feature binding set to {args.feature}",
+            file=sys.stderr,
+        )
+    if args.title:
+        print(
+            f"atdd author issue: title set to {args.title!r}",
+            file=sys.stderr,
+        )
     _print_revise_outcome(result)
     return 0
 
 
+# Flags the `issue` parser registers that the revise path defines no semantics
+# for (#1661). Each is REFUSED by name rather than accepted and discarded: a
+# flag that looks written is the hazard, matching the fail-closed posture of
+# manifest_migration (refuses a whole run over a half-valid corpus) and
+# extensions_lock (aborts before opening the file, because a half-written lock
+# looks pinned). The set is pinned by a test — widening it to silence a newly
+# dropped flag is a visible, reviewable act, not a quiet one.
+_REVISE_UNSUPPORTED: tuple[tuple[str, str, str], ...] = (
+    ("slug", "--slug", "the work item's uid, which a revision does not move"),
+    ("status", "--status", "owned by the phase machine; use `atdd coach transition <N> <STATUS>`"),
+    ("branch", "--branch", "create-time metadata; set it when the issue is authored"),
+    ("train", "--train", "create-time metadata; set it when the issue is authored"),
+)
+
+
+def _refused_revise_flags(args) -> list[str]:
+    """Messages for every unsupported flag this revise request supplied."""
+    return [
+        f"atdd author issue: --revise cannot honour {flag} ({why})"
+        for dest, flag, why in _REVISE_UNSUPPORTED
+        if getattr(args, dest, None) is not None
+    ]
+
+
 def _run_issue_revise(args) -> int:
-    if args.body_file is None and args.issue_type is None:
+    # Refuse BEFORE any validation or write. A flag this path cannot honour must
+    # stop the command, not be dropped on the way to a store write that then
+    # reports success (#1661).
+    refusals = _refused_revise_flags(args)
+    if refusals:
+        for message in refusals:
+            print(message, file=sys.stderr)
         print(
-            "atdd author issue: --revise requires --body-file and/or explicit --type",
+            "atdd author issue: nothing was written; re-run without the flags "
+            "above, or use the command named beside each one",
+            file=sys.stderr,
+        )
+        return 2
+
+    # `--feature` alone is a valid revision (#1635), and so is `--title` alone
+    # (#1661). Neither previously was: the precondition demanded --body-file
+    # and/or --type, so an operator correcting only a wrong binding or a wrong
+    # title was turned away — and when they satisfied it by also passing
+    # --body-file, the value was silently dropped further down.
+    if (
+        args.body_file is None
+        and args.issue_type is None
+        and args.feature is None
+        and args.title is None
+    ):
+        print(
+            "atdd author issue: --revise requires --body-file, --feature, "
+            "--title and/or explicit --type",
             file=sys.stderr,
         )
         return 2
@@ -1482,9 +1660,12 @@ def _print_publish_outcome(slug: str, result) -> None:
 
 def _run_issue_create(args) -> int:
     issue_type = args.issue_type or "implementation"
+    # The parser no longer carries the INIT default (#1661) so that --revise can
+    # distinguish supplied from omitted; the create path applies it here.
+    status = args.status or "INIT"
     spec = {
         "title": args.title,
-        "status": args.status,
+        "status": status,
         "type": issue_type,
         "branch": args.branch,
         "train": args.train,
@@ -1517,7 +1698,7 @@ def _run_issue_create(args) -> int:
         result = publish_issue(
             slug, body,
             title=args.title or "Untitled ATDD issue",
-            status=args.status, issue_type=issue_type,
+            status=status, issue_type=issue_type,
             branch=args.branch, train=args.train, feature=args.feature,
         )
     except PublishError as exc:
@@ -1761,4 +1942,4 @@ def run(argv: list[str]) -> int:
         print(f"atdd author: {exc}", file=sys.stderr)
         return 2
 
-    return runner(args, ctx, root)
+    return _dispatch_review_errors(runner, args, ctx, root)

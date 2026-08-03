@@ -31,6 +31,7 @@ from atdd.coach.commands.pr import PRManager
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._pr_scope import select_for_current_pr
 from atdd.coach.validators._violation import Violation
 
 pytestmark = [pytest.mark.coach, pytest.mark.github_api]
@@ -161,11 +162,10 @@ def _branch_pr_number(repo_root: Optional[Path] = None) -> Optional[int]:
         branch = mgr._detect_branch()
         if not branch:
             return None
-        pr = mgr._existing_pr_for_branch(branch)
-        return int(pr) if pr else None
+        return mgr.pr_number_for_branch(branch)
     except Exception as exc:  # network/parse failure -> treat as unresolvable
         logging.getLogger(__name__).warning(
-            "could not resolve current branch PR; gate stays repo-wide",
+            "could not resolve current branch PR; gate degrades to advisory-only",
             extra={"error": str(exc)},
         )
         return None
@@ -198,14 +198,18 @@ def select_blocking_violations(
 
     With a resolved ``current_pr``, only that PR's violation blocks (so an innocent
     PR is not failed by other PRs' offenses, while an offending PR is still blocked
-    on its own CI). With no current PR (local repo-health), all violations block
-    (repo-wide back-compat). Every offender is still produced + logged by the scan;
-    this only narrows what FAILS the disposition gate.
+    on its own CI).
+
+    With NO current PR the gate is advisory-only: nothing blocks. E056 shipped the
+    opposite — unresolvable meant block every offender, called "repo-wide
+    back-compat" — but that fallback IS the cross-PR coupling E056 set out to
+    remove, and the branch-leg bug (#1478) made it the common path rather than the
+    rare one. An offender is blocked on the run that CAN name it as its own PR.
+
+    Every offender is still produced + logged by the scan; this only narrows what
+    FAILS the disposition gate.
     """
-    if current_pr is None:
-        return list(violations)
-    location = f"PR#{current_pr}:0"
-    return [v for v in violations if v.location == location]
+    return select_for_current_pr(violations, current_pr)
 
 
 # ---------------------------------------------------------------------------

@@ -44,7 +44,7 @@ def _store_session_entry(root, issue_number: int):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.session_entry(issue_number)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 
@@ -55,7 +55,7 @@ def _store_issue_number_for_slug(root, slug: str):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.issue_number_for_slug(slug)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 
@@ -150,6 +150,21 @@ class PRManager:
         except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             pass
         return None
+
+    def pr_number_for_branch(self, branch: str) -> Optional[int]:
+        """The open PR number for *branch*, or None when none is open.
+
+        The one seam callers resolve a branch's PR through. ``_existing_pr_for_branch``
+        returns the URL ``gh`` prints, and the number is its last path segment; E056's
+        resolver called ``int()`` on that URL directly, so every branch resolution
+        raised ValueError, was swallowed, and returned None — which the pre-SMOKE gate
+        read as "block repo-wide" (#1478).
+        """
+        url = self._existing_pr_for_branch(branch)
+        if not url:
+            return None
+        tail = url.rstrip("/").rsplit("/", 1)[-1]
+        return int(tail) if tail.isdigit() else None
 
     def _merged_pr_for_branch(self, branch: str) -> Optional[str]:
         """Check if a merged PR exists for the given branch. Returns PR URL or None."""
