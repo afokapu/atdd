@@ -43,6 +43,12 @@ from typing import Callable, Dict, Iterable, List, Mapping, Optional, Sequence, 
 from atdd.coach.utils.rule_binding import RuleMetadata, bind_rule
 from atdd.coach.validators._violation import Violation
 
+# coach → planner, never the reverse: the issue-body schema is planner-owned and
+# is the single place that says what a repo-relative path looks like. Reading it
+# here is what keeps the gate's idea of "a path" and the authoring path's idea of
+# "a path" the same idea (#1726).
+from atdd.planner.commands.author_issue import is_repo_relative_path
+
 # ---------------------------------------------------------------------------
 # Convention binding
 # ---------------------------------------------------------------------------
@@ -184,15 +190,24 @@ def check_artifact_claims(
                 continue
             suffix = f" {against}" if against else ""
             messages.append(f"{prefix}{path} — {unsatisfied_word}{suffix}")
-            violations.append(
-                _violation(
-                    RULE_CLAIMS_RESOLVE,
-                    location,
+            # Two very different repairs wear the same "MISSING" label: a path
+            # that git disagrees with (stale, renamed, wrong subsection) and a
+            # bullet that was never a path at all. Say which, using the schema's
+            # own definition rather than a second opinion invented here.
+            if is_repo_relative_path(path):
+                detail = (
                     f"{kind} claim {path!r} does not resolve against git "
-                    f"({unsatisfied_word}{suffix}). A bullet that reads as prose "
-                    f"rather than a repo-relative path resolves against nothing.",
+                    f"({unsatisfied_word}{suffix}) — the path is stale, renamed, "
+                    f"or filed under the wrong subsection."
                 )
-            )
+            else:
+                detail = (
+                    f"{kind} claim {path!r} is prose, not a repo-relative path "
+                    f"(issue.schema.json definitions.repoRelativePath), so it "
+                    f"resolves against nothing. Name the file, or use the "
+                    f"explicit-empty form `- (none yet)`."
+                )
+            violations.append(_violation(RULE_CLAIMS_RESOLVE, location, detail))
 
     if changed_files is not None:
         for path in sorted(set(changed_files) - declared):

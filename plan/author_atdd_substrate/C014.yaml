@@ -70,6 +70,27 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-08-03"
   - identity:
+      urn: "acc:author-atdd-substrate:C014-UNIT-004-the-authored-scaffold-is-gate-valid-on-emission"
+      id: "AC-UNIT-004"
+      purpose: "The body `atdd author issue` emits does not fail the gate it is destined for: its `## Artifacts` scaffold parses as zero claims rather than as three prose claims that resolve against nothing"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The body `atdd author issue` generates for a new issue"
+    when:
+      abstract: "the generated `## Artifacts` section is parsed and run through the shared checker"
+    then:
+      abstract:
+        - "No bullet is prose masquerading as a claim — every bullet is a repo-relative path or the explicit-empty placeholder, per `issue.schema.json`"
+        - "The section yields no `coach.issue.artifact-claims-must-resolve` violation, so the toolkit no longer ships a body that is schema-valid and gate-invalid at once"
+        - "The section still yields the completeness violation at COMPLETE — the placeholder is an honest empty, not a free pass"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+  - identity:
       urn: "acc:author-atdd-substrate:C014-SMOKE-001-complete-gate-answers-from-the-bound-rule"
       id: "AC-SMOKE-001"
       purpose: "Verify against a real git checkout in the post-merge state that the COMPLETE runtime gate answers the artifacts question from the bound rule — an empty declaration produces the declared violation, an accurate declaration produces none"
