@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 from ._helpers import run_cli
-from ._publish_helpers import open_store
+from ._publish_helpers import open_store, work_item, work_item_uid
 
 ISSUE_NUMBER = 555019
 SLUG = "e019-revise-live-store-smoke"
@@ -126,8 +126,8 @@ def test_e019_smoke_001_revise_writes_live_store_then_projects(tmp_path, monkeyp
 
     store, conn = open_store(control)
     try:
-        obj = store.objects.get(SLUG)
-        events = store.events.list(object_uid=SLUG)
+        obj = work_item(store, SLUG)
+        events = store.events.list(object_uid=work_item_uid(store, SLUG))
         pending = store.sync.pending_outbox()
     finally:
         conn.close()
@@ -159,7 +159,7 @@ def test_e019_smoke_001_projection_failure_defers_to_outbox_and_store_stands(tmp
 
     store, conn = open_store(control)
     try:
-        obj = store.objects.get(SLUG)
+        obj = work_item(store, SLUG)
         pending = store.sync.pending_outbox()
     finally:
         conn.close()

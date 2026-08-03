@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from ._helpers import run_cli
-from ._publish_helpers import open_store, path_with_stub_gh
+from ._publish_helpers import open_store, path_with_stub_gh, work_item
 
 _STUB_NUMBER = 555001
 
@@ -49,8 +49,8 @@ def test_e008_smoke_001_author_issue_publishes_to_live_store(tmp_path):
 
     store, conn = open_store(Path(control))
     try:
-        obj = store.objects.get("e008-live-store-smoke")
-        refs = store.external_refs.for_object("e008-live-store-smoke")
+        obj = work_item(store, "e008-live-store-smoke")
+        refs = store.external_refs.for_object(obj.uid) if obj is not None else []
     finally:
         conn.close()
 
