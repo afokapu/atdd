@@ -7,7 +7,7 @@ sizing:
   footprint_size: "S"
 wmbts:
   - "wmbt:govern-lifecycle:E008"
-  - "wmbt:govern-lifecycle:C012"
+  - "wmbt:govern-lifecycle:C016"
 components:
   backend:
     presentation:
@@ -17,7 +17,7 @@ components:
     application:
       - type: "use_cases"
         count: 2
-        rationale: "_commit_manifest_change registration-commit orchestration: propagate a genuine failure to the caller for the registration verb (loud, non-zero), keep the tolerant warning for the status-mirror verb. Plus branch_is_registered's branch to work-item resolution (C012): consult the populated `data.branch` binding before the uid-slug index, both over the single State Store source"
+        rationale: "_commit_manifest_change registration-commit orchestration: propagate a genuine failure to the caller for the registration verb (loud, non-zero), keep the tolerant warning for the status-mirror verb. Plus branch_is_registered's branch to work-item resolution (C016): consult the populated `data.branch` binding before the uid-slug index, both over the single State Store source"
     domain:
       - type: "entities"
         count: 0

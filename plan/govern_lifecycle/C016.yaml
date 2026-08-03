@@ -1,4 +1,4 @@
-urn: wmbt:govern-lifecycle:C012
+urn: wmbt:govern-lifecycle:C016
 step: confirm
 direction: minimize
 dimension: likelihood
@@ -38,7 +38,7 @@ statement: minimize likelihood of a-registered-branch-being-refused-by-the-commi
   a populated store
 acceptances:
 - identity:
-    urn: acc:govern-lifecycle:C012-UNIT-001-divergent-branch-name-resolves-through-the-populated-binding
+    urn: acc:govern-lifecycle:C016-UNIT-001-divergent-branch-name-resolves-through-the-populated-binding
     id: AC-UNIT-001
     purpose: "a work item whose uid is its title slug and whose branch name differs\
       \ resolves as registered, through data.branch \u2014 the case that is refused\
@@ -64,7 +64,7 @@ acceptances:
     author: atdd:self-compliance
     created: '2026-08-03'
 - identity:
-    urn: acc:govern-lifecycle:C012-UNIT-002-unregistered-branch-is-still-refused
+    urn: acc:govern-lifecycle:C016-UNIT-002-unregistered-branch-is-still-refused
     id: AC-UNIT-002
     purpose: "the gate is repaired, not merely widened into a pass \u2014 a branch\
       \ bound to no work item still fails in a populated store"
@@ -87,7 +87,7 @@ acceptances:
     author: atdd:self-compliance
     created: '2026-08-03'
 - identity:
-    urn: acc:govern-lifecycle:C012-UNIT-003-records-predating-the-binding-are-not-newly-stranded
+    urn: acc:govern-lifecycle:C016-UNIT-003-records-predating-the-binding-are-not-newly-stranded
     id: AC-UNIT-003
     purpose: adding the binding index must not regress the branches that the uid-slug
       probe answers today, since 572 of 876 live work items carry no `data.branch`
@@ -113,7 +113,7 @@ acceptances:
     author: atdd:self-compliance
     created: '2026-08-03'
 - identity:
-    urn: acc:govern-lifecycle:C012-SMOKE-001-real-cli-admits-the-commit-on-a-divergent-branch
+    urn: acc:govern-lifecycle:C016-SMOKE-001-real-cli-admits-the-commit-on-a-divergent-branch
     id: AC-SMOKE-001
     purpose: "the real `atdd coach is-registered` CLI \u2014 the hook's actual blocking\
       \ consumer \u2014 exits 0 for a divergent-named registered branch and non-zero\
