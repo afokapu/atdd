@@ -1,0 +1,55 @@
+# Subject registry (issue #1421)
+# ==============================================================================
+# ``subject:<name>`` is the 1-token ROOT URN family that gives a typed
+# ``train:<subject>:<slug>`` a real parent (without it, every 2-token train is
+# flagged orphan by the graph model). A subject is the DURABLE NOUN OBJECT of a
+# train's change — the thing the journey is *about* — not a verb, an actor, a
+# theme, a wagon, a route, a category, an owner, or a program name.
+#
+# This registry is the single source of registered subjects. Adding a subject is
+# a one-entry edit here; the ``planner.subject.invariants`` validator enforces
+# that every subject is a durable noun, unique, and registered before any train
+# is typed under it (registered-before-first-train). ``SubjectResolver``
+# (resolver.py) reads this file to resolve ``subject:<name>`` roots.
+#
+# Per entry:
+#   subject      kebab-case noun; matches URNGrammar ``subject:`` family pattern
+#   title        Title-Case human-readable name
+#   description  one line on what the subject *is*
+#   status       active | deprecated
+
+version: "1.0"
+name: "Subject Registry"
+description: "Registered subjects — durable noun roots for typed train identities (#1421)."
+
+subjects:
+  # This migration's own subject: the durable identity grammar of plan artifacts.
+  - subject: artifact-identity
+    title: "Artifact Identity"
+    description: "The durable identity grammar of plan artifacts — URNs, typed trains, and subject roots."
+    status: active
+
+  # ── Migration subjects (hand-authored; legacy NNNN-slug trains retype here) ──
+  # 0001-self-compliance-validate -> train:self-compliance:validate-lifecycle
+  - subject: self-compliance
+    title: "Self Compliance"
+    description: "ATDD governing its own lifecycle — planner defines, tester verifies, coder implements, coach governs."
+    status: active
+
+  # 0002-coach-drives-lifecycle -> train:issue-lifecycle:drive-state-machine
+  - subject: issue-lifecycle
+    title: "Issue Lifecycle"
+    description: "The issue -> merged-PR lifecycle an event-driven coach drives to completion."
+    status: active
+
+  # 0003/0004/0005 (author/admit/bind) -> train:substrate:<slug>
+  - subject: substrate
+    title: "Substrate"
+    description: "The governance-artifact substrate — authoring, admitting, and binding conventions/packages."
+    status: active
+
+  # #1400: 0006/0206/0306 -> train:object-conflict-resolution:<per-path-slug>
+  - subject: object-conflict-resolution
+    title: "Object Conflict Resolution"
+    description: "State-projection object conflict resolution across nominal, alternate, and exception paths (#1400)."
+    status: active

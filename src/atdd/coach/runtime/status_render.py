@@ -4,8 +4,8 @@ Public surface:
 - ``render_status_table(run_id, issue_phases, decisions, ...)`` — human table.
 - ``render_status_json(run_id, issue_phases, decisions, ...)`` — JSON string.
 
-Reuses ``_format_hms`` from observer for elapsed-time formatting, per issue
-#616 (§ Coordination with #603).
+Elapsed time is formatted by ``_format_hms``, inlined here in #1486 when the
+observer (its previous home) was decommissioned.
 """
 from __future__ import annotations
 
@@ -13,8 +13,14 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
-from atdd.coach.commands.observer import _format_hms
 from atdd.coach.runtime.reader import Decision, Judgment
+
+
+def _format_hms(seconds: float) -> str:
+    s = max(0, int(seconds))
+    h, rem = divmod(s, 3600)
+    m, sec = divmod(rem, 60)
+    return f"{h}:{m:02d}:{sec:02d}"
 
 
 def _elapsed(start_iso: Optional[str]) -> str:
@@ -25,7 +31,7 @@ def _elapsed(start_iso: Optional[str]) -> str:
         now = datetime.now(timezone.utc)
         delta = max(0.0, (now - start).total_seconds())
         return _format_hms(delta)
-    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return "unknown"
 
 

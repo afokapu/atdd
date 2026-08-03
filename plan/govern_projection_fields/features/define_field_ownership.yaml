@@ -1,0 +1,32 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: load_field_policy() parse-and-resolve; check_policy_coverage() against
+        projection schema v1 field list
+      type: use_cases
+    domain:
+    - count: 2
+      rationale: FieldOwnership (field, writer, merge_rule); WriterIdentity enumerating
+        the six legal writers
+      type: value_objects
+    - count: 1
+      rationale: FieldOwnershipPolicy aggregate answering writer_of(field) and merge_rule_of(field)
+      type: policies
+    integration:
+    - count: 1
+      rationale: policy file reader resolving the committed field-ownership policy
+        from the repo root
+      type: repositories
+description: 'The field-ownership policy file: for every projection field, its single
+  legal writer and its merge rule, loadable as data and coverage-checked against projection
+  schema v1.'
+sizing:
+  footprint_score: 6
+  footprint_size: S
+  wmbts: 2
+urn: feature:govern-projection-fields:define-field-ownership
+wagon: wagon:govern-projection-fields
+wmbts:
+- wmbt:govern-projection-fields:D001
+- wmbt:govern-projection-fields:C001

@@ -1,0 +1,227 @@
+schema_version: 1.1.0
+rule_id: planner.steps.jtbd-taxonomy
+kind: pattern
+status: active
+name: 'Steps: Jtbd Taxonomy'
+statement: Every job decomposes into an ordered sequence of nine JTBD steps — define,
+  locate, prepare, confirm, execute, monitor, modify, resolve, conclude — each with
+  a fixed purpose, guiding question, and expected outputs.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/steps.convention.yaml
+  legacy_section: jtbd-taxonomy
+  extraction_mode: high_fidelity
+content:
+  summary: The nine steps give a stable, exhaustive vocabulary for framing work so
+    that any job-to-be-done can be located in the lifecycle and decomposed consistently
+    across planners.
+  examples:
+  - Define a duel as a synchronous PvP match between two teams
+  - Conclude the duel by updating Elo and archiving the match summary
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: ordered_steps
+  text: The nine ordered JTBD steps, each carrying its purpose, guiding question,
+    one canonical example, and expected outputs.
+  values:
+    define:
+      order: 1
+      purpose: Frame the work and set boundaries
+      question: What must be defined upfront before anything else can proceed?
+      example: Define a duel as a synchronous PvP match between two teams
+      outputs:
+      - Clear objectives
+      - Success metrics
+      - Constraint boundaries
+    locate:
+      order: 2
+      purpose: Identify and access required inputs or resources
+      question: What must be found or accessed to do the job?
+      example: Locate peers across devices within 100ms latency
+      outputs:
+      - Resource inventory
+      - Access patterns
+      - Dependency map
+    prepare:
+      order: 3
+      purpose: Make the environment/resources ready without starting execution
+      question: How must the executor prepare before acting?
+      example: Prepare the duel lobby and match players before countdown
+      outputs:
+      - Prepared resources
+      - Validated inputs
+      - Ready state confirmation
+    confirm:
+      order: 4
+      purpose: Ensure preconditions and synchronization before moving forward
+      question: What must be verified or agreed upon to continue?
+      example: Confirm readiness from both teams before duel starts
+      outputs:
+      - Precondition checklist
+      - Permission verification
+      - Go/no-go decision
+    execute:
+      order: 5
+      purpose: Carry out the core action that changes state
+      question: What must the executor do to perform the job itself?
+      example: Execute player move and apply it locally in ≤2ms
+      outputs:
+      - Completed core job
+      - State changes
+      - Performance metrics
+    monitor:
+      order: 6
+      purpose: Observe progress, quality, or risks to enable correction
+      question: What must be tracked during execution to ensure success?
+      example: Monitor state divergence and resync if thresholds are exceeded
+      outputs:
+      - Progress indicators
+      - Performance data
+      - Anomaly reports
+    modify:
+      order: 7
+      purpose: Proactively adjust or optimize during normal operation
+      question: What might need to be changed for better outcomes?
+      example: Modify scoring rules mid-season if the meta shifts
+      outputs:
+      - Adjustments made
+      - Optimization results
+      - Updated configurations
+    resolve:
+      order: 8
+      purpose: Reactive problem-solving and exception handling
+      question: What problems must be addressed when things go wrong?
+      example: Resolve a disconnection by substituting a bot
+      outputs:
+      - Problem resolutions
+      - Recovery procedures
+      - Workaround documentation
+    conclude:
+      order: 9
+      purpose: Close the loop and capture results
+      question: What must be done to finish the job and capture results?
+      example: Conclude the duel by updating Elo and archiving the match summary
+      outputs:
+      - Completion confirmation
+      - Results captured
+      - Final documentation
+  examples:
+    positive:
+    - Define a duel as a synchronous PvP match between two teams
+    - Locate peers across devices within 100ms latency
+    - Prepare the duel lobby and match players before countdown
+    - Confirm readiness from both teams before duel starts
+    - Execute player move and apply it locally in ≤2ms
+    - Monitor state divergence and resync if thresholds are exceeded
+    - Modify scoring rules mid-season if the meta shifts
+    - Resolve a disconnection by substituting a bot
+    - Conclude the duel by updating Elo and archiving the match summary
+- term_id: key_terms
+  text: The leading and supporting verbs that signal each step, used to classify a
+    job step from its phrasing.
+  values:
+    define:
+    - Define
+    - Plan
+    - Select
+    - Determine
+    - rule
+    - policy
+    - constraint
+    - specification
+    - invariant
+    - requirement
+    locate:
+    - Locate
+    - Gather
+    - Access
+    - Retrieve
+    - find
+    - search
+    - fetch
+    - query
+    - lookup
+    - discover
+    prepare:
+    - Prepare
+    - Set up
+    - Organize
+    - Examine
+    - setup
+    - configure
+    - initialize
+    - stage
+    - arrange
+    - organize
+    confirm:
+    - Confirm
+    - Validate
+    - Prioritize
+    - Decide
+    - validate
+    - verify
+    - check
+    - ensure
+    - authorize
+    - approve
+    execute:
+    - Execute
+    - Perform
+    - Transact
+    - Administer
+    - perform
+    - process
+    - calculate
+    - transform
+    - create
+    - generate
+    monitor:
+    - Monitor
+    - Verify
+    - Track
+    - Check
+    - display
+    - show
+    - track
+    - observe
+    - report
+    - visualize
+    modify:
+    - Modify
+    - Update
+    - Adjust
+    - Maintain
+    - adjust
+    - update
+    - correct
+    - patch
+    - tune
+    - amend
+    resolve:
+    - Resolve
+    - Troubleshoot
+    - Fix
+    - Handle
+    - error
+    - exception
+    - retry
+    - recover
+    - fallback
+    - compensate
+    conclude:
+    - Conclude
+    - Store
+    - Finish
+    - Close
+    - complete
+    - finish
+    - archive
+    - cleanup
+    - close
+    - record

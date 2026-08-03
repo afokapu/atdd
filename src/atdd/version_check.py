@@ -3,7 +3,15 @@ Version check for ATDD CLI.
 
 Two types of version checks:
 1. PyPI update check - notifies when a newer version is available on PyPI
-2. Repo sync check - notifies when installed version is newer than repo's last_version
+2. Repo sync check - notifies when the installed version is newer than the
+   version this checkout was last synced against
+
+The two checks use different, deliberately separate storage:
+
+- PyPI check  → ``~/.atdd/version_cache.json`` (per-user, a cache)
+- Sync check  → ``<repo>/.atdd/runtime/toolkit-sync.json`` (per-checkout, a
+  record). Untracked by design (#1641): its predecessor lived in the
+  git-tracked ``.atdd/config.yaml`` and was reverted by every branch switch.
 
 Cache location: ~/.atdd/version_cache.json
 Disable PyPI check: CI=true ATDD_NO_UPDATE_CHECK=1 (CI only)
@@ -12,7 +20,11 @@ Disable sync reminder: CI=true ATDD_NO_UPGRADE_NOTICE=1 (CI only)
 import json
 import logging
 import os
+import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Optional, Tuple
@@ -146,9 +158,31 @@ def _fetch_latest_version() -> Optional[str]:
         return None
 
 
+def _resolve_latest_version(cache: dict, now: float) -> Optional[str]:
+    """The latest published version to compare against.
+
+    The cached value while the cache is fresh; otherwise a PyPI fetch, falling
+    back to the stale cached value when that fetch fails. None when neither
+    source yields a version.
+    """
+    cached_latest = cache.get("latest_version")
+    last_check = cache.get("last_check", 0)
+    if now - last_check < CHECK_INTERVAL and cached_latest:
+        return cached_latest
+
+    latest = _fetch_latest_version()
+    if latest:
+        _save_cache({
+            "last_check": now,
+            "latest_version": latest,
+        })
+        return latest
+    return cached_latest
+
+
 def check_for_updates() -> Optional[str]:
     """
-    Check for updates if cache is stale.
+    Check for updates when the cache is stale.
 
     Returns:
         Message to display if update available, None otherwise.
@@ -157,33 +191,11 @@ def check_for_updates() -> Optional[str]:
     if os.environ.get("CI") == "true" and os.environ.get("ATDD_NO_UPDATE_CHECK", "").lower() in ("1", "true", "yes"):
         return None
 
-    # Skip if running in development (version 0.0.0)
+    # Skip when running in development (version 0.0.0)
     if __version__ == "0.0.0":
         return None
 
-    cache = _load_cache()
-    now = time.time()
-    last_check = cache.get("last_check", 0)
-    cached_latest = cache.get("latest_version")
-
-    # Check if cache is fresh
-    if now - last_check < CHECK_INTERVAL and cached_latest:
-        latest = cached_latest
-    else:
-        # Fetch from PyPI
-        latest = _fetch_latest_version()
-        if latest:
-            _save_cache({
-                "last_check": now,
-                "latest_version": latest,
-            })
-        elif cached_latest:
-            # Use cached version if fetch failed
-            latest = cached_latest
-        else:
-            return None
-
-    # Compare versions
+    latest = _resolve_latest_version(_load_cache(), time.time())
     if latest and _is_newer(latest, __version__):
         return (
             f"\nA new version of atdd is available: {__version__} → {latest}\n"
@@ -224,48 +236,166 @@ def _load_repo_config() -> Tuple[Optional[dict], Optional[Path]]:
 
 
 def _get_last_toolkit_version(config: dict) -> Optional[str]:
-    """Extract toolkit.last_version from config."""
+    """Extract toolkit.last_version from config.
+
+    Read-only legacy accessor: the field is the pre-#1641 storage location and
+    is consulted exactly once, by :func:`_adopt_legacy_last_version`, to seed the
+    untracked record. Nothing writes it any more.
+    """
     toolkit = config.get("toolkit", {})
     return toolkit.get("last_version")
 
 
+def _sync_record_path(root: Optional[Path] = None) -> Path:
+    """Path to this checkout's toolkit-sync record."""
+    return (root or Path.cwd()) / ".atdd" / "runtime" / "toolkit-sync.json"
+
+
+def _read_sync_record(root: Optional[Path] = None) -> Optional[str]:
+    """The toolkit version this checkout was last synced against, or None.
+
+    Absence is normal (never synced, or a checkout predating #1641) and is not
+    an error — callers treat None as "fall back to the legacy field".
+    """
+    try:
+        with open(_sync_record_path(root)) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        return None
+    if not isinstance(data, dict):
+        return None
+    version = data.get("last_synced_version")
+    return str(version) if version else None
+
+
+def record_toolkit_sync(root: Optional[Path] = None, version: Optional[str] = None) -> bool:
+    """Record ``version`` (default: the installed version) as this checkout's
+    last synced toolkit version.
+
+    Replaces the pre-#1641 ``update_toolkit_version``, which wrote
+    ``toolkit.last_version`` into the **git-tracked** ``.atdd/config.yaml``. That
+    write was correct but ephemeral: an uncommitted edit to a tracked file, so
+    every ``git checkout``/``stash``/``reset`` reverted it and every fresh
+    worktree started without it. The banner therefore reported the last
+    *committed* value — frozen at 3.106.0 since 87319e16 — on every invocation.
+
+    ``.atdd/runtime/`` is already gitignored, so the record is per-checkout and
+    survives branch switches. It is deliberately NOT ``.atdd/cache/``: a cache
+    is regenerable and may legitimately be cleaned, which would resurrect the
+    banner.
+
+    Guarded on ``.atdd/`` already existing: ``atdd sync`` is a refresher, not an
+    installer, and must not conjure an ``.atdd/`` tree in a repo that never ran
+    ``atdd init``. The predecessor got this for free by requiring an existing
+    ``config.yaml``; writing into a fresh subdirectory does not, so the check is
+    explicit here.
+
+    Returns:
+        True when the record was written, False when this is not an initialized
+        ATDD repo or on any I/O failure. Callers must not treat False as fatal —
+        failing to record only means the banner fires again next invocation.
+    """
+    path = _sync_record_path(root)
+    if not path.parent.parent.is_dir():
+        return False
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(
+                {"last_synced_version": version or __version__, "synced_at": int(time.time())},
+                f,
+            )
+        return True
+    except OSError as exc:
+        logger.debug(
+            "record_toolkit_sync: could not write the toolkit-sync record",
+            extra={
+                "phase": "sync",
+                "outcome": "write_failed",
+                "path": str(path),
+                "error": str(exc),
+            },
+        )
+        return False
+
+
+def _legacy_last_version(config: dict) -> Optional[str]:
+    """The pre-#1641 ``toolkit.last_version``, read only.
+
+    Deliberately does NOT write the untracked record. ``check_upgrade_sync_needed``
+    runs on every CLI invocation, including ``atdd --help``, and #342 established
+    that the check must not write anything — adopting the legacy value here would
+    re-introduce a write on the read path.
+
+    Migration therefore happens on the next ``atdd sync``, which is the command
+    the banner tells the operator to run and the only writer of the record. Cost
+    of the pure read: an unsynced repo sees one more banner carrying the stale
+    legacy from-version, and it is correct from then on.
+    """
+    last_version = _get_last_toolkit_version(config)
+    return str(last_version) if last_version else None
+
+
+def _upgrade_sync_message(last_version: str) -> Optional[str]:
+    """The sync notice for an upgrade away from ``last_version``, with any
+    upgrade notes appended. None when the installed version is not newer."""
+    if not _is_newer(__version__, last_version):
+        return None
+    msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init"
+    notes = get_upgrade_notes(last_version, __version__)
+    if notes:
+        msg += "\n" + "\n".join(f"  → {v}: {note}" for v, note in notes)
+    return msg
+
+
+def _upgrade_notice_silenced() -> bool:
+    """Whether the banner must stay silent regardless of any recorded version.
+
+    Two unconditional mutes: the CI opt-out, and a development checkout, where
+    ``__version__`` is the ``0.0.0`` sentinel and no comparison is meaningful.
+    """
+    if os.environ.get("CI") == "true" and os.environ.get("ATDD_NO_UPGRADE_NOTICE", "").lower() in ("1", "true", "yes"):
+        return True
+    return __version__ == "0.0.0"
+
+
 def check_upgrade_sync_needed() -> Optional[str]:
     """
-    Check if repo needs sync after ATDD upgrade.
+    Check whether this checkout needs sync after an ATDD upgrade.
 
-    Compares installed version vs toolkit.last_version in .atdd/config.yaml.
+    Compares the installed version against the version recorded in
+    ``.atdd/runtime/toolkit-sync.json`` (see :func:`record_toolkit_sync`),
+    falling back once to the legacy ``toolkit.last_version`` field.
 
     Returns:
         Message to display if sync needed, None otherwise.
     """
-    # Respect disable flag (CI only)
-    if os.environ.get("CI") == "true" and os.environ.get("ATDD_NO_UPGRADE_NOTICE", "").lower() in ("1", "true", "yes"):
+    if _upgrade_notice_silenced():
         return None
 
-    # Skip if running in development
-    if __version__ == "0.0.0":
+    # Fast path, deliberately FIRST. This function runs on every single CLI
+    # invocation; the record is one stat plus a ~60-byte json.load. When it
+    # already names the installed version — the overwhelmingly common case —
+    # return before touching config.yaml, so a pure-Python yaml.safe_load of
+    # the whole config never happens on the hot path.
+    recorded = _read_sync_record()
+    if recorded == __version__:
         return None
 
-    config, config_path = _load_repo_config()
-    if config is None:
-        # No .atdd/config.yaml - not an ATDD repo or not initialized
-        return None
+    if recorded is None:
+        config, _config_path = _load_repo_config()
+        if config is None:
+            # No .atdd/config.yaml — not an ATDD repo or not initialized.
+            # Stay silent, exactly as before #1641.
+            return None
+        recorded = _legacy_last_version(config)
+        if recorded is None:
+            # An ATDD repo that has never recorded a sync (fresh init, or a
+            # config predating the legacy field). Treat as needing sync — but
+            # with no credible from-version, do not invent one.
+            return f"ATDD upgraded to {__version__}. Run: atdd sync && atdd init"
 
-    last_version = _get_last_toolkit_version(config)
-    if last_version is None:
-        # First run or old config without toolkit.last_version
-        # Treat as needing sync
-        return f"ATDD upgraded to {__version__}. Run: atdd sync && atdd init"
-
-    # Compare versions
-    if _is_newer(__version__, last_version):
-        notes = get_upgrade_notes(last_version, __version__)
-        msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init"
-        if notes:
-            msg += "\n" + "\n".join(f"  → {v}: {note}" for v, note in notes)
-        return msg
-
-    return None
+    return _upgrade_sync_message(recorded)
 
 
 def get_upgrade_notes(from_version: str, to_version: str) -> list:
@@ -284,53 +414,21 @@ def get_upgrade_notes(from_version: str, to_version: str) -> list:
     return notes
 
 
-def update_toolkit_version(config_path: Optional[Path] = None) -> bool:
-    """
-    Update toolkit.last_version in .atdd/config.yaml to current installed version.
-
-    Args:
-        config_path: Path to config file. Defaults to .atdd/config.yaml in cwd.
-
-    Returns:
-        True if updated, False otherwise.
-    """
-    if config_path is None:
-        config_path = Path.cwd() / ".atdd" / "config.yaml"
-
-    if not config_path.exists():
-        return False
-
-    try:
-        with open(config_path) as f:
-            config = yaml.safe_load(f) or {}
-
-        # Update toolkit.last_version
-        if "toolkit" not in config:
-            config["toolkit"] = {}
-        config["toolkit"]["last_version"] = __version__
-
-        with open(config_path, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-
-        return True
-    except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow)
-        return False
-
-
 def print_upgrade_sync_notice() -> None:
     """Print a warning when the installed toolkit version is ahead of the repo.
 
     Read-only: the upgrade banner is printed to stderr, but no files are
     written. Users (or agents) must opt in to the sync explicitly by running
-    ``atdd sync`` (which is the canonical writer of ``toolkit.last_version``
-    and the agent config files).
+    ``atdd sync`` (the canonical writer of the toolkit-sync record and the
+    agent config files).
 
     Issue #342: the previous implementation also auto-ran
-    ``AgentConfigSync().sync()`` and ``update_toolkit_version()`` here,
-    which mutated ``.atdd/config.yaml`` and the agent configs on every CLI
-    invocation — including ``atdd --help``. That violated the contract that
-    read-only commands leave the working tree clean. The warning is the
-    useful part; the write was the bug.
+    ``AgentConfigSync().sync()`` and the version stamp here, which mutated
+    ``.atdd/config.yaml`` and the agent configs on every CLI invocation —
+    including ``atdd --help``. That violated the contract that read-only
+    commands leave the working tree clean. The warning is the useful part;
+    the write was the bug. #1641 preserves that invariant: the legacy-field
+    fallback in :func:`_legacy_last_version` reads and never adopts.
     """
     try:
         notice = check_upgrade_sync_needed()
@@ -343,16 +441,83 @@ def print_upgrade_sync_notice() -> None:
 
 # --- Version gate (git hook enforcement) ---
 
+_SEMVER_RE = re.compile(r"(\d+\.\d+\.\d+)")
+
+# The `atdd --version` probe must be immune to the caller's environment. The
+# pre-push hook exports PYTHONPATH=<repo>/src so that `atdd validate` runs the
+# working tree's code; if that leaked into this probe, a console script whose
+# shebang lacks `-E` would import the tree's `atdd` and resolve
+# `importlib.metadata.version("atdd")` against `src/atdd.egg-info/PKG-INFO` —
+# the very ghost the gate exists to ignore. Scrub it, and run from a neutral
+# cwd so no source tree is on the path at all.
+_PROBE_SILENCE = {"CI": "true", "ATDD_NO_UPDATE_CHECK": "1", "ATDD_NO_UPGRADE_NOTICE": "1"}
+
+
+def installed_cli_version() -> Optional[str]:
+    """Return the version of the ``atdd`` CLI on PATH — the one the operator runs.
+
+    The gate means to ask "is the CLI you are running outdated?". It must not ask
+    the working tree: ``atdd/__init__.py`` resolves
+    ``importlib.metadata.version("atdd")``, which in a source checkout picks up
+    ``src/atdd.egg-info/PKG-INFO`` — a gitignored build artifact that any
+    ``pip install -e .`` (CI does this) leaves frozen at an ancient version.
+    Worktrees were measured carrying ghosts from 3.112.0 to 4.1.1 (#1449).
+
+    Returns:
+        The semver string reported by the executable, or None when it cannot be
+        determined (no ``atdd`` on PATH, probe failure, unparseable output).
+        Callers MUST treat None as "unknowable" and fail open — never block a
+        push on a version we could not establish.
+    """
+    exe = shutil.which("atdd")
+    if not exe:
+        return None
+
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env.update(_PROBE_SILENCE)
+
+    try:
+        result = subprocess.run(
+            [exe, "--version"],
+            capture_output=True, text=True, timeout=10,
+            env=env, cwd=tempfile.gettempdir(),
+        )
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    match = _SEMVER_RE.search(result.stdout or "")
+    return match.group(1) if match else None
+
+
+def _gate_version() -> Optional[str]:
+    """The version the push gate judges, or None when it is unknowable.
+
+    None means fail OPEN. A dev/editable install legitimately reports 0.0.0
+    (#1172 makes the tree version dynamic and store-projected), and there is
+    nothing to compare it against.
+    """
+    current = installed_cli_version()
+    if not current or current == "0.0.0":
+        return None
+    return current
+
+
 def is_outdated() -> Tuple[bool, str, str]:
-    """Check if installed atdd is outdated vs PyPI (no cache).
+    """Check if the INSTALLED atdd CLI is outdated vs PyPI (no cache).
+
+    Judges the ``atdd`` executable on PATH, never the working tree (#1449).
 
     Returns:
         Tuple of (outdated, current_version, latest_version).
+        If the installed version is unknowable, returns (False, "", "") — open.
         If PyPI is unreachable, returns (False, current, "").
     """
-    current = __version__
-    if current == "0.0.0":
-        return False, current, ""
+    current = _gate_version()
+    if current is None:
+        return False, "", ""
 
     latest = _fetch_latest_version()
     if latest is None:
@@ -436,6 +601,27 @@ def _run_with_pep668_retry(cmd: list, *, timeout: int = 120) -> Tuple[bool, str]
     return False, result.stderr
 
 
+def _attempt_pinned_upgrade(target: str) -> bool:
+    """Attempt 2 — explicit version pin. Forces fresh resolution past pip's
+    in-process metadata cache, which can otherwise serve a stale "latest"."""
+    pinned_cmd = [
+        sys.executable, "-m", "pip", "install",
+        "--upgrade", "--no-cache-dir", f"atdd=={target}",
+    ]
+    logger.debug(
+        "auto_upgrade attempt %d (pinned): cmd=%s", 2, pinned_cmd,
+        extra={"phase": "pip-install", "attempt": 2, "cmd": pinned_cmd, "target": target},
+    )
+    ok, _stderr = _run_with_pep668_retry(pinned_cmd)
+    if not (ok and _verify_installed_version(target)):
+        return False
+    logger.debug(
+        "upgrade verified after pin: atdd %s installed", target,
+        extra={"phase": "verify", "attempt": 2, "version": target, "outcome": "match"},
+    )
+    return True
+
+
 def auto_upgrade() -> bool:
     """Run pip install --upgrade atdd. Returns True on success.
 
@@ -476,72 +662,55 @@ def auto_upgrade() -> bool:
                 target,
                 extra={"phase": "verify", "attempt": 1, "expected": target, "outcome": "mismatch"},
             )
-        if not ok and not target:
+        # Without a known target there is nothing to pin to, whether or not
+        # attempt 1 reported success.
+        if not target:
             return False
-
-        if target:
-            pinned_cmd = [
-                sys.executable, "-m", "pip", "install",
-                "--upgrade", "--no-cache-dir", f"atdd=={target}",
-            ]
-            logger.debug(
-                "auto_upgrade attempt %d (pinned): cmd=%s", 2, pinned_cmd,
-                extra={"phase": "pip-install", "attempt": 2, "cmd": pinned_cmd, "target": target},
-            )
-            ok2, _stderr2 = _run_with_pep668_retry(pinned_cmd)
-            if ok2 and _verify_installed_version(target):
-                logger.debug(
-                    "upgrade verified after pin: atdd %s installed", target,
-                    extra={"phase": "verify", "attempt": 2, "version": target, "outcome": "match"},
-                )
-                return True
-            return False
-
-        return False
+        return _attempt_pinned_upgrade(target)
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
         return False
 
 
-def _gate_main(minimum_version: Optional[str] = None) -> None:
-    """CLI entry point for version-gate hook.
+def _resolve_minimum_version() -> Optional[str]:
+    """The version floor declared in .atdd/config.yaml, if any."""
+    config, _config_path = _load_repo_config()
+    if not config:
+        return None
+    release_cfg = config.get("release", {}) or {}
+    return (
+        release_cfg.get("minimum_version")
+        or config.get("minimum_version")
+        or (config.get("toolkit", {}) or {}).get("minimum_version")
+    )
 
-    Gate only — never runs pip install or auto_upgrade().
-    Exit 0 = allow push, exit 1 = block push (atdd is outdated).
 
-    When minimum_version is provided (or read from .atdd/config.yaml under
-    release.minimum_version), the gate compares installed vs that floor rather
-    than PyPI latest. This prevents a patch release made seconds ago from
-    blocking the operator who authored it.
-    """
-    if minimum_version is None:
-        config, _ = _load_repo_config()
-        if config:
-            release_cfg = config.get("release", {}) or {}
-            minimum_version = (
-                release_cfg.get("minimum_version")
-                or config.get("minimum_version")
-                or (config.get("toolkit", {}) or {}).get("minimum_version")
-            )
-
-    if minimum_version is not None:
-        current = __version__
-        if current == "0.0.0":
-            return  # dev install always passes
-        if _parse_version(current) >= _parse_version(minimum_version):
-            print(f"atdd {current} meets minimum_version {minimum_version}")
-            return
-        print(
-            f"atdd {current} is below minimum_version {minimum_version}.\n"
-            f"Run `atdd upgrade` then retry your git operation.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+def _gate_against_minimum(minimum_version: str) -> None:
+    """Gate the installed version against a declared floor. Exits 1 when below."""
+    current = _gate_version()
+    if current is None:
+        # Unknowable installed version (dev install / no atdd on PATH) —
+        # fail OPEN. Never block a push on a version we could not establish.
         return
+    if _parse_version(current) >= _parse_version(minimum_version):
+        print(f"atdd {current} meets minimum_version {minimum_version}")
+        return
+    print(
+        f"atdd {current} is below minimum_version {minimum_version}.\n"
+        f"Run `atdd upgrade` then retry your git operation.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
+
+def _gate_against_pypi() -> None:
+    """Gate the installed version against PyPI latest. Exits 1 when outdated."""
     outdated, current, latest = is_outdated()
 
     if not outdated:
-        if not latest:
+        if not current:
+            print("WARNING: Could not determine the installed atdd version "
+                  "— skipping version gate", file=sys.stderr)
+        elif not latest:
             print(f"WARNING: Could not reach PyPI — skipping version gate (atdd {current})",
                   file=sys.stderr)
         else:
@@ -556,19 +725,25 @@ def _gate_main(minimum_version: Optional[str] = None) -> None:
     sys.exit(1)
 
 
-def should_emit_upgrade_banner(current_version: str, marker_dir) -> bool:
-    """Return True when the upgrade banner should be shown.
+def _gate_main(minimum_version: Optional[str] = None) -> None:
+    """CLI entry point for version-gate hook.
 
-    Returns False when a ``sync_acknowledged_{current_version}`` marker exists,
-    meaning the operator has already run ``atdd sync`` for this version.
-    Returns True when no marker exists or when the marker is for an older version.
+    Gate only — never runs pip install or auto_upgrade().
+    Exit 0 = allow push, exit 1 = block push (atdd is outdated).
 
-    Issue #812 / Y002.
+    When minimum_version is provided (or read from .atdd/config.yaml under
+    release.minimum_version), the gate compares installed vs that floor rather
+    than PyPI latest. This prevents a patch release made seconds ago from
+    blocking the operator who authored it.
     """
-    from pathlib import Path as _Path
+    if minimum_version is None:
+        minimum_version = _resolve_minimum_version()
 
-    marker = _Path(marker_dir) / f"sync_acknowledged_{current_version}"
-    return not marker.exists()
+    if minimum_version is not None:
+        _gate_against_minimum(minimum_version)
+        return
+
+    _gate_against_pypi()
 
 
 if __name__ == "__main__":

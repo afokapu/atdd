@@ -1,0 +1,27 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'dirty-store policy: clean => hydrate; dirty => backup + replay,
+        never overwrite'
+      type: policies
+    domain:
+    - count: 1
+      rationale: DirtyStoreError raised before any sqlite mutation on an overwrite
+        attempt
+      type: exceptions
+    integration:
+    - count: 1
+      rationale: pre-mutation sqlite backup writer, backup path surfaced to the operator
+      type: repositories
+description: 'CORE-012. Reconcile is not overwrite (I5). A store with non-empty overlay_events
+  is dirty: back it up before any mutation and refuse every hydrate-overwrite path.'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 2
+urn: feature:reconcile-local-store:guard-dirty-store
+wagon: wagon:reconcile-local-store
+wmbts:
+- wmbt:reconcile-local-store:C001
+- wmbt:reconcile-local-store:C002

@@ -3,14 +3,18 @@ rule_id: coach.execution.atomic-registry-write
 kind: rule
 status: active
 name: Registry writes are atomic with the verb
-statement: Any verb mutating the delivery-unit registry must commit that write atomically with the verb
-  (path-scoped, never bundling unrelated changes), refuse on the protected mainline unless explicitly
-  allowed, and fail loud on a genuine registration error.
+statement: Any verb mutating the delivery-unit registry (the State Store) must persist that write
+  atomically with the verb, refuse on the protected mainline unless explicitly allowed, and fail loud
+  on a genuine registration error. (#1270 Slice G retired the `.atdd/manifest.yaml` mirror this
+  principle was first extracted from; the State Store is now the sole registry it governs.)
 source:
   legacy_path: src/atdd/coach/conventions/issue.convention.yaml
   legacy_section: manifest_write_discipline
   legacy_sha: 3ea36724cfb944f6
   extraction_mode: high_fidelity
+  # NOTE: the `manifest_write_discipline` legacy section was retired in #1270
+  # Slice G (the manifest mirror was deleted). This provenance is historical; the
+  # node's statement above is reframed onto the State Store registry.
 metadata:
   severity: 3
   disposition: documentation-only

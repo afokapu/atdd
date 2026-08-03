@@ -46,7 +46,14 @@ class PushOutcome:
 
 
 class SyncProvider(Protocol):
-    """Remote side of a push. Implemented by extensions (GitHub, Jira, …)."""
+    """Remote side of sync. Implemented by extensions (GitHub, Jira, …).
+
+    A provider MUST implement :meth:`push` (local→remote). It MAY additionally
+    implement an ``ingest(store)`` method (remote→local) that fills the inbox with
+    canonical events from its remote; :func:`ingest_inbox` drives it via ``hasattr``
+    so push-only providers stay valid. Core never knows what the provider polls — it
+    only calls these hooks, so the engine remains fully provider-agnostic.
+    """
 
     name: str
 
@@ -60,6 +67,14 @@ class PushResult:
     pushed: int
     failed: int
     skipped_no_provider: int
+    errors: List[str] = field(default_factory=list)
+
+
+@dataclass
+class IngestResult:
+    providers: int
+    ingested: int             # providers whose ingest() ran
+    skipped_no_ingest: int    # push-only providers (no ingest method)
     errors: List[str] = field(default_factory=list)
 
 
@@ -105,11 +120,46 @@ def push_outbox(
         except Exception as exc:  # noqa: BLE001 — per-message isolation; one failure must not abort the drain
             failed += 1
             errors.append(f"outbox#{msg.id} {msg.provider}/{msg.operation}: {exc}")
-            _log.warning("outbox push failed",
-                         extra={"outbox_id": msg.id, "provider": msg.provider,
-                                "operation": msg.operation, "error": str(exc)})
-    return PushResult(pending=len(pending), pushed=pushed, failed=failed,
-                      skipped_no_provider=skipped, errors=errors)
+            _log.warning(
+                "outbox push failed",
+                extra={"outbox_id": msg.id, "provider": msg.provider,
+                    "operation": msg.operation, "error": str(exc)},
+            )
+    return PushResult(
+        pending=len(pending), pushed=pushed, failed=failed,
+        skipped_no_provider=skipped, errors=errors,
+    )
+
+
+def ingest_inbox(store: StateStore, providers: Mapping[str, SyncProvider]) -> IngestResult:
+    """Ask each provider to fill the inbox from its remote (provider-specific poll).
+
+    Core stays agnostic: it only invokes an optional ``ingest(store)`` hook — the
+    provider decides what remote to poll and enqueues canonical events via
+    ``store.sync.enqueue_inbox``. A provider without ``ingest`` is push-only and
+    skipped. One provider's failure is isolated (logged, counted) so a single bad
+    remote never aborts the others. Call :func:`apply_inbox` afterwards to drain.
+    """
+    ingested = skipped = 0
+    errors: List[str] = []
+    for name, provider in providers.items():
+        ingest = getattr(provider, "ingest", None)
+        if not callable(ingest):
+            skipped += 1
+            continue
+        try:
+            ingest(store)  # noqa: N+1 — one poll per registered provider
+            ingested += 1
+        except Exception as exc:  # noqa: BLE001 — per-provider isolation
+            errors.append(f"ingest {name}: {exc}")
+            _log.warning(
+                "provider ingest failed",
+                extra={"provider": name, "error": str(exc)},
+            )
+    return IngestResult(
+        providers=len(providers), ingested=ingested,
+        skipped_no_ingest=skipped, errors=errors,
+    )
 
 
 def apply_inbox(store: StateStore, *, dry_run: bool = False) -> ApplyResult:
@@ -146,9 +196,13 @@ def _apply_event(store: StateStore, provider: str, payload: Dict[str, Any]) -> b
         return True
     if kind == EVENT_EXTERNAL_IMPORTED:
         uid = payload.get("uid") or f"{provider}-{payload['ref_kind']}-{payload['ref_value']}"
-        store.objects.upsert(uid, payload.get("object_kind", "work_item"),
-                             state=payload.get("state"), data=payload.get("data") or {})
-        store.external_refs.link(uid, provider, payload["ref_kind"], str(payload["ref_value"]),
-                                 data={"source": "inbox-import"})
+        store.objects.upsert(
+            uid, payload.get("object_kind", "work_item"),
+            state=payload.get("state"), data=payload.get("data") or {},
+        )
+        store.external_refs.link(
+            uid, provider, payload["ref_kind"], str(payload["ref_value"]),
+            data={"source": "inbox-import"},
+        )
         return True
     return False

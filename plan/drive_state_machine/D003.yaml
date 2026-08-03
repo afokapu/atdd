@@ -1,0 +1,113 @@
+urn: "wmbt:drive-state-machine:D003"
+step: "define"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "provider-identity-hardcoded-in-core"
+context_clarifier: "Agent session identity arrives as ambient process environment, and every provider names its own variable. If core hardcodes which variable to read, core learns a provider — which is exactly what #1480/#1483 are pruning out of it. The mapping from agent kind to its session env var therefore belongs in a convention YAML (`agent_session_env`), read as data the way `planner/naming.py::verb_lexicon` reads `feature.convention.yaml`, so that adding a second provider is a one-row YAML edit and no code change. What core stores is a provider-tagged opaque string in `external_refs(provider, ref_kind='session', ref_value)` — it never interprets the value, and it never invokes a multiplexer to obtain it."
+lens: "functional.adaptability"
+statement: "minimize likelihood of provider-identity-hardcoded-in-core by resolving agent session identity through an `agent_session_env` provider table in a convention YAML — agent kind → session env var, read as data at the chokepoints — so core stores provider-tagged opaque session refs, adding a provider costs one YAML row and zero code, and no core path reads or invokes cmux"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:D003-UNIT-001-provider-table-resolves-session-from-env"
+      id: "AC-UNIT-001"
+      purpose: "The provider table resolves an agent kind and its session id from ambient environment"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An `agent_session_env` convention table mapping at least one agent kind to a session env var"
+        - "An environment in which that variable is set to a session id"
+    when:
+      abstract: "The session resolver is invoked against that environment"
+    then:
+      abstract:
+        - "It returns the provider tag for that agent kind and the session id read from the variable"
+        - "The session id is carried through opaque — unparsed and uninterpreted"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:D003-UNIT-002-absent-env-resolves-to-nothing"
+      id: "AC-UNIT-002"
+      purpose: "With no agent env var present the resolver yields nothing rather than raising or inventing an identity"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The `agent_session_env` table as above"
+        - "An environment in which none of the mapped session env vars are set"
+    when:
+      abstract: "The session resolver is invoked against that environment"
+    then:
+      abstract:
+        - "It returns no session"
+        - "No exception is raised"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:D003-UNIT-003-second-provider-is-yaml-only"
+      id: "AC-UNIT-003"
+      purpose: "Adding a second provider requires a YAML row and no code change"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An `agent_session_env` table extended with a second agent kind → env var row and no source edit"
+        - "An environment in which only the second provider's variable is set"
+    when:
+      abstract: "The session resolver is invoked against that environment"
+    then:
+      abstract:
+        - "It returns the second provider's tag and its session id"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:D003-UNIT-004-capture-is-enrolled-in-the-provider-boundary"
+      id: "AC-UNIT-004"
+      purpose: "Session capture is in scope of the repo-wide core-no-provider boundary check"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The existing required `core-no-provider` check (merge_authority, spec §8.1), which already forbids core importing provider code generically"
+    when:
+      abstract: "The capture modules are checked for membership of that boundary's scanned set"
+    then:
+      abstract:
+        - "Each capture module is enrolled, so the existing gate scans it"
+        - "The boundary rejects a provider import and admits the capture module's legitimate imports"
+        - "No multiplexer is named: the constraint is enforced generically, so any agent runtime or multiplexer fails it, not one named vendor"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"
+  - identity:
+      urn: "acc:drive-state-machine:D003-SMOKE-001-shipped-provider-table-resolves-in-a-real-process"
+      id: "AC-SMOKE-001"
+      purpose: "The provider table shipped in the installed package loads and resolves a session in a real process"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The provider table as shipped alongside the installed package (not a test fixture)"
+    when:
+      abstract: "A separate process imports the package and resolves a session from an environment carrying the table's own session env var"
+    then:
+      abstract:
+        - "The table is present, parses, and yields at least one complete row"
+        - "A session resolves, carrying that row's provider tag"
+        - "An empty environment resolves to nothing without raising"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-18"

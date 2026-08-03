@@ -1,0 +1,84 @@
+urn: wmbt:isolate-provider-boundary:K001
+step: conclude
+direction: maximize
+dimension: likelihood
+object_of_control: core-extension-smoke
+context_clarifier: 'when the cross-repo smoke test runs core with one registered extension
+  provider and proves the mirror is presentation-only: provider failure never blocks
+  merge and only external_refs.* is written back'
+lens: functional.effectiveness
+statement: maximize likelihood of a core-extension-smoke proving the mirror is presentation-only,
+  where a failing provider never blocks merge and the only projection write-back is
+  through the constrained external_refs path
+acceptances:
+- given:
+    abstract:
+    - Core with one registered extension provider whose mirror() raises
+    - A branch whose projection is otherwise valid and mergeable
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-INTEGRATION-001
+    phase: RED
+    purpose: a provider that raises during mirror() degrades to an alarm and leaves
+      merge authority untouched
+    urn: acc:isolate-provider-boundary:K001-INTEGRATION-001-provider-failure-never-blocks-merge
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The merge proceeds and CI merge authority is unaffected
+    - The provider failure surfaces as an alarm, not a gate failure
+    - The projection is unchanged by the failed mirror attempt
+  when:
+    abstract: the merge-authority path runs with the failing provider registered
+- given:
+    abstract:
+    - Core with one registered extension provider that mirrors successfully
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-INTEGRATION-002
+    phase: GREEN
+    purpose: a successful mirror() writes back only bot-namespaced external_refs.*
+      and never a lifecycle field
+    urn: acc:isolate-provider-boundary:K001-INTEGRATION-002-mirror-writes-external-refs-only
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Only external_refs.* fields change on the projection
+    - No phase, status, or other lifecycle-owned field is written by the provider
+    - The applied refs are bot-namespaced
+  when:
+    abstract: the mirror job runs over a projection snapshot and its ExternalRefUpdate
+      records are applied
+- given:
+    abstract:
+    - A real core checkout, a bare git remote, and a real extension provider package
+      installed and registered
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify a real core checkout plus a real extension provider mirror end-to-end
+      against a bare remote, no manual patching
+    urn: acc:isolate-provider-boundary:K001-SMOKE-001-core-extension-end-to-end
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The core workflow completes and CI merge authority passes without consulting
+      the provider
+    - The mirror job applies external_refs.* only, after merge
+    - Removing the extension leaves the core workflow passing unchanged
+  when:
+    abstract: the end-to-end smoke test drives project, push, CI validation, and the
+      mirror job

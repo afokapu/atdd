@@ -12,6 +12,8 @@ import json
 import tempfile
 import shutil
 
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
+
 
 # Test fixtures
 @pytest.fixture
@@ -25,8 +27,10 @@ def temp_repo():
     (repo_root / "contracts").mkdir()
     (repo_root / "telemetry").mkdir()
     (repo_root / "atdd" / "tester").mkdir(parents=True)
-    (repo_root / "python").mkdir()
-    (repo_root / "supabase" / "functions").mkdir(parents=True)
+    # Built from the same resolvers the code under test uses, so the fixture
+    # tracks .atdd/config.yaml rather than drifting from it.
+    resolve_code_root("python", repo_root).mkdir(parents=True)
+    (resolve_stack_container("supabase", repo_root) / "functions").mkdir(parents=True)
 
     yield repo_root
 
@@ -555,21 +559,21 @@ def test_new_registries_follow_urn_conventions(temp_repo):
 
     Given: Existing URN patterns in urn.py
     When: Building new registries (tester, coder)
-    Then: Uses URNBuilder for URN generation and validation
+    Then: Uses URNGrammar for URN generation and validation
     """
     from atdd.coach.commands.registry import RegistryBuilder
 
-    # Mock URNBuilder to verify it's used
-    with patch('atdd.coach.commands.registry.URNBuilder') as mock_urn:
+    # Mock URNGrammar to verify it's used
+    with patch('atdd.coach.commands.registry.URNGrammar') as mock_urn:
         mock_urn.test.return_value = "test:wagon:file::func"
         mock_urn.impl.return_value = "impl:wagon:layer:comp:lang"
 
         builder = RegistryBuilder(temp_repo)
 
-        # Should use URNBuilder for test URNs
+        # Should use URNGrammar for test URNs
         test_urn = mock_urn.test("wagon", "file", "func")
         assert test_urn.startswith("test:")
 
-        # Should use URNBuilder for impl URNs
+        # Should use URNGrammar for impl URNs
         impl_urn = mock_urn.impl("wagon", "layer", "comp", "lang")
         assert impl_urn.startswith("impl:")

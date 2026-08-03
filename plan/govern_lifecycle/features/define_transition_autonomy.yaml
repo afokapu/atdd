@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:define-transition-autonomy"
+wagon: "wagon:govern-lifecycle"
+description: "Adds the phase machine's missing axis: who may SUBMIT a transition, beside who drives it, which targets are legal, and what must pass before commit. Declarative only; enforcement is later."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:govern-lifecycle:D020"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No CLI surface. The axis is read by nobody in this issue — declaring it is the whole deliverable, and the transition CLI keeps refusing exactly what it refuses today"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No decision function. Mechanical enforcement (a submitter check in atdd.coach.gate) is a deliberately separate later concern; wiring one here would make the axis load-bearing before it has been reviewed"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "PhaseSpec is deliberately NOT extended. train/persistence.py:_phase_machine_from_data reads named keys, so the new YAML key is inert, and _normalized_snapshot derives the conventions snapshot hash from PhaseSpec — leaving PhaseSpec alone is what keeps in-flight runs' replay determinism untouched"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Two YAML edits under src/atdd/coach/conventions/ — the autonomy scalar on each phase of phase_machine.convention.yaml, and one new node under nodes/. No storage, no new infrastructure"

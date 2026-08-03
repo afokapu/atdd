@@ -86,10 +86,10 @@ class AgentConfigSync:
             # verb that clears the upgrade banner (issue #342). Skipping the
             # stamp when no agents are configured would leave the warning
             # firing on every invocation forever.
-            from atdd.version_check import update_toolkit_version
-            if update_toolkit_version(self.config_file):
+            from atdd.version_check import record_toolkit_sync
+            if record_toolkit_sync(self.target_dir):
                 from atdd import __version__
-                print(f"Updated toolkit.last_version to {__version__}")
+                print(f"Recorded toolkit sync at {__version__}")
             return 0
 
         # Validate agent names
@@ -146,13 +146,6 @@ class AgentConfigSync:
 
         print(f"\nSync complete: {synced_count} updated, {unchanged_count} unchanged")
 
-        # Refresh VS Code workspace file if in worktree layout
-        from atdd.coach.utils.repo import detect_worktree_layout
-        if detect_worktree_layout(self.target_dir) == "worktree-ready":
-            from atdd.coach.commands.initializer import ProjectInitializer
-            initializer = ProjectInitializer(self.target_dir)
-            initializer._write_workspace()
-
         # Refresh exported schemas if .atdd/schemas/ exists
         schemas_dir = self.atdd_config_dir / "schemas"
         if schemas_dir.is_dir():
@@ -160,14 +153,56 @@ class AgentConfigSync:
             schema_initializer = ProjectInitializer(self.target_dir)
             schema_initializer.export_schemas()
 
+        # Refresh the installed git hooks (#1492).
+        #
+        # `atdd sync` is the verb the upgrade banner tells operators to run
+        # ("Run: atdd sync && atdd init"), and it is the verb that stamps
+        # toolkit.last_version to clear that banner — but it did not touch
+        # hooks at all. Combined with `atdd init` bailing out on an already
+        # initialised repo, NO sanctioned path refreshed a hook: the only one
+        # was `atdd init --force`, which is forbidden (#793). So every hook fix
+        # ever made reached only repos initialised after it landed.
+        #
+        # Only refresh a repo that already has hooks installed — sync is not
+        # an installer, and must not create .atdd/hooks/ in a repo that never
+        # ran `atdd init`.
+        # Content only — sync must never write core.hooksPath. That setting is
+        # shared by every worktree of the repo, and an unscoped write to it is
+        # what caused #793; `sync` runs far too often to be touching it.
+        if (self.atdd_config_dir / "hooks").is_dir():
+            from atdd.coach.commands.initializer import ProjectInitializer
+            hook_initializer = ProjectInitializer(self.target_dir)
+            hook_initializer.refresh_hook_files()
+
+        # Re-seed the .gitignore entries for atdd's operational artifacts (#1325
+        # item 6), for the same reason the hooks above are refreshed (#1492).
+        #
+        # Seeding only at `atdd init` reaches brand-new repos and nobody else:
+        # init bails out on an already-initialised repo before it seeds, and
+        # `atdd init --force` is forbidden (#793). The case actually reported in
+        # #1325 was a manifest→State-Store MIGRATION inside a repo that had long
+        # since run init, which left `.atdd/state/state.sqlite` and
+        # `.atdd/manifest.migrated.yaml` untracked. `atdd sync` is the sanctioned
+        # refresh verb, so it is the path that reaches those repos.
+        #
+        # Guarded on `.atdd/` already existing: sync is a refresher, not an
+        # installer, and must not write atdd's ignore entries into a repo that
+        # never ran `atdd init`. Each entry is appended idempotently.
+        if self.atdd_config_dir.is_dir():
+            from atdd.coach.commands.initializer import ProjectInitializer
+            gitignore_initializer = ProjectInitializer(self.target_dir)
+            gitignore_initializer._seed_gitignore_entries()
+
         # Apply branch protection if upgrading
         self._apply_branch_protection_on_upgrade()
 
-        # Update toolkit.last_version to mark sync complete
-        from atdd.version_check import update_toolkit_version
-        if update_toolkit_version(self.config_file):
+        # Record the sync in this checkout's untracked runtime record (#1641).
+        # NOT .atdd/config.yaml: that file is git-tracked, so the stamp was
+        # reverted by every checkout/stash and absent in every fresh worktree.
+        from atdd.version_check import record_toolkit_sync
+        if record_toolkit_sync(self.target_dir):
             from atdd import __version__
-            print(f"Updated toolkit.last_version to {__version__}")
+            print(f"Recorded toolkit sync at {__version__}")
 
         return 0
 
@@ -610,12 +645,3 @@ class AgentConfigSync:
 
         return content + new_block + "\n"
 
-
-def write_sync_acknowledged_marker(current_version: str, marker_dir) -> None:
-    """Write a marker file indicating the upgrade banner was acknowledged for *current_version*.
-
-    Called by ``atdd sync`` so that the next dispatch suppresses the upgrade banner.
-    """
-    marker_path = Path(marker_dir) / f"sync_acknowledged_{current_version}"
-    Path(marker_dir).mkdir(parents=True, exist_ok=True)
-    marker_path.touch()

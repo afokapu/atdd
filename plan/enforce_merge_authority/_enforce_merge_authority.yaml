@@ -1,0 +1,80 @@
+action: parses the ATDD commit-trailer group out of git history, diffs the committed projection against
+  the merge-base, and runs the required-check set (legal transition, trailer/projection cross-check, no-secrets)
+  as branch-protected CI jobs
+context: on push and pull request against the protected branch, after the committed projection has been
+  produced and before a merge is admitted
+description: 'Make CI the real lifecycle authority rather than a formatting check (M3). Canonical, schema-valid
+  projection YAML is only well-formatted text; this wagon adds the gates that make it correct: a legal-transition
+  validator that diffs the committed projection against the merge-base and checks it against the section-6
+  lifecycle evidence model, a schema and parser for the ATDD commit-trailer group that turns git history
+  into a reliable event log, a cross-check binding those trailers to the projection diff they accompany,
+  a no-secrets-in-history validator enforcing invariant I8, a push/PR workflow that executes the whole
+  required-check set, and the branch-protection policy that makes those checks required rather than advisory
+  (I6).'
+features:
+- urn: feature:enforce-merge-authority:parse-commit-trailer
+- urn: feature:enforce-merge-authority:validate-transition-legality
+- urn: feature:enforce-merge-authority:verify-trailer-diff
+- urn: feature:enforce-merge-authority:reject-history-secrets
+- urn: feature:enforce-merge-authority:run-merge-checks
+- urn: feature:enforce-merge-authority:define-required-checks
+- urn: feature:enforce-merge-authority:enforce-rule-disposition
+goal: make CI the merge authority so that a canonical but lifecycle-illegal, untrailered, or secret-bearing
+  projection change cannot reach the shared source of truth
+name: Enforce Merge Authority
+outcome: canonical but illegal projection changes are rejected in CI, and every admitted merge carries
+  a trailer group that provably matches its projection diff
+subject: agent:coder
+theme: commons
+urn: wagon:enforce-merge-authority
+wagon: enforce-merge-authority
+produce:
+- name: commons:enforce:lifecycle-evidence
+  contract: contract:commons:projection-evidence
+  telemetry: null
+  to: internal
+- name: commons:enforce:commit-trailer
+  contract: contract:commons:projection-trailer
+  telemetry: null
+  to: internal
+- name: commons:enforce:merge-event
+  contract: contract:commons:projection-merge-event
+  telemetry: null
+  to: internal
+- name: commons:enforce:field-ownership
+  contract: contract:commons:projection-field-ownership
+  telemetry: null
+  to: internal
+consume:
+- contract: contract:commons:projection-object
+  from: wagon:project-shared-state
+  name: commons:project:projection-object
+  telemetry: null
+wmbt:
+  C001: minimize likelihood of an illegal-transition-merge, in which a canonical and schema-valid projection
+    diff whose phase change is not lifecycle-legal relative to the merge-base, or which carries no evidence
+    for a gate it skips, is admitted to the protected branch
+  C002: minimize likelihood of a trailer-projection-mismatch, in which a commit's ATDD trailers and the
+    projection object diff it carries disagree on the object, the phase transition, or the projection
+    digest, or in which a projection object changes with no ATDD-Object trailer at all
+  C003: minimize likelihood of a history-secret-leak, in which a raw token, bearer token, credential,
+    or private key reaches git history through an ATDD trailer value or a committed projection object,
+    where only digests are ever admissible
+  C004: 'minimize likelihood of advisory-disposition-on-a-new-rule by requiring every convention node
+    this program authors to ship disposition: strict, and permitting advisory only with a written precondition
+    and a named issue that discharges it'
+  D001: maximize likelihood of a commit-trailer-schema that pins the canonical ATDD trailer group (ATDD-Object,
+    ATDD-Transition, ATDD-Token-Digest, ATDD-Gate, ATDD-Projection-Digest, ATDD-Summary, ATDD-Summary-Digest),
+    the value grammar of each trailer, and which trailers a given projection diff class is required to
+    carry
+  D002: maximize likelihood of a required-check-policy that names, for the protected branch, the exact
+    required status-check contexts emitted by the merge-authority run plus the branch-protection settings
+    (no bypass, up-to-date before merge) that make CI the merge authority rather than an advisory signal
+  E001: maximize likelihood of a deterministic commit-trailer-parse that lifts a raw commit message into
+    the schema-typed ATDD trailer group, handles grouped trailers for a multi-object commit and the ATDD-Summary
+    form for a squash merge, and refuses a trailer block that violates the schema instead of silently
+    dropping it
+  E002: maximize likelihood of a merge-authority-run on push and pull request that executes the full section-4
+    required-check set (projection canonicality, projection schema, legal transition, trailer/diff cross-check,
+    field-writer, no-secrets, core no-provider) and fails the run when any one of them fails
+  total: 8

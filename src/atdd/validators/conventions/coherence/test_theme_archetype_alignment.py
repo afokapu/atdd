@@ -14,12 +14,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from atdd.validators.conventions.coherence import _parity
 from atdd.validators.conventions.coherence.archetype import (
     TEMPLATE_IDS,
     resolved_fact_agreement,
 )
 from atdd.validators.conventions.coherence.fixtures import build_archetype_graph
+from atdd.validators.conventions._support.graph_mutations import (
+    add_node,
+    graph_rooted_at,
+    stage_file,
+)
 
 FAMILY = "coherence"
 TEMPLATE = "resolved_fact_agreement"
@@ -44,33 +51,44 @@ def test_theme_archetype_alignment_variant_contract() -> None:
 # `commons`, which carries no archetype-root constraint -> vacuously aligned). The
 # fault (a `code`-themed wagon whose source lives under the planner root) is caught
 # by BOTH the convention evaluator and the legacy pytest target on identical input.
-_LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_theme_archetype_alignment.py"
-    "::test_archetype_themes_align_with_source_roots"
-)
 
 
-def test_clean_baseline_is_zero() -> None:
-    assert _parity.conv_violations(VARIANT) == []
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
+    assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
-def test_fault_injection_legacy_parity() -> None:
-    """Inject a misaligned `code` wagon into the real tree; assert the convention
-    evaluator AND the legacy validator both catch it; revert."""
-    root = _parity.repo_root()
-    pkg = "zz_archetype_probe"
-    manifest = root / "plan" / pkg / f"_{pkg}.yaml"
-    wrong_src = root / "src" / "atdd" / "planner" / pkg / "__init__.py"
-    entries = [
-        (manifest, 'wagon: zz-archetype-probe\nurn: "wagon:zz-archetype-probe"\ntheme: code\n'),
-        (wrong_src, ""),
-    ]
-    with _parity.temp_paths(entries):
-        conv = _parity.conv_violations(VARIANT, root)
-        legacy = _parity.legacy_caught(_LEGACY_NODEID, root)
-    assert conv, "convention evaluator did not catch the archetype misalignment"
-    assert legacy, "legacy validator did not catch the archetype misalignment"
-    assert _parity.conv_violations(VARIANT, root) == [], "fault did not revert cleanly"
+def test_fault_injection_convention_catches(clean_convention_graph, tmp_path: Path) -> None:
+    """A misaligned `code` wagon — implementation under the PLANNER root — is caught.
+
+    The fault has two halves and neither needs the checkout (#1415, #1458). The wagon
+    itself is a NODE: the evaluator reads ``w.theme`` and the wagon slug off the graph, so
+    dropping a manifest into plan/ only ever existed to make the loader build that node —
+    ``add_node`` builds it directly from the same fields. The misplaced SOURCE, though, is
+    read from the filesystem (``src_root.rglob(slug)``), so it has to be a real directory
+    — staged under a temp root, with the graph re-rooted there.
+
+    Real wagons are unaffected by the redirect: their source dirs do not exist under the
+    temp root, so the evaluator reads them as documentation-only and skips them. The probe
+    is the only node that can be flagged, which is what makes the assertion precise.
+    """
+    slug, pkg = "zz-archetype-probe", "zz_archetype_probe"
+    probe = "wagon:zz-archetype-probe"
+
+    # The misplaced implementation: a `code`-themed wagon whose source sits under planner/.
+    stage_file(tmp_path, f"src/atdd/planner/{pkg}/__init__.py", "")
+    staged = graph_rooted_at(clean_convention_graph, tmp_path)
+    add_node(staged, id=probe, kind="wagon", theme="code",
+             location=f"plan/{pkg}/_{pkg}.yaml",
+             fields={"wagon": slug, "urn": probe, "theme": "code"})
+
+    conv = _parity.conv_violations(VARIANT, graph=staged)
+    caught = [v for v in conv if v["source_node"] == probe]
+    assert caught, f"convention evaluator did not catch the archetype misalignment: {conv}"
+    assert caught[0]["actual_values"]["expected_root"] == "coder", (
+        f"a `code` wagon must be required under the coder root: {caught[0]}"
+    )
+    # The untouched session graph stays clean — the probe lives only in the staged copy.
+    assert _parity.conv_violations(VARIANT, graph=clean_convention_graph) == []
 
 
 def test_fragment_valid_clean_and_invalid_caught(tmp_path: Path) -> None:

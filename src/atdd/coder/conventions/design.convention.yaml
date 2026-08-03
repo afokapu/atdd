@@ -347,57 +347,8 @@ design_system:
 # Structured rules (issue #394 — see src/atdd/coach/specs/rule-id.spec.md)
 # =============================================================================
 rules:
-  - id: "coder.design.primitives"
-    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
-    aliases: ["DESIGN-PRIMITIVES-001"]
-    severity: 2
-    disposition: strict
-    description: "Presentation layer composes design system primitives instead of raw HTML/Native elements"
-    introduced_in: "1.67.0"
-  - id: "coder.design.token-color"
-    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
-    aliases: ["DESIGN-TOKEN-COLOR-001"]
-    severity: 2
-    disposition: strict
-    description: "UI files reference design tokens for colors instead of hex/rgb literals"
-    introduced_in: "1.67.0"
-  - id: "coder.design.orphan-export"
-    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
-    aliases: ["DESIGN-ORPHAN-EXPORT-001"]
-    severity: 2
-    disposition: strict
-    description: "Design system exports must have at least one consumer"
-    introduced_in: "1.67.0"
-  - id: "coder.design.foundations"
-    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
-    aliases: ["DESIGN-FOUNDATIONS-001"]
-    severity: 2
-    disposition: strict
-    description: "Design system primitives must compose foundations (tokens, layout, color) rather than raw values"
-    introduced_in: "1.67.0"
-  - id: "coder.design.hierarchy-import"
-    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
-    aliases: ["DESIGN-HIERARCHY-IMPORT-001"]
-    severity: 3
-    disposition: strict
-    description: "Design system layers may only import from layers below them in the hierarchy"
-    introduced_in: "1.67.0"
-  - id: "coder.design.token-hardcoded"
-    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
-    aliases: ["DESIGN-TOKEN-HARDCODED-001"]
-    severity: 2
-    disposition: strict
-    description: "Wagons must not hardcode token values that exist in the design system"
-    introduced_in: "1.67.0"
-  - id: "coder.design.orphan-ui"
-    validator: "test_design_system_compliance::test_presentation_uses_design_system_primitives"
-    aliases: ["DESIGN-ORPHAN-UI-001"]
-    severity: 2
-    disposition: strict
-    description: "UI elements (components/pages/screens) must be referenced by a route, parent, or test"
-    introduced_in: "1.67.0"
   - id: "coder.design.hierarchy-coverage"
-    validator: "test_hierarchy_coverage::test_all_features_have_implementations"
+    validator: "conventions/coverage/test_hierarchy_coverage::test_fault_injection_convention_catches"
     aliases: ["DESIGN-HIERARCHY-COVERAGE-001"]
     severity: 2
     # Coverage check; emits ``plan/.../<feature>.yaml:1`` locations.

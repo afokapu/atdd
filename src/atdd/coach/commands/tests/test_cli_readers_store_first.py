@@ -95,22 +95,6 @@ def test_branch_find_issue_from_store(tmp_path):
     assert entry.get("type") == "refactor"
 
 
-# --- issue.sync_wmbts (wagon + feature) ------------------------------------ #
-def test_sync_wmbts_reads_wagon_feature_from_store(tmp_path):
-    from atdd.coach.commands.issue import IssueManager
-    _seed(tmp_path, slug="w", issue_number=88,
-          wagon="govern-lifecycle", feature="feature:govern-lifecycle:x")
-    _manifest(tmp_path, [{"slug": "w", "issue_number": 88,
-                          "wagon": "author-plan-substrate", "feature": "feature:other:y"}])
-    mgr = IssueManager(tmp_path)
-    captured = {}
-    mgr._discover_wmbts_from_feature = lambda wagon, feature: captured.update(
-        wagon=wagon, feature=feature) or []
-    mgr.sync_wmbts(88)
-    assert captured.get("wagon") == "govern-lifecycle"
-    assert captured.get("feature") == "feature:govern-lifecycle:x"
-
-
 # --- issue._manifest_train / _manifest_branch (store-only, slice D) -------- #
 def test_manifest_train_store_only_ignores_manifest(tmp_path):
     """Slice D — the train read no longer falls back to the manifest.

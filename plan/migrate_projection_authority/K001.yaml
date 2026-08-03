@@ -1,0 +1,80 @@
+urn: wmbt:migrate-projection-authority:K001
+step: conclude
+direction: maximize
+dimension: likelihood
+object_of_control: projection-authority-cutover
+context_clarifier: 'when the M8 exit criteria are evaluated: the projection is the
+  shared source of truth, GitHub is an optional mirror that no lifecycle decision
+  reads, and the legacy manifest no longer acts as a fallback source of truth'
+lens: functional.effectiveness
+statement: maximize likelihood of a clean projection-authority-cutover in which the
+  committed projection is the shared source of truth, GitHub is an optional mirror,
+  and the legacy manifest no longer acts as a fallback source of truth
+acceptances:
+- given:
+    abstract:
+    - 'A repo mid-migration: projection present, but a manifest read-fallback still
+      resolves'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the cutover check fails while any of the three M8 exit criteria is unmet
+    urn: acc:migrate-projection-authority:K001-UNIT-001-exit-criteria-unmet-before-cutover
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The check fails and names the unmet criterion
+    - 'RED: no cutover exit-criteria check exists today'
+  when:
+    abstract: the M8 cutover exit-criteria check is evaluated
+- given:
+    abstract:
+    - 'A repo after all M8 steps: projection authoritative, no provider hot-path read,
+      no manifest fallback'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: the cutover check passes once projection is authoritative, GitHub is
+      optional, and the manifest fallback is gone
+    urn: acc:migrate-projection-authority:K001-UNIT-002-exit-criteria-met-after-cutover
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - All three exit criteria report met
+    - The check exits zero
+  when:
+    abstract: the M8 cutover exit-criteria check is evaluated
+- given:
+    abstract:
+    - Two real checkouts of the migrated repo sharing a bare git remote, GitHub unreachable,
+      .atdd/manifest.yaml absent
+  harness:
+    category: integration
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Verify two real checkouts collaborate through the committed projection
+      with no GitHub API reachable and no manifest present
+    urn: acc:migrate-projection-authority:K001-SMOKE-001-collaborates-through-projection-only
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Checkout B observes A's new phase from the committed projection alone
+    - No GitHub API call is attempted by either checkout
+    - Every core lifecycle command succeeds with the manifest absent
+  when:
+    abstract: checkout A advances a work item and pushes, then checkout B pulls and
+      reads that work item's state

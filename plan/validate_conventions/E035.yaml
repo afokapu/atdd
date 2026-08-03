@@ -1,0 +1,117 @@
+urn: wmbt:validate-conventions:E035
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: root-reader-fault-filesystem-mutation
+context_clarifier: the last seven fault families (policy, schema, grammar, composition,
+  boundary, sizing, uniqueness) inject their faults into a cloned graph or into a
+  temp tree the graph is re-pointed at, so no fault family rewrites the real checkout
+  and none re-composes the clean graph
+lens: functional.sustainability
+statement: minimize likelihood of root-reader-fault-filesystem-mutation by ensuring
+  the last seven fault families inject their faults into a cloned graph or into a
+  temp tree the graph is re-pointed at, so no fault family rewrites the real checkout
+  and none re-composes the clean graph
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E035-RED-001-root-reader-fault-rewrites-the-checkout
+    id: AC-RED-001
+    purpose: Before the last families are migrated, a root-reading fault family injects
+      its fault by rewriting a real tracked file in the checkout and reverting it
+      in a finally block.
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A retained on-disk fault helper (policy _parity.overwrite_file)
+    - A byte-level snapshot of the tracked file it targets
+  when:
+    abstract: A root-reading fault variant is executed through the on-disk helper
+  then:
+    abstract:
+    - The targeted tracked file differs from its snapshot at some point during the
+      test
+    - A test asserting the checkout is byte-identical throughout therefore fails
+  metadata:
+    author: atdd:planner
+    created: '2026-07-13'
+- identity:
+    urn: acc:validate-conventions:E035-GREEN-001-root-reader-fault-injected-into-staged-root
+    id: AC-GREEN-001
+    purpose: A root-reading evaluator's fault is staged in a temp tree the graph is
+      re-pointed at, producing the same violation with nothing written to the checkout
+      and no graph rebuilt.
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A _support/graph_mutations.py exposing graph_rooted_at, mirror_file, stage_file
+      and node_at
+    - The session-scoped clean_convention_graph fixture from E032
+  when:
+    abstract: A root-reading fault variant is evaluated against a graph re-pointed
+      at a staged temp tree
+  then:
+    abstract:
+    - The family template flags the injected fault
+    - The staged tree is byte-identical to the real file it mirrors apart from the
+      fault
+    - A fault transform that changes nothing raises rather than passing vacuously
+    - "The session clean_convention_graph is unmutated \u2014 its node ids and its\
+      \ root are unchanged"
+  metadata:
+    author: atdd:planner
+    created: '2026-07-13'
+- identity:
+    urn: acc:validate-conventions:E035-GREEN-002-migrated-families-compose-the-graph-once
+    id: AC-GREEN-002
+    purpose: "Across the seven migrated families the clean convention graph is composed\
+      \ exactly once \u2014 the session fixture \u2014 because no fault test rebuilds\
+      \ it any more."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The graph_build_counter plugin, which counts only real-root load_composed_graph
+      calls
+    - The seven migrated families run as one pytest session
+  when:
+    abstract: The migrated families are run under the counter in a subprocess
+  then:
+    abstract:
+    - The real-root build count is exactly 1
+    - The fault tests are still selected, so the count is not bought by deselection
+  metadata:
+    author: atdd:planner
+    created: '2026-07-13'
+- identity:
+    urn: acc:validate-conventions:E035-SMOKE-001-no-file-written-in-real-checkout
+    id: AC-SMOKE-001
+    purpose: "In a real checkout, running the migrated fault families through the\
+      \ real pytest entrypoint leaves every tracked file untouched \u2014 not merely\
+      \ every YAML."
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout
+  when:
+    abstract: pytest is invoked as a subprocess over the seven migrated fault families
+  then:
+    abstract:
+    - The suite exits 0
+    - "git status reports no new modification to ANY tracked file \u2014 the migrated\
+      \ families wrote hooks, pyproject.toml and committed test sources, which a YAML-only\
+      \ guard would have missed"
+    - "The migrated faults are still caught \u2014 coverage is preserved, not removed"
+  metadata:
+    author: atdd:planner
+    created: '2026-07-13'

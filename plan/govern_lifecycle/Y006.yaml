@@ -1,0 +1,193 @@
+urn: wmbt:govern-lifecycle:Y006
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: an-issue-feature-binding-no-command-can-write-because-create-derives-nothing-and-revise-accepts-the-feature-flag-then-drops-it
+context_clarifier: 'atdd author issue passes --feature through on create but derives
+  nothing when it is omitted, and on --revise argparse accepts --feature while _publish_revision
+  -> revise_issue -> revise_work_item_issue carry only body and issue_type, so the
+  flag is silently dropped: measured 2026-07-28 across eight issues the body metadata
+  table updated on all eight and work_item.data.feature stayed NULL on all eight,
+  and 638 of 808 stored work items carry no feature at all'
+lens: functional.effectiveness
+statement: "minimize likelihood of an-issue-feature-binding-no-command-can-write-because-create-derives-nothing-and-revise-accepts-the-feature-flag-then-drops-it\
+  \ by deriving-or-requiring the feature URN at mint and threading --feature the whole\
+  \ way through the --revise path into the authoritative store write, so the binding\
+  \ is writable at creation and correctable afterwards by an operator, and by backfilling\
+  \ the open issues whose stored feature is still null \u2014 the field must be populatable\
+  \ before anything downstream can read it"
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:Y006-UNIT-001-revise-writes-the-feature-to-the-store
+    id: AC-UNIT-001
+    purpose: '`atdd author issue --revise <N> --feature <urn>` writes the feature
+      onto the authoritative work item instead of accepting the flag and discarding
+      it, and the flag is honoured whether or not --body-file accompanies it'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A State Store holding a work item bound to a GitHub issue number through external_refs,
+      whose data.feature is null
+    - "The revise path exercised at its seam \u2014 the argparse namespace through\
+      \ _run_issue_revise / _publish_revision / revise_issue / revise_work_item_issue\
+      \ \u2014 with the GitHub projection stubbed so only the store write is under\
+      \ test"
+    - 'Three revise requests: --feature alone, --feature with --body-file, and --body-file
+      alone'
+  when:
+    abstract: each revise request is run against the store and the resulting work
+      item's data is read back
+  then:
+    abstract:
+    - --feature alone leaves data.feature equal to the URN supplied, and is not refused
+      for lacking --body-file and --type
+    - --feature with --body-file leaves data.feature equal to the URN supplied AND
+      the body updated, so neither field overwrites the other
+    - --body-file alone leaves data.feature exactly as it was, so a revision that
+      names no feature never clears an existing binding
+    - 'No accepted flag is dropped: every flag the revise parser declares reaches
+      revise_work_item_issue, asserted against the parser''s own declared arguments
+      rather than a hand-maintained list'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:Y006-UNIT-002-create-derives-or-requires-the-feature
+    id: AC-UNIT-002
+    purpose: 'A newly minted issue carries a non-null stored feature: `atdd author
+      issue` derives the feature URN when it can and refuses loudly when it cannot,
+      so the null binding is unreachable through the sanctioned mint path'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A plan/ tree carrying a real feature YAML and a wagon manifest that lists it
+    - "The create path exercised at its seam \u2014 _run_issue_create / publish_issue\
+      \ / create_work_item \u2014 with the GitHub projection stubbed"
+    - 'Three create requests: an explicit --feature that resolves, an explicit --feature
+      that resolves to nothing in plan/, and no --feature at all'
+  when:
+    abstract: each create request is run and the stored work item plus the exit code
+      and stderr are inspected
+  then:
+    abstract:
+    - The resolving --feature is written to data.feature and rendered into the body's
+      Feature row, and the two agree
+    - The non-resolving --feature is refused with a non-zero exit naming the URN that
+      did not resolve, and NO work item is created (no half-published record)
+    - The omitted --feature is either derived to a resolvable URN or refused with
+      a non-zero exit that names --feature; it is never silently defaulted to the
+      template placeholder feature:author-atdd-substrate:author-issue-body
+    - 'The body''s Feature row is never a train URN: a value matching the train grammar
+      is refused as a feature'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:Y006-INTEGRATION-001-backfill-populates-null-bindings
+    id: AC-INTEGRATION-001
+    purpose: 'The open issues minted before the binding existed get one: a backfill
+      resolves each null-feature work item to a feature in plan/ and writes it, reporting
+      rather than guessing where it cannot resolve'
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - 'A real State Store seeded with open work items in three shapes: one whose body
+      declares a feature that resolves in plan/, one whose body declares a train URN
+      in the Feature row, and one declaring nothing'
+    - A plan/ tree the resolver can read, and the backfill entry point under test
+  when:
+    abstract: the backfill is run over the open work items and then the store is read
+      back
+  then:
+    abstract:
+    - The resolvable declaration is written to data.feature and the work item now
+      carries a binding
+    - 'The train URN in a Feature row is NOT written as a feature: it is reported
+      as unresolved, so the backfill cannot manufacture a binding out of the drift
+      it was built to find'
+    - The issue declaring nothing is reported as unresolved and left null rather than
+      assigned a guess
+    - 'The backfill is idempotent: a second run writes nothing further and reports
+      the same unresolved set'
+    - A work item whose feature is already populated is never overwritten
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:Y006-INTEGRATION-002-dropped-flag-guard-is-load-bearing
+    id: AC-INTEGRATION-002
+    purpose: 'The threading is shown to be load-bearing rather than incidental: removing
+      the feature argument from the revise call chain, and separately the derive-or-require
+      branch at create, each turns the suite RED'
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A copy of the author-issue and author-publish sources under a temp path, so
+      the real tree is never mutated
+    - A fault injector that removes the feature argument from the revise call chain,
+      and a second that removes the derive-or-require branch at create
+    - The two unit acceptances above as the suite under observation
+  when:
+    abstract: each fault is injected in isolation and the observing suite is re-run
+      against the mutated copy
+  then:
+    abstract:
+    - Each injection's anchor is asserted to have matched EXACTLY ONCE, so a silently
+      non-matching regex cannot pass as a removed guard
+    - The mutated source is asserted to still parse, so a syntax error cannot masquerade
+      as a failing guard
+    - "Removing the feature argument from the revise chain turns the revise acceptance\
+      \ RED \u2014 reproducing the measured 2026-07-28 silent drop"
+    - Removing the derive-or-require branch turns the create acceptance RED
+    - With no fault injected the suite is GREEN, establishing the fault as the sole
+      cause of each failure
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:Y006-SMOKE-001-real-cli-revise-populates-the-store
+    id: AC-SMOKE-001
+    purpose: 'Against the real installed CLI in a real checkout with a real State
+      Store: an operator who sets --feature on an existing issue changes the stored
+      binding, closing the measured gap where the body updated and the store did not'
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - "A real checkout, the real atdd CLI and a real SQLite State Store, exercised\
+      \ in a separate real process \u2014 no in-process import of the module under\
+      \ test and no monkeypatching"
+    - A real work item registered against an issue number through external_refs whose
+      data.feature is null, and a plan/ tree carrying the feature URN the operator
+      will set
+    - The GitHub projection unreachable, so the outbox path is taken and the store
+      write must stand on its own
+  when:
+    abstract: a subprocess runs the real `atdd author issue --revise <N> --feature
+      <urn>` and a second subprocess reads the work item back out of the store
+  then:
+    abstract:
+    - The revise subprocess exits zero
+    - "The work item read back reports data.feature equal to the URN the operator\
+      \ supplied \u2014 the shipped artifact writes the field, not merely the body"
+    - The store write stands even though the GitHub projection was deferred to the
+      outbox, so the binding does not depend on provider reachability
+    - Setting a feature URN that resolves to nothing in plan/ exits non-zero and leaves
+      the stored feature unchanged
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'

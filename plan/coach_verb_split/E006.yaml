@@ -1,0 +1,101 @@
+urn: "wmbt:coach-verb-split:E006"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "orphaned-references-to-the-removed-atdd-issue-command"
+context_clarifier: "when C5b (#1309) closes umbrella #1303 by DELETING the `atdd issue` CLI surface (the subparser and the whole `elif args.command == \"issue\":` dispatch block) in the 4.0.0 MAJOR: every lifecycle verb already has an `atdd coach` home (C1-C5a) and create lives in `atdd author issue`, so the shims delegate and nothing needs re-implementing — but `issue.py` must survive UNTOUCHED as a pure engine module (IssueManager / IssueBodyChecker / IssueBodyComplianceError / dup_check_before_file), because the coach verbs, `atdd list`, `atdd update` and `atdd manifest backfill` all still import it. The hazard is not lost behavior but ORPHANED REFERENCES: four surviving `_deprecation_warning(...)` calls name `atdd issue <N> --status`/`--close-wmbt` as their REPLACEMENT hint, the `gh issue create` blockers (gh.shim, pre-commit-gh-issue-create.sh, the PreToolUse classifier) tell users to run `atdd issue <slug>`, the `issue.convention.yaml` `cli_commands:` block and the CONDUCTOR.md managed `issues:` block still present `atdd issue` as canonical, and the C2 fix-hint registry (which regexes cli.py for `_deprecation_warning(\"old\",\"new\")` and keys on the OLD form) cannot see any of it — C2 only flags hints that recommend a DEPRECATED form, never a NONEXISTENT one. `atdd issue <slug> --dry-run` (render + compliance-check + print, zero writes) is the one form with no equivalent — `atdd author issue` PUBLISHES store-first and its `--check PATH` only validates an existing file — so it ports to the canonical `atdd author issue --dry-run` rather than being dropped, which keeps E019-SMOKE-001's bound coverage alive."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of orphaned-references-to-the-removed-atdd-issue-command by deleting the `atdd issue` subparser + dispatch block behind a fail-loud top-level guard that exits non-zero naming the canonical `atdd coach <verb>` / `atdd author issue` replacement, keeping `issue.py` as an untouched pure-engine module, porting the sole orphan capability (`--dry-run`) onto `atdd author issue`, repointing every surviving reference (the four `_deprecation_warning` replacement hints, the three `gh issue create` educational blockers, `issue.convention.yaml`'s `cli_commands:`, and the CONDUCTOR.md managed `issues:` block regenerated via `atdd sync`), and EXTENDING the C2 fix-hint validator with a dangling-replacement-target audit that fails when any `_deprecation_warning` hint recommends an `atdd <sub>` head absent from the registered top-level subparser set — so the class of defect this issue cleans up cannot silently reappear."
+acceptances:
+  - identity:
+      urn: "acc:coach-verb-split:E006-UNIT-001-issue-surface-removed-engines-and-verbs-survive"
+      id: "AC-UNIT-001"
+      purpose: "the `atdd issue` CLI surface is gone and fails loud, while every engine the coach verbs depend on still imports and every coach verb still resolves"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The cli.py parser with the `issue` subparser and the `elif args.command == \"issue\":` dispatch block removed"
+        - "The pure-engine `atdd.coach.commands.issue` module, unmodified"
+    when:
+      abstract: "the top-level parser's registered subcommand set is inspected, `atdd issue ...` is invoked through cli.main, the engine symbols are imported, and coach_verbs.discover() is called"
+    then:
+      abstract:
+        - "`issue` is NOT a registered top-level subparser name"
+        - "invoking `atdd issue <anything>` exits NON-ZERO and prints a message naming both `atdd coach <verb>` and `atdd author issue` as the 4.0.0 replacements (a fail-loud guard, never a silent success)"
+        - "IssueManager still imports from atdd.coach.commands.issue (the mint-path engine symbols IssueBodyChecker / IssueBodyComplianceError / dup_check_before_file were retired with the mint path in #1477 — their ABSENCE is now gated by coach/validators/test_mint_path_decommissioned.py)"
+        - "coach_verbs.discover() still resolves transition, reconcile, issues, sync-labels, issue-review, is-registered, check, close-wmbt and enter to their run callables (sync-wmbts retired in #1477)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-09"
+  - identity:
+      urn: "acc:coach-verb-split:E006-UNIT-002-no-dangling-replacement-target-in-fix-hints"
+      id: "AC-UNIT-002"
+      purpose: "no surviving deprecation hint recommends a command that does not exist, and the C2 validator now mechanically enforces that invariant"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The C2 fix-hint validator, which builds its deprecation registry by regexing cli.py for `_deprecation_warning(\"old\",\"new\")` and keys on the OLD form"
+        - "A synthetic cli_source whose hint recommends an `atdd <sub>` head that is not a registered subparser"
+    when:
+      abstract: "build_deprecation_registry() and the new dangling-replacement-target audit are run against the real cli.py and against the synthetic source"
+    then:
+      abstract:
+        - "against the REAL cli.py: the registry contains no `atdd issue` key, and NO hint value's `atdd <sub>` head is `atdd issue` — the archive / update / close-wmbt hints now name `atdd coach transition` and `atdd coach close-wmbt`"
+        - "the new audit returns a violation for the synthetic source (a hint whose head is absent from the `subparsers.add_parser(...)` name set), proving it fails loud rather than passing vacuously"
+        - "the new audit returns zero violations for the real cli.py"
+        - "the existing C1 placeholder and C2 deprecation-contradiction audits still pass unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-09"
+  - identity:
+      urn: "acc:coach-verb-split:E006-INTEGRATION-001-every-removed-form-has-a-working-equivalent"
+      id: "AC-INTEGRATION-001"
+      purpose: "each of the eleven removed `atdd issue` forms has a coach/author equivalent that reaches the SAME engine, and the ported `--dry-run` writes nothing"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The delegated engines (IssueLifecycle.enter / check / close_wmbt / create; IssueManager.reconcile / sync_labels / sync_labels_all / sync_wmbts / branch_is_registered / open_issues; issue_transition.apply_transition; issue_review.run) stubbed with recording spies (no GitHub, git or store I/O)"
+        - "A throwaway issue number and branch name under a temp control root (never a live issue)"
+    when:
+      abstract: "the canonical replacement for each removed form is invoked, and `atdd author issue --dry-run` is invoked with the store writer and gh client spied"
+    then:
+      abstract:
+        - "each canonical form reaches the same delegate the removed `atdd issue` form did, with the same arguments and exit code: `atdd coach issues [open|<N>]`, `atdd coach transition <N> <TO>`, `atdd coach close-wmbt <N> <ID>`, `atdd coach check <N>`, `atdd coach sync-wmbts <N>`, `atdd coach reconcile`, `atdd coach sync-labels [<N>|--all]`, `atdd coach is-registered <branch>`, `atdd coach issue-review <N>`, `atdd coach enter <N>`, and `atdd author issue --title <t> --slug <s>`"
+        - "`atdd author issue --slug <s> --dry-run` renders the body, validates it against `issue.schema.json` via the author path's own `validate_issue_body`, prints the validated body and exits 0 with ZERO store writes and ZERO gh invocations"
+        - "`atdd author issue --slug <s> --dry-run` exits non-zero and prints the schema violations when the rendered body does not validate"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-09"
+  - identity:
+      urn: "acc:coach-verb-split:E006-SMOKE-001-real-subprocess-removal-and-repointed-blockers"
+      id: "AC-SMOKE-001"
+      purpose: "against a real subprocess the removed command fails loud, the replacements work, and no shipped educational text or convention still names `atdd issue` as canonical"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp ATDD_CONTROL_ROOT / temp cwd and a throwaway slug (never a live issue)"
+        - "The shipped gh.shim, pre-commit-gh-issue-create.sh, PreToolUse classifier, issue.convention.yaml and CONDUCTOR.md template"
+    when:
+      abstract: "`atdd issue open`, `atdd --help`, `atdd coach issues open`, `atdd author issue --dry-run` and `gh issue create` (through the shim) are executed as REAL subprocesses, and the convention/template text is inspected"
+    then:
+      abstract:
+        - "`atdd issue open` exits NON-ZERO and its stderr names `atdd coach` and `atdd author issue` (the 4.0.0 removal guard, proven by real process exit code, not a mock)"
+        - "`atdd --help` does not list an `issue` subcommand"
+        - "`atdd author issue --dry-run` exits 0 and prints a validated body, with no store mutation under the temp control root"
+        - "the gh.shim, the pre-commit `gh issue create` blocker and the PreToolUse classifier all name `atdd author issue` as the alternative and none of them emits the literal `atdd issue <slug>`"
+        - "`issue.convention.yaml`'s `cli_commands:` block and the CONDUCTOR.md managed `issues:` block present `atdd coach <verb>` / `atdd author issue` as canonical and contain no `atdd issue` invocation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-09"

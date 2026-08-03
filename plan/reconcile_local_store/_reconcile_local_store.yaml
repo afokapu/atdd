@@ -1,0 +1,93 @@
+action: stamps store_base_commit on hydrate, appends an explicit overlay event for
+  every local authoring command, refuses to clobber a dirty store, and reconciles
+  by hydrating the incoming projection and replaying the overlay on top of it, re-projecting
+  affected objects and advancing store_base_commit, or halting with a conflict report
+  and a retained backup
+context: local-developer-checkout, after HEAD moves (pull, merge, rebase, checkout,
+  amend) while the local store may hold uncommitted overlay events
+description: 'The M2 reconcile spine. The local SQLite store is the private authoring
+  workspace; the committed per-UID projection is the shared source of truth. This
+  wagon makes the relation store = hydrate(projection @ store_base_commit) + replay(local_overlay)
+  explicit and mechanical: it stamps store_base_commit metadata on every hydrate,
+  records an explicit overlay event for every local authoring command instead of inferring
+  intent from SQLite diffs, gates any reconcile that would overwrite a dirty store,
+  implements `atdd state reconcile` as backup -> hydrate incoming -> replay overlay
+  -> re-project -> advance base (or stop with a conflict report and keep the backup),
+  fires reconcile from every HEAD-moving git hook, and proves the whole thing with
+  a Dev A / Dev B collaboration test in which B pulls A''s merged work through Git
+  alone and keeps B''s uncommitted private work intact. Covers CORE-010 through CORE-015;
+  satisfies invariants I3 and I5.'
+features:
+- urn: feature:reconcile-local-store:track-base-commit
+- urn: feature:reconcile-local-store:record-overlay-events
+- urn: feature:reconcile-local-store:guard-dirty-store
+- urn: feature:reconcile-local-store:reconcile-store-state
+- urn: feature:reconcile-local-store:trigger-head-hooks
+- urn: feature:reconcile-local-store:verify-collaboration-flow
+- urn: feature:reconcile-local-store:archive-overlay-events
+- urn: feature:reconcile-local-store:hydrate-cold-store
+goal: solve the Dev A / Dev B local-store update problem so a developer can pull or
+  rebase merged peer work through Git projection alone and never silently lose private
+  uncommitted authoring
+name: Reconcile Local Store
+outcome: 'reconcile is deterministic and non-destructive: no-overlay stores hydrate
+  cleanly, dirty stores replay their overlay or conflict loudly with a backup, and
+  the A/B collaboration test passes with no provider API in the hot path'
+subject: agent:coder
+theme: commons
+urn: wagon:reconcile-local-store
+wagon: reconcile-local-store
+produce:
+- name: commons:reconcile:store-base-commit
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:reconcile:overlay-event-log
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:reconcile:dirty-store-gate
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:reconcile:reconcile-command
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:reconcile:head-change-hooks
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:reconcile:collaboration-suite
+  contract: null
+  telemetry: null
+  to: internal
+consume:
+- contract: contract:commons:projection-object
+  from: wagon:project-shared-state
+  name: commons:project:projection-object
+  telemetry: null
+wmbt:
+  C001: minimize likelihood of a dirty-store-overwrite during reconcile
+  C002: minimize likelihood of a silent-mass-deletion when reconcile applies an incoming
+    projection
+  E001: maximize likelihood of a complete overlay-event-log recording every uncommitted
+    local authoring command
+  K001: maximize likelihood of a proven collaboration-flow in which Dev B keeps private
+    work across Dev A's merge
+  M001: maximize likelihood of a head-change-reconcile firing on every operation that
+    moves HEAD
+  P001: maximize likelihood of a durable store-base-commit stamped on the local store
+    at every hydrate
+  P002: maximize likelihood of cold-start-hydrate succeeding when no store or no base
+    commit exists and no overlay is present, while refusing and emitting remediation
+    when a store is missing its base commit but carries overlay events
+  R001: maximize likelihood of a correct overlay-replay onto the freshly hydrated
+    incoming projection
+  R002: maximize likelihood of an actionable conflict-report with a retained backup
+    when replay is invalid
+  Y001: minimize likelihood of overlay-event-replayed-twice by giving each event a
+    stable event_id and a status (pending/projected/committed/discarded/conflicted),
+    recording which events a projection represents, and replaying only pending or
+    projected-but-uncommitted events
+  total: 9

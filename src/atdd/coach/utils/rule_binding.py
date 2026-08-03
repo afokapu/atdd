@@ -53,6 +53,22 @@ class AmbiguousAliasError(LookupError):
     """Raised when a legacy alias collides with another rule's canonical id or alias."""
 
 
+class DuplicateRuleError(LookupError):
+    """Raised when a rule_id is declared in BOTH the core registry and a second
+    (extension) registry — a cross-registry collision (#1427 govern-registry E002).
+
+    Unlike :class:`AmbiguousRuleError` (two *core* convention files declaring the
+    same id, an authoring mistake within one registry), this names the boundary
+    between the core rule registry (``atdd validate`` / Path A, rooted at
+    ``src/atdd`` alone) and the extension mirror set under ``.atdd/extensions``.
+    Every extension node is a high-fidelity MIRROR of a live core rule, so the two
+    registries deliberately stay separate; merging them would collide on every
+    mirrored id. Precedence is stated in the message: **CORE precedes extension** —
+    the core declaration is authoritative and the extension mirror must not be
+    admitted into the core registry.
+    """
+
+
 # ---------------------------------------------------------------------------
 # bind_rule hooks (integration logging)
 # ---------------------------------------------------------------------------
@@ -82,7 +98,7 @@ class RepoYamlValidationError(ValueError):
     Surfaces (a) ``disposition:`` declared in repo YAML (walker sets it per
     spec v12 §4.4); (b) literal ``id:`` field at the top of an acceptance
     block (rule-id is derived per §3.3 — declaring it is misleading);
-    (c) acceptance URN that fails ``URNBuilder.PATTERNS['acc']``;
+    (c) acceptance URN that fails ``URNGrammar.PATTERNS['acc']``;
     (d) derived rule-id that fails the canonical-archetype + grammar check.
     """
 
@@ -308,7 +324,7 @@ def find_convention_files(
 # ---------------------------------------------------------------------------
 # Pattern matching the WMBT-shaped acceptance body inside an `acc:` URN:
 #   <WMBT-id>-<HARNESS>-<NNN>(-<slug>)?
-# The HARNESS list mirrors URNBuilder.HARNESS_CODES.
+# The HARNESS list mirrors URNGrammar.HARNESS_CODES.
 _WMBT_ACC_BODY_RE = re.compile(
     r"^([DLPCEMYRK][0-9]{3})-"
     r"(UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|"
@@ -490,36 +506,52 @@ def _read_acceptance_phase(acc_urn: str, repo_root: Path) -> Optional[str]:
     best-effort — security-rule ``phase`` is informational for coach
     dispatch; an absent value does not block walker execution.
     """
+    identity = _acceptance_identity(acc_urn, repo_root)
+    if identity is None:
+        return None
+
+    phase = identity.get("phase")
+    if isinstance(phase, str) and phase.strip():
+        return phase.strip()
+    return None
+
+
+def _acceptance_identity(acc_urn: str, repo_root: Path) -> Optional[dict]:
+    """The ``identity`` block of the acceptance that ``acc_urn`` names.
+
+    None when the URN does not resolve, the target YAML is unreadable, or the
+    file declares no acceptance carrying that exact URN. Best-effort by design:
+    callers read a miss as "not authored", never as an error.
+    """
     try:
         from atdd.coach.utils.graph.resolver import AcceptanceResolver
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
         return None
+
     try:
-        resolver = AcceptanceResolver(repo_root=repo_root)
-        resolution = resolver.resolve(acc_urn)
+        resolution = AcceptanceResolver(repo_root=repo_root).resolve(acc_urn)
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
         return None
+
     if not resolution.is_resolved or not resolution.resolved_paths:
         return None
-    target = resolution.resolved_paths[0]
+
     try:
-        with open(target, encoding="utf-8") as fh:
+        with open(resolution.resolved_paths[0], encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
     except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
         return None
+
     if not isinstance(data, dict):
         return None
+
     for acc in data.get("acceptances", []) or []:
         if not isinstance(acc, dict):
             continue
         identity = acc.get("identity") or {}
-        if not isinstance(identity, dict):
-            continue
-        if identity.get("urn") == acc_urn:
-            phase = identity.get("phase")
-            if isinstance(phase, str) and phase.strip():
-                return phase.strip()
-            return None
+        if isinstance(identity, dict) and identity.get("urn") == acc_urn:
+            return identity
+
     return None
 
 
@@ -536,34 +568,8 @@ def _acceptance_ref_resolves(acc_ref: Any, repo_root: Path) -> bool:
     """
     if not isinstance(acc_ref, str) or not acc_ref.startswith("acc:"):
         return False
-    try:
-        from atdd.coach.utils.graph.resolver import AcceptanceResolver
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
-        return False
-    try:
-        resolver = AcceptanceResolver(repo_root=repo_root)
-        resolution = resolver.resolve(acc_ref)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
-        return False
-    if not resolution.is_resolved or not resolution.resolved_paths:
-        return False
-    target = resolution.resolved_paths[0]
-    try:
-        with open(target, encoding="utf-8") as fh:
-            data = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
-        return False
-    if not isinstance(data, dict):
-        return False
-    for acc in data.get("acceptances", []) or []:
-        if not isinstance(acc, dict):
-            continue
-        identity = acc.get("identity") or {}
-        if not isinstance(identity, dict):
-            continue
-        if identity.get("urn") == acc_ref:
-            return True
-    return False
+
+    return _acceptance_identity(acc_ref, repo_root) is not None
 
 
 def _check_walker_invariants(acc: Dict) -> Optional[str]:
@@ -752,10 +758,10 @@ def _walk_repo_acceptance_file(
     acceptances that fail the §4.3 walker invariants — those are surfaced
     by Track B substrate validators.
     """
-    # Defer URNBuilder import to walk-time so the module loads even when
+    # Defer URNGrammar import to walk-time so the module loads even when
     # the graph package is not yet importable (avoids import cycles in
     # validators that import rule_binding at module-import time).
-    from atdd.coach.utils.graph.urn import URNBuilder
+    from atdd.coach.utils.graph.urn import URNGrammar
 
     try:
         with open(file_path) as fh:
@@ -812,13 +818,13 @@ def _walk_repo_acceptance_file(
             # surfaces this separately.
             continue
 
-        # (3) Acceptance URN must match URNBuilder.PATTERNS['acc']. Per the
+        # (3) Acceptance URN must match URNGrammar.PATTERNS['acc']. Per the
         # spec, "failure of (a) is a parent-graph problem caught by
         # `atdd repo validate`" — so the walker SKIPS malformed-URN
         # acceptances rather than failing loud on the whole registry build.
         # The substrate enforcement validator (Track B / Issue #410)
         # surfaces the URN violation separately.
-        if not URNBuilder.validate_urn(acc_urn, "acc"):
+        if not URNGrammar.validate_urn(acc_urn, "acc"):
             continue
 
         # (4) Walker invariant: phase + (harness OR signal+threshold).
@@ -874,7 +880,7 @@ def find_repo_rules(
     Raises ``RepoYamlValidationError`` for structural violations:
       - ``disposition:`` declared anywhere in repo YAML (§4.4).
       - Literal top-level ``id:`` field on an acceptance block (§3.3).
-      - Acceptance URN failing ``URNBuilder.PATTERNS['acc']``.
+      - Acceptance URN failing ``URNGrammar.PATTERNS['acc']``.
       - Derivation producing a rule-id that fails repo grammar.
 
     Returns a list of ``(source_path, metadata)`` tuples. Order is
@@ -1174,105 +1180,140 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
 
     for file_path in find_convention_files(roots):
         for _, _, rule in extract_rules(file_path):
-            rid = rule.get("id")
-            if not isinstance(rid, str) or not rid:
+            meta = _rule_metadata(rule, file_path)
+            if meta is None:
                 continue
-            severity = rule.get("severity")
-            if not isinstance(severity, int) or isinstance(severity, bool):
-                continue  # malformed rules are policed by test_rule_id_uniqueness
-            description = rule.get("description") or ""
-            recipe = rule.get("recipe")
-            introduced_in = rule.get("introduced_in")
-            disposition = rule.get("disposition")
-            validator = rule.get("validator")
-            fix_hint = rule.get("fix_hint")
-            aliases_raw = rule.get("aliases")
-            aliases: Tuple[str, ...]
-            if isinstance(aliases_raw, list):
-                aliases = tuple(a for a in aliases_raw if isinstance(a, str) and a)
-            else:
-                aliases = ()
-            superseded_by_raw = rule.get("superseded_by")
-            superseded_by = (
-                superseded_by_raw
-                if isinstance(superseded_by_raw, str) and superseded_by_raw
-                else None
-            )
-            meta = RuleMetadata(
-                rule_id=rid,
-                severity=severity,
-                description=description,
-                recipe=recipe if isinstance(recipe, str) and recipe else None,
-                introduced_in=(
-                    introduced_in
-                    if isinstance(introduced_in, str) and introduced_in
-                    else None
-                ),
-                source_path=file_path.resolve(),
-                disposition=(
-                    disposition if isinstance(disposition, str) else None
-                ),
-                validator=validator if isinstance(validator, str) and validator else None,
-                fix_hint=fix_hint if isinstance(fix_hint, str) and fix_hint else None,
-                aliases=aliases,
-                superseded_by=superseded_by,
-            )
-            registry.setdefault(rid, []).append(meta)
-            canonical_ids.add(rid)
 
-            for alias in aliases:
-                # Alias collides with another canonical id?
-                if alias in canonical_ids and alias != rid:
-                    raise AmbiguousAliasError(
-                        f"alias {alias!r} on rule {rid!r} collides with another "
-                        f"rule's canonical id (declared in "
-                        f"{registry[alias][0].source_path}). "
-                        f"Aliases must be unique across the registry."
-                    )
-                # Alias collides with another rule's alias?
-                if alias in alias_to_canonical and alias_to_canonical[alias] != rid:
-                    raise AmbiguousAliasError(
-                        f"alias {alias!r} is claimed by both {rid!r} and "
-                        f"{alias_to_canonical[alias]!r}. Aliases must point at "
-                        f"a single canonical rule."
-                    )
-                alias_to_canonical[alias] = rid
-                # Register alias entry pointing at the same RuleMetadata so
-                # bind_rule(alias) resolves to the canonical rule.
-                if alias != rid:
-                    registry.setdefault(alias, []).append(meta)
+            registry.setdefault(meta.rule_id, []).append(meta)
+            canonical_ids.add(meta.rule_id)
+            _register_aliases(registry, canonical_ids, alias_to_canonical, meta)
 
-    # Repo-rule walker (substrate spec v12 §4.2 — issue #408). Merges into
-    # the same registry index so bind_rule resolves both toolkit-convention
-    # and repo-derived rules through one path. Cross-source collisions
-    # raise AmbiguousRuleError at lookup time (existing behavior).
-    repo_root = _OVERRIDE_REPO_ROOT
-    if repo_root is None and _OVERRIDE_ROOTS is None:
-        # Live mode: walk the consumer repo's plan/ tree.
-        from atdd.coach.utils.repo import find_repo_root
-
-        repo_root = find_repo_root()
-    # When override_roots is set (test mode pointing at fixture conventions)
-    # we DO NOT also walk a live plan/ — tests must explicitly opt in by
-    # passing override_repo_root. This keeps fixture-based convention tests
-    # hermetic from the consumer repo's plan/ contents.
+    repo_root = _registry_repo_root()
     if repo_root is not None:
-        for _src_path, repo_meta in find_repo_rules(repo_root):
-            registry.setdefault(repo_meta.rule_id, []).append(repo_meta)
-        # Substrate security walker (issue #422 / spec v12 §5.4) — merges
-        # resolved security rules into the same index. Unresolved abuse_case
-        # acceptance_refs do NOT enter the registry (§7.4 two-place split);
-        # they fire the validation-time enforcement rule instead.
-        try:
-            for _src_path, sec_meta in find_repo_security_rules(repo_root):
-                registry.setdefault(sec_meta.rule_id, []).append(sec_meta)
-        except RepoYamlValidationError:
-            # Re-raise so the registry build fails LOUDLY rather than silently
-            # emit half a registry. The conformance validators surface the
-            # underlying authoring nit at validation time.
-            raise
+        _merge_repo_rules(registry, repo_root)
 
     return registry
+
+
+def _str_or_none(value: Any) -> Optional[str]:
+    """A non-empty string, else None."""
+    return value if isinstance(value, str) and value else None
+
+
+def _rule_metadata(rule: dict, file_path: Path) -> Optional[RuleMetadata]:
+    """Build RuleMetadata for one convention rule. None when it is malformed.
+
+    Malformed rules (no ``id``, non-int ``severity``) are skipped here and
+    policed by test_rule_id_uniqueness.
+    """
+    rid = rule.get("id")
+    if not isinstance(rid, str) or not rid:
+        return None
+
+    severity = rule.get("severity")
+    if not isinstance(severity, int) or isinstance(severity, bool):
+        return None
+
+    # `disposition` accepts the empty string; the rest require a non-empty value
+    disposition = rule.get("disposition")
+
+    return RuleMetadata(
+        rule_id=rid,
+        severity=severity,
+        description=rule.get("description") or "",
+        recipe=_str_or_none(rule.get("recipe")),
+        introduced_in=_str_or_none(rule.get("introduced_in")),
+        source_path=file_path.resolve(),
+        disposition=disposition if isinstance(disposition, str) else None,
+        validator=_str_or_none(rule.get("validator")),
+        fix_hint=_str_or_none(rule.get("fix_hint")),
+        aliases=_rule_aliases(rule),
+        superseded_by=_str_or_none(rule.get("superseded_by")),
+    )
+
+
+def _rule_aliases(rule: dict) -> Tuple[str, ...]:
+    """The non-empty string aliases a rule declares."""
+    aliases_raw = rule.get("aliases")
+    if not isinstance(aliases_raw, list):
+        return ()
+
+    return tuple(a for a in aliases_raw if isinstance(a, str) and a)
+
+
+def _register_aliases(
+    registry: Dict[str, List[RuleMetadata]],
+    canonical_ids: set,
+    alias_to_canonical: Dict[str, str],
+    meta: RuleMetadata,
+) -> None:
+    """Point every alias of a rule at the same RuleMetadata.
+
+    Raises ``AmbiguousAliasError`` when an alias collides with another rule's
+    canonical id, or is claimed by two different rules.
+    """
+    rid = meta.rule_id
+    for alias in meta.aliases:
+        # Alias collides with another canonical id?
+        if alias in canonical_ids and alias != rid:
+            raise AmbiguousAliasError(
+                f"alias {alias!r} on rule {rid!r} collides with another "
+                f"rule's canonical id (declared in "
+                f"{registry[alias][0].source_path}). "
+                f"Aliases must be unique across the registry."
+            )
+        # Alias collides with another rule's alias?
+        if alias in alias_to_canonical and alias_to_canonical[alias] != rid:
+            raise AmbiguousAliasError(
+                f"alias {alias!r} is claimed by both {rid!r} and "
+                f"{alias_to_canonical[alias]!r}. Aliases must point at "
+                f"a single canonical rule."
+            )
+
+        alias_to_canonical[alias] = rid
+        # Register the alias entry against the same RuleMetadata so
+        # bind_rule(alias) resolves to the canonical rule.
+        if alias != rid:
+            registry.setdefault(alias, []).append(meta)
+
+
+def _registry_repo_root() -> Optional[Path]:
+    """The repo whose plan/ tree contributes rules; None when none should be walked.
+
+    When override_roots is set (test mode pointing at fixture conventions) we do
+    NOT also walk a live plan/ — tests opt in explicitly by passing
+    override_repo_root. This keeps fixture-based convention tests hermetic from
+    the consumer repo's plan/ contents.
+    """
+    if _OVERRIDE_REPO_ROOT is not None:
+        return _OVERRIDE_REPO_ROOT
+    if _OVERRIDE_ROOTS is not None:
+        return None
+
+    # Live mode: walk the consumer repo's plan/ tree.
+    from atdd.coach.utils.repo import find_repo_root
+
+    return find_repo_root()
+
+
+def _merge_repo_rules(registry: Dict[str, List[RuleMetadata]], repo_root: Path) -> None:
+    """Merge the repo-derived rules into the convention registry.
+
+    Repo-rule walker (substrate spec v12 §4.2 — issue #408): bind_rule resolves
+    toolkit-convention and repo-derived rules through one index. Cross-source
+    collisions raise AmbiguousRuleError at lookup time (existing behavior).
+
+    The substrate security walker (issue #422 / spec v12 §5.4) merges resolved
+    security rules into the same index. Unresolved abuse_case acceptance_refs do
+    NOT enter the registry (§7.4 two-place split) — they fire the
+    validation-time enforcement rule instead. A ``RepoYamlValidationError``
+    propagates so the build fails LOUDLY rather than emit half a registry.
+    """
+    for _src_path, repo_meta in find_repo_rules(repo_root):
+        registry.setdefault(repo_meta.rule_id, []).append(repo_meta)
+
+    for _src_path, sec_meta in find_repo_security_rules(repo_root):
+        registry.setdefault(sec_meta.rule_id, []).append(sec_meta)
 
 
 def _get_registry() -> Dict[str, List[RuleMetadata]]:
@@ -1318,7 +1359,7 @@ def bind_rule(rule_id: str) -> RuleMetadata:
     for hook in _bind_rule_hooks:
         try:
             hook(result)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             pass
     return result
 

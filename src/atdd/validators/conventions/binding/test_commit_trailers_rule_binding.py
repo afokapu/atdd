@@ -36,10 +36,6 @@ LEGACY_PARITY_SOURCES = ['src/atdd/coach/validators/test_commit_trailers_binding
 # the legacy module's import-time block.
 RULE_ID = "coach.commit-trailers.phase-required"
 CONVENTION = "src/atdd/coach/conventions/commit-trailers.convention.yaml"
-LEGACY_NODEID = (
-    "src/atdd/coach/validators/test_commit_trailers_binding.py"
-    "::test_commit_trailers_rule_family_emits_each_required_trailer_id"
-)
 
 
 def test_commit_trailers_rule_binding_variant_contract() -> None:
@@ -49,10 +45,13 @@ def test_commit_trailers_rule_binding_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_commit_trailers_rule_binding_clean_baseline() -> None:
-    P.assert_clean_baseline(VARIANT, P.repo_root())
+def test_commit_trailers_rule_binding_clean_baseline(clean_convention_graph) -> None:
+    P.assert_clean_baseline(VARIANT, P.repo_root(), graph=clean_convention_graph)
 
 
-def test_commit_trailers_rule_binding_legacy_parity() -> None:
-    result = P.assert_fault_parity(VARIANT, CONVENTION, RULE_ID, LEGACY_NODEID, P.repo_root())
-    assert result["verdict"] == "both"
+def test_commit_trailers_rule_binding_convention_fault(clean_convention_graph) -> None:
+    # Oracle retired (#1365): parity to `both` already proven+recorded; the variant's
+    # own real-graph fault injection + clean baseline are the live coverage.
+    P.assert_fault_convention_only(
+        VARIANT, CONVENTION, RULE_ID, P.repo_root(), graph=clean_convention_graph
+    )

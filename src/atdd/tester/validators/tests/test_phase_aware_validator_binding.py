@@ -91,21 +91,37 @@ def _write_acceptance(repo_root: Path) -> None:
     _write(repo_root / "plan" / "demo-wagon" / "D001.yaml", _WMBT_HEADER + _HARNESS_ACC_NO_TEST)
 
 
-def _write_manifest(repo_root: Path, *, wagon: str, status: str) -> None:
-    _write(
-        repo_root / ".atdd" / "manifest.yaml",
-        f"""
-        version: '2.0'
-        sessions:
-        - id: '9001'
-          slug: demo-session
-          issue_number: 9001
-          status: {status}
-          wagon: {wagon}
-          feature: feature:{wagon}:demo
-          train: 0001-self-compliance-validate
-        """,
-    )
+def _seed_owner(repo_root: Path, *, wagon: str, status: str) -> None:
+    """Seed the State Store with a demo work item mapping *wagon* at *status*.
+
+    #1270 slice E migrated ``owning_issue_phase`` to read the store
+    (``WorkItemReader``), and slice G deletes ``.atdd/manifest.yaml`` — so the
+    owner phase must be seeded into the store, not the (removed) manifest mirror.
+    """
+    atdd = repo_root / ".atdd"
+    atdd.mkdir(exist_ok=True)
+    (atdd / "config.yaml").write_text("github:\n  repo: afokapu/atdd\n", encoding="utf-8")
+
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.work_item_writer import create_work_item
+
+    conn = connect(init_state_store(start=repo_root))
+    try:
+        create_work_item(
+            conn,
+            "demo-session",
+            state=status,
+            data={
+                "status": status,
+                "wagon": wagon,
+                "feature": f"feature:{wagon}:demo",
+                "train": "0001-self-compliance-validate",
+            },
+            github_number=9001,
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _binding_violations(repo_root: Path):
@@ -132,7 +148,7 @@ def test_unit_001_phase_order_marks_init_planned_pre_test():
 def test_integration_001_forward_pass_exempts_pre_red_owner(tmp_path: Path, status: str):
     # acc:govern-lifecycle:E057-INTEGRATION-001-forward-pass-exempts-pre-red-owner
     _write_acceptance(tmp_path)
-    _write_manifest(tmp_path, wagon="demo-wagon", status=status)
+    _seed_owner(tmp_path, wagon="demo-wagon", status=status)
 
     assert _binding_violations(tmp_path) == []
 
@@ -144,7 +160,7 @@ def test_integration_001_forward_pass_exempts_pre_red_owner(tmp_path: Path, stat
 def test_integration_002_forward_pass_fires_for_red_plus_owner(tmp_path: Path, status: str):
     # acc:govern-lifecycle:E057-INTEGRATION-002-forward-pass-still-fires-for-red-plus-owner
     _write_acceptance(tmp_path)
-    _write_manifest(tmp_path, wagon="demo-wagon", status=status)
+    _seed_owner(tmp_path, wagon="demo-wagon", status=status)
 
     vs = _binding_violations(tmp_path)
     assert len(vs) == 1
@@ -165,7 +181,7 @@ def test_integration_002_fail_closed_when_wagon_unmapped(tmp_path: Path):
     # acc:govern-lifecycle:E057-INTEGRATION-002-forward-pass-still-fires-for-red-plus-owner
     # Manifest exists but maps a DIFFERENT wagon → no session for demo-wagon → require.
     _write_acceptance(tmp_path)
-    _write_manifest(tmp_path, wagon="other-wagon", status="PLANNED")
+    _seed_owner(tmp_path, wagon="other-wagon", status="PLANNED")
 
     vs = _binding_violations(tmp_path)
     assert len(vs) == 1
@@ -195,7 +211,7 @@ def test_integration_003_reverse_pass_orphan_detection_unchanged(
         """,
     )
     if with_planned_manifest:
-        _write_manifest(tmp_path, wagon="demo-wagon", status="PLANNED")
+        _seed_owner(tmp_path, wagon="demo-wagon", status="PLANNED")
 
     vs = _binding_violations(tmp_path)
     assert any(orphan_urn in v.detail for v in vs), (
@@ -211,15 +227,24 @@ def test_owning_issue_phase_returns_most_advanced_for_wagon(tmp_path: Path):
     from atdd.tester.validators._acceptance_walker import iter_repo_acceptances
 
     _write_acceptance(tmp_path)
-    _write(
-        tmp_path / ".atdd" / "manifest.yaml",
-        """
-        version: '2.0'
-        sessions:
-        - {id: a, slug: a, issue_number: 1, status: PLANNED, wagon: demo-wagon}
-        - {id: b, slug: b, issue_number: 2, status: RED, wagon: demo-wagon}
-        """,
-    )
+    # Two owning work items for the wagon (store — #1270 slice E/G): PLANNED + RED.
+    atdd = tmp_path / ".atdd"
+    atdd.mkdir(exist_ok=True)
+    (atdd / "config.yaml").write_text("github:\n  repo: afokapu/atdd\n", encoding="utf-8")
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.work_item_writer import create_work_item
+
+    conn = connect(init_state_store(start=tmp_path))
+    try:
+        for slug, status, num in (("a", "PLANNED", 1), ("b", "RED", 2)):
+            create_work_item(
+                conn, slug, state=status,
+                data={"status": status, "wagon": "demo-wagon"},
+                github_number=num,
+            )
+        conn.commit()
+    finally:
+        conn.close()
     acc = next(iter_repo_acceptances(tmp_path))
     # Most-advanced phase among the wagon's sessions wins → RED (not exempt).
     assert owning_issue_phase(tmp_path, acc) == "RED"

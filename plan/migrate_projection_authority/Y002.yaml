@@ -1,0 +1,73 @@
+urn: wmbt:migrate-projection-authority:Y002
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: manifest-read-fallback
+context_clarifier: 'when CORE-034 lands after projection reaches blocking mode: no core reader may fall
+  back to .atdd/manifest.yaml for shared lifecycle state, and the manifest readers are removed rather
+  than deprecated in place'
+lens: functional.effectiveness
+statement: 'minimize likelihood of a manifest-read-fallback: once projection is in blocking mode, no core
+  reader consults .atdd/manifest.yaml for shared lifecycle state'
+acceptances:
+- given:
+    abstract:
+    - A repo with a complete committed projection and .atdd/manifest.yaml deleted
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: deleting .atdd/manifest.yaml changes no core read result once projection is authoritative
+    urn: acc:migrate-projection-authority:Y002-UNIT-001-absent-manifest-does-not-degrade-reads
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - All reads resolve from the projection with results identical to the manifest-present run
+    - 'RED: several readers raise or silently degrade today when the manifest is absent'
+  when:
+    abstract: every core lifecycle read is exercised
+- given:
+    abstract:
+    - The core source tree after the manifest read-fallback is decommissioned
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: no core module retains a read path against the manifest file
+    urn: acc:migrate-projection-authority:Y002-UNIT-002-no-core-reader-references-manifest
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - No core module opens, globs, or parses .atdd/manifest.yaml for lifecycle state
+    - The removed readers' tests are deleted or retargeted at the projection reader
+  when:
+    abstract: the source tree is scanned for manifest read paths
+- identity:
+    urn: acc:migrate-projection-authority:Y002-SMOKE-001-manifest-read-fallback
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: manifest-read-fallback holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising manifest-read-fallback
+  when:
+    abstract: the Y002 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - manifest-read-fallback is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

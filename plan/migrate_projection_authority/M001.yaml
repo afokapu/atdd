@@ -1,0 +1,76 @@
+urn: wmbt:migrate-projection-authority:M001
+step: monitor
+direction: maximize
+dimension: likelihood
+object_of_control: shadow-projection-report
+context_clarifier: 'when CORE-032''s shadow-mode CI job runs before projection becomes blocking: it recomputes
+  the projection from the store and reports drift against the committed projection and against the manifest-derived
+  projection, without failing the build'
+lens: functional.effectiveness
+statement: maximize likelihood of a shadow-projection-report that recomputes the projection on every push
+  and surfaces drift against both the committed projection and the manifest-derived projection while remaining
+  non-blocking
+acceptances:
+- given:
+    abstract:
+    - A repo whose committed projection disagrees with project(store) for one work item
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: shadow mode reports drift and still exits zero, so it cannot block a merge while the cutover
+      is staged
+    urn: acc:migrate-projection-authority:M001-UNIT-001-reports-drift-without-failing
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The drift is reported with the uid and the differing fields
+    - The check exits zero because shadow mode is non-blocking
+    - 'RED: no shadow-mode check exists today'
+  when:
+    abstract: the shadow-mode projection check is run
+- given:
+    abstract:
+    - A repo whose committed projection is byte-identical to project(store)
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: a repo whose committed projection already equals project(store) produces an empty drift report
+    urn: acc:migrate-projection-authority:M001-UNIT-002-clean-repo-reports-no-drift
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - The drift report is empty
+    - The check exits zero
+  when:
+    abstract: the shadow-mode projection check is run
+- identity:
+    urn: acc:migrate-projection-authority:M001-SMOKE-001-shadow-projection-report
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: shadow-projection-report holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising shadow-projection-report
+  when:
+    abstract: the M001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - shadow-projection-report is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

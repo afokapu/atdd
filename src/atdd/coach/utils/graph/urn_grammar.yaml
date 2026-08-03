@@ -1,0 +1,173 @@
+# URN grammar convention (issue #1421)
+# ==============================================================================
+# The single source of truth for ATDD's URN grammar. The URN engine
+# (``coach/utils/graph/urn.py``, class ``URNGrammar``) *executes* this data the
+# same way ``planner/naming.py::verb_lexicon`` executes ``feature.convention.yaml``
+# — read with plain ``yaml.safe_load`` + ``@lru_cache``, never through
+# ``bind_rule`` or the convention-graph loader (that import would cycle;
+# ``urn.py`` deliberately imports zero atdd modules).
+#
+# There is intentionally NO second representation: the hard-coded
+# ``PATTERNS`` / ``SEGMENT_COUNTS`` literals that used to live in the engine are
+# now projections of the ``families:`` block below. Adding a URN family is a
+# one-row edit here — no engine change.
+#
+# Per family:
+#   pattern        regex the whole URN must match (parent-it-belongs-to grammar)
+#   segment_count  colon-separated tokens expected AFTER the prefix, or null when
+#                  the family has a variable/leaf depth (not enforced). A family
+#                  with segment_count == 1 is a graph ROOT (no parent coordinate).
+#   parent         the family this one is parented by (null for roots)
+#   segments       colon-token field names, in order — drives ``parse_urn`` so
+#                  parsing carries no hard-coded per-family branch. Families whose
+#                  terminal token is a dash-facet / multi-format sub-grammar
+#                  (acc, test) are flagged ``parse: custom`` and keep dedicated
+#                  parsing pending the test-identity migration (#1421 Layer 6).
+#   parse_type     value of the ``type`` key returned by ``parse_urn`` when it
+#                  differs from the family name (e.g. acc -> acceptance).
+
+version: "1.0"
+name: "URN Grammar"
+description: "Executable URN grammar — families as data, executed by URNGrammar."
+
+families:
+  # ── Identities ────────────────────────────────────────────────────────────
+  wagon:
+    pattern: '^wagon:[a-z][a-z0-9-]*$'
+    segment_count: 1
+    parent: null
+    segments: [wagon_id]
+
+  feature:
+    pattern: '^feature:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$'
+    segment_count: 2
+    parent: wagon
+    segments: [wagon_id, feature_id]
+
+  component:
+    pattern: '^component:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-zA-Z0-9.]+:(frontend|backend|fe|be):(presentation|application|domain|integration|assembly)$'
+    segment_count: null
+    parent: feature
+    segments: [wagon_id, feature_id, component_name, side, layer]
+
+  # ── Subject / release identity ──────────────────────────────────────────────
+  # subject:<name> — the durable noun object of a train's change (#1421). A
+  # 1-token ROOT family, so a 2-token typed train is not flagged orphan.
+  subject:
+    pattern: '^subject:[a-z][a-z0-9-]*$'
+    segment_count: 1
+    parent: null
+    segments: [name]
+
+  # train:<subject>:<slug> — TYPED train identity (#1421). ``category`` is a
+  # validated FIELD, never an identity digit. The legacy ``train:NNNN-slug``
+  # form is retired from the engine grammar; legacy resolution lives in the
+  # resolver's dual-resolution path during migration (out of engine scope).
+  train:
+    pattern: '^train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$'
+    segment_count: 2
+    parent: subject
+    segments: [subject, slug]
+
+  # ── Artifacts (colon hierarchy with optional dot variant) ───────────────────
+  plan:
+    pattern: '^plan:[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9]+(-[a-z0-9]+)*)*(\.[a-z0-9-]+)?$'
+    segment_count: null
+    parent: null
+    segments: null
+
+  test:
+    # test:{wagon}:{feature}:{WMBT}-{HARNESS}-{NNN}-{slug}  (V3 acceptance)
+    # test:train:{train_id}:{HARNESS}-{NNN}-{slug}          (V3 journey)
+    # legacy dot format                                     (migration support)
+    pattern: "^test:([a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]\\d{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\\d{3}-[a-z0-9][a-z0-9-]*|train:\\d{4}-[a-z0-9][a-z0-9-]*:(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\\d{3}-[a-z0-9][a-z0-9-]*|[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\\.[a-z0-9-]+)?)$"
+    segment_count: null
+    parent: null
+    parse: custom
+
+  contract:
+    pattern: '^contract:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)+(\.[a-z][a-z0-9-]+)?$'
+    segment_count: null
+    parent: null
+    segments: null
+
+  telemetry:
+    pattern: '^telemetry:[a-z][a-z0-9-]*(:[a-z][a-z0-9-]+)*(\.[a-z][a-z0-9-]+)?$'
+    segment_count: null
+    parent: null
+    segments: null
+
+  # ── ATDD-specific ───────────────────────────────────────────────────────────
+  wmbt:
+    pattern: '^wmbt:[a-z][a-z0-9-]*:[DLPCEMYRK][0-9]{3}$'
+    segment_count: 2
+    parent: wagon
+    segments: [wagon_id, sequence]
+
+  acc:
+    # Two shapes (substrate spec v12 §3.3), distinguished by which family the
+    # acceptance is parented by:
+    #   WMBT acceptance:  acc:<wagon>:<WMBT-id>-<HARNESS>-<NNN>[-<slug>]
+    #   Train acceptance: acc:<train-id>:<acceptance-slug>
+    #
+    # `acc` is the one family whose PARENT is polymorphic, so its token count is
+    # too — parent-it-belongs-to (§3.2) says an acceptance carries its parent's
+    # coordinates plus one leaf token:
+    #
+    #   wagon parent  → `wagon` is 1 token  → acc is 2 tokens  (segment_count)
+    #   train parent  → `train:<subject>:<slug>` is 3 tokens
+    #                                       → acc is 4 tokens  (alternate)
+    #
+    # The typed train identity landed in #1421; before this row admitted it, the
+    # second segment forbade colons and a typed train acceptance was UNAUTHORABLE
+    # (#1548). The typed alternative is listed FIRST so a typed URN parses as
+    # train-parented rather than as a wagon literally named `train`.
+    pattern: "^acc:(?:train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*|[a-z0-9][a-z0-9-]*:(?:[DLPCEMYRK][0-9]{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-[0-9]{3}(?:-[a-z0-9-]+)?|[a-z][a-z0-9-]*))$"
+    segment_count: 2
+    # Admissible token counts BEYOND `segment_count`, for a family whose parent
+    # is polymorphic. `segment_count` stays the canonical (wagon-parented) count
+    # so the spec §3.2 table, `SEGMENT_COUNTS` and the root-family derivation in
+    # edge_validator all keep their existing int contract.
+    alternate_segment_counts: [4]
+    parent: wagon
+    alternate_parents: [train]
+    parse: custom
+
+  security:
+    # spec v12 §3.2: parent = feature, 3 tokens (+ threat-seq)
+    pattern: '^security:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[0-9]{3}$'
+    segment_count: 3
+    parent: feature
+    segments: [wagon_id, feature_id, threat_seq]
+
+  # ── Resources ───────────────────────────────────────────────────────────────
+  endpoint:
+    pattern: '^endpoint:[a-z0-9-]+\.(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\.[a-z0-9-/]+$'
+    segment_count: null
+    parent: null
+    segments: null
+
+  topic:
+    pattern: '^topic:[a-z0-9-]+$'
+    segment_count: null
+    parent: null
+    segments: null
+
+  table:
+    pattern: '^table:[a-z0-9_]+$'
+    segment_count: null
+    parent: null
+    segments: null
+
+  team:
+    pattern: '^team:[a-z0-9-]+$'
+    segment_count: null
+    parent: null
+    segments: null
+
+  # ── Migration ───────────────────────────────────────────────────────────────
+  migration:
+    pattern: '^migration:\d{14}_[a-z][a-z0-9_]*$'
+    segment_count: null
+    parent: null
+    segments: null

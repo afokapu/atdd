@@ -5,7 +5,9 @@ targets_workspace: atdd.workspace.python-pytest
 contract_version: "1.1.0"
 
 # Back-reference to the agnostic obligation this detector primarily realizes.
-realizes_convention: coder.refactor.composition-consumer
+realizes_convention:
+  - coder.refactor.composition-consumer
+  - coder.refactor.composition-root
 
 # One run surfaces a SECOND rule_id (coder.refactor.composition-root) too — both
 # strict — exercising the v1.1 multi-rule output channel.

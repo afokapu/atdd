@@ -1,0 +1,47 @@
+# The required-check policy for the protected branch (#1400 enforce-merge-authority, D002).
+#
+# A CI workflow that is not wired into branch protection is advisory: it can go red and
+# the merge lands anyway. This document names the exact status-check contexts the
+# merge-authority run emits and the protection settings that turn them into the gate.
+#
+# It is cross-checked against `.github/workflows/atdd-merge-authority.yml` by
+# `atdd state policy-check`, in BOTH directions — a job renamed in the workflow, or a
+# check added to the required set and never wired into protection, leaves a hole that
+# still reports green. The two must be equal sets.
+#
+# Invariant I6: local hooks are convenience; CI/branch protection is authority.
+schema_version: "1.0.0"
+
+protected_branch: main
+
+required_status_checks:
+  # `strict: true` is GitHub's "require branches to be up to date before merging". Without
+  # it a branch can pass every check against a stale base and still break main on landing.
+  strict: true
+  # The section-4 required-check set. These are the job `name:` values in the
+  # merge-authority workflow — a GitHub status-check context IS the job name.
+  contexts:
+    - projection-canonicality   # project(hydrate(committed projection)) == committed
+    - projection-schema         # every <uid>.yaml conforms to commons:projection-object
+    - legal-transition          # the load-bearing gate: no canonical-but-illegal jump
+    - trailer-cross-check       # the git event log matches the projection diff it claims
+    - field-writer              # no writer touched a field it does not own (§7.1)
+    - no-secrets                # no raw token reaches the immutable history (I8)
+    - core-no-provider          # core's hot path imports no provider; bare git suffices
+
+branch_protection:
+  # No bypass. A gate an administrator can step around is not a gate — and "just this
+  # once" is how the projection acquires a state no validator ever admitted.
+  allow_bypass: false
+  enforce_admins: true
+  require_pull_request: true
+
+authority:
+  invariant: I6
+  statement: >-
+    Local hooks are convenience; CI and branch protection are authority. Every gate a
+    local hook runs has an equivalent server-side check in the merge-authority workflow,
+    and a hook can always be skipped with --no-verify — so no hook result is ever relied
+    upon by anyone but the developer who ran it.
+  hooks_are_convenience: true
+  ci_is_authority: true

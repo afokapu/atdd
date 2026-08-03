@@ -12,13 +12,14 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-from pathlib import Path
 
 from atdd.validators.conventions.presence import archetype, fixtures
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
-
-from .conftest import legacy_catches, patched
+from atdd.validators.conventions._support.graph_mutations import (
+    add_node,
+    clone_graph,
+    set_node_field,
+)
 
 FAMILY = "presence"
 TEMPLATE = "conditional_requirement"
@@ -33,14 +34,46 @@ LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_feedback_loop_smoke_c
 
 
 _TC = {t.template_id: t for t in archetype.TEMPLATES}
-# observe-and-correct:observer-runtime-and-rules is the live feedback-loop feature
-# whose only close_the_loop SMOKE acceptance lives in WMBT P001.
-P001_WMBT = "plan/observe_and_correct/P001.yaml"
-_TARGET_FEATURE = "feature:observe-and-correct:observer-runtime-and-rules"
-LEGACY_NODEID = (
-    "src/atdd/planner/validators/test_feedback_loop_smoke_closes_the_loop.py"
-    "::test_every_feedback_loop_feature_has_close_the_loop_smoke"
-)
+# #1486: the real-graph exemplar used here was
+# feature:observe-and-correct:observer-runtime-and-rules (its only close_the_loop
+# SMOKE lived in WMBT P001). That feature was decommissioned with the observer, and
+# the sole remaining on-disk feedback-loop feature is inline-suppressed — so there is
+# no live on-disk feature to inject into. Instead we ADD a synthetic feedback-loop
+# feature + WMBT to the clone (the same node shape the loader builds and the fixtures
+# use), give it a close_the_loop SMOKE, then clear that WMBT's acceptances so the
+# feature's only close_the_loop SMOKE disappears. This keeps the fault-injection
+# self-test independent of which real feature happens to be a feedback loop.
+_TARGET_FEATURE = "feature:demo:injected-loop"
+_TARGET_WMBT = "wmbt:demo:E001"
+_CTL_ACC = {
+    "identity": {"phase": "SMOKE", "urn": "acc:demo:E001-SMOKE-001-close-the-loop"},
+    "close_the_loop": {"consumer_reacted": "asserted", "drift_resolved": "asserted"},
+}
+
+
+def _fault(clean):
+    faulted = clone_graph(clean)
+    # Inject a well-formed feedback-loop feature whose only close_the_loop SMOKE we
+    # then remove — the evaluator must flag the feature for the missing requirement.
+    add_node(
+        faulted,
+        id=_TARGET_FEATURE,
+        kind="feature",
+        location="plan/demo/features/injected_loop.yaml",
+        package="demo",
+        refs=[_TARGET_WMBT],
+        fields={"kind": "feedback-loop", "wmbts": [_TARGET_WMBT]},
+    )
+    add_node(
+        faulted,
+        id=_TARGET_WMBT,
+        kind="wmbt",
+        location="plan/demo/E001.yaml",
+        package="demo",
+        fields={"acceptances": [dict(_CTL_ACC)]},
+    )
+    set_node_field(faulted, _TARGET_WMBT, "acceptances", [])
+    return faulted
 
 
 def _evaluate(graph) -> list:
@@ -53,12 +86,12 @@ def test_feedback_loop_close_the_loop_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_feedback_loop_clean_baseline(repo_root: Path) -> None:
+def test_feedback_loop_clean_baseline(clean_convention_graph) -> None:
     """Every non-suppressed feedback-loop feature has a close_the_loop SMOKE -> 0."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
-def test_feedback_loop_fragment_catches_missing(repo_root: Path) -> None:
+def test_feedback_loop_fragment_catches_missing() -> None:
     """In-memory real-graph fragment: a feedback-loop feature whose WMBT lacks a
     close_the_loop SMOKE acceptance is caught; the with-block fragment is clean."""
     assert _evaluate(fixtures.VALID_FRAGMENTS[TEMPLATE][VARIANT]) == []
@@ -68,22 +101,23 @@ def test_feedback_loop_fragment_catches_missing(repo_root: Path) -> None:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
 
 
-def test_feedback_loop_catches_injected_fault(repo_root: Path) -> None:
-    """Disabling the close_the_loop block on the real SMOKE acceptance is caught."""
-    with patched(repo_root, P001_WMBT, "    close_the_loop:", "    close_the_loop_DISABLED:"):
-        violations = _evaluate(load_composed_graph(repo_root))
+def test_feedback_loop_catches_injected_fault(clean_convention_graph) -> None:
+    """Disabling the feature's only close_the_loop SMOKE acceptance is caught (#1416).
+
+    Injected into a deep clone of the session graph — no disk write."""
+    violations = _evaluate(_fault(clean_convention_graph))
     assert any(v["node_id"] == _TARGET_FEATURE for v in violations)
+    # the shared clean graph still satisfies the requirement
+    assert _evaluate(clean_convention_graph) == []
 
 
-def test_feedback_loop_legacy_parity(repo_root: Path) -> None:
-    """PARITY: BOTH catch. One injected fault (the feature's only close_the_loop
-    SMOKE acceptance is disabled) is caught by the convention evaluator AND by the
-    legacy validator run via subprocess."""
-    with patched(repo_root, P001_WMBT, "    close_the_loop:", "    close_the_loop_DISABLED:"):
-        convention_caught = any(
-            v["node_id"] == _TARGET_FEATURE for v in _evaluate(load_composed_graph(repo_root))
-        )
-        legacy_caught = legacy_catches(repo_root, LEGACY_NODEID)
-    assert convention_caught and legacy_caught, (
-        f"parity break: convention_caught={convention_caught} legacy_caught={legacy_caught}"
+def test_feedback_loop_convention_fault(clean_convention_graph) -> None:
+    """The convention evaluator catches the injected fault (the feature's only
+    close_the_loop SMOKE acceptance is disabled). Oracle retired (#1365)."""
+    convention_caught = any(
+        v["node_id"] == _TARGET_FEATURE for v in _evaluate(_fault(clean_convention_graph))
+    )
+    # oracle retired (#1365): the convention evaluator is the live coverage
+    assert convention_caught, (
+        "convention evaluator did not catch the disabled close_the_loop SMOKE acceptance"
     )

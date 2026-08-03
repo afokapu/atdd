@@ -1,0 +1,33 @@
+wagon: govern-providers
+urn: wagon:govern-providers
+name: Govern Providers
+theme: commons
+description: Make the mechanism layer explicit so an obligation without a detector
+  and a detector without an obligation are both caught, instead of one silently defaulting
+  to strict
+subject: agent:coder
+context: a convention node is an agnostic obligation; a workspace provider is the
+  stack-specific mechanism that checks it
+action: states the subprocess-not-import boundary and the contract_version SemVer
+  refusal, resolves detectors shipped by extension packages as well as workspaces,
+  and fails loudly on an implementation bound to a convention nobody declares
+goal: make the mechanism layer explicit so an obligation without a detector and a
+  detector without an obligation are both caught, instead of one silently defaulting
+  to strict
+outcome: an explicit provider boundary, extension-shipped detector resolution, and
+  loud orphan-detector detection
+features:
+- urn: feature:govern-providers:govern-providers
+produce:
+- name: commons:provider-capability
+  contract: contract:commons:provider-capability
+  telemetry: null
+  to: internal
+consume: []
+wmbt:
+  total: 5
+  D001: "minimize likelihood of provider-boundary-erosion by resolving a workspace provider to a subprocess CLI handle that core never imports, requiring the provider to declare a contract_version, and refusing resolution when no installed contract version satisfies the requested caret range"
+  E001: "maximize likelihood of extension-shipped-detector-resolution by discovering an implementation shipped under .atdd/extensions and forwarding its impls-root to the subprocessed provider CLI just as for a workspace-shipped detector, so its violations surface as a real verdict rather than a false-green skip"
+  E002: "minimize quantity of orphan-detector-bindings by scanning binding.lock.yaml for every bound convention_id that no convention node under .atdd/extensions declares and reporting each by name, so an implementation bound to a convention nobody declared is caught instead of silently defaulting to strict"
+  E003: "minimize quantity of extension-identity-leak by generating binding.lock.yaml from convention, implementation, workspace and contract fields alone and never emitting the extension package identity, so a package rename is a lock regeneration rather than a rule migration"
+  E004: "minimize quantity of off-target-rule-execution by letting a caller name the rules enforce() runs and refusing a selection that names an unknown rule, so a single-rule verdict costs one provider subprocess instead of the whole bound set and a mistyped rule id fails loudly instead of reporting clean"

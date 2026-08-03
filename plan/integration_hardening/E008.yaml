@@ -1,98 +1,216 @@
-urn: "wmbt:integration-hardening:E008"
-step: "execute"
-direction: "minimize"
-dimension: "quantity"
-object_of_control: "review-gate-failures-caused-by-pr-resolution-errors-bypassing-the-in-process-broken-sentinel"
-context_clarifier: "when atdd coach review <N> --no-spawn --in-process fails to resolve the PR commit (gh pr view rate-limited, network failure, or a missing PR) and run() step 1 returns 2 before the if in_process dispatch, escaping the _write_broken_sentinel path and producing a merge-blocking fail verdict with no report file"
-lens: "functional.effectiveness"
-statement: "minimize quantity of review-gate-failures-caused-by-pr-resolution-errors-bypassing-the-in-process-broken-sentinel when run() step 1 catches a _resolve_pr_commit RuntimeError and, in in-process mode, routes through _write_broken_sentinel — writing a review-step-broken report with a diagnostic PR-resolution summary to --report-file and returning 0 — while the spawn-based path retains its return 2 because it has no exit-0-always contract"
+urn: wmbt:integration-hardening:E008
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: concurrent-upgrade-runs-mutating-the-one-shared-install-that-sits-beneath-every-worktree
+context_clarifier: "when roughly sixty agents run out of a single pipx install and\
+  \ Y007 has just made `atdd upgrade` reachable to all of them, so two or more can\
+  \ enter auto_upgrade() at once and have pip rewrite the venv beneath the others\
+  \ mid-run \u2014 the hazard that would otherwise be the argument for keeping a human\
+  \ in the loop, except the human faces the identical hazard with no better information\
+  \ and no way to see the other fifty-nine; note the lock cannot live under a worktree's\
+  \ own .atdd/ control root, because sixty worktrees have sixty of those and would\
+  \ serialise against nothing"
+lens: functional.effectiveness
+statement: "minimize likelihood of concurrent-upgrade-runs-mutating-the-one-shared-install-that-sits-beneath-every-worktree\
+  \ by serialising the mutating section of `atdd upgrade` on a lock scoped to the\
+  \ install rather than to the checkout, making a run that finds nothing to do a no-op\
+  \ instead of a second mutation, and refusing loudly with a named reason if the lock\
+  \ cannot be taken within a bounded wait \u2014 never proceeding unlocked and never\
+  \ degrading quietly, so the answer to concurrency is a lock and idempotency rather\
+  \ than an operator"
 acceptances:
-  - identity:
-      urn: "acc:integration-hardening:E008-UNIT-001-pr-resolution-failure-in-process-writes-sentinel"
-      id: "AC-UNIT-001"
-      purpose: "run(pr_number=N, in_process=True, report_file=p) with _resolve_pr_commit forced to raise RuntimeError writes a review-step-broken sentinel to report_file and returns 0"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "coach_review._resolve_pr_commit is monkeypatched to raise RuntimeError('gh pr view 726 failed (rc=1): GraphQL: API rate limit already exceeded')"
-        - "tmp_path used for the --report-file path so the write is isolated"
-    when:
-      abstract: "run(pr_number=726, in_process=True, report_file=str(tmp_path / 'review.json')) is called"
-    then:
-      abstract:
-        - "Exit code is 0"
-        - "report.json exists at the --report-file path"
-        - "report.json verdict field is 'review-step-broken'"
-        - "report.json summary field is non-empty"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-17"
-  - identity:
-      urn: "acc:integration-hardening:E008-UNIT-002-pr-resolution-failure-spawn-path-still-returns-2"
-      id: "AC-UNIT-002"
-      purpose: "run(pr_number=N, in_process=False) with _resolve_pr_commit forced to raise RuntimeError still returns 2 — the spawn-based path is unchanged (true negative)"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "coach_review._resolve_pr_commit is monkeypatched to raise RuntimeError"
-        - "tmp_path used for the --report-file path"
-    when:
-      abstract: "run(pr_number=726, in_process=False, report_file=str(tmp_path / 'review.json')) is called"
-    then:
-      abstract:
-        - "Exit code is 2"
-        - "No report.json is written at the --report-file path"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-17"
-  - identity:
-      urn: "acc:integration-hardening:E008-UNIT-003-sentinel-summary-names-pr-resolution"
-      id: "AC-UNIT-003"
-      purpose: "The sentinel written on a PR-resolution failure carries a diagnostic summary that names the PR-resolution failure and surfaces the underlying gh error, so operators can distinguish a transient infra hiccup from a genuine review failure"
-      phase: "RED"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "coach_review._resolve_pr_commit is monkeypatched to raise RuntimeError('gh pr view 726 failed (rc=1): GraphQL: API rate limit already exceeded')"
-        - "tmp_path used for the --report-file path"
-    when:
-      abstract: "run(pr_number=726, in_process=True, report_file=str(tmp_path / 'review.json')) is called and the written report.json is parsed"
-    then:
-      abstract:
-        - "report.json summary (or error) field contains the substring 'PR resolution'"
-        - "report.json summary (or error) field contains the substring 'rate limit' from the underlying gh error"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-17"
-  - identity:
-      urn: "acc:integration-hardening:E008-SMOKE-001-nonexistent-pr-exits-0-with-broken-verdict"
-      id: "AC-SMOKE-001"
-      purpose: "atdd coach review against a non-existent PR in --no-spawn --in-process mode, using the real coach_review.run() and the real gh-backed _resolve_pr_commit, exits 0 and writes a real report.json containing verdict review-step-broken — no monkeypatched resolver, proving the contract holds against an actual PR-resolution failure"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "The real coach_review module with no monkeypatch on _resolve_pr_commit"
-        - "A PR number that does not exist in the repo (e.g. 999999) so the real gh pr view fails"
-        - "A real tmp_path for the --report-file path"
-    when:
-      abstract: "run(pr_number=999999, in_process=True, report_file=str(tmp_path / 'r.json')) is called — equivalent to `atdd coach review 999999 --no-spawn --in-process --report-file <p>`"
-    then:
-      abstract:
-        - "Exit code is 0"
-        - "tmp_path/r.json exists and is valid JSON"
-        - "tmp_path/r.json verdict field is 'review-step-broken'"
-        - "tmp_path/r.json summary field is non-empty"
-    metadata:
-      author: "atdd:smoke-backfill-trivial-tier"
-      created: "2026-05-17"
+- identity:
+    urn: acc:integration-hardening:E008-UNIT-001-lock-is-scoped-to-the-install-not-the-checkout
+    id: AC-UNIT-001
+    purpose: 'The load-bearing property: two runs launched from two different worktrees
+      must contend for the same lock. A lock under a worktree''s own .atdd/ would
+      give sixty agents sixty locks and serialise nothing'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - Two distinct repo roots on disk, each a valid ATDD checkout with its own .atdd/
+      control root, both resolving to the same installed atdd
+  when:
+    abstract: The lock identity the upgrader would use is resolved for each repo root
+  then:
+    abstract:
+    - Both resolve to the same lock, so the two checkouts contend
+    - The lock does not live inside either repo root, and in particular not under
+      either .atdd/ directory
+    - The lock identity is derived from the install being mutated, so two genuinely
+      separate installs on one machine do not contend with each other
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:E008-UNIT-002-second-run-waits-and-never-sees-a-partial-install
+    id: AC-UNIT-002
+    purpose: 'Two concurrent runs serialise rather than interleave: the second waits
+      for the first to finish its mutation and then observes a whole install, never
+      one being rewritten'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - is_outdated() reports a pending upgrade for both runs at start
+    - auto_upgrade() is patched to a slow function that records entry and exit timestamps
+      and flips the reported installed version on exit
+  when:
+    abstract: Two Upgrader.run() invocations are started concurrently against the
+      same install
+  then:
+    abstract:
+    - "The two auto_upgrade() intervals do not overlap \u2014 one wholly precedes\
+      \ the other"
+    - Exactly one mutation is performed for the single version delta; the run that
+      waited re-reads state after acquiring the lock and finds nothing left to do
+    - Both invocations return 0
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:E008-UNIT-003-already-current-run-is-a-no-op
+    id: AC-UNIT-003
+    purpose: 'Idempotency: a run that finds the install current and the stamp in sync
+      mutates nothing, so the fifty-nine agents that arrive after the upgrade cost
+      one check each'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - is_outdated() returns (False, '4.27.0', '4.27.0') and toolkit.last_version already
+      equals the installed version
+    - auto_upgrade and subprocess.run are patched with call tracking
+  when:
+    abstract: Upgrader.run() is called with yes=False and stdin not a terminal
+  then:
+    abstract:
+    - auto_upgrade() is never called and no `atdd sync` or `atdd init --force` subprocess
+      is spawned
+    - The return code is 0 and the output says the install is already in sync
+    - Running it a second time produces the same result and the same absence of side
+      effects
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:E008-UNIT-004-unavailable-lock-refuses-loudly-and-never-proceeds-unlocked
+    id: AC-UNIT-004
+    purpose: 'Fail closed, in the posture managed hooks and manifest_migration already
+      set: if the lock cannot be taken within its bounded wait, the run refuses with
+      a named reason rather than mutating the shared install without it'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The lock is held for longer than the bounded wait by a separate live holder
+    - is_outdated() reports a pending upgrade, and auto_upgrade is patched with call
+      tracking
+  when:
+    abstract: Upgrader.run() is called and its wait for the lock expires
+  then:
+    abstract:
+    - "auto_upgrade() is never called \u2014 the run does not proceed unlocked"
+    - The return code is non-zero and the message names the contention as the reason
+      and says the run may simply be retried
+    - No environment variable exists that skips the lock; the refusal has no bypass
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:E008-UNIT-005-a-dead-holder-does-not-wedge-the-install
+    id: AC-UNIT-005
+    purpose: 'The lock must not recreate the failure it is closing: an agent killed
+      mid-upgrade must not leave sixty workers blocked behind a lock nobody holds,
+      needing an operator to clear it by hand'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A lock left behind by a process that no longer exists
+  when:
+    abstract: Upgrader.run() is called and attempts to acquire the lock
+  then:
+    abstract:
+    - "The abandoned lock does not block the run indefinitely \u2014 acquisition succeeds\
+      \ without any manual clean-up"
+    - A lock held by a process that IS still alive is still respected and still waited
+      on
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:E008-UNIT-006-two-sequential-runs-converge-and-the-first-names-the-second
+    id: AC-UNIT-006
+    purpose: "The upgrade is a two-step by existing design \u2014 the process that\
+      \ ran pip is still running the old code and returns telling the caller to re-run.\
+      \ Operator decision (#1628): keep that shape; the process must NOT re-exec itself\
+      \ to finish in one invocation. Unattended, the two steps must converge and the\
+      \ first run must name its own successor"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A pending upgrade, stdin not a terminal, and auto_upgrade() patched to succeed
+      and advance the reported installed version
+  when:
+    abstract: Upgrader.run() is called, then called again against the now-upgraded
+      install
+  then:
+    abstract:
+    - The first run returns 0 and its output names the exact command to run next to
+      finish the sync
+    - The second run performs the sync step and stamps toolkit.last_version forward,
+      returning 0
+    - A third run is a no-op, so the sequence converges rather than oscillating
+    - The first run exits after reporting, having replaced neither itself nor its interpreter
+      — no os.exec* call and no relaunch of the upgraded binary; the second step is
+      the caller's to take, which is what keeps the human-facing shape of the command
+      unchanged
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'
+- identity:
+    urn: acc:integration-hardening:E008-SMOKE-001-two-real-concurrent-upgrades-serialise-on-one-install
+    id: AC-SMOKE-001
+    purpose: "SMOKE: two real `atdd upgrade` processes started at once against one\
+      \ install, from two different worktrees, with no mocking of the lock \u2014\
+      \ exactly one does the work, both exit cleanly, and the install is intact afterwards"
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - Two real ATDD checkouts on disk sharing one installed atdd, each with a stale
+      toolkit.last_version stamp
+    - Both are invoked as subprocesses with stdin=DEVNULL and --no-pypi, so the smoke
+      exercises the real lock and the real sync step without touching PyPI or rewriting
+      the shared venv
+    - "The real lock is used \u2014 nothing about the locking path is patched"
+  when:
+    abstract: Both subprocesses are launched simultaneously and run to completion
+  then:
+    abstract:
+    - Both exit 0, and neither output contains 'EOFError'
+    - 'Their mutating sections did not overlap: the evidence each run writes shows
+      one wholly before the other'
+    - After both finish, the checkouts are stamped current and the install still resolves
+      and reports a version
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-07-26'

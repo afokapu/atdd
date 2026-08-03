@@ -1,0 +1,63 @@
+train_id: train:self-compliance:validate-lifecycle
+title: Self Compliance Validate
+description: 'Validate lifecycle train: planner defines plans, tester verifies contracts,
+  coder implements, coach governs'
+themes:
+- commons
+primary_wagon: govern-lifecycle
+route_space:
+  classification: single-route
+  basis: not-yet-assessed
+  retires_with: 1549
+participants:
+- wagon:define-plans
+- wagon:verify-contracts
+- wagon:implement-code
+- wagon:govern-lifecycle
+- wagon:self-compliance-migration
+- wagon:security-patterns
+- wagon:enforce-structured-logging
+- wagon:validate-conventions
+- wagon:enforce-binding-plan
+- system:atdd-cli
+sequence:
+- step: 1
+  intent: Define wagon manifests, features, and acceptance criteria
+  from: wagon:define-plans
+  to: wagon:self-compliance-migration
+  artifact: commons:plan:manifest
+- step: 2
+  intent: Generate contract schemas and RED tests from acceptance criteria
+  from: wagon:verify-contracts
+  to: wagon:self-compliance-migration
+  artifact: commons:contract:schema
+- step: 3
+  intent: Implement code to make RED tests GREEN
+  from: wagon:implement-code
+  to: wagon:self-compliance-migration
+  artifact: commons:code:implementation
+- step: 4
+  intent: Enforce structured logging conventions via AST-based coder validator
+  from: wagon:implement-code
+  to: wagon:enforce-structured-logging
+  artifact: commons:compliance:logging
+- step: 5
+  intent: Validate compliance across all phases and produce audit report
+  from: wagon:govern-lifecycle
+  to: system:atdd-cli
+  artifact: commons:compliance:gate
+- step: 6
+  intent: Establish the convention-graph validator family/template suite and reach
+    legacy parity before decommissioning persona validators
+  from: wagon:validate-conventions
+  to: system:atdd-cli
+  artifact: commons:validators:convention-family-registry
+- step: 7
+  intent: 'Enforce the binding plan over consumer code: per bound convention resolve
+    its provider, scan, bridge to an aggregate verdict + exit code on commit and in
+    CI'
+  from: wagon:enforce-binding-plan
+  to: system:atdd-cli
+  artifact: commons:enforce:enforce-cli
+status: planned
+category: nominal

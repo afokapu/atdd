@@ -2,7 +2,25 @@ version: "1.0"
 name: "Forbidden Commands Registry"
 description: |
   YAML-backed registry of commands blocked or rate-limited by the
-  claude-pre-tool-use hook (issue #668, L1 enforcement).
+  command classifier (issue #668).
+
+  SCOPE NOTE (#1556): this registry is read by a per-agent interception hook.
+  Interception can only be implemented per-agent — one agent has a pre-tool-use
+  seam, another has a different shape, a human at a terminal has none — so N
+  agents means N couplings, and core must name no agent. Decommissioning that
+  hook is DEFERRED to #1557, which builds the agent-agnostic replacement:
+  removing it before the replacement exists leaves the acceptances in
+  wmbt:integration-hardening:E006 declaring harness.type with no anchored test,
+  which the strict, unsuppressible repo-contract rule
+  tester.acceptance-violation.validator-binding-must-be-bidirectional rejects.
+
+  Until then this file retains its enforcement role. Do not describe it as
+  advisory while a live consumer still parses it.
+
+  Not covered by any agent-agnostic mechanism today (the PATH shims cover
+  `gh issue create` and the git-config danger keys, and nothing else):
+  ATDD-FORBID-GH-PR-CREATE, ATDD-FORBID-CMUX-SEND-CLAUDE, ATDD-LOOP-GH-PR-POLL.
+  Those three are #1557's to re-home.
 
   match_type values:
     hard_block  — always blocked, exits 2 with educational error
@@ -34,7 +52,7 @@ patterns:
       generation, and Project v2 field setup. Any issue created this way will
       be missing from .atdd/manifest.yaml and flagged by atdd validate coach.
       Incident: #659 was filed with gh issue create and lacked manifest entry.
-    alternative: "atdd issue <slug>"
+    alternative: "atdd author issue --title <title> --slug <slug>"
 
   - id: ATDD-FORBID-GH-PR-CREATE
     match_type: hard_block

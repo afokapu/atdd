@@ -1,0 +1,33 @@
+urn: feature:govern-lifecycle:core-agnosticity
+wagon: wagon:govern-lifecycle
+description: 'Keeps core stack-agnostic: no JavaScript/TypeScript file, validator,
+  rule_id or language-grammar dependency ships in the core package, so a pure-Python
+  consumer inherits no stack it cannot satisfy'
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: S
+wmbts:
+- wmbt:govern-lifecycle:E064
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 0
+      rationale: "No new CLI surface \u2014 the guard is a packaging acceptance, not\
+        \ a command"
+    application:
+    - type: use_cases
+      count: 0
+      rationale: Pure removal plus one assertion over the built wheel; no new application
+        behaviour
+    domain:
+    - type: entities
+      count: 0
+      rationale: Stack-agnosticity is an invariant over the shipped artifact, not
+        a modeled entity
+    integration:
+    - type: repositories
+      count: 0
+      rationale: Reuses the existing _wheel_harness build-and-inspect fixture from
+        E062

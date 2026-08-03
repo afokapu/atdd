@@ -1,0 +1,64 @@
+schema_version: 1.1.0
+rule_id: planner.component.count-limit
+kind: constraint
+status: active
+name: 'Component: Count Limit'
+statement: A feature must have at most 8 components; beyond 8 indicates the feature
+  is too large and should be split.
+terms:
+- term_id: max_per_feature
+  label: Maximum components per feature
+  text: "Feature must have \u2264 8 components. Beyond 8 components indicates the\
+    \ feature is too large and should be split."
+  values:
+    max_per_feature: 8
+    action: Split feature if more components needed
+    rationale: Beyond 8 components indicates feature is too large and should be split
+- term_id: typical_distribution
+  label: Typical component distribution
+  text: A typical 8-component budget splits across frontend, backend, and shared cross-cutting
+    concerns.
+  values:
+    frontend: 2
+    backend: 3
+    shared: 3
+    note: frontend = presentation + application; backend = application + domain +
+      integration; shared = cross-cutting concerns
+- term_id: layer_distribution
+  label: Layers available per side
+  text: Frontend components live in presentation/application; backend components live
+    in application/domain/integration.
+  values:
+    frontend:
+    - presentation
+    - application
+    backend:
+    - application
+    - domain
+    - integration
+implementation:
+  type: validator
+  ref: test_component_count_limit::test_component_count_limit
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+  legacy_section: count-limit
+content:
+  summary: A hard ceiling of 8 components per feature keeps features cohesive and
+    bounded, mirroring the WMBT acceptance limits, and forces oversized features to
+    be split rather than sprawl.
+  examples:
+  - 'Feature with 8 components: 2 frontend + 3 backend + 3 shared'
+  counter_examples:
+  - "Feature with 12 components \u2014 too large, must be split"
+metadata:
+  severity: 2
+  disposition: advisory
+  introduced_in: 4.28.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'

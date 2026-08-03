@@ -1,0 +1,86 @@
+urn: "wmbt:bind-extension-conventions:E001"
+step: "execute"
+direction: "maximize"
+dimension: "quantity"
+object_of_control: "gating-obligations-bound-through-implementation-fanout"
+context_clarifier: "the composer already fans one implementation out to the N conventions it realizes (#1359), but binds nothing new because all 26 workspace implementation manifests declare realizes_convention as a single scalar string while emitting N rule ids from one run. 11 of the 26 detectors are multi-rule: coder.design.primitives emits 7, the complexity and quality detectors emit up to 5, and so on — together they emit exactly the 26 gating rules that are declared but unbound. Declaring realizes_convention as a LIST of the rule ids each such detector OWNS lets the composer bind all 26 with ZERO new detectors. Ownership is not the same as co-emission: coder.logging.structured emits coder.logging.print but does not own it (the dedicated print detector does), so print must NOT be added to structured's realizes list. After the 11 manifests declare their ownership lists, regenerating binding.lock.yaml via `atdd substrate bind` binds 52 conventions (26 detectors' owned rules) instead of 26."
+lens: "functional.effectiveness"
+statement: "maximize quantity of gating obligations bound through implementation fanout by declaring realizes_convention as the list of rule ids each multi-rule detector owns on the 11 workspace manifests and regenerating the binding lock, so the composer binds all 26 previously-unbound rules without shipping a single new detector"
+acceptances:
+  - identity:
+      urn: "acc:bind-extension-conventions:E001-UNIT-001-fanout-detects-emitted-but-unrealized-rules"
+      id: "AC-UNIT-001"
+      purpose: "The fan-out helper reports every rule a detector emits but does not yet realize, and reports none once realizes covers the emitted set"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A multi-rule implementation manifest that realizes one convention but emits three rule ids"
+    when:
+      abstract: "The under-bound rules of the manifest are computed"
+      action: "invoke"
+    then:
+      abstract:
+        - "The two emitted-but-unrealized rule ids are reported as under-bound"
+        - "Once realizes_convention lists all three emitted ids, no rule is reported as under-bound"
+      assertions:
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"
+  - identity:
+      urn: "acc:bind-extension-conventions:E001-UNIT-002-co-emitted-rule-is-not-flagged-underbound"
+      id: "AC-UNIT-002"
+      purpose: "A rule a detector co-emits but does not own is excluded from the under-bound set, so ownership is fanned out but co-emission is not"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An implementation that emits a rule it does not own, named in a co-emission allow-set"
+    when:
+      abstract: "The under-bound rules are computed with the co-emitted rule excluded from ownership"
+      action: "invoke"
+    then:
+      abstract:
+        - "The co-emitted rule is NOT reported as under-bound even though it is emitted"
+        - "Only owned emitted rules missing from realizes_convention are reported"
+      assertions:
+        - type: "excludes"
+        - type: "equals"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"
+  - identity:
+      urn: "acc:bind-extension-conventions:E001-SMOKE-001-live-fanout-binds-all-gating-rules"
+      id: "AC-SMOKE-001"
+      purpose: "Rebuilding the binding plan over the real substrate binds every one of the 26 fanned-out gating rules with no new detector"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "integration"
+    given:
+      abstract:
+        - "The real .atdd/workspaces implementation manifests with list realizes_convention and the enabled substrate"
+    when:
+      abstract: "The binding plan is composed from the real substrate"
+      action: "invoke"
+    then:
+      abstract:
+        - "Every one of the 26 fanned-out gating conventions appears as a bound entry"
+        - "The plan binds 52 conventions and introduces no implementation not already shipped"
+      assertions:
+        - type: "equals"
+        - type: "exists"
+    close_the_loop:
+      consumer_reacted: "the reconcile-dispositions and enforce runner read the regenerated lock and now enforce the 26 previously-unbound rules"
+      drift_resolved: "the substrate_lock_digest is unchanged — no new detector was installed, only ownership was declared"
+    signal: {}
+    metadata:
+      wagon: "bind-extension-conventions"
+      feature: "bind-extension-conventions"

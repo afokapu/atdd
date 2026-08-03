@@ -62,7 +62,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         namespace = {}
         try:
             setattr(session, "_atdd", namespace)
-        except (AttributeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (AttributeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             # The session object cannot host our namespace (test harness
             # passed something exotic). Skip wiring; nothing to record.
             return
@@ -165,7 +165,7 @@ def _resolve_repo_root(session: pytest.Session) -> Path:
         return Path(rootpath)
     try:
         return find_repo_root()
-    except (RuntimeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except (RuntimeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         # No repo on disk (synthetic test session). Fall back to the cwd
         # which is what the substrate's other plugins use as last resort.
         return Path.cwd()
@@ -185,7 +185,7 @@ def _resolve_sha(repo_root: Path) -> str:
             check=True,
         )
         return proc.stdout.strip() or "unknown"
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         # No git, no env override, nothing to anchor on. Use a sentinel so
         # the plugin still produces an artifact coach can see (and the
         # subprocess test asserts on a synthetic SHA via ATDD_VALIDATION_SHA).
@@ -210,7 +210,7 @@ def _emit_validator_invocation_log(
         from atdd.coach.runtime import integration_logger as ilog  # noqa: PLC0415
         if not ilog.is_enabled():
             return
-    except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return
 
     sha = out_path.parent.name  # parent dir is the SHA

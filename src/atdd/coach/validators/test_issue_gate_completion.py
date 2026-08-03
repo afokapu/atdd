@@ -2,9 +2,15 @@
 Gate completion validation for COMPLETE issues.
 
 Purpose: Verify that COMPLETE issues have deterministic evidence:
-- Gate test commands all PASS (exit code 0)
 - Artifact paths verified against git (exist/changed/deleted)
 - Release gate verified (version bumped, tag on HEAD)
+
+Gate-test-command execution was removed in #1683. It parsed a markdown table out of
+the issue body and ran each cell through ``sh``, so a cell written the ordinary way --
+`cmd` (note) -- reached the shell with an unbalanced backquote. It also passed for free
+when no table was present, which made documenting validation strictly costlier than
+omitting it. The required ``validate-gate`` status check already covers the ground it
+was approximating.
 
 This is the CI counterpart to the CLI checks in ``atdd update --status COMPLETE``.
 
@@ -22,66 +28,6 @@ from atdd.coach.utils.repo import find_repo_root
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
 REPO_ROOT = find_repo_root()
-
-
-# ---------------------------------------------------------------------------
-# SPEC-GATE-0001: Gate test commands must PASS for COMPLETE issues
-# ---------------------------------------------------------------------------
-
-def test_complete_issues_gate_tests_pass(github_complete_issues):
-    """
-    SPEC-GATE-0001: All gate test commands in COMPLETE issues must PASS.
-
-    Given: Issues labelled atdd:COMPLETE
-    When: Parsing the Gate Tests table from the issue body
-    Then: Every gate command exits 0 when run from the repo root
-    """
-    import shutil
-    if shutil.which("atdd") is None:
-        pytest.skip("atdd CLI not in PATH (install with: pip install atdd)")
-
-    manager = IssueManager(target_dir=REPO_ROOT)
-
-    failures = []
-
-    for issue in github_complete_issues:
-        num = issue["number"]
-        body = issue.get("body", "") or ""
-        gates = manager._parse_gate_tests(body)
-
-        if not gates:
-            continue
-
-        for gate in gates:
-            cmd = gate["command"]
-            # Skip commands that would recursively invoke this test suite.
-            # Bare `atdd validate` runs all phases; `atdd validate coach`
-            # runs coach validators (including this file) → recursion.
-            if cmd.strip().startswith("atdd validate"):
-                tail = cmd.strip()[len("atdd validate"):].lstrip()
-                if not tail or tail.startswith("--") or tail.startswith("coach"):
-                    continue
-
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=str(REPO_ROOT),
-                timeout=120,
-            )
-            if result.returncode != 0:
-                stderr_tail = result.stderr.strip().splitlines()[-3:] if result.stderr else []
-                failures.append(
-                    f"#{num} {gate['id']}: FAIL (exit {result.returncode}) — {gate['command']}"
-                    + ("\n    " + "\n    ".join(stderr_tail) if stderr_tail else "")
-                )
-
-    assert not failures, (
-        f"\nCOMPLETE issues have failing gate commands.\n"
-        f"Fix: Resolve failures, then re-run `atdd validate coach`.\n\n"
-        f"Failures ({len(failures)}):\n  " + "\n  ".join(failures)
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +55,11 @@ def test_complete_issues_artifacts_valid(github_complete_issues):
         if total == 0:
             continue
 
-        valid, messages = manager._verify_artifacts(artifacts, force=False)
+        # #1611: a COMPLETE issue's PR has merged by definition, so the claims are
+        # read against the commit that landed them — `main...HEAD` is empty here.
+        valid, messages = manager._verify_artifacts(
+            artifacts, force=False, issue_number=num,
+        )
         if not valid:
             failed_lines = [m for m in messages if "MISSING" in m or "NO CHANGES" in m or "STILL EXISTS" in m]
             failures.append(
@@ -129,29 +79,32 @@ def test_complete_issues_artifacts_valid(github_complete_issues):
 
 def test_complete_issues_release_gate(github_complete_issues):
     """
-    SPEC-GATE-0003: COMPLETE issues must have version bumped and tag on HEAD.
+    SPEC-GATE-0003: COMPLETE issues require a resolved release version (#1172).
 
     Given: Issues labelled atdd:COMPLETE
-    When: Checking the release config (version_file, tag)
-    Then: Version is changed vs main and tag exists on HEAD or recent ancestor
+    When: Checking the release gate
+    Then: The State Store's singleton ``release`` object resolves a real version
+          (``atdd state version show``) — NOT the local ``0.0.0+local`` fallback.
 
-    Note: This validates the overall release state, not per-issue.
-    If any COMPLETE issue exists, the release gate must be satisfied.
+    Post-#1172 the release version lives in the State Store, not a static
+    ``pyproject.toml`` line or a git tag (tag + publish are operator-coordinated
+    post-merge per ``CLAUDE.md::release``). This validates the overall release
+    state, not per-issue: if any COMPLETE issue exists, a version must be set.
     """
     import os
     base_ref = os.environ.get("GITHUB_BASE_REF", "")
     github_ref = os.environ.get("GITHUB_REF", "")
     if base_ref or (github_ref and github_ref != "refs/heads/main"):
-        pytest.skip("Release gate skipped on PR branches (tag created post-merge)")
+        pytest.skip("Release gate skipped on PR branches (version bumped post-merge)")
 
     manager = IssueManager(target_dir=REPO_ROOT)
 
-    # Release gate is a repo-level check, not per-issue.
-    # If there are any COMPLETE issues, the release must be tagged.
+    # Release gate is a repo-level check, not per-issue: the store must hold a
+    # real release version.
     valid, messages = manager._verify_release_gate(force=False)
 
     assert valid, (
         f"\nRelease gate not satisfied for COMPLETE issues.\n"
-        f"Fix: Bump version, commit, create tag.\n\n"
+        f"Fix: bump the version — atdd state version bump --class PATCH|MINOR|MAJOR.\n\n"
         + "\n".join(messages)
     )

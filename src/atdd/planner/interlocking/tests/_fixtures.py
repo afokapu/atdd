@@ -3,6 +3,11 @@
 These helpers materialize the canonical homes from issue #1248 so the loader,
 guard, route-resolution, digest, and projection tests all exercise the real
 on-disk shape rather than ad-hoc dicts.
+
+The shape is the typed post-#1421 one: trains carry a ``train:<subject>:<slug>``
+identity and declare their variant classification as a ``category`` FIELD, and a
+route names that category directly. Nothing here carries a classification digit —
+neither in an identity nor as the retired ``category_digit`` key (#1440).
 """
 from __future__ import annotations
 
@@ -11,12 +16,18 @@ from typing import Any, Dict
 
 import yaml
 
+NOMINAL_TRAIN_ID = "train:match-resolution:standard"
+NOMINAL_TRAIN_PATH = "plan/_trains/match-resolution/standard.yaml"
+ALTERNATE_TRAIN_ID = "train:match-resolution:timeout"
+ALTERNATE_TRAIN_PATH = "plan/_trains/match-resolution/timeout.yaml"
 
-def _train(train_id: str, intent: str, artifact: str) -> Dict[str, Any]:
+
+def _train(train_id: str, category: str, intent: str, artifact: str) -> Dict[str, Any]:
     return {
         "train_id": train_id,
         "title": f"Train {train_id}",
         "description": f"Linear train {train_id} for interlocking projection tests.",
+        "category": category,
         "themes": ["match"],
         "participants": ["wagon:blitz", "wagon:player"],
         "sequence": [
@@ -78,16 +89,19 @@ def interlocking_doc() -> Dict[str, Any]:
                 "id": "frag:quorum-or-timeout",
                 "kind": "alt",
                 "acceptance_refs": ["acceptance:closes-on-quorum-or-timeout"],
+                "wmbt_refs": ["wmbt:pressure-collapse:E001", "wmbt:pressure-collapse:E002"],
                 "guards": [
-                    {"id": "guard:all-voted", "expression": "all_players_voted == true"},
-                    {"id": "guard:timer-expires", "expression": "timer_expired == true"},
+                    {"id": "guard:all-voted", "expression": "all_players_voted == true",
+                     "wmbt_refs": ["wmbt:pressure-collapse:E001"]},
+                    {"id": "guard:timer-expires", "expression": "timer_expired == true",
+                     "wmbt_refs": ["wmbt:pressure-collapse:E002"]},
                 ],
             }
         ],
         "invariants": [
             {
                 "id": "inv:unresolved-max-seven",
-                "wmbt_ref": "wmbt:pressure-collapse",
+                "wmbt_ref": "wmbt:pressure-collapse:C001",
                 "expression": "unresolved_count <= 7",
             }
         ],
@@ -95,20 +109,32 @@ def interlocking_doc() -> Dict[str, Any]:
             {
                 "id": "residual:blitz-owns-no-grid",
                 "kind": "structural",
-                "acceptance_ref": "acceptance:blitz-owns-no-grid",
+                "acceptance_ref": "acc:blitz:blitz-owns-no-grid",
                 "validator_ref": "src/atdd/validators/architecture/test_blitz_owns_no_grid.py",
+                "wmbt_refs": ["wmbt:pressure-collapse:M001"],
                 "reason": "no honest flow representation; structural ownership invariant",
             }
         ],
+        # #1554: the fixture carries nominal + alternate routes, so `error` and
+        # `exception` must be explicitly assessed for this to remain a FULLY-VALID
+        # interlocking. Before #1554 the omission was silent, which is exactly the
+        # defect the rule exists to catch — a fixture that models a compliant
+        # artifact has to say what happens on the paths it does not route.
+        "category_assessment": {
+            "error": {
+                "basis": "discharged-by-residual",
+                "residual_ref": "residual:blitz-owns-no-grid",
+            },
+            "exception": {"basis": "outcome-cannot-arise"},
+        },
         "routes": [
             {
                 "route_id": "nominal-all-voted",
                 "category": "nominal",
-                "category_digit": "0",
                 "priority": 10,
                 "guard_ref": "guard:all-voted",
-                "train_id": "3007-match-resolution-standard",
-                "train_path": "plan/_trains/3007-match-resolution-standard.yaml",
+                "train_id": NOMINAL_TRAIN_ID,
+                "train_path": NOMINAL_TRAIN_PATH,
                 "projection": {
                     "expected_sequence_digest": "PLACEHOLDER",
                     "fields": ["step", "intent", "from", "to", "artifact"],
@@ -117,11 +143,10 @@ def interlocking_doc() -> Dict[str, Any]:
             {
                 "route_id": "alternate-timeout",
                 "category": "alternate",
-                "category_digit": "2",
                 "priority": 20,
                 "guard_ref": "guard:timer-expires",
-                "train_id": "3207-match-resolution-timeout",
-                "train_path": "plan/_trains/3207-match-resolution-timeout.yaml",
+                "train_id": ALTERNATE_TRAIN_ID,
+                "train_path": ALTERNATE_TRAIN_PATH,
                 "projection": {"expected_sequence_digest": "PLACEHOLDER"},
             },
         ],
@@ -138,20 +163,19 @@ def write_tree(root: Path, doc: Dict[str, Any] | None = None) -> Path:
     il_dir = trains_dir / "_interlockings"
     il_dir.mkdir(parents=True, exist_ok=True)
 
-    (trains_dir / "3007-match-resolution-standard.yaml").write_text(
-        yaml.safe_dump(
-            _train("3007-match-resolution-standard", "Close match on quorum", "match:result"),
-            sort_keys=False,
+    for train_path, train in (
+        (
+            NOMINAL_TRAIN_PATH,
+            _train(NOMINAL_TRAIN_ID, "nominal", "Close match on quorum", "match:result"),
         ),
-        encoding="utf-8",
-    )
-    (trains_dir / "3207-match-resolution-timeout.yaml").write_text(
-        yaml.safe_dump(
-            _train("3207-match-resolution-timeout", "Close match on timeout", "match:result"),
-            sort_keys=False,
+        (
+            ALTERNATE_TRAIN_PATH,
+            _train(ALTERNATE_TRAIN_ID, "alternate", "Close match on timeout", "match:result"),
         ),
-        encoding="utf-8",
-    )
+    ):
+        target = root / train_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(yaml.safe_dump(train, sort_keys=False), encoding="utf-8")
 
     # registry shape
     (trains_dir / "_interlockings.yaml").write_text(

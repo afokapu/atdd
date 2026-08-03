@@ -1,0 +1,32 @@
+#!/bin/sh
+# ATDD post-merge hook — reconcile the local store after a merge-based pull (#1400 CORE-014).
+# Installed by `atdd init`. Always exits 0.
+#
+# A merge moves HEAD, which means the committed projection — the shared source of
+# truth — has changed underneath the local store. `atdd state reconcile` hydrates the
+# incoming projection and replays any uncommitted local overlay on top of it, so a
+# pull picks up a peer's merged work WITHOUT discarding private local authoring.
+#
+# Convenience, never authority (spec §9). This hook cannot enforce anything: it runs
+# after the merge has already happened, and it exits 0 even when reconcile fails.
+# Bypassing it does not corrupt anything — it just leaves store_base_commit behind
+# HEAD, which `atdd state freshness` detects and reports.
+
+set -u
+
+# No-op in CI: CI has no developer store to reconcile — it hydrates the committed
+# projection from scratch (that is the whole point of the canonicality gate).
+if [ "${CI:-}" = "true" ]; then
+    exit 0
+fi
+
+command -v atdd >/dev/null 2>&1 || exit 0
+
+if ! atdd state reconcile >&2; then
+    echo "ATDD post-merge: reconcile did not complete. Your store is unchanged and any" >&2
+    echo "  backup is retained. Run 'atdd state reconcile' to see the report." >&2
+fi
+
+# Always 0 — a hook failure must never leave the operator with a merged tree and a
+# git error they cannot act on.
+exit 0

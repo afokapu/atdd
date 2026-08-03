@@ -1,0 +1,30 @@
+wagon: guard-succession
+urn: wagon:guard-succession
+name: Guard Succession
+theme: commons
+description: Refuse any core-node deletion whose extension twin is not both bound
+  and blockingly enforced in CI, consuming the succession-coverage proof produced by
+  verify-enforcement
+subject: agent:coach
+context: deciding whether a core convention node may be deleted without silently stripping
+  the only blocking enforcement of an obligation an extension still mirrors
+action: reads the succession-coverage proof and refuses any core-node deletion whose
+  extension twin is not both bound and blockingly enforced, so a rule cannot lose its
+  enforcement unnoticed
+goal: refuse any core-node deletion whose extension twin is not both bound and running
+  in CI, so removing a core rule cannot silently strip its sole enforcement
+outcome: a guard that blocks a silent loss of enforcement, driven by the succession-coverage
+  proof handed off from verify-enforcement
+features:
+- urn: feature:guard-succession:guard-succession
+produce:
+- name: commons:succession-verdict
+  contract: null
+  telemetry: null
+  to: external
+consume:
+- name: commons:succession-coverage
+  from: wagon:verify-enforcement
+wmbt:
+  total: 1
+  E003: "minimize likelihood of silent-enforcement-loss by refusing to delete any core convention node whose extension twin is not both bound and blockingly enforced in CI, so removing a core rule cannot silently strip the only enforcement of an obligation an extension still mirrors"

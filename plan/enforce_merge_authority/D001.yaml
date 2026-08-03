@@ -1,0 +1,81 @@
+urn: wmbt:enforce-merge-authority:D001
+step: define
+direction: maximize
+dimension: likelihood
+object_of_control: commit-trailer-schema
+context_clarifier: 'when git history must serve as the audit/event log (section 5), free prose is insufficient:
+  the canonical trailer group and its value grammars must be pinned as a schema before any parser or cross-check
+  validator can be written'
+lens: functional.effectiveness
+statement: maximize likelihood of a commit-trailer-schema that pins the canonical ATDD trailer group (ATDD-Object,
+  ATDD-Transition, ATDD-Token-Digest, ATDD-Gate, ATDD-Projection-Digest, ATDD-Summary, ATDD-Summary-Digest),
+  the value grammar of each trailer, and which trailers a given projection diff class is required to carry
+acceptances:
+- given:
+    abstract:
+    - 'a commit whose trailer block carries `ATDD-Transition: PLANNED=>RED` (wrong arrow) and an unknown
+      `ATDD-Whatever: x` trailer'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: The trailer schema does not yet exist, so a commit carrying an unknown or ungrammatical ATDD-*
+      trailer is accepted
+    urn: acc:enforce-merge-authority:D001-UNIT-001-schema-rejects-unpinned-trailer
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - schema validation raises, naming the ungrammatical `ATDD-Transition` value
+    - schema validation raises, naming the unknown `ATDD-Whatever` trailer key
+    - no trailer schema is resolvable, so the assertions fail (not_implemented)
+  when:
+    abstract: the trailer schema is loaded and the trailer block is validated against it
+- given:
+    abstract:
+    - 'the canonical trailer group from section 5: ATDD-Object (a uid), ATDD-Transition (PHASE->PHASE),
+      ATDD-Token-Digest (sha256:<hex>), ATDD-Gate (a gate id), ATDD-Projection-Digest (sha256:<hex>)'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: The trailer schema accepts the canonical trailer group and pins each value grammar
+    urn: acc:enforce-merge-authority:D001-UNIT-002-schema-pins-canonical-trailer-group
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-09'
+  then:
+    abstract:
+    - the canonical group validates clean
+    - a uid that is not a `wi_` uid is rejected on ATDD-Object
+    - a transition whose phases are outside the phase-machine vocabulary is rejected
+    - a digest that is not `sha256:<hex>` is rejected on the digest trailers
+    - the schema declares ATDD-Summary and ATDD-Summary-Digest for squash merges
+  when:
+    abstract: each trailer block is validated against the trailer schema
+- identity:
+    urn: acc:enforce-merge-authority:D001-SMOKE-001-commit-trailer-schema
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: commit-trailer-schema holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising commit-trailer-schema
+  when:
+    abstract: the D001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - commit-trailer-schema is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

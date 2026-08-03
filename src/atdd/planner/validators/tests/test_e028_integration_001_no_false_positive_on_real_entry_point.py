@@ -21,7 +21,7 @@ pytestmark = [pytest.mark.planner]
 
 def test_no_false_positive_on_real_entry_point(tmp_path):
     """Validator emits no violations for a SMOKE test that drives atdd spawn."""
-    from atdd.planner.validators.test_smoke_synthetic_fixture_bypass import (
+    from atdd.planner.validators._meta_walker import (
         scan_for_synthetic_fixture_bypass,
     )
 

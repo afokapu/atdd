@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import List
 
 from atdd.coach.utils.repo import find_repo_root
-from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery
+from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery, e2e_dir_for
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 
 
@@ -77,7 +77,7 @@ class CompletenessAnalyzer:
 
         for tid in train_ids:
             status = TrainChainStatus(train_id=tid)
-            train_dir = self.e2e_dir / tid
+            train_dir = e2e_dir_for(self.e2e_dir, tid)
 
             if not train_dir.is_dir():
                 results.append(status)

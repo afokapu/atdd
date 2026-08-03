@@ -1,0 +1,61 @@
+schema_version: 1.1.0
+rule_id: planner.interface.tests-subdirectory
+kind: constraint
+status: active
+name: 'Interface: Tests Subdirectory'
+statement: Every leaf directory under contracts/ or telemetry/ (one containing .schema.json
+  or signal .json files) must contain a tests/ subdirectory.
+terms:
+- term_id: tests_required_rule
+  label: Leaf directories must have tests/
+  text: Leaf directories (containing .schema.json or signal .json files) must have
+    a tests/ subdirectory. Both contracts/ and telemetry/ follow the pattern {domain}/{resource}[/{category}]/
+    with a required tests/ at the leaf.
+  values:
+    rule: Leaf directories (containing .schema.json or signal .json files) must have
+      tests/
+    contracts_pattern: contracts/{domain}/{resource}[/{category}]/
+    contracts_tests_pattern: contracts/{domain}/{resource}[/{category}]/tests/
+    telemetry_pattern: telemetry/{domain}/{resource}[/{category}]/
+    telemetry_tests_pattern: telemetry/{domain}/{resource}[/{category}]/tests/
+    tests_required: true
+  examples:
+    positive:
+    - contracts/commons/ux/foundations/ with color.schema.json, spacing.schema.json,
+      tests/color_schema_test.json, tests/spacing_schema_test.json
+    - contracts/commons/ux/primitives/icons/ with icon.schema.json, tests/icon_schema_test.json
+    - telemetry/ux/foundations/ with metric.ui.duration.json, event.ux.json, tests/metric_ui_duration_test.json
+    - telemetry/ux/primitives/icons/ with event.ui.json, tests/event_ui_test.yaml
+    negative:
+    - contracts/commons/ux/foundations/ with color.schema.json but no tests/ subdirectory
+- term_id: platform_validation_tests
+  label: Enforcing platform validation tests
+  text: Enforcement lives in platform validation tests under tests/platform_validation/.
+    The contracts leaf rule is checked by test_contract_directories_have_tests_subdirectory
+    and the telemetry leaf rule by test_telemetry_directories_have_tests_subdirectory.
+  values:
+    enforcement: Platform validation tests in tests/platform_validation/
+    contracts_test: test_contract_directories_have_tests_subdirectory
+    telemetry_test: test_telemetry_directories_have_tests_subdirectory
+implementation:
+  type: validator
+  ref: test_contract_tests_subdirectory::test_contract_tests_subdirectory
+source:
+  legacy_path: src/atdd/planner/conventions/interface.convention.yaml
+  legacy_sha: sha256:3415a521b5eec18b
+  extraction_mode: high_fidelity
+  legacy_section: tests-subdirectory
+content:
+  summary: Contracts and telemetry follow a flexible directory pattern, but each leaf
+    holding a schema or signal must ship its conformance tests alongside it so platform
+    validation can verify the artifact against fixtures.
+metadata:
+  severity: 2
+  disposition: advisory
+  introduced_in: 4.28.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'

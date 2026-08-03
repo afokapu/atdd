@@ -12,14 +12,9 @@ in parallel with legacy validators (imports no persona validator module).
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 from atdd.validators.conventions.resolution.archetype import TEMPLATE_IDS
-from atdd.validators.conventions.resolution._parity import (
-    evaluate_variant,
-    inject_patch,
-    repo_root,
-)
+from atdd.validators.conventions.resolution._parity import evaluate_variant
+from atdd.validators.conventions._support.graph_mutations import break_ref, clone_graph
 
 FAMILY = "resolution"
 TEMPLATE = "reference_chain_resolution"
@@ -40,44 +35,38 @@ def test_urn_traceability_variant_contract() -> None:
 
 
 # Fault: break a wagon->feature URN hop so the multi-hop chain dead-ends.
-_WAGON_MANIFEST = "plan/admit_substrate/_admit_substrate.yaml"
 _FEATURE_URN = "feature:admit-substrate:substrate-admission"
-_FAULT = (f'"{_FEATURE_URN}"', f'"{_FEATURE_URN}-does-not-exist-xyz"')
+_BROKEN_URN = f"{_FEATURE_URN}-does-not-exist-xyz"
 
 
-def test_clean_baseline_is_zero() -> None:
+def test_clean_baseline_is_zero(clean_convention_graph) -> None:
     """The variant returns no violations on the real, unmodified repo."""
-    assert evaluate_variant(TEMPLATE, VARIANT) == []
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
-def test_fault_injection_convention_catches() -> None:
-    """Inject a broken wagon->feature chain hop; the convention path must catch it."""
-    root = repo_root()
-    with inject_patch(root, _WAGON_MANIFEST, *_FAULT):
-        evidence = evaluate_variant(TEMPLATE, VARIANT, root=root)
+def test_fault_injection_convention_catches(clean_convention_graph) -> None:
+    """Inject a broken wagon->feature chain hop; the convention path must catch it.
 
+    The wagon's outgoing feature reference is repointed at a non-existent URN on a deep
+    clone of the session graph (#1416): the chain dead-ends at hop 1 exactly as the on-disk
+    manifest rewrite made it, with no file written and the shared graph untouched."""
+    wagon_id = next(
+        w.id for w in clean_convention_graph.by_kind("wagon")
+        if _FEATURE_URN in w.refs
+    )
+    faulted = clone_graph(clean_convention_graph)
+    break_ref(faulted, wagon_id, _FEATURE_URN, _BROKEN_URN)
+
+    evidence = evaluate_variant(TEMPLATE, VARIANT, graph=faulted)
     assert evidence, "convention path did not catch the broken URN chain"
     for record in evidence:
         assert set(record).issubset(FAILURE_EVIDENCE), record
-    assert evaluate_variant(TEMPLATE, VARIANT, root=root) == []
+    assert any(r.get("missing_ref") == _BROKEN_URN for r in evidence), evidence
+    # the shared clean graph's chain still resolves
+    assert evaluate_variant(TEMPLATE, VARIANT, graph=clean_convention_graph) == []
 
 
-def test_legacy_is_vacuous_on_chain_faults() -> None:
-    """Honest parity verdict: convention-only.
-
-    The legacy coach validator self-suppresses every traceability finding via
-    `pytest.skip(...)` rather than failing, so it can never be credited with
-    catching an injected chain fault. We assert this structurally (fast, exact)
-    instead of running its ~90s real-graph build only to observe a skip: every
-    issue-reporting branch in the legacy source ends in `pytest.skip`, and the
-    only `assert`s are graph/result sanity checks that do not block on broken
-    chains.
-    """
-    legacy_src = Path(LEGACY_PARITY_SOURCES[0])
-    if not legacy_src.is_absolute():
-        legacy_src = repo_root() / legacy_src
-    text = legacy_src.read_text(encoding="utf-8")
-    # The issue-reporting paths suppress rather than fail.
-    assert "pytest.skip(message)" in text
-    # No issue path raises pytest.fail — confirming non-blocking behaviour.
-    assert "pytest.fail" not in text
+# Legacy-vacuity cross-check removed (#1365): the legacy coach validator (which
+# self-suppressed every finding via pytest.skip, making this a convention-only
+# improvement) is being decommissioned. The variant's own real-graph fault
+# injection above (`test_fault_injection_convention_catches`) is the live coverage.

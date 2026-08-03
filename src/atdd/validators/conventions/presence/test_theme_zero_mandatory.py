@@ -1,4 +1,7 @@
 # URN: test:validate-conventions:presence-variants:theme_zero_mandatory
+# Acceptance: acc:govern-lifecycle:C006-UNIT-001-override-cannot-remove-commons-floor
+# Acceptance: acc:govern-lifecycle:C006-UNIT-002-defaults-contain-commons-floor
+# Acceptance: acc:govern-lifecycle:C006-SMOKE-001-repo-config-keeps-commons-floor
 # WMBT: wmbt:validate-conventions:E010
 # Phase: GREEN
 # Layer: integration
@@ -16,9 +19,10 @@ from pathlib import Path
 
 from atdd.validators.conventions.presence import archetype
 from atdd.validators.conventions.presence.archetype import TEMPLATE_IDS
-from atdd.validators.conventions._support.graph_loader import load_composed_graph
-
-from .conftest import legacy_catches, patched
+from atdd.validators.conventions._support.graph_mutations import (
+    graph_rooted_at,
+    mirror_file,
+)
 
 FAMILY = "presence"
 TEMPLATE = "required_field_presence"
@@ -33,7 +37,12 @@ LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_theme_zero_mandatory.
 
 
 _TC = {t.template_id: t for t in archetype.TEMPLATES}
-THEME_CONVENTION = "src/atdd/planner/conventions/theme.convention.yaml"
+# #1639: the theme monolith was deleted; the taxonomy lives on its convention
+# node, so that is both what the evaluator reads and what this test faults.
+THEME_CONVENTION = (
+    "src/atdd/planner/conventions/nodes/"
+    "planner.theme.canonical-taxonomy.convention.yaml"
+)
 
 
 def _evaluate(graph) -> list:
@@ -46,23 +55,62 @@ def test_theme_zero_mandatory_variant_contract() -> None:
     assert set(FAILURE_EVIDENCE), "variant must declare failure evidence fields"
 
 
-def test_theme_zero_clean_baseline(repo_root: Path) -> None:
+def test_theme_zero_clean_baseline(clean_convention_graph) -> None:
     """Real composed graph: the commons floor is declared, so 0 violations."""
-    assert _evaluate(load_composed_graph(repo_root)) == []
+    assert _evaluate(clean_convention_graph) == []
 
 
-def test_theme_zero_catches_injected_fault(repo_root: Path) -> None:
-    """Renaming the digit-0 token away from `commons` in the real convention is caught,
-    with template-shaped evidence."""
-    with patched(repo_root, THEME_CONVENTION,
-                 'theme_zero_token: "commons"', 'theme_zero_token: "platform"'):
-        violations = _evaluate(load_composed_graph(repo_root))
+def _staged_broken_floor(repo_root: Path, tmp_path: Path, graph):
+    """Mirror the theme taxonomy node with the digit-0 token renamed away from
+    ``commons``, and hand back a graph rooted at that staged tree.
+
+    ``presence.archetype._check_theme_zero_mandatory`` reads this node file through
+    ``graph.root``, so a redirected root is the whole fault surface: the evaluator
+    parses the real file's own bytes plus the rename, and the checkout is never
+    written. ``mirror_file`` raises if the anchor has drifted, so the fault cannot go
+    vacuous against an un-faulted tree.
+
+    The anchor is the ``theme_zero`` term's ``token: commons`` (#1639) — a unique
+    string in the node, and the exact field the evaluator compares against.
+    """
+    mirror_file(repo_root, tmp_path, THEME_CONVENTION,
+                lambda t: t.replace('token: commons',
+                                    'token: platform', 1))
+    return graph_rooted_at(graph, tmp_path)
+
+
+def test_theme_zero_catches_injected_fault(
+    clean_convention_graph, repo_root: Path, tmp_path: Path
+) -> None:
+    """Renaming the digit-0 token away from `commons` in the convention is caught,
+    with template-shaped evidence.
+
+    NON-VACUITY: this evaluator reports the SAME violation for a missing file as for a
+    faulted one (an unreadable convention yields no ``theme_zero_token`` either), so a
+    staged tree that silently failed to materialize would still turn this test green. The
+    control leg below stages the convention UNFAULTED — a cosmetic trailing comment — and
+    requires the evaluator to be clean on it, which it can only be if it really parsed the
+    real file's bytes at the real relative path.
+    """
+    control = mirror_file(repo_root, tmp_path / "control", THEME_CONVENTION,
+                          lambda t: t + "\n# staged control (unfaulted)\n")
+    assert control.is_file()
+    assert _evaluate(graph_rooted_at(clean_convention_graph, tmp_path / "control")) == [], (
+        "the unfaulted staged tree reported a commons-floor violation — the staged root is "
+        "not being read as the real convention, so the faulted leg would pass vacuously"
+    )
+
+    violations = _evaluate(
+        _staged_broken_floor(repo_root, tmp_path / "faulted", clean_convention_graph)
+    )
     assert any(v["node_id"] == "theme.taxonomy.commons-floor" for v in violations)
     for v in violations:
         assert set(v).issubset(set(FAILURE_EVIDENCE)), f"evidence not template-shaped: {set(v)}"
 
 
-def test_theme_zero_is_convention_only_legacy_is_tautological(repo_root: Path) -> None:
+def test_theme_zero_is_convention_only_legacy_is_tautological(
+    clean_convention_graph, repo_root: Path, tmp_path: Path
+) -> None:
     """PARITY CLASSIFICATION: CONVENTION-ONLY (legacy is tautological, un-faultable).
 
     The legacy validator's ``resolve_theme_set`` sets ``resolved['0'] =
@@ -74,15 +122,11 @@ def test_theme_zero_is_convention_only_legacy_is_tautological(repo_root: Path) -
     legacy never provided. Parity-both is therefore not achievable; we assert the
     divergence explicitly rather than fake it.
     """
-    legacy = (
-        "src/atdd/planner/validators/test_theme_zero_mandatory.py"
-        "::test_commons_is_always_in_resolved_theme_set"
+    staged = _staged_broken_floor(repo_root, tmp_path, clean_convention_graph)
+    # oracle retired (#1365): the convention evaluator is the live coverage (it was
+    # already stricter than the legacy tautology — convention-only by construction).
+    assert _evaluate(staged), (
+        "convention evaluator did not catch the theme_zero-token fault"
     )
-    with patched(repo_root, THEME_CONVENTION,
-                 'theme_zero_token: "commons"', 'theme_zero_token: "platform"'):
-        convention_caught = bool(_evaluate(load_composed_graph(repo_root)))
-        legacy_caught = legacy_catches(repo_root, legacy)
-    assert convention_caught and not legacy_caught, (
-        "expected convention-only divergence: "
-        f"convention_caught={convention_caught} legacy_caught={legacy_caught}"
-    )
+    # The untouched session graph stays silent: the fault is in the staged tree only.
+    assert _evaluate(clean_convention_graph) == []

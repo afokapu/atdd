@@ -1,0 +1,74 @@
+urn: wmbt:migrate-projection-authority:Y001
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: github-hot-path-read
+context_clarifier: 'when CORE-033 removes provider reads from the lifecycle hot path: no core lifecycle
+  decision, validator, or gate may call the GitHub API; provider access is confined to the SyncProvider
+  seam and the external-ref quarantine (invariant I7, non-goal 2)'
+lens: functional.effectiveness
+statement: 'minimize likelihood of a github-hot-path-read: no core lifecycle decision, validator, or gate
+  calls the GitHub API, and every remaining provider access sits behind the SyncProvider seam and the
+  external-ref quarantine'
+acceptances:
+- given:
+    abstract:
+    - 'The set of core modules that make lifecycle decisions: phase transitions, gates, validators'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: a static import-boundary scan over the core lifecycle modules finds no GitHub client call
+    urn: acc:migrate-projection-authority:Y001-UNIT-001-static-scan-finds-no-provider-read
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - No module imports or invokes a GitHub client, a gh subprocess, or a provider HTTP call
+    - 'RED: lifecycle readers still consult GitHub labels today'
+  when:
+    abstract: the import-boundary scan is run over that module set
+- given:
+    abstract:
+    - A repo with a committed projection and no registered SyncProvider
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: every lifecycle decision resolves identically when the GitHub provider is unregistered
+    urn: acc:migrate-projection-authority:Y001-UNIT-002-lifecycle-decides-with-provider-absent
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-09'
+  then:
+    abstract:
+    - Every decision resolves from the projection plus git trailers alone
+    - No provider call is attempted and no provider-absent error is raised
+  when:
+    abstract: each lifecycle decision - transition legality, gate evaluation - is evaluated
+- identity:
+    urn: acc:migrate-projection-authority:Y001-SMOKE-001-github-hot-path-read
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: github-hot-path-read holds against a real repo checkout, the installed atdd
+      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising github-hot-path-read
+  when:
+    abstract: the Y001 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - github-hot-path-read is observed to hold end-to-end against real infrastructure, with no mocks or
+      manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-10'

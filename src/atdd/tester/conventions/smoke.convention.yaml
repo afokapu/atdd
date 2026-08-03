@@ -207,7 +207,6 @@ validation:
   validators:
     train_scoped: "src/atdd/tester/validators/test_smoke_coverage.py"
     train_route_scoped: "src/atdd/tester/validators/test_train_route_smoke_coverage.py"
-    presentation_steady_state: "src/atdd/tester/validators/test_presentation_smoke_coverage.py"
     presentation_ratchet_shrink: "src/atdd/coder/validators/test_presentation_ratchet_requires_smoke.py"
 
   checks:
@@ -570,90 +569,22 @@ synthetic_fixture_anti_patterns:
     Three anti-pattern rules that prevent SMOKE tests from becoming false-green
     due to synthetic fixtures that bypass production wiring.
 
-  rules:
-    - id: "planner.smoke.synthetic-fixture-bypass"
-      severity: 3
-      disposition: suppress-and-clean
-      validator: "test_smoke_synthetic_fixture_bypass::test_no_smoke_tests_use_synthetic_fixtures"
-      introduced_in: "3.83.0"
-      description: |
-        A SMOKE-phase test must not drive a synthetic subprocess stub (FakeMultiplexer,
-        subprocess.Popen of cat/sleep/python-stub) as the primary production wiring.
-        The real-entry-point mandate: SMOKE tests MUST drive the real CLI entry point
-        (atdd spawn, atdd coach, the rendered launch prompt), not a synthetic fixture
-        that bypasses the real command-construction / cmux-native launch path. The
-        lived incident: #854 Popen crash (shell=True missing on the adapter
-        command tuple) was invisible because E003-SMOKE tests used a Python stub that
-        never exercised the real command-construction path. Planner-side validator:
-        src/atdd/planner/validators/test_smoke_synthetic_fixture_bypass.py
-      anti_patterns:
-        - pattern: "FakeMultiplexer"
-          description: "Synthetic multiplexer that bypasses the real surface-dispatch path"
-        - pattern: "subprocess.Popen(['cat', ...])"
-          description: "cat stub — exercises the pty wrapper but not the real agent command"
-        - pattern: "subprocess.Popen(['sleep', ...])"
-          description: "sleep stub — proves process lifecycle, not agent behavior"
-        - pattern: "subprocess.Popen(['python', '-c', ...])"
-          description: "inline Python script stub — bypasses adapter command construction"
-        - pattern: "_SYNTHETIC_AGENT"
-          description: "Embedded Python script constant replacing the real adapter command"
-      fix_hint: |
-        Replace the synthetic fixture with the real CLI entry point:
-          - Use atdd spawn (subprocess.run([sys.executable, "-m", "atdd.cli", "spawn", ...]))
-            or the invoke_atdd_spawn helper, driving the real cmux-native launch path.
-          - Do not substitute Popen(["cat", ...]) or Popen(["python", "-c", ...]) stubs
-            for the real adapter command construction.
-          - Write agent scripts to tmp_path files; do not embed them as string constants.
-        To suppress (pre-existing test during transition window):
-          # atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=YYYY-MM-DD
+  # Phase B de-monolith (#1639): planner.smoke.synthetic-fixture-bypass moved to
+  # src/atdd/planner/conventions/nodes/planner.smoke.synthetic-fixture-bypass.convention.yaml
+  # (authoritative). A rule id may be declared in exactly one convention file —
+  # bind_rule raises AmbiguousRuleError on a second declaration.
 
     # Phase A de-monolith (#1225): tester.smoke.operator-observable-assertion and
     # tester.smoke.cross-component-handoff-gap moved to
     # nodes/tester.smoke.operator-observable-assertion.convention.yaml and
     # nodes/tester.smoke.cross-component-handoff-gap.convention.yaml (authoritative).
-    # planner.smoke.synthetic-fixture-bypass (above) stays in the monolith (Phase B).
+    # planner.smoke.synthetic-fixture-bypass moved to nodes/ in Phase B (#1639).
 
 feedback_loop_rules:
-  rules:
-    - id: "planner.smoke.feedback-loop-close-the-loop"
-      severity: 3
-      disposition: suppress-and-clean
-      validator: "test_feedback_loop_smoke_closes_the_loop::test_every_feedback_loop_feature_has_close_the_loop_smoke"
-      description: "A feature marked `kind: feedback-loop` must have at least one smoke acceptance (on any of its WMBTs) whose acceptance block contains a `close_the_loop:` field with both `consumer_reacted` and `drift_resolved` sub-fields. Producer-only smoke assertions (artifact existence, schema validation) are insufficient for feedback-loop features — they produce false-positive green CI while the consumer end of the loop is never exercised."
-      introduced_in: "3.79.0"
-      fix_hint: |
-        The feature is marked `kind: feedback-loop` but none of its WMBT SMOKE
-        acceptances declare a `close_the_loop:` block. This means CI can pass
-        while the consumer end of the loop is never exercised.
-
-        Repair:
-          1. Identify the primary WMBT for this feature in plan/<wagon>/<ID>.yaml.
-          2. Add (or extend) a SMOKE acceptance with a close_the_loop: block:
-
-             - identity:
-                 urn: "acc:<wagon>:<wmbt_id>-SMOKE-NNN-close-the-loop"
-                 id: "AC-SMOKE-NNN"
-                 purpose: "Verify feedback loop closes: consumer reacted + drift resolved"
-                 phase: "SMOKE"
-               harness:
-                 type: "integration"
-                 category: "backend"
-               close_the_loop:
-                 consumer_reacted: "<describe what consumer-side assertion the test makes>"
-                 drift_resolved: "<describe what convergence assertion the test makes>"
-
-          3. The corresponding test must assert:
-             - The consumer received the correction (not FakeMultiplexer.send_history —
-               that records sends without delivering them anywhere).
-             - Re-running the producer produces 0 new corrections for the same drift.
-
-          4. To suppress on a feature with no real infrastructure (docs-only):
-             Add on the feature YAML's kind: line:
-               kind: feedback-loop  # atdd:suppress(planner.smoke.feedback-loop-close-the-loop) UNTIL=YYYY-MM-DD
-
-        See src/atdd/tester/conventions/smoke.convention.yaml::feedback_loop for
-        the canonical example and the definition of valid consumer-side assertions.
-        See issue #825 for the motivating incident.
+  # Phase B de-monolith (#1639): planner.smoke.feedback-loop-close-the-loop moved to
+  # src/atdd/planner/conventions/nodes/planner.smoke.feedback-loop-close-the-loop.convention.yaml
+  # (authoritative). A rule id may be declared in exactly one convention file —
+  # bind_rule raises AmbiguousRuleError on a second declaration.
 
 # =============================================================================
 # ANTI-PATTERN RULES (planner.smoke.synthetic-fixture-bypass — issue #860/#862)

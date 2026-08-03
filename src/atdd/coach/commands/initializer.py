@@ -5,8 +5,9 @@ Creates the following structure:
     consumer-repo/
     ├── CLAUDE.md                (with managed ATDD block)
     └── .atdd/
-        ├── manifest.yaml        (machine-readable issue tracking)
         └── config.yaml          (agent sync + GitHub integration config)
+    (Operational issue state lives in the State Store under .atdd/state/, not a
+    .atdd/manifest.yaml mirror — the mirror was deleted in #1270 Slice G.)
 
 GitHub infrastructure (requires `gh` CLI):
     - Labels: atdd-issue, atdd-wmbt, atdd:*, archetype:*, wagon:*
@@ -25,16 +26,12 @@ import logging
 import os
 import shutil
 import subprocess
-from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import yaml
 
 logger = logging.getLogger(__name__)
-
-# Known branch prefixes for slug → branch name mapping
-_BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
 
 
 # Domain-agnostic prompt copy for `atdd init` theme declaration (#291,
@@ -84,120 +81,6 @@ SUBSTRATE_DEFAULT_TEST_ROOT = "tests/"
 SUBSTRATE_DEFAULT_PLAN_ROOT = "plan/"
 
 
-def slug_to_branch_name(slug: str) -> str:
-    """Convert worktree directory slug to branch-style name.
-
-    Maps the first hyphen after a known prefix back to '/':
-        feat-some-feature → feat/some-feature
-        fix-typo          → fix/typo
-        main              → main  (no prefix match)
-    """
-    for prefix in _BRANCH_PREFIXES:
-        if slug.startswith(prefix + "-"):
-            return prefix + "/" + slug[len(prefix) + 1:]
-    return slug
-
-
-def write_workspace(target_dir: Path) -> None:
-    """Write a VS Code .code-workspace file in the parent directory.
-
-    Scans sibling directories for git worktrees and generates a multi-root
-    workspace so VS Code shows branch info per folder.
-
-    Args:
-        target_dir: The main checkout directory (e.g. .../project/main).
-    """
-    parent = target_dir.parent
-    workspace_name = parent.name
-    workspace_path = parent / f"{workspace_name}.code-workspace"
-
-    folders = []
-    for child in sorted(parent.iterdir()):
-        if not child.is_dir():
-            continue
-        if child.name.startswith("."):
-            continue
-        git_marker = child / ".git"
-        if not (git_marker.is_file() or git_marker.is_dir()):
-            continue
-        folders.append({
-            "path": child.name,
-            "name": slug_to_branch_name(child.name),
-        })
-
-    # Ensure main is listed first
-    main_entry = next((f for f in folders if f["path"] == "main"), None)
-    if main_entry:
-        folders.remove(main_entry)
-        folders.insert(0, main_entry)
-
-    # Resolve background color: config → existing workspace → default yellow
-    bg = "#FFC107"
-    config_path = target_dir / ".atdd" / "config.yaml"
-    if config_path.exists():
-        try:
-            with open(config_path) as f:
-                config = yaml.safe_load(f) or {}
-            saved = config.get("workspace", {}).get("color")
-            if saved:
-                bg = saved
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            pass
-
-    # If still default, check existing workspace file for user-set color
-    if bg == "#FFC107" and workspace_path.exists():
-        try:
-            existing = json.loads(workspace_path.read_text())
-            existing_bg = (
-                existing.get("settings", {})
-                .get("workbench.colorCustomizations", {})
-                .get("titleBar.activeBackground")
-            )
-            if existing_bg and existing_bg != "#FFC107":
-                bg = existing_bg
-                # Persist discovered color to config for future runs
-                if config_path.exists():
-                    try:
-                        with open(config_path) as f:
-                            cfg = yaml.safe_load(f) or {}
-                        cfg.setdefault("workspace", {})["color"] = bg
-                        with open(config_path, "w") as f:
-                            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
-                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                        pass
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            pass
-
-    # Compute foreground via WCAG relative luminance
-    from atdd.coach.commands.color import ColorManager
-    fg = ColorManager._foreground(bg)
-
-    workspace = {
-        "folders": folders,
-        "settings": {
-            "workbench.colorCustomizations": {
-                "titleBar.activeBackground": bg,
-                "titleBar.activeForeground": fg,
-                "statusBar.background": bg,
-                "statusBar.foreground": fg,
-            },
-            # Minimal default layout: Explorer + Terminal only
-            "workbench.panel.defaultLocation": "bottom",
-            "panel.defaultVisibility": "hidden",
-            "workbench.sideBar.location": "left",
-            "workbench.activityBar.location": "top",
-            "editor.minimap.enabled": False,
-            "breadcrumbs.enabled": False,
-            "workbench.secondarySideBar.visible": False,
-        },
-    }
-
-    workspace_path.write_text(
-        json.dumps(workspace, indent=2) + "\n"
-    )
-    print(f"Wrote: {workspace_path}")
-
-
 class ProjectInitializer:
     """Initialize ATDD structure in consumer repo."""
 
@@ -210,7 +93,6 @@ class ProjectInitializer:
         """
         self.target_dir = target_dir or Path.cwd()
         self.atdd_config_dir = self.target_dir / ".atdd"
-        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
         # Package template location
@@ -237,7 +119,7 @@ class ProjectInitializer:
             if common.returncode != 0 or git_dir.returncode != 0:
                 return False
             return common.stdout.strip() != git_dir.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return False
 
     def _ensure_worktree_config_extension(self) -> None:
@@ -348,31 +230,6 @@ class ProjectInitializer:
             digit += 1
         return mapping
 
-    def _prompt_workspace_color(self) -> None:
-        """Prompt user to pick a workspace color if unset or default yellow."""
-        config_path = self.target_dir / ".atdd" / "config.yaml"
-        if not config_path.exists():
-            return
-
-        try:
-            with open(config_path) as f:
-                config = yaml.safe_load(f) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            return
-
-        saved = config.get("workspace", {}).get("color")
-        if saved and saved != "#FFC107":
-            return
-
-        print("\nWorkspace color customization:")
-        from atdd.coach.commands.color import ColorManager
-        manager = ColorManager(self.target_dir)
-        manager.color()
-
-    def _write_workspace(self) -> None:
-        """Write a VS Code .code-workspace file (delegates to module-level)."""
-        write_workspace(self.target_dir)
-
     def _migrate_to_worktree_layout(self) -> Path:
         """
         Move all repo contents into a main/ subdirectory.
@@ -420,8 +277,90 @@ class ProjectInitializer:
         """Repoint all paths to the new repo root after migration."""
         self.target_dir = new_root
         self.atdd_config_dir = new_root / ".atdd"
-        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
+
+    def _apply_worktree_layout(self, layout: str, force: bool) -> Optional[int]:
+        """Handle ``--worktree-layout`` for the detected layout.
+
+        Returns an exit code when init must stop, or None to carry on.
+        """
+        if layout == "worktree-ready":
+            print("Already in worktree-ready layout (repo root is main/).")
+            return None
+
+        if layout == "worktree":
+            print("Error: You are inside a linked worktree.")
+            print("Run this command from the main checkout instead.")
+            return 1
+
+        if layout == "no-git":
+            print("Error: No git repository found.")
+            print("Initialize git first: git init")
+            return 1
+
+        if layout != "flat":
+            return None
+
+        if not self._worktree_migration_safe():
+            return 1
+        if not self._confirm_worktree_migration(force):
+            return 1
+
+        # Migrate
+        try:
+            new_root = self._migrate_to_worktree_layout()
+            self._update_target_dir(new_root)
+            print(f"Migrated to worktree layout: {new_root}")
+            print(f"\n  ** After init completes, run: cd main **\n")
+        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            print(f"Error: {e}")
+            return 1
+
+        return None
+
+    def _worktree_migration_safe(self) -> bool:
+        """Refuse to migrate from a subdirectory, or while linked worktrees exist."""
+        from atdd.coach.utils.repo import find_repo_root
+
+        # Safety: must be at repo root, not a subdirectory
+        try:
+            repo_root = find_repo_root(self.target_dir)
+            if repo_root.resolve() != self.target_dir.resolve():
+                print("Error: Not at repository root.")
+                print(f"Run from: {repo_root}")
+                return False
+        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            pass
+
+        # Safety: no linked worktrees (their .git files would break)
+        linked = self._has_linked_worktrees()
+        if linked:
+            print("Error: Existing linked worktrees would break after migration.")
+            print("Remove them first:")
+            for wt in linked:
+                print(f"  git worktree remove {wt}")
+            return False
+
+        return True
+
+    def _confirm_worktree_migration(self, force: bool) -> bool:
+        """Show what the migration will move, and ask before doing it."""
+        items = [i.name for i in self.target_dir.iterdir()]
+        print(f"This will move all {len(items)} items into {self.target_dir / 'main'}:")
+        for name in sorted(items)[:10]:
+            print(f"  {name}")
+        if len(items) > 10:
+            print(f"  ... and {len(items) - 10} more")
+
+        if force:
+            return True
+
+        answer = input("\nProceed? [y/N] ").strip().lower()
+        if answer in ("y", "yes"):
+            return True
+
+        print("Aborted.")
+        return False
 
     def init(
         self,
@@ -448,71 +387,29 @@ class ProjectInitializer:
         if consumer_repo and toolkit:
             print("Error: --consumer-repo and --toolkit are mutually exclusive.")
             return 1
-        from atdd.coach.utils.repo import detect_worktree_layout, find_repo_root
+        from atdd.coach.utils.repo import detect_worktree_layout
 
         layout = detect_worktree_layout(self.target_dir)
 
         if worktree_layout:
-            if layout == "worktree-ready":
-                print("Already in worktree-ready layout (repo root is main/).")
-                self._write_workspace()
-            elif layout == "worktree":
-                print("Error: You are inside a linked worktree.")
-                print("Run this command from the main checkout instead.")
-                return 1
-            elif layout == "no-git":
-                print("Error: No git repository found.")
-                print("Initialize git first: git init")
-                return 1
-            elif layout == "flat":
-                # Safety: must be at repo root, not a subdirectory
-                try:
-                    repo_root = find_repo_root(self.target_dir)
-                    if repo_root.resolve() != self.target_dir.resolve():
-                        print("Error: Not at repository root.")
-                        print(f"Run from: {repo_root}")
-                        return 1
-                except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                    pass
-
-                # Safety: no linked worktrees (their .git files would break)
-                linked = self._has_linked_worktrees()
-                if linked:
-                    print("Error: Existing linked worktrees would break after migration.")
-                    print("Remove them first:")
-                    for wt in linked:
-                        print(f"  git worktree remove {wt}")
-                    return 1
-
-                # Confirm before migrating
-                items = [i.name for i in self.target_dir.iterdir()]
-                print(f"This will move all {len(items)} items into {self.target_dir / 'main'}:")
-                for name in sorted(items)[:10]:
-                    print(f"  {name}")
-                if len(items) > 10:
-                    print(f"  ... and {len(items) - 10} more")
-                if not force:
-                    answer = input("\nProceed? [y/N] ").strip().lower()
-                    if answer not in ("y", "yes"):
-                        print("Aborted.")
-                        return 1
-
-                # Migrate
-                try:
-                    new_root = self._migrate_to_worktree_layout()
-                    self._update_target_dir(new_root)
-                    print(f"Migrated to worktree layout: {new_root}")
-                    self._write_workspace()
-                    print(f"\n  ** After init completes, run: cd main **\n")
-                except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                    print(f"Error: {e}")
-                    return 1
-        else:
-            if layout == "flat":
-                print("Advisory: Repo uses flat layout (not worktree-ready).")
-                print("  Run: atdd init --worktree-layout\n")
+            stop_code = self._apply_worktree_layout(layout, force)
+            if stop_code is not None:
+                return stop_code
+        elif layout == "flat":
+            print("Advisory: Repo uses flat layout (not worktree-ready).")
+            print("  Run: atdd init --worktree-layout\n")
 
         # Check if already initialized
+        #
+        # #1492: this early return is why the skip-if-exists inside
+        # _install_hooks was only the SECOND gate — plain `atdd init` never
+        # reached it. The hook refresh deliberately does NOT live here: `init`
+        # on an initialised repo is contractually a no-op (R004/#720 asserts a
+        # zero-change snapshot for `--worktree-layout` on an already-flat repo),
+        # and quietly turning it into a writer would redefine that contract.
+        # `atdd sync` is the sanctioned refresh instead — it is the verb the
+        # upgrade banner names ("Run: atdd sync && atdd init") and the verb that
+        # stamps toolkit.last_version.
         if self.atdd_config_dir.exists() and not force:
             print(f"ATDD already initialized at {self.target_dir}")
             print("Use --force to reinitialize")
@@ -523,15 +420,13 @@ class ProjectInitializer:
             self.atdd_config_dir.mkdir(parents=True, exist_ok=True)
             print(f"Created: {self.atdd_config_dir}")
 
-            # Ensure .atdd/cache/ is gitignored
-            self._ensure_gitignore_entry(".atdd/cache/")
-            # Issue #449: validation diagnostics artifact directory.
-            # Written by `atdd validate` on every run — local artifact,
-            # not git history.
-            self._ensure_gitignore_entry(".atdd/diagnostics/")
+            # Gitignore the per-checkout operational artifacts atdd writes.
+            self._seed_gitignore_entries()
 
-            # Create manifest.yaml
-            self._create_manifest(force)
+            # #1270 Slice G: the ``.atdd/manifest.yaml`` mirror was deleted — the
+            # State Store is the sole operational registry. Genesis no longer
+            # writes a manifest; a cold store self-seeds from registered sync
+            # providers on first read (WorkItemReader).
 
             # Create config.yaml
             self._create_config(force)
@@ -543,9 +438,6 @@ class ProjectInitializer:
                 force_toolkit=toolkit,
             )
             print(f"Substrate mode: {substrate_mode}")
-
-            # Prompt for workspace color if unset or default yellow
-            self._prompt_workspace_color()
 
             # Install git hooks (pre-commit worktree enforcement)
             self._install_hooks(force)
@@ -572,7 +464,6 @@ class ProjectInitializer:
             print("=" * 60)
             print("\nStructure created:")
             print(f"  {self.atdd_config_dir}/")
-            print(f"  {self.manifest_file}")
             print(f"  {self.config_file}")
             print(f"  CLAUDE.md (with ATDD managed block)")
             if github_summary:
@@ -586,6 +477,43 @@ class ProjectInitializer:
         except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             print(f"Error: {e}")
             return 1
+
+    def _seed_gitignore_entries(self) -> None:
+        """Gitignore the per-checkout operational artifacts `atdd` writes.
+
+        These are local, never-committed artifacts; committing them pushes one
+        developer's private state at another. Mirrors the toolkit's own
+        ``.gitignore``. Each entry is written idempotently.
+
+        - ``.atdd/cache/``                 CLI caches.
+        - ``.atdd/diagnostics/``           `atdd validate` run artifacts (#449).
+        - ``.atdd/state/state.sqlite*``    the State Store's local SQLite DB + WAL, the
+          sole operational registry — written on every run (#1325 item 6).
+        - ``.atdd/state/backups/``         local pre-mutation store backups.
+        - ``.atdd/manifest.migrated.yaml`` the one-shot manifest→store migration
+          backup (``manifest_import._BACKUP_NAME``) (#1325 item 6).
+        - ``.atdd/runtime/``               per-checkout runtime state, including the
+          toolkit-sync record that mutes the upgrade banner (#1641). It MUST stay
+          untracked: its tracked predecessor was reverted by every branch switch,
+          which is what made the banner fire forever.
+        - ``.atdd/version_cache.json``     vestigial; the PyPI cache really lives at
+          ``~/.atdd/version_cache.json``. Ignored defensively so a stray copy left by
+          an older CLI cannot become untracked noise.
+
+        **Never** ``.atdd/state/`` wholesale (#1580). That is what this wrote until the
+        2026-07-20 mass-deletion, and it took ``.atdd/state/projection/`` — the *shared*
+        source of truth, the one thing under ``state/`` that must be committed — down with
+        the private DB it meant to hide. A gitignored projection is empty at every HEAD,
+        and reconcile read that emptiness as an instruction to delete. The entries stay
+        narrow so a consumer install cannot inherit the same trap.
+        """
+        self._ensure_gitignore_entry(".atdd/cache/")
+        self._ensure_gitignore_entry(".atdd/diagnostics/")
+        self._ensure_gitignore_entry(".atdd/state/state.sqlite*")
+        self._ensure_gitignore_entry(".atdd/state/backups/")
+        self._ensure_gitignore_entry(".atdd/manifest.migrated.yaml")
+        self._ensure_gitignore_entry(".atdd/runtime/")
+        self._ensure_gitignore_entry(".atdd/version_cache.json")
 
     def _ensure_gitignore_entry(self, entry: str) -> None:
         """Append *entry* to the repo .gitignore if not already present."""
@@ -695,51 +623,13 @@ class ProjectInitializer:
             print("Run: atdd init --export-schemas   (or atdd sync)")
             return 1
 
-    def _create_manifest(self, force: bool = False) -> None:
-        """
-        Create or update .atdd/manifest.yaml.
-
-        When force=True and a manifest already exists, the sessions list is
-        preserved — only schema-level fields (version, created) are refreshed.
-        This mirrors the deep-merge behaviour of _create_config so that a
-        routine `atdd sync && atdd init --force` version-upgrade step never
-        destroys session history (issue #580).
-
-        Args:
-            force: If True, refresh schema fields while preserving sessions.
-        """
-        if self.manifest_file.exists() and not force:
-            print(f"Manifest already exists: {self.manifest_file}")
-            return
-
-        # Preserve existing sessions when force-reinitialising.
-        existing_sessions: list = []
-        if self.manifest_file.exists():
-            try:
-                with open(self.manifest_file) as f:
-                    existing = yaml.safe_load(f) or {}
-                existing_sessions = existing.get("sessions") or []
-            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
-                pass
-
-        manifest = {
-            "version": "2.0",
-            "created": date.today().isoformat(),
-            "sessions": existing_sessions,
-        }
-
-        with open(self.manifest_file, "w") as f:
-            yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
-
-        print(f"Created: {self.manifest_file}")
-
     def _create_config(self, force: bool = False) -> None:
         """
         Create or update .atdd/config.yaml.
 
         When force=True and config already exists, deep-merges defaults into
-        the existing config — preserving user-set values (workspace.color,
-        github.*, customised release/sync settings) while filling in any
+        the existing config — preserving user-set values (github.*,
+        customised release/sync settings) while filling in any
         missing default keys and always updating toolkit.last_version.
 
         Args:
@@ -922,16 +812,44 @@ class ProjectInitializer:
             yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
         print(f"  Removed substrate fields from {self.config_file}")
 
-    def _install_hooks(self, force: bool = False) -> None:
-        """Install git hooks from package templates into .atdd/hooks/.
+    #: Marker identifying a file we wrote, so a refresh can tell an installed
+    #: dispatcher apart from something the operator put there.
+    _DISPATCHER_MARKER = "ATDD managed hook dispatcher"
 
-        Copies all hook templates (pre-commit, pre-push, pre-merge-commit,
-        etc.), makes them executable, and sets ``git config core.hooksPath``
-        to the absolute path so that all worktrees sharing this repository
-        inherit the hooks automatically.
+    def _dispatcher_body(self, hook_name: str) -> Optional[str]:
+        """Render the dispatcher that will be installed for *hook_name*."""
+        tpl = self.package_root / "templates" / "hook-dispatcher.sh"
+        if not tpl.is_file():
+            logger.warning(
+                "Hook dispatcher template not found: %s",
+                tpl, extra={"path": str(tpl)},
+            )
+            return None
+        return tpl.read_text().replace("__ATDD_HOOK_NAME__", hook_name)
+
+    def _refresh_hook_files(self, force: bool = False) -> int:
+        """Install/refresh the git hook dispatcher FILES in .atdd/hooks/ (#1492).
+
+        Each installed hook is a FIXED-CONTENT dispatcher that execs the hook
+        shipped inside the installed atdd package. That makes drift structurally
+        impossible rather than merely detectable: there is no copied logic left
+        to go stale, so `pipx upgrade atdd` propagates a hook fix on its own.
+
+        This used to `shutil.copy2` the template and skip any hook that already
+        existed unless ``force``. The installed hook was therefore a point-in-time
+        fork, refreshable only by ``atdd init --force`` — the flag that caused
+        #793 and is forbidden. Every hook fix reached only repos initialised
+        after it landed, and 6 of 11 hooks were never installed at all.
+
+        A refresh is authoritative: it always wins. A hook whose content we do
+        not recognise (hand-edited, or stale from a much older version) is
+        preserved as ``<hook>.local.bak`` before being replaced, so the refresh
+        is non-destructive without ever declining to update.
 
         Args:
-            force: If True, overwrite existing hooks.
+            force: Unused for content decisions — a refresh always rewrites a
+                stale hook. Retained for signature compatibility with the
+                surrounding init flow.
         """
         hooks_dir = self.atdd_config_dir / "hooks"
         hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -941,21 +859,93 @@ class ProjectInitializer:
             logger.warning("Hook template directory not found: %s", template_dir, extra={"path": str(template_dir)})
             return
 
-        installed = 0
+        refreshed = 0
+        preserved = 0
         for hook_src in sorted(template_dir.iterdir()):
             if hook_src.name.startswith(("__", ".")) or hook_src.is_dir():
                 continue
-            hook_dst = hooks_dir / hook_src.name
-            if hook_dst.exists() and not force:
-                print(f"Hook exists (skip): {hook_dst}")
-            else:
-                shutil.copy2(hook_src, hook_dst)
-                os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
-                print(f"Installed: {hook_dst}")
-                installed += 1
 
-        if installed == 0 and not force:
-            print("All hooks already installed.")
+            desired = self._dispatcher_body(hook_src.name)
+            if desired is None:
+                # Missing dispatcher template: install no content, but still
+                # wire core.hooksPath in the caller — that wiring is independent
+                # of hook content, and skipping it would leave git pointed at
+                # nothing.
+                break
+
+            did_refresh, did_preserve = self._refresh_one_hook(
+                hook_src, hooks_dir / hook_src.name, desired
+            )
+            refreshed += int(did_refresh)
+            preserved += int(did_preserve)
+
+        if refreshed:
+            print(f"Hooks: {refreshed} installed/refreshed → {hooks_dir}")
+        else:
+            print("Hooks: all current.")
+        if preserved:
+            print(f"Hooks: {preserved} pre-existing file(s) preserved as *.local.bak")
+        return refreshed
+
+    def _refresh_one_hook(
+        self, hook_src: Path, hook_dst: Path, desired: str
+    ) -> Tuple[bool, bool]:
+        """Bring a single installed hook to *desired*, preserving the unknown.
+
+        Returns:
+            (refreshed, preserved) — whether the file was written, and whether
+            unrecognised prior content was saved as ``<hook>.local.bak`` first.
+        """
+        preserved = False
+        if hook_dst.is_file():
+            current = hook_dst.read_text(errors="replace")
+            if current == desired:
+                return False, False  # already current — nothing to say
+
+            # Recognised content is ours to replace silently: either an older
+            # dispatcher, or a pristine copy of the packaged template left by
+            # the pre-#1492 copy-install. Anything else is the operator's, and
+            # is preserved before being overwritten — the refresh always wins,
+            # but never destroys (#1492 Decision #2).
+            recognised = (
+                self._DISPATCHER_MARKER in current
+                or current == hook_src.read_text(errors="replace")
+            )
+            if not recognised:
+                backup = hook_dst.with_name(hook_dst.name + ".local.bak")
+                shutil.copy2(hook_dst, backup)
+                preserved = True
+                print(f"  ! {hook_dst.name}: unrecognised content preserved → {backup.name}")
+
+        hook_dst.write_text(desired)
+        os.chmod(hook_dst, hook_dst.stat().st_mode | 0o111)
+        return True, preserved
+
+    def refresh_hook_files(self) -> int:
+        """Refresh installed hook CONTENT only. Writes no git config (#1492).
+
+        Deliberately separate from ``_install_hooks``: refreshing hook content
+        and wiring ``core.hooksPath`` are different concerns with very different
+        blast radii. core.hooksPath is a single shared setting governing every
+        worktree of the repository, and an unscoped write to it is what caused
+        #793. A refresh — which now runs from plain `atdd init` and `atdd sync`,
+        i.e. far more often than a first install ever did — must therefore never
+        touch git config: it only replaces the files in .atdd/hooks/.
+
+        Returns:
+            The number of hooks installed or refreshed.
+        """
+        return self._refresh_hook_files()
+
+    def _install_hooks(self, force: bool = False) -> None:
+        """Install the hook dispatchers AND point git at them.
+
+        First-install path: refreshes the hook files, then wires core.hooksPath.
+        Callers that only want current hook content must use
+        :meth:`refresh_hook_files` instead — see #793.
+        """
+        hooks_dir = self.atdd_config_dir / "hooks"
+        self._refresh_hook_files(force)
 
         # Point git to the hooks directory.
         # Wave 12 contamination fix (#793): when running inside a linked (non-main)
@@ -1112,8 +1102,12 @@ class ProjectInitializer:
             print("All harness templates already installed.")
 
     def is_initialized(self) -> bool:
-        """Check if ATDD is already initialized in target directory."""
-        return self.atdd_config_dir.exists() and self.manifest_file.exists()
+        """Check if ATDD is already initialized in target directory.
+
+        #1270 Slice G: keyed on ``.atdd/config.yaml`` — the manifest mirror it
+        used to check was deleted and is no longer written at genesis.
+        """
+        return self.atdd_config_dir.exists() and self.config_file.exists()
 
     # -------------------------------------------------------------------------
     # E007: GitHub infrastructure bootstrap
@@ -1406,12 +1400,22 @@ class ProjectInitializer:
         with open(schema_path) as f:
             schema = json.load(f)
 
-        # ------------------------------------------------------------------
-        # Pass 1: Migrate — rename old-name fields, delete deprecated ones
-        # ------------------------------------------------------------------
+        # Pass 1: migrate — rename old-name fields, delete deprecated ones
         existing = self._query_project_field_names_and_ids(project_id)
-        migrated = 0
+        migrated = self._migrate_project_fields(project_id, existing)
 
+        # Pass 2: re-query after migration
+        if migrated:
+            existing = self._query_project_field_names_and_ids(project_id)
+
+        # Pass 3: create any still-missing fields from schema
+        created = self._create_missing_fields(project_id, schema, set(existing.keys()))
+
+        return migrated + created
+
+    def _migrate_project_fields(self, project_id: str, existing: Dict[str, str]) -> int:
+        """Rename renamed fields and delete deprecated ones. Returns count changed."""
+        migrated = 0
         for old_name, new_name in self._FIELD_MIGRATION.items():
             if old_name not in existing:
                 continue
@@ -1428,22 +1432,17 @@ class ProjectInitializer:
                     print(f"    Renamed field: {old_name} -> {new_name}")
                     migrated += 1
 
-        # ------------------------------------------------------------------
-        # Pass 2: Re-query after migration
-        # ------------------------------------------------------------------
-        if migrated:
-            existing = self._query_project_field_names_and_ids(project_id)
-        existing_names = set(existing.keys())
+        return migrated
 
-        # ------------------------------------------------------------------
-        # Pass 3: Create any still-missing fields from schema
-        # ------------------------------------------------------------------
+    def _create_missing_fields(
+        self, project_id: str, schema: dict, existing_names: set
+    ) -> int:
+        """Create every schema-declared field the project does not carry yet."""
         created = 0
         defs = schema.get("$defs", {})
 
         for scope in ["parent_fields", "sub_issue_fields"]:
-            scope_def = defs.get(scope, {})
-            for field_key, field_spec in scope_def.get("properties", {}).items():
+            for field_spec in defs.get(scope, {}).get("properties", {}).values():
                 field_props = field_spec.get("properties", {})
                 name = field_props.get("name", {}).get("const")
                 data_type = field_props.get("data_type", {}).get("const")
@@ -1451,41 +1450,53 @@ class ProjectInitializer:
                 if not name or not data_type or name in existing_names:
                     continue
 
-                if data_type == "SINGLE_SELECT":
-                    options = field_spec.get("properties", {}).get("options", {})
-                    option_items = options.get("prefixItems", [])
-                    options_str = ", ".join(
-                        f'{{name: "{item["properties"]["name"]["const"]}", '
-                        f'description: "{item["properties"]["description"]["const"]}", '
-                        f'color: {item["properties"]["color"]["const"]}}}'
-                        for item in option_items
-                        if "properties" in item
-                    )
-                    mutation = (
-                        f'mutation {{ createProjectV2Field(input: {{ '
-                        f'projectId: "{project_id}", dataType: {data_type}, '
-                        f'name: "{name}", singleSelectOptions: [{options_str}] '
-                        f'}}) {{ projectV2Field {{ ... on ProjectV2SingleSelectField {{ id }} }} }} }}'
-                    )
-                else:
-                    mutation = (
-                        f'mutation {{ createProjectV2Field(input: {{ '
-                        f'projectId: "{project_id}", dataType: {data_type}, '
-                        f'name: "{name}" '
-                        f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} }} }} }}'
-                    )
+                mutation = self._field_create_mutation(
+                    project_id, name, data_type, field_spec
+                )
+                if self._run_field_mutation(mutation):
+                    created += 1
 
-                try:
-                    result = subprocess.run(
-                        ["gh", "api", "graphql", "-f", f"query={mutation}"],
-                        capture_output=True, text=True, timeout=10,
-                    )
-                    if result.returncode == 0:
-                        created += 1
-                except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-                    pass
+        return created
 
-        return migrated + created
+    @staticmethod
+    def _field_create_mutation(
+        project_id: str, name: str, data_type: str, field_spec: dict
+    ) -> str:
+        """The createProjectV2Field mutation for one field."""
+        if data_type != "SINGLE_SELECT":
+            return (
+                f'mutation {{ createProjectV2Field(input: {{ '
+                f'projectId: "{project_id}", dataType: {data_type}, '
+                f'name: "{name}" '
+                f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} }} }} }}'
+            )
+
+        options = field_spec.get("properties", {}).get("options", {})
+        options_str = ", ".join(
+            f'{{name: "{item["properties"]["name"]["const"]}", '
+            f'description: "{item["properties"]["description"]["const"]}", '
+            f'color: {item["properties"]["color"]["const"]}}}'
+            for item in options.get("prefixItems", [])
+            if "properties" in item
+        )
+        return (
+            f'mutation {{ createProjectV2Field(input: {{ '
+            f'projectId: "{project_id}", dataType: {data_type}, '
+            f'name: "{name}", singleSelectOptions: [{options_str}] '
+            f'}}) {{ projectV2Field {{ ... on ProjectV2SingleSelectField {{ id }} }} }} }}'
+        )
+
+    @staticmethod
+    def _run_field_mutation(mutation: str) -> bool:
+        """Run one field mutation via gh. False when gh is absent or times out."""
+        try:
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f", f"query={mutation}"],
+                capture_output=True, text=True, timeout=10,
+            )
+            return result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            return False
 
     # Default path → phase mappings for path-scoped validation
     DEFAULT_PATH_FILTERS = {

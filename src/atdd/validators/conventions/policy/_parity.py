@@ -1,19 +1,23 @@
-"""Legacy-parity harness for the `policy` family variants (#1212).
+"""Repo-root + retired on-disk-injection helpers for the `policy` family (#1212, #1458).
 
-Each policy variant must reach *both*-catch parity: when a variant's fault is
-injected into the relevant REAL repo file, the convention evaluator (over the real
-composed graph) AND the legacy validator (run via subprocess `python -m pytest
-<nodeid>`) must both catch it. This module supplies the shared injection +
-subprocess plumbing; it is not a test module (no ``test_`` prefix → not collected).
+The policy variants no longer inject their faults here: every one of them stages its
+fault under ``tmp_path`` and re-points a copied graph at it (#1458, E035), so nothing
+writes the real checkout. What survives is ``repo_root`` (used to locate the real bytes
+a staged tree mirrors) and ``overwrite_file``, which is RETAINED DELIBERATELY as the
+E035-RED-001 characterization oracle: ``test_e035_root_reader_fault_in_staged_root``
+drives it to prove the retired on-disk mechanism really did rewrite a tracked file, which
+is the hazard the staged root removes. Delete it and that RED characterization goes
+vacuous.
+
+``temp_new_file`` was dropped with #1458 — its only caller, the stale-suppression probe,
+now stages its marker file under ``tmp_path`` instead of dropping it into ``src/atdd/``.
+
+Not a test module (no ``test_`` prefix → not collected).
 """
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
-from typing import Optional
 
 
 def repo_root() -> Path:
@@ -21,37 +25,16 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[5]
 
 
-def legacy_catches(nodeid: str) -> bool:
-    """Run the legacy validator test by nodeid; return True iff it FAILS (i.e. the
-    legacy validator caught the injected fault)."""
-    root = repo_root()
-    env = dict(os.environ)
-    env["PYTHONPATH"] = "src"
-    proc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=str(root), env=env, capture_output=True, text=True,
-    )
-    return proc.returncode != 0
-
-
 @contextlib.contextmanager
 def overwrite_file(path: Path, new_content: str):
-    """Back up *path*, replace its content, restore the exact original bytes on exit."""
+    """Back up *path*, replace its content, restore the exact original bytes on exit.
+
+    RETAINED as the E035-RED-001 characterization oracle only — no policy variant injects
+    through it any more. Do not reintroduce it into a fault test.
+    """
     original = path.read_bytes()
     try:
         path.write_text(new_content, encoding="utf-8")
         yield
     finally:
         path.write_bytes(original)
-
-
-@contextlib.contextmanager
-def temp_new_file(path: Path, content: str):
-    """Create *path* with *content*, delete it on exit (must not pre-exist)."""
-    assert not path.exists(), f"parity temp file already exists: {path}"
-    try:
-        path.write_text(content, encoding="utf-8")
-        yield
-    finally:
-        with contextlib.suppress(FileNotFoundError):
-            path.unlink()

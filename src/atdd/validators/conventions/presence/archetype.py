@@ -70,7 +70,12 @@ _LEGAL_DISPOSITIONS = frozenset(
 )
 
 # Source files the file-backed variants read through ``graph.root``.
-_THEME_CONVENTION = "src/atdd/planner/conventions/theme.convention.yaml"
+# #1639: the planner legacy monoliths were deleted; the theme taxonomy is carried
+# by its convention node, which is where this variant now reads it.
+_THEME_CONVENTION = (
+    "src/atdd/planner/conventions/nodes/"
+    "planner.theme.canonical-taxonomy.convention.yaml"
+)
 _RULE_ID_CONVENTION = "src/atdd/coach/conventions/rule-id.convention.yaml"
 _PHASE_MACHINE_CONVENTION = "src/atdd/coach/conventions/phase_machine.convention.yaml"
 _PHASE_MACHINE_GATE_COMMAND = "atdd validate planner"
@@ -80,6 +85,11 @@ _PHASE_MACHINE_GATE_COMMAND = "atdd validate planner"
 _SMOKE_URN_RE = re.compile(
     r"^acc:[a-z][a-z0-9-]*:[DLPCEMYRK]\d{3}-SMOKE-\d{3}(?:-[a-z0-9-]+)?$"
 )
+# Acceptance well-formedness (required_field_presence) — a `then` line that is
+# nothing but a placeholder token states no outcome a test could assert.
+_PLACEHOLDER_RE = re.compile(r"^(tbd|todo|tba|n/?a|fixme|xxx|\?+|-+)$", re.IGNORECASE)
+_MIN_OUTCOME_CHARS = 10
+
 _FEEDBACK_LOOP_SUPPRESS_RE = re.compile(
     r"atdd:suppress\(planner\.smoke\.feedback-loop-close-the-loop\)"
     r"\s+UNTIL=\d{4}-\d{2}-\d{2}"
@@ -121,23 +131,28 @@ def _check_theme_zero_mandatory(graph) -> list:
     asserts equality against that same constant, so it is tautological and cannot
     be faulted by repo data (proven by its own
     ``test_override_cannot_remove_commons_floor``). This convention variant adds
-    the real, data-level gate over ``theme.convention.yaml`` that legacy lacks.
+    the real, data-level gate that legacy lacks.
+
+    SOURCE (#1639): reads the ``planner.theme.canonical-taxonomy`` convention
+    node, not the deleted ``theme.convention.yaml`` monolith. The node carries
+    the same three facts under ``terms``: ``theme_zero.values.{token,mandatory}``
+    and ``canonical_theme.values['0']``, whose name is the segment before the
+    em-dash gloss. The gate is unchanged in strength — all three must hold.
     """
-    tax = _read_yaml(graph, _THEME_CONVENTION).get("taxonomy") or {}
-    token = tax.get("theme_zero_token")
-    mandatory = tax.get("theme_zero_mandatory")
-    digit0 = next(
-        (t for t in (tax.get("themes") or [])
-         if isinstance(t, dict) and str(t.get("digit")) == "0"),
-        None,
-    )
+    terms = {
+        t.get("term_id"): (t.get("values") or {})
+        for t in (_read_yaml(graph, _THEME_CONVENTION).get("terms") or [])
+        if isinstance(t, dict) and t.get("term_id")
+    }
+    theme_zero = terms.get("theme_zero") or {}
+    token = theme_zero.get("token")
+    mandatory = theme_zero.get("mandatory")
+
+    # ``canonical_theme`` maps digit -> "<name> — <gloss>"; the name is the head.
+    digit0 = (terms.get("canonical_theme") or {}).get("0")
     resolved0 = None
-    if isinstance(digit0, dict):
-        name = digit0.get("name")
-        if isinstance(name, str) and "${theme_zero_token}" in name and token:
-            resolved0 = token
-        else:
-            resolved0 = name
+    if isinstance(digit0, str):
+        resolved0 = digit0.split("—", 1)[0].strip() or None
 
     floor_present = (
         token == "commons" and bool(mandatory) and resolved0 == "commons"
@@ -242,11 +257,88 @@ def _check_phase_machine_init_precommit_gate(graph) -> list:
     return []
 
 
+def _abstract_prose(section) -> list:
+    """The non-empty prose lines of an acceptance ``given``/``when``/``then``
+    section's ``abstract`` field.
+
+    ``when.abstract`` is documented as a string and ``given``/``then`` as arrays
+    (``planner.acceptance.abstract-fields-required``), but the plan corpus carries
+    multi-line ``when.abstract`` arrays too. Both forms are prose, so both are
+    accepted here — this rule checks that the narrative is PRESENT, not which
+    YAML shape carries it.
+    """
+    if not isinstance(section, dict):
+        return []
+    value = section.get("abstract")
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, list):
+        return [x for x in value if isinstance(x, str) and x.strip()]
+    return []
+
+
+def _verifiable_outcome(lines: list) -> bool:
+    """True when at least one ``then`` line states an outcome a generated test
+    can assert — substantive prose rather than a bare placeholder token.
+
+    A line like ``TBD`` or ``???`` names no observable outcome. The match is
+    anchored to the WHOLE stripped line: prose that merely mentions a placeholder
+    (``"... or marked TBD if the follow-on is not yet filed"``) is a real outcome
+    and stays clean.
+    """
+    return any(
+        len(line.strip()) >= _MIN_OUTCOME_CHARS and not _PLACEHOLDER_RE.match(line.strip())
+        for line in lines
+    )
+
+
+def _missing_prose(acc: dict, acc_id: str, wmbt) -> list:
+    """Sections of ONE acceptance whose Given/When/Then narrative is absent or empty."""
+    return [{"node_id": acc_id,
+             "missing_field": f"{section}.abstract",
+             "node_location": wmbt.location}
+            for section in ("given", "when", "then")
+            if not _abstract_prose(acc.get(section))]
+
+
+def _unverifiable_outcome(acc: dict, acc_id: str, wmbt) -> list:
+    """ONE acceptance whose ``then`` prose is present but states no assertable outcome."""
+    then_lines = _abstract_prose(acc.get("then"))
+    if not then_lines or _verifiable_outcome(then_lines):
+        return []
+    return [{"node_id": acc_id,
+             "missing_field": "then.abstract (no verifiable outcome)",
+             "node_location": wmbt.location}]
+
+
+def _acceptance_violations(acc: dict, wmbt) -> list:
+    """The well-formedness violations of ONE acceptance: a missing/empty
+    given/when/then narrative, and a ``then`` that states no verifiable outcome.
+    """
+    acc_id = (acc.get("identity") or {}).get("urn") or wmbt.id
+    return _missing_prose(acc, acc_id, wmbt) + _unverifiable_outcome(acc, acc_id, wmbt)
+
+
+def _check_acceptance_well_formed(graph) -> list:
+    """Every acceptance declares Given/When/Then prose AND a verifiable outcome
+    (``planner.acceptance.well-formed``, formerly ``planner.acceptance.complete``).
+
+    Local shape only — this says nothing about whether the acceptance SET is
+    complete for its WMBT, which is ``planner.coverage.every-wmbt-must-have``.
+    """
+    return [v
+            for wmbt in graph.by_kind("wmbt")
+            for acc in (wmbt.fields.get("acceptances") or [])
+            if isinstance(acc, dict)
+            for v in _acceptance_violations(acc, wmbt)]
+
+
 _REQUIRED_FIELD_VARIANTS = {
     "theme_zero_mandatory": _check_theme_zero_mandatory,
     "rule_has_disposition": _check_rule_has_disposition,
     "rule_has_fix_hint": _check_rule_has_fix_hint,
     "phase_machine_init_precommit_gate": _check_phase_machine_init_precommit_gate,
+    "acceptance_well_formed": _check_acceptance_well_formed,
 }
 
 

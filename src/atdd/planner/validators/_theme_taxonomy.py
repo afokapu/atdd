@@ -7,7 +7,7 @@ theme validators (``test_theme_must_be_canonical``,
 ``test_theme_archetype_alignment``, ``test_theme_zero_mandatory``) import from
 here so the taxonomy lives in exactly one place.
 
-Convention: src/atdd/planner/conventions/theme.convention.yaml
+Convention: src/atdd/planner/conventions/nodes/planner.theme.canonical-taxonomy.convention.yaml
 
 The digit-0 token is LOCKED to "commons" (operator decision #970).
 """
@@ -79,7 +79,6 @@ ARCHETYPE_THEME_ROOTS: Dict[str, str] = {
 #: applied. SINGLE SOURCE — delete entries here as #951 re-themes each wagon.
 DEFERRED_RETHEME_WAGONS: frozenset = frozenset(
     {
-        "mediate-worker-decisions",
         # consolidate-coach-workspace is coach functionality currently themed
         # commons; its enforce-surface-conformance feature legitimately reuses the
         # #470 coach naming primitive + the coach multiplexer (live smoke). The

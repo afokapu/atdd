@@ -13,7 +13,9 @@ Rules pinned here:
   - Internal-phase steps (`from == to`) are skipped — they don't advance
     the pipeline and would clutter the journey-mode render.
   - Non-wagon participants on from/to (user:*, system:*) are ignored.
-  - Each emitted edge carries metadata {train, step, intent, category, source}.
+  - Each emitted edge carries metadata {train, step, intent, category, source},
+    where `category` is read from the train's `category` FIELD (#1421/#1440),
+    never derived by indexing the identity.
   - Multiple trains traversing the same handoff each emit their own edge
     (parallel edges, filterable by metadata.train).
 """
@@ -140,7 +142,8 @@ def test_two_wagon_handoff_emits_one_train_step_edge_with_metadata(tmp_path):
             [
                 'train_id: "0205-renewal-before-deadline"',
                 'title: "Renewal before deadline"',
-                'description: "Alternate scenario (category=2): stage -> dispatch handoff"',
+                'description: "Alternate scenario: stage -> dispatch handoff"',
+                "category: alternate",
                 "themes: [commons]",
                 "participants:",
                 "  - wagon:stage-request",
@@ -172,7 +175,7 @@ def test_two_wagon_handoff_emits_one_train_step_edge_with_metadata(tmp_path):
     assert e.metadata["step"] == 2
     assert "Hand off" in e.metadata["intent"]
     assert e.metadata["category"] == "alternate", (
-        "0205 has category digit 2 → alternate; got "
+        "category is read from the train's `category` field; got "
         f"{e.metadata.get('category')!r}"
     )
     assert e.metadata["source"] == "train-sequence"
@@ -194,7 +197,8 @@ def test_internal_phase_steps_are_skipped(tmp_path):
             [
                 'train_id: "0102-redirect-timeout"',
                 'title: "Error scenario"',
-                'description: "Category=1 error; two internal steps, one handoff"',
+                'description: "Error scenario; two internal steps, one handoff"',
+                "category: error",
                 "themes: [commons]",
                 'participants: ["wagon:a", "wagon:b"]',
                 "sequence:",
@@ -269,6 +273,7 @@ def test_multiple_trains_overlapping_handoff_emit_parallel_edges(tmp_path):
                     f'train_id: "{tid}"',
                     f'title: "{tid}"',
                     f'description: "Shares stage->dispatch handoff ({cat})"',
+                    f"category: {cat}",
                     "themes: [commons]",
                     'participants: ["wagon:stage-request", "wagon:dispatch-call"]',
                     "sequence:",
@@ -297,5 +302,5 @@ def test_multiple_trains_overlapping_handoff_emit_parallel_edges(tmp_path):
     }
     categories = {e.metadata["category"] for e in edges}
     assert categories == {"alternate", "error"}, (
-        f"Categories must be derived from train_id[1]; got {categories}"
+        f"Categories must come from each train's `category` field; got {categories}"
     )

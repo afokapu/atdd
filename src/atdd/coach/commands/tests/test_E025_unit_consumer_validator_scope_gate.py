@@ -193,3 +193,100 @@ def test_platform_tests_included_in_source_repo_split_mode(monkeypatch):
     assert "not platform" not in combined, (
         f"Source repo split=True must not exclude platform tests, got: {m_args!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# #1475 — the exclusion must be EFFECTIVE, not merely present on the argv.
+#
+# Every assertion above joins all -m values into one string and greps it. That
+# passes whether the runner emits `-m 'not github_api and not platform'` (one
+# effective expression) or `-m 'not github_api' -m 'not platform'` (two, of
+# which pytest honours only the LAST and silently discards the first). The
+# suite was blind to the difference, so the second shape shipped: in a consumer
+# `--skip-api` dropped `not github_api`, and the default split path dropped
+# `not platform` — running the very toolkit-self tests E025 exists to exclude.
+#
+# These assertions pin the effective expression instead of the argv spelling.
+# ---------------------------------------------------------------------------
+
+
+def _sole_m_expr(cmd: list[str]) -> str:
+    """The one marker expression pytest will actually honour in *cmd*.
+
+    Fails if the command carries more than one -m: pytest's -m is `store`, so a
+    second occurrence overwrites the first rather than conjoining with it.
+    """
+    # cmd[:3] is the module-form interpreter prefix `python -m pytest`; its -m
+    # is Python's, not pytest's. Only scan the pytest arguments that follow.
+    args = cmd[3:]
+    exprs = [args[i + 1] for i, t in enumerate(args) if t == "-m" and i + 1 < len(args)]
+    assert len(exprs) == 1, (
+        f"pytest honours only the LAST -m, so a command must carry exactly one; "
+        f"got {len(exprs)}: {exprs!r}\n"
+        "Conjoin the filters into a single expression "
+        "(e.g. '(not github_api) and (not platform)')."
+    )
+    return exprs[0]
+
+
+def _deselects(expr: str, marker: str) -> bool:
+    """True iff *expr* deselects a test carrying only *marker*.
+
+    pytest marker expressions are Python boolean syntax over marker names, so
+    binding the test's markers to True and every other name to False and
+    evaluating the expression reproduces pytest's own select/deselect verdict.
+    """
+
+    class _Markers(dict):
+        def __missing__(self, key: str) -> bool:
+            return key == marker
+
+    return not eval(expr, {"__builtins__": {}}, _Markers())  # noqa: S307
+
+
+def test_consumer_skip_api_expression_excludes_both_platform_and_api(monkeypatch):
+    """#1475: `--skip-api` in a consumer must deselect platform AND github_api.
+
+    The pre-push hook's exact invocation. Pre-fix this emitted
+    `-m 'not github_api' -m 'not platform'`; pytest kept only `not platform`,
+    so API-bound tests ran against a consumer with no GitHub credentials.
+    """
+    cmds = _capture_pytest_cmds(
+        monkeypatch, is_source=False, split=False, markers=["not github_api"]
+    )
+    expr = _sole_m_expr(cmds[0])
+
+    assert _deselects(expr, "platform"), f"{expr!r} must deselect platform tests"
+    assert _deselects(expr, "github_api"), f"{expr!r} must deselect github_api tests"
+
+
+def test_consumer_split_stage1_expression_excludes_both(monkeypatch):
+    """#1475: the default (split) path must deselect platform in stage 1.
+
+    Pre-fix stage 1 emitted `-m 'not platform' -m 'not github_api'` — the
+    mirror image of the case above — so `not platform` was the filter pytest
+    discarded, and every toolkit-self test ran in the consumer sweep.
+    """
+    cmds = _capture_pytest_cmds(monkeypatch, is_source=False, split=True)
+    expr = _sole_m_expr(cmds[0])
+
+    assert _deselects(expr, "platform"), (
+        f"stage-1 expression {expr!r} must deselect platform tests — this is the "
+        "consumer-mode exclusion E025 exists to enforce"
+    )
+    assert _deselects(expr, "github_api"), (
+        f"stage-1 expression {expr!r} must deselect github_api tests"
+    )
+
+
+def test_consumer_split_stage2_still_excludes_platform(monkeypatch):
+    """#1475: stage 2 selects github_api tests but must still exclude platform."""
+    cmds = _capture_pytest_cmds(monkeypatch, is_source=False, split=True)
+    expr = _sole_m_expr(cmds[1])
+
+    assert _deselects(expr, "platform"), (
+        f"stage-2 expression {expr!r} must deselect platform tests"
+    )
+    assert not _deselects(expr, "github_api"), (
+        f"stage-2 expression {expr!r} must still SELECT github_api tests"
+    )

@@ -2,7 +2,7 @@
 
 The PLANNED transition assumes the branch is reviewable. Since `atdd branch`
 defers PR creation (Phase 1), the gate has to live at the next step in the
-lifecycle — `atdd issue <N> --status PLANNED` — and it must satisfy the
+lifecycle — `atdd coach transition <N> PLANNED` — and it must satisfy the
 #467 hint contract (numbered prereqs, runnable as printed, no deprecated
 CLI form).
 
@@ -32,16 +32,23 @@ def _setup_atdd_config(tmp_path: Path) -> Path:
     (cfg_dir / "config.yaml").write_text(yaml.safe_dump({
         "github": {"repo": "owner/repo", "project_id": "PVT_test"},
     }))
-    (cfg_dir / "manifest.yaml").write_text(yaml.safe_dump({
-        "version": "2.0",
-        "sessions": [
-            # #1051: the PLANNED PR-gate resolves the branch from the local
-            # manifest (the Projects v2 "ATDD Branch" board read is retired).
-            {"id": "478", "slug": "478-branch-pr-empty",
-             "issue_number": 478, "type": "cleanup", "status": "INIT",
-             "branch": "chore/478-branch-pr-empty"},
-        ],
-    }))
+    # #1051 / #1270 Slice G: the PLANNED PR-gate resolves the branch from the
+    # State Store (the manifest mirror it used to read is deleted). Seed it.
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+    from atdd.state.store import StateStore
+
+    db = init_state_store(db_path=cfg_dir / "state" / "state.sqlite")
+    conn = connect(db)
+    try:
+        store = StateStore(conn)
+        store.objects.upsert("478-branch-pr-empty", WORK_ITEM_KIND, state="INIT",
+                             data={"issue_number": 478, "type": "cleanup",
+                                   "branch": "chore/478-branch-pr-empty"})
+        store.external_refs.link("478-branch-pr-empty", GITHUB_PROVIDER, "issue", "478",
+                                 data={"source": "test-seed"})
+    finally:
+        conn.close()
     return tmp_path
 
 
@@ -128,7 +135,7 @@ def test_planned_transition_blocked_when_no_pr(tmp_path, capsys):
     # #467 contract — numbered prereqs, runnable as printed
     assert "1." in out and "2." in out and "3." in out and "4." in out
     assert "atdd pr 478" in out
-    assert "atdd issue 478 --status PLANNED" in out
+    assert "atdd coach transition 478 PLANNED" in out
     # No deprecated CLI form
     assert "atdd update" not in out
     # Bypass surfaced

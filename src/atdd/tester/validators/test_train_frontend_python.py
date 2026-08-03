@@ -19,6 +19,8 @@ from typing import Dict, List, Tuple
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root
+from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.coach.utils.train_spec_phase import (
     TrainSpecPhase,
     should_enforce,
@@ -26,12 +28,33 @@ from atdd.coach.utils.train_spec_phase import (
 )
 
 
+def _is_train_id(token: str) -> bool:
+    """Is ``token`` a train identity? Delegates to ``URNGrammar`` (#1421,
+    Decision 8) — no local four-digit literal. Typed ``train:<subject>:<slug>``
+    validates directly; a bare legacy ``NNNN-slug`` is recognised via the
+    engine's still-live journey facet (a probe journey URN)."""
+    if not isinstance(token, str) or not token:
+        return False
+    try:
+        if URNGrammar.validate_grammar(token):
+            return True
+    except ValueError:
+        pass
+    try:
+        return bool(URNGrammar.validate_grammar(f"test:train:{token}:E2E-001-probe"))
+    except ValueError:
+        return False
+
+
 # Path constants
 REPO_ROOT = find_repo_root()
-PYTHON_DIR = REPO_ROOT / "python"
-STREAMLIT_DIR = PYTHON_DIR / "streamlit"
-APPS_DIR = PYTHON_DIR / "apps"
-STREAMLIT_TESTS_DIR = PYTHON_DIR / "tests" / "streamlit"
+PYTHON_DIR = resolve_code_root("python", REPO_ROOT)
+_HAS_PYTHON = PYTHON_DIR is not None
+STREAMLIT_DIR = PYTHON_DIR / "streamlit" if _HAS_PYTHON else None
+APPS_DIR = PYTHON_DIR / "apps" if _HAS_PYTHON else None
+STREAMLIT_TESTS_DIR = (
+    PYTHON_DIR / "tests" / "streamlit" if _HAS_PYTHON else None
+)
 
 # Package resources
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
@@ -97,7 +120,7 @@ def _find_frontend_python_code_files() -> List[Path]:
     files = []
 
     for search_dir in [STREAMLIT_DIR, APPS_DIR]:
-        if search_dir.exists():
+        if search_dir is not None and search_dir.exists():
             for py_file in search_dir.rglob("*.py"):
                 if not py_file.name.startswith("_"):
                     files.append(py_file)
@@ -114,16 +137,15 @@ def _find_frontend_python_test_files() -> List[Tuple[Path, str]]:
     """
     tests = []
 
-    if not STREAMLIT_TESTS_DIR.exists():
+    if STREAMLIT_TESTS_DIR is None or not STREAMLIT_TESTS_DIR.exists():
         return tests
 
-    # Pattern: test_<train_id>*.py
+    # Pattern: test_<train_id>.py — the stem after `test_` is a train identity
+    # iff URNGrammar recognises it (#1421); the file glob is the wrapper.
     for test_file in STREAMLIT_TESTS_DIR.glob("test_*.py"):
-        filename = test_file.stem
-        match = re.match(r"test_(\d{4}-[a-z0-9-]+)", filename)
-        if match:
-            train_id = match.group(1)
-            tests.append((test_file, train_id))
+        candidate = test_file.stem[len("test_"):]
+        if _is_train_id(candidate):
+            tests.append((test_file, candidate))
 
     return tests
 
@@ -138,7 +160,7 @@ def _check_train_code_references(train_id: str) -> List[Path]:
     matching_files = []
 
     for search_dir in [STREAMLIT_DIR, APPS_DIR]:
-        if not search_dir.exists():
+        if search_dir is None or not search_dir.exists():
             continue
 
         for py_file in search_dir.rglob("*.py"):

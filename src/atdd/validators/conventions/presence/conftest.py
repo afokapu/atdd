@@ -8,9 +8,6 @@ The presence variant tests prove real-graph execution AND legacy parity:
 from __future__ import annotations
 
 import contextlib
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -53,14 +50,3 @@ def temp_file(repo_root: Path, rel: str, content: str):
         yield
     finally:
         p.unlink(missing_ok=True)
-
-
-def legacy_catches(repo_root: Path, nodeid: str) -> bool:
-    """Run a legacy pytest nodeid in a subprocess; True iff it FAILS (non-zero)."""
-    rc = subprocess.run(
-        [sys.executable, "-m", "pytest", nodeid, "-q", "-p", "no:cacheprovider"],
-        cwd=repo_root,
-        env={"PYTHONPATH": "src", "PATH": os.environ["PATH"]},
-        capture_output=True, text=True,
-    ).returncode
-    return rc != 0

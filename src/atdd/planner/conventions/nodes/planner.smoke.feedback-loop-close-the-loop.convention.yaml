@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+rule_id: planner.smoke.feedback-loop-close-the-loop
+kind: rule
+status: active
+name: Feedback-loop features must close the loop in SMOKE
+statement: 'A feature marked `kind: feedback-loop` must have at least one SMOKE acceptance
+  whose acceptance block declares a close_the_loop: field carrying both consumer_reacted
+  and drift_resolved.'
+rationale: 'Producer-only smoke assertions (artifact existence, schema validation)
+  are insufficient for feedback-loop features: they produce false-positive green CI
+  while the consumer end of the loop is never exercised. Motivating incident: #825.'
+terms:
+- term_id: close_the_loop_block
+  text: The SMOKE acceptance field that proves the loop closed. Requires both consumer_reacted
+    (the consumer-side assertion the test makes) and drift_resolved (the convergence
+    assertion).
+- term_id: suppression
+  text: "Inline hatch on the feature YAML kind: line \u2014 'kind: feedback-loop \
+    \ # atdd:suppress(planner.smoke.feedback-loop-close-the-loop) UNTIL=YYYY-MM-DD'\
+    \ \u2014 dated, so the debt expires."
+implementation:
+  type: validator
+  ref: conventions/presence/test_feedback_loop_close_the_loop::test_feedback_loop_convention_fault
+source:
+  legacy_path: src/atdd/tester/conventions/smoke.convention.yaml
+  legacy_section: feedback_loop_rules
+  legacy_rule_id: planner.smoke.feedback-loop-close-the-loop
+  extraction_mode: high_fidelity
+content:
+  summary: A feedback-loop feature whose SMOKE acceptances only assert the producer
+    side leaves the consumer end unexercised while CI stays green.
+  fix_hint: 'Add (or extend) a SMOKE acceptance on the feature primary WMBT with a
+    close_the_loop: block declaring consumer_reacted and drift_resolved. The test
+    must assert the consumer actually received the correction (not a fake send-history),
+    and that re-running the producer yields 0 new corrections for the same drift.'
+metadata:
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.79.0

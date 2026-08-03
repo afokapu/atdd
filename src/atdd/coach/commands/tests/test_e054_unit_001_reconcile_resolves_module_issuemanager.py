@@ -57,7 +57,7 @@ def test_reconcile_path_reaches_issuemanager_reconcile_without_unbound_local(
     # dispatch still reaches IssueManager.reconcile() exactly once through the
     # delegation, with no UnboundLocalError.
     monkeypatch.setattr("atdd.coach.commands.issue.IssueManager", _RecordingIssueManager)
-    monkeypatch.setattr(cli.sys, "argv", ["atdd", "issue", "reconcile"])
+    monkeypatch.setattr(cli.sys, "argv", ["atdd", "coach", "reconcile"])
 
     try:
         result = cli.main()

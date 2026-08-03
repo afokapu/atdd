@@ -29,7 +29,13 @@ _SRC = Path(__file__).resolve().parents[3]
 
 _CORE_TABLES = {
     "objects", "relationships", "events", "external_refs", "inbox", "outbox",
+    # v3 (#1400 reconcile-local-store): the explicit overlay event log and the
+    # store_base_commit metadata the reconcile spine is anchored on.
+    "overlay_events", "store_metadata",
 }
+
+#: Every migration currently defined. Bump this when a migration is added.
+_ALL_VERSIONS = [1, 2, 3]
 
 
 def _table_names(conn) -> set:
@@ -44,11 +50,11 @@ def test_apply_migrations_creates_all_core_tables(tmp_path):
     conn = connect(tmp_path / "s.sqlite")
     try:
         applied = apply_migrations(conn)
-        assert applied == [1, 2]                      # v1 core_tables + v2 release_kind (#1172)
+        assert applied == _ALL_VERSIONS   # v1 core_tables, v2 release_kind, v3 overlay+metadata
         names = _table_names(conn)
         assert _CORE_TABLES.issubset(names)
         assert "schema_migrations" in names
-        assert current_version(conn) == latest_version() == 2
+        assert current_version(conn) == latest_version() == _ALL_VERSIONS[-1]
     finally:
         conn.close()
 
@@ -56,11 +62,11 @@ def test_apply_migrations_creates_all_core_tables(tmp_path):
 def test_apply_migrations_is_idempotent(tmp_path):
     conn = connect(tmp_path / "s.sqlite")
     try:
-        assert apply_migrations(conn) == [1, 2]
+        assert apply_migrations(conn) == _ALL_VERSIONS
         assert apply_migrations(conn) == []          # nothing pending the second time
         # one bookkeeping row per applied migration
         rows = conn.execute("SELECT version FROM schema_migrations").fetchall()
-        assert [r["version"] for r in rows] == [1, 2]
+        assert [r["version"] for r in rows] == _ALL_VERSIONS
     finally:
         conn.close()
 
@@ -133,7 +139,7 @@ def test_state_init_is_idempotent(tmp_path):
     conn = connect(db)
     try:
         rows = conn.execute("SELECT version FROM schema_migrations").fetchall()
-        assert [r["version"] for r in rows] == [1, 2]
+        assert [r["version"] for r in rows] == _ALL_VERSIONS
     finally:
         conn.close()
 
@@ -165,5 +171,5 @@ def test_state_init_cli_live(tmp_path):
     assert r.returncode == 0, r.stderr
     out = r.stdout + r.stderr
     assert "initialized" in out
-    assert "Schema version: 2" in out
+    assert f"Schema version: {_ALL_VERSIONS[-1]}" in out
     assert (repo / ".atdd" / "state" / "state.sqlite").is_file()

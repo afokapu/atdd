@@ -1,0 +1,41 @@
+schema_version: "1.1.0"
+kind: implementation
+
+# SCAFFOLD (afokapu/atdd-extensions#24). Manifest + skeleton only; the detector
+# under src/ is a NotImplementedError stub that #26 fills. The implementation_id,
+# provider target, contract range, realized convention, and report channel are the
+# package contract #26 builds against — agreed here so #26 does not redesign them.
+implementation_id: tester.interlocking.route-coverage.impl
+targets_workspace: atdd.workspace.python-pytest
+contract_version: "1.1.0"
+
+# The obligations this detector OWNS — all four, since no other implementation
+# realizes them and each has a convention node in ../../conventions/. Ownership is
+# what the core composer binds (afokapu/atdd#1359); emits_rule_ids below is
+# co-emission and does not create a binding. Declaring only the headline rule left
+# the other three unbound and therefore never enforced.
+realizes_convention:
+  - tester.interlocking.route-coverage
+  - tester.interlocking.production-runner-used
+  - tester.interlocking.smoke-coverage-for-station-master
+  - tester.interlocking.trace-binds-declared-route
+
+# One run surfaces FOUR rule_ids — all strict — over the v1.1 multi-rule output
+# channel. Declared so the resolver knows one run emits more than the primary
+# realizes_convention. Each maps to a convention node in ../../conventions/.
+emits_rule_ids:
+  - tester.interlocking.route-coverage                 # disposition: strict (uncovered admissible route)
+  - tester.interlocking.production-runner-used         # disposition: strict (mocked/patched/hand-built runner)
+  - tester.interlocking.smoke-coverage-for-station-master  # disposition: strict (exposed action w/o smoke test)
+  - tester.interlocking.trace-binds-declared-route     # disposition: strict (trace omits binding fields)
+
+# The pure detector module. Realizes all four tester interlocking obligations:
+# route coverage (core afokapu/atdd#1248 route space), production-runner usage,
+# Station Master smoke coverage, and trace<->declared-route binding (core #1251).
+# Scans the scope's interlocking_yaml + e2e_tests selectors.
+entrypoint: src/interlocking_coverage.py
+
+# The runnable v1.1 report-emitting pytest the provider CLI collects: scans
+# ATDD_SCAN_ROOTS and writes the RAW report to ATDD_VIOLATIONS_REPORT. #26
+# implements; stub for now.
+report: tests/test_interlocking_coverage.py

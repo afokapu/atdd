@@ -1,0 +1,23 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: 'the required-check set: canonicality, schema, legal transition,
+        cross-check, field-writer, no-secrets, core no-provider'
+      type: workflows
+    assembly:
+    - count: 1
+      rationale: the push/PR merge-authority CI job graph composing every required
+        check into one authoritative run
+      type: workers
+description: Execute the whole section-4 required-check set on push and pull request,
+  failing the run when any single check fails, so CI is authority and local hooks
+  are convenience (CORE-020, I6).
+sizing:
+  footprint_score: 7
+  footprint_size: S
+  wmbts: 1
+urn: feature:enforce-merge-authority:run-merge-checks
+wagon: wagon:enforce-merge-authority
+wmbts:
+- wmbt:enforce-merge-authority:E002

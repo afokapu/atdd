@@ -11,7 +11,7 @@ import re
 import subprocess
 from typing import Any
 
-from atdd.coach.commands.judge import LLMUnavailable
+from atdd.coach.commands.llm_clients.registry import LLMUnavailable
 
 
 def _extract_json(text: str) -> Any:
@@ -19,19 +19,19 @@ def _extract_json(text: str) -> Any:
     text = text.strip()
     try:
         return json.loads(text)
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         pass
     m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1).strip())
-        except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             pass
     m = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1))
-        except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             pass
     raise LLMUnavailable(f"no JSON found in response (first 200 chars): {text[:200]!r}")
 
@@ -57,9 +57,9 @@ class ClaudeSubprocessClient:
                 text=True,
                 timeout=120,
             )
-        except subprocess.TimeoutExpired as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except subprocess.TimeoutExpired as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             raise LLMUnavailable(f"{self._model_id} subprocess timed out") from exc
-        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             raise LLMUnavailable(f"{self._model_id} subprocess failed to start: {exc}") from exc
 
         if result.returncode != 0:

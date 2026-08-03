@@ -20,13 +20,19 @@ from typing import List
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
+
+
+def _under(root, *parts):
+    """Join *parts* under a resolved stack root, or None when it is undeclared."""
+    return None if root is None else root.joinpath(*parts)
 
 
 # Consumer repo artifacts
 REPO_ROOT = find_repo_root()
-PYTHON_COMMONS = REPO_ROOT / "python" / "commons"
-WEB_COMMONS = REPO_ROOT / "web" / "src" / "commons"
-WEB_SRC = REPO_ROOT / "web" / "src"
+PYTHON_COMMONS = _under(resolve_code_root("python", REPO_ROOT), "commons")
+WEB_COMMONS = _under(resolve_code_root("web", REPO_ROOT), "commons")
+WEB_SRC = resolve_code_root("web", REPO_ROOT)
 
 # Package resources (conventions, schemas)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
@@ -53,10 +59,10 @@ def test_commons_exists_in_both_stacks():
 
     missing = []
 
-    if not PYTHON_COMMONS.exists():
+    if PYTHON_COMMONS is None or not PYTHON_COMMONS.exists():
         missing.append(f"python/commons/ (expected at {PYTHON_COMMONS})")
 
-    if not WEB_COMMONS.exists():
+    if WEB_COMMONS is None or not WEB_COMMONS.exists():
         missing.append(f"web/src/commons/ (expected at {WEB_COMMONS})")
 
     if missing:
@@ -77,9 +83,9 @@ def test_no_shared_directory_exists():
 
     Validates: Migration from shared to commons complete
     """
-    old_shared = REPO_ROOT / "web" / "src" / "shared"
+    old_shared = _under(resolve_code_root("web", REPO_ROOT), "shared")
 
-    if old_shared.exists():
+    if old_shared is not None and old_shared.exists():
         files = list(old_shared.rglob("*"))
         pytest.fail(
             f"\n\nLegacy 'shared' directory still exists at web/src/shared\n"
@@ -104,7 +110,7 @@ def test_frontend_commons_has_layer_structure():
 
     Validates: Layer-first structure for frontend
     """
-    if not WEB_COMMONS.exists():
+    if WEB_COMMONS is None or not WEB_COMMONS.exists():
         pytest.skip("web/src/commons does not exist")
 
     expected_layers = ["domain", "application", "integration"]
@@ -138,19 +144,19 @@ def test_path_alias_uses_commons():
 
     Validates: Correct path alias configuration
     """
-    tsconfig_path = REPO_ROOT / "web" / "tsconfig.json"
-    vite_config_path = REPO_ROOT / "web" / "vite.config.ts"
+    tsconfig_path = _under(resolve_stack_container("web", REPO_ROOT), "tsconfig.json")
+    vite_config_path = _under(resolve_stack_container("web", REPO_ROOT), "vite.config.ts")
 
     issues = []
 
-    if tsconfig_path.exists():
+    if tsconfig_path is not None and tsconfig_path.exists():
         content = tsconfig_path.read_text()
         if "@shared" in content:
             issues.append("tsconfig.json still contains @shared alias")
         if "@commons" not in content:
             issues.append("tsconfig.json missing @commons alias")
 
-    if vite_config_path.exists():
+    if vite_config_path is not None and vite_config_path.exists():
         content = vite_config_path.read_text()
         if "'@shared'" in content or '"@shared"' in content:
             issues.append("vite.config.ts still contains @shared alias")
@@ -175,7 +181,7 @@ def test_no_imports_from_shared():
 
     Validates: All imports migrated to @commons
     """
-    if not WEB_SRC.exists():
+    if WEB_SRC is None or not WEB_SRC.exists():
         pytest.skip("web/src does not exist")
 
     violations: List[str] = []
@@ -263,7 +269,7 @@ def test_frontend_commons_has_index_files():
 
     Validates: Public API structure
     """
-    if not WEB_COMMONS.exists():
+    if WEB_COMMONS is None or not WEB_COMMONS.exists():
         pytest.skip("web/src/commons does not exist")
 
     expected_index_files = [
@@ -298,7 +304,7 @@ def test_python_commons_has_init_files():
 
     Validates: Python package structure
     """
-    if not PYTHON_COMMONS.exists():
+    if PYTHON_COMMONS is None or not PYTHON_COMMONS.exists():
         pytest.skip("python/commons does not exist")
 
     init_file = PYTHON_COMMONS / "__init__.py"
@@ -406,7 +412,7 @@ def test_python_domain_no_framework_imports():
 
     Validates: Domain layer purity (no flask, fastapi, django)
     """
-    if not PYTHON_COMMONS.exists():
+    if PYTHON_COMMONS is None or not PYTHON_COMMONS.exists():
         pytest.skip("python/commons does not exist")
 
     forbidden = ["flask", "fastapi", "django", "sqlalchemy", "requests"]

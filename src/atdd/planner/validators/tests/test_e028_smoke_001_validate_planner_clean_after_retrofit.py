@@ -5,9 +5,10 @@
 # Layer: integration
 # Assertion: behavioral
 """
-SMOKE: The synthetic-fixture-bypass planner validator must run cleanly and report
-zero violations on the post-retrofit repo.  Invokes the validator test file directly
-via pytest (not the full atdd validate planner suite) to keep runtime under 30s.
+SMOKE: The synthetic-fixture-bypass validator must run cleanly and report zero
+violations on the post-retrofit repo.  Invokes the convention variant's clean-baseline
+node directly via pytest (not the full atdd validate planner suite) to keep runtime
+under 30s.  Retargeted off the retired legacy planner validator in #1385.
 """
 from __future__ import annotations
 
@@ -24,10 +25,14 @@ pytestmark = [pytest.mark.smoke, pytest.mark.platform]
 
 _VALIDATOR_FILE = (
     Path(atdd.__file__).parent
-    / "planner"
     / "validators"
+    / "conventions"
+    / "policy"
     / "test_smoke_synthetic_fixture_bypass.py"
 )
+# Pin the clean-baseline node explicitly: running the whole file would also pass on the
+# variant's contract test alone, which asserts nothing about the repo (#1385).
+_CLEAN_BASELINE_NODE = "test_clean_baseline_zero_on_real_graph"
 
 
 def test_validate_planner_clean_after_retrofit():
@@ -35,12 +40,13 @@ def test_validate_planner_clean_after_retrofit():
     repo_root = find_repo_root()
     assert _VALIDATOR_FILE.exists(), (
         f"Validator file not found at {_VALIDATOR_FILE} — "
-        "test_smoke_synthetic_fixture_bypass.py must be installed with the atdd package."
+        "conventions/policy/test_smoke_synthetic_fixture_bypass.py must be installed "
+        "with the atdd package."
     )
     result = subprocess.run(
         [
             sys.executable, "-m", "pytest",
-            str(_VALIDATOR_FILE),
+            f"{_VALIDATOR_FILE}::{_CLEAN_BASELINE_NODE}",
             "-v", "--tb=short", "-q",
         ],
         cwd=str(repo_root),

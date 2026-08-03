@@ -20,11 +20,13 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 from typing import Optional, Sequence, Tuple
 
 from dataclasses import dataclass, field
 
+from atdd.state.cli_support import START_DIR_HELP, add_verb, opt
 from atdd.state.db import current_version, init_state_store
 from atdd.state.paths import (
     ATDD_DIR,
@@ -48,69 +50,124 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="op")
 
-    doctor = sub.add_parser("doctor", help="Print and validate the detected State Store layout.")
-    doctor.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(sub, "doctor", "Print and validate the detected State Store layout.", root=START_DIR_HELP)
 
-    layout = sub.add_parser("layout", help="Layout guards.")
-    layout.add_argument("--check", action="store_true", help="Validate the layout; non-zero on violation.")
-    layout.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "layout", "Layout guards.",
+        opt("--check", action="store_true", help="Validate the layout; non-zero on violation."),
+        root=START_DIR_HELP,
+    )
 
-    init = sub.add_parser("init", help="Create (if needed) and migrate the State Store SQLite database.")
-    init.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "init", "Create (if needed) and migrate the State Store SQLite database.",
+        root=START_DIR_HELP,
+    )
 
-    imp = sub.add_parser("import-manifest",
-                         help="Import .atdd/manifest.yaml operational state into the State Store (#1183).")
-    imp.add_argument("--root", default=None, help="Starting directory (default: cwd).")
+    add_verb(
+        sub, "import-manifest",
+        "Import .atdd/manifest.yaml operational state into the State Store (#1183).",
+        root=START_DIR_HELP,
+    )
 
-    ml = sub.add_parser(
-        "migrate-layout",
-        help="Consolidate to a single project-root State Store, rebuilt from main's "
-             "manifest (#1315 / #1168 Phase 5).")
-    ml.add_argument("--project-root", default=None,
-                    help="Project root (parent of main/). Default: derived from --root/cwd via git.")
-    ml.add_argument("--root", default=None,
-                    help="Starting directory used to derive the project root (default: cwd).")
+    add_verb(
+        sub, "migrate-layout",
+        "Consolidate to a single project-root State Store, rebuilt from main's "
+        "manifest (#1315 / #1168 Phase 5).",
+        opt("--project-root", default=None,
+            help="Project root (parent of main/). Default: derived from --root/cwd via git."),
+        root="Starting directory used to derive the project root (default: cwd).",
+    )
 
     version = sub.add_parser(
         "version", help="Release version source-of-truth (#1172).")
     version_sub = version.add_subparsers(dest="version_op")
-    v_show = version_sub.add_parser("show", help="Print the current release version (with context).")
-    v_show.add_argument("--root", default=None)
-    v_emit = version_sub.add_parser(
-        "emit", help="Print the build-consumable version string (0.0.0+local if no store version).")
-    v_emit.add_argument("--root", default=None)
-    v_bump = version_sub.add_parser("bump", help="Bump the release version (writes store + appends event).")
-    v_bump.add_argument("--class", dest="change_class", required=True,
-                        choices=["PATCH", "MINOR", "MAJOR"], help="Semver change class.")
-    v_bump.add_argument("--pr", default=None, help="Originating PR number (recorded in the bump event).")
-    v_bump.add_argument("--root", default=None)
-    v_set = version_sub.add_parser(
-        "set", help="Reconcile the current release version to an explicit value "
-        "(e.g. the latest git tag) without emitting a version_decided signal.")
-    v_set.add_argument("version", help="The version to set as authoritative current (X.Y.Z).")
-    v_set.add_argument("--root", default=None)
-    v_rb = version_sub.add_parser(
-        "reconcile-base",
-        help="Print the authoritative release base = max(git tag, PyPI latest) for the "
-        "next bump (#1326). Falls back to the git tag if PyPI is unreachable.")
-    v_rb.add_argument("--git-tag", dest="git_tag", default=None,
-                      help="The latest git tag core (X.Y.Z, without a leading 'v').")
-    v_rb.add_argument("--package", default="atdd",
-                      help="PyPI package to query for the published latest (default: atdd).")
-    v_rb.add_argument("--no-pypi", dest="no_pypi", action="store_true",
-                      help="Skip the PyPI query and resolve from the git tag only.")
-    v_rb.add_argument("--root", default=None)
+    add_verb(version_sub, "show", "Print the current release version (with context).", root=None)
+    add_verb(
+        version_sub, "emit",
+        "Print the build-consumable version string (0.0.0+local if no store version).",
+        root=None,
+    )
+    add_verb(
+        version_sub, "bump", "Bump the release version (writes store + appends event).",
+        opt("--class", dest="change_class", required=True,
+            choices=["PATCH", "MINOR", "MAJOR"], help="Semver change class."),
+        opt("--pr", default=None, help="Originating PR number (recorded in the bump event)."),
+        root=None,
+    )
+    add_verb(
+        version_sub, "set",
+        "Reconcile the current release version to an explicit value "
+        "(e.g. the latest git tag) without emitting a version_decided signal.",
+        opt("version", help="The version to set as authoritative current (X.Y.Z)."),
+        root=None,
+    )
+    add_verb(
+        version_sub, "reconcile-base",
+        "Print the authoritative release base = max(git tag, PyPI latest) for the "
+        "next bump (#1326). Falls back to the git tag if PyPI is unreachable.",
+        opt("--git-tag", dest="git_tag", default=None,
+            help="The latest git tag core (X.Y.Z, without a leading 'v')."),
+        opt("--package", default="atdd",
+            help="PyPI package to query for the published latest (default: atdd)."),
+        opt("--no-pypi", dest="no_pypi", action="store_true",
+            help="Skip the PyPI query and resolve from the git tag only."),
+        root=None,
+    )
+
+    # Projection spine (#1400): object create/rename, project, hydrate, digest,
+    # canonicality. Its parsers live next to their implementation.
+    from atdd.state.projection_cli import add_parsers as add_projection_parsers
+
+    add_projection_parsers(sub)
+
+    # Reconcile spine (#1400): reconcile, freshness, overlay, author. Its parsers
+    # live next to their implementation.
+    from atdd.state.reconcile_cli import add_parsers as add_reconcile_parsers
+
+    add_reconcile_parsers(sub)
+
+    # Merge authority (#1400): trailers, merge-authority, policy-check, disposition-check.
+    # Its parsers live next to their implementation.
+    from atdd.state.merge_authority_cli import add_parsers as add_merge_authority_parsers
+
+    add_merge_authority_parsers(sub)
+
+    # Field governance (#1400): ownership-check, field-writer, merge-projection,
+    # merge-matrix-check, compact-archive. Its parsers live next to their implementation.
+    from atdd.state.govern_cli import add_parsers as add_govern_parsers
+
+    add_govern_parsers(sub)
+
+    # Provider boundary (#1400): import-boundary, conformance, providers, extensions-lock,
+    # mirror. Its parsers live next to their implementation.
+    from atdd.state.provider_cli import add_parsers as add_provider_parsers
+
+    add_provider_parsers(sub)
+
+    # Migration to projection authority (#1400): mint-uids, migrate-manifest, shadow, hot-path,
+    # manifest-fallback, cutover, runbook-check, rollout-check.
+    from atdd.state.migrate_cli import add_parsers as add_migrate_parsers
+
+    add_migrate_parsers(sub)
 
     trace = sub.add_parser("trace", help="Hub trace export/promotion (#1185).")
     trace_sub = trace.add_subparsers(dest="trace_op")
-    t_list = trace_sub.add_parser("list", help="List Hub sessions.")
-    t_list.add_argument("--root", default=None)
-    t_export = trace_sub.add_parser("export", help="Export a session's trace as JSON.")
-    t_export.add_argument("--session", required=True)
-    t_export.add_argument("--root", default=None)
-    t_promote = trace_sub.add_parser("promote", help="Promote a session's trace to the outbox.")
-    t_promote.add_argument("--session", required=True)
-    t_promote.add_argument("--root", default=None)
+    add_verb(trace_sub, "list", "List Hub sessions.", root=None)
+    add_verb(trace_sub, "export", "Export a session's trace as JSON.",
+             opt("--session", required=True), root=None)
+    add_verb(trace_sub, "promote", "Promote a session's trace to the outbox.",
+             opt("--session", required=True), root=None)
+
+    sessions = sub.add_parser(
+        "sessions", help="Agent sessions that touched a work item (#1540).")
+    sessions_sub = sessions.add_subparsers(dest="sessions_op")
+    add_verb(sessions_sub, "list",
+             "List sessions for a work item, most recently seen first.",
+             opt("--work-item", required=True), root=None)
+    add_verb(sessions_sub, "capture",
+             "Record the ambient agent session as a participant "
+             "(the packaged post-commit hook's entry point).",
+             root=None)
 
     return parser
 
@@ -508,17 +565,53 @@ def _cmd_version(args) -> int:
         return 2
 
     if args.version_op == "reconcile-base":
-        # Pure computation + a best-effort PyPI query; no store needed. The base is
-        # max(git tag, PyPI latest) so the next bump never regresses below the
-        # published latest; PyPI-unreachable falls back to the git tag (#1326).
+        # The base is max(git tag, PyPI latest) so the next bump never regresses
+        # below the published latest; PyPI-unreachable falls back to the git tag
+        # (#1326).
         pypi_latest = None if args.no_pypi else ver.latest_on_pypi(args.package)
         try:
             base = ver.resolve_release_base(args.git_tag, pypi_latest)
         except ver.VersionError as exc:
-            _log.warning("version reconcile-base failed", extra={"error": str(exc),
-                                                                 "git_tag": args.git_tag})
-            print(f"ERROR: {exc}")
+            _log.warning(
+                "version reconcile-base failed",
+                extra={"error": str(exc),
+                    "git_tag": args.git_tag},
+            )
+            print(f"ERROR: {exc}", file=sys.stderr)
             return 1
+
+        # #1449: PERSIST the base. This used to be a pure computation that printed
+        # and wrote nothing, so `reconcile-base --git-tag X` reported success while
+        # the store kept its old value — the store drifted five minor versions
+        # behind PyPI because every reconcile looked like it had worked. A command
+        # must never print a value it did not write.
+        resolution, conn_or_rc = _open_store(args.root)
+        if resolution is None:
+            _log.warning(
+                "version reconcile-base could not open the store to persist",
+                extra={"base": base, "git_tag": args.git_tag},
+            )
+            print("ERROR: resolved a release base but no State Store could be opened "
+                  "to persist it; refusing to report a value that was not written.",
+                  file=sys.stderr)
+            return conn_or_rc
+        conn = conn_or_rc
+        try:
+            ver.set_version(conn, base)
+        except ver.VersionError as exc:
+            _log.warning(
+                "version reconcile-base persist failed",
+                extra={"error": str(exc), "base": base},
+            )
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        finally:
+            conn.close()
+
+        # stdout stays a BARE version string: publish.yml captures it with
+        # BASE=$(atdd state version reconcile-base ...). Confirmations go to stderr.
+        print(f"Reconciled release base to {base} (persisted; no version_decided signal)",
+              file=sys.stderr)
         print(base)
         return 0
 
@@ -548,8 +641,10 @@ def _cmd_version(args) -> int:
             try:
                 new = ver.bump(conn, args.change_class, pr=args.pr)
             except ver.VersionError as exc:
-                _log.warning("version bump failed", extra={"error": str(exc),
-                                                           "change_class": args.change_class})
+                _log.warning(
+                    "version bump failed",
+                    extra={"error": str(exc), "change_class": args.change_class},
+                )
                 print(f"ERROR: {exc}")
                 return 1
             print(f"Bumped release version to {new} ({args.change_class})")
@@ -558,14 +653,63 @@ def _cmd_version(args) -> int:
             try:
                 new = ver.set_version(conn, args.version)
             except ver.VersionError as exc:
-                _log.warning("version set failed", extra={"error": str(exc),
-                                                          "version": args.version})
+                _log.warning(
+                    "version set failed",
+                    extra={"error": str(exc),
+                        "version": args.version},
+                )
                 print(f"ERROR: {exc}")
                 return 1
             print(f"Set release version to {new} (reconcile; no version_decided signal)")
             return 0
         print(f"unknown version op: {args.version_op}")
         return 2
+    finally:
+        conn.close()
+
+
+def _cmd_sessions(args) -> int:
+    """Agent session identity: the read projection, and the capture entry point.
+
+    ``capture`` is what the packaged post-commit hook execs. It ALWAYS exits 0:
+    the commit already exists, and no observability is worth failing it for.
+    """
+    from atdd.state import agent_session
+    from atdd.state.store import StateStore
+
+    if args.sessions_op is None:
+        print("usage: atdd state sessions <list|capture>")
+        return 2
+
+    if args.sessions_op == "capture":
+        recorded = agent_session.capture_post_commit()
+        # Deliberately not reported as a failure: "no agent session here" is the
+        # ordinary case for a human commit, not an error the operator must act on.
+        if recorded:
+            _log.info(
+                "agent session participation recorded",
+                extra={"cwd": str(Path.cwd())},
+            )
+        return 0
+
+    resolution, conn_or_rc = _open_store(args.root)
+    if resolution is None:
+        return conn_or_rc
+    conn = conn_or_rc
+    try:
+        rows = agent_session.sessions_for_work_item(StateStore(conn), args.work_item)
+        if not rows:
+            print(f"(no agent sessions recorded for {args.work_item})")
+            return 0
+        for row in rows:
+            marks = "creator" if row.created else "participant"
+            print(f"{row.session.provider}:{row.session.session_id}  "
+                  f"last_seen={row.last_seen_at or '-'}  {marks}")
+            if row.worktree_path:
+                print(f"    cwd:    {row.worktree_path}")
+            if row.resume_command:
+                print(f"    resume: {row.resume_command}")
+        return 0
     finally:
         conn.close()
 
@@ -597,8 +741,10 @@ def _cmd_trace(args) -> int:
             try:
                 print(_json.dumps(hub.export_trace(store, args.session), indent=2, sort_keys=True))
             except KeyError as exc:
-                _log.warning("trace export: session not found",
-                             extra={"session": args.session, "error": str(exc)})
+                _log.warning(
+                    "trace export: session not found",
+                    extra={"session": args.session, "error": str(exc)},
+                )
                 print(f"ERROR: {exc}")
                 return 1
             return 0
@@ -606,8 +752,10 @@ def _cmd_trace(args) -> int:
             try:
                 outbox_id = hub.promote_trace(store, args.session)
             except KeyError as exc:
-                _log.warning("trace promote: session not found",
-                             extra={"session": args.session, "error": str(exc)})
+                _log.warning(
+                    "trace promote: session not found",
+                    extra={"session": args.session, "error": str(exc)},
+                )
                 print(f"ERROR: {exc}")
                 return 1
             print(f"Promoted trace for {args.session} → outbox#{outbox_id}")
@@ -639,6 +787,41 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_version(args)
     if args.op == "trace":
         return _cmd_trace(args)
+    if args.op == "sessions":
+        return _cmd_sessions(args)
+
+    from atdd.state.projection_cli import OPS as PROJECTION_OPS, dispatch as projection_dispatch
+
+    if args.op in PROJECTION_OPS:
+        return projection_dispatch(args)
+
+    from atdd.state.reconcile_cli import OPS as RECONCILE_OPS, dispatch as reconcile_dispatch
+
+    if args.op in RECONCILE_OPS:
+        return reconcile_dispatch(args)
+
+    from atdd.state.merge_authority_cli import (
+        OPS as MERGE_AUTHORITY_OPS,
+        dispatch as merge_authority_dispatch,
+    )
+
+    if args.op in MERGE_AUTHORITY_OPS:
+        return merge_authority_dispatch(args)
+
+    from atdd.state.govern_cli import OPS as GOVERN_OPS, dispatch as govern_dispatch
+
+    if args.op in GOVERN_OPS:
+        return govern_dispatch(args)
+
+    from atdd.state.provider_cli import OPS as PROVIDER_OPS, dispatch as provider_dispatch
+
+    if args.op in PROVIDER_OPS:
+        return provider_dispatch(args)
+
+    from atdd.state.migrate_cli import OPS as MIGRATE_OPS, dispatch as migrate_dispatch
+
+    if args.op in MIGRATE_OPS:
+        return migrate_dispatch(args)
 
     parser.print_help()
     return 2

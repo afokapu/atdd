@@ -64,18 +64,3 @@ class TestCoachIssuesReadSmoke:
         )
         assert reached, f"real list boundary not reached: {r.stdout!r} / {r.stderr!r}"
 
-    def test_deprecated_issue_open_routes_to_new_verb_and_warns(self):
-        """The deprecated `atdd issue open` really routes through the extracted
-        verb: it emits the stderr deprecation notice (printed before any GitHub
-        call, so this is network-independent) naming the new verb, and reaches
-        the same real list boundary."""
-        r = _run_atdd(["issue", "open"])
-        assert "deprecated" in r.stderr.lower(), r.stderr
-        assert "atdd coach issues" in r.stderr, r.stderr
-        assert "Traceback" not in r.stderr, r.stderr
-        reached = (
-            "Open Issues" in r.stdout
-            or "No open issues" in r.stdout
-            or "Error:" in r.stdout
-        )
-        assert reached, f"real list boundary not reached: {r.stdout!r} / {r.stderr!r}"

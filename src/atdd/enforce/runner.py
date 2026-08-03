@@ -44,7 +44,17 @@ from typing import List, Optional
 
 import yaml
 
-from atdd.enforce.conventions import RuleMetadata, compute_scan_policy, rule_metadata
+from atdd.enforce.conventions import (
+    RuleMetadata,
+    compute_scan_policy,
+    is_interlocking_rule,
+    load_bound,
+    resolve_interlocking_layout,
+    rule_metadata,
+    select_rules,
+)
+from atdd.enforce.dispositions import fails_on_violation
+from atdd.enforce.provider_env import provider_env
 from atdd.enforce.resolution import (
     ProviderResolutionError,
     ResolvedProvider,
@@ -128,17 +138,14 @@ def load_config(repo_root: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def _bound_conventions(substrate_home: Path) -> list[dict]:
-    lock_path = substrate_home / ".atdd" / "binding.lock.yaml"
-    if not lock_path.is_file():
-        return []
-    try:
-        lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        raise EnforceUsageError(f"malformed binding.lock.yaml: {exc}") from exc
-    conventions = lock.get("conventions") if isinstance(lock, dict) else None
-    conventions = conventions if isinstance(conventions, list) else []
-    return [c for c in conventions if isinstance(c, dict) and c.get("disposition") == "bound"]
+def _bound_conventions(substrate_home: Path, rules: Optional[set] = None) -> list[dict]:
+    """The ``bound`` convention entries, optionally narrowed to ``rules``.
+
+    Thin seam over the resolution helpers in :mod:`atdd.enforce.conventions`; kept
+    here because it is the name callers and tests already bind to.
+    """
+    bound = load_bound(substrate_home, EnforceUsageError)
+    return select_rules(bound, rules, EnforceUsageError)
 
 
 def _candidate_roots(substrate_home: Path) -> list[Path]:
@@ -149,30 +156,44 @@ def _candidate_roots(substrate_home: Path) -> list[Path]:
 # --------------------------------------------------------------------------- #
 # Provider invocation (the subprocess boundary — V5)
 # --------------------------------------------------------------------------- #
-def _impl_has_report_channel(substrate_home: Path, implementation_id: str) -> bool:
-    """True iff the vendored impl ships a v1.1 report-test channel.
+def _resolve_impls_root(substrate_home: Path, implementation_id: str) -> Optional[Path]:
+    """The impls-root owning ``implementation_id``, iff it ships a v1.1 report channel.
 
     Reads the impl manifest's ``report:`` field and checks the named test file is
     present next to the manifest — the exact runnable-detection the vendored
     ``cli/scan.py`` performs (``_report_test_name`` + ``test_path.is_file()``).
-    Replacing the prior hardcoded ``test_logging_print_report.py`` lets all 26
-    bound detectors run, not just ``coder.logging.print`` (#1238 V1).
+    Replacing the prior hardcoded ``test_logging_print_report.py`` lets all bound
+    detectors run, not just ``coder.logging.print`` (#1238 V1).
+
+    Searches BOTH vendored trees. A workspace package ships the detectors for its
+    own runtime; an EXTENSION may ship its own detectors targeting that workspace's
+    provider contract (the train-interlocking extension does). Searching only
+    ``.atdd/workspaces`` made every extension-shipped detector ``unrunnable`` while
+    enforce still reported PASS — a false green (#1359).
+
+    Returns the root the owning manifest sits under (``…/implementations``), which
+    the caller forwards to the provider CLI as ``--impls-root``; ``None`` when the
+    impl is absent or ships no report channel.
     """
-    ws_root = substrate_home / ".atdd" / "workspaces"
-    if not ws_root.is_dir():
-        return False
-    for manifest in ws_root.rglob("atdd.implementation.yaml"):
-        try:
-            data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
-        except (OSError, yaml.YAMLError):
+    roots = (substrate_home / ".atdd" / "workspaces", substrate_home / ".atdd" / "extensions")
+    for root in roots:
+        if not root.is_dir():
             continue
-        if data.get("implementation_id") != implementation_id:
-            continue
-        report = data.get(_PROVIDER_REPORT_FIELD)
-        if not report:
-            return False
-        return (manifest.parent / str(report)).is_file()
-    return False
+        for manifest in sorted(root.rglob("atdd.implementation.yaml")):
+            try:
+                data = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+            except (OSError, yaml.YAMLError):
+                continue
+            if data.get("implementation_id") != implementation_id:
+                continue
+            report = data.get(_PROVIDER_REPORT_FIELD)
+            if not report:
+                return None
+            if not (manifest.parent / str(report)).is_file():
+                return None
+            # cli/scan.py discovers impls as children of the root it is given.
+            return manifest.parent.parent
+    return None
 
 
 def _invoke_provider(
@@ -181,6 +202,8 @@ def _invoke_provider(
     scan_roots: list[str],
     scan_excludes: list[str],
     graph_roots: Optional[list[str]] = None,
+    impls_root: Optional[Path] = None,
+    interlocking_layout: Optional[dict] = None,
 ) -> list[dict]:
     """Subprocess the provider CLI over ``scan_roots``; parse RAW v1.1 JSON.
 
@@ -188,27 +211,25 @@ def _invoke_provider(
     v1.1 JSON array off stdout". A non-zero provider exit is a run/usage failure
     of the provider itself (stdout empty), raised rather than mis-read as clean.
 
-    ``graph_roots`` (the consumer's resolved CLI entry-point module files) are
-    forwarded as ``ATDD_GRAPH_ROOTS`` for reachability detectors that consume
-    explicit extra roots. KNOWN GAP (#1238 / docs/PARITY-AUDIT-26.md REGRESSION
-    #3): the enforce layer supplies them, but the vendored python-pytest
-    dead-code detector does not yet READ ``ATDD_GRAPH_ROOTS`` — that detector-side
-    consumption awaits the extension re-vendor. Forwarding it now means parity
-    closes the moment the fixed detector is re-vendored, with no further core
-    change. (We cannot patch the vendored detector here: it is digest-locked by
-    ``.atdd/substrate.lock.yaml`` and re-vendoring is the convergence step.)
+    What the subprocess is told — the scan surface, ``graph_roots``, the
+    ``interlocking_layout`` and the cache suppression — is
+    :func:`atdd.enforce.provider_env.provider_env`; this function only runs it and
+    reads the result.
     """
-    env = {
-        **os.environ,
-        "ATDD_SCAN_ROOTS": json.dumps([str(r) for r in scan_roots]),
-        "ATDD_IMPL_ID": implementation_id,
-    }
-    if scan_excludes:
-        env["ATDD_SCAN_EXCLUDES"] = json.dumps([str(e) for e in scan_excludes])
-    if graph_roots:
-        env["ATDD_GRAPH_ROOTS"] = json.dumps([str(r) for r in graph_roots])
+    env = provider_env(
+        implementation_id,
+        scan_roots,
+        scan_excludes,
+        graph_roots=graph_roots,
+        interlocking_layout=interlocking_layout,
+    )
+    argv = [sys.executable, str(provider.provider_cli_path)]
+    if impls_root is not None:
+        # Without this the provider CLI defaults to its OWN implementations/ dir and
+        # cannot discover a detector shipped by an extension package.
+        argv += ["--impls-root", str(impls_root)]
     proc = subprocess.run(
-        [sys.executable, str(provider.provider_cli_path)],
+        argv,
         env=env,
         capture_output=True,
         text=True,
@@ -257,11 +278,18 @@ def _records_for_rule(raw: list[dict], rule_id: str) -> list[dict]:
 
 
 def _verdict_for_rule(meta: RuleMetadata, raw: list[dict]) -> str:
-    """Non-raising disposition verdict (D-2): strict/suppress-and-clean fail on
-    any violation; advisory always passes."""
-    if meta.disposition == "advisory":
+    """Non-raising disposition verdict (D-2), TOTAL over the treatment vocabulary
+    (#1424 E001).
+
+    strict / suppress-and-clean fail on any violation; advisory /
+    documentation-only never fail. The mapping is delegated to the disposition
+    model's :func:`fails_on_violation` so the treatment namespace is named in
+    exactly one place. Previously ONLY ``advisory`` was special-cased, so
+    ``documentation-only`` fell through to fail-on-any and failed builds it must
+    not have (e.g. the bound documentation-only rule ``tester.filename.urn``)."""
+    if not raw:
         return "pass"
-    return "fail" if raw else "pass"
+    return "fail" if fails_on_violation(meta.disposition) else "pass"
 
 
 # --------------------------------------------------------------------------- #
@@ -271,8 +299,14 @@ def enforce(
     repo_root: Path,
     *,
     path_override: Optional[list[str]] = None,
+    rules: Optional[set] = None,
 ) -> EnforceResult:
     """Enforce every ``bound`` convention against ``repo_root``.
+
+    ``rules`` narrows the run to the named conventions — one provider subprocess per
+    selected rule instead of one per bound rule. Omitted, every bound convention runs,
+    so existing callers (`atdd enforce`, the post-commit hook, CI) are unaffected. A
+    selection naming an unbound or unknown rule raises rather than running nothing.
 
     Raises :class:`EnforceUsageError` (exit 2) on a wiring failure (malformed
     config/lock, unresolvable provider, provider crash).
@@ -280,7 +314,7 @@ def enforce(
     repo_root = repo_root.resolve()
     substrate_home = resolve_substrate_home(repo_root)
     config = load_config(repo_root)  # may raise EnforceUsageError (exit 2)
-    bound = _bound_conventions(substrate_home)
+    bound = _bound_conventions(substrate_home, rules)
 
     if not bound:
         return EnforceResult(verdicts=[], report="enforce: no bound conventions — clean no-op.")
@@ -310,7 +344,8 @@ def enforce(
 
         # Honest gate: a rule whose vendored impl ships no v1.1 report channel
         # cannot enforce over consumer code yet (workspace generalization, D-1).
-        if not _impl_has_report_channel(substrate_home, impl_id):
+        impls_root = _resolve_impls_root(substrate_home, impl_id)
+        if impls_root is None:
             verdicts.append(
                 RuleVerdict(
                     rule_id,
@@ -334,12 +369,24 @@ def enforce(
                 ) from exc
         provider = provider_cache[cache_key]
 
+        # Scope the per-repo interlocking layout to the interlocking rules only —
+        # resolve the declared block once and forward it via env ONLY for a
+        # coder.train.interlocking-* subprocess, never leaking it onto unrelated
+        # rule subprocesses (#1595).
+        layout = (
+            resolve_interlocking_layout(config)
+            if is_interlocking_rule(rule_id)
+            else None
+        )
+
         raw = _invoke_provider(
             provider,
             impl_id,
             policy.scan_roots,
             policy.scan_excludes,
             policy.graph_roots,
+            impls_root=impls_root,
+            interlocking_layout=layout,
         )
         # A multi-rule detector emits several rule_ids in one run; judge this
         # bound convention only on its own rule_id's records.
@@ -381,7 +428,7 @@ def conformance(repo_root: Path) -> tuple[bool, str]:
     for conv in bound:
         rule_id = str(conv.get("convention_id"))
         impl_id = str(conv.get("implementation_id") or rule_id)
-        if _impl_has_report_channel(substrate_home, impl_id):
+        if _resolve_impls_root(substrate_home, impl_id) is not None:
             runnable.append(rule_id)
         else:
             unrunnable.append(rule_id)

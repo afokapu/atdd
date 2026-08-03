@@ -45,15 +45,27 @@ def status_enum() -> list[str]:
     return list(((load_schema().get("properties") or {}).get("status") or {}).get("enum") or [])
 
 
+def issue_type_enum() -> list[str]:
+    """The Metadata Type enum declared by ``issue.schema.json``."""
+    return list(((load_schema().get("properties") or {}).get("type") or {}).get("enum") or [])
+
+
 # Matches a Metadata Status value in either the table form
 # (``| Status | `INIT` |``) or a plain ``Status: INIT`` line. Only the first
 # occurrence is read — the Metadata table is the first place Status appears.
 _STATUS_RE = re.compile(r"(?im)^\s*\|?\s*Status\s*[:|]\s*`?\s*([A-Za-z][A-Za-z_-]*)")
+_TYPE_RE = re.compile(r"(?im)^\s*\|?\s*Type\s*[:|]\s*`?\s*([A-Za-z][A-Za-z_-]*)")
 
 
 def _extract_status(body: str) -> str | None:
     """Return the body's declared Status value, or ``None`` if it carries none."""
     m = _STATUS_RE.search(body)
+    return m.group(1) if m else None
+
+
+def extract_issue_type(body: str) -> str | None:
+    """Return the body's declared Type value, or ``None`` if it carries none."""
+    m = _TYPE_RE.search(body)
     return m.group(1) if m else None
 
 
@@ -64,7 +76,9 @@ def validate_issue_body(body: str) -> list[str]:
     body is schema-valid. Supersedes/augments the E019 string-grep: the required
     sections and the Status enum are both read from the schema, not from a
     hard-coded list. A body that declares no Status is accepted (back-compat,
-    K002) — only an out-of-enum Status is rejected (C010-UNIT-002).
+    K002) — only an out-of-enum Status is rejected (C010-UNIT-002). Type follows
+    the same back-compat rule: legacy bodies without a Type row pass, but a body
+    that declares Type must use the schema enum.
     """
     violations: list[str] = []
 
@@ -78,6 +92,15 @@ def validate_issue_body(body: str) -> list[str]:
         if declared not in enum:
             violations.append(
                 f"invalid Status {declared!r}: not in the phase vocabulary "
+                f"({', '.join(enum)})"
+            )
+
+    declared_type = extract_issue_type(body)
+    if declared_type is not None:
+        enum = issue_type_enum()
+        if declared_type not in enum:
+            violations.append(
+                f"invalid Type {declared_type!r}: not in the issue type vocabulary "
                 f"({', '.join(enum)})"
             )
 
@@ -236,10 +259,10 @@ def create_issue_body(spec: dict | None = None) -> str:
 
     parts.append(
         "## Release Gate\n\n"
-        "INTERIM (see #1172): bump the version manually. `publish.yml` tags + "
-        "publishes from the version on main.\n\n"
+        "The release version lives in the State Store and is projected into the "
+        "build automatically (#1172) — there is no version line to hand-edit.\n\n"
         "- [ ] Rebase on main.\n"
-        "- [ ] Bump the version per branch prefix + change class.\n"
+        "- [ ] `atdd state version bump --class PATCH|MINOR|MAJOR`\n"
         "- [ ] Merge the PR."
     )
 

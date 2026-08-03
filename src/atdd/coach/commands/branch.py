@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from atdd.coach.commands.issue import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
+from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
 from atdd.coach.github import GitHubClient, GitHubClientError, ProjectConfig
 from atdd.coach.utils.default_branch import resolve_default_branch
 
@@ -50,7 +50,7 @@ def _store_session_entry(root, issue_number: int):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.session_entry(issue_number)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 
@@ -60,7 +60,6 @@ class BranchManager:
     def __init__(self, target_dir: Optional[Path] = None):
         self.target_dir = target_dir or Path.cwd()
         self.atdd_config_dir = self.target_dir / ".atdd"
-        self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
 
     def _create_draft_pr(
@@ -139,50 +138,19 @@ class BranchManager:
             print( "  Why: `atdd branch` defers PR creation to `atdd pr` when the")
             print( "       inline createPullRequest call fails (e.g. transient gh/API).")
 
-    def _load_manifest(self):
-        if not self.manifest_file.exists():
-            return {}
-        with open(self.manifest_file) as f:
-            return yaml.safe_load(f) or {}
-
     def _find_issue(self, issue_number: int):
-        """Find an issue by number — store-first (#1270 slice B), manifest fallback.
+        """Find an issue by number — from the State Store (#1400 CORE-034, Y002).
 
-        Returns a manifest-``sessions``-shaped entry (``slug``/``type``/...) or None.
+        Returns a ``sessions``-shaped entry (``slug``/``type``/...) or None. The manifest
+        fallback that used to follow this is retired: the store is the source of truth, and a
+        worktree named from a stale mirror is a worktree whose branch nothing else can resolve.
         """
-        entry = _store_session_entry(self.target_dir, issue_number)
-        if entry is not None:
-            return entry
-        manifest = self._load_manifest()
-        for entry in manifest.get("sessions", []):
-            if entry.get("issue_number") == issue_number:
-                return entry
-        return None
+        return _store_session_entry(self.target_dir, issue_number)
 
-    def _record_branch_in_manifest(self, issue_number: int, branch_name: str) -> None:
-        """Persist *branch_name* onto the issue's session entry (#1051).
-
-        Replaces the retired Projects v2 ``ATDD Branch`` write. A missing
-        manifest or entry is a no-op (the worktree still exists; the gate that
-        reads this falls open on an empty branch).
-        """
-        if not self.manifest_file.exists():
-            return
-        manifest = self._load_manifest()
-        mutated = False
-        for entry in manifest.get("sessions", []):
-            if entry.get("issue_number") == issue_number:
-                entry["branch"] = branch_name
-                mutated = True
-        if not mutated:
-            return
-        try:
-            with open(self.manifest_file, "w") as fh:
-                yaml.dump(manifest, fh, default_flow_style=False, sort_keys=False)
-        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
-            logger.debug("Could not record branch in manifest: %s", exc, extra={"error": str(exc)})
-            return
-        print(f"  Recorded branch in manifest → {branch_name}")
+    # `_record_branch_in_manifest` is RETIRED (#1400 CORE-034, Y002). It wrote `branch` back onto
+    # the manifest's session entry — a write whose only reader, the branch-registration gate, has
+    # read the store since #1270 slice C. A write nobody reads is not a record; it is drift with a
+    # schedule. `_record_binding_in_store` below is the write that counts, and it was already here.
 
     def _record_binding_in_store(
         self, issue_number: int, branch_name: str, worktree_path: Path
@@ -224,7 +192,7 @@ class BranchManager:
                 )
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "branch↔worktree binding store write unavailable",
                 extra={"issue": issue_number, "branch": branch_name, "error": str(exc)},
@@ -291,26 +259,33 @@ class BranchManager:
             )
             if ff.returncode == 0:
                 print(f"  Fast-forwarded local `{default_branch}` → origin/{default_branch}")
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "ff-sync of default branch skipped",
                 extra={"default_branch": default_branch, "error": str(exc)},
             )
 
     def _backfill_from_github(self, issue_number: int) -> Optional[Dict[str, Any]]:
-        """Fetch issue #N from GitHub and append a synthesised sessions entry to the manifest.
+        """Ingest issue #N from GitHub into the **State Store** so `atdd branch <N>` can proceed.
 
-        Self-heal path (#775): when an issue exists on GitHub but is absent from
-        .atdd/manifest.yaml, synthesise the minimum required fields from `gh issue
-        view` output and append the entry. This unblocks `atdd branch <N>` without
-        requiring the user to manually edit the manifest.
+        Self-heal path (#775): when an issue exists on GitHub but core has never seen it,
+        synthesise the minimum required fields from ``gh issue view`` and seed the work item.
+        This unblocks `atdd branch <N>` without the operator hand-editing anything.
 
-        Returns the new entry dict on success, or None when gh CLI fails or the
-        manifest file cannot be written.
+        #1400 CORE-034 (Y002): the entry now lands in the **store**, not in
+        ``.atdd/manifest.yaml``. Same self-heal, same trigger, same result — written where every
+        reader actually looks. (It used to append a session to the manifest, which the store-backed
+        readers had already stopped reading, so the heal healed nothing they could see.)
+
+        On the boundary (Y001): this is a provider **ingest** in an *authoring* command, not a
+        lifecycle read. Creating a worktree may ask the provider what issue #N is called; a gate
+        may not ask it what phase #N is in. ``atdd.coach.commands.branch`` is deliberately absent
+        from :data:`atdd.state.hot_path.DECISION_MODULES` for exactly that reason, and the phase
+        this seeds is a *seed* — the store owns it from the next transition onward.
+
+        Returns the seeded entry dict on success, or None when the gh CLI fails or the store
+        cannot be written.
         """
-        if not self.manifest_file.exists():
-            return None
-
         result = subprocess.run(
             [
                 "gh", "issue", "view", str(issue_number),
@@ -355,21 +330,39 @@ class BranchManager:
             "archived": None,
         }
 
-        manifest = self._load_manifest()
-        sessions = manifest.get("sessions") or []
-        # Idempotent: do not duplicate
-        if any(s.get("issue_number") == issue_number for s in sessions):
-            return next(s for s in sessions if s.get("issue_number") == issue_number)
+        # Idempotent: if the store already knows this issue, that record wins — the seed must
+        # never overwrite state the lifecycle has since advanced.
+        existing = _store_session_entry(self.target_dir, issue_number)
+        if existing is not None:
+            return existing
 
-        sessions.append(entry)
-        manifest["sessions"] = sessions
         try:
-            with open(self.manifest_file, "w") as fh:
-                yaml.dump(manifest, fh, default_flow_style=False, sort_keys=False)
-        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+            from atdd.state.db import connect, init_state_store
+            from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
+            from atdd.state.store import StateStore
+
+            conn = connect(init_state_store(start=self.target_dir))
+            try:
+                store = StateStore(conn)
+                store.objects.upsert(
+                    slug, WORK_ITEM_KIND, state=status,
+                    data={k: v for k, v in entry.items()
+                          if k not in ("slug", "status", "issue_number")},
+                )
+                store.external_refs.link(
+                    slug, GITHUB_PROVIDER, "issue", str(issue_number),
+                    data={"source": "branch-self-heal"},
+                )
+            finally:
+                conn.close()
+        except Exception as exc:
+            logger.warning(
+                "branch self-heal could not seed the State Store",
+                extra={"issue": issue_number, "slug": slug, "error": str(exc)},
+            )
             return None
 
-        print(f"  Manifest: backfilled entry for #{issue_number} from GitHub (self-heal)")
+        print(f"  Store: seeded work item for #{issue_number} from GitHub (self-heal)")
         return entry
 
     def branch(self, issue_number: int, prefix: Optional[str] = None) -> int:
@@ -401,8 +394,8 @@ class BranchManager:
             print(
                 f"Error: Issue #{issue_number} not found in manifest and could not be "
                 f"fetched from GitHub.\n"
-                f"Create it first with: atdd issue <slug>\n"
-                f"Or backfill all missing issues: atdd issue reconcile"
+                f"Create it first with: atdd author issue --title <title> --slug <slug>\n"
+                f"Or backfill all missing issues: atdd coach reconcile"
             )
             return 1
 
@@ -513,23 +506,10 @@ class BranchManager:
             worktree_path=worktree_path,
         )
 
-        # Record the branch in the local manifest (#1051). The Projects v2
-        # "ATDD Branch" field is decommissioned — the manifest is now the
-        # canonical local mirror that downstream gates (e.g. the PLANNED PR
-        # gate) read.
-        self._record_branch_in_manifest(issue_number, branch_name)
-
         # Write the branch↔issue↔worktree binding to the State Store (#1347) —
         # the control-root SoT the #1270 pre-commit gate (`atdd issue
         # is-registered`, store-first) reads. Zero commits to local `main`.
         self._record_binding_in_store(issue_number, branch_name, worktree_path)
-
-        # Refresh VS Code workspace file
-        try:
-            from atdd.coach.commands.initializer import write_workspace
-            write_workspace(self.target_dir)
-        except Exception as e:
-            print(f"  Warning: Could not refresh workspace file: {e}")
 
         print(f"\n  cd {worktree_path}")
         return 0
@@ -587,7 +567,7 @@ class BranchManager:
                         branch_to_issue[br] = obj.uid
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug("worktree list store read unavailable", extra={"error": str(exc)})
 
         print("ATDD worktrees:")

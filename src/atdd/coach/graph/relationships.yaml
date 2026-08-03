@@ -1,78 +1,31 @@
 edges:
-# Foundational verb-object naming enforcement (#1276)
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the verb-object name rule enforces the verb-object preference of the wagon URN grammar
-  source_ref: planner.wagon.name-is-verb-object
-  strength: important
-  target_ref: planner.wagon.urn-naming
-  type: refines
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: the wagon name rule draws its leading-verb lexicon from the verb-selection table
-  source_ref: planner.wagon.name-is-verb-object
+  reason: 'two halves of the toolkit-layout hardcode class: the source-layout rule catches the direct find_repo_root() call shape and documents variable indirection as out of scope, which is exactly the gap this rule closes'
+  source_ref: coach.code-roots.no-hardcoded-toolkit-root
   strength: important
-  target_ref: planner.feature.verb-selection-by-artifact-type
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the verb-object name rule enforces the verb-object preference of the feature URN grammar
-  source_ref: planner.feature.name-is-verb-object
-  strength: important
-  target_ref: planner.feature.urn-naming
-  type: refines
+  target_ref: coach.source-layout.no-toolkit-self-layout-assumption
+  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: the feature name rule draws its leading-verb lexicon from the verb-selection table
-  source_ref: planner.feature.name-is-verb-object
+  reason: 'two spellings of the same escape above the package root: literal src/atdd segments and a counted .parent chain resolve to the same broken path in site-packages'
+  source_ref: coach.code-roots.no-source-depth-walk
   strength: important
-  target_ref: planner.feature.verb-selection-by-artifact-type
-  type: requires
-# Foundational artifact/contract naming enforcement (#1329)
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the theme-first identity rule enforces the artifact naming-pattern grammar at confirm
-  source_ref: planner.artifact-naming.theme-first-identity
-  strength: important
-  target_ref: planner.artifact-naming.naming-pattern
-  type: refines
+  target_ref: coach.code-roots.no-hardcoded-toolkit-root
+  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: the theme-first identity rule resolves its allowed themes from the same canonical theme map
-  source_ref: planner.artifact-naming.theme-first-identity
+  reason: 'two halves of the resolver contract: config-driven root resolution presupposes resolvers that return None on an absent root rather than raising, so a consumer lacking a tier can still run'
+  source_ref: coach.code-roots.resolver-degrades-not-raises
   strength: important
-  target_ref: planner.theme.must-be-canonical
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the path-mirrors-identity rule enforces the contract-file-mapping algorithm at confirm
-  source_ref: planner.artifact-naming.path-mirrors-identity
-  strength: important
-  target_ref: planner.artifact-naming.contract-file-mapping
-  type: refines
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: a contract path can only mirror an identity that is a valid theme-first identity
-  source_ref: planner.artifact-naming.path-mirrors-identity
-  strength: important
-  target_ref: planner.artifact-naming.theme-first-identity
-  type: requires
+  target_ref: coach.graph.implementation-root-resolution
+  type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -164,6 +117,15 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: start_to_start
+  reason: 'two halves of the same store-versus-projection class: the phase label is a rendering of objects.state and the issue body''s Feature row is a rendering of objects.data.feature, so each rule holds one stored field to the artifact that displays it, and a divergence in either direction is invisible until something downstream silently resolves to nothing'
+  source_ref: coach.issue.feature-binding-must-resolve
+  strength: important
+  target_ref: coach.phase-label.projection-only
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: "the GREEN\u2192REFACTOR ordering is a phase-machine invariant"
   source_ref: coach.lifecycle.no-green-to-refactor-without-smoke
@@ -205,6 +167,24 @@ edges:
   source_ref: coach.lifecycle.single-step-advance-on-delivery
   strength: important
   target_ref: coach.lifecycle.no-terminal-before-lifecycle-satisfied
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: 'the autonomy axis is a per-phase field OF the phase machine: it names who may submit the transition a phase already declares as legal, so it has no meaning without the machine that declares agent/transitions_to'
+  source_ref: coach.lifecycle.transition-autonomy
+  strength: critical
+  target_ref: coach.lifecycle.phase-machine
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: "one model on two axes: freedom-with-a-leash governs which TOOLS run unattended, transition-autonomy which TRANSITIONS may be submitted unattended \u2014 the second reuses the first's freedom_set/leash vocabulary rather than coining a parallel one, so reading either alone understates the model"
+  source_ref: coach.lifecycle.transition-autonomy
+  strength: important
+  target_ref: coach.execution.freedom-with-a-leash
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
@@ -312,6 +292,15 @@ edges:
   reason: two halves of the package-relative distribution invariant
   source_ref: coach.source-layout.no-bare-version-detection
   strength: minor
+  target_ref: coach.source-layout.no-toolkit-self-layout-assumption
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'two halves of the toolkit-only-path class: the production-code rule scans shipped code and exempts test files; this rule covers exactly that exemption, requiring the platform marker so a toolkit-self test never runs in a consumer sweep'
+  source_ref: coach.source-layout.platform-marker-on-toolkit-selftest
+  strength: important
   target_ref: coach.source-layout.no-toolkit-self-layout-assumption
   type: runs_alongside
 - confidence: 1.0
@@ -480,24 +469,6 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
-  reason: peer frontend presentation-quality gate (no-stub allowlist hygiene) evaluated alongside frontend layer-architecture boundaries
-  source_ref: coder.frontend.boundaries-fe-layers
-  strength: minor
-  target_ref: coder.frontend.allowlist-entry-must-include
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: peer frontend import-direction check evaluated alongside frontend layer-architecture boundaries
-  source_ref: coder.frontend.boundaries-fe-layers
-  strength: minor
-  target_ref: coder.frontend.boundaries-fe-imports
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
   reason: peer consumer-code static-analysis anti-pattern gate (N+1 DB calls in loops) evaluated alongside the security XSS-sink gate
   source_ref: coder.performance.perf
   strength: minor
@@ -579,6 +550,15 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
+  reason: "both define what the operational State Store layer may hold \u2014 the SoT boundary runs alongside the foundational layering rule"
+  source_ref: coder.state-store.operational-vs-definition-sot
+  strength: important
+  target_ref: coder.state-store.core-imports-no-providers
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
   reason: single-store-per-control-root and one-external-ref-per-issue jointly protect operational state from split-brain divergence
   source_ref: coder.state-store.single-store-per-control-root
   strength: important
@@ -593,6 +573,24 @@ edges:
   strength: important
   target_ref: coder.state-store.core-imports-no-providers
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the provenance audit is agent- and provider-agnostic only because the store core imports no provider layer; it reads objects + events and can make no provider call
+  source_ref: coder.state-store.work-item-provenance
+  strength: critical
+  target_ref: coder.state-store.core-imports-no-providers
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'provenance and external-ref uniqueness are co-held record-integrity rules: one says the record was authored through a sanctioned path, the other says its provider link is unambiguous'
+  source_ref: coder.state-store.work-item-provenance
+  strength: important
+  target_ref: coder.state-store.one-external-ref-per-issue
+  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -665,6 +663,15 @@ edges:
   strength: minor
   target_ref: planner.acceptance.complete
   type: enables
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: following the authoring guidelines is what yields a well-formed acceptance
+  source_ref: planner.acceptance.authoring-guidelines
+  strength: minor
+  target_ref: planner.acceptance.well-formed
+  type: enables
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -686,12 +693,39 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_start
+  reason: a verifiable outcome includes its telemetry signal
+  source_ref: planner.acceptance.complete
+  strength: important
+  target_ref: planner.acceptance.signal-telemetry-naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: start_to_start
   reason: completeness and harness-type declaration are two required facets of the same acceptance
   source_ref: planner.acceptance.complete
   strength: important
   target_ref: planner.acceptance.harness
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: boundary declaration is meaningful once the runtime axis is set
+  source_ref: planner.acceptance.execution-kind
+  strength: important
+  target_ref: planner.acceptance.boundary-kind-vocabulary
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: direct extraction supplies the context the abstract fields require
+  source_ref: planner.acceptance.extraction-no-inference
+  strength: important
+  target_ref: planner.acceptance.abstract-fields-required
+  type: enables
 - confidence: 0.9
   constraint: discretionary
   control: internal
@@ -705,11 +739,29 @@ edges:
   constraint: discretionary
   control: internal
   foundation: finish_to_start
+  reason: extracting (not inferring) the missing context is what makes the acceptance well-formed and faithful
+  source_ref: planner.acceptance.extraction-no-inference
+  strength: minor
+  target_ref: planner.acceptance.well-formed
+  type: enables
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
   reason: the generator prompts compose the required abstract acceptance fields
   source_ref: planner.acceptance.generator-prompts
   strength: minor
   target_ref: planner.acceptance.abstract-fields-required
   type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: each section's required abstract narrative is part of the structure
+  source_ref: planner.acceptance.given-when-then-structure
+  strength: important
+  target_ref: planner.acceptance.abstract-fields-required
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -755,6 +807,15 @@ edges:
   strength: minor
   target_ref: planner.acceptance.urn-generation
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the <=5 cap bounds structured acceptances per WMBT
+  source_ref: planner.acceptance.max-per-wmbt
+  strength: important
+  target_ref: planner.acceptance.given-when-then-structure
+  type: blocks
 - confidence: 0.9
   constraint: discretionary
   control: internal
@@ -764,6 +825,24 @@ edges:
   strength: minor
   target_ref: planner.acceptance.complete
   type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the per-WMBT acceptance cap is a sizing constraint applied alongside acceptance well-formedness
+  source_ref: planner.acceptance.max-per-wmbt
+  strength: minor
+  target_ref: planner.acceptance.well-formed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: the route describes the layer flow the when/then exercises
+  source_ref: planner.acceptance.route-construction
+  strength: minor
+  target_ref: planner.acceptance.given-when-then-structure
+  type: follows
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -800,6 +879,96 @@ edges:
   strength: important
   target_ref: planner.acceptance.harness-vocabulary
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: well-formedness includes the required abstract Gherkin fields
+  source_ref: planner.acceptance.well-formed
+  strength: important
+  target_ref: planner.acceptance.abstract-fields-required
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a well-formed acceptance presupposes the Given/When/Then structure
+  source_ref: planner.acceptance.well-formed
+  strength: critical
+  target_ref: planner.acceptance.given-when-then-structure
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a verifiable outcome includes its telemetry signal
+  source_ref: planner.acceptance.well-formed
+  strength: important
+  target_ref: planner.acceptance.signal-telemetry-naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: well-formedness and harness-type declaration are two required facets of the same acceptance
+  source_ref: planner.acceptance.well-formed
+  strength: important
+  target_ref: planner.acceptance.harness
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the per-type creation workflow is keyed on the six types
+  source_ref: planner.appendix.llm-guidelines
+  strength: important
+  target_ref: planner.appendix.types
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the {type} filename segment must be one of the six appendix types
+  source_ref: planner.appendix.naming-pattern
+  strength: important
+  target_ref: planner.appendix.types
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: files in appendices/ are the named artifacts the pattern produces
+  source_ref: planner.appendix.storage
+  strength: minor
+  target_ref: planner.appendix.naming-pattern
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the structure node's naming term decomposes into the naming-pattern node
+  source_ref: planner.appendix.structure
+  strength: important
+  target_ref: planner.appendix.naming-pattern
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the structure node's storage term decomposes into the storage node
+  source_ref: planner.appendix.structure
+  strength: important
+  target_ref: planner.appendix.storage
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the structure node's taxonomy term decomposes into the types node
+  source_ref: planner.appendix.structure
+  strength: important
+  target_ref: planner.appendix.types
+  type: enables
 - confidence: 0.9
   constraint: discretionary
   control: internal
@@ -809,6 +978,15 @@ edges:
   strength: minor
   target_ref: planner.steps.sequence
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: anti-patterns enumerate the malformed names the grammar excludes
+  source_ref: planner.artifact-naming.anti-patterns
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: blocks
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -839,6 +1017,15 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_start
+  reason: name-to-path mapping splits the grammar segments
+  source_ref: planner.artifact-naming.contract-file-mapping
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: start_to_start
   reason: the contract-file formula is the file half of the logical-physical mapping
   source_ref: planner.artifact-naming.contract-file-mapping
@@ -862,6 +1049,24 @@ edges:
   source_ref: planner.artifact-naming.dot-for-variant
   strength: important
   target_ref: planner.artifact-naming.separator-semantics
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: physical-form resolution extends the base path algorithm
+  source_ref: planner.artifact-naming.logical-physical-mapping
+  strength: minor
+  target_ref: planner.artifact-naming.contract-file-mapping
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the three physical forms are chosen by aspect cardinality
+  source_ref: planner.artifact-naming.logical-physical-mapping
+  strength: important
+  target_ref: planner.artifact-naming.cardinality-from-aspect
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -903,11 +1108,38 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: the path-mirrors-identity rule enforces the contract-file-mapping algorithm at confirm
+  source_ref: planner.artifact-naming.path-mirrors-identity
+  strength: important
+  target_ref: planner.artifact-naming.contract-file-mapping
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a contract path can only mirror an identity that is a valid theme-first identity
+  source_ref: planner.artifact-naming.path-mirrors-identity
+  strength: important
+  target_ref: planner.artifact-naming.theme-first-identity
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: stable URN-based names follow the naming pattern grammar
   source_ref: planner.artifact-naming.planner-artifacts-use-stable
   strength: important
   target_ref: planner.artifact-naming.naming-pattern
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: correct plurals make the plural-aspect signal reliable
+  source_ref: planner.artifact-naming.pluralization
+  strength: important
+  target_ref: planner.artifact-naming.cardinality-from-aspect
+  type: enables
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -920,12 +1152,39 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_start
+  reason: $id is the bare grammar-conformant name
+  source_ref: planner.artifact-naming.schema-identifier
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: start_to_start
   reason: the $id and the URN reference share the artifact identity
   source_ref: planner.artifact-naming.schema-identifier
   strength: important
   target_ref: planner.artifact-naming.urn-structure
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the theme-first identity rule enforces the artifact naming-pattern grammar at confirm
+  source_ref: planner.artifact-naming.theme-first-identity
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the theme-first identity rule resolves its allowed themes from the same canonical theme map
+  source_ref: planner.artifact-naming.theme-first-identity
+  strength: important
+  target_ref: planner.theme.must-be-canonical
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -943,6 +1202,159 @@ edges:
   source_ref: planner.artifact-naming.validation-rules
   strength: important
   target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: identity mirrors physical contract file
+  source_ref: planner.artifact.definition
+  strength: important
+  target_ref: planner.artifact-naming.contract-file-mapping
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: identity follows theme hierarchy aspect variant
+  source_ref: planner.artifact.definition
+  strength: critical
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: schema-backed artifacts carry a schema identifier
+  source_ref: planner.artifact.definition
+  strength: important
+  target_ref: planner.artifact-naming.schema-identifier
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: colon is hierarchy dot is variant
+  source_ref: planner.artifact.definition
+  strength: important
+  target_ref: planner.artifact-naming.separator-semantics
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: top segment is a canonical theme
+  source_ref: planner.artifact.definition
+  strength: important
+  target_ref: planner.artifact-naming.theme-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: an artifact has a structured URN
+  source_ref: planner.artifact.definition
+  strength: critical
+  target_ref: planner.artifact-naming.urn-structure
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: names must pass the naming validation rules
+  source_ref: planner.artifact.definition
+  strength: important
+  target_ref: planner.artifact-naming.validation-rules
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: component names are derived from artifact resource names, so the artifact naming pattern is the input to component derivation
+  source_ref: planner.component.artifact-derivation
+  strength: important
+  target_ref: planner.artifact-naming.naming-pattern
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: a single business capability and the at-most-5-methods ceiling are two facets of keeping a component small and focused
+  source_ref: planner.component.business-focus
+  strength: minor
+  target_ref: planner.component.method-limit
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: exceeding 8 components signals the feature should be split
+  source_ref: planner.component.count-limit
+  strength: minor
+  target_ref: planner.feature.shape
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: components are derived from the feature's ioSeeds and WMBTs
+  source_ref: planner.component.derivation
+  strength: important
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: component events must be a subset of the feature's ioSeeds
+  source_ref: planner.component.io-alignment
+  strength: important
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: exactly-one-layer can only be checked once a layer has been assigned from the artifact type
+  source_ref: planner.component.layer-consistency
+  strength: important
+  target_ref: planner.component.layer-assignment
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a generated component's structure is keyed by its component URN
+  source_ref: planner.component.structure
+  strength: important
+  target_ref: planner.component.urn
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the {feature} URN segment must resolve to an owning feature
+  source_ref: planner.component.urn
+  strength: critical
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the {wagon} URN segment must resolve to a real wagon
+  source_ref: planner.component.urn
+  strength: critical
+  target_ref: planner.wagon.urn
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: contract coherence is checked over the produce/consume artifact shape it constrains (#1332)
+  source_ref: planner.contract.registry-coherence
+  strength: important
+  target_ref: planner.wagon.produce-consume-artifacts
   type: requires
 - confidence: 1.0
   constraint: discretionary
@@ -1056,6 +1468,15 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: a WMBT's required acceptance only counts if acceptances are well-formed (G/W/T + verifiable outcome)
+  source_ref: planner.coverage.every-wmbt-must-have
+  strength: important
+  target_ref: planner.acceptance.well-formed
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: the per-WMBT acceptance check presupposes a well-shaped WMBT (id, statement, proving artifacts)
   source_ref: planner.coverage.every-wmbt-must-have
   strength: important
@@ -1080,6 +1501,24 @@ edges:
   target_ref: planner.criteria.harness-templates
   type: runs_alongside
 - confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: a harness template given specializes the default given
+  source_ref: planner.criteria.harness-templates
+  strength: minor
+  target_ref: planner.criteria.defaults
+  type: follows
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: lowercase harness keys align with the authoritative harness-code map
+  source_ref: planner.criteria.harness-templates
+  strength: minor
+  target_ref: planner.acceptance.harness
+  type: runs_alongside
+- confidence: 1.0
   constraint: mandatory
   control: external
   foundation: start_to_start
@@ -1099,6 +1538,15 @@ edges:
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: measurable expected_outcome resolves via the dimension->metric map
+  source_ref: planner.criteria.metric-mapping
+  strength: important
+  target_ref: planner.criteria.shape
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
   control: external
   foundation: finish_to_start
   reason: the metric is selected from the WMBT dimension + direction
@@ -1106,6 +1554,15 @@ edges:
   strength: important
   target_ref: planner.wmbt.dimension-selection
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: plane assignment from keywords feeds plane->sequence routing
+  source_ref: planner.criteria.plane-keywords
+  strength: important
+  target_ref: planner.criteria.sequence-routing
+  type: enables
 - confidence: 1.0
   constraint: discretionary
   control: external
@@ -1126,12 +1583,48 @@ edges:
   type: requires
 - confidence: 1.0
   constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the routed sequence lands the harness when at the right layer
+  source_ref: planner.criteria.sequence-routing
+  strength: minor
+  target_ref: planner.criteria.harness-templates
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: every criteria entry inherits the default given scaffold
+  source_ref: planner.criteria.shape
+  strength: important
+  target_ref: planner.criteria.defaults
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the harness field selects a catalog template
+  source_ref: planner.criteria.shape
+  strength: important
+  target_ref: planner.criteria.harness-templates
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
   control: external
   foundation: start_to_start
   reason: criteria are the structured form of an acceptance
   source_ref: planner.criteria.shape
   strength: minor
   target_ref: planner.acceptance.complete
+  type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: external
+  foundation: start_to_start
+  reason: criteria are the structured form of an acceptance
+  source_ref: planner.criteria.shape
+  strength: minor
+  target_ref: planner.acceptance.well-formed
   type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
@@ -1143,6 +1636,123 @@ edges:
   target_ref: planner.criteria.harness-templates
   type: runs_alongside
 - confidence: 1.0
+  reason: the canonical steps are decoded into the journey
+  source_ref: planner.decomposition.canonical-steps
+  target_ref: planner.decomposition.train-journey
+  type: enables
+- confidence: 1.0
+  reason: unresolved document-trouble must block deciding from a partial reading
+  source_ref: planner.decomposition.document-trouble-obligation
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: blocks
+- confidence: 1.0
+  reason: reframe sources to user-facing jobs before writing the job statement
+  source_ref: planner.decomposition.domain-vs-technology
+  target_ref: planner.decomposition.jtbd-vs-odi-grammar
+  type: enables
+- confidence: 1.0
+  reason: with both grammars in hand, candidates can be decided
+  source_ref: planner.decomposition.jtbd-vs-odi-grammar
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: enables
+- confidence: 1.0
+  reason: keep/pivot/kill is applied across the canonical job steps
+  source_ref: planner.decomposition.keep-pivot-kill
+  target_ref: planner.decomposition.canonical-steps
+  type: requires
+- confidence: 1.0
+  reason: scope the slice per invocation before framing the main job
+  source_ref: planner.decomposition.local-scope
+  target_ref: planner.decomposition.jtbd-vs-odi-grammar
+  type: enables
+- confidence: 1.0
+  reason: operator prose is normalized into a keep/pivot/kill decision
+  source_ref: planner.decomposition.natural-language-normalization
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: enables
+- confidence: 1.0
+  reason: sibling/nominal trains are decoded after wagons and WMBTs are kept
+  source_ref: planner.decomposition.train-journey
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: follows
+- confidence: 1.0
+  reason: a wagon's rationale is recorded once the wagon is kept
+  source_ref: planner.decomposition.wagon-rationale
+  target_ref: planner.decomposition.keep-pivot-kill
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the artifact definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.artifact.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the feature definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.feature.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the interlocking definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.interlocking.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the theme definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.theme.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the train definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.train.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the wagon definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.wagon.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the anchor convention requires the wmbt definition anchor to exist
+  source_ref: planner.definition.anchor-required
+  strength: critical
+  target_ref: planner.wmbt.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: seeds come from wagon produce/consume artifact names
+  source_ref: planner.feature.artifact-seeded-naming
+  strength: important
+  target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: requires
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
@@ -1152,6 +1762,51 @@ edges:
   target_ref: planner.feature.verb-selection-by-artifact-type
   type: requires
 - confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a feature closes a feedback loop
+  source_ref: planner.feature.definition
+  strength: important
+  target_ref: planner.feature.feedback-loop-close-the-loop
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a feature stays within size hard-limits
+  source_ref: planner.feature.definition
+  strength: important
+  target_ref: planner.feature.hard-limits
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a feature declares urn status acceptance
+  source_ref: planner.feature.definition
+  strength: critical
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a feature stays within the size-max rule
+  source_ref: planner.feature.definition
+  strength: important
+  target_ref: planner.feature.size-max-rule
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a feature belongs to exactly one wagon
+  source_ref: planner.feature.definition
+  strength: critical
+  target_ref: planner.feature.wagon-link
+  type: requires
+- confidence: 1.0
   constraint: conditional
   control: internal
   foundation: finish_to_start
@@ -1159,6 +1814,15 @@ edges:
   source_ref: planner.feature.feedback-loop-close-the-loop
   strength: important
   target_ref: planner.feature.feedback-loop-kind
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: close-the-loop lives in a SMOKE acceptance on the feature WMBTs
+  source_ref: planner.feature.feedback-loop-kind
+  strength: important
+  target_ref: planner.wmbt.must-have-smoke-acceptance
   type: requires
 - confidence: 1.0
   constraint: discretionary
@@ -1173,11 +1837,38 @@ edges:
   constraint: discretionary
   control: internal
   foundation: start_to_start
+  reason: the dated inline suppression marker is the sanctioned hatch that relieves the close-the-loop obligation until its UNTIL date
+  source_ref: planner.feature.feedback-loop-suppression
+  strength: important
+  target_ref: planner.smoke.feedback-loop-close-the-loop
+  type: relieves
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: weights are keyed by the component types in the catalog
+  source_ref: planner.feature.footprint-scoring
+  strength: important
+  target_ref: planner.component.type-catalog
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
   reason: estimation cues feed footprint scoring
   source_ref: planner.feature.footprint-scoring
   strength: minor
   target_ref: planner.feature.estimation
   type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: grouping operates over enumerated WMBTs
+  source_ref: planner.feature.grouping-strategy
+  strength: minor
+  target_ref: planner.wmbt.shape
+  type: follows
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -1187,6 +1878,51 @@ edges:
   strength: minor
   target_ref: planner.feature.size-max-rule
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the verb-object name rule enforces the verb-object preference of the feature URN grammar
+  source_ref: planner.feature.name-is-verb-object
+  strength: important
+  target_ref: planner.feature.urn-naming
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the feature name rule draws its leading-verb lexicon from the verb-selection table
+  source_ref: planner.feature.name-is-verb-object
+  strength: important
+  target_ref: planner.feature.verb-selection-by-artifact-type
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: shape aggregates the feedback-loop kind
+  source_ref: planner.feature.shape
+  strength: important
+  target_ref: planner.feature.feedback-loop-kind
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: shape aggregates the hard limits
+  source_ref: planner.feature.shape
+  strength: important
+  target_ref: planner.feature.hard-limits
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: shape aggregates the sizing rule
+  source_ref: planner.feature.shape
+  strength: important
+  target_ref: planner.feature.size-max-rule
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -1208,12 +1944,30 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_start
+  reason: WMBT groups produce the WMBT-count size input
+  source_ref: planner.feature.size-max-rule
+  strength: important
+  target_ref: planner.feature.grouping-strategy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: start_to_start
   reason: sizing and hard limits both gate feature scope
   source_ref: planner.feature.size-max-rule
   strength: important
   target_ref: planner.feature.hard-limits
   type: runs_alongside
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: the feature URN segment comes from artifact-seeded naming
+  source_ref: planner.feature.urn-naming
+  strength: minor
+  target_ref: planner.feature.artifact-seeded-naming
+  type: follows
 - confidence: 1.0
   constraint: mandatory
   control: external
@@ -1259,6 +2013,87 @@ edges:
   strength: important
   target_ref: planner.wagon.features
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: REST endpoint shapes are built from the interface naming patterns, so the mapping presupposes them
+  source_ref: planner.interface.api-mapping
+  strength: important
+  target_ref: planner.interface.naming-patterns
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: verb selection keys off the event/state/data/config naming classification
+  source_ref: planner.interface.artifact-transformation
+  strength: important
+  target_ref: planner.interface.naming-patterns
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the contract URN scheme is the interface-side application of the stable-naming grammar
+  source_ref: planner.interface.contract-urn
+  strength: important
+  target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: orphan detection is defined via bidirectional-linkage resolution of the contract URN
+  source_ref: planner.interface.orphan-detection
+  strength: important
+  target_ref: planner.interface.contract-urn
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the producing wagon generates the artifact contract, which must carry a well-formed contract URN
+  source_ref: planner.interface.ownership-rules
+  strength: important
+  target_ref: planner.interface.contract-urn
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: FLAT/FACETED/COLLECTION layouts realise the colon/dot-to-path mapping
+  source_ref: planner.interface.structure-rules
+  strength: minor
+  target_ref: planner.artifact-naming.planner-artifacts-use-stable
+  type: follows
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: the tests/ rule targets the leaf directories produced by the layouts
+  source_ref: planner.interface.tests-subdirectory
+  strength: minor
+  target_ref: planner.interface.structure-rules
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: composite dispatch keys are exceptional
+  source_ref: planner.interlocking.definition
+  strength: important
+  target_ref: planner.train.dispatch-composite-key-exceptional
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the dispatch map is a declared routing registry
+  source_ref: planner.interlocking.definition
+  strength: critical
+  target_ref: planner.train.dispatch-map-is-registry
+  type: requires
 - confidence: 0.9
   constraint: discretionary
   control: internal
@@ -1283,7 +2118,7 @@ edges:
   target_ref: planner.train.interlocking-home
   type: requires
 - confidence: 1.0
-  reason: the D/L/P/C lifecycle's Confirm gate enforces confirm-before-author
+  reason: the session lifecycle's Ratify gate enforces confirm-before-author
   source_ref: planner.plan.session-lifecycle
   target_ref: planner.plan.confirm-before-author
   type: requires
@@ -1296,6 +2131,69 @@ edges:
   strength: minor
   target_ref: planner.acceptance.complete
   type: runs_alongside
+- confidence: 0.9
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: no-orphan-node graph completeness is a planning-artifact integrity rule alongside acceptance well-formedness
+  source_ref: planner.relationship.no-orphan-nodes
+  strength: minor
+  target_ref: planner.acceptance.well-formed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'the SMOKE close-the-loop obligation only applies to a feature that declares kind: feedback-loop, so the kind rule is its precondition'
+  source_ref: planner.smoke.feedback-loop-close-the-loop
+  strength: important
+  target_ref: planner.feature.feedback-loop-kind
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'both police SMOKE-phase authenticity: one forbids synthetic wiring, the other requires the consumer end be exercised, and together they stop a SMOKE suite that is green without proving anything'
+  source_ref: planner.smoke.synthetic-fixture-bypass
+  strength: important
+  target_ref: planner.smoke.feedback-loop-close-the-loop
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: layer/sequence mapping is keyed by the nine step names
+  source_ref: planner.steps.architecture-routing
+  strength: important
+  target_ref: planner.steps.jtbd-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: both decorate the same nine steps from complementary axes
+  source_ref: planner.steps.architecture-routing
+  strength: minor
+  target_ref: planner.steps.linguistic-patterns
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the ordered 9-step taxonomy supplies the ordering the sequence rule asserts
+  source_ref: planner.steps.jtbd-taxonomy
+  strength: important
+  target_ref: planner.steps.sequence
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: patterns are defined per step name
+  source_ref: planner.steps.linguistic-patterns
+  strength: important
+  target_ref: planner.steps.jtbd-taxonomy
+  type: requires
 - confidence: 0.9
   constraint: discretionary
   control: internal
@@ -1340,6 +2238,60 @@ edges:
   source_ref: planner.theme.commons-coach-boundary
   strength: important
   target_ref: planner.theme.canonical-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: each theme aligns to one archetype
+  source_ref: planner.theme.definition
+  strength: important
+  target_ref: planner.theme.archetype-alignment
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a theme is one of the five canonical digits
+  source_ref: planner.theme.definition
+  strength: critical
+  target_ref: planner.theme.canonical-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: commons is consumable without importing coach
+  source_ref: planner.theme.definition
+  strength: important
+  target_ref: planner.theme.commons-coach-boundary
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: non-canonical themes are rejected
+  source_ref: planner.theme.definition
+  strength: critical
+  target_ref: planner.theme.must-be-canonical
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: digit 0 commons is the mandatory locked floor
+  source_ref: planner.theme.definition
+  strength: critical
+  target_ref: planner.theme.theme-zero-mandatory
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the theme token namespaces the artifact URN
+  source_ref: planner.theme.definition
+  strength: important
+  target_ref: planner.theme.urn-namespace-matches
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -1407,11 +2359,83 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
-  foundation: finish_to_start
-  reason: the category digit is part of the numbering scheme
-  source_ref: planner.train.categories
+  foundation: finish_to_finish
+  reason: a train moves artifacts across wagons
+  source_ref: planner.train.definition
   strength: important
-  target_ref: planner.train.numbering
+  target_ref: planner.train.artifact-flow
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: family behavior-or-delivery is part of train identity
+  source_ref: planner.train.definition
+  strength: important
+  target_ref: planner.train.family
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: family is fixed by the terminal contract
+  source_ref: planner.train.definition
+  strength: critical
+  target_ref: planner.train.family-matches-terminal-contract
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the journey starts from a declared initial input
+  source_ref: planner.train.definition
+  strength: important
+  target_ref: planner.train.initial-cargo-inputs-declared
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a train is strictly linear
+  source_ref: planner.train.definition
+  strength: critical
+  target_ref: planner.train.linearity
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: steps move artifacts between declared participants
+  source_ref: planner.train.definition
+  strength: important
+  target_ref: planner.train.participants
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a train tells ONE coherent journey
+  source_ref: planner.train.definition
+  strength: critical
+  target_ref: planner.train.scope
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a train is an ordered step sequence
+  source_ref: planner.train.definition
+  strength: important
+  target_ref: planner.train.sequence
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the journey ends in exactly one terminal contract
+  source_ref: planner.train.definition
+  strength: critical
+  target_ref: planner.train.terminal-contract
   type: requires
 - confidence: 1.0
   constraint: discretionary
@@ -1561,22 +2585,19 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: registry membership of a payload contract presupposes a typed payload
+  reason: "binding an interlocking payload.contract to an authored/registered contract (#1314 item E) ties the route/interlocking model to the contract layer \u2014 the declared identity must be a registered contract, resolved via the contract identity->file mapping the contract layer maintains"
   source_ref: planner.train.interlocking-payload-contract-registered
   strength: important
-  target_ref: planner.train.interlocking-message-payload-typed
+  target_ref: planner.artifact-naming.contract-file-mapping
   type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: binding an interlocking payload.contract to an authored/registered contract
-    (#1314 item E) ties the route/interlocking model to the contract layer — the
-    declared identity must be a registered contract, resolved via the contract
-    identity->file mapping the contract layer maintains
+  reason: registry membership of a payload contract presupposes a typed payload
   source_ref: planner.train.interlocking-payload-contract-registered
   strength: important
-  target_ref: planner.artifact-naming.contract-file-mapping
+  target_ref: planner.train.interlocking-message-payload-typed
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -1632,15 +2653,6 @@ edges:
   strength: critical
   target_ref: planner.train.sequence
   type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the train_id name follows the numbering prefix
-  source_ref: planner.train.naming
-  strength: important
-  target_ref: planner.train.numbering
-  type: requires
 - confidence: 0.9
   constraint: discretionary
   control: internal
@@ -1650,6 +2662,15 @@ edges:
   strength: minor
   target_ref: planner.train.artifact-flow
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the subject-bucketed train registry can only key a typed train:<subject>:<slug> entry on a subject already registered in plan/_subjects.yaml
+  source_ref: planner.train.registry
+  strength: important
+  target_ref: planner.subject.invariants
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -1668,6 +2689,42 @@ edges:
   strength: important
   target_ref: planner.coverage.bidirectional-coverage-between-trains
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: assessing the category space presupposes each route's declared category already agrees with its target train
+  source_ref: planner.train.route-category-assessment
+  strength: important
+  target_ref: planner.train.interlocking-route-category-matches-train-id
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: admission proves every train is classified; category assessment proves the route space that classifies them is itself complete
+  source_ref: planner.train.route-category-assessment
+  strength: important
+  target_ref: planner.train.route-space-admission
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: admission counts routes across the registered interlockings, so it presupposes the homed+registered interlocking set
+  source_ref: planner.train.route-space-admission
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a train sequences 3-7 wagons referenced by wagon URN
+  source_ref: planner.train.scope
+  strength: important
+  target_ref: planner.wagon.urn
+  type: requires
 - confidence: 1.0
   constraint: mandatory
   control: external
@@ -1726,10 +2783,10 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: the orchestrator URN extends the train URN with a theme prefix
+  reason: the train URN carried on a theme orchestrator must reference a train registered in the train registry (registry entry + spec file)
   source_ref: planner.train.theme-orchestrator-urn
-  strength: minor
-  target_ref: planner.train.urn-naming
+  strength: important
+  target_ref: planner.train.registry
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -1739,33 +2796,6 @@ edges:
   source_ref: planner.train.theme-ranges
   strength: minor
   target_ref: planner.train.categories
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the theme digit is part of the numbering scheme
-  source_ref: planner.train.theme-ranges
-  strength: important
-  target_ref: planner.train.numbering
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: the train URN embeds the numbered train_id
-  source_ref: planner.train.urn-naming
-  strength: important
-  target_ref: planner.train.numbering
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: validation enforces the train_id numbering
-  source_ref: planner.train.validation-rules
-  strength: important
-  target_ref: planner.train.numbering
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -1785,6 +2815,15 @@ edges:
   strength: minor
   target_ref: planner.train.theme-ranges
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the telemetry URN grammar is what the filesystem mapping resolves
+  source_ref: planner.wagon.artifact-contracts
+  strength: important
+  target_ref: planner.wagon.telemetry-filesystem
+  type: enables
 - confidence: 1.0
   constraint: mandatory
   control: external
@@ -1815,12 +2854,84 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_finish
+  reason: artifacts cross declared contract boundaries
+  source_ref: planner.wagon.definition
+  strength: important
+  target_ref: planner.wagon.artifact-contracts
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: separability is judged by cross-wagon coupling
+  source_ref: planner.wagon.definition
+  strength: important
+  target_ref: planner.wagon.coupling-complexity
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a wagon groups the features that decompose it
+  source_ref: planner.wagon.definition
+  strength: minor
+  target_ref: planner.wagon.features
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: wagons must not form a produce-consume cycle
+  source_ref: planner.wagon.definition
+  strength: critical
+  target_ref: planner.wagon.no-consume-cycle
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a wagon consumes and produces declared artifacts
+  source_ref: planner.wagon.definition
+  strength: important
+  target_ref: planner.wagon.produce-consume-artifacts
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a wagon has one coherent subject action goal
+  source_ref: planner.wagon.definition
+  strength: critical
+  target_ref: planner.wagon.semantic-coherence
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a wagon is a separable unit of work
+  source_ref: planner.wagon.definition
+  strength: critical
+  target_ref: planner.wagon.separability
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: start_to_start
   reason: the features-manifest rule uses the urn-array features format
   source_ref: planner.wagon.features-format
   strength: important
   target_ref: planner.wagon.features
   type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: kebab/snake conversion underpins the wagon URN + plan/<slug>/ layout
+  source_ref: planner.wagon.logical-vs-filesystem-naming
+  strength: important
+  target_ref: planner.wagon.urn
+  type: enables
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -1834,19 +2945,28 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: the strict no-consume-cycle invariant is the exact (acyclicity) case of the complexity model
-  source_ref: planner.wagon.no-consume-cycle
+  reason: the verb-object name rule enforces the verb-object preference of the wagon URN grammar
+  source_ref: planner.wagon.name-is-verb-object
   strength: important
-  target_ref: planner.wagon.complexity-model
+  target_ref: planner.wagon.urn-naming
+  type: refines
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the wagon name rule draws its leading-verb lexicon from the verb-selection table
+  source_ref: planner.wagon.name-is-verb-object
+  strength: important
+  target_ref: planner.feature.verb-selection-by-artifact-type
   type: requires
 - confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
-  reason: contract coherence is checked over the produce/consume artifact shape it constrains (#1332)
-  source_ref: planner.contract.registry-coherence
+  reason: the strict no-consume-cycle invariant is the exact (acyclicity) case of the complexity model
+  source_ref: planner.wagon.no-consume-cycle
   strength: important
-  target_ref: planner.wagon.produce-consume-artifacts
+  target_ref: planner.wagon.complexity-model
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -1877,12 +2997,30 @@ edges:
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: extraction produces the fields coherence checks validate
+  source_ref: planner.wagon.refinement-extraction
+  strength: important
+  target_ref: planner.wagon.semantic-coherence
+  type: enables
+- confidence: 1.0
+  constraint: mandatory
   control: external
   foundation: finish_to_start
   reason: the wagon theme is selected from the canonical taxonomy
   source_ref: planner.wagon.refinement-extraction
   strength: important
   target_ref: planner.theme.canonical-taxonomy
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: produce/consume extraction delegates to the artifact URN conventions
+  source_ref: planner.wagon.refinement-extraction
+  strength: important
+  target_ref: planner.wagon.artifact-contracts
   type: requires
 - confidence: 1.0
   constraint: mandatory
@@ -1995,6 +3133,87 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_finish
+  reason: a WMBT picks one dimension
+  source_ref: planner.wmbt.definition
+  strength: important
+  target_ref: planner.wmbt.dimension-selection
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a WMBT picks one direction
+  source_ref: planner.wmbt.definition
+  strength: important
+  target_ref: planner.wmbt.direction-selection
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a WMBT picks one lens
+  source_ref: planner.wmbt.definition
+  strength: important
+  target_ref: planner.wmbt.lens-selection
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a WMBT must carry a smoke acceptance
+  source_ref: planner.wmbt.definition
+  strength: critical
+  target_ref: planner.wmbt.must-have-smoke-acceptance
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a WMBT is scoped to one object of control
+  source_ref: planner.wmbt.definition
+  strength: critical
+  target_ref: planner.wmbt.object-of-control
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a WMBT declares id statement proving-artifacts
+  source_ref: planner.wmbt.definition
+  strength: critical
+  target_ref: planner.wmbt.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: multi-axis WMBTs must split
+  source_ref: planner.wmbt.definition
+  strength: minor
+  target_ref: planner.wmbt.splitting-rules
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: a WMBT follows the statement template
+  source_ref: planner.wmbt.definition
+  strength: important
+  target_ref: planner.wmbt.statement-template
+  type: requires
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: finish_to_start
+  reason: filename is the URN's step-coded sequence segment
+  source_ref: planner.wmbt.filename-pattern
+  strength: minor
+  target_ref: planner.wmbt.urn-naming
+  type: follows
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: the WMBT filename is step-coded
   source_ref: planner.wmbt.filename-pattern
@@ -2021,6 +3240,15 @@ edges:
   type: follows
 - confidence: 1.0
   constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a SMOKE acceptance is defined by carrying the SMOKE harness token, so it depends on the harness-type rule
+  source_ref: planner.wmbt.must-have-smoke-acceptance
+  strength: critical
+  target_ref: planner.acceptance.harness#harness_type
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
   control: external
   foundation: finish_to_start
   reason: the SMOKE token is a harness code from the acceptance harness vocabulary
@@ -2032,11 +3260,47 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: each WMBT carries one lens_ref from the catalog
+  source_ref: planner.wmbt.shape
+  strength: important
+  target_ref: planner.wmbt.lens-selection
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: a well-shaped WMBT declares a composed statement
   source_ref: planner.wmbt.shape
   strength: important
   target_ref: planner.wmbt.statement-template
   type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the WMBT id is the step-coded URN
+  source_ref: planner.wmbt.shape
+  strength: important
+  target_ref: planner.wmbt.urn-naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a statement mixing dimensions must be split
+  source_ref: planner.wmbt.splitting-rules
+  strength: important
+  target_ref: planner.wmbt.dimension-selection
+  type: blocks
+- confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the <=5 acceptance cap aligns across conventions
+  source_ref: planner.wmbt.splitting-rules
+  strength: minor
+  target_ref: planner.acceptance.max-per-wmbt
+  type: runs_alongside
 - confidence: 1.0
   constraint: discretionary
   control: internal
@@ -2342,16 +3606,6 @@ edges:
   source_ref: tester.smoke.no-collaborator-substitution
   strength: minor
   target_ref: tester.smoke.operator-observable-assertion
-  type: runs_alongside
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: both define what the operational State Store layer may hold — the SoT boundary runs
-    alongside the foundational layering rule
-  source_ref: coder.state-store.operational-vs-definition-sot
-  strength: important
-  target_ref: coder.state-store.core-imports-no-providers
   type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph

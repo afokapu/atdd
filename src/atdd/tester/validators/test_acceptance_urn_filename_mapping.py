@@ -15,6 +15,7 @@ import pytest
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
 
 
 REPO_ROOT = find_repo_root()
@@ -207,9 +208,9 @@ def test_typescript_files_match_convention():
     # Pattern: {wmbt}-{harness}-{nnn}[-{slug}].test.ts
     ts_pattern = re.compile(r'^([a-z][0-9]{3})-([a-z0-9]+)-([0-9]{3})(?:-([a-z0-9-]+))?\.test\.ts$')
 
+    supabase_root = resolve_code_root("supabase", REPO_ROOT)
     test_dirs = [
-        REPO_ROOT / "supabase" / "functions",
-        REPO_ROOT / "e2e",
+        d for d in (supabase_root, REPO_ROOT / "e2e") if d is not None
     ]
 
     violations = []
@@ -262,9 +263,8 @@ def test_typescript_preact_files_match_convention():
 
     ts_pattern = re.compile(r'^([A-Z][0-9]{3})_([A-Z0-9]+)_([0-9]{3})(?:_([a-z0-9_]+))?\.test\.ts(x)?$')
 
-    test_dirs = [
-        REPO_ROOT / "web" / "tests",
-    ]
+    web_container = resolve_stack_container("web", REPO_ROOT)
+    test_dirs = [] if web_container is None else [web_container / "tests"]
 
     violations = []
 

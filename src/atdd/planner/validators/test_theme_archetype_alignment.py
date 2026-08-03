@@ -12,7 +12,7 @@ This validator also exercises the theme-discovery scan across plan/ described by
 wmbt:govern-lifecycle:L001 (previously unbound — RULEID-0007 gap closed here).
 
 Rule: planner.theme.archetype-alignment (severity 2, documentation-only)
-Convention: src/atdd/planner/conventions/theme.convention.yaml::rules
+Convention: src/atdd/planner/conventions/nodes/planner.theme.archetype-alignment.convention.yaml
 """
 from __future__ import annotations
 
@@ -46,6 +46,9 @@ def test_archetype_themes_align_with_source_roots() -> None:
     )
 
 
+@pytest.mark.platform  # toolkit dogfood: asserts the repo's OWN plan/ declares wagons;
+# a consumer with no wagons yet is not in violation. Not path-shaped, so the
+# platform-marker detector cannot see it — marked by hand (#1475).
 def test_scanner_surfaces_existing_themes() -> None:
     """L001: the theme scanner returns distinct themes declared under plan/."""
     found = scan_wagon_themes(REPO_ROOT)

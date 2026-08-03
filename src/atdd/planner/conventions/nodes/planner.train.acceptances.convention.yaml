@@ -3,32 +3,83 @@ rule_id: planner.train.acceptances
 kind: rule
 status: active
 name: Train-level acceptances
-statement: A train may carry an optional acceptances block (WMBT acceptance shape); each contributes a
-  derived repo rule via the rule-binding walker.
+statement: A train may carry an optional acceptances block (WMBT acceptance shape);
+  each contributes a derived repo rule via the rule-binding walker.
+terms:
+- term_id: train_acceptance
+  text: an optional train-level acceptance.
+  values:
+    rule_id_derivation: acc:<train-id>:<slug> -> repo.<train-id>.acc-<slug>
+- term_id: authorable_example
+  label: The copy-paste train acceptance
+  text: "The exact train-level acceptance a human copies when authoring one. It must\
+    \ satisfy the acc URN grammar, parse as a valid typed-train parent, and validate\
+    \ against the train schema's acceptance definition \u2014 #1548 was exactly this\
+    \ exemplar carrying the URN scheme retired by #1421, so following the documentation\
+    \ produced an invalid artifact."
+  values:
+    acceptance:
+      identity:
+        urn: acc:train:self-compliance:validate-lifecycle:idempotent-on-retry
+        id: AC-SMOKE-001
+        purpose: Re-running the train with the same idempotency key produces no duplicate
+          side effects
+        phase: SMOKE
+      harness:
+        type: e2e
+      signal:
+        metric: duplicate_side_effects_on_retry
+        threshold: 0
+notes: "#1548: the node declared four constraints and bound nothing \u2014 no implementation,\
+  \ no validation block. It is now enforced by a real validator whose every constraint\
+  \ has a fault-injection test, because the real-repo baseline is 0 only for want\
+  \ of data (16 trains, 0 with acceptances; #1551 backfills), and a clean baseline\
+  \ over an empty selection proves nothing. #1639: the authorable exemplar moved here\
+  \ from the deleted train.convention.yaml monolith."
+implementation:
+  type: validator
+  ref: test_train_acceptances_wellformed::test_train_acceptances_are_wellformed
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_section: acceptances
   legacy_sha: 825602729f11a3a4
   extraction_mode: high_fidelity
 content:
-  normative_text: 'rule_id derivation (spec v12 §3.3): acc:<train-id>:<slug> -> repo.<train-id>.acc-<slug>.
-    Walker: atdd.coach.utils.rule_binding.find_repo_rules.'
+  normative_text: "rule_id derivation (spec v12 \xA73.3): acc:<train-id>:<slug> ->\
+    \ repo.<train-id>.acc-<slug>. Walker: atdd.coach.utils.rule_binding.find_repo_rules."
   constraints:
   - identity.urn matches URNBuilder.PATTERNS['acc'] (train-acceptance shape)
   - identity.purpose populated (becomes RuleMetadata.description)
   - identity.phase populated (RED|GREEN|SMOKE|REFACTOR)
-  - EITHER harness.type OR (signal.metric AND signal.threshold) populated (measurability invariant §4.3)
+  - "EITHER harness.type OR (signal.metric AND signal.threshold) populated (measurability\
+    \ invariant \xA74.3)"
   exceptions:
-  - 'id: at acceptance-block top level (rule-id derives mechanically — see §3.3)'
-  - 'disposition: anywhere in repo YAML (walker sets to ''strict'' per §4.4)'
+  - "id: at acceptance-block top level (rule-id derives mechanically \u2014 see \xA7\
+    3.3)"
+  - "disposition: anywhere in repo YAML (walker sets to 'strict' per \xA74.4)"
+metadata:
+  severity: 3
+  disposition: strict
 parity:
   source_fragments_preserved: true
-  examples_preserved: false
-  implementation_preserved: false
+  examples_preserved: true
+  implementation_preserved: true
   fix_hint_preserved: false
-  reviewed_at: '2026-06-16'
-terms:
-- term_id: train_acceptance
-  text: an optional train-level acceptance.
-  values:
-    rule_id_derivation: acc:<train-id>:<slug> -> repo.<train-id>.acc-<slug>
+  reviewed_at: '2026-07-29'
+validation:
+  family: presence
+  template: required_field_presence
+  variant: planner_train_acceptances_wellformed
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: train_acceptance
+  selector: train files under plan/_trains/ (flat or subject-nested) declaring an
+    acceptances[] block
+  traversal: train file -> acceptances[] -> identity/harness/signal fields
+  invariant: identity.urn matches the acc grammar, purpose and phase are populated,
+    and the block is measurable via harness.type or signal.metric+threshold
+  failure_evidence:
+  - train_file
+  - acceptance_urn
+  - constraint
+  - detail

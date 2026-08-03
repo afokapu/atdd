@@ -89,14 +89,34 @@ issues:
   convention: "src/atdd/coach/conventions/issue.convention.yaml"
   commands:
     new: "atdd author issue --title <title> --slug <slug>"   # store-first canonical create (#1272)
-    enter: "atdd issue <N>"
-    update: "atdd issue <N> --status <STATUS>"
+    enter: "atdd coach enter <N>"
+    show: "atdd coach issues <N>"
+    update: "atdd coach transition <N> <STATUS>"
     pr: "atdd pr <N>"
+  removed_commands:
+    # #1309 (BREAKING): the `atdd issue` monolith is GONE. Umbrella #1303
+    # split it across the author (create) and coach (lifecycle) archetypes.
+    # Running it now exits non-zero and names the replacement.
+    - "atdd issue <slug>              → use: atdd author issue --title <title> --slug <slug>"
+    - "atdd issue <N>                 → use: atdd coach enter <N>  (or: atdd coach issues <N>)"
+    - "atdd issue open                → use: atdd coach issues open"
+    - "atdd issue <N> --status <S>    → use: atdd coach transition <N> <S>"
+    - "atdd issue <N> --close-wmbt <ID> → use: atdd coach close-wmbt <N> <ID>"
+    - "atdd issue <N> --check         → use: atdd coach check <N>"
+    - "atdd issue reconcile           → use: atdd coach reconcile"
+    - "atdd issue sync-labels         → use: atdd coach sync-labels [<N>|--all]"
+    - "atdd issue is-registered <br>  → use: atdd coach is-registered <branch>"
+    - "atdd issue review <N>          → use: atdd coach issue-review <N>"
+    - "atdd issue <slug> --dry-run    → use: atdd author issue --slug <slug> --dry-run"
+    # #1477 (BREAKING): `atdd new` — the last live entry into the orphaned
+    # IssueManager mint path — is GONE, and the WMBT sub-issue backfill that
+    # rode on it (`atdd coach sync-wmbts`) goes with it: it resolved plan
+    # artifacts through a `wagon` field the store no longer carries.
+    - "atdd new <slug>                → use: atdd author issue --title <title> --slug <slug>"
+    - "atdd coach sync-wmbts <N>      → removed; no replacement (wagon → train + feature)"
   deprecated_commands:
-    # #1349: the create-by-slug alias still works but warns on stderr and
-    # points to the canonical `atdd author issue` (store-first, fail-loud).
-    - "atdd issue <slug>  → use: atdd author issue --title <title> --slug <slug>"
-    - "atdd new <slug>    → use: atdd author issue --title <title> --slug <slug>"
+    - "atdd archive <N>   → use: atdd coach transition <N> COMPLETE"
+    - "atdd branch <N>    → use: atdd worktree create <N>"
   prohibited_commands:
     - "gh issue create    → use: atdd author issue --title <title> --slug <slug>"
     - "gh pr create       → use: atdd pr <N>"

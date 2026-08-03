@@ -2,6 +2,41 @@ version: "1.0"
 name: "Code Roots Convention"
 description: "Config-driven resolution of implementation roots for hierarchy-coverage validators (see issue #327)"
 
+# =============================================================================
+# Enforcement (issue #1499)
+# =============================================================================
+# Until #1499 this file was 100 lines of prose: it stated the invariant, carried
+# no rule ids, no disposition and no binding, and so gated NOTHING. Every
+# hardcode violated it on paper and landed anyway (#1476).
+#
+# The rules now live — as single-node files, which is their authoritative home
+# post-#1225. They are deliberately NOT restated here: a rule declared in both
+# the monolith and nodes/ is a duplicate representation and is itself a
+# violation (coach.rule-id.* / test_no_duplicate_rule_representation.py).
+#
+#   coach.code-roots.no-hardcoded-toolkit-root     conventions/nodes/
+#   coach.code-roots.no-source-depth-walk          conventions/nodes/
+#   coach.code-roots.resolver-degrades-not-raises  conventions/nodes/
+#
+# All three are enforced by ONE coach detector scanning the WHOLE src/atdd tree
+# — every archetype is a subject, none is exempt:
+#
+#   src/atdd/coach/validators/test_code_roots_agnosticity.py
+#
+# `no-source-depth-walk` is already AT its destination: `strict`, zero
+# suppressions. The other two are `suppress-and-clean` with 10 pre-existing
+# violations suppressed at their sites; THEIR DESTINATION IS `strict` AT ZERO. Unlike the
+# coder debt family (complexity, dead-code, duplication — which may sit
+# baselined indefinitely), this is a correctness invariant: atdd dogfoods
+# itself, so a toolkit-layout hardcode breaks the toolkit for every consumer.
+# Suppressions may only be removed, never added to green a build.
+enforcement:
+  rules_home: "src/atdd/coach/conventions/nodes/coach.code-roots.*.convention.yaml"
+  validator: "src/atdd/coach/validators/test_code_roots_agnosticity.py"
+  scope: "the entire src/atdd tree — coach, coder, planner, tester, state, cli"
+  disposition: "no-source-depth-walk: strict at zero. Others: suppress-and-clean, 10 held, destination strict at zero"
+  activated_in: "4.7.0 (#1499)"
+
 purpose: |
   The set of directories that hierarchy-coverage validators walk when
   searching for a feature's implementation is declared in the optional

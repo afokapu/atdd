@@ -1,0 +1,55 @@
+schema_version: 1.1.0
+rule_id: coder.train.interlocking-delegates-to-trainrunner
+kind: rule
+status: active
+name: InterlockingRunner delegates execution to TrainRunner and never executes wagons itself
+statement: >-
+  An `InterlockingRunner` MUST NOT execute wagons directly or duplicate the TrainRunner step loop. The
+  InterlockingRunner-defining module MUST NOT import a `python/<wagon>/wagon.py` module, call
+  `run_train(...)`, loop over `train.sequence` as an executor, or otherwise invoke wagon steps;
+  TrainRunner remains the only wagon-step executor. This is the agnostic obligation; the python-pytest
+  AST detector that enforces it is the implementation referenced below.
+implementation:
+  type: validator
+  ref: coder.train.interlocking-delegates-to-trainrunner
+content:
+  summary: >-
+    An agnostic "route-control, not execution" obligation. The python realization parses each
+    InterlockingRunner-defining module with `ast` and flags a direct wagon import, a `run_train(...)`
+    call, or a `for ... in <expr>.sequence:` executor loop. Maps to validator checks
+    `test_interlocking_delegates_to_trainrunner`, `test_interlocking_does_not_call_wagon_run_train`,
+    `test_interlocking_does_not_implement_train_step_loop`, `test_trainrunner_remains_only_wagon_step_executor`.
+  normative_text: |
+    Core runtime spec afokapu/atdd#1251 — the InterlockingRunner "must not": execute wagon steps,
+    choose the next train step inside a train, bypass TrainRunner, or duplicate TrainRunner's execution
+    loop. It resolves one admissible train and DELEGATES to `TrainRunner.execute(selected_train_id,
+    ...)`. The production TrainRunner is the single component that runs wagons and carries Cargo between
+    them. WHICH module is scanned (the InterlockingRunner-defining files) and HOW the forbidden patterns
+    are recognized is delegated to the per-stack detector; the TrainRunner module's own run_train loop
+    is legitimate and not flagged.
+  fix_hint: |
+    Delegate instead of executing:
+
+      def execute(self, action, inputs, state=None, ...):
+          res = self.resolve_train(action, inputs, state)
+          return TrainRunner(res.train_path).execute(res.train_id, inputs, ...)   # delegate, do not loop
+
+    Do NOT import a wagon module, call run_train(...), or loop over train.sequence in interlocking code.
+    This rule is `strict`: a newly introduced direct-execution pattern is not suppressible and fails CI.
+  exceptions:
+    - The production `TrainRunner` module is the legitimate wagon-step executor; only
+      InterlockingRunner-defining modules are scanned for direct execution.
+metadata:
+  aliases:
+    - INTERLOCKING-DELEGATES-TRAINRUNNER-001
+  severity: 4
+  disposition: strict
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: direct_wagon_execution
+    text: >-
+      an InterlockingRunner module importing a wagon module, calling run_train(...), or looping over
+      train.sequence as a step executor — competing with TrainRunner.

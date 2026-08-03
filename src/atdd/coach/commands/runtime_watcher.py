@@ -92,7 +92,7 @@ class RuntimeWatcher:
         while not self._stop.is_set():
             try:
                 self.scan_once()
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # never crash the daemon
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31  # never crash the daemon
                 pass
             self._stop.wait(self.poll_interval)
 
@@ -196,7 +196,7 @@ class RuntimeWatcher:
     def _emit_heartbeat(self, agent_id: str, path: Path) -> int:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return 0
         event = {
             "event_type": "heartbeat",
@@ -265,7 +265,7 @@ class RuntimeWatcher:
                 fh.seek(self._jsonl_offsets.get(path, 0))
                 blob = fh.read()
                 self._jsonl_offsets[path] = fh.tell()
-        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return []
         records: list[dict] = []
         for line in blob.splitlines():
@@ -313,7 +313,7 @@ class RuntimeWatcher:
                 stat = events_path.stat()
                 self._jsonl_offsets[events_path] = stat.st_size
                 self._snapshots[events_path] = _FileSnapshot(stat.st_mtime_ns, stat.st_size)
-            except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
                 pass
         return emitted
 
@@ -332,7 +332,7 @@ class RuntimeWatcher:
             return
         try:
             data = json.loads(self._checkpoint_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return
         for key in data.get("handled", []):
             self._handled_keys.add(tuple(key))

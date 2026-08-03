@@ -5,7 +5,7 @@ Issue: #342 — `atdd <any-cmd>` was silently writing `.atdd/config.yaml` and
 `atdd.code-workspace` on every invocation through this function. After the
 fix, `print_upgrade_sync_notice()` is *warn-only*: it prints the upgrade
 banner to stderr and returns without invoking `AgentConfigSync.sync()` or
-`update_toolkit_version()`.
+the toolkit-sync writer (`record_toolkit_sync()` since #1641).
 
 These are unit-resolution tests; the subprocess-resolution sibling lives at
 `src/atdd/coach/validators/test_readonly_commands_no_writes.py` and exercises
@@ -68,14 +68,16 @@ def test_print_upgrade_sync_notice_does_not_call_agent_sync(
     )
 
 
-def test_print_upgrade_sync_notice_does_not_update_toolkit_version(
+def test_print_upgrade_sync_notice_does_not_record_toolkit_sync(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """`print_upgrade_sync_notice` must not call `update_toolkit_version`.
+    """`print_upgrade_sync_notice` must not call `record_toolkit_sync`.
 
     The version stamp belongs to the explicit `atdd sync` verb, which already
-    writes `toolkit.last_version` at the end of its run.
+    records the sync at the end of its run. #1641 moved the record out of the
+    tracked config into `.atdd/runtime/`, but the read-path invariant is
+    unchanged: the check reads, `atdd sync` writes.
     """
     _seed_stale_repo(tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -83,13 +85,13 @@ def test_print_upgrade_sync_notice_does_not_update_toolkit_version(
     from atdd import version_check
 
     with patch.object(
-        version_check, "update_toolkit_version", return_value=False
+        version_check, "record_toolkit_sync", return_value=False
     ) as mock_update:
         version_check.print_upgrade_sync_notice()
 
     assert mock_update.call_count == 0, (
-        "print_upgrade_sync_notice() must not call update_toolkit_version(); "
-        "the write belongs behind `atdd sync` (issue #342)."
+        "print_upgrade_sync_notice() must not call record_toolkit_sync(); "
+        "the write belongs behind `atdd sync` (issues #342, #1641)."
     )
 
 
@@ -108,10 +110,17 @@ def test_print_upgrade_sync_notice_still_prints_warning(
 
     from atdd import version_check
 
+    # Pin the version. `atdd.__version__` is dynamic (#1172) and resolves to
+    # "0.0.0" in a clean checkout, which `check_upgrade_sync_needed` treats as a
+    # dev install and stays silent for — so this assertion used to pass only in
+    # trees carrying a stale `src/atdd.egg-info` (the #1449 ghost). The banner
+    # is what is under test; the ambient version is not.
+    monkeypatch.setattr(version_check, "__version__", "9.9.9")
+
     # Patch the writers so a regression to the old behavior would not pollute
     # the test repo. We do not assert on their call count here — that is
     # covered by the two tests above.
-    with patch.object(version_check, "update_toolkit_version", return_value=False):
+    with patch.object(version_check, "record_toolkit_sync", return_value=False):
         from atdd.coach.commands import sync as sync_module
         with patch.object(
             sync_module.AgentConfigSync, "sync", autospec=True, return_value=0
@@ -144,7 +153,7 @@ def test_print_upgrade_sync_notice_silent_when_versions_match(
     )
     monkeypatch.chdir(tmp_path)
 
-    with patch.object(version_check, "update_toolkit_version", return_value=False) as mock_update:
+    with patch.object(version_check, "record_toolkit_sync", return_value=False) as mock_update:
         from atdd.coach.commands import sync as sync_module
         with patch.object(
             sync_module.AgentConfigSync, "sync", autospec=True, return_value=0

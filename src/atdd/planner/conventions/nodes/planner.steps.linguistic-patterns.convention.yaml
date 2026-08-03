@@ -1,0 +1,81 @@
+schema_version: 1.1.0
+rule_id: planner.steps.linguistic-patterns
+kind: pattern
+status: active
+name: 'Steps: Linguistic Patterns'
+statement: Each JTBD step is recognized and phrased through a fixed set of slotted
+  linguistic templates that bind the step's verb to its objects and constraints.
+implementation:
+  type: none
+source:
+  legacy_path: src/atdd/planner/conventions/steps.convention.yaml
+  legacy_section: linguistic-patterns
+  extraction_mode: high_fidelity
+content:
+  summary: Templated phrasings make step classification and acceptance authoring deterministic
+    — the same surface grammar always maps to the same step.
+  examples:
+  - Execute {action} within {constraint}
+  - Resolve {issue} using {method}
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'
+terms:
+- term_id: patterns_by_step
+  text: Per-step linguistic templates with slot placeholders for objects, constraints,
+    and outcomes.
+  values:
+    define:
+    - Define {object} as {specification}
+    - Plan {approach} for {outcome}
+    - Select {option} from {alternatives}
+    - Determine {criteria} for {decision}
+    locate:
+    - Locate {resource} within {constraint}
+    - Gather {inputs} from {sources}
+    - Access {data} via {method}
+    - Retrieve {information} in {timeframe}
+    prepare:
+    - Prepare {environment} for {activity}
+    - Set up {infrastructure} with {configuration}
+    - Organize {resources} by {criteria}
+    - Examine {inputs} for {validation}
+    confirm:
+    - Confirm {precondition} before {action}
+    - Validate {input} against {criteria}
+    - Prioritize {items} by {importance}
+    - Decide {path} based on {conditions}
+    execute:
+    - Execute {action} within {constraint}
+    - Perform {operation} on {target}
+    - Transact {change} to {system}
+    - Administer {process} per {protocol}
+    monitor:
+    - Monitor {metric} for {threshold}
+    - Verify {state} remains {condition}
+    - Track {progress} against {target}
+    - Check {status} every {interval}
+    modify:
+    - Modify {parameter} when {condition}
+    - Update {configuration} to {value}
+    - Adjust {setting} for {optimization}
+    - Maintain {state} within {bounds}
+    resolve:
+    - Resolve {issue} using {method}
+    - Troubleshoot {problem} via {diagnosis}
+    - Fix {error} within {timeframe}
+    - Handle {exception} with {fallback}
+    conclude:
+    - Conclude {job} with {summary}
+    - Store {results} in {location}
+    - Finish {process} by {action}
+    - Close {session} after {cleanup}
+  examples:
+    positive:
+    - Define {object} as {specification}
+    - Monitor {metric} for {threshold}
+    negative:
+    - Do the thing with the stuff

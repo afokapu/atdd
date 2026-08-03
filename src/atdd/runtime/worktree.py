@@ -18,9 +18,8 @@ incident defenses from §9 at this layer:
   the worktree's lifetime.
 
 Dependency discipline (§3.3): this module imports only stdlib + ``subprocess``
-+ ``pathlib``. It MUST NOT import ``atdd.coach.*``, ``atdd.train.*``,
-``atdd.integrations.*``, ``atdd.runtime.agent_control`` or
-``atdd.runtime.multiplexer``. Callers in the coach layer translate their own
++ ``pathlib``. It MUST NOT import ``atdd.coach.*``, ``atdd.train.*`` or
+``atdd.integrations.*``. Callers in the coach layer translate their own
 context (issue body, manifest) into the primitive arguments below and route
 through this module.
 """

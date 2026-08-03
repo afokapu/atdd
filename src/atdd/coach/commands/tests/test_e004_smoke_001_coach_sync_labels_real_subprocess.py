@@ -151,26 +151,3 @@ def test_coach_sync_labels_rederives_via_real_subprocess(tmp_path):
     )
 
 
-def test_deprecated_issue_sync_labels_reaches_same_code_and_warns(tmp_path):
-    """The deprecated `atdd issue sync-labels <N>` subprocess reaches the SAME
-    re-derivation (same recorded add-delta) and prints the deprecation notice."""
-    env, record = _setup_env(tmp_path)
-
-    proc = subprocess.run(
-        [sys.executable, "-m", "atdd", "issue", "sync-labels", str(_FAKE_ISSUE)],
-        cwd=str(tmp_path),
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-
-    assert proc.returncode == 0, (
-        f"deprecated `atdd issue sync-labels` subprocess failed: "
-        f"rc={proc.returncode}\nstdout={proc.stdout}\nstderr={proc.stderr}"
-    )
-    added = _recorded_added_labels(record)
-    assert _EXPECTED_ADDS.issubset(added), (
-        f"the deprecated path must reach the same derivation; recorded add={added}"
-    )
-    assert "deprecated" in proc.stderr.lower()
-    assert "atdd coach sync-labels" in proc.stderr

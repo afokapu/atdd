@@ -14,10 +14,10 @@ features:
   - urn: "feature:integration-hardening:coach-single-command-driver"
   - urn: "feature:integration-hardening:coach-cold-start-wiring"
   - urn: "feature:integration-hardening:coach-graph-aware-orchestration"
-  - urn: "feature:integration-hardening:coach-resume-wiring"
   - urn: "feature:integration-hardening:pre-push-version-gate-never-auto-upgrades"
   - urn: "feature:integration-hardening:upgrade-messaging-install-method-aware"
   - urn: "feature:integration-hardening:init-hookspath-worktree-isolation"
+  - urn: "feature:integration-hardening:run-upgrade-unattended"
 
 produce:
   - name: commons:coach:spawn-wiring
@@ -76,8 +76,6 @@ consume:
     from: wagon:drive-state-machine
   - name: commons:coach:resume-runner
     from: wagon:drive-state-machine
-  - name: commons:coach:spawn-harness
-    from: wagon:spawn-agents
   - name: commons:coach:observer-rules
     from: wagon:observe-and-correct
   - name: commons:coach:git-watcher
@@ -92,35 +90,28 @@ consume:
     from: wagon:integrate-end-to-end
 
 wmbt:
-  total: 31
+  total: 24
   K001: "minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine"
   D001: "minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries"
   D002: "minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path"
   E001: "minimize quantity of imperatively-polled-state-transitions-bypassing-watcher-events"
-  E002: "minimize quantity of cold-start-driver-invocations-that-exit-without-dispatching-lifecycle-handlers"
   E003: "minimize time of agent-ramp-up-time-spent-discovering-architectural-context"
-  E005: "minimize quantity of review-gate-failures-caused-by-missing-in-process-execution-mode-on-ci-runners"
   M001: "minimize quantity of unvalidated-phase-exit-transitions-in-atdd-coach"
   M002: "minimize likelihood of plan-directory-changes-that-bypass-planner-validator-suite-at-hook-time"
   L001: "minimize quantity of uncorrected-agent-violations-during-phase-execution"
-  L002: "minimize quantity of persona-spawns-without-co-spawned-observer-surface when atdd coach <N> spawns the planner persona at INIT→PLANNED, requiring the spawn handler to call multiplexer.new_surface a second time with the observer command so that every phase agent has an observer sidecar from the moment it starts"
   R001: "minimize quantity of unreviewed-phase-boundary-transitions-in-atdd-coach"
-  P001: "minimize likelihood of incomplete-merge-lifecycle-at-atdd-coach-complete-state"
   C001: "minimize quantity of unregistered-production-llm-clients-at-coach-startup"
   C002: "minimize likelihood of contaminated-worktree-commits-and-pushes-from-bare-mode-or-mass-delete-signature"
   C003: "minimize likelihood of validator-failures-reaching-ci-that-could-have-been-caught-at-pre-push"
   C004: "minimize likelihood of mass-delete-prs-bypassing-ci-guard-and-reaching-merge"
   E004: "minimize quantity of coach-sessions-with-unsubmitted-rename-or-missing-uuid-persistence"
-  Y001: "minimize quantity of undetected-seam-integration-failures-in-atdd-coach-lifecycle"
-  L003: "minimize quantity of persona-spawns-via-entry-points-that-lack-observer-cospawn-due-to-handler-only-wiring"
   Y002: "minimize quantity of validator-tests-that-mutate-the-active-worktree"
-  L004: "minimize quantity of observer-spawns-that-consume-a-separate-pane-slot-in-pane-mode"
   E006: "minimize quantity of agent-operator-bypasses-of-atdd-native-wrappers-via-forbidden-upstream-commands"
   C005: "minimize quantity of coach-phase-advances-triggered-by-a-stale-done-json-from-a-prior-run when a fresh RuntimeWatcher treats a leftover done.json as new — binding agent_done to the dispatched agent_id and a dispatch-time watcher baseline (#711, precision fix to #708)"
   E007: "minimize quantity of coach-orchestration-decisions-made-without-consulting-the-repo-urn-graph when atdd coach <N1> <N2> partitions issues into waves and orders merge-cascade commits using only per-issue dependency labels, ignoring the wagon-to-wagon consume graph and train order that atdd repo graph already exposes (#656, symmetric mirror of #651)"
-  E008: "minimize quantity of review-gate-failures-caused-by-pr-resolution-errors-bypassing-the-in-process-broken-sentinel when run() step 1 catches a _resolve_pr_commit RuntimeError and, in in-process mode, routes through _write_broken_sentinel instead of returning 2 (#732, residual gap from #672/#673)"
   Y003: "minimize quantity of test-sessions-that-leave-core-bare-mutated-in-the-live-worktree when pytest runs any src/atdd test"
-  E009: "minimize quantity of resume-driver-phase-transitions-recorded-without-dispatching-orchestration when atdd coach --resume <RUN_ID> walks a reconstructed issue — wiring a real transition_action into ResumeRunner and failing loudly when it is absent (#734, resume-path analog of E002/#645)"
   Y004: "minimize quantity of git-hooks-that-run-pip-install-during-push by stripping auto_upgrade() from _gate_main so the version gate only checks and exits 1 with a message telling the user to run 'atdd upgrade' then retry"
   Y005: "minimize quantity of upgrade-messages-that-hardcode-pip-install-for-pipx-and-editable-installs by adding detect_install_method() and upgrade_command() to version_check.py and replacing every hardcoded 'pip install --upgrade atdd' site with a call to upgrade_command()"
   Y006: "minimize likelihood of atdd-init-force-writing-core-hookspath-to-shared-git-config-in-worktree by detecting linked-worktree condition and writing 'git config --worktree core.hooksPath' instead of the unscoped form (#793, Wave 12 contamination class, core.hooksPath danger key)"
+  Y007: "minimize likelihood of agent-upgrade-runs-that-die-on-eoferror-because-the-command-assumes-a-terminal by resolving upgrader.py's confirmation the way coach.py:255 already resolves its own — explicit flag wins, else infer from isatty — so a no-TTY run proceeds under a decision it states out loud while a human sees byte-identical prompts (#1628, the remedy the #1449 push gate names but no agent could run)"
+  E008: "minimize likelihood of concurrent-upgrade-runs-mutating-the-one-shared-install-that-sits-beneath-every-worktree by serialising the mutating section on a lock scoped to the install rather than the checkout, making an already-current run a no-op, and refusing loudly rather than proceeding unlocked (#1628, ~60 agents share one pipx install)"

@@ -4,7 +4,7 @@
   "description": "Schema for train definitions orchestrating multi-wagon workflows with theme-based numbering",
   "type": "object",
   "additionalProperties": false,
-  "$comment": "Trains use hierarchical numbering [Theme][Category][Variation] (0001-0099: commons nominal, 0101-0199: commons error, etc.) where first digit = theme (0-9), second digit = category (0=nominal, 1=error, 2=alternate, 3=exception), third-fourth digits = variation (01-99)",
+  "$comment": "Trains carry a typed identity `train:<subject>:<slug>` (issue #1421). The classification the legacy [Theme][Category][Variation] numbering encoded now rides as FIELDS — `themes`, `category` (nominal|error|alternate|exception) and `sort_key` — so reclassifying a train edits metadata instead of renaming it. The category digit is retired (issues #1421, #1440); nothing may derive a category by parsing an identity.",
   "required": [
     "train_id",
     "title",
@@ -16,8 +16,18 @@
   "properties": {
     "train_id": {
       "type": "string",
-      "pattern": "^\\d{4}-[a-z0-9-]+$",
-      "description": "Train identifier with hierarchical numbering: {theme}{category}{variation}-{kebab-case-name} (e.g., 0001-auth-session-standard, 2301-empty-input-file)"
+      "pattern": "^(train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*|\\d{4}-[a-z0-9-]+)$",
+      "description": "Typed train identity (issue #1421): train:<subject>:<slug> (e.g. train:artifact-identity:migrate-with-alias). `category` is a validated field, not an identity digit. The legacy hierarchical form `NNNN-slug` is still accepted DURING the migration transition (schema-first, data-follows) and is retired once worker C4 relocates every train."
+    },
+    "category": {
+      "type": "string",
+      "enum": ["nominal", "error", "alternate", "exception"],
+      "description": "Train variant category (issue #1421): a validated FIELD, never an identity digit. Replaces the second digit of the legacy NNNN identity — a reclassification now changes metadata, not the identity. Optional during the migration transition; to become required once C4's data migration lands."
+    },
+    "sort_key": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Optional ordinal used to order trains within a subject/category bucket, replacing the ordering the legacy variation digits carried in the identity (issue #1421)."
     },
     "title": {
       "type": "string",
@@ -63,8 +73,8 @@
       "description": "Other trains that must run before this train",
       "items": {
         "type": "string",
-        "pattern": "^train:\\d{4}-[a-z0-9-]+$",
-        "description": "Train reference in format: train:{train_id}"
+        "pattern": "^train:([a-z][a-z0-9-]*:[a-z][a-z0-9-]*|\\d{4}-[a-z0-9-]+)$",
+        "description": "Train reference: typed train:<subject>:<slug> (issue #1421), or the legacy train:NNNN-slug form accepted during the migration transition."
       }
     },
     "source_interlocking": {
@@ -88,6 +98,36 @@
           "description": "Optional sha256 of the normalized route projection for drift detection."
         }
       }
+    },
+    "route_space": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "basis"],
+      "description": "Typed single-route assessment (issue #1554). A train is admitted to the route space one of two ways: it is targeted by exactly one registered interlocking route, or it declares this block. The two are mutually exclusive — declaring this block on a route-targeted train is a contradiction, and declaring neither is an omission. This exists because the ABSENCE of a route used to read as a positive assertion that route analysis had been performed and concluded `direct`; it no longer does. This block does NOT reference an interlocking: the route -> train edge is authoritative and lives on the interlocking, and `source_interlocking` remains optional traceability that is never consulted as an authority.",
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": ["single-route"],
+          "description": "The classification this train asserts. Only `single-route` is declarable — being route-targeted is DERIVED from the interlocking registry and must never be self-declared here, which would make the train a second source of truth for its own routing."
+        },
+        "basis": {
+          "type": "string",
+          "enum": ["sole-terminal-outcome", "externally-routed", "not-yet-assessed"],
+          "description": "Why this train has a single route, drawn from a CLOSED vocabulary. Prose is deliberately not accepted: a free-text reason is an escape hatch that erodes, because it gets copy-pasted until every train carries one. `sole-terminal-outcome` = no alternative/error/exception path exists to route. `externally-routed` = the path is selected outside this plan's route space. `not-yet-assessed` = TRANSITIONAL; route analysis has not been performed, and `retires_with` must name the issue that will retire it."
+        },
+        "retires_with": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Issue number that will retire a `not-yet-assessed` basis. REQUIRED when basis is `not-yet-assessed` and forbidden otherwise, so the transitional basis is an owned obligation with a named retirer rather than a permanent resting place."
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"basis": {"const": "not-yet-assessed"}}, "required": ["basis"]},
+          "then": {"required": ["retires_with"]},
+          "else": {"not": {"required": ["retires_with"]}}
+        }
+      ]
     },
     "participants": {
       "type": "array",

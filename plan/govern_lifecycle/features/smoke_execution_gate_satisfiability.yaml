@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:smoke-execution-gate-satisfiability"
+wagon: "wagon:govern-lifecycle"
+description: "Makes the #1602 SMOKE->REFACTOR execution gate satisfiable by running smoke: the repo's first execution_kind: live_smoke acceptance, and the shipped harness its test drives."
+sizing:
+  wmbts: 1
+  footprint_score: 4
+  footprint_size: "XS"
+wmbts:
+  - "wmbt:govern-lifecycle:E069"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the attestation is written by the pytest run itself and read by the already-registered SmokeExecutionGateCheck"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "smoke_execution_chain — the live-smoke harness under atdd/coach/gate/live_smoke.py that drives both directions of the chain and returns evidence computed from the real outcome"
+    domain:
+      - type: "entities"
+        count: 1
+        rationale: "ChainEvidence — the measured result of one chain run; reuses SmokeRun / SmokeExecutionVerdict from the #1602 state layer for everything else"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses the State Store event log (atdd.state.evidence) and the pytest11 entry-point activation path; no new infrastructure"

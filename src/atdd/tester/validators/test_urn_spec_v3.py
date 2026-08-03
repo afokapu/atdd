@@ -18,17 +18,51 @@ from typing import Dict, List, Optional
 import pytest
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.config import resolve_code_root, resolve_stack_container
 from atdd.coach.utils.graph.resolver import TestResolver
+from atdd.coach.utils.graph.urn import URNGrammar
+
+
+def _is_valid_train_ref(train_ref: str) -> bool:
+    """Is ``train_ref`` a valid train URN? Delegates to ``URNGrammar`` (#1421,
+    Decision 8) — no local four-digit train-grammar literal.
+
+    Accepts the typed ``train:<subject>:<slug>`` family directly. During the
+    Layer-6 journey/test-identity migration the engine still recognises the
+    legacy ``train:NNNN-slug`` facet *inside* the ``test`` (journey) family, so a
+    legacy header is validated by round-tripping a probe journey URN through the
+    engine rather than re-encoding the digits here. When Layer 6 retires the
+    legacy facet from the convention, this predicate tightens automatically.
+    """
+    if not isinstance(train_ref, str):
+        return False
+    try:
+        if URNGrammar.validate_grammar(train_ref):  # typed train:<subject>:<slug>
+            return True
+    except ValueError:
+        pass
+    try:
+        return bool(URNGrammar.validate_grammar(f"test:{train_ref}:E2E-001-probe"))
+    except ValueError:
+        return False
 
 
 REPO_ROOT = find_repo_root()
 
 # Directories to scan for test files
+# Stack roots come from .atdd/config.yaml; an undeclared stack drops out of
+# the scan instead of crashing it (coach.graph.implementation-root-resolution).
+# e2e/ is core's own tree, not a stack, so it stays repo-anchored.
+_WEB_CONTAINER = resolve_stack_container("web", REPO_ROOT)
 TEST_SCAN_DIRS = [
-    REPO_ROOT / "python",
-    REPO_ROOT / "supabase",
-    REPO_ROOT / "web" / "tests",
-    REPO_ROOT / "e2e",
+    d
+    for d in (
+        resolve_code_root("python", REPO_ROOT),
+        resolve_stack_container("supabase", REPO_ROOT),
+        _WEB_CONTAINER / "tests" if _WEB_CONTAINER is not None else None,
+        REPO_ROOT / "e2e",
+    )
+    if d is not None
 ]
 
 # Test file patterns
@@ -50,9 +84,13 @@ _URN_COMMENT_RE = re.compile(r"(?:#|//)\s*[Uu][Rr][Nn]:\s*([^\s]+)")
 
 # Production code directories for Tested-By scanning (S10 R1 scope)
 _PROD_SCAN_DIRS = [
-    REPO_ROOT / "python",
-    REPO_ROOT / "web",
-    REPO_ROOT / "supabase" / "functions",
+    d
+    for d in (
+        resolve_code_root("python", REPO_ROOT),
+        _WEB_CONTAINER,
+        resolve_code_root("supabase", REPO_ROOT),
+    )
+    if d is not None
 ]
 
 _PROD_EXTENSIONS = {".py", ".dart", ".ts", ".tsx"}
@@ -284,10 +322,10 @@ def test_v3_journey_tests_have_train_header():
             rel = test_file.relative_to(REPO_ROOT)
             if not header["train"]:
                 violations.append(f"{rel}: journey test URN but no Train: header")
-            elif not re.match(r"^train:\d{4}-[a-z0-9][a-z0-9-]*$", header["train"]):
+            elif not _is_valid_train_ref(header["train"]):
                 violations.append(
                     f"{rel}: Train: value '{header['train']}' is not a valid "
-                    f"train URN (expected train:NNNN-kebab-case)"
+                    f"train URN (expected train:<subject>:<slug>)"
                 )
 
     if violations:

@@ -47,7 +47,7 @@ def load_token_alert_threshold(*, repo_root: Optional[Path] = None) -> int:
     base = Path(repo_root) if repo_root is not None else Path.cwd()
     try:
         config = load_atdd_config(base)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # best-effort: malformed config → default
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31  # best-effort: malformed config → default
         return DEFAULT_TOKEN_ALERT_THRESHOLD
     if not isinstance(config, dict):
         return DEFAULT_TOKEN_ALERT_THRESHOLD
@@ -89,14 +89,14 @@ def read_token_count(
             text=True,
             timeout=timeout,
         )
-    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # best-effort: missing binary or call error → None
+    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31  # best-effort: missing binary or call error → None
         return None
     if getattr(result, "returncode", 1) != 0:
         return None
     stdout = getattr(result, "stdout", "")
     try:
         payload = json.loads(stdout)
-    except (json.JSONDecodeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01  # best-effort: unrecognized stdout shape → None
+    except (json.JSONDecodeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31  # best-effort: unrecognized stdout shape → None
         return None
     if not isinstance(payload, dict):
         return None

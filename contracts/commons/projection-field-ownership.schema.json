@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "commons:projection-field-ownership",
+  "title": "Projection Field Ownership Policy",
+  "description": "Which writer may write each projection field (doc section 7.1). Prevents same-object and wrong-writer corruption. Humans may not write external_refs; extensions may not write lifecycle fields (section 4).",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "fields": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "lifecycle_readable": {
+            "default": true,
+            "description": "False for external_refs.*: lifecycle code may not read it (section 8.2 rule 5).",
+            "type": "boolean"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "writer": {
+            "enum": [
+              "core_create",
+              "core_authoring",
+              "core_lifecycle",
+              "core_train_ops",
+              "core_test_ops",
+              "core",
+              "extension_bot"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "writer",
+          "rule"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "fields"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "domain": "commons",
+    "resource": "projection_field_ownership",
+    "version": "1.0.0",
+    "hash": "",
+    "producer": "wagon:enforce-merge-authority",
+    "consumers": [
+      "wagon:govern-projection-fields",
+      "wagon:isolate-provider-boundary"
+    ],
+    "dependencies": [],
+    "api": {
+      "operations": [
+        {
+          "description": "Core reads and validates the projection_field_ownership projection artifact; consumers treat it as read-only.",
+          "method": "GET",
+          "path": "/.atdd/state/projection/{uid}.yaml",
+          "responses": {
+            "200": {
+              "description": "A projection_field_ownership conforming to this schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "traceability": {
+      "wagon_ref": "plan/enforce_merge_authority/_enforce_merge_authority.yaml",
+      "feature_refs": [
+        "feature:govern-projection-fields:define-actor-ownership"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
+  }
+}

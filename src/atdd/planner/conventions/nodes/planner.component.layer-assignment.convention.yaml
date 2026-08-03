@@ -1,0 +1,83 @@
+schema_version: 1.1.0
+rule_id: planner.component.layer-assignment
+kind: rule
+status: active
+name: 'Component: Layer Assignment'
+statement: A component is assigned to an architectural layer based on its artifact
+  type and responsibility, using the typical-layer mapping for events, states, data,
+  and configs.
+terms:
+- term_id: events_layers
+  label: Layers for event components
+  text: "Event publishers sit at boundaries \u2014 external integration or internal\
+    \ application."
+  values:
+    typical_layers:
+    - integration
+    - application
+    rationale: Event publishers at boundaries (external integration or internal application)
+    examples:
+    - "MatchStartedPublisher \u2192 backend.integration (publishes to external systems)"
+    - "StateCommittedEmitter \u2192 backend.application (emits internal events)"
+- term_id: states_layers
+  label: Layers for state components
+  text: State trackers manage business state (domain) or coordinate it (application).
+  values:
+    typical_layers:
+    - domain
+    - application
+    rationale: State trackers manage business state (domain) or coordinate (application)
+    examples:
+    - "TimebankTracker \u2192 backend.domain (tracks core business state)"
+    - "SessionManager \u2192 backend.application (coordinates session lifecycle)"
+- term_id: data_layers
+  label: Layers for data components
+  text: "Data handlers span layers based on responsibility \u2014 domain, application,\
+    \ or integration."
+  values:
+    typical_layers:
+    - domain
+    - application
+    - integration
+    rationale: Data handlers span layers based on responsibility
+    examples:
+    - "ChoiceMaker \u2192 backend.domain (business logic for making choice)"
+    - "ChoiceHandler \u2192 backend.application (coordinates choice workflow)"
+    - "ChoicePersister \u2192 backend.integration (persists to database)"
+- term_id: configs_layers
+  label: Layers for config components
+  text: Configuration components coordinate setup (application) or load settings (integration).
+  values:
+    typical_layers:
+    - application
+    - integration
+    rationale: Configuration components coordinate setup or load settings
+    examples:
+    - "MatchConfigurator \u2192 backend.application (coordinates match setup)"
+    - "ConfigLoader \u2192 backend.integration (loads from external config store)"
+implementation:
+  type: validator
+  ref: test_component_layer_assignment::test_component_layer_assignment
+source:
+  legacy_path: src/atdd/planner/conventions/component.convention.yaml
+  legacy_sha: sha256:8bfb25fd6c2bdb6e
+  extraction_mode: high_fidelity
+  legacy_section: layer-assignment
+content:
+  summary: A typical-layer mapping per artifact type gives the planner a default,
+    defensible placement for each component so layer assignment is consistent rather
+    than guessed case by case.
+  examples:
+  - A state tracker placed at backend.domain
+  counter_examples:
+  - An external event publisher placed at backend.domain
+metadata:
+  severity: 2
+  disposition: advisory
+  introduced_in: 4.28.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: true
+  fix_hint_preserved: true
+  reviewed_at: '2026-06-16'

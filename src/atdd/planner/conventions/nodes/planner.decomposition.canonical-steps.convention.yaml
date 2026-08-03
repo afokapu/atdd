@@ -1,0 +1,14 @@
+schema_version: 1.0.0
+rule_id: planner.decomposition.canonical-steps
+kind: principle
+status: active
+statement: 'Job steps use the canonical step vocabulary owned by steps.convention:
+  Define, Locate, Prepare, Confirm, Execute, Monitor, Modify, Resolve, Conclude. This
+  protocol references those steps; it does not re-enumerate or redefine them.'
+terms:
+- term_id: canonical_steps
+  text: "Define/Locate/Prepare/Confirm/Execute/Monitor/Modify/Resolve/Conclude \u2014\
+    \ owned by steps.convention."
+- term_id: reference_not_restate
+  text: the protocol points at steps.convention by reference; copying its content
+    is drift.

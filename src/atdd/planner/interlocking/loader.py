@@ -11,6 +11,7 @@ model. Semantic cross-checks live in :mod:`validate`; route evaluation in
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -18,6 +19,7 @@ import jsonschema
 import yaml
 
 from .models import (
+    CategoryAssessment,
     Entrypoint,
     Fragment,
     Guard,
@@ -33,7 +35,15 @@ from .models import (
     TrainInterlocking,
 )
 
-__all__ = ["InterlockingError", "load_interlocking", "schema_path", "load_schema"]
+__all__ = [
+    "InterlockingError",
+    "load_interlocking",
+    "schema_path",
+    "load_schema",
+    "target_train_category",
+]
+
+_log = logging.getLogger(__name__)
 
 _SCHEMA_PATH = (
     Path(__file__).resolve().parent.parent / "schemas" / "train-interlocking.schema.json"
@@ -50,6 +60,37 @@ def schema_path() -> Path:
 
 def load_schema() -> dict:
     return json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def target_train_category(train_path: str, root: "Path | str | None") -> "str | None":
+    """Read the ``category`` FIELD of the target train YAML (issue #1421).
+
+    The single reader behind every route-category check — the semantic validator,
+    the planner sanity rules, the coherence validator and the runtime runner all
+    compare a route's ``category`` against this, so none of them parses an
+    identity for a classification digit.
+
+    Returns ``None`` when the target cannot be resolved or declares no category —
+    existence of the train is owned by other rules (the author refuses a route
+    whose target train is missing; the schema owns shape), and ``category`` is
+    still optional on a train during the migration transition. This surfaces only
+    the *category field*, so callers judge AGREEMENT and nothing else.
+    """
+    if not train_path or root is None:
+        return None
+    path = Path(root) / train_path
+    if not path.is_file():
+        return None
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        _log.debug(
+            "route-category skipped (unparseable target train yaml)",
+            extra={"path": str(path), "error": str(exc).splitlines()[0][:120]},
+        )
+        return None
+    category = doc.get("category") if isinstance(doc, dict) else None
+    return category if isinstance(category, str) else None
 
 
 def _infer_repo_root(path: Path) -> Path | None:
@@ -75,6 +116,7 @@ def _build_message(raw: Mapping[str, Any]) -> Message:
         intent=raw["intent"],
         payload=_build_payload(raw.get("payload", {})),
         feature_refs=tuple(raw.get("feature_refs", []) or []),
+        wmbt_refs=tuple(raw.get("wmbt_refs", []) or []),
     )
 
 
@@ -83,9 +125,15 @@ def _build_fragment(raw: Mapping[str, Any]) -> Fragment:
         id=raw["id"],
         kind=raw["kind"],
         guards=tuple(
-            Guard(id=g["id"], expression=g["expression"]) for g in raw.get("guards", [])
+            Guard(
+                id=g["id"],
+                expression=g["expression"],
+                wmbt_refs=tuple(g.get("wmbt_refs", []) or []),
+            )
+            for g in raw.get("guards", [])
         ),
         acceptance_refs=tuple(raw.get("acceptance_refs", []) or []),
+        wmbt_refs=tuple(raw.get("wmbt_refs", []) or []),
     )
 
 
@@ -99,7 +147,6 @@ def _build_route(raw: Mapping[str, Any]) -> Route:
     return Route(
         route_id=raw["route_id"],
         category=raw["category"],
-        category_digit=raw["category_digit"],
         priority=int(raw["priority"]),
         guard_ref=raw["guard_ref"],
         train_id=raw["train_id"],
@@ -143,8 +190,23 @@ def _from_dict(data: Mapping[str, Any], loaded_from: Path | None) -> TrainInterl
                 reason=r["reason"],
                 acceptance_ref=r.get("acceptance_ref"),
                 validator_ref=r.get("validator_ref"),
+                wmbt_refs=tuple(r.get("wmbt_refs", []) or []),
             )
             for r in data.get("residuals", [])
+        ),
+        # #1554: typed per-category not-applicable. Sorted so the model order is
+        # deterministic regardless of YAML key order (the digest is computed over
+        # the document, but callers compare model tuples too).
+        category_assessments=tuple(
+            CategoryAssessment(
+                category=category,
+                basis=entry["basis"],
+                residual_ref=entry.get("residual_ref"),
+                retires_with=entry.get("retires_with"),
+            )
+            for category, entry in sorted(
+                (data.get("category_assessment") or {}).items()
+            )
         ),
         loaded_from=loaded_from,
         repo_root=_infer_repo_root(loaded_from) if loaded_from else None,

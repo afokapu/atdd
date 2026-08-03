@@ -1,0 +1,144 @@
+urn: wmbt:govern-lifecycle:C010
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: an-operator-approval-token-signed-once-for-one-branch-verifying-on-every-other-branch-and-indefinitely-into-the-future-because-canonical-scope-signs-only-issue-from-to-and-binds-neither-a-branch-nor-a-moment-in-time
+context_clarifier: 'canonical_scope() signs only <issue>:<FROM>:<TO>, so verify_token
+  is content-based and path-independent: a token minted in any checkout verifies in
+  every other checkout forever, measured live on 2026-07-18 as 19 of 19 main-signed
+  tokens verifying from an unrelated worktree'
+lens: functional.effectiveness
+statement: minimize likelihood of an-operator-approval-token-signed-once-for-one-branch-verifying-on-every-other-branch-and-indefinitely-into-the-future-because-canonical-scope-signs-only-issue-from-to-and-binds-neither-a-branch-nor-a-moment-in-time
+  by widening the signed scope to bind the branch and an expiry, so verification rejects
+  a token presented on a branch it was not signed for and a token presented after
+  its expiry
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C010-UNIT-001-scope-binds-branch
+    id: AC-UNIT-001
+    purpose: "The signed canonical scope binds the branch, so a token minted for branch\
+      \ A is REJECTED when verified against branch B, while the same token still verifies\
+      \ against branch A \u2014 the replay-across-branch property measured live on\
+      \ 2026-07-18 is closed"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The pure canonical_scope / sign_approval / verify_token functions (stdlib-only,
+      no I/O)
+    - A token built for issue N, PLANNED->RED, branch 'feat/alpha', with an expiry
+      in the future
+    - The identical token bytes presented for verification against branch 'feat/beta'
+  when:
+    abstract: verify_token is evaluated for the token against branch 'feat/alpha'
+      and again against branch 'feat/beta'
+  then:
+    abstract:
+    - Verification against branch 'feat/alpha' returns True
+    - Verification against branch 'feat/beta' returns False (the signed scope binds
+      the branch)
+    - canonical_scope output for the two branches differs, so the signature cannot
+      coincide
+    - A token carrying no branch field at all verifies False against every branch
+      (fail-closed, no exception flow)
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'
+- identity:
+    urn: acc:govern-lifecycle:C010-UNIT-002-scope-binds-expiry
+    id: AC-UNIT-002
+    purpose: "The token carries a signed expiry, so a token presented after its expiry\
+      \ is REJECTED while an unexpired token verifies \u2014 a token stops being eternal"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The pure verify_token function taking an explicit 'now' so the test needs no
+      wall-clock sleep
+    - A token for issue N, PLANNED->RED, branch B, whose expiry is a fixed instant
+    - 'Two evaluation instants: one before the expiry and one after it'
+  when:
+    abstract: verify_token is evaluated at the instant before the expiry and again
+      at the instant after it
+  then:
+    abstract:
+    - Verification at the instant before the expiry returns True
+    - Verification at the instant after the expiry returns False
+    - A token whose expiry field is absent, malformed, or non-numeric verifies False
+      (fail-closed, no exception escapes the pure verifier)
+    - The expiry is covered by the signature, so editing the expiry in the token body
+      invalidates it rather than extending its life
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'
+- identity:
+    urn: acc:govern-lifecycle:C010-INTEGRATION-002-guards-are-not-stubs-under-fault-injection
+    id: AC-INTEGRATION-002
+    purpose: "Each new guard is shown to be load-bearing: removing the branch binding,\
+      \ and separately the expiry check, turns the suite RED \u2014 no guard is a\
+      \ stub that cannot fail"
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A copy of the approval module source under a temp path, so the real tree is
+      never mutated
+    - A fault injector that removes the branch component from the canonical scope,
+      and a second that removes the expiry comparison
+    - The branch and expiry acceptances above as the suite under observation
+  when:
+    abstract: each fault is injected in isolation and the observing suite is re-run
+      against the mutated copy
+  then:
+    abstract:
+    - Each injection's anchor is asserted to have matched EXACTLY ONCE, so a silently
+      non-matching regex cannot pass as a removed guard
+    - The mutated source is asserted to still parse, so a syntax error cannot masquerade
+      as a failing guard
+    - Removing the branch binding turns the branch acceptance RED
+    - Removing the expiry comparison turns the expiry acceptance RED
+    - With no fault injected the suite is GREEN, establishing the fault as the sole
+      cause of each failure
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'
+- identity:
+    urn: acc:govern-lifecycle:C010-SMOKE-001-real-token-does-not-replay-across-checkouts
+    id: AC-SMOKE-001
+    purpose: "Against the real installed package in a real checkout: an operator-signed
+      token minted for one branch does not verify for another, and does still verify
+      for its own \u2014 the live 19-of-19 replay reproduction is closed in the shipped
+      code, not merely in the test tree"
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real checkout and the real atdd package, exercised in a separate real process
+      (no in-process import of the module under test, no monkeypatching)
+    - A real operator-signed token minted through the real build_token for branch
+      'feat/alpha'
+    - The same token bytes presented for verification against a different branch
+  when:
+    abstract: a subprocess mints the token and verifies it against its own branch
+      and against a different branch, printing both verdicts
+  then:
+    abstract:
+    - The subprocess exits zero and reports the token verifying True on the branch
+      it was signed for
+    - The subprocess reports the token verifying False on any other branch
+    - The refusal comes from the shipped signing/verification path, so the replay
+      property is closed in the real artifact
+    - 'Scope note: refusal at the TRANSITION gate additionally requires the gate
+      consumer to pass the current branch to verify_token; that consumer is the
+      approval-token path seam owned by #1376 and is deliberately not modified here'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-22'

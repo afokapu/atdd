@@ -29,15 +29,19 @@ _RELEASE_UID = "release"
 
 
 def _candidate_store_paths(start: Path) -> List[Path]:
-    """Store paths to try, most-specific first (env override, then upward walk)."""
-    candidates: List[Path] = []
+    """Store paths to try, most-specific first.
+
+    An explicit ``ATDD_CONTROL_ROOT`` is AUTHORITATIVE: if it carries no store,
+    there is no store, and the caller gets :data:`LOCAL_FALLBACK_VERSION`. It must
+    NOT degrade into the upward walk — that walk escapes the named root and, under
+    the single shared Control Root (#1346), reaches an *ancestor's* store, which
+    would project a foreign project's release version into this build.
+    """
     override = os.environ.get(_CONTROL_ROOT_ENV)
     if override:
-        candidates.append(Path(override).expanduser() / _STATE_STORE_RELATIVE)
+        return [Path(override).expanduser() / _STATE_STORE_RELATIVE]
     start = start.resolve()
-    for directory in (start, *start.parents):
-        candidates.append(directory / _STATE_STORE_RELATIVE)
-    return candidates
+    return [directory / _STATE_STORE_RELATIVE for directory in (start, *start.parents)]
 
 
 def _resolve_store_path(start: Optional[Path] = None) -> Optional[Path]:

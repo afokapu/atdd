@@ -34,9 +34,10 @@ from .loader import (
     load_schema,
     parse_interlocking,
     schema_path,
+    target_train_category,
 )
 from .models import (
-    CATEGORY_BY_DIGIT,
+    CategoryAssessment,
     Entrypoint,
     Fragment,
     Guard,
@@ -57,6 +58,13 @@ from .projections import (
     ensure_interlocking_projections,
     project_route_to_train_sequence,
     render_mermaid,
+)
+from .route_space import (
+    CATEGORIES,
+    category_assessment_violations,
+    registered_trains,
+    route_space_admission_violations,
+    route_targets,
 )
 from .routing import RouteResolutionError, evaluate_interlocking_route, matching_routes
 from .stamp import stamp_interlocking_digests
@@ -79,6 +87,12 @@ __all__ = [
     "route_projection_digest",
     "canonicalize",
     "stamp_interlocking_digests",
+    # route space (#1554)
+    "CATEGORIES",
+    "route_space_admission_violations",
+    "category_assessment_violations",
+    "registered_trains",
+    "route_targets",
     # projections / routing helpers
     "build_coverage",
     "render_mermaid",
@@ -90,9 +104,9 @@ __all__ = [
     "schema_path",
     "load_schema",
     "parse_interlocking",
+    "target_train_category",
     # records + model
     "Violation",
-    "CATEGORY_BY_DIGIT",
     "TrainInterlocking",
     "TrainStep",
     "Entrypoint",
@@ -104,6 +118,7 @@ __all__ = [
     "Fragment",
     "Invariant",
     "Residual",
+    "CategoryAssessment",
     "Projection",
     "Route",
     "Source",
