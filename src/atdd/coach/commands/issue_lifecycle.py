@@ -426,20 +426,33 @@ class IssueLifecycle:
         if outcome.proceed:
             return 0
 
+        # Count and iterate the FULL blocking set, not just `failures` (#1719).
+        # Two verdicts refuse, and the gate reports them apart: a check that
+        # could not perform its observation blocks without ever landing in
+        # `failures`. Rendering only that bucket tells the operator a transition
+        # is "blocked by 0 failing gate check(s)" and then lists nothing — a
+        # refusal that names no reason, which is the same defect class as the
+        # vacuous pass this verdict was added to remove.
         if force:
             print(
                 f"::warning::Transition gate bypassed (--force) for "
                 f"{from_phase} -> {target_status.upper()}; "
-                f"{len(outcome.failures)} check(s) failed."
+                f"{len(outcome.blockers)} check(s) blocked "
+                f"({len(outcome.failures)} failed, "
+                f"{len(outcome.unobservable)} could not be checked)."
             )
             return 0
 
         print(
             f"\nError: Transition {from_phase} -> {target_status.upper()} blocked "
-            f"by {len(outcome.failures)} failing gate check(s):"
+            f"by {len(outcome.blockers)} gate check(s):"
         )
         for f in outcome.failures:
             print(f"  ✗ [{f.gate_id} / {f.rule_id}] {f.message}")
+        # Marked distinctly because the remedy is different: a failure means fix
+        # the work, an unobservable check means make the check able to look.
+        for u in outcome.unobservable:
+            print(f"  ? [{u.gate_id} / {u.rule_id}] COULD NOT CHECK: {u.message}")
         print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
         return 1
 

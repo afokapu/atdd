@@ -1,0 +1,79 @@
+urn: "wmbt:govern-lifecycle:R010"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-operator-approval-token-gate-resolving-its-token-path-against-the-literal-per-worktree-cwd-instead-of-the-1346-shared-operational-control-root"
+context_clarifier: "ApprovalTokenGateCheck.run() (src/atdd/coach/gate/approval_check.py) computes token_path = ctx.worktree / approval_relpath(...), and GateContext.worktree is set in IssueLifecycle._transition_gate (src/atdd/coach/commands/issue_lifecycle.py) to self.target_dir — the LITERAL current worktree (target_dir or Path.cwd()), never the resolved Control Root. Every other operational .atdd/ reader since #1346 resolves its root via atdd.state.paths.resolve_operational_root(start) so all worktrees share one Control Root above them; the approval gate is the lone hold-out, so an operator-signed token dropped by `atdd coach approve` under the shared Control Root's .atdd/runtime/ is invisible to the gate when it evaluates from a child worktree, and a token dropped in the child worktree is invisible to the shared store — the exact confusion that mis-placed the token in the #1307 walk. The fix computes the token path against resolve_operational_root(ctx.worktree) (mirroring the #1346-migrated readers), keeping a worktree-local read as a back-compat fallback, and is proven behaviorally (a token under the resolved Control Root satisfies the gate; absent token fails) per the #865/#1020 anti-theater rule, never by asserting a printed line."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the-operator-approval-token-gate-resolving-its-token-path-against-the-literal-per-worktree-cwd-instead-of-the-1346-shared-operational-control-root by resolving the approval-token path through atdd.state.paths.resolve_operational_root(ctx.worktree) — the same Control-Root resolution every other #1346-migrated operational .atdd/ reader uses — so an operator token written by `atdd coach approve` under the single shared Control Root's .atdd/runtime/ is found by the gate no matter which child worktree evaluates the transition, with a worktree-local read retained as a back-compat fallback"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R010-UNIT-001-token-path-resolves-under-control-root-with-worktree-fallback"
+      id: "AC-UNIT-001"
+      purpose: "The approval-token path resolver computes the token path under the resolved operational Control Root (resolve_operational_root of the worktree), NOT the literal worktree, and — when only a legacy token exists worktree-local — still resolves/reads it as a back-compat fallback"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A child worktree nested under a Control Root whose .atdd/ layout resolves via resolve_operational_root to the parent Control Root, not the child"
+        - "The pure approval-token path resolver under test, given the child worktree and an (issue, from_phase, to_phase) tuple"
+        - "Two arrangements: (a) the operator token present only under <control_root>/.atdd/runtime/issue-<N>/approvals/<FROM>-<TO>.json; (b) a legacy token present only under <child_worktree>/.atdd/runtime/..."
+    when:
+      abstract: "the resolver computes the token path (and the fallback lookup) for the transition from within the child worktree"
+    then:
+      abstract:
+        - "The primary resolved path is <control_root>/.atdd/runtime/issue-<N>/approvals/<FROM>-<TO>.json (Control-Root-anchored), never the child-worktree-anchored path"
+        - "In arrangement (a) the Control-Root token is the one located; in arrangement (b) the legacy worktree-local token is still located via the back-compat fallback"
+        - "approval_relpath's relative shape (.atdd/runtime/issue-<N>/approvals/<FROM>-<TO>.json) is unchanged — only the base it is joined onto moves from ctx.worktree to the resolved Control Root"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R010-INTEGRATION-001-control-root-token-satisfies-gate-from-child-worktree"
+      id: "AC-INTEGRATION-001"
+      purpose: "With ApprovalTokenGateCheck evaluating a transition from a child worktree, a valid operator-signed token written under the SHARED Control Root's .atdd/runtime/ (not the child worktree) makes the check PASS; with no token under either location the check FAILS with the operator produce-hint — proven via the GateCheckResult verdict, not a log line"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A GateContext whose worktree is a child worktree nested under a Control Root that resolve_operational_root maps to the parent"
+        - "An ApprovalTokenGateCheck run against that context for the operator-gated transition"
+        - "Two arrangements: (a) a valid operator-signed token for the exact (issue, from, to) written under <control_root>/.atdd/runtime/...; (b) no token under the child worktree nor the Control Root"
+    when:
+      abstract: "ApprovalTokenGateCheck.run(ctx) is evaluated in each arrangement"
+    then:
+      abstract:
+        - "Arrangement (a) returns passed=True (the Control-Root token is found and its signature/scope verify), whereas today's ctx.worktree-anchored lookup would miss it and fail"
+        - "Arrangement (b) returns passed=False with the message naming the expected relpath and the `atdd coach approve` produce-hint"
+        - "The verdict is attributed to the ApprovalTokenGateCheck's bound rule id (govern-lifecycle.E050.operator-approval-required)"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R010-SMOKE-001-coach-approve-token-and-gate-share-one-control-root-location"
+      id: "AC-SMOKE-001"
+      purpose: "Against a temp ATDD_CONTROL_ROOT holding a child worktree and a throwaway issue number (never a live issue): the token written by the real `atdd coach approve` lands under the single shared Control Root's .atdd/runtime/, and a real ApprovalTokenGateCheck evaluated from the child worktree reads that same token — one shared location, no per-worktree divergence"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp ATDD_CONTROL_ROOT seeded as a Control Root with a child worktree nested beneath it and a throwaway issue number that is not any real issue"
+        - "The real `atdd coach approve <throwaway-N> --transition <FROM>-><TO>` command and the real ApprovalTokenGateCheck (no stubbed sign/verify), with GitHub/label I/O never touched"
+    when:
+      abstract: "`atdd coach approve` writes the operator token, then ApprovalTokenGateCheck is evaluated for the same transition from within the child worktree"
+    then:
+      abstract:
+        - "The token file materializes under <temp_control_root>/.atdd/runtime/issue-<N>/approvals/<FROM>-<TO>.json (the shared Control Root), not under the child worktree"
+        - "The gate check evaluated from the child worktree locates that same Control-Root token and returns passed=True"
+        - "No live GitHub issue and no real Control Root outside the temp dir is ever touched"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-08"
