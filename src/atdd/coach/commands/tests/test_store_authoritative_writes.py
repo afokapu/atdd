@@ -18,6 +18,7 @@ from types import SimpleNamespace
 
 from atdd.coach.commands.issue import IssueManager
 from atdd.state.db import connect, init_state_store
+from atdd.state.identity import is_uid
 from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
 from atdd.state.store import StateStore
 
@@ -126,11 +127,17 @@ def test_register_issue_creates_store_work_item_and_ref(tmp_path):
 
     store = _store(tmp_path)
     ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", "4242")
-    assert ref is not None and ref.object_uid == "brand-new-thing"
-    obj = store.objects.get("brand-new-thing")
+    assert ref is not None
+    # The ref points at a MINTED uid, not at the slug (#1622). It used to be the
+    # slug, which is exactly what made the store unprojectable: the contract
+    # requires ^wi_<26-char ULID>$. The slug survives as display metadata.
+    assert is_uid(ref.object_uid), f"identity must be minted, got {ref.object_uid!r}"
+    obj = store.objects.get(ref.object_uid)
+    assert obj.data["slug"] == "brand-new-thing"
     assert obj.kind == "work_item"
     assert obj.state == "INIT"
     assert obj.data["train"] == "0009"
+    assert obj.data["owner_actor"], "the contract requires an owner_actor"
 
 
 def test_create_work_item_preserves_existing_state_on_reregister(tmp_path):

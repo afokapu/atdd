@@ -27,7 +27,7 @@ from atdd.state.agent_session import (
 )
 
 from ._helpers import run_cli
-from ._publish_helpers import open_store, path_with_stub_gh
+from ._publish_helpers import open_store, path_with_stub_gh, work_item, work_item_uid
 
 pytestmark = [pytest.mark.platform]
 
@@ -61,7 +61,7 @@ def test_e009_smoke_001_real_cli_mint_records_the_creating_session(tmp_path):
 
     store, conn = open_store(Path(control))
     try:
-        assert store.objects.get(SLUG) is not None, "the mint itself must have landed"
+        assert work_item(store, SLUG) is not None, "the mint itself must have landed"
 
         refs = [r for r in store.external_refs.all() if r.ref_kind == REF_KIND_SESSION]
         assert len(refs) == 1, (
@@ -76,6 +76,7 @@ def test_e009_smoke_001_real_cli_mint_records_the_creating_session(tmp_path):
 
         creator = [r for r in store.relationships.list(src_uid=session_uid)
                    if r.rel_type == REL_SESSION_CREATED_WORK_ITEM]
-        assert len(creator) == 1 and creator[0].dst_uid == SLUG
+        # The creator edge names the work item's MINTED uid (#1622), not its slug.
+        assert len(creator) == 1 and creator[0].dst_uid == work_item_uid(store, SLUG)
     finally:
         conn.close()

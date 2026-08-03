@@ -17,6 +17,7 @@ from ._publish_helpers import (
     open_store,
     run_author_issue,
     stub_github_create,
+    work_item_uid,
 )
 
 
@@ -37,7 +38,7 @@ def test_e008_unit_002_links_exactly_one_github_ref(tmp_path, monkeypatch):
 
     store, conn = open_store(tmp_path)
     try:
-        refs = store.external_refs.for_object("e008-ref-probe")
+        refs = store.external_refs.for_object(work_item_uid(store, "e008-ref-probe"))
     finally:
         conn.close()
 
@@ -83,7 +84,7 @@ def test_e008_unit_002_reauthor_is_idempotent_single_ref(tmp_path, monkeypatch):
 
     store, conn = open_store(tmp_path)
     try:
-        refs = store.external_refs.for_object("e008-ref-probe")
+        refs = store.external_refs.for_object(work_item_uid(store, "e008-ref-probe"))
     finally:
         conn.close()
 

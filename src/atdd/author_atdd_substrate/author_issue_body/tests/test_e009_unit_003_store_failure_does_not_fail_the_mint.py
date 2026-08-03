@@ -20,7 +20,7 @@ import pytest
 
 from atdd.state import agent_session
 
-from ._publish_helpers import open_store, run_author_issue, stub_github_create
+from ._publish_helpers import open_store, run_author_issue, stub_github_create, work_item
 
 pytestmark = [pytest.mark.platform]
 
@@ -54,6 +54,6 @@ def test_e009_unit_003_store_failure_does_not_fail_the_mint(tmp_path, monkeypatc
 
     store, conn = open_store(tmp_path)
     try:
-        assert store.objects.get(SLUG) is not None, "the work item must still exist"
+        assert work_item(store, SLUG) is not None, "the work item must still exist"
     finally:
         conn.close()

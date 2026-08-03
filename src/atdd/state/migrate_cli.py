@@ -43,13 +43,19 @@ _log = logging.getLogger(__name__)
 
 #: The ``atdd state`` sub-commands this module owns.
 OPS = (
-    "mint-uids", "migrate-manifest", "shadow", "hot-path", "manifest-fallback", "cutover",
-    "runbook-check", "rollout-check",
+    "mint-uids", "migrate-manifest", "migrate-store", "shadow", "hot-path",
+    "manifest-fallback", "cutover", "runbook-check", "rollout-check",
 )
 
 
 def add_parsers(sub) -> None:
     """Register the migration verbs on the ``atdd state`` sub-parser."""
+    _add_migration_verbs(sub)
+    _add_check_verbs(sub)
+
+
+def _add_migration_verbs(sub) -> None:
+    """The verbs that WRITE: they move a corpus from one identity scheme to the next."""
     add_verb(
         sub, "mint-uids",
         "Backfill an immutable uid into every legacy manifest entry (its own recorded step).",
@@ -68,11 +74,26 @@ def add_parsers(sub) -> None:
     )
 
     add_verb(
+        sub, "migrate-store",
+        "Mint an immutable uid and an owner_actor for every work item IN THE STORE. "
+        "Refuses the whole run before any write if an object cannot be migrated. "
+        "This is the live migration: migrate-manifest reads a file that no longer exists.",
+        opt("--owner-actor", default=migration.UNATTRIBUTED_OWNER,
+            help="The owner an unattributed object takes "
+                 f"(default: {migration.UNATTRIBUTED_OWNER})."),
+        opt("--dry-run", action="store_true",
+            help="Report what the run would refuse or migrate; write nothing."),
+    )
+
+    add_verb(
         sub, "shadow",
         "Report projection drift against the committed AND manifest-derived projections. "
         "NON-BLOCKING: exits 0 even when it finds drift (M001).",
     )
 
+
+def _add_check_verbs(sub) -> None:
+    """The verbs that only REPORT: they answer whether the migration may or did happen."""
     add_verb(
         sub, "hot-path",
         "Prove no core lifecycle decision, validator, or gate calls the GitHub API (I7).",
@@ -132,6 +153,59 @@ def _cmd_mint_uids(args) -> int:
         f"minted {minted} uid(s) into {path}" if minted
         else f"every entry in {path} already carries a uid (nothing to do)"
     )
+    return 0
+
+
+def _report_store_migration_plan(conn) -> int:
+    """``--dry-run``: name what would refuse the run, and write nothing.
+
+    Same verdict as the real run, reached the same way — :func:`inspect_store` is the one
+    judge — so a clean dry run is a real statement about the next write rather than a
+    second opinion that might disagree with it.
+    """
+    from atdd.state.store import StateStore
+    from atdd.state.store_migration import inspect_store
+
+    defects = inspect_store(StateStore(conn))
+    if defects:
+        return _fail(
+            f"{len(defects)} object(s) cannot be migrated; nothing was written:\n"
+            + "\n".join(f"  {d.render()}" for d in defects)
+        )
+    print("every work item in the store can be migrated (nothing was written)")
+    return 0
+
+
+def _cmd_migrate_store(args) -> int:
+    """Mint contract-shaped identity for every work item in the store (CORE-036).
+
+    The operator-facing half of :func:`atdd.state.store_migration.migrate_store`. It exists
+    because a migration nobody can invoke is not shipped — and its sibling ``migrate-manifest``
+    cannot be invoked *usefully*, since ``decommission-manifest`` deleted the file it reads.
+
+    ``--dry-run`` reports the same refusal without touching the store, so an operator can see
+    what stands in the way before committing to a write against the only surviving source of
+    truth.
+    """
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.store_migration import migrate_store
+
+    root = _root(args)
+    conn = connect(init_state_store(start=root))
+    try:
+        if args.dry_run:
+            return _report_store_migration_plan(conn)
+        report = migrate_store(conn, owner_actor=args.owner_actor)
+    except migration.LossyMigrationError as exc:
+        # The refusal IS the feature: the store was not touched, and every offender is named.
+        _log.warning(
+            "refused a lossy store migration; no object was mutated",
+            extra={"command": "migrate-store", "root": str(root), "defects": len(exc.defects)},
+        )
+        return _fail(str(exc))
+    finally:
+        conn.close()
+    print(report.render())
     return 0
 
 
@@ -248,6 +322,7 @@ def dispatch(args) -> int:
     handlers = {
         "mint-uids": _cmd_mint_uids,
         "migrate-manifest": _cmd_migrate_manifest,
+        "migrate-store": _cmd_migrate_store,
         "shadow": _cmd_shadow,
         "hot-path": _cmd_hot_path,
         "manifest-fallback": _cmd_manifest_fallback,

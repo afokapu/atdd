@@ -1,0 +1,77 @@
+urn: wmbt:migrate-projection-authority:C002
+step: confirm
+direction: maximize
+dimension: likelihood
+object_of_control: first-committed-projection
+context_clarifier: 'when the store-native migration has run and the projection tree is committed for the
+  first time: the projection must round-trip byte for byte and satisfy the M8 exit criterion that currently
+  fails, because a projection that cannot reproduce itself is not a source of truth'
+lens: functional.effectiveness
+statement: maximize likelihood of a first-committed-projection that reproduces itself byte for byte through
+  hydrate and re-projection, and that flips the projection-is-shared-state cutover criterion to met
+acceptances:
+- given:
+    abstract:
+    - A repo carrying a committed projection produced by the store-native migration
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the committed projection round-trips — project(hydrate(p)) equals p byte for byte — which
+      is what makes it shared state rather than a snapshot
+    urn: acc:migrate-projection-authority:C002-UNIT-001-projection-round-trips
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-26'
+  then:
+    abstract:
+    - Hydrating the committed projection and re-projecting yields byte-identical files
+    - The projection digest is unchanged across the round trip
+    - 'RED: no committed projection exists today, so the round trip has never been exercised'
+  when:
+    abstract: the committed projection is hydrated and re-projected
+- given:
+    abstract:
+    - A repo whose store-native migration has completed and whose projection is committed
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: RED
+    purpose: the cutover criterion that fails today reports met, so the migration's own exit test is the
+      thing that proves it finished
+    urn: acc:migrate-projection-authority:C002-UNIT-002-cutover-criterion-is-met
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-07-26'
+  then:
+    abstract:
+    - The projection-is-shared-state criterion reports met
+    - All three M8 exit criteria report met
+    - 'RED: the criterion reports unmet today because the shared state does not exist'
+  when:
+    abstract: the M8 cutover evaluation is run
+- identity:
+    urn: acc:migrate-projection-authority:C002-SMOKE-001-first-committed-projection
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: first-committed-projection holds against a real repo checkout, the installed
+      atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising first-committed-projection
+  when:
+    abstract: the C002 behavior is driven end-to-end through the real CLI
+  then:
+    abstract:
+    - first-committed-projection is observed to hold end-to-end against real infrastructure, with no mocks
+      or manual patching
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-26'

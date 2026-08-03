@@ -46,6 +46,16 @@ _TRAIN_KEY = "train"
 _BRANCH_KEY = "branch"
 _WAGON_KEY = "wagon"
 _FEATURE_KEY = "feature"
+_SLUG_KEY = "slug"
+
+
+def _slug_of(obj: Object) -> str:
+    """The object's display slug — its ``data`` slug, or its uid if it has none.
+
+    The fallback is the pre-migration shape, where the uid *was* the slug. It is not a
+    guess: for such an object the uid is the only slug that ever existed.
+    """
+    return str(obj.data.get(_SLUG_KEY) or obj.uid)
 
 
 class WorkItemReader:
@@ -173,11 +183,18 @@ class WorkItemReader:
     def issue_number_for_slug(self, slug: str) -> Optional[int]:
         """Reverse lookup: the GitHub issue number linked to work-item *slug*, or None.
 
-        The store keys work items by slug (the object uid) and links exactly one
-        GitHub ``issue`` external-ref per issue, so this is unambiguous — unlike
-        the manifest scan it replaces, which had to pick the last duplicate slug.
+        Exactly one GitHub ``issue`` external-ref is linked per issue, so this is
+        unambiguous — unlike the manifest scan it replaces, which had to pick the last
+        duplicate slug. The slug is resolved to the object's uid first: external refs
+        hang off the *uid*, which stopped being the slug when identity was minted into
+        the store, and a lookup keyed on the slug would silently find nothing.
         """
-        for ref in self._store.external_refs.for_object(slug):
+        from atdd.state.work_item_writer import resolve_work_item  # local: avoids an import cycle
+
+        found = resolve_work_item(self._store, slug)
+        if found is None:
+            return None
+        for ref in self._store.external_refs.for_object(found.uid):
             if ref.provider != GITHUB_PROVIDER or ref.ref_kind != _ISSUE_REF_KIND:
                 continue
             try:
@@ -193,15 +210,22 @@ class WorkItemReader:
     def session_entry(self, issue_number: int) -> Optional[dict]:
         """Reconstruct the manifest-``sessions``-shaped dict for ``issue_number``.
 
-        Returns ``{**data, "slug": <uid>, "status": <state>}`` — the same shape
+        Returns ``{**data, "slug": <slug>, "status": <state>}`` — the same shape
         the manifest carried — so callers that read ``entry["slug"]`` /
         ``entry.get("type")`` off a manifest session keep working unchanged, now
         sourced from the store. Returns ``None`` for an unregistered issue.
+
+        ``slug`` is the object's *display* slug, falling back to the uid only for an
+        object that predates the store-native migration and has none. It used to be
+        the uid unconditionally, which was the same string; once identity is minted
+        (:func:`~atdd.state.manifest_migration.migrate_store`) it stops being, and
+        every caller reading ``entry["slug"]`` — branch names, worktree paths, PR
+        titles — would otherwise start seeing a ULID.
         """
         obj = self.get(issue_number)
         if obj is None:
             return None
-        return {**obj.data, "slug": obj.uid, "status": obj.state}
+        return {**obj.data, "slug": _slug_of(obj), "status": obj.state}
 
     def all_work_items(self) -> list[dict]:
         """Every work item as a manifest-``sessions``-shaped dict, from the store.
@@ -223,7 +247,7 @@ class WorkItemReader:
                         continue
             rows: list[dict] = []
             for obj in self._store.objects.list(kind=WORK_ITEM_KIND):
-                entry = {**obj.data, "slug": obj.uid, "status": obj.state}
+                entry = {**obj.data, "slug": _slug_of(obj), "status": obj.state}
                 if obj.uid in by_uid:
                     entry["issue_number"] = by_uid[obj.uid]
                 rows.append(entry)

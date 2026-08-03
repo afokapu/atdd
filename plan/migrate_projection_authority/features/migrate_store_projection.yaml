@@ -1,0 +1,34 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: migrate_store (mint uid and owner_actor per stored work item, then project); validate_store_objects
+        (refuse before write)
+      type: use_cases
+    domain:
+    - count: 2
+      rationale: WorkItemUid (immutable identity driving the projection filename); MigrationDefect (offending
+        object plus reason)
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: deterministic projection-file writer under .atdd/state/projection/, plus the reference
+        rewrite that keeps relationships and events resolvable across the identity change
+      type: stores
+    presentation:
+    - count: 1
+      rationale: the migration subcommand that reads the State Store and writes the projection tree
+      type: controllers
+description: 'CORE-036: the store-native projection migration. The manifest-to-projection path (CORE-031)
+  can no longer run — decommission-manifest deleted its only input — so identity and ownership must be
+  minted directly in the State Store. Emits the first committed projection from the store, refusing before
+  any write on an unmigratable object.'
+sizing:
+  footprint_score: 13
+  footprint_size: M
+  wmbts: 2
+urn: feature:migrate-projection-authority:migrate-store-projection
+wagon: wagon:migrate-projection-authority
+wmbts:
+- wmbt:migrate-projection-authority:E002
+- wmbt:migrate-projection-authority:C002
