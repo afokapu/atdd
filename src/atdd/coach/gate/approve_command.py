@@ -2,10 +2,12 @@
 
 The operator's path to PRODUCE the #1017 approval token the
 ``ApprovalTokenGateCheck`` requires. It writes a signed token to
-``.atdd/runtime/issue-<N>/approvals/<from>-<to>.json`` (relative to the
-worktree), independent of the cmux Feed. After this, the worker's
-``atdd issue <N> --status <to>`` passes the operator-approval gate for that exact
-transition — and only that one.
+``.atdd/runtime/issue-<N>/approvals/<from>-<to>.json`` under the single shared
+Control Root (#1346/#1376 — resolved by ``approval_paths``, NOT the literal
+current worktree), independent of the cmux Feed. After this, the worker's
+``atdd coach transition <N> <to>`` passes the operator-approval gate for that
+exact transition — and only that one — from any worktree of the project, because
+the gate resolves the same base this command mints against.
 
 WHO MINTED (#1718). The token used to record ``--by or $USER or "operator"``,
 which meant an agent running inside the operator's shell minted tokens naming
@@ -16,6 +18,11 @@ scope, and ``--by`` is demoted to an annotation for the case where nothing is
 observable. This closes the SILENT DEFAULT. It is not a boundary against an
 agent that unsets its own session variable — see the THREAT MODEL in
 ``approval.py``, which this must not be read as contradicting.
+
+#1376 answers WHERE the receipt lives, #1718 answers WHAT it says produced it.
+The two are independent and both are needed: a correctly attributed token at a
+path the gate cannot read is as useless as a findable one that names the wrong
+actor.
 """
 from __future__ import annotations
 
@@ -27,11 +34,11 @@ from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Tuple
 
 from atdd.coach.gate.approval import (
-    approval_relpath,
     build_token,
     describe_attribution,
     resolve_signing_key,
 )
+from atdd.coach.gate.approval_paths import approval_token_path
 
 
 def _parse_transition(text: str) -> Tuple[str, str]:
@@ -116,9 +123,15 @@ def run(
         print(f"Error: {exc}")
         return 1
 
-    root = target_dir or Path.cwd()
-    rel = approval_relpath(ns.issue, from_phase, to_phase)
-    token_path = root / rel
+    # #1376: mint against the SHARED Control Root (#1346), the same base
+    # ApprovalTokenGateCheck reads from. `target_dir or Path.cwd()` is the literal
+    # current worktree; minting there put the token somewhere a gate evaluating
+    # from a sibling worktree could not see (measured in the #1307 walk). One
+    # resolution at both ends is what makes the token a receipt rather than a
+    # file whose visibility depends on which directory the operator stood in.
+    token_path = approval_token_path(
+        target_dir or Path.cwd(), ns.issue, from_phase, to_phase
+    )
     token_path.parent.mkdir(parents=True, exist_ok=True)
 
     approved_by, agent_session = _observe_actor(os.environ if env is None else env)
@@ -146,6 +159,6 @@ def run(
     token_path.write_text(json.dumps(token, indent=2) + "\n")
     print(
         f"✓ approved {from_phase}->{to_phase} for issue #{ns.issue} "
-        f"({describe_attribution(token)}): {rel}"
+        f"({describe_attribution(token)}): {token_path}"
     )
     return 0
