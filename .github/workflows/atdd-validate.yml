@@ -792,6 +792,22 @@ jobs:
     steps:
       - name: Check results
         run: |
+          # #1643 (for #1670): a job that ran nothing must not be reported as a
+          # pass. validate-smoke exits success when SMOKE_BASE_URL is unset — the
+          # opt-in contract in smoke.convention.yaml — so its `success` below is
+          # NOT evidence of runtime verification. Name that state explicitly, so a
+          # reader (or a conditional mint) can tell "gate passed" from "gate was
+          # never configured to run". This does not change the verdict.
+          #
+          # Reported BEFORE the verdict loop, deliberately. What did and did not
+          # execute is a fact about the run, not a reward for passing; if this sat
+          # after the loop it would be unreachable on every red run — exactly when
+          # a reader most needs to know which checks were real.
+          if [ "${{ needs.validate-smoke.outputs.status }}" = "not-applicable" ]; then
+            echo "::warning title=Gate reported NOT APPLICABLE::smoke: NOT APPLICABLE — SMOKE_BASE_URL unset, no specs executed. Its green is not a pass."
+            echo "smoke: NOT APPLICABLE (no specs executed — not a pass)"
+          fi
+
           for result in "planner:${{ needs.validate-planner.result }}" \
                         "tester:${{ needs.validate-tester.result }}" \
                         "coder:${{ needs.validate-coder.result }}" \
@@ -813,17 +829,6 @@ jobs:
               exit 1
             fi
           done
-
-          # #1643 (for #1670): a job that ran nothing must not be reported as a
-          # pass. validate-smoke exits success when SMOKE_BASE_URL is unset — the
-          # opt-in contract in smoke.convention.yaml — so its `success` above is
-          # NOT evidence of runtime verification. Name that state explicitly, so a
-          # reader (or a conditional mint) can tell "gate passed" from "gate was
-          # never configured to run". This does not change the verdict.
-          if [ "${{ needs.validate-smoke.outputs.status }}" = "not-applicable" ]; then
-            echo "::warning title=Gate reported NOT APPLICABLE::smoke: NOT APPLICABLE — SMOKE_BASE_URL unset, no specs executed. Its green is not a pass."
-            echo "smoke: NOT APPLICABLE (no specs executed — not a pass)"
-          fi
 
           echo "All phases passed or were skipped"
 
