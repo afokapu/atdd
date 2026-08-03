@@ -149,8 +149,11 @@ def check_artifact_claims(
         against: Human suffix for the unsatisfied messages ("vs main" / "in
             ab12cd34"), matching what the caller probed.
         force: Skip the git probes and report each claim as skipped, as
-            ``--force`` has always done. The declaration-completeness rule still
-            applies -- ``--force`` waives verification, not the record.
+            ``--force`` has always done. Callers waive the reverse pass with it
+            too (by passing ``changed_files=None``), since that is a git
+            comparison like any other. What ``--force`` does NOT waive is the
+            requirement to declare something: an empty section is still a
+            violation, because that judgement needs no git at all.
 
     Returns:
         An :class:`ArtifactClaimReport`. Pass ``.violations`` to the disposition
