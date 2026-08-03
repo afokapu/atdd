@@ -1417,6 +1417,7 @@ def _publish_revision(args, body) -> int:
             args.revise,
             body=body,
             issue_type=args.issue_type,
+            feature=args.feature,
         )
     except PublishError as exc:
         logger.warning(
@@ -1428,14 +1429,27 @@ def _publish_revision(args, body) -> int:
 
     if body is not None:
         sys.stdout.write(body)
+    if args.feature:
+        # Name the binding that landed. Without this an operator cannot tell a
+        # successful write from a silently-ignored flag — the ambiguity that let
+        # Break 4 survive eight measured revisions (#1635).
+        print(
+            f"atdd author issue: feature binding set to {args.feature}",
+            file=sys.stderr,
+        )
     _print_revise_outcome(result)
     return 0
 
 
 def _run_issue_revise(args) -> int:
-    if args.body_file is None and args.issue_type is None:
+    # `--feature` alone is a valid revision (#1635). It previously was not: the
+    # precondition demanded --body-file and/or --type, so an operator correcting
+    # only a wrong binding was turned away — and when they satisfied it by also
+    # passing --body-file, the feature was silently dropped further down.
+    if args.body_file is None and args.issue_type is None and args.feature is None:
         print(
-            "atdd author issue: --revise requires --body-file and/or explicit --type",
+            "atdd author issue: --revise requires --body-file, --feature "
+            "and/or explicit --type",
             file=sys.stderr,
         )
         return 2

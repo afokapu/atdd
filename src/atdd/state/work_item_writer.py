@@ -151,6 +151,7 @@ def revise_work_item_issue(
     *,
     body: Optional[str] = None,
     issue_type: Optional[str] = None,
+    feature: Optional[str] = None,
 ) -> Object:
     """Revise an existing issue-backed work item through the State Store.
 
@@ -158,6 +159,14 @@ def revise_work_item_issue(
     work-item uid, merges the requested issue fields into the object's JSON data,
     and preserves the existing lifecycle state. This is the authoritative update;
     provider projection is a caller concern.
+
+    ``feature`` completes the revise chain (#1635). It was previously accepted by
+    ``atdd author issue --revise`` and dropped here: this function had no
+    parameter for it, so the value was discarded between the CLI and the store.
+    Measured across eight issues on 2026-07-28 — the body updated on all eight
+    and ``data.feature`` stayed NULL on all eight. A revision that names no
+    feature leaves an existing binding untouched (``None`` means "unchanged",
+    never "clear it").
     """
     store = StateStore(conn)
     ref = store.external_refs.resolve(
@@ -181,8 +190,10 @@ def revise_work_item_issue(
         updates["body"] = body
     if issue_type is not None:
         updates["type"] = issue_type
+    if feature is not None:
+        updates["feature"] = feature
     if not updates:
-        raise ValueError("revision requires body and/or issue_type")
+        raise ValueError("revision requires body, issue_type and/or feature")
 
     obj = store.objects.upsert(
         existing.uid,
