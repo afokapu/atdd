@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import pytest
 
+from atdd.coach.utils.pr_merge_eligibility import is_merge_blocked, merge_allowed_phases
 from atdd.coach.validators._violation import Violation
 from atdd.coach.validators.test_pr_merge_blocks_pre_smoke_close import (
     _AUTO_CLOSING_STRATEGIES,
-    _BLOCKED_PHASES,
     _RULE,
     evaluate_pr_merge_violations,
 )
@@ -100,12 +100,20 @@ def test_evaluate_emits_violations_for_init_and_planned_defensively():
 # ---------------------------------------------------------------------------
 
 
-def test_evaluate_quiet_for_smoke_phase():
-    """SMOKE is the first merge-eligible phase."""
+def test_evaluate_emits_violation_for_smoke_phase():
+    """SMOKE is NOT merge-eligible (#1710) — this assertion is inverted on purpose.
+
+    It read "SMOKE is the first merge-eligible phase" and asserted the evaluator
+    stayed quiet, which is the defect written down as a requirement. The rule's own
+    description has always said a merge needs REFACTOR or COMPLETE, and REFACTOR is
+    where the operator sign-off lives (#1611). PR #1691 auto-closed #1689 and PR
+    #1648 auto-closed #1635 at atdd:SMOKE while this test was green.
+    """
     violations = evaluate_pr_merge_violations([
         _resolution(phase_label="SMOKE", strategy="body"),
     ])
-    assert violations == []
+    assert len(violations) == 1
+    assert "atdd:SMOKE" in violations[0].detail
 
 
 def test_evaluate_quiet_for_refactor_phase():
@@ -167,8 +175,21 @@ def test_evaluate_emits_one_violation_per_offending_pr():
 # ---------------------------------------------------------------------------
 
 
-def test_blocked_phases_are_pre_smoke():
-    assert _BLOCKED_PHASES == frozenset({"INIT", "PLANNED", "RED", "GREEN"})
+def test_blocked_phases_are_the_complement_of_the_convention_table():
+    """There is no blocked-phase constant left to drift (#1710).
+
+    This asserted ``_BLOCKED_PHASES == frozenset({"INIT", "PLANNED", "RED",
+    "GREEN"})`` — a guard against the constant changing, which is precisely why
+    it could not notice the constant was already wrong. The set is now derived
+    from ``pr.convention.yaml::phase_labels.merge_allowed``, so the only thing
+    left to assert is that derivation.
+    """
+    allowed = merge_allowed_phases()
+    assert allowed, "the convention must declare a non-empty merge_allowed"
+    for phase in allowed:
+        assert not is_merge_blocked(phase)
+    for phase in ("INIT", "PLANNED", "RED", "GREEN", "SMOKE", "BLOCKED", "OBSOLETE"):
+        assert is_merge_blocked(phase) is (phase not in allowed)
 
 
 def test_auto_closing_strategies_are_api_and_body_only():

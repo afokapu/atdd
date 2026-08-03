@@ -28,8 +28,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+import atdd
 from atdd.coach.utils import pr_merge_eligibility as elig
-from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators import test_pr_merge_blocks_pre_smoke_close as mod
 
 # Every assertion here reads the toolkit's own conventions under src/atdd/, which
@@ -37,17 +37,11 @@ from atdd.coach.validators import test_pr_merge_blocks_pre_smoke_close as mod
 # platform marker wholesale (coach.source-layout.platform-marker-on-toolkit-selftest).
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
-_CONVENTION = (
-    find_repo_root() / "src" / "atdd" / "coach" / "conventions" / "pr.convention.yaml"
-)
-_PHASE_MACHINE = (
-    find_repo_root()
-    / "src"
-    / "atdd"
-    / "coach"
-    / "conventions"
-    / "phase_machine.convention.yaml"
-)
+# Resolved package-relatively, not against the repo root: `src/atdd/` does not
+# exist once atdd is installed (coach.code-roots.no-hardcoded-toolkit-root).
+_CONVENTIONS = Path(atdd.__file__).resolve().parent / "coach" / "conventions"
+_CONVENTION = _CONVENTIONS / "pr.convention.yaml"
+_PHASE_MACHINE = _CONVENTIONS / "phase_machine.convention.yaml"
 
 
 def _phase_labels() -> dict:

@@ -35,11 +35,13 @@ The comparison has two legs, and both are needed:
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Dict, List, Set
 
 import pytest
 import yaml
 
+import atdd
 from atdd.coach.utils import pr_merge_eligibility as elig
 from atdd.coach.utils.repo import find_repo_root
 
@@ -48,13 +50,18 @@ from atdd.coach.utils.repo import find_repo_root
 # coach.source-layout.platform-marker-on-toolkit-selftest.
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
-_ROOT = find_repo_root()
-_CONVENTION = _ROOT / "src/atdd/coach/conventions/pr.convention.yaml"
-_NODE = _ROOT / (
-    "src/atdd/coach/conventions/nodes/"
-    "coach.lifecycle.no-terminal-before-lifecycle-satisfied.convention.yaml"
+# Conventions resolve package-relatively — `src/atdd/` is gone once atdd is
+# installed (coach.code-roots.no-hardcoded-toolkit-root). The feature is plan/
+# content, which genuinely lives in the repo and never ships; that is one reason
+# this module is platform-marked.
+_CONVENTIONS = Path(atdd.__file__).resolve().parent / "coach" / "conventions"
+_CONVENTION = _CONVENTIONS / "pr.convention.yaml"
+_NODE = (
+    _CONVENTIONS
+    / "nodes"
+    / "coach.lifecycle.no-terminal-before-lifecycle-satisfied.convention.yaml"
 )
-_FEATURE = _ROOT / (
+_FEATURE = find_repo_root() / (
     "plan/govern_lifecycle/features/enforce_smoke_refactor_phase_substrate.yaml"
 )
 
