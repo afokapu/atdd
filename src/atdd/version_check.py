@@ -678,6 +678,24 @@ def _upgrade_via_pipx(target: Optional[str]) -> Tuple[bool, str]:
     all — it fails at module resolution with "No module named pip" (#1671).
     The only command that upgrades a pipx install is ``pipx`` itself, which
     is exactly what ``upgrade_command()`` already advises.
+
+    ``--pip-args=--no-cache-dir`` carries the cache-bust across the engine
+    switch. The pip branch has always passed ``--no-cache-dir`` for the reason
+    stated in ``_upgrade_via_pip``: a fresh publish can be served stale. Bare
+    ``pipx upgrade atdd`` has the same failure and it is worse, because it
+    reports success — measured on 2026-08-03, with 4.37.1 live on both the JSON
+    API and the simple index:
+
+        $ pipx upgrade atdd
+        already at latest version 4.37.0                      # false
+        $ pipx upgrade atdd --pip-args="--no-cache-dir"
+        upgraded package atdd from 4.37.0 to 4.37.1           # true
+
+    Dispatching to the right engine is only half the fix; the command dispatched
+    to must actually be able to upgrade. Note the verify below already refuses
+    to accept pipx's "already at latest" at face value — it compares against the
+    version PyPI reported — so a stale resolution surfaces as a stated failure
+    rather than a silent no-op even if this flag ever stops working.
     """
     pipx = shutil.which("pipx")
     if not pipx:
@@ -686,7 +704,7 @@ def _upgrade_via_pipx(target: Optional[str]) -> Tuple[bool, str]:
             "so the upgrade could not be run"
         )
 
-    cmd = [pipx, "upgrade", "atdd"]
+    cmd = [pipx, "upgrade", "atdd", "--pip-args=--no-cache-dir"]
     logger.debug(
         "auto_upgrade via pipx: cmd=%s", cmd,
         extra={"phase": "pipx-upgrade", "cmd": cmd, "target": target},

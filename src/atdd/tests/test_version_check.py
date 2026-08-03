@@ -312,7 +312,7 @@ class TestAdviceMatchesExecution:
 
         assert ok is True, detail
         argv = mock_run.call_args_list[0].args[0]
-        assert argv[1:] == ["upgrade", "atdd"]
+        assert argv[1:3] == ["upgrade", "atdd"]
         assert _engine_of_argv(argv) == "pipx"
         # The exact shape of the bug: no invocation may reach for pip.
         for call in mock_run.call_args_list:
@@ -335,6 +335,45 @@ class TestAdviceMatchesExecution:
             assert _engine_of_argv(argv) == engine, (
                 f"{method}: advised {advice!r} but executed {argv!r}"
             )
+
+    def test_pipx_upgrade_busts_the_cache(self):
+        """The cache-bust must survive the engine switch.
+
+        Bare `pipx upgrade atdd` reported "already at latest version 4.37.0"
+        while 4.37.1 was live on both PyPI surfaces; the same command with
+        --pip-args="--no-cache-dir" upgraded. The pip branch has always passed
+        --no-cache-dir for this reason, and dispatching to pipx must not drop it.
+        """
+        with patch("atdd.version_check.detect_install_method", return_value="pipx"), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.37.1"), \
+             patch("atdd.version_check._verify_installed_version", return_value=True), \
+             patch("shutil.which", return_value="/opt/homebrew/bin/pipx"), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            auto_upgrade()
+
+        argv = mock_run.call_args_list[0].args[0]
+        assert any("--no-cache-dir" in a for a in argv), \
+            f"pipx invocation drops the cache-bust: {argv}"
+
+    def test_pipx_claiming_already_latest_is_not_accepted(self):
+        """pipx exiting 0 while the version did not move must not read as success.
+
+        This is the stale-resolution case: returncode 0, reassuring stdout, and
+        nothing installed. Verify is what catches it.
+        """
+        with patch("atdd.version_check.detect_install_method", return_value="pipx"), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.37.1"), \
+             patch("atdd.version_check._verify_installed_version", return_value=False), \
+             patch("shutil.which", return_value="/opt/homebrew/bin/pipx"), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stderr="", stdout="already at latest version 4.37.0",
+            )
+            ok, detail = auto_upgrade()
+
+        assert ok is False
+        assert "4.37.1" in detail
 
     def test_editable_install_is_reported_not_performed(self):
         """An editable install names the command and mutates nothing."""
