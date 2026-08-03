@@ -1282,7 +1282,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 112
+    total: 113
     R009: minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe
       (#1621)
     Y007: minimize a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer
@@ -1659,6 +1659,13 @@ wagons:
       unresolvable PR to advisory-only instead of a repo-wide block, and by extending
       the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline
       (#1478; renumbered from E062 which origin/main claimed)
+    R010: 'minimize likelihood of the-operator-approval-token-gate-resolving-its-token-path-against-the-literal-per-worktree-cwd-instead-of-the-1346-shared-operational-control-root
+      by resolving the approval-token path through atdd.state.paths.resolve_operational_root(ctx.worktree)
+      — the same Control-Root resolution every other #1346-migrated operational .atdd/
+      reader uses — so an operator token written by `atdd coach approve` under the
+      single shared Control Root''s .atdd/runtime/ is found by the gate no matter
+      which child worktree evaluates the transition, with a worktree-local read retained
+      as a back-compat fallback (#1376)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
