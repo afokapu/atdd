@@ -82,7 +82,8 @@ features:
   - urn: "feature:govern-lifecycle:fix-auto-phase-label-write-credential"
 
 wmbt:
-  total: 113
+  total: 114
+  C012: "minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature by observing the acting agent session at the mint through the shipped resolve_session() instead of defaulting to $USER, recording that session as its own token field distinct from the human account, folding the resulting actor into the signed canonical scope, and stamping a token schema_version so the pre-fix corpus reads as a regime that could not attribute (#1718)"
   R009: "minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe (#1621)"
   Y007: "minimize a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer (#1661)"
   Y006: "minimize an-issue-feature-binding-no-command-can-write-because-create-derives-nothing-and-revise-accepts-the-feature-flag-then-drops-it"
