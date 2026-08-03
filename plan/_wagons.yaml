@@ -1282,7 +1282,9 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 114
+    total: 116
+    C014: minimize a-validator-run-reporting-the-verdict-of-one-that-observed-its-subject-when-it-either-could-not-see-the-subject-or-silently-declined-to-look-at-half-of-it
+      (#1632)
     C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
       by observing the acting agent session at the mint through the shipped resolve_session()
       instead of defaulting to $USER, recording that session as its own token field
