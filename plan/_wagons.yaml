@@ -1282,7 +1282,12 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 114
+    total: 116
+    C017: minimize likelihood of phase-transitions-cleared-without-readable-acceptance-fault-evidence
+      by having the gate read that evidence at exactly one declared edge and answer
+      in the four-state vocabulary — fail when it is absent, could_not_check when
+      it is unreadable, and not_applicable only when the issue's own acceptances are
+      genuinely out of scope
     C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
       by observing the acting agent session at the mint through the shipped resolve_session()
       instead of defaulting to $USER, recording that session as its own token field
@@ -2819,7 +2824,15 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 22
+    total: 24
+    E037: minimize likelihood of acceptance-bound-tests-that-cannot-fail — one chosen
+      mechanism produces, from execution rather than from a declaration, evidence
+      that a test anchored to an acceptance fails when the behaviour that acceptance
+      names is broken, and produces none for a test that cannot fail
+    Y004: minimize likelihood of in-flight-issues-stranded-by-the-new-evidence-requirement
+      — the acceptance-bound tests that predate adoption are carried across a per-repo
+      adoption boundary the gate can read, so an issue whose tests were written before
+      adoption is not refused, and a test exists that fails if it would be
     E036: minimize likelihood of parallel-checkout-corruption — every convention test
       that mutates the shared checkout carries the convention_filesystem_mutation
       marker and runs in a serial CI subset, while everything else runs under pytest-xdist

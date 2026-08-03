@@ -1,0 +1,153 @@
+urn: wmbt:govern-lifecycle:C017
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: phase-transitions-cleared-without-readable-acceptance-fault-evidence
+context_clarifier: "the gate reads that evidence at exactly one declared edge and\
+  \ answers in the four-state vocabulary \u2014 fail when it is absent, could_not_check\
+  \ when it is unreadable, and not_applicable only when the issue's own acceptances\
+  \ are genuinely out of scope"
+lens: emotional.trust
+statement: "minimize likelihood of phase-transitions-cleared-without-readable-acceptance-fault-evidence\
+  \ by having the gate read that evidence at exactly one declared edge and answer\
+  \ in the four-state vocabulary \u2014 fail when it is absent, could_not_check when\
+  \ it is unreadable, and not_applicable only when the issue's own acceptances are\
+  \ genuinely out of scope"
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C017-UNIT-001-evidence-absent-refuses-the-transition
+    id: AC-UNIT-001
+    purpose: An issue owing acceptance fault-evidence that has none is refused. Absence
+      is a refusal, not a pass, and the refusal names what is owed.
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - An issue whose plan scope declares acceptances that are in scope for the evidence
+      requirement
+    - No fault-evidence record for any of the tests anchored to those acceptances
+  when:
+    abstract: The gated transition is attempted
+  then:
+    abstract:
+    - The verdict is FAIL and the transition is refused, with no label or phase swap
+    - The message names the acceptance and the test that owes evidence
+    - The refusal is reachable without --force being the routine exit
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C017-UNIT-002-unreadable-evidence-is-could-not-check
+    id: AC-UNIT-002
+    purpose: "Evidence that is present but unreadable yields COULD_NOT_CHECK \u2014\
+      \ which also refuses, and is neither a pass nor an exception. A gate that advances\
+      \ on an unmade observation is the defect; a raised exception stays FAIL."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - An issue in scope for the requirement, with an evidence record that is truncated,
+      schema-invalid, or written in a shape the reader does not know
+    - The four-state GateVerdict vocabulary already in the tree (#1719/C013)
+  when:
+    abstract: The gated transition is attempted
+  then:
+    abstract:
+    - "The verdict is COULD_NOT_CHECK, and it blocks \u2014 it is not PASS and not\
+      \ NOT_APPLICABLE"
+    - It is reported apart from FAIL, because the operator's next action differs between
+      "your evidence says no" and "I could not read your evidence"
+    - A check that RAISES is still converted to FAIL, not to COULD_NOT_CHECK, leaving
+      WMBT E046 unchanged
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C017-UNIT-003-out-of-scope-issue-is-not-applicable-and-proceeds
+    id: AC-UNIT-003
+    purpose: "An issue whose own acceptances are genuinely out of scope gets NOT_APPLICABLE\
+      \ and proceeds \u2014 the check looked, and correctly concluded it is owed nothing.\
+      \ That is not a pass, and it is not \"I could not look\"."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - An issue whose plan scope resolves and declares no acceptance in scope for the
+      evidence requirement
+  when:
+    abstract: The gated transition is attempted
+  then:
+    abstract:
+    - The verdict is NOT_APPLICABLE and the transition proceeds
+    - The message states what was observed and why nothing is owed
+    - "NOT_APPLICABLE is never returned merely because the check failed to LOCATE\
+      \ a plan scope \u2014 that case is COULD_NOT_CHECK"
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C017-UNIT-004-mis-declared-obligation-is-visible-as-a-mis-declaration
+    id: AC-UNIT-004
+    purpose: "The #1632 shape \u2014 an obligation declared at a nesting level the\
+      \ walker does not read is visible AS a mis-declaration, not silently collapsed\
+      \ into not-applicable. C014 declared execution_kind at an unread level, the\
+      \ walker reported not applicable, and SMOKE cleared attested by nothing."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - An issue declaring the evidence obligation at a nesting level the obligation
+      walker does not read
+    - A second issue declaring nothing at all
+  when:
+    abstract: The gated transition is attempted for each
+  then:
+    abstract:
+    - The mis-declaring issue does NOT receive NOT_APPLICABLE
+    - Its message says the declaration was found at a level the walker does not read,
+      rather than reporting that nothing was declared
+    - The issue declaring nothing still receives NOT_APPLICABLE, so the two are told
+      apart rather than both being refused
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C017-SMOKE-001-gate-registered-at-one-declared-edge-in-a-consumer-repo
+    id: AC-SMOKE-001
+    purpose: CONSUMER-REPO ACCEPTANCE. In a repo owning no atdd source, plan layout
+      or test tree, the gate runs at exactly one edge declared through that repo's
+      own .atdd/config.yaml gate.transitions, on the same registry substrate as SmokeExecutionGateCheck
+      rather than a bespoke hook.
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: integration
+  given:
+    abstract:
+    - A consumer repo owning no atdd source, plan layout or test tree, with its own
+      plan/ and its own tests bound by "# Acceptance:" headers
+    - The edge enabled through that repo's own .atdd/config.yaml gate.transitions
+  when:
+    abstract: A transition is attempted in the consumer repo for each of the four
+      verdict cases
+  then:
+    abstract:
+    - The check resolves through the same gate registry and gate.transitions substrate
+      as SmokeExecutionGateCheck, not through a path special to atdd
+    - Exactly one edge is gated, and relocating it is a config change in the consumer's
+      own repo, not a code change in atdd
+    - All four verdicts are reachable in the consumer repo, and COULD_NOT_CHECK refuses
+      there too
+    - Disabling the edge in the consumer's config makes the gate a no-op, and does
+      not turn a would-be refusal into a pass
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'

@@ -1,0 +1,120 @@
+urn: wmbt:validate-conventions:Y004
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: in-flight-issues-stranded-by-the-new-evidence-requirement
+context_clarifier: the acceptance-bound tests that predate adoption are carried across
+  a per-repo adoption boundary the gate can read, so an issue whose tests were written
+  before adoption is not refused, and a test exists that fails if it would be
+lens: functional.sustainability
+statement: minimize likelihood of in-flight-issues-stranded-by-the-new-evidence-requirement
+  by carrying the acceptance-bound tests that predate adoption across a per-repo adoption
+  boundary the gate can read, so an issue whose tests were written before adoption
+  is not refused, and a test exists that fails if it would be
+acceptances:
+- identity:
+    urn: acc:validate-conventions:Y004-UNIT-001-pre-adoption-issue-is-not-refused
+    id: AC-UNIT-001
+    purpose: "An issue whose acceptance-bound tests were written before the adoption\
+      \ boundary is not blocked, and the reason it passes is stated as predates-adoption\
+      \ rather than as no-obligation \u2014 the two must stay distinguishable."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - An issue in flight whose acceptance-bound tests were authored before the repo's
+      adoption boundary
+    - The evidence requirement active, and the gate consulting it
+  when:
+    abstract: The issue is carried through the gated transition
+  then:
+    abstract:
+    - The transition is not refused
+    - The recorded reason names the adoption boundary, not an absent obligation
+    - An issue whose tests were authored after the boundary and carry no evidence
+      IS refused, so the boundary is a boundary and not a blanket exemption
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:validate-conventions:Y004-UNIT-002-a-test-fails-if-an-in-flight-issue-would-be-blocked
+    id: AC-UNIT-002
+    purpose: "Migration strands nothing in flight, and that claim is itself tested\
+      \ \u2014 a test exists that fails if a pre-adoption issue would be blocked,\
+      \ so the promise is enforced rather than left to sequencing discipline."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The set of issues open at the moment the requirement is enabled
+    - The adoption boundary as the repo records it
+  when:
+    abstract: The boundary is removed, or shifted so that a pre-adoption issue falls
+      inside the requirement
+  then:
+    abstract:
+    - The test fails, naming the issue that would have been stranded
+    - The same test passes with the boundary as recorded
+    - The failure message distinguishes stranded-by-boundary from failed-on-its-merits
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:validate-conventions:Y004-UNIT-003-cohort-is-derived-and-the-five-are-not-a-template
+    id: AC-UNIT-003
+    purpose: "The migration cohort is derived mechanically from the substrate's own\
+      \ header scan, not hand-listed, and the five files carrying BOTH an acceptance\
+      \ header and a fault-injection test are treated as cohort members rather than\
+      \ as a migration template \u2014 they inject into the convention graph, which\
+      \ no acceptance-bound subject offers."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A repo whose test roots are resolved by the substrate and whose acceptance headers
+      are parsed from every collected test
+    - 'Five files carrying both a "# Acceptance: acc:" header and a def test_fault_injection'
+  when:
+    abstract: The migration cohort is derived
+  then:
+    abstract:
+    - The cohort is computed from the header scan, and no file is listed by hand
+    - The five dual-carrying files appear in the cohort, not in an exemption list
+    - Adding or removing an acceptance-bound test changes the cohort without any artifact
+      being edited
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:validate-conventions:Y004-SMOKE-001-adoption-boundary-is-per-repo-in-a-consumer-repo
+    id: AC-SMOKE-001
+    purpose: "CONSUMER-REPO ACCEPTANCE. A consumer repo adopting the requirement mid-stream\
+      \ gets its own adoption boundary, recorded in its own state \u2014 not a date\
+      \ or a commit hard-coded to atdd's history."
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: integration
+  given:
+    abstract:
+    - A consumer repo owning no atdd source, plan layout or test tree, carrying its
+      own acceptance-bound tests written before it adopted the requirement
+    - The requirement enabled in that repo
+  when:
+    abstract: The consumer repo's in-flight work is carried through the gated transition
+  then:
+    abstract:
+    - Nothing in flight in the consumer repo is refused for predating its own adoption
+    - The boundary is read from the consumer's own state, and no atdd commit, date
+      or version appears in the decision
+    - A second consumer repo adopting at a different time gets a different boundary,
+      and neither reads the other's
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'

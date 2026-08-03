@@ -20,6 +20,7 @@ features:
 - urn: feature:validate-conventions:convention-graph-query-contract
 - urn: feature:validate-conventions:stricter-finding-adjudication
 - urn: feature:validate-conventions:tune-convention-suite
+- urn: feature:validate-conventions:acceptance-fault-injection
 goal: organize validators by graph-question family rather than persona so new convention
   nodes are auto-captured by reusable templates, and prove parity before any legacy
   decommissioning
@@ -42,7 +43,15 @@ produce:
   to: external
 consume: []
 wmbt:
-  total: 22
+  total: 24
+  E037: minimize likelihood of acceptance-bound-tests-that-cannot-fail — one chosen
+    mechanism produces, from execution rather than from a declaration, evidence that a
+    test anchored to an acceptance fails when the behaviour that acceptance names is
+    broken, and produces none for a test that cannot fail
+  Y004: minimize likelihood of in-flight-issues-stranded-by-the-new-evidence-requirement
+    — the acceptance-bound tests that predate adoption are carried across a per-repo
+    adoption boundary the gate can read, so an issue whose tests were written before
+    adoption is not refused, and a test exists that fails if it would be
   E036: minimize likelihood of parallel-checkout-corruption — every convention test that
     mutates the shared checkout carries the convention_filesystem_mutation marker and runs
     in a serial CI subset, while everything else runs under pytest-xdist -n auto, and the

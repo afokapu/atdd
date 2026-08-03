@@ -1,0 +1,35 @@
+urn: feature:govern-lifecycle:acceptance-evidence-gate
+wagon: wagon:govern-lifecycle
+description: The lifecycle gate that reads acceptance fault-evidence at one declared
+  edge and answers pass, fail, could_not_check or not_applicable rather than only
+  pass or fail.
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: XS
+wmbts:
+- wmbt:govern-lifecycle:C017
+components:
+  backend:
+    presentation:
+    - type: guards
+      count: 1
+      rationale: A GateCheck registered for exactly one edge through the existing
+        GATE_REGISTRY and .atdd/config.yaml gate.transitions, not a bespoke hook in
+        the transition path
+    application:
+    - type: policies
+      count: 1
+      rationale: 'Maps evidence state to a GateVerdict: absent to FAIL, unreadable
+        to COULD_NOT_CHECK, genuinely out of scope to NOT_APPLICABLE, mis-declared
+        to neither pass nor not-applicable'
+    domain:
+    - type: value_objects
+      count: 0
+      rationale: 'GateVerdict, GateContext and GateCheckResult already exist from
+        #1719/C013 and are consumed, not redefined'
+    integration:
+    - type: clients
+      count: 1
+      rationale: Reads the evidence rows the mechanism feature writes, and reports
+        unreadable as unreadable instead of inferring absence from a parse failure

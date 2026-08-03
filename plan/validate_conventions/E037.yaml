@@ -1,0 +1,189 @@
+urn: wmbt:validate-conventions:E037
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: acceptance-bound-tests-that-cannot-fail
+context_clarifier: one chosen mechanism produces, from execution rather than from
+  a declaration, evidence that a test anchored to an acceptance fails when the behaviour
+  that acceptance names is broken, and produces none for a test that cannot fail
+lens: functional.effectiveness
+statement: minimize likelihood of acceptance-bound-tests-that-cannot-fail by having
+  one chosen mechanism produce, from execution rather than from a declaration, evidence
+  that a test anchored to an acceptance fails when the behaviour that acceptance names
+  is broken, and produce none for a test that cannot fail
+acceptances:
+- identity:
+    urn: acc:validate-conventions:E037-UNIT-001-chosen-mechanism-reaches-a-subject-with-no-synthesisable-graph
+    id: AC-UNIT-001
+    purpose: "The mechanism is DECIDED among author-paired fault test, mutation run\
+      \ over the blast radius, and execution attestation in the SmokeExecutionGateCheck\
+      \ shape, and the choice is demonstrated on the case the 22 convention validators\
+      \ cannot reach \u2014 a subject that is a function, a CLI verb or a gate rather\
+      \ than a data structure the test can synthesise."
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - All 22 convention fault-injection tests fault an in-memory convention graph
+      via clone_graph / add_node / graph_rooted_at; 0 of 22 mutate arbitrary production
+      source
+    - An acceptance-bound test whose subject is a CLI verb or a gate, for which no
+      clone_graph equivalent exists
+    - The three candidate mechanisms, none of them yet chosen
+  when:
+    abstract: The chosen mechanism is run over that acceptance-bound test
+  then:
+    abstract:
+    - Fail-evidence is produced for a test whose subject is not a synthesisable data
+      structure
+    - Each rejected candidate is recorded with the property of that subject which
+      defeats it, so the choice is readable as a decision rather than an assumption
+    - "No step of the mechanism calls clone_graph, add_node or graph_rooted_at \u2014\
+      \ the convention-graph technique is not presumed to transfer"
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:validate-conventions:E037-UNIT-002-honest-test-produces-fail-evidence
+    id: AC-UNIT-002
+    purpose: "A test that genuinely exercises its acceptance produces fail-evidence.\
+      \ This is the acceptance that stops the whole requirement being a blunt instrument\
+      \ \u2014 the false-positive count on honest tests must be zero, not merely low."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A sample of tests anchored to an acceptance whose assertions do observe the
+      behaviour that acceptance names
+    - The behaviour under each of those acceptances, breakable at a single point
+  when:
+    abstract: The mechanism is run over the whole sample
+  then:
+    abstract:
+    - Fail-evidence is produced for every test in the sample
+    - The count of honest tests yielding no evidence is asserted to be exactly zero
+    - The sample includes at least one test whose acceptance is satisfied by a code
+      path the test reaches only indirectly, so the zero is not an artefact of trivial
+      cases
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:validate-conventions:E037-UNIT-003-unfalsifiable-test-produces-no-evidence
+    id: AC-UNIT-003
+    purpose: "A test that cannot fail produces no fail-evidence, and the two ways\
+      \ it can be unfalsifiable \u2014 a constant assertion, and an assertion that\
+      \ never executes \u2014 are reported as distinct shapes rather than as one undifferentiated\
+      \ absence."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A test anchored to an acceptance whose only assertion is constant
+    - A test whose assertion never executes because it sits after an unconditional
+      return or inside a branch never taken
+    - Both carry a well-formed acceptance header, so nothing upstream rejects them
+  when:
+    abstract: The mechanism is run over both
+  then:
+    abstract:
+    - Neither produces fail-evidence
+    - The constant assertion and the never-executed assertion are reported as two
+      distinct shapes, not collapsed into one
+    - "Neither is reported as a fault of the mechanism \u2014 the absence of evidence\
+      \ IS the finding"
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:validate-conventions:E037-UNIT-004-collection-error-is-not-a-pass
+    id: AC-UNIT-004
+    purpose: "The #1718 shape \u2014 a test whose assertions never ran because COLLECTION\
+      \ raised is distinguishable from a test that ran and passed. #1718's RED raised\
+      \ ImportError at collection; the assertions had never executed, and only a voluntary\
+      \ mutation run caught it."
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A test module anchored to an acceptance that raises ImportError at collection
+      time
+    - A sibling test that collected, ran and passed
+  when:
+    abstract: The mechanism reads the outcome of both
+  then:
+    abstract:
+    - "The collection-error test carries a did-not-execute record \u2014 neither a\
+      \ pass nor a silent absence"
+    - The passing test carries a distinct executed-and-passed record
+    - The two records are not equal and neither is inferred from the other, so a suite
+      that never ran an assertion cannot read as green
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:validate-conventions:E037-SMOKE-001-mechanism-produces-evidence-in-a-consumer-repo
+    id: AC-SMOKE-001
+    purpose: CONSUMER-REPO ACCEPTANCE. The mechanism produces fail-evidence in a repository
+      owning no atdd source, no atdd plan layout and no atdd test tree. A mechanism
+      that works only inside atdd would be the dogfooding theatre this program exists
+      to name.
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: integration
+  given:
+    abstract:
+    - A consumer repo initialised by atdd init --consumer-repo, declaring its test
+      root through .atdd/config.yaml repo.test_root
+    - A second consumer repo declaring none, so the substrate falls back to pyproject.toml
+      tool.pytest.ini_options.testpaths and then to tests/
+    - Neither repo contains src/atdd/validators/conventions/, atdd's plan/ layout,
+      or atdd's test tree
+  when:
+    abstract: The mechanism runs in each repo over a test anchored to an acceptance
+      declared in that repo's own plan/
+  then:
+    abstract:
+    - Fail-evidence is produced in both repos
+    - "The test roots resolve in the substrate's documented order \u2014 .atdd/config.yaml\
+      \ repo.test_root, then pyproject testpaths, then tests/ (spec v12 section 7.2)"
+    - No step reads a path under src/atdd/validators/conventions/, under atdd's own
+      plan/, or under atdd's own test tree
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'
+- identity:
+    urn: acc:validate-conventions:E037-SMOKE-002-existing-anti-theatre-controls-still-enforce
+    id: AC-SMOKE-002
+    purpose: The anti-theatre machinery that already works is not weakened. The 22
+      convention fault-injection tests and the three named controls still pass, unmodified,
+      with the mechanism installed.
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real checkout carrying the 22 convention fault-injection tests, test_live_smoke_execution,
+      test_e036_mutation_class_partition, and the rule tester.acceptance-violation.live-smoke-evidence-must-not-be-constant
+  when:
+    abstract: The full validator directory is run with the mechanism installed
+  then:
+    abstract:
+    - All 22 convention fault-injection tests pass, and their sources are unmodified
+    - test_live_smoke_execution and test_e036_mutation_class_partition pass, unmodified
+    - live-smoke-evidence-must-not-be-constant is still bound and still fires on its
+      own injected fault
+    - No atdd:suppress marker was added anywhere to make the above true
+  metadata:
+    author: atdd:planner
+    created: '2026-08-03'

@@ -80,9 +80,11 @@ features:
   - urn: "feature:govern-lifecycle:define-transition-autonomy"
   - urn: "feature:govern-lifecycle:bind-issue-feature"
   - urn: "feature:govern-lifecycle:fix-auto-phase-label-write-credential"
+  - urn: "feature:govern-lifecycle:acceptance-evidence-gate"
 
 wmbt:
-  total: 114
+  total: 116
+  C017: "minimize likelihood of phase-transitions-cleared-without-readable-acceptance-fault-evidence by having the gate read that evidence at exactly one declared edge and answer in the four-state vocabulary — fail when it is absent, could_not_check when it is unreadable, and not_applicable only when the issue's own acceptances are genuinely out of scope"
   C012: "minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature by observing the acting agent session at the mint through the shipped resolve_session() instead of defaulting to $USER, recording that session as its own token field distinct from the human account, folding the resulting actor into the signed canonical scope, and stamping a token schema_version so the pre-fix corpus reads as a regime that could not attribute (#1718)"
   R009: "minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe (#1621)"
   Y007: "minimize a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer (#1661)"

@@ -1,0 +1,41 @@
+urn: feature:validate-conventions:acceptance-fault-injection
+wagon: wagon:validate-conventions
+description: The mechanism that produces evidence an acceptance-bound test fails when
+  the behaviour its acceptance names is broken, plus the migration of the tests that
+  predate it.
+sizing:
+  wmbts: 2
+  footprint_score: 4
+  footprint_size: XS
+wmbts:
+- wmbt:validate-conventions:E037
+- wmbt:validate-conventions:Y004
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 0
+      rationale: "No new CLI verb \u2014 evidence must come from execution; a verb\
+        \ that can write it would make it typeable, and a typeable attestation is\
+        \ not one"
+    application:
+    - type: use_cases
+      count: 1
+      rationale: Derives fail-evidence for one acceptance-bound test from what actually
+        executed, and derives the migration cohort from the substrate's own header
+        scan
+    domain:
+    - type: value_objects
+      count: 0
+      rationale: The evidence record and the adoption boundary are value records over
+        State Store rows, not modelled domain entities
+    integration:
+    - type: monitors
+      count: 1
+      rationale: "Observes the pytest run from inside it \u2014 which acceptance-bound\
+        \ tests collected, executed, and how \u2014 in the shape smoke_attestation\
+        \ already uses"
+    - type: stores
+      count: 1
+      rationale: Append-only evidence rows in the State Store, keyed the same way
+        the smoke attestation is, so the gate has one place to read
