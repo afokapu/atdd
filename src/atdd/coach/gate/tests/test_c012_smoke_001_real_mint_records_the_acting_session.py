@@ -49,8 +49,9 @@ _KEY = "smoke-operator-key"
 _READBACK = """
 import json, sys
 from pathlib import Path
-from atdd.coach.gate.approval import approval_relpath, sign_approval
+from atdd.coach.gate.approval import sign_approval
 from atdd.coach.gate.approval_check import ApprovalTokenGateCheck
+from atdd.coach.gate.approval_paths import approval_token_path
 from atdd.coach.gate.decision import GateContext
 
 root = Path(sys.argv[1])
@@ -61,8 +62,10 @@ check = ApprovalTokenGateCheck(signing_key=key)
 minted = check.run(GateContext(
     issue_number=issue, from_phase=from_phase, to_phase=to_phase, worktree=root))
 
-# A token from the old regime: the exact field set the corpus carries, nothing else.
-pre_fix_path = root / approval_relpath(pre_fix_issue, from_phase, to_phase)
+# A token from the old regime: the exact field set the corpus carries, nothing
+# else. Written at the CANONICAL location (#1376), so this exercises the
+# schema-version distinction rather than the worktree-local back-compat fallback.
+pre_fix_path = approval_token_path(root, pre_fix_issue, from_phase, to_phase)
 pre_fix_path.parent.mkdir(parents=True, exist_ok=True)
 pre_fix_path.write_text(json.dumps({
     "issue": pre_fix_issue,
@@ -113,8 +116,16 @@ def test_the_real_command_mints_a_session_attributed_token(tmp_path: Path):
         f"the real mint failed (rc={minted.returncode}); stderr:\n{minted.stderr[:800]}"
     )
 
-    token_path = tmp_path / ".atdd" / "runtime" / f"issue-{_ISSUE}" / "approvals" / f"{_FROM}-{_TO}.json"
-    assert token_path.exists(), f"the real command wrote no token at {token_path}"
+    # WHERE the token goes is #1376's Control-Root resolution, not this test's
+    # assumption — hardcoding the pre-#1376 worktree-local path here would pass
+    # today only because resolve_operational_root degrades to the worktree in a
+    # bare tmp dir, and would silently stop covering the real location the moment
+    # it does not. Take the path from what the real command reports writing.
+    token_path = Path(minted.stdout.strip().splitlines()[-1].rsplit(": ", 1)[-1])
+    assert token_path.exists(), (
+        f"the real command reported writing {token_path}, which does not exist; "
+        f"stdout:\n{minted.stdout[-800:]}"
+    )
     token = json.loads(token_path.read_text())
 
     # The shipped artifact names WHICH session produced it...
