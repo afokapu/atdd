@@ -40,8 +40,17 @@ REPO_ROOT = find_repo_root()
 # enforces but no convention declares fails loudly at collection rather than
 # silently enforcing a docstring. Before #1726 this file called bind_rule zero
 # times while guarding the COMPLETE gate.
-_RULE_RESOLVE = bind_rule(RULE_CLAIMS_RESOLVE)
-_RULE_DECLARED = bind_rule(RULE_MUST_BE_DECLARED)
+#
+# The ids are spelled as LITERALS here, not as the imported constants, because
+# reverse rule-coherence (test_rule_validator_binding) reads this file with `ast`
+# and can only follow a literal or a module-level string constant — an imported
+# name resolves to nothing, and the rules would read as orphaned. The asserts
+# below are what stop the two spellings from drifting.
+_RULE_RESOLVE = bind_rule("coach.issue.artifact-claims-must-resolve")
+_RULE_DECLARED = bind_rule("coach.issue.artifacts-must-be-declared")
+
+assert _RULE_RESOLVE.rule_id == RULE_CLAIMS_RESOLVE
+assert _RULE_DECLARED.rule_id == RULE_MUST_BE_DECLARED
 
 
 # ---------------------------------------------------------------------------
