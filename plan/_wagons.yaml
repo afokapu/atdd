@@ -1282,7 +1282,9 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 112
+    total: 113
+    C014: minimize a-validator-run-reporting-the-verdict-of-one-that-observed-its-subject-when-it-either-could-not-see-the-subject-or-silently-declined-to-look-at-half-of-it
+      (#1632)
     R009: minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe
       (#1621)
     Y007: minimize a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer
