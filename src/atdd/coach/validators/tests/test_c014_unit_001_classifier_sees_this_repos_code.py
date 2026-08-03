@@ -35,9 +35,11 @@ from atdd.coach.validators.test_pr_phase_alignment import (
     evaluate_phase_violations,
 )
 
-# A real path from this repo's own tree, and the file this issue edits.
-_OWN_CODE = "src/atdd/coach/validators/test_pr_phase_alignment.py"
-_OWN_MODULE = "src/atdd/coach/commands/test_runner.py"
+# Real paths from this repo's own tree. `src/atdd/coach/commands/issue.py` is the
+# single code file on PR#1589, whose issue #1583 sits at GREEN — the live
+# COACH-PRGATE-0003 case this fix surfaces.
+_OWN_CODE = "src/atdd/coach/commands/issue.py"
+_OWN_MODULE = "src/atdd/coach/utils/repo.py"
 
 
 # --------------------------------------------------------------------------- #
@@ -73,6 +75,12 @@ def test_a_test_file_in_this_repos_own_tree_still_classifies_as_test():
     Otherwise adding ``src/`` retroactively turns every RED-phase PR in this repo
     into a violation — the opposite of what the rules say, since RED is the phase
     at which test files are the expected content.
+
+    A consequence specific to this repo, worth stating because it bounds what the
+    fix reaches: every validator here is a pytest module named ``test_*.py``, so
+    ``/test_`` matches and a PR that changes only validators classifies as tests,
+    not code, at every phase. That follows from the precedence above rather than
+    from the prefix list, so it is not something adding ``src/`` could change.
     """
     test_files = [
         "src/atdd/coach/gate/tests/test_c013_unit_001_could_not_check_blocks.py",
