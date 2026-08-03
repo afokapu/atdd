@@ -96,6 +96,16 @@ jobs:
 
   validate-coach:
     runs-on: ubuntu-latest
+    # The repo default is `default_workflow_permissions: read`, which grants the
+    # workflow token contents/packages/metadata only — NOT pull-requests. Several
+    # coach validators read open PRs through `gh`; without this scope the listing
+    # comes back empty and they pass vacuously rather than failing. Measured on
+    # PR #1692: coach.pr.merge-blocks-on-pre-smoke-close (disposition=strict)
+    # blocked locally and passed in CI on the same commit (#1671 investigation).
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
     if: >-
       github.event_name != 'issues' ||
       contains(github.event.issue.labels.*.name, 'atdd-issue') ||
