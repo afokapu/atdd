@@ -739,6 +739,13 @@ jobs:
           git config --global user.name "ATDD CI"
 
       # No `-m` expression. These paths run WHOLE — that is the point of the job.
+      # The two `coach/commands/tests` FILES at the end are C014 (#1632), added by
+      # path rather than by directory. `src/atdd/coach/commands/tests` cannot go in
+      # whole: measured on merged main 2026-08-03 it has 41 pre-existing failures
+      # and 1 error out of 1059 tests, which is why #1643 left it out. Naming the
+      # two new files keeps them covered without importing that debt — and an issue
+      # about checks that never run should not add tests that never run. Retiring
+      # the rest of that directory is #1701's subject.
       - name: Run non-validator regression suites
         run: |
           PYTHONPATH=src python3 -m pytest \
@@ -759,6 +766,8 @@ jobs:
             src/atdd/coach/templates/bin/tests \
             src/atdd/coder/utils \
             src/atdd/planner/interlocking \
+            src/atdd/coach/commands/tests/test_c014_unit_003_baseline_carries_the_count.py \
+            src/atdd/coach/commands/tests/test_c014_smoke_001_real_runner_reports_deselection.py \
             -q --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

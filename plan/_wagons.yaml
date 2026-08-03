@@ -1282,7 +1282,9 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 115
+    total: 117
+    C014: minimize a-validator-run-reporting-the-verdict-of-one-that-observed-its-subject-when-it-either-could-not-see-the-subject-or-silently-declined-to-look-at-half-of-it
+      (#1632)
     C016: minimize likelihood of a-registered-branch-being-refused-by-the-commit-gate-because-its-name-is-not-its-work-items-uid
       by resolving the branch through the populated `data.branch` binding that worktree-create
       already writes and `atdd worktree list` already reads, rather than guessing
