@@ -208,20 +208,22 @@ class ObjectStore(_BaseStore):
                 f"refusing to rekey {old_uid!r} onto {new_uid!r}: that uid is already taken "
                 "(a uid is globally unique and never reused — spec §10 rule 1)"
             )
+        move = (new_uid, old_uid)
         with self._conn:
             self._conn.execute(
                 "INSERT INTO objects (uid, kind, state, data, created_at, updated_at) "
                 "SELECT ?, kind, state, data, created_at, updated_at FROM objects WHERE uid=?",
-                (new_uid, old_uid),
+                move,
             )
-            for sql in (
-                "UPDATE relationships SET src_uid=? WHERE src_uid=?",
-                "UPDATE relationships SET dst_uid=? WHERE dst_uid=?",
-                "UPDATE events SET object_uid=? WHERE object_uid=?",
-                "UPDATE external_refs SET object_uid=? WHERE object_uid=?",
-                "UPDATE overlay_events SET object_uid=? WHERE object_uid=?",
-            ):
-                self._conn.execute(sql, (new_uid, old_uid))
+            # Written out one statement per table rather than looped over a tuple of SQL.
+            # The loop read as an N+1 to the query-count validator and it was right to: a
+            # `.execute()` inside a `for` is indistinguishable from a per-row query at the
+            # syntax level. These are four fixed tables, so there is nothing to iterate.
+            self._conn.execute("UPDATE relationships SET src_uid=? WHERE src_uid=?", move)
+            self._conn.execute("UPDATE relationships SET dst_uid=? WHERE dst_uid=?", move)
+            self._conn.execute("UPDATE events SET object_uid=? WHERE object_uid=?", move)
+            self._conn.execute("UPDATE external_refs SET object_uid=? WHERE object_uid=?", move)
+            self._conn.execute("UPDATE overlay_events SET object_uid=? WHERE object_uid=?", move)
             self._conn.execute("DELETE FROM objects WHERE uid=?", (old_uid,))
         moved = self.get(new_uid)
         assert moved is not None  # just written
