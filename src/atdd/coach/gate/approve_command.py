@@ -2,10 +2,12 @@
 
 The operator's path to PRODUCE the #1017 approval token the
 ``ApprovalTokenGateCheck`` requires. It writes a signed token to
-``.atdd/runtime/issue-<N>/approvals/<from>-<to>.json`` (relative to the
-worktree), independent of the cmux Feed. After this, the worker's
-``atdd issue <N> --status <to>`` passes the operator-approval gate for that exact
-transition — and only that one.
+``.atdd/runtime/issue-<N>/approvals/<from>-<to>.json`` under the single shared
+Control Root (#1346/#1376 — resolved by ``approval_paths``, NOT the literal
+current worktree), independent of the cmux Feed. After this, the worker's
+``atdd coach transition <N> <to>`` passes the operator-approval gate for that
+exact transition — and only that one — from any worktree of the project, because
+the gate resolves the same base this command mints against.
 """
 from __future__ import annotations
 
@@ -16,11 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from atdd.coach.gate.approval import (
-    approval_relpath,
-    build_token,
-    resolve_signing_key,
-)
+from atdd.coach.gate.approval import build_token, resolve_signing_key
+from atdd.coach.gate.approval_paths import approval_token_path
 
 
 def _parse_transition(text: str) -> Tuple[str, str]:
@@ -63,9 +62,15 @@ def run(argv: List[str], *, target_dir: Optional[Path] = None) -> int:
         print(f"Error: {exc}")
         return 1
 
-    root = target_dir or Path.cwd()
-    rel = approval_relpath(ns.issue, from_phase, to_phase)
-    token_path = root / rel
+    # #1376: mint against the SHARED Control Root (#1346), the same base
+    # ApprovalTokenGateCheck reads from. `target_dir or Path.cwd()` is the literal
+    # current worktree; minting there put the token somewhere a gate evaluating
+    # from a sibling worktree could not see (measured in the #1307 walk). One
+    # resolution at both ends is what makes the token a receipt rather than a
+    # file whose visibility depends on which directory the operator stood in.
+    token_path = approval_token_path(
+        target_dir or Path.cwd(), ns.issue, from_phase, to_phase
+    )
     token_path.parent.mkdir(parents=True, exist_ok=True)
 
     approved_by = ns.by or os.environ.get("USER") or "operator"
@@ -78,6 +83,6 @@ def run(argv: List[str], *, target_dir: Optional[Path] = None) -> int:
     token_path.write_text(json.dumps(token, indent=2) + "\n")
     print(
         f"✓ operator approved {from_phase}->{to_phase} for issue #{ns.issue} "
-        f"(by {approved_by}): {rel}"
+        f"(by {approved_by}): {token_path}"
     )
     return 0
