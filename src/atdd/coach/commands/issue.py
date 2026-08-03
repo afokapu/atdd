@@ -92,6 +92,37 @@ ARCHETYPE_GATES = {
 }
 
 
+def _resolve_branch_in_store(store, branch: str) -> Optional[bool]:
+    """Resolve *branch* to a work item through the State Store's two indexes (#1720).
+
+    Returns True when the branch resolves, False when the store holds work items
+    but the branch resolves by neither index, and None when the store holds
+    nothing to check against — the caller turns that last case into "do not
+    block" so a barely-initialised repo is never falsely refused.
+
+    Primary index: ``data.branch``, the binding
+    ``BranchManager._record_binding_in_store`` (#1347) writes at worktree-create
+    time and ``atdd worktree list`` already reads. Matched on the FULL branch
+    name, which is what the binding holds.
+
+    Secondary index: the branch-derived slug as a uid. Retained for records
+    predating the binding — 572 of 876 live work items carry no ``data.branch``
+    at all, so dropping it would newly strand every one of those whose branch
+    name does equal its uid. Both indexes read the ONE store, so unlike the
+    ``.atdd/manifest.yaml`` fallback #1400 CORE-034 retired they cannot disagree
+    about what is registered.
+    """
+    from atdd.state.manifest_import import WORK_ITEM_KIND
+
+    work_items = store.objects.list(kind=WORK_ITEM_KIND)
+    if not work_items:
+        return None
+    if any((obj.data or {}).get("branch") == branch for obj in work_items):
+        return True
+    slug = branch.split("/", 1)[-1] if "/" in branch else branch
+    return store.objects.get(slug) is not None
+
+
 class IssueManager:
     """Manage ATDD issues via GitHub Issues and Projects v2."""
 
@@ -333,27 +364,14 @@ class IssueManager:
         when the repo IS atdd-managed (the store holds work items) yet the branch resolves by
         neither. Never raises; makes no GitHub calls.
         """
-        slug = branch.split("/", 1)[-1] if "/" in branch else branch
-        store_has_items = False
+        verdict = None
         try:
             from atdd.state.db import connect, init_state_store
-            from atdd.state.manifest_import import WORK_ITEM_KIND
             from atdd.state.store import StateStore
 
             conn = connect(init_state_store(start=self.target_dir))
             try:
-                store = StateStore(conn)
-                # Primary index: the branch binding the worktree-create path writes.
-                # Matched on the full branch name, which is what `data.branch` holds.
-                work_items = store.objects.list(kind=WORK_ITEM_KIND)
-                for obj in work_items:
-                    if (obj.data or {}).get("branch") == branch:
-                        return True
-                # Secondary index over the same source, for records predating the
-                # binding: a work item whose uid IS the branch-derived slug.
-                if store.objects.get(slug) is not None:
-                    return True
-                store_has_items = bool(work_items)
+                verdict = _resolve_branch_in_store(StateStore(conn), branch)
             finally:
                 conn.close()
         except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
@@ -362,9 +380,10 @@ class IssueManager:
                 extra={"branch": branch, "error": str(exc)},
             )
 
-        # Absent from a populated store → not registered; empty store → nothing to
-        # check → do not block.
-        return not store_has_items
+        # Resolved by neither index in a populated store → not registered. An
+        # empty store, or one that could not be read, has nothing to check
+        # against → do not block.
+        return verdict is not False
 
     def _store_update_fields(self, issue_number: int, fields: Dict[str, Any]) -> bool:
         """Merge work-item metadata (branch/train/...) into the State Store.
