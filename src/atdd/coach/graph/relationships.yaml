@@ -117,6 +117,15 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: start_to_start
+  reason: 'two halves of the same store-versus-projection class: the phase label is a rendering of objects.state and the issue body''s Feature row is a rendering of objects.data.feature, so each rule holds one stored field to the artifact that displays it, and a divergence in either direction is invisible until something downstream silently resolves to nothing'
+  source_ref: coach.issue.feature-binding-must-resolve
+  strength: important
+  target_ref: coach.phase-label.projection-only
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: "the GREEN\u2192REFACTOR ordering is a phase-machine invariant"
   source_ref: coach.lifecycle.no-green-to-refactor-without-smoke
@@ -132,24 +141,6 @@ edges:
   strength: critical
   target_ref: coach.lifecycle.phase-machine
   type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: finish_to_start
-  reason: 'the autonomy axis is a per-phase field OF the phase machine: it names who may submit the transition a phase already declares as legal, so it has no meaning without the machine that declares agent/transitions_to'
-  source_ref: coach.lifecycle.transition-autonomy
-  strength: critical
-  target_ref: coach.lifecycle.phase-machine
-  type: requires
-- confidence: 1.0
-  constraint: mandatory
-  control: internal
-  foundation: start_to_start
-  reason: 'one model on two axes: freedom-with-a-leash governs which TOOLS run unattended, transition-autonomy which TRANSITIONS may be submitted unattended — the second reuses the first''s freedom_set/leash vocabulary rather than coining a parallel one, so reading either alone understates the model'
-  source_ref: coach.lifecycle.transition-autonomy
-  strength: important
-  target_ref: coach.execution.freedom-with-a-leash
-  type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
   control: internal
@@ -176,6 +167,24 @@ edges:
   source_ref: coach.lifecycle.single-step-advance-on-delivery
   strength: important
   target_ref: coach.lifecycle.no-terminal-before-lifecycle-satisfied
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: 'the autonomy axis is a per-phase field OF the phase machine: it names who may submit the transition a phase already declares as legal, so it has no meaning without the machine that declares agent/transitions_to'
+  source_ref: coach.lifecycle.transition-autonomy
+  strength: critical
+  target_ref: coach.lifecycle.phase-machine
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: "one model on two axes: freedom-with-a-leash governs which TOOLS run unattended, transition-autonomy which TRANSITIONS may be submitted unattended \u2014 the second reuses the first's freedom_set/leash vocabulary rather than coining a parallel one, so reading either alone understates the model"
+  source_ref: coach.lifecycle.transition-autonomy
+  strength: important
+  target_ref: coach.execution.freedom-with-a-leash
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory
@@ -1825,6 +1834,15 @@ edges:
   target_ref: planner.feature.feedback-loop-close-the-loop
   type: relieves
 - confidence: 1.0
+  constraint: discretionary
+  control: internal
+  foundation: start_to_start
+  reason: the dated inline suppression marker is the sanctioned hatch that relieves the close-the-loop obligation until its UNTIL date
+  source_ref: planner.feature.feedback-loop-suppression
+  strength: important
+  target_ref: planner.smoke.feedback-loop-close-the-loop
+  type: relieves
+- confidence: 1.0
   constraint: mandatory
   control: internal
   foundation: finish_to_start
@@ -2100,7 +2118,7 @@ edges:
   target_ref: planner.train.interlocking-home
   type: requires
 - confidence: 1.0
-  reason: the D/L/P/C lifecycle's Confirm gate enforces confirm-before-author
+  reason: the session lifecycle's Ratify gate enforces confirm-before-author
   source_ref: planner.plan.session-lifecycle
   target_ref: planner.plan.confirm-before-author
   type: requires
@@ -2121,6 +2139,24 @@ edges:
   source_ref: planner.relationship.no-orphan-nodes
   strength: minor
   target_ref: planner.acceptance.well-formed
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'the SMOKE close-the-loop obligation only applies to a feature that declares kind: feedback-loop, so the kind rule is its precondition'
+  source_ref: planner.smoke.feedback-loop-close-the-loop
+  strength: important
+  target_ref: planner.feature.feedback-loop-kind
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: 'both police SMOKE-phase authenticity: one forbids synthetic wiring, the other requires the consumer end be exercised, and together they stop a SMOKE suite that is green without proving anything'
+  source_ref: planner.smoke.synthetic-fixture-bypass
+  strength: important
+  target_ref: planner.smoke.feedback-loop-close-the-loop
   type: runs_alongside
 - confidence: 1.0
   constraint: mandatory

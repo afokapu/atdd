@@ -2,7 +2,7 @@
 Test train URN validation for theme orchestrators.
 
 Validates conventions from:
-- atdd/planner/conventions/train.convention.yaml
+- planner.train.theme-orchestrator-urn (convention node)
 
 Enforces:
 - Theme orchestrators have train URNs (python/trains/orchestrators/{theme}.py)
@@ -39,7 +39,6 @@ TRAINS_DIR = REPO_ROOT / "plan" / "_trains"
 
 # Package resources (conventions, schemas)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
-TRAIN_CONVENTION = ATDD_PKG_DIR / "planner" / "conventions" / "train.convention.yaml"
 
 
 def find_theme_orchestrators() -> List[Path]:
@@ -139,7 +138,7 @@ def test_theme_orchestrators_have_train_urns():
             f"\nFound {len(missing_urns)} theme orchestrators without train URNs:\n\n" +
             "\n".join(f"  {name}\n    Missing: # urn: train:{{theme}}:{{train_id}}"
                      for name in missing_urns) +
-            "\n\nSee: atdd/planner/conventions/train.convention.yaml::theme_orchestrator_urn"
+            "\n\nSee: planner.train.theme-orchestrator-urn (convention node)"
         )
 
 
@@ -288,22 +287,3 @@ def test_train_specs_have_implementations():
         print(message)
 
 
-def test_train_convention_file_exists():
-    """Train convention file should exist and be valid YAML."""
-    assert TRAIN_CONVENTION.exists(), (
-        f"Train convention file not found: {TRAIN_CONVENTION}\n"
-        "Expected: atdd/planner/conventions/train.convention.yaml"
-    )
-
-    # Validate it's valid YAML
-    with open(TRAIN_CONVENTION, 'r', encoding='utf-8') as f:
-        convention = yaml.safe_load(f)
-
-    assert convention is not None, "Train convention file is empty or invalid YAML"
-
-    # Check for theme_orchestrator_urn section
-    urn_naming = convention.get('urn_naming', {})
-    assert 'theme_orchestrator_urn' in urn_naming, (
-        "Train convention missing 'urn_naming.theme_orchestrator_urn' section\n"
-        "Expected format documentation for train:{theme}:{train_id}"
-    )

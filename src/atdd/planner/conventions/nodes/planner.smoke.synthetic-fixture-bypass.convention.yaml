@@ -1,0 +1,44 @@
+schema_version: 1.0.0
+rule_id: planner.smoke.synthetic-fixture-bypass
+kind: anti_pattern
+status: active
+name: SMOKE must drive the real entry point, not a synthetic fixture
+statement: A SMOKE-phase test must not drive a synthetic subprocess stub (FakeMultiplexer,
+  or subprocess.Popen of a cat/sleep/python stub) as the primary production wiring;
+  it must drive the real CLI entry point.
+rationale: 'The real-entry-point mandate. Lived incident #854: a Popen crash (missing
+  shell=True on the adapter command tuple) was invisible because the E003-SMOKE tests
+  used a Python stub that never exercised the real command-construction path. Issues
+  #860/#862.'
+terms:
+- term_id: banned_fixtures
+  text: FakeMultiplexer (bypasses real surface dispatch); Popen(['cat',...]) (exercises
+    the pty wrapper, not the agent command); Popen(['sleep',...]) (proves process
+    lifecycle, not agent behaviour); Popen(['python','-c',...]) (bypasses adapter
+    command construction); _SYNTHETIC_AGENT (embedded script constant replacing the
+    real adapter command).
+- term_id: real_entry_points
+  text: "atdd spawn, atdd coach, and the rendered launch prompt \u2014 the surfaces\
+    \ that exercise real adapter command construction and the cmux-native launch path."
+- term_id: suppression
+  text: "Inline hatch: '# atdd:suppress(planner.smoke.synthetic-fixture-bypass) UNTIL=YYYY-MM-DD'\
+    \ \u2014 dated, so the debt expires."
+implementation:
+  type: validator
+  ref: conventions/policy/test_smoke_synthetic_fixture_bypass::test_fault_injection_legacy_parity
+source:
+  legacy_path: src/atdd/tester/conventions/smoke.convention.yaml
+  legacy_section: synthetic_fixture_anti_patterns
+  legacy_rule_id: planner.smoke.synthetic-fixture-bypass
+  extraction_mode: high_fidelity
+content:
+  summary: A SMOKE test driving a synthetic stub proves the harness works, not the
+    product. It is green precisely where the real wiring is untested.
+  fix_hint: Replace the synthetic fixture with the real CLI entry point (subprocess.run([sys.executable,
+    -m, atdd.cli, spawn, ...]) or the invoke_atdd_spawn helper), driving the real
+    cmux-native launch path. Write agent scripts to tmp_path files; do not embed them
+    as string constants.
+metadata:
+  severity: 3
+  disposition: suppress-and-clean
+  introduced_in: 3.83.0

@@ -91,9 +91,6 @@ def test_worktree_add_receives_origin_default_as_start_point(tmp_path, capsys):
         "atdd.coach.utils.repo.detect_worktree_layout",
         return_value="worktree-ready",
     ), patch(
-        "atdd.coach.commands.initializer.write_workspace",
-        return_value=None,
-    ), patch(
         "atdd.coach.commands.branch.ProjectConfig",
     ), patch(
         "atdd.coach.commands.branch.GitHubClient",
@@ -126,9 +123,6 @@ def test_fetch_is_targeted_to_default_branch(tmp_path):
         "atdd.coach.utils.repo.detect_worktree_layout",
         return_value="worktree-ready",
     ), patch(
-        "atdd.coach.commands.initializer.write_workspace",
-        return_value=None,
-    ), patch(
         "atdd.coach.commands.branch.ProjectConfig",
     ), patch(
         "atdd.coach.commands.branch.GitHubClient",
@@ -159,9 +153,6 @@ def test_fetch_precedes_worktree_add(tmp_path):
     ), patch(
         "atdd.coach.utils.repo.detect_worktree_layout",
         return_value="worktree-ready",
-    ), patch(
-        "atdd.coach.commands.initializer.write_workspace",
-        return_value=None,
     ), patch(
         "atdd.coach.commands.branch.ProjectConfig",
     ), patch(

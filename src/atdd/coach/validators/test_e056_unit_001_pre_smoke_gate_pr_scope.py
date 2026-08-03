@@ -39,10 +39,17 @@ def test_offending_current_pr_is_blocked() -> None:
     assert [v.location for v in blocking] == ["PR#1161:0"]
 
 
-def test_no_current_pr_blocks_repo_wide() -> None:
+def test_no_current_pr_blocks_nothing() -> None:
+    """Superseded by wmbt:govern-lifecycle:E070 (#1478).
+
+    This asserted ``current_pr is None -> block every offender`` as "repo-wide
+    back-compat". That fallback was itself the cross-PR coupling E056 set out to
+    remove: any run that cannot name its own PR gets failed by a stranger's offense.
+    Unresolvable now degrades to advisory-only — see E070-UNIT-002.
+    """
     violations = [_v(1161), _v(1163)]
     blocking = mod.select_blocking_violations(violations, current_pr=None)
-    assert blocking == violations
+    assert blocking == []
 
 
 # --- _current_pr_number (CI-context resolution) -----------------------------

@@ -37,7 +37,12 @@ LEGACY_PARITY_SOURCES = ['src/atdd/planner/validators/test_theme_zero_mandatory.
 
 
 _TC = {t.template_id: t for t in archetype.TEMPLATES}
-THEME_CONVENTION = "src/atdd/planner/conventions/theme.convention.yaml"
+# #1639: the theme monolith was deleted; the taxonomy lives on its convention
+# node, so that is both what the evaluator reads and what this test faults.
+THEME_CONVENTION = (
+    "src/atdd/planner/conventions/nodes/"
+    "planner.theme.canonical-taxonomy.convention.yaml"
+)
 
 
 def _evaluate(graph) -> list:
@@ -56,18 +61,21 @@ def test_theme_zero_clean_baseline(clean_convention_graph) -> None:
 
 
 def _staged_broken_floor(repo_root: Path, tmp_path: Path, graph):
-    """Mirror the theme convention with the digit-0 token renamed away from ``commons``,
-    and hand back a graph rooted at that staged tree.
+    """Mirror the theme taxonomy node with the digit-0 token renamed away from
+    ``commons``, and hand back a graph rooted at that staged tree.
 
-    ``presence.archetype._check_theme_zero_mandatory`` reads this convention through
-    ``graph.root`` and reads no node, so a redirected root is the whole fault surface: the
-    evaluator parses the real file's own bytes plus the rename, and the checkout is never
+    ``presence.archetype._check_theme_zero_mandatory`` reads this node file through
+    ``graph.root``, so a redirected root is the whole fault surface: the evaluator
+    parses the real file's own bytes plus the rename, and the checkout is never
     written. ``mirror_file`` raises if the anchor has drifted, so the fault cannot go
     vacuous against an un-faulted tree.
+
+    The anchor is the ``theme_zero`` term's ``token: commons`` (#1639) — a unique
+    string in the node, and the exact field the evaluator compares against.
     """
     mirror_file(repo_root, tmp_path, THEME_CONVENTION,
-                lambda t: t.replace('theme_zero_token: "commons"',
-                                    'theme_zero_token: "platform"', 1))
+                lambda t: t.replace('token: commons',
+                                    'token: platform', 1))
     return graph_rooted_at(graph, tmp_path)
 
 

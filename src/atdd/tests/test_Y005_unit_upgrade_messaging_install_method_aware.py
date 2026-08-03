@@ -186,22 +186,18 @@ class TestNoHardcodedPipInstall:
             f"pre-merge-commit hook still has hardcoded 'pip install --upgrade atdd': {matches}"
         )
 
-    def test_issue_body_convention_no_pip_install(self):
-        source = self._read("src/atdd/planner/conventions/issue-body.convention.yaml")
-        # Match both forms: -U and --upgrade
-        pattern = re.compile(r"pip install (-U|--upgrade) atdd")
-        matches = pattern.findall(source)
-        assert not matches, (
-            f"issue-body.convention.yaml has hardcoded pip install: {matches}"
-        )
-
 
 # ---------------------------------------------------------------------------
 # Y005-UNIT-008: check_for_updates() uses upgrade_command() in its message
 # ---------------------------------------------------------------------------
 class TestCheckForUpdatesUsesUpgradeCommand:
     def test_message_contains_upgrade_command_output(self):
-        with patch("atdd.version_check.upgrade_command", return_value="pipx upgrade atdd"), \
+        # `atdd.__version__` is dynamic (#1172) and resolves to "0.0.0" in a
+        # clean checkout, which `check_for_updates` treats as a dev install and
+        # returns None for. Without this pin the assertion below passes only in
+        # trees carrying a stale `src/atdd.egg-info` (the #1449 ghost).
+        with patch("atdd.version_check.__version__", "1.0.0"), \
+             patch("atdd.version_check.upgrade_command", return_value="pipx upgrade atdd"), \
              patch("atdd.version_check._load_cache", return_value={}), \
              patch("atdd.version_check._fetch_latest_version", return_value="4.0.0"), \
              patch("atdd.version_check._is_newer", return_value=True):

@@ -3,7 +3,7 @@ rule_id: planner.plan.confirm-binds-an-issue
 kind: rule
 status: active
 statement: 'An atdd plan decomposition needs no PRE-EXISTING issue or up-front ceremony,
-  but it MUST be bound to a local ATDD issue record before Confirm: on Confirm, atdd plan
+  but it MUST be bound to a local ATDD issue record before Ratify: on Ratify, atdd plan
   binds the locked decomposition to a target issue (or mints one from the main job) and
   authors the plan as that issue''s PLANNED-phase substrate on its registered branch +
   worktree. The binding identity is the LOCAL manifest/State Store record (its slug; #945/#1168),
@@ -16,7 +16,7 @@ implementation:
 content:
   normative_text: The session must refuse to lock (confirm) a decomposition that is
     not bound to an ATDD issue, so plan substrate is never authored on an untracked branch.
-  fix_hint: 'Bind before confirm — atdd plan session bind-issue --id <sess> --issue <slug>
+  fix_hint: 'Bind before ratify — atdd plan session bind-issue --id <sess> --issue <slug>
     (the local manifest/State Store slug of a target issue), or mint one from the main job
     (run `atdd issue open` to list bindable issue slugs).
     PlanSession.confirm() raises until self.issue_ref is set. The slug is GitHub-agnostic; the
@@ -32,7 +32,7 @@ terms:
   text: the session needs no pre-existing issue or brief; it starts conversationally
     and decomposes before any issue paperwork.
 - term_id: bind_or_mint
-  text: on Confirm the plan binds to a target issue or mints one; the iron rule
+  text: on Ratify the plan binds to a target issue or mints one; the iron rule
     (issue + branch + worktree per repo modification) always holds.
 - term_id: modify_loop
   text: a post-commit validator failure re-opens the session for operator adjustment

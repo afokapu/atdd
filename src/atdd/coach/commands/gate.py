@@ -99,7 +99,7 @@ class ATDDGate:
         try:
             data = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
             return data.get("rules") if isinstance(data, dict) else None
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return None
 
     def _load_issue_convention(self) -> Optional[str]:

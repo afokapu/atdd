@@ -16,7 +16,7 @@ themes. A theme is non-canonical iff it is absent from the effective map — the
 is no separate static reject list to contradict ``get_theme_map`` (#1317).
 
 Rule: planner.theme.must-be-canonical (severity 3)
-Convention: src/atdd/planner/conventions/theme.convention.yaml::rules
+Convention: src/atdd/planner/conventions/nodes/planner.theme.must-be-canonical.convention.yaml
 """
 from __future__ import annotations
 

@@ -108,31 +108,22 @@ class IssueLifecycle:
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
             return None
 
-    def _fetch_sub_issues(self, issue_number: int, slug: str) -> list:
-        """Fetch WMBT sub-issues for this parent issue.
+    def _resolve_wmbts(self, issue_number: int):
+        """Resolve this issue's WMBTs through its feature binding (#1635).
 
-        Matches by slug in WMBT title (wmbt:<slug>:<ID>) or by #N reference.
+        Replaces the provider-label lookup entirely. The previous implementation
+        shelled out to ``gh issue list --label atdd-wmbt`` and never read
+        ``plan/``; #1477 removed the command that minted those labels with no
+        replacement, so it reported nothing for every issue in the repo. It also
+        swallowed subprocess failure and returned ``[]``, which is
+        indistinguishable from a correct empty answer.
+
+        Returns a ``WmbtResolution`` — three distinct outcomes (unbound,
+        unresolved, resolved) rather than one possibly-empty list.
         """
-        repo = self._get_repo()
-        if not repo:
-            return []
-        try:
-            # Search for WMBTs mentioning this slug in title
-            result = subprocess.run(
-                ["gh", "issue", "list", "--repo", repo,
-                 "--label", "atdd-wmbt", "--state", "all",
-                 "--search", f"wmbt:{slug} in:title",
-                 "--json", "number,title,state",
-                 "--limit", "50"],
-                capture_output=True, text=True, timeout=15,
-                cwd=self.target_dir,
-            )
-            if result.returncode != 0:
-                return []
-            import json
-            return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            return []
+        from atdd.coach.commands.issue_feature_binding import resolve_wmbts_for_issue
+
+        return resolve_wmbts_for_issue(issue_number, control_root=self.target_dir)
 
     def _get_status_from_labels(self, labels: list) -> str:
         """Extract ATDD status from issue labels."""
@@ -267,13 +258,6 @@ class IssueLifecycle:
         # (#1051); the Projects v2 "ATDD Branch" field is decommissioned, so no
         # board write happens here.
 
-        # Refresh workspace
-        try:
-            from atdd.coach.commands.initializer import write_workspace
-            write_workspace(self.target_dir)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            pass
-
         return worktree_path
 
     def _run_gate(self, worktree_path: Path) -> int:
@@ -322,16 +306,14 @@ class IssueLifecycle:
         if worktree_path:
             print(f"  Worktree: {worktree_path}")
 
-        # WMBTs
-        if sub_issues:
-            open_wmbts = [w for w in sub_issues if w.get("state") == "OPEN"]
-            closed_wmbts = [w for w in sub_issues if w.get("state") == "CLOSED"]
-            print(f"\n  WMBTs: {len(open_wmbts)} open, {len(closed_wmbts)} closed")
-            for w in sorted(sub_issues, key=lambda x: x["number"]):
-                marker = "[ ]" if w.get("state") == "OPEN" else "[x]"
-                print(f"    {marker} #{w['number']} {w['title'][:60]}")
-        else:
-            print("\n  WMBTs: none found")
+        # WMBTs — resolved from plan/ through the issue's feature binding.
+        # `sub_issues` is a WmbtResolution (#1635), not a list of GitHub issues:
+        # an unbound issue and a broken binding now read differently from a
+        # genuinely undecomposed one instead of collapsing into "none found".
+        from atdd.coach.commands.issue_feature_binding import render_wmbt_section
+
+        print()
+        print(render_wmbt_section(sub_issues))
 
         # Next action
         print()
@@ -444,20 +426,33 @@ class IssueLifecycle:
         if outcome.proceed:
             return 0
 
+        # Count and iterate the FULL blocking set, not just `failures` (#1719).
+        # Two verdicts refuse, and the gate reports them apart: a check that
+        # could not perform its observation blocks without ever landing in
+        # `failures`. Rendering only that bucket tells the operator a transition
+        # is "blocked by 0 failing gate check(s)" and then lists nothing — a
+        # refusal that names no reason, which is the same defect class as the
+        # vacuous pass this verdict was added to remove.
         if force:
             print(
                 f"::warning::Transition gate bypassed (--force) for "
                 f"{from_phase} -> {target_status.upper()}; "
-                f"{len(outcome.failures)} check(s) failed."
+                f"{len(outcome.blockers)} check(s) blocked "
+                f"({len(outcome.failures)} failed, "
+                f"{len(outcome.unobservable)} could not be checked)."
             )
             return 0
 
         print(
             f"\nError: Transition {from_phase} -> {target_status.upper()} blocked "
-            f"by {len(outcome.failures)} failing gate check(s):"
+            f"by {len(outcome.blockers)} gate check(s):"
         )
         for f in outcome.failures:
             print(f"  ✗ [{f.gate_id} / {f.rule_id}] {f.message}")
+        # Marked distinctly because the remedy is different: a failure means fix
+        # the work, an unobservable check means make the check able to look.
+        for u in outcome.unobservable:
+            print(f"  ? [{u.gate_id} / {u.rule_id}] COULD NOT CHECK: {u.message}")
         print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
         return 1
 
@@ -509,7 +504,7 @@ class IssueLifecycle:
         labels = issue.get("labels", [])
         status = self._get_status_from_labels(labels)
         slug, prefix = self._get_slug_and_prefix(issue)
-        sub_issues = self._fetch_sub_issues(issue_number, slug)
+        sub_issues = self._resolve_wmbts(issue_number)
 
         self._print_context(issue, status, sub_issues, slug, prefix, None)
         return 0
@@ -565,7 +560,7 @@ class IssueLifecycle:
         slug, prefix = self._get_slug_and_prefix(issue)
 
         # Fetch sub-issues (WMBTs)
-        sub_issues = self._fetch_sub_issues(issue_number, slug)
+        sub_issues = self._resolve_wmbts(issue_number)
 
         worktree_path = None
 

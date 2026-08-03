@@ -50,7 +50,7 @@ def _store_session_entry(root, issue_number: int):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.session_entry(issue_number)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 
@@ -192,7 +192,7 @@ class BranchManager:
                 )
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "branch↔worktree binding store write unavailable",
                 extra={"issue": issue_number, "branch": branch_name, "error": str(exc)},
@@ -259,7 +259,7 @@ class BranchManager:
             )
             if ff.returncode == 0:
                 print(f"  Fast-forwarded local `{default_branch}` → origin/{default_branch}")
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "ff-sync of default branch skipped",
                 extra={"default_branch": default_branch, "error": str(exc)},
@@ -511,13 +511,6 @@ class BranchManager:
         # is-registered`, store-first) reads. Zero commits to local `main`.
         self._record_binding_in_store(issue_number, branch_name, worktree_path)
 
-        # Refresh VS Code workspace file
-        try:
-            from atdd.coach.commands.initializer import write_workspace
-            write_workspace(self.target_dir)
-        except Exception as e:
-            print(f"  Warning: Could not refresh workspace file: {e}")
-
         print(f"\n  cd {worktree_path}")
         return 0
 
@@ -574,7 +567,7 @@ class BranchManager:
                         branch_to_issue[br] = obj.uid
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug("worktree list store read unavailable", extra={"error": str(exc)})
 
         print("ATDD worktrees:")

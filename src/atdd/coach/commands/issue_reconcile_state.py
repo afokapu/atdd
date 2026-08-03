@@ -359,7 +359,14 @@ def _run_reprojection(
         reproject = IssueManager(target_dir).reproject_phase_label
     projected = reproject(repair.issue_number)
     if projected is None:
-        print(f"#{repair.issue_number}: re-projection failed — store unreadable.")
+        # Every path that returns None has already printed its own reason —
+        # store unreadable, issue unreadable, or the label write refused
+        # (#1621). Naming one of them here would be a guess, and this message
+        # used to guess "store unreadable" for all three.
+        print(
+            f"#{repair.issue_number}: re-projection failed — the label was not "
+            f"written. See the reason above."
+        )
         return 1
     print(f"#{repair.issue_number}: label re-projected from the store := {projected}")
     return 0
