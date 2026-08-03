@@ -94,6 +94,24 @@ def _summarise(msg: SyncMessage) -> str:
     return f"{len(payload)} payload field(s)"
 
 
+def _row_as_dict(msg: SyncMessage, routable_keys: set) -> Dict[str, object]:
+    """One outbox row as JSON-safe fields.
+
+    ``routable`` is ``None`` for anything not pending: a sent or discarded row has
+    no routing question left to answer, and reporting ``false`` for it would read as
+    "this could not be delivered" when in fact it already was, or was retired.
+    """
+    return {
+        "id": msg.id,
+        "provider": msg.provider,
+        "operation": msg.operation,
+        "status": msg.status,
+        "created_at": msg.created_at,
+        "routable": (msg.provider in routable_keys) if msg.status == "pending" else None,
+        "disposition": msg.disposition,
+    }
+
+
 def _cmd_list(args, store: StateStore) -> int:
     rows = store.sync.all_outbox()
     report = _assess(store)
@@ -107,15 +125,7 @@ def _cmd_list(args, store: StateStore) -> int:
             "routable": report.routable,
             "unroutable": report.unroutable,
             "registered_providers": report.registered,
-            "rows": [
-                {
-                    "id": m.id, "provider": m.provider, "operation": m.operation,
-                    "status": m.status, "created_at": m.created_at,
-                    "routable": m.provider in routable_keys if m.status == "pending" else None,
-                    "disposition": m.disposition,
-                }
-                for m in rows
-            ],
+            "rows": [_row_as_dict(m, routable_keys) for m in rows],
         }, indent=2))
         return 0
 
