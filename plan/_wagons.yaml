@@ -1659,6 +1659,8 @@ wagons:
       unresolvable PR to advisory-only instead of a repo-wide block, and by extending
       the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline
       (#1478; renumbered from E062 which origin/main claimed)
+    C013: minimize likelihood of a-gate-check-that-could-not-perform-its-observation-returning-the-verdict-of-one-that-observed-nothing-wrong-so-the-transition-advances-on-an-observation-nobody-made
+      (#1719)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
