@@ -29,10 +29,11 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="atdd coach backfill-bindings",
         description=(
             "Populate work_item.data.feature from the issue body's Feature row, "
-            "for issue-backed work items that carry no binding. Derives ONLY from "
-            "a body Feature row that resolves against plan/; anything else is "
-            "reported and left NULL rather than guessed at. Never overwrites an "
-            "existing binding, so re-running writes nothing."
+            "for issue-backed work items whose binding does not resolve against "
+            "plan/. Derives ONLY from a body Feature row that resolves; anything "
+            "else is reported and left alone rather than guessed at. Never "
+            "overwrites a binding that already resolves, so re-running writes "
+            "nothing."
         ),
     )
     parser.add_argument(
@@ -41,7 +42,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--show-unresolved", action="store_true",
-        help="List the issue numbers left NULL, not just the count.",
+        help="List the issue numbers left alone, not just the counts.",
     )
     return parser
 
@@ -64,10 +65,23 @@ def run(argv: list[str]) -> int:
         f"  left NULL (no resolvable Feature row): {len(report.unresolved)} "
         "— these declare no feature, or name one plan/ does not contain"
     )
+    # Always printed, including as a zero: this count used to be invisible, and
+    # an operator who cannot see it cannot know the store holds bindings that
+    # resolve to nothing (#1689). Read as a plain attribute, not via a
+    # defaulting getattr — a getattr default would print 0 forever if the field
+    # were ever renamed, which is the silent-success failure this issue is about.
+    unrepairable = report.unrepairable
+    print(
+        f"  broken binding, body offers no better: {len(unrepairable)} "
+        "— a stored value that does not resolve in plan/ (e.g. 'TBD'); needs "
+        "authoring, not backfilling"
+    )
 
-    if ns.show_unresolved and report.unresolved:
+    if ns.show_unresolved:
         for number in report.unresolved:
-            print(f"    #{number}")
+            print(f"    #{number} (no binding)")
+        for number in unrepairable:
+            print(f"    #{number} (broken binding)")
 
     if report.written and not ns.dry_run:
         print(

@@ -53,10 +53,19 @@ class WmbtResolution:
 
 @dataclass(frozen=True)
 class BackfillReport:
-    """What a backfill run wrote, and what it refused to guess at."""
+    """What a backfill run wrote, and what it refused to guess at.
+
+    ``unrepairable`` is the third outcome (#1689): the work item DOES carry a
+    stored feature, but that value does not resolve in ``plan/`` and the body
+    offers nothing better. Those rows used to vanish — counted as "already
+    bound" by a truthy check and reported in neither list — so an operator could
+    run the backfill to completion and never learn the store held 156 bindings
+    with values like ``TBD``, ``none`` and ``N/A``.
+    """
 
     written: Tuple[int, ...] = ()
     unresolved: Tuple[int, ...] = ()
+    unrepairable: Tuple[int, ...] = ()
 
 
 def _open_store(control_root: Optional[Path]):
@@ -164,34 +173,53 @@ def backfill_feature_bindings(
     Guessing here would manufacture a binding out of exactly the drift the
     backfill exists to find.
 
-    Idempotent: a work item that already carries a feature is never overwritten,
-    so a second run writes nothing and reports the same unresolved set.
+    "Already bound" means RESOLVABLE, not merely truthy (#1689). The skip guard
+    used to be ``if data.get("feature")``, which treats a stored ``"TBD"`` as a
+    binding and protects it from the repair it needs — the very defect this
+    backfill exists to remove, preserved by the check meant to be conservative.
+    A stored value that does not resolve in ``plan/`` is not a binding; it is the
+    absence of one wearing a value. Where the body declares a URN that DOES
+    resolve, such a row is repaired; where it does not, the row is reported as
+    ``unrepairable`` rather than silently counted as bound.
+
+    Idempotent: a work item whose stored feature resolves is never overwritten,
+    and a repaired row resolves, so a second run writes nothing and reports the
+    same sets.
     """
     from atdd.state.work_item_writer import revise_work_item_issue
 
     store = _open_store(control_root)
     written: List[int] = []
     unresolved: List[int] = []
+    unrepairable: List[int] = []
 
     for ref in _issue_refs(store):
         obj = store.objects.get(ref.object_uid)
         if obj is None:
             continue
         data: Dict[str, Any] = obj.data or {}
-        if data.get("feature"):
-            continue  # already bound — never overwrite
-
         issue_number = int(ref.ref_value)
+
+        stored = data.get("feature")
+        if stored and resolve_feature(stored, control_root).resolved:
+            continue  # a real, resolvable binding — never overwrite
+
         candidate = feature_in_body(data.get("body"))
         if candidate is None or not resolve_feature(candidate, control_root).resolved:
-            unresolved.append(issue_number)
+            # Distinguish "no binding at all" from "a binding that leads nowhere".
+            # Collapsing the two is what let the broken ones hide.
+            (unrepairable if stored else unresolved).append(issue_number)
             continue
 
         if not dry_run:
             revise_work_item_issue(store.conn, issue_number, feature=candidate)
         written.append(issue_number)
 
-    return BackfillReport(written=tuple(sorted(written)), unresolved=tuple(sorted(unresolved)))
+    return BackfillReport(
+        written=tuple(sorted(written)),
+        unresolved=tuple(sorted(unresolved)),
+        unrepairable=tuple(sorted(unrepairable)),
+    )
 
 
 def _issue_refs(store) -> List[Any]:

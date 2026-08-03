@@ -37,7 +37,10 @@ content:
          and reports the rest instead of guessing:
            atdd coach backfill-bindings --dry-run    # report only
            atdd coach backfill-bindings              # write
-         Never overwrites an existing binding, so re-running is a no-op.
+         Never overwrites a binding that RESOLVES, so re-running is a no-op.
+         A stored value that resolves to nothing ('TBD', a stale URN) is not
+         treated as a binding: it is repaired where the body declares a URN
+         that resolves, and counted under "broken binding" where it does not.
 
     See #1635 for the four breaks in this chain, and #1630 for the consumer
     that this binding lets be fixed exactly rather than heuristically.
