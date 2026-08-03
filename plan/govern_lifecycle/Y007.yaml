@@ -1,0 +1,158 @@
+urn: wmbt:govern-lifecycle:Y007
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer
+context_clarifier: "`atdd author issue` registers eleven flags on one subparser and\
+  \ dispatches them to three handlers that each read a different subset. On the --revise\
+  \ path `args.title` is read by nothing: measured 2026-08-02 against the tree at\
+  \ 84c46b4c, `--revise <N> --title X --type bug` exits 0 with objects.data.title\
+  \ unchanged and zero GitHub title calls, and `--revise <N> --body-file f --title\
+  \ X` writes the body \u2014 whose H1 carries the new title \u2014 while the GitHub\
+  \ issue title stays stale, which is the divergence #1636 needed an operator's `gh\
+  \ issue edit` to repair. Four further flags (--slug, --status, --branch, --train)\
+  \ are likewise accepted and unread on revise. The guard that was supposed to close\
+  \ this class, Y006-UNIT-001's test_no_accepted_revise_flag_is_dropped, iterates\
+  \ the literal tuple (\"body\", \"issue_type\", \"feature\") despite a docstring\
+  \ claiming it asserts against the parser's own declared arguments, so it cannot\
+  \ see --title or any flag added next."
+lens: functional.effectiveness
+statement: minimize likelihood of a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer
+  by writing --title through the revise chain into the store and the GitHub issue
+  title, by refusing with a non-zero exit that names the flag when --revise is given
+  a flag whose semantics the revise path does not define, and by deriving the guard's
+  flag list from the parser itself so the next unread flag fails a test instead of
+  exiting 0
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:Y007-UNIT-001-revise-writes-the-title-to-store-and-github
+    id: AC-UNIT-001
+    purpose: '`atdd author issue --revise <N> --title <t>` writes the title onto the
+      authoritative work item and projects it to the GitHub issue title, whether or
+      not --body-file accompanies it'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A State Store holding a work item bound to a GitHub issue number through external_refs,
+      carrying a known stale title
+    - "The revise path exercised at its seam \u2014 the argparse namespace through\
+      \ _run_issue_revise / _publish_revision / revise_issue / revise_work_item_issue\
+      \ \u2014 with the GitHub projection recorded rather than performed"
+    - 'Three revise requests: --title alone, --title with --body-file, and --body-file
+      alone'
+  when:
+    abstract: each revise request is run against the store and the resulting work
+      item's data plus the recorded GitHub calls are read back
+  then:
+    abstract:
+    - --title alone leaves data.title equal to the string supplied, and is not refused
+      for lacking --body-file, --feature and --type
+    - --title with --body-file leaves data.title equal to the string supplied AND
+      the body updated, so neither field overwrites the other
+    - --body-file alone leaves data.title exactly as it was, so a revision naming
+      no title never clears the existing one
+    - 'A revision carrying a title issues a GitHub title update for that issue, so
+      the issue title and the body H1 cannot diverge the way #1636 did'
+    - A GitHub title projection that fails is enqueued to the outbox and reported,
+      exactly as the body projection already is, so the store write is never orphaned
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+- identity:
+    urn: acc:govern-lifecycle:Y007-UNIT-002-revise-refuses-the-flags-it-cannot-honour
+    id: AC-UNIT-002
+    purpose: A flag whose semantics the revise path does not define is refused with
+      a non-zero exit naming that flag, rather than accepted and discarded
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A State Store holding a work item bound to a GitHub issue number, and a revise
+      request otherwise valid
+    - 'The four flags the revise path defines no semantics for: --slug (the object
+      uid), --status (owned by the phase machine via `atdd coach transition`), --branch
+      and --train'
+  when:
+    abstract: each of those flags is passed alongside a valid --revise request and
+      the exit code, stderr and stored work item are inspected
+  then:
+    abstract:
+    - The command exits non-zero and its stderr names the offending flag verbatim,
+      so the caller learns which input was not honoured
+    - "The stored work item is unchanged \u2014 a refused revision performs no partial\
+      \ write, matching the fail-closed posture of manifest_migration and extensions_lock"
+    - The refusal for --status names `atdd coach transition` as the command that does
+      own it, so the caller is redirected rather than merely blocked
+    - A revise carrying only flags the path does honour is not refused, so the guard
+      costs the working paths nothing
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+- identity:
+    urn: acc:govern-lifecycle:Y007-UNIT-003-every-registered-flag-is-consumed-or-refused
+    id: AC-UNIT-003
+    purpose: The guard enumerates the `author issue` parser's own declared arguments,
+      so a flag added to the CLI and forgotten in a handler fails a test instead of
+      exiting 0
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The real `atdd author issue` subparser, introspected for its declared option
+      destinations rather than a hand-maintained list of flag names
+    - 'The three handlers the subparser dispatches to: the create path, the revise
+      path and the --check path'
+  when:
+    abstract: each declared destination is classified as read by a handler, or explicitly
+      declared unsupported by the path it is given to
+  then:
+    abstract:
+    - Every destination the parser declares is either read by at least one handler
+      or listed in an explicit refusal set, with no third category
+    - The refusal set is asserted to be exactly the flags the revise path declines,
+      so silently widening it to hide a new drop fails the same test
+    - The guard reads the destinations from the parser object, so adding a flag to
+      the CLI without wiring it fails without anyone editing the guard
+    - The known create-side gap --body-file (#1631) is recorded as an expected failure
+      naming its own issue, so this guard reports it rather than being weakened to
+      accommodate it
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+- identity:
+    urn: acc:govern-lifecycle:Y007-SMOKE-001-real-cli-revise-writes-the-title
+    id: AC-SMOKE-001
+    purpose: The installed `atdd author issue --revise --title` writes the title into
+      a live State Store and issues the GitHub title update, exercised through the
+      real CLI rather than an imported seam
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout with an initialized ATDD Control Root holding a work item
+      linked to a GitHub issue number, whose stored title is known and stale
+    - A stubbed `gh` on PATH that records the arguments it is called with, so the
+      projection resolves without touching production GitHub
+  when:
+    abstract: '`atdd author issue --revise <N> --title <t>` is run as a subprocess
+      against that Control Root'
+  then:
+    abstract:
+    - The process exits 0 and the stored work item's data.title equals the supplied
+      string
+    - The recorded `gh` invocations include a title edit for that issue number carrying
+      the supplied string
+    - Running the same command with a flag the revise path refuses exits non-zero
+      and the stub records no `gh` call at all
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'

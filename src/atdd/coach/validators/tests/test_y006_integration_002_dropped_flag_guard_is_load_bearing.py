@@ -91,8 +91,14 @@ def test_store_merge_link_exists_and_is_removable() -> None:
 def test_cli_forward_link_exists_and_is_removable() -> None:
     """The revise CLI path must forward `args.feature` into the publish call."""
     source = _function_source(*_CLI_FORWARD_FN)
+    # The replacement carries its own comma. The pattern does not match the
+    # original trailing one, and the injected comment swallows whatever follows
+    # it on the line — so without a comma here the mutation only parses while
+    # `feature=` happens to be the LAST argument in the call. Adding any kwarg
+    # after it broke this test for a syntax reason rather than a real one
+    # (found when `title=args.title` landed for #1661).
     _inject(source, _CLI_FORWARD, "the CLI-side feature forward",
-            "feature=None  # fault injected")
+            "feature=None,  # fault injected")
 
 
 def test_revise_signature_carries_feature_end_to_end() -> None:
