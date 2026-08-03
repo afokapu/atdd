@@ -12,6 +12,7 @@ Six-cell matrix for ``auto_upgrade``:
 Plus a dedicated ``_verify_installed_version`` timeout test.
 """
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,6 +22,7 @@ from atdd.version_check import (
     _run_with_pep668_retry,
     _verify_installed_version,
     auto_upgrade,
+    upgrade_command,
 )
 
 
@@ -104,7 +106,19 @@ class TestRunWithPep668Retry:
 
 
 class TestAutoUpgrade:
-    """Six-cell matrix for the cache-bust + verify behavior."""
+    """Six-cell matrix for the cache-bust + verify behavior, on the pip branch."""
+
+    @pytest.fixture(autouse=True)
+    def _detected_as_pip(self):
+        """Pin the detected install method for this whole matrix.
+
+        These cells exercise the pip branch. Without the pin the result depends
+        on how the machine running the suite installed atdd — on a pipx install
+        ``auto_upgrade()`` now correctly takes the pipx branch and never touches
+        pip at all (#1671).
+        """
+        with patch("atdd.version_check.detect_install_method", return_value="pip"):
+            yield
 
     def test_cell1_clean_happy_path(self):
         """returncode=0 on attempt 1 + verify passes → True, single pip call."""
@@ -112,7 +126,7 @@ class TestAutoUpgrade:
              patch("atdd.version_check._verify_installed_version", return_value=True), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
-            assert auto_upgrade() is True
+            assert auto_upgrade()[0] is True
             assert mock_run.call_count == 1
             # --no-cache-dir always present.
             assert "--no-cache-dir" in mock_run.call_args_list[0].args[0]
@@ -126,7 +140,7 @@ class TestAutoUpgrade:
                 MagicMock(returncode=1, stderr="error: externally-managed-environment"),
                 MagicMock(returncode=0, stderr=""),
             ]
-            assert auto_upgrade() is True
+            assert auto_upgrade()[0] is True
             assert mock_run.call_count == 2
             assert "--break-system-packages" in mock_run.call_args_list[1].args[0]
             # No pinned attempt fired.
@@ -141,7 +155,7 @@ class TestAutoUpgrade:
                    side_effect=verify_results), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
-            assert auto_upgrade() is True
+            assert auto_upgrade()[0] is True
             # Two pip calls: name-only, then pinned.
             assert mock_run.call_count == 2
             assert "atdd" in mock_run.call_args_list[0].args[0]
@@ -161,7 +175,7 @@ class TestAutoUpgrade:
                 # Attempt 2 (pinned): clean.
                 MagicMock(returncode=0, stderr=""),
             ]
-            assert auto_upgrade() is True
+            assert auto_upgrade()[0] is True
             assert mock_run.call_count == 3
             assert "--break-system-packages" in mock_run.call_args_list[1].args[0]
             assert "atdd==3.7.2" in mock_run.call_args_list[2].args[0]
@@ -173,7 +187,7 @@ class TestAutoUpgrade:
                    side_effect=[False, False]), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
-            assert auto_upgrade() is False
+            assert auto_upgrade()[0] is False
             assert mock_run.call_count == 2
 
     def test_cell5b_pinned_attempt_pip_failure(self):
@@ -186,7 +200,7 @@ class TestAutoUpgrade:
                 MagicMock(returncode=0, stderr=""),
                 MagicMock(returncode=1, stderr="ERROR: No matching distribution"),
             ]
-            assert auto_upgrade() is False
+            assert auto_upgrade()[0] is False
             assert mock_run.call_count == 2
 
     def test_cell6_expected_none_returncode_decides(self):
@@ -194,7 +208,7 @@ class TestAutoUpgrade:
         with patch("atdd.version_check._fetch_latest_version", return_value=None), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr="")
-            assert auto_upgrade() is True
+            assert auto_upgrade()[0] is True
             assert mock_run.call_count == 1
             # No pinned attempt — we have nothing to pin to.
             for call in mock_run.call_args_list:
@@ -208,13 +222,13 @@ class TestAutoUpgrade:
                 returncode=1,
                 stderr="ERROR: Could not find a version that satisfies the requirement atdd",
             )
-            assert auto_upgrade() is False
+            assert auto_upgrade()[0] is False
             assert mock_run.call_count == 1
 
     def test_returns_false_on_subprocess_exception(self):
         with patch("atdd.version_check._fetch_latest_version", return_value="3.7.2"), \
              patch("subprocess.run", side_effect=OSError("boom")):
-            assert auto_upgrade() is False
+            assert auto_upgrade()[0] is False
 
     def test_no_cache_dir_always_present(self):
         """Regression: --no-cache-dir on every pip invocation."""
@@ -246,12 +260,144 @@ class TestAutoUpgrade:
                 stderr="",
                 stdout="Requirement already satisfied: atdd 3.7.1",
             )
-            assert auto_upgrade() is True
+            assert auto_upgrade()[0] is True
             # Verify was called with "3.7.2" both times.
             for call in mock_verify.call_args_list:
                 assert call.args[0] == "3.7.2"
             # Pinned attempt fired with the correct version.
             assert "atdd==3.7.2" in mock_run.call_args_list[1].args[0]
+
+
+# ---------------------------------------------------------------------------
+# #1671 — the command advised must be the command run.
+#
+# `upgrade_command()` answers "how is this installed"; `auto_upgrade()` answers
+# "how do I upgrade it". They were two independent code paths written to agree
+# and never checked against each other, so the advice said `pipx upgrade atdd`
+# while the execution always shelled `sys.executable -m pip` — and a pipx venv
+# ships no pip, which made the upgrade structurally unreachable on the standard
+# install method rather than merely flaky.
+#
+# The guard cannot be literal string equality: for pip the advice is the short
+# human form (`pip install --upgrade atdd`) while the execution deliberately
+# adds `--no-cache-dir` and runs `sys.executable -m pip`. What must not drift is
+# the ENGINE — pipx / pip / git — so that is what is pinned here.
+# ---------------------------------------------------------------------------
+
+
+def _engine_of_advice(advice: str) -> str:
+    """The tool `upgrade_command()` names, taken from its first token."""
+    return advice.split()[0]
+
+
+def _engine_of_argv(argv: list) -> str:
+    """The tool an executed argv actually invokes."""
+    if len(argv) >= 3 and argv[1] == "-m":
+        return argv[2]          # [python, -m, pip, ...] → "pip"
+    return Path(argv[0]).name   # [/usr/bin/pipx, upgrade, atdd] → "pipx"
+
+
+class TestAdviceMatchesExecution:
+    """#1671 regression guard. No network, no real install."""
+
+    def test_pipx_install_runs_pipx_and_never_pip(self):
+        """The defect itself: a pipx-detected install must not shell pip."""
+        with patch("atdd.version_check.detect_install_method", return_value="pipx"), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.34.0"), \
+             patch("atdd.version_check._verify_installed_version", return_value=True), \
+             patch("shutil.which", return_value="/opt/homebrew/bin/pipx"), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+            ok, detail = auto_upgrade()
+
+        assert ok is True, detail
+        argv = mock_run.call_args_list[0].args[0]
+        assert argv[1:] == ["upgrade", "atdd"]
+        assert _engine_of_argv(argv) == "pipx"
+        # The exact shape of the bug: no invocation may reach for pip.
+        for call in mock_run.call_args_list:
+            assert "pip" not in call.args[0], f"pip invoked under pipx: {call.args[0]}"
+
+    def test_engine_advised_equals_engine_executed(self):
+        """Per install method, advice and execution must name the same tool."""
+        for method, engine in (("pipx", "pipx"), ("pip", "pip")):
+            with patch("atdd.version_check.detect_install_method", return_value=method), \
+                 patch("atdd.version_check._fetch_latest_version", return_value="4.34.0"), \
+                 patch("atdd.version_check._verify_installed_version", return_value=True), \
+                 patch("shutil.which", return_value=f"/usr/local/bin/{engine}"), \
+                 patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
+                advice = upgrade_command()
+                auto_upgrade()
+
+            argv = mock_run.call_args_list[0].args[0]
+            assert _engine_of_advice(advice) == engine
+            assert _engine_of_argv(argv) == engine, (
+                f"{method}: advised {advice!r} but executed {argv!r}"
+            )
+
+    def test_editable_install_is_reported_not_performed(self):
+        """An editable install names the command and mutates nothing."""
+        direct_url = {"url": "file:///Users/dev/atdd", "dir_info": {"editable": True}}
+        with patch("atdd.version_check.detect_install_method", return_value="editable"), \
+             patch("atdd.version_check._read_direct_url", return_value=direct_url), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.34.0"), \
+             patch("subprocess.run") as mock_run:
+            ok, detail = auto_upgrade()
+
+        assert ok is False
+        assert mock_run.call_count == 0, "an editable install must not be upgraded for the operator"
+        assert "git -C /Users/dev/atdd pull" in detail
+
+
+class TestFailureDetailReachesCaller:
+    """#1671 — the reason must survive the return boundary."""
+
+    def test_pipx_failure_carries_stderr(self):
+        with patch("atdd.version_check.detect_install_method", return_value="pipx"), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.34.0"), \
+             patch("shutil.which", return_value="/opt/homebrew/bin/pipx"), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=1, stderr="No module named pip", stdout="",
+            )
+            ok, detail = auto_upgrade()
+
+        assert ok is False
+        assert "No module named pip" in detail
+
+    def test_missing_pipx_on_path_says_so(self):
+        with patch("atdd.version_check.detect_install_method", return_value="pipx"), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.34.0"), \
+             patch("shutil.which", return_value=None), \
+             patch("subprocess.run") as mock_run:
+            ok, detail = auto_upgrade()
+
+        assert ok is False
+        assert mock_run.call_count == 0
+        assert "pipx" in detail and "PATH" in detail
+
+    def test_pip_failure_carries_stderr(self):
+        with patch("atdd.version_check.detect_install_method", return_value="pip"), \
+             patch("atdd.version_check._fetch_latest_version", return_value=None), \
+             patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=1, stderr="ERROR: No matching distribution found for atdd",
+            )
+            ok, detail = auto_upgrade()
+
+        assert ok is False
+        assert "No matching distribution" in detail
+
+    def test_exception_detail_is_returned_not_swallowed(self):
+        """The suppression this replaced returned a bare False (#1671, #1680)."""
+        with patch("atdd.version_check.detect_install_method", return_value="pip"), \
+             patch("atdd.version_check._fetch_latest_version", return_value="4.34.0"), \
+             patch("subprocess.run", side_effect=OSError("boom")):
+            ok, detail = auto_upgrade()
+
+        assert ok is False
+        assert "boom" in detail
 
 
 # ---------------------------------------------------------------------------

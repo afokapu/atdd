@@ -205,11 +205,17 @@ class Upgrader:
                     print(f"Running: {_cmd}")
                     try:
                         with upgrade_lock():
-                            if not auto_upgrade():
-                                print(
-                                    f"Upgrade failed. Run manually: "
-                                    f"{_cmd}"
-                                )
+                            # Unpack, never truth-test: auto_upgrade() returns a
+                            # (success, detail) tuple, and a tuple is always
+                            # truthy — `if not auto_upgrade()` would make this
+                            # branch unreachable and report every failure as a
+                            # success (#1671).
+                            upgraded, detail = auto_upgrade()
+                            if not upgraded:
+                                print("Upgrade failed.")
+                                if detail:
+                                    print(f"  {detail}")
+                                print(f"Run manually: {_cmd}")
                                 return 1
                     except UpgradeLockUnavailable as exc:
                         logger.error(
