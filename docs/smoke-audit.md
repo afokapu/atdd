@@ -4,6 +4,8 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 
 | acceptance-URN | entry-point-coverage | assertion-target | handoff-coverage | incident-cross-ref |
 |---|---|---|---|---|
+| acc:govern-providers:E004-SMOKE-001-real-lock-narrows-to-one-selected-rule | real (the toolkit's own committed .atdd/binding.lock.yaml) | rule selection narrows the bound set to exactly the named convention | single direction | #1674 (enforce rule selection; no synthetic substrate — asserts against the real lock) |
+| acc:author-atdd-substrate:E009-SMOKE-001-real-repo-declares-no-review-rules | real (the toolkit's own committed .atdd/config.yaml) | the repo declares no author_review rules, so authoring stays unguarded | single direction | #1674 (pre-write review seam; guards the agnosticism claim — red here means the toolkit opted itself in) |
 | acc:observe-and-correct:E008-SMOKE-001-delivery-waits-for-tui | synthetic (Python slow-start subprocess) | TUI ready-marker gate timing | single direction | #862; flagged for retrofit per #855 (synthetic-fixture-bypass + timing-flaky risk) |
 | acc:observe-and-correct:E007-SMOKE-001-sentinel-enables-tui-submission | synthetic (Python echo-on-enter subprocess in raw termios) | submit sentinel (CR) delivery | single direction | #862; flagged for retrofit per #855 (synthetic-fixture-bypass) |
 | acc:observe-and-correct:E003-SMOKE-001 | atdd-shim CLI subprocess | output.log contains CORRECTION_RECEIVED | dispatcher.dispatch → cli-return.jsonl → shim → agent stdin | #862 (rewritten from PersonaShim direct) |

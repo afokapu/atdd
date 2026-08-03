@@ -141,7 +141,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 26
+    total: 27
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -198,6 +198,10 @@ wagons:
       (back-compat)
     E008: maximize likelihood of issue-publish-to-store when authoring via `atdd author
       issue` (store-first work_item + exactly one github external_ref, by default)
+    E009: minimize quantity of unreviewed-authored-prose by routing every authoring
+      write through a pre-write review that enforces only the repo-declared review
+      rules over a staged copy and refuses the write when any of them fires, so a
+      prose finding surfaces before the artifact exists rather than after it is committed
     C012: minimize likelihood of author-without-publish by requiring the generate
       path to reach the store-first publish and to fail loud (no body-only degrade)
       when the store is unreachable
@@ -1771,7 +1775,7 @@ wagons:
     to: internal
   consume: []
   wmbt:
-    total: 4
+    total: 5
     D001: minimize likelihood of provider-boundary-erosion by resolving a workspace
       provider to a subprocess CLI handle that core never imports, requiring the provider
       to declare a contract_version, and refusing resolution when no installed contract
@@ -1788,6 +1792,10 @@ wagons:
       from convention, implementation, workspace and contract fields alone and never
       emitting the extension package identity, so a package rename is a lock regeneration
       rather than a rule migration
+    E004: minimize quantity of off-target-rule-execution by letting a caller name
+      the rules enforce() runs and refusing a selection that names an unknown rule,
+      so a single-rule verdict costs one provider subprocess instead of the whole
+      bound set and a mistyped rule id fails loudly instead of reporting clean
   total: 0
   manifest: plan/govern_providers/_govern_providers.yaml
   path: plan/govern_providers/
