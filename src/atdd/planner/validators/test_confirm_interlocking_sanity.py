@@ -67,7 +67,7 @@ def _write_valid_tree(root: Path) -> Path:
 
 def _session_with_kept_train(root: Path, *, interlocking: bool) -> PlanSession:
     s = PlanSession(session_id="s1")
-    s.step = Step.CONFIRM.value
+    s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
     spec = {"source_interlocking": {"interlocking_id": _INTERLOCKING_ID,
                                     "route_id": "nominal-all-voted"}} if interlocking else {}
@@ -161,7 +161,7 @@ def test_confirm_allows_direct_train_when_no_interlocking_policy_requires_one(tm
 def test_confirm_unchanged_when_no_kept_train_units(tmp_path: Path) -> None:
     """No kept train units -> the gate is a no-op (existing behaviour preserved)."""
     s = PlanSession(session_id="s2")
-    s.step = Step.CONFIRM.value
+    s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
     s.add_unit(Unit(kind="feature", ref="feat-x", verdict=Verdict.KEEP.value, spec={}))
     s.confirm(root=tmp_path)

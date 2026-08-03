@@ -1040,7 +1040,7 @@ Phase descriptions:
     # (#758) is decommissioned.
     plan_parser = subparsers.add_parser(
         "plan",
-        help="Run the atdd plan gated decomposition session (Define→Locate→Prepare→Confirm→author).",
+        help="Run the atdd plan gated decomposition session (Intent→Attach→Compose→Ratify→author).",
         add_help=False,
     )
     plan_parser.add_argument("plan_args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)

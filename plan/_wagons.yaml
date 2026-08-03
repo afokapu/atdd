@@ -618,6 +618,9 @@ wagons:
       naming is validator-backed and bound
     Y001: minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes
       through the elicit channel
+    Y002: minimize likelihood of stale-stage-vocabulary-on-the-plan-cli-surface —
+      the session gates read Intent/Attach/Compose/Ratify across the enum, CLI, guidelines
+      and README
   total: 0
   manifest: plan/define_plans/_define_plans.yaml
   path: plan/define_plans/

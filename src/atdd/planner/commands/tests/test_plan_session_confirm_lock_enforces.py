@@ -44,11 +44,11 @@ def _confirmed_session(root) -> PlanSession:
     """
     s = PlanSession("s-1505", issue_ref="enforce-plan-confirm-lock")
     s.main_job = "enforce the confirm lock"
-    s.advance(Step.LOCATE)
+    s.advance(Step.ATTACH)
     s.sources.append({"type": "text", "value": "src/atdd/planner/commands/plan_session.py"})
-    s.advance(Step.PREPARE)
+    s.advance(Step.COMPOSE)
     s.add_unit(Unit(kind="wmbt", ref="wmbt-one", verdict=Verdict.KEEP.value))
-    s.advance(Step.CONFIRM)
+    s.advance(Step.RATIFY)
     s.confirm(root)
     assert s.locked is True  # precondition
     return s
@@ -119,7 +119,7 @@ def test_backtracking_clears_the_lock(tmp_path):
     back to edit, that assertion no longer describes anything true.
     """
     s = _confirmed_session(tmp_path)
-    s.advance(Step.PREPARE)
+    s.advance(Step.COMPOSE)
     assert s.locked is False
 
 
@@ -136,21 +136,21 @@ def test_the_1505_exploit_no_longer_reaches_authored(tmp_path):
         s.add_unit(Unit(kind="wmbt", ref="smuggled-unit"))
 
     # leg 2: even having backtracked first, AUTHORED requires a FRESH confirm()
-    s.advance(Step.PREPARE)
+    s.advance(Step.COMPOSE)
     s.add_unit(Unit(kind="wmbt", ref="smuggled-unit", verdict=Verdict.KEEP.value))
-    s.advance(Step.CONFIRM)
+    s.advance(Step.RATIFY)
     with pytest.raises(SessionGateError) as exc:
         s.advance(Step.AUTHORED)
     assert "locked" in str(exc.value)
-    assert s.step == Step.CONFIRM.value
+    assert s.step == Step.RATIFY.value
     assert s.locked is False
 
 
 def test_author_is_refused_after_backtracking(tmp_path):
     """`author()` reads the same flag; backtracking must close that door too."""
     s = _confirmed_session(tmp_path)
-    s.advance(Step.PREPARE)
-    s.advance(Step.CONFIRM)
+    s.advance(Step.COMPOSE)
+    s.advance(Step.RATIFY)
     with pytest.raises(SessionGateError) as exc:
         s.author(lambda kind, spec: None)
     assert "confirm-before-author" in str(exc.value)
@@ -162,7 +162,7 @@ def test_reopen_clears_the_lock_and_returns_to_prepare(tmp_path):
     s = _confirmed_session(tmp_path)
     s.reopen()
     assert s.locked is False
-    assert s.step == Step.PREPARE.value
+    assert s.step == Step.COMPOSE.value
 
 
 def test_reopen_preserves_verdicts(tmp_path):
@@ -197,7 +197,7 @@ def test_the_sanctioned_escape_works_end_to_end(tmp_path):
     s = _confirmed_session(tmp_path)
     s.reopen()
     s.add_unit(Unit(kind="wmbt", ref="wmbt-two", verdict=Verdict.KEEP.value))
-    s.advance(Step.CONFIRM)
+    s.advance(Step.RATIFY)
     s.confirm(tmp_path)                      # the fresh confirm the exploit skipped
     assert s.locked is True
     s.advance(Step.AUTHORED)

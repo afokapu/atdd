@@ -2118,7 +2118,7 @@ edges:
   target_ref: planner.train.interlocking-home
   type: requires
 - confidence: 1.0
-  reason: the D/L/P/C lifecycle's Confirm gate enforces confirm-before-author
+  reason: the session lifecycle's Ratify gate enforces confirm-before-author
   source_ref: planner.plan.session-lifecycle
   target_ref: planner.plan.confirm-before-author
   type: requires
