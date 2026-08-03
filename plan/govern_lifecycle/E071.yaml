@@ -158,3 +158,32 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:E071-UNIT-005-the-two-fired-incidents-are-blocked
+    id: AC-UNIT-005
+    purpose: "the gate returns BLOCKED for the two merges that already fired the incident\
+      \ on 2026-08-03 \u2014 PR #1648 closing #1635 and PR #1691 closing #1689, both\
+      \ at atdd:SMOKE"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'The two resolutions the real PRManager returns for the merges that already
+      fired: PR #1648 to issue #1635 and PR #1691 to issue #1689, each phase_label
+      atdd:SMOKE and strategy api (the closingIssuesReferences field GitHub acted
+      on), recorded from the live API rather than invented'
+  when:
+    abstract: the pre-smoke-close evaluator judges those two recorded resolutions
+  then:
+    abstract:
+    - each yields exactly one Violation bound to coach.pr.merge-blocks-on-pre-smoke-close,
+      so the gate reports BLOCKED for a merge it let through
+    - the violation names the PR, the issue and atdd:SMOKE, so an operator reading
+      it can tell which merge would have been stopped
+    - the pair is judged together and both block, so a fix that catches one shape
+      of the incident and not the other fails
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
