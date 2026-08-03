@@ -33,12 +33,26 @@ def _always_resolves(kind: str, path: str) -> bool:
     return True
 
 
+def _sample_spec() -> dict:
+    """A minimal valid issue spec — only the title is really needed."""
+    return {
+        "title": "Sample schema-driven issue",
+        "status": "INIT",
+        "type": "implementation",
+        "branch": "feat/sample-schema-issue",
+    }
+
+
+def _scaffold_body() -> str:
+    from atdd.planner.commands.author_issue import create_issue_body
+
+    return create_issue_body(_sample_spec())
+
+
 def _scaffold_artifacts() -> dict:
     from atdd.coach.commands.issue import IssueManager
 
-    from ._helpers import get_create_issue_body, sample_spec
-
-    return IssueManager._parse_artifacts(get_create_issue_body()(sample_spec()))
+    return IssueManager._parse_artifacts(_scaffold_body())
 
 
 def test_c014_unit_004_the_scaffold_declares_no_false_claims():
@@ -49,10 +63,7 @@ def test_c014_unit_004_the_scaffold_declares_no_false_claims():
 def _scaffold_section() -> str:
     import re
 
-    from ._helpers import get_create_issue_body, sample_spec
-
-    body = get_create_issue_body()(sample_spec())
-    section = re.search(r"## Artifacts\s*\n(.*?)(?=\n## |\Z)", body, re.DOTALL)
+    section = re.search(r"## Artifacts\s*\n(.*?)(?=\n## |\Z)", _scaffold_body(), re.DOTALL)
     assert section, "the generated body carries no ## Artifacts section"
     return section.group(1)
 
