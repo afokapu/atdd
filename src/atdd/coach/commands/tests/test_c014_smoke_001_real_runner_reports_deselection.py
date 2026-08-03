@@ -31,7 +31,8 @@ from pathlib import Path
 
 import pytest
 
-from atdd.coach.commands.test_runner import TestRunner
+# Aliased: pytest would otherwise try to collect `TestRunner` as a test class.
+from atdd.coach.commands.test_runner import TestRunner as _Runner
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.validation_coverage import (
     COULD_NOT_CHECK,
@@ -74,7 +75,7 @@ def _serial_deselected_count(validator_dirs: list[str]) -> int:
 def test_the_real_runner_reports_a_count_that_is_pytests_own(capsys):
     """The number must be pytest's, not an estimate — and it must be non-zero."""
     root = _repo_root()
-    runner = TestRunner(repo_root=root)
+    runner = _Runner(repo_root=root)
     validator_dirs = runner._get_validator_dirs(_PHASE)
     assert validator_dirs, "planner validators must resolve"
 
@@ -97,7 +98,7 @@ def test_the_count_appears_in_the_runs_output_which_it_does_not_today(capsys):
     absence of information is the defect.
     """
     root = _repo_root()
-    runner = TestRunner(repo_root=root)
+    runner = _Runner(repo_root=root)
     validator_dirs = runner._get_validator_dirs(_PHASE)
 
     report = runner.probe_coverage(validator_dirs, [_EXCLUSION], phase=_PHASE)
@@ -109,27 +110,36 @@ def test_the_count_appears_in_the_runs_output_which_it_does_not_today(capsys):
     assert str(report.total) in rendered
 
 
-def test_the_exclusion_the_runner_injects_is_the_one_it_reports():
-    """Consumer-mode detection is what removes the platform validators here.
+def test_every_exclusion_the_runner_applies_is_reported_with_its_real_cause():
+    """The count must be attached to the cause that actually produced it.
 
-    If the runner reported an exclusion it had not applied — or applied one it did
-    not report — the count would be attached to the wrong cause, which is a
-    different way of not knowing what was checked.
+    There is exactly one place that injects ``not platform`` — ``run_tests``, into
+    the marker list — and the reporter reads that same list rather than
+    re-deriving it, so the two cannot drift. What this asserts is the part that
+    could still be wrong: that the *reason* names consumer-mode detection rather
+    than a generic, because "a flag I passed" and "an environment check I did not
+    know had fired" are different facts for the operator.
     """
     root = _repo_root()
-    runner = TestRunner(repo_root=root)
+    runner = _Runner(repo_root=root)
 
-    exclusions = runner.coverage_exclusions(markers=["not github_api"], consumer_mode=True)
+    exclusions = runner.coverage_exclusions(
+        markers=["not github_api", _EXCLUSION], consumer_mode=True
+    )
 
-    expressions = [e.expression for e in exclusions]
-    assert _EXCLUSION in expressions
-    assert "not github_api" in expressions
+    by_expr = {e.expression: e for e in exclusions}
+    assert set(by_expr) == {"not github_api", _EXCLUSION}
     assert all(isinstance(e, MarkerExclusion) and e.reason for e in exclusions), (
         "every reported exclusion must carry the reason it was applied"
     )
+    assert "is_atdd_source_repo" in by_expr[_EXCLUSION].reason, (
+        "the platform exclusion must name the detection that injected it"
+    )
+    assert "--skip-api" in by_expr["not github_api"].reason
 
-    in_source_mode = runner.coverage_exclusions(markers=[], consumer_mode=False)
-    assert in_source_mode == ()
+    # A run that excludes nothing reports no exclusions — and separately reports a
+    # could_not_check of zero, which is the claim, not the silence.
+    assert runner.coverage_exclusions(markers=[], consumer_mode=False) == ()
 
 
 def test_reporting_the_count_does_not_alter_the_verdict():
@@ -139,7 +149,7 @@ def test_reporting_the_count_does_not_alter_the_verdict():
     break every consumer repo's ``atdd validate``, which always excludes platform.
     """
     root = _repo_root()
-    runner = TestRunner(repo_root=root)
+    runner = _Runner(repo_root=root)
     validator_dirs = runner._get_validator_dirs("coder")
 
     report = runner.probe_coverage(validator_dirs, [_EXCLUSION], phase="coder")

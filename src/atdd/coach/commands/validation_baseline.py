@@ -116,8 +116,25 @@ def write_validation_baseline(
     phase: str,
     skipped_api: bool = False,
     repo_root: Optional[Path] = None,
+    could_not_check: Optional[int] = None,
 ) -> Path:
     """Write a validation baseline after a successful ``atdd validate``.
+
+    ``could_not_check`` (C014, #1632) is how many validators the run's marker
+    expression removed before execution. It is written ALWAYS, including as ``0``
+    and as ``None``, because the three states are genuinely different claims:
+
+        208   the run evaluated the rest and did not look at these
+        0     the run evaluated everything it collected
+        None  nobody measured — which is not the same as "nothing was deselected"
+
+    Omitting the key on zero would make a complete run indistinguishable from a
+    pre-C014 baseline that was not making the claim at all. This file is the
+    durable record a later reader trusts — including #1670's conditional mint —
+    and until now it asserted "passed" while a run that evaluated 237 of 445
+    planner validators produced a structurally identical artifact to one that
+    evaluated all 445. ``skipped_api`` already conceded the principle; this is the
+    larger population.
 
     Returns the path of the written baseline file.
     """
@@ -130,6 +147,7 @@ def write_validation_baseline(
         "source_hash": source_hash,
         "atdd_version": atdd.__version__,
         "skipped_api": skipped_api,
+        "could_not_check": could_not_check,
     }
 
     out = validation_baseline_path(repo_root, phase)
