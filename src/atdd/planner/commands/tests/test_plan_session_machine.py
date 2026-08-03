@@ -5,7 +5,7 @@
 # Assertion: behavioral
 """#1139 — the atdd plan gated session state machine.
 
-Covers durable save/load, the D/L/P/C gate exit-conditions, keep/pivot/kill via
+Covers durable save/load, the stage gate exit-conditions, keep/pivot/kill via
 the elicit channel, the Confirm lock, and confirm-before-author (no authoring
 before the operator confirms).
 """
@@ -41,31 +41,31 @@ def test_save_load_round_trip(tmp_path):
 def test_gates_block_until_exit_condition_met():
     s = PlanSession("s1")
     with pytest.raises(SessionGateError):       # Define needs a kept main job
-        s.advance(Step.LOCATE)
+        s.advance(Step.ATTACH)
     s.main_job = "Listen to music while commuting"
-    s.advance(Step.LOCATE)
+    s.advance(Step.ATTACH)
     with pytest.raises(SessionGateError):       # Locate needs sources
-        s.advance(Step.PREPARE)
+        s.advance(Step.COMPOSE)
     s.sources.append({"type": "text", "value": "spec"})
-    s.advance(Step.PREPARE)
+    s.advance(Step.COMPOSE)
     with pytest.raises(SessionGateError):       # Prepare needs a candidate unit
-        s.advance(Step.CONFIRM)
+        s.advance(Step.RATIFY)
     s.add_unit(Unit(kind="wagon", ref="play-audio"))
-    s.advance(Step.CONFIRM)
-    assert s.step == Step.CONFIRM.value
+    s.advance(Step.RATIFY)
+    assert s.step == Step.RATIFY.value
 
 
 def test_cannot_skip_steps():
     s = PlanSession("s1", main_job="x")
     with pytest.raises(SessionGateError):
-        s.advance(Step.PREPARE)  # from DEFINE, skipping LOCATE
+        s.advance(Step.COMPOSE)  # from DEFINE, skipping LOCATE
 
 
 def test_backtracking_allowed():
     s = PlanSession("s1", main_job="x")
-    s.advance(Step.LOCATE)
-    s.advance(Step.DEFINE)       # backtrack — no gate
-    assert s.step == Step.DEFINE.value
+    s.advance(Step.ATTACH)
+    s.advance(Step.INTENT)       # backtrack — no gate
+    assert s.step == Step.INTENT.value
 
 
 def test_decide_records_verdict_via_elicit():
@@ -77,7 +77,7 @@ def test_decide_records_verdict_via_elicit():
 
 
 def test_confirm_requires_all_resolved_then_locks():
-    s = PlanSession("s1", main_job="x", step=Step.CONFIRM.value, issue_ref="my-plan")
+    s = PlanSession("s1", main_job="x", step=Step.RATIFY.value, issue_ref="my-plan")
     s.add_unit(Unit(kind="wagon", ref="play-audio"))  # PENDING
     with pytest.raises(SessionGateError):
         s.confirm()
@@ -87,7 +87,7 @@ def test_confirm_requires_all_resolved_then_locks():
 
 
 def test_confirm_before_author_refuses_authoring_until_locked():
-    s = PlanSession("s1", step=Step.CONFIRM.value, issue_ref="my-plan")
+    s = PlanSession("s1", step=Step.RATIFY.value, issue_ref="my-plan")
     s.add_unit(Unit(kind="wagon", ref="play-audio", spec={"wagon": "play-audio"}))
     authored = []
     with pytest.raises(SessionGateError):              # not locked yet
@@ -100,7 +100,7 @@ def test_confirm_before_author_refuses_authoring_until_locked():
 
 
 def test_killed_units_are_not_authored():
-    s = PlanSession("s1", step=Step.CONFIRM.value, issue_ref="my-plan")
+    s = PlanSession("s1", step=Step.RATIFY.value, issue_ref="my-plan")
     s.add_unit(Unit(kind="wagon", ref="keep-me", spec={"wagon": "keep-me"}))
     s.add_unit(Unit(kind="wagon", ref="kill-me", spec={"wagon": "kill-me"}))
     s.decide("keep-me", _op_resolver("keep"))
@@ -113,7 +113,7 @@ def test_killed_units_are_not_authored():
 
 def test_confirm_refuses_unresolved_pivot_until_re_resolved():
     """A pivot is non-terminal: confirm refuses until it is re-resolved to keep/kill."""
-    s = PlanSession("s1", step=Step.CONFIRM.value, issue_ref="my-plan")
+    s = PlanSession("s1", step=Step.RATIFY.value, issue_ref="my-plan")
     s.add_unit(Unit(kind="wagon", ref="w"))
     s.decide("w", _op_resolver("pivot"))
     with pytest.raises(SessionGateError):

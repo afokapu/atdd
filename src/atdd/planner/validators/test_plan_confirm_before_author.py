@@ -35,7 +35,7 @@ _LOC = "src/atdd/planner/commands/plan_session.py:PlanSession.author"
 def _scan() -> List[Violation]:
     """A kept unit in an UNLOCKED session must never reach an author writer."""
     violations: List[Violation] = []
-    session = PlanSession("confirm-before-author-probe", step=Step.CONFIRM.value)
+    session = PlanSession("confirm-before-author-probe", step=Step.RATIFY.value)
     session.add_unit(Unit(kind="wagon", ref="probe", spec={"wagon": "probe"}))
     session.units[0]["verdict"] = Verdict.KEEP.value
     assert session.locked is False  # precondition: not yet confirmed
