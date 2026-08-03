@@ -81,12 +81,18 @@ wmbt:
   C001: 'minimize likelihood of a lossy-migration-write: the migration tool refuses
     before writing any projection file when a manifest entry carries no uid, a duplicate
     uid, or a phase outside the lifecycle vocabulary'
+  C002: maximize likelihood of a first-committed-projection that reproduces itself
+    byte for byte through hydrate and re-projection, and that flips the projection-is-shared-state
+    cutover criterion to met
   D001: maximize likelihood of a migration-runbook that names the cutover steps in
     order, the developer-facing command changes, and the numbered invariant each step
     preserves
   E001: maximize likelihood of a complete manifest-projection-migration that reads
     the legacy manifest, hydrates the store, and emits one deterministic .atdd/state/projection/<uid>.yaml
     per work item keyed by the immutable uid rather than the mutable slug
+  E002: maximize likelihood of a store-projection-migration that mints a uid and an
+    owner_actor for every projectable work item already in the State Store and refuses
+    the whole run before any write when an object cannot be migrated
   K001: maximize likelihood of a clean projection-authority-cutover in which the committed
     projection is the shared source of truth, GitHub is an optional mirror, and the
     legacy manifest no longer acts as a fallback source of truth
@@ -101,4 +107,4 @@ wmbt:
     behind the SyncProvider seam and the external-ref quarantine'
   Y002: 'minimize likelihood of a manifest-read-fallback: once projection is in blocking
     mode, no core reader consults .atdd/manifest.yaml for shared lifecycle state'
-  total: 8
+  total: 10
