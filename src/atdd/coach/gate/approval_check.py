@@ -20,6 +20,7 @@ from typing import Optional
 
 from atdd.coach.gate.approval import (
     approval_relpath,
+    describe_attribution,
     resolve_signing_key,
     verify_token,
 )
@@ -70,10 +71,15 @@ class ApprovalTokenGateCheck:
             )
 
         if verify_token(token_data, ctx.issue_number, ctx.from_phase, ctx.to_phase, key):
+            # Report WHAT the token says produced it, not merely that one exists
+            # (#1718). A version stamp nobody surfaces is a stamp nobody reads, and
+            # the point of versioning was to stop a pre-attribution token from
+            # passing as an operator approval on the strength of its approved_by.
             return GateCheckResult(
                 self.gate_id, self.rule_id, True,
-                f"operator approval token present for "
-                f"{ctx.from_phase.upper()}->{ctx.to_phase.upper()}",
+                f"approval token present for "
+                f"{ctx.from_phase.upper()}->{ctx.to_phase.upper()}: "
+                f"{describe_attribution(token_data)}",
             )
         return GateCheckResult(
             self.gate_id, self.rule_id, False,

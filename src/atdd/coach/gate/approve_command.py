@@ -6,6 +6,16 @@ The operator's path to PRODUCE the #1017 approval token the
 worktree), independent of the cmux Feed. After this, the worker's
 ``atdd issue <N> --status <to>`` passes the operator-approval gate for that exact
 transition — and only that one.
+
+WHO MINTED (#1718). The token used to record ``--by or $USER or "operator"``,
+which meant an agent running inside the operator's shell minted tokens naming
+the operator: 162 of 169 tokens measured on 2026-08-03 name a human account and
+an unknown number of those were agent mints. The actor is now OBSERVED through
+``atdd.state.agent_session.resolve_session`` (#1540) and bound into the signed
+scope, and ``--by`` is demoted to an annotation for the case where nothing is
+observable. This closes the SILENT DEFAULT. It is not a boundary against an
+agent that unsets its own session variable — see the THREAT MODEL in
+``approval.py``, which this must not be read as contradicting.
 """
 from __future__ import annotations
 
@@ -14,11 +24,12 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from atdd.coach.gate.approval import (
     approval_relpath,
     build_token,
+    describe_attribution,
     resolve_signing_key,
 )
 
@@ -34,8 +45,46 @@ def _parse_transition(text: str) -> Tuple[str, str]:
     return parts[0].upper(), parts[1].upper()
 
 
-def run(argv: List[str], *, target_dir: Optional[Path] = None) -> int:
-    """Write the operator-signed approval token for one transition."""
+def _observe_actor(env: Mapping[str, str]) -> Tuple[str, Optional[Dict[str, str]]]:
+    """Observe who is minting: ``(approved_by, agent_session)``.
+
+    Identity is READ from ambient process environment, never asked and never
+    defaulted (#1718). ``resolve_session`` (#1540) matches the environment
+    against the shipped provider table and returns None for a human at a plain
+    shell — the same primitive ``atdd author issue`` and the post-commit hook
+    already use, so no new mechanism is introduced and adding a provider stays
+    one row of ``agent_session_env.yaml``.
+
+    When a session IS observed, ``$USER`` is not the approver: an agent running
+    inside the operator's shell IS ``$USER``, and recording it is exactly the
+    defect that made 162 of 169 measured tokens name a human who may never have
+    approved anything.
+    """
+    # Function-local, mirroring smoke_execution_check.py: keeps this command's
+    # import surface as narrow as the coach->state seam it actually needs.
+    from atdd.state.agent_session import resolve_session
+
+    session = resolve_session(env)
+    if session is None:
+        return env.get("USER") or "operator", None
+    return (
+        f"agent:{session.provider}",
+        {"provider": session.provider, "session_id": session.session_id},
+    )
+
+
+def run(
+    argv: List[str],
+    *,
+    target_dir: Optional[Path] = None,
+    env: Optional[Mapping[str, str]] = None,
+) -> int:
+    """Write the signed approval token for one transition.
+
+    ``env`` overrides the ambient process environment the actor is observed
+    from. It exists so a test can assert the same thing whether an agent or a
+    human runs it; production passes nothing and reads ``os.environ``.
+    """
     parser = argparse.ArgumentParser(
         prog="atdd coach approve",
         description=(
@@ -51,7 +100,11 @@ def run(argv: List[str], *, target_dir: Optional[Path] = None) -> int:
     )
     parser.add_argument(
         "--by", default=None,
-        help="Operator identity recorded in the token (defaults to $USER)",
+        help=(
+            "Identity to record when NO agent session can be observed (default: "
+            "$USER). Ignored, with a note, when a session is observed — the mint "
+            "records what it sees, not what it is told."
+        ),
     )
     ns = parser.parse_args(argv)
 
@@ -68,16 +121,31 @@ def run(argv: List[str], *, target_dir: Optional[Path] = None) -> int:
     token_path = root / rel
     token_path.parent.mkdir(parents=True, exist_ok=True)
 
-    approved_by = ns.by or os.environ.get("USER") or "operator"
+    approved_by, agent_session = _observe_actor(os.environ if env is None else env)
+    if ns.by:
+        if agent_session is None:
+            # Nothing observed to contradict, so the operator's annotation stands.
+            approved_by = ns.by
+        else:
+            # An observation beats a claim. Say so rather than swallowing the flag:
+            # a silently ignored --by is how a caller ends up believing the token
+            # says something it does not.
+            print(
+                f"Note: --by {ns.by!r} not recorded — an agent session "
+                f"({agent_session['provider']}:{agent_session['session_id']}) was "
+                f"observed, and the observed actor is what the token records."
+            )
+
     token = build_token(
         ns.issue, from_phase, to_phase,
         approved_by=approved_by,
         approved_at=datetime.now(timezone.utc).isoformat(),
+        agent_session=agent_session,
         key=resolve_signing_key(),
     )
     token_path.write_text(json.dumps(token, indent=2) + "\n")
     print(
-        f"✓ operator approved {from_phase}->{to_phase} for issue #{ns.issue} "
-        f"(by {approved_by}): {rel}"
+        f"✓ approved {from_phase}->{to_phase} for issue #{ns.issue} "
+        f"({describe_attribution(token)}): {rel}"
     )
     return 0
