@@ -1156,8 +1156,11 @@ def build_parser() -> argparse.ArgumentParser:
                      help="work_item slug (the store uid); derived from --title when omitted (#1272)")
     iss.add_argument("--type", default=None, dest="issue_type",
                      help="issue Type (e.g. implementation, bug, refactor)")
-    iss.add_argument("--status", default="INIT",
-                     help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...)")
+    # default=None, not "INIT": the revise path must be able to tell "--status
+    # was supplied" from "--status was omitted" so it can refuse the former
+    # (#1661). The create path applies the INIT default itself.
+    iss.add_argument("--status", default=None,
+                     help="initial Status (phase-machine vocabulary: INIT/PLANNED/RED/...); default INIT")
     iss.add_argument("--branch", default=None, help="the issue's worktree branch")
     iss.add_argument("--train", default=None, help="train id the issue belongs to")
     iss.add_argument("--feature", default=None, help="feature urn the issue lands")
@@ -1418,6 +1421,7 @@ def _publish_revision(args, body) -> int:
             body=body,
             issue_type=args.issue_type,
             feature=args.feature,
+            title=args.title,
         )
     except PublishError as exc:
         logger.warning(
@@ -1437,19 +1441,68 @@ def _publish_revision(args, body) -> int:
             f"atdd author issue: feature binding set to {args.feature}",
             file=sys.stderr,
         )
+    if args.title:
+        print(
+            f"atdd author issue: title set to {args.title!r}",
+            file=sys.stderr,
+        )
     _print_revise_outcome(result)
     return 0
 
 
+# Flags the `issue` parser registers that the revise path defines no semantics
+# for (#1661). Each is REFUSED by name rather than accepted and discarded: a
+# flag that looks written is the hazard, matching the fail-closed posture of
+# manifest_migration (refuses a whole run over a half-valid corpus) and
+# extensions_lock (aborts before opening the file, because a half-written lock
+# looks pinned). The set is pinned by a test — widening it to silence a newly
+# dropped flag is a visible, reviewable act, not a quiet one.
+_REVISE_UNSUPPORTED: tuple[tuple[str, str, str], ...] = (
+    ("slug", "--slug", "the work item's uid, which a revision does not move"),
+    ("status", "--status", "owned by the phase machine; use `atdd coach transition <N> <STATUS>`"),
+    ("branch", "--branch", "create-time metadata; set it when the issue is authored"),
+    ("train", "--train", "create-time metadata; set it when the issue is authored"),
+)
+
+
+def _refused_revise_flags(args) -> list[str]:
+    """Messages for every unsupported flag this revise request supplied."""
+    return [
+        f"atdd author issue: --revise cannot honour {flag} ({why})"
+        for dest, flag, why in _REVISE_UNSUPPORTED
+        if getattr(args, dest, None) is not None
+    ]
+
+
 def _run_issue_revise(args) -> int:
-    # `--feature` alone is a valid revision (#1635). It previously was not: the
-    # precondition demanded --body-file and/or --type, so an operator correcting
-    # only a wrong binding was turned away — and when they satisfied it by also
-    # passing --body-file, the feature was silently dropped further down.
-    if args.body_file is None and args.issue_type is None and args.feature is None:
+    # Refuse BEFORE any validation or write. A flag this path cannot honour must
+    # stop the command, not be dropped on the way to a store write that then
+    # reports success (#1661).
+    refusals = _refused_revise_flags(args)
+    if refusals:
+        for message in refusals:
+            print(message, file=sys.stderr)
         print(
-            "atdd author issue: --revise requires --body-file, --feature "
-            "and/or explicit --type",
+            "atdd author issue: nothing was written; re-run without the flags "
+            "above, or use the command named beside each one",
+            file=sys.stderr,
+        )
+        return 2
+
+    # `--feature` alone is a valid revision (#1635), and so is `--title` alone
+    # (#1661). Neither previously was: the precondition demanded --body-file
+    # and/or --type, so an operator correcting only a wrong binding or a wrong
+    # title was turned away — and when they satisfied it by also passing
+    # --body-file, the value was silently dropped further down.
+    if (
+        args.body_file is None
+        and args.issue_type is None
+        and args.feature is None
+        and args.title is None
+    ):
+        print(
+            "atdd author issue: --revise requires --body-file, --feature, "
+            "--title and/or explicit --type",
             file=sys.stderr,
         )
         return 2
@@ -1496,9 +1549,12 @@ def _print_publish_outcome(slug: str, result) -> None:
 
 def _run_issue_create(args) -> int:
     issue_type = args.issue_type or "implementation"
+    # The parser no longer carries the INIT default (#1661) so that --revise can
+    # distinguish supplied from omitted; the create path applies it here.
+    status = args.status or "INIT"
     spec = {
         "title": args.title,
-        "status": args.status,
+        "status": status,
         "type": issue_type,
         "branch": args.branch,
         "train": args.train,
@@ -1531,7 +1587,7 @@ def _run_issue_create(args) -> int:
         result = publish_issue(
             slug, body,
             title=args.title or "Untitled ATDD issue",
-            status=args.status, issue_type=issue_type,
+            status=status, issue_type=issue_type,
             branch=args.branch, train=args.train, feature=args.feature,
         )
     except PublishError as exc:
