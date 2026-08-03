@@ -1659,6 +1659,13 @@ wagons:
       unresolvable PR to advisory-only instead of a repo-wide block, and by extending
       the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline
       (#1478; renumbered from E062 which origin/main claimed)
+    E071: minimize likelihood of auto-close-firing-from-a-phase-the-lifecycle-has-not-satisfied
+      by deriving the gate's verdict from one authoritative merge-eligibility set
+      in pr.convention.yaml (phase_labels.merge_allowed) instead of a second copy
+      of the complement as a Python frozenset, by blocking every phase outside that
+      set including the escapes BLOCKED and OBSOLETE so a later phase is fail-closed
+      rather than silently merge-eligible, and by failing a test whenever a human-facing
+      restatement of the decision names phases the table does not (#1710)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

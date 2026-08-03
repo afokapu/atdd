@@ -4,7 +4,8 @@ kind: rule
 status: active
 name: No terminal state before lifecycle satisfied
 statement: A delivery unit must not be driven to a terminal/shipped/closed state before its lifecycle
-  requirements are satisfied — it must pass through SMOKE and REFACTOR before a merge auto-closes it.
+  requirements are satisfied — it must pass through SMOKE and reach REFACTOR before a merge auto-closes
+  it.
 source:
   legacy_path: src/atdd/coach/conventions/pr.convention.yaml
   legacy_section: rules
@@ -12,24 +13,51 @@ source:
   extraction_mode: high_fidelity
   legacy_rule_id: coach.pr.merge-blocks-on-pre-smoke-close
 content:
-  fix_hint: "The named open PR references an ATDD issue still at atdd:RED or\natdd:GREEN via an auto-closing\
-    \ keyword, so a merge would fire\nGitHub's auto-close before the issue ever reaches SMOKE+REFACTOR.\n\
-    Repair as follows (run `gh pr view <N>` to inspect the PR body and\n`gh issue view <issue> --json\
-    \ labels` to inspect labels; for atdd\nthe phase labels live under .atdd/labels.yaml):\n\n  1. Read\
-    \ the violation — it cites \"PR#<N>\" and names the linked\n     issue number and current phase label\n\
-    \     (e.g. \"PR#681 → issue #681 (phase=GREEN)\").\n  2. Drive the issue forward through the state\
-    \ machine — substitute\n     <issue> with the issue number from step 1 (e.g. \"681\"):\n       atdd\
-    \ issue <issue> --status SMOKE\n       atdd issue <issue> --status REFACTOR\n     This swaps the atdd:GREEN\
-    \ label for atdd:SMOKE then\n     atdd:REFACTOR (the legal exit phases for merge).\n  3. Re-run the\
-    \ validator on the same PR\n     (run pytest src/atdd/coach/validators/test_pr_merge_blocks_pre_smoke_close.py\
-    \ -v).\n  4. If the PR genuinely should NOT close the linked issue (the PR\n     is a partial step,\
-    \ the issue should stay open), edit the PR\n     body and remove the auto-closing keyword\n     (run\
-    \ `gh pr edit <N> --body \"<new-body>\"`):\n       - <N> = the PR number from step 1, e.g. \"681\"\
-    \n       Replace \"Closes #<issue>\" with \"Refs #<issue>\" so GitHub's\n       auto-close does not\
-    \ fire on merge.\n\nThis rule is strict by design — bypass is forbidden. The 2026-05-13\nincident\
-    \ shipped 8 PRs whose `Closes #N` fired at atdd:GREEN,\nskipping SMOKE+REFACTOR. See issue #681 and\n\
-    src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001\nfor the template pattern\
-    \ this rule mirrors."
+  # Mirrors the legacy fix_hint verbatim (fix_hint_preserved: true). Re-emitted as
+  # a block scalar and corrected alongside it on #1710: the extraction named
+  # atdd:RED/atdd:GREEN as the blocked pair and called atdd:SMOKE a legal exit
+  # phase, which is the same prose-vs-table drift the legacy rule carried — a
+  # fourth restatement of a decision that now has exactly one source,
+  # pr.convention.yaml::phase_labels.merge_allowed. Held to it by
+  # src/atdd/coach/validators/test_e071_unit_004_restatements_agree_with_the_table.py.
+  fix_hint: |
+    The named open PR references an ATDD issue whose phase sits outside
+    the merge-eligible set via an auto-closing keyword, so a merge would
+    fire GitHub's auto-close before the lifecycle is satisfied.
+    A merge may auto-close only an issue at atdd:REFACTOR or atdd:COMPLETE
+    — read from phase_labels.merge_allowed in pr.convention.yaml, not restated.
+    Repair as follows (run `gh pr view <N>` to inspect the PR body and
+    `gh issue view <issue> --json labels` to inspect labels; for atdd
+    the phase labels live under .atdd/labels.yaml):
+
+      1. Read the violation — it cites "PR#<N>" and names the linked
+         issue number and current phase label
+         (e.g. "PR#1673 → issue #1622 (phase=atdd:SMOKE)").
+      2. Drive the issue forward through the state machine until it
+         reaches REFACTOR — substitute <issue> with the issue number
+         from step 1 (e.g. "1622"):
+           atdd coach transition <issue> SMOKE
+           atdd coach transition <issue> REFACTOR
+         Stopping at SMOKE is not enough: REFACTOR carries
+         `autonomy: operator` and the terminal hop to COMPLETE
+         (phase_machine.convention.yaml, #1611), and that sign-off is
+         what this rule protects (#1710).
+      3. Re-run the validator on the same PR
+         (run pytest src/atdd/coach/validators/test_pr_merge_blocks_pre_smoke_close.py -v).
+      4. If the PR genuinely should NOT close the linked issue (the PR
+         is a partial step, the issue should stay open), edit the PR
+         body and remove the auto-closing keyword
+         (run `gh pr edit <N> --body "<new-body>"`):
+           - <N> = the PR number from step 1, e.g. "1673"
+           Replace "Closes #<issue>" with "Refs #<issue>" so GitHub's
+           auto-close does not fire on merge.
+
+    This rule is strict by design — bypass is forbidden. The 2026-05-13
+    incident shipped 8 PRs whose `Closes #N` fired at atdd:GREEN,
+    skipping SMOKE+REFACTOR; #1710 is the same failure at atdd:SMOKE,
+    skipping REFACTOR alone. See issues #681 and #1710, and
+    src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001
+    for the template pattern this rule mirrors.
 metadata:
   severity: 4
   disposition: documentation-only
@@ -39,8 +67,8 @@ parity:
   examples_preserved: false
   implementation_preserved: false
   fix_hint_preserved: true
-  reviewed_at: '2026-06-17'
+  reviewed_at: '2026-08-03'
 terms:
 - term_id: pre_smoke_close
-  text: auto-closing a unit still at RED/GREEN skips SMOKE+REFACTOR; the abstraction, not the GitHub closingIssuesReferences
-    mechanism.
+  text: auto-closing a unit before it reaches REFACTOR skips the lifecycle the phases exist to require;
+    the abstraction, not the GitHub closingIssuesReferences mechanism.

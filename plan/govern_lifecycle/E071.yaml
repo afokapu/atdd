@@ -1,0 +1,189 @@
+urn: wmbt:govern-lifecycle:E071
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: auto-close-firing-from-a-phase-the-lifecycle-has-not-satisfied
+context_clarifier: "coach.pr.merge-blocks-on-pre-smoke-close states its merge-eligibility\
+  \ decision four times \u2014 a prose description naming atdd:REFACTOR/atdd:COMPLETE,\
+  \ a phase_labels table that also allows atdd:SMOKE, a Python frozenset of blocked\
+  \ phases mirroring the table, and the owning feature's description \u2014 and nothing\
+  \ compares them, so the enforcement permits what the rule it binds forbids; measured\
+  \ 2026-08-03, PR #1691 auto-closed #1689 and PR #1648 auto-closed #1635, both at\
+  \ atdd:SMOKE, both now CLOSED with atdd:SMOKE still on them and REFACTOR never entered,\
+  \ while open PR #1673 carries the same live auto-close against #1622 at atdd:SMOKE;\
+  \ the gate must read one representation of merge eligibility rather than restate\
+  \ it, and every phase outside that set \u2014 a phase added to the machine later\
+  \ and the escapes BLOCKED/OBSOLETE included \u2014 must block by default"
+lens: functional.effectiveness
+statement: minimize likelihood of auto-close-firing-from-a-phase-the-lifecycle-has-not-satisfied
+  by deriving the gate's verdict from one authoritative merge-eligibility set in pr.convention.yaml
+  (phase_labels.merge_allowed) instead of a second copy of the complement as a Python
+  frozenset, by blocking every phase outside that set including the escapes BLOCKED
+  and OBSOLETE so a later phase is fail-closed rather than silently merge-eligible,
+  and by failing a test whenever a human-facing restatement of the decision names
+  phases the table does not
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:E071-UNIT-001-smoke-auto-close-is-blocked
+    id: AC-UNIT-001
+    purpose: a PR whose auto-closing reference targets an issue at atdd:SMOKE is blocked,
+      while REFACTOR and COMPLETE still merge and the 2026-05-13 pre-SMOKE regression
+      stays covered
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - One PR resolution per lifecycle phase, each carrying an auto-closing linkage
+      strategy (the closingIssuesReferences API field or a body keyword), plus one
+      at atdd:SMOKE carrying only the weak manifest/title linkage that fires no auto-close
+  when:
+    abstract: the pre-smoke-close evaluator judges the resolutions
+  then:
+    abstract:
+    - the resolution at atdd:SMOKE yields exactly one Violation bound to coach.pr.merge-blocks-on-pre-smoke-close
+    - the resolutions at atdd:INIT, atdd:PLANNED, atdd:RED and atdd:GREEN each still
+      yield a Violation, so the incident the rule was written for stays covered
+    - the resolutions at atdd:REFACTOR and atdd:COMPLETE yield no Violation
+    - the atdd:SMOKE resolution whose linkage is manifest/title yields no Violation,
+      since no auto-close fires on merge
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:E071-UNIT-002-escape-phases-block-by-default
+    id: AC-UNIT-002
+    purpose: 'the escapes are a decision, not an accident: an auto-close may not fire
+      from BLOCKED or OBSOLETE either, and an unrecognised phase is fail-closed'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - Auto-closing PR resolutions whose linked issue sits at atdd:BLOCKED, at atdd:OBSOLETE,
+      and at a phase name the convention does not declare
+  when:
+    abstract: the pre-smoke-close evaluator judges them
+  then:
+    abstract:
+    - "the atdd:BLOCKED resolution yields a Violation \u2014 a merge may not close\
+      \ an issue whose lifecycle was suspended short of REFACTOR"
+    - "the atdd:OBSOLETE resolution yields a Violation \u2014 retiring an issue is\
+      \ an operator transition, not something a merge may perform"
+    - the unrecognised phase yields a Violation, so a phase added to the machine later
+      is blocked until the merge-eligibility set is widened on purpose
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:E071-UNIT-003-eligibility-derived-from-the-convention
+    id: AC-UNIT-003
+    purpose: "the enforcement holds no second copy of the phase set \u2014 it derives\
+      \ its verdict from pr.convention.yaml::phase_labels.merge_allowed"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The merge-eligibility seam the pre-smoke-close validator asks for its verdict,
+      and a pr.convention.yaml whose phase_labels.merge_allowed is varied
+  when:
+    abstract: the seam is asked whether a phase may carry an auto-closing PR
+  then:
+    abstract:
+    - the answer follows the convention's merge_allowed set, so removing a phase from
+      the table blocks it with no Python edit
+    - the answer for every phase outside merge_allowed is block, derived as the complement
+      rather than read from a second list
+    - the validator module declares no phase-name set of its own for the pre-SMOKE
+      decision
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:E071-UNIT-004-restatements-agree-with-the-table
+    id: AC-UNIT-004
+    purpose: 'the drift that produced this defect cannot recur silently: every human-facing
+      restatement of merge eligibility is checked against the one table'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - "Every restatement of the merge-eligibility decision an operator can read \u2014\
+      \ the rule description and fix_hint in pr.convention.yaml, the extracted node\
+      \ coach.lifecycle.no-terminal-before-lifecycle-satisfied, and the description\
+      \ of the feature that owns the rule"
+  when:
+    abstract: each restatement is compared against the merge-eligible phases rendered
+      from phase_labels.merge_allowed
+  then:
+    abstract:
+    - every restatement names exactly the merge-eligible phases the table declares
+    - no restatement names a merge-blocked phase as one a merge may auto-close from
+    - the comparison fails when a phase is added to or removed from merge_allowed
+      and the prose does not follow
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:E071-SMOKE-001-real-gate-agrees-with-the-table-on-live-prs
+    id: AC-SMOKE-001
+    purpose: "the real validator, run over the repository's real open PRs through\
+      \ the real GitHub API, blocks exactly the auto-closing PRs whose linked issue\
+      \ sits outside merge_allowed \u2014 atdd:SMOKE included"
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - The real coach.pr.merge-blocks-on-pre-smoke-close validator module, the real
+      PRManager, and the repository's live open pull requests resolved to their linked
+      issue and atdd:<PHASE> label through the GitHub API
+  when:
+    abstract: the real end-to-end scan runs and its violations are compared against
+      the phases the convention declares merge-eligible
+  then:
+    abstract:
+    - a Violation exists for a resolved open PR exactly when its linkage is auto-closing
+      and its linked issue's phase is outside phase_labels.merge_allowed
+    - no open PR auto-closing an issue at atdd:SMOKE passes the gate
+    - an open PR auto-closing an issue at atdd:REFACTOR or atdd:COMPLETE produces
+      no Violation
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:E071-UNIT-005-the-two-fired-incidents-are-blocked
+    id: AC-UNIT-005
+    purpose: "the gate returns BLOCKED for the two merges that already fired the incident\
+      \ on 2026-08-03 \u2014 PR #1648 closing #1635 and PR #1691 closing #1689, both\
+      \ at atdd:SMOKE"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'The two resolutions the real PRManager returns for the merges that already
+      fired: PR #1648 to issue #1635 and PR #1691 to issue #1689, each phase_label
+      atdd:SMOKE and strategy api (the closingIssuesReferences field GitHub acted
+      on), recorded from the live API rather than invented'
+  when:
+    abstract: the pre-smoke-close evaluator judges those two recorded resolutions
+  then:
+    abstract:
+    - each yields exactly one Violation bound to coach.pr.merge-blocks-on-pre-smoke-close,
+      so the gate reports BLOCKED for a merge it let through
+    - the violation names the PR, the issue and atdd:SMOKE, so an operator reading
+      it can tell which merge would have been stopped
+    - the pair is judged together and both block, so a fix that catches one shape
+      of the incident and not the other fails
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'

@@ -1,15 +1,28 @@
 # Acceptance: acc:govern-lifecycle:E003-INTEGRATION-002-coach-validator-fires-on-green-label-closes
 # Acceptance: acc:govern-lifecycle:E003-INTEGRATION-003-pr-merge-passes-when-no-closes-reference
 """
-coach.pr.merge-blocks-on-pre-smoke-close validator (issue #681).
+coach.pr.merge-blocks-on-pre-smoke-close validator (issues #681, #1710).
 
-Scans open PRs via PRManager and emits one structured Violation per PR
-that auto-closes an ATDD issue still at a pre-SMOKE phase (RED/GREEN —
-also INIT/PLANNED defensively).
+Scans open PRs via PRManager and emits one structured Violation per PR that
+auto-closes an ATDD issue whose phase is not merge-eligible.
 
-Strict disposition — bypass forbidden; no inline suppression. The 2026-
-05-13 substrate-asymmetry incident shipped 8 PRs whose ``Closes #N`` fired
-at atdd:GREEN, skipping SMOKE+REFACTOR. This rule mirrors the tester-side
+Which phases those are is NOT decided here. It is read from
+``pr.convention.yaml::phase_labels.merge_allowed`` through
+:mod:`atdd.coach.utils.pr_merge_eligibility`, and blocked is that set's
+computed complement.
+
+This module used to carry the answer a second time, as a module-level frozenset
+naming the four pre-SMOKE phases. That was a hand-written complement, so a phase
+omitted from it merged — and one was. The rule's own description said a merge
+needs REFACTOR or COMPLETE; the frozenset left SMOKE out; nothing compared the
+two. PR #1691 auto-closed #1689 and PR #1648 auto-closed #1635 through the gap,
+both at atdd:SMOKE, both with REFACTOR never entered (#1710). No phase name is
+spelled in this file any more, and
+``test_e071_unit_003_eligibility_derived_from_the_convention`` keeps it that way.
+
+Strict disposition — bypass forbidden; no inline suppression. The 2026-05-13
+substrate-asymmetry incident shipped 8 PRs whose ``Closes #N`` fired at
+atdd:GREEN, skipping SMOKE+REFACTOR. This rule mirrors the tester-side
 TESTER-SMOKE-PRES-001 pattern in coach.
 
 Convention: ``src/atdd/coach/conventions/pr.convention.yaml``
@@ -29,6 +42,10 @@ import pytest
 
 from atdd.coach.commands.pr import PRManager
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.utils.pr_merge_eligibility import (
+    is_merge_blocked,
+    render_allowed_phrase,
+)
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._pr_scope import select_for_current_pr
@@ -40,11 +57,9 @@ pytestmark = [pytest.mark.coach, pytest.mark.github_api]
 _RULE = bind_rule("coach.pr.merge-blocks-on-pre-smoke-close")
 _VALIDATOR_ID = "pr_merge_blocks_pre_smoke_close"
 
-# Phases where an auto-closing PR must NOT merge (mirrors phase_labels.merge_blocked
-# in pr.convention.yaml). INIT/PLANNED are included defensively — those phases
-# should not have a code PR open against them, and if one exists with a
-# Closes #N, the same lifecycle gap applies.
-_BLOCKED_PHASES = frozenset({"INIT", "PLANNED", "RED", "GREEN"})
+# The blocked set is not declared here — see the module docstring. It is the
+# computed complement of pr.convention.yaml::phase_labels.merge_allowed, via
+# atdd.coach.utils.pr_merge_eligibility.is_merge_blocked.
 
 # Strategies that prove the PR will auto-close the linked issue on merge.
 # These are the four strategies PRManager.resolve_linked_issue tries; only
@@ -85,19 +100,20 @@ def evaluate_pr_merge_violations(
             # Weak linkage (manifest/title) does not fire GitHub auto-close,
             # so the lifecycle gap is not realized on merge.
             continue
-        if phase not in _BLOCKED_PHASES:
+        if not is_merge_blocked(phase):
             continue
 
         detail = (
             f"PR #{pr_number} → issue #{issue_number} (phase=atdd:{phase}) "
-            f"auto-closes via strategy={strategy!r} but the issue has not "
-            f"transitioned through SMOKE+REFACTOR. Merging this PR would "
-            f"fire GitHub's auto-close before the lifecycle reaches SMOKE. "
+            f"auto-closes via strategy={strategy!r}, but a merge may auto-close "
+            f"only an issue at {render_allowed_phrase()}. Merging this PR would "
+            f"fire GitHub's auto-close before the lifecycle is satisfied. "
             f"Drive the issue forward: "
             f"`atdd coach transition {issue_number} SMOKE` then "
-            f"`atdd coach transition {issue_number} REFACTOR`, or remove the "
-            f"Closes/Fixes/Resolves keyword from the PR body if this PR is "
-            f"a partial step. See issue #681."
+            f"`atdd coach transition {issue_number} REFACTOR` — REFACTOR is the "
+            f"operator sign-off, so stopping short of it is the same skip one "
+            f"phase along — or remove the Closes/Fixes/Resolves keyword from the "
+            f"PR body if this PR is a partial step. See issues #681 and #1710."
         )
         violations.append(
             Violation(
@@ -225,10 +241,11 @@ def test_no_open_pr_closes_an_issue_in_pre_smoke_phase():
             an auto-closing reference (Closes/Fixes/Resolves keyword OR a
             GraphQL ``closingIssuesReferences`` entry) to an ATDD issue.
     When:   Comparing the linked issue's atdd:<PHASE> label against the
-            merge-eligibility set {SMOKE, REFACTOR, COMPLETE}.
-    Then:   No open PR auto-closes an issue still at atdd:RED or atdd:GREEN
-            (or INIT/PLANNED). PRs that violate this gap surface as
-            structured ``Violation`` records the disposition gate fails on.
+            merge-eligible set the convention declares — read from
+            ``phase_labels.merge_allowed``, never named here (#1710).
+    Then:   No open PR auto-closes an issue at a phase outside that set.
+            PRs that violate this gap surface as structured ``Violation``
+            records the disposition gate fails on.
             Strict disposition — bypass forbidden.
     """
     # Scan + log every offender (repo-health visibility), then scope the strict
