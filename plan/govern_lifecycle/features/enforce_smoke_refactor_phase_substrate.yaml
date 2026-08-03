@@ -2,13 +2,14 @@ urn: "feature:govern-lifecycle:enforce-smoke-refactor-phase-substrate"
 wagon: "wagon:govern-lifecycle"
 description: "Lifts CLAUDE.md's SMOKE+REFACTOR lifecycle definition from aspirational documentation into mechanical enforcement: planner.wmbt.must-have-smoke-acceptance (suppress-and-clean) blocks WMBT authoring without SMOKE acceptance URNs, and coach.pr.merge-blocks-on-pre-smoke-close (strict) blocks PR merges whose Closes/Fixes/Resolves keyword auto-closes an ATDD issue still at atdd:RED or atdd:GREEN. Mirrors the tester-side TESTER-SMOKE-PRES-001 substrate pattern."
 sizing:
-  wmbts: 3
+  wmbts: 4
   footprint_score: 8
   footprint_size: "S"
 wmbts:
   - "wmbt:govern-lifecycle:E003"
   - "wmbt:govern-lifecycle:E056"
   - "wmbt:govern-lifecycle:E070"
+  - "wmbt:govern-lifecycle:E071"
 components:
   backend:
     presentation:
