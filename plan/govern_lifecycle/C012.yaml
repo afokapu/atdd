@@ -1,0 +1,141 @@
+urn: wmbt:govern-lifecycle:C012
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: a-registered-branch-being-refused-by-the-commit-gate-because-its-name-is-not-its-work-items-uid
+context_clarifier: "The pre-commit hook calls `atdd coach is-registered \"$BRANCH\"\
+  ` and blocks the commit on a non-zero exit, but IssueManager.branch_is_registered\
+  \ has no branch to work-item index: it strips the `prefix/` segment and asks the\
+  \ object store for that string as a uid (`store.objects.get(slug)`). A work item's\
+  \ uid is its TITLE slug (#1272), while its branch name is chosen independently,\
+  \ so the two coincide only by accident; when they differ the lookup misses, `store_has_items`\
+  \ is True in any real repo, and the gate answers \"not registered\" for work that\
+  \ is fully registered. Measured on the live Control Root store 2026-08-03: 876 work_item\
+  \ objects, 304 of which carry a populated `data.branch`, and 206 of those 304 \u2014\
+  \ the majority \u2014 have a branch slug that is not their uid, so the defect is\
+  \ the common case rather than an edge. `atdd coach is-registered feat/resolve-approval-token-control-root`\
+  \ (uid `resolve-approval-token-path-via-shared-control-root`, #1376) exits 1 while\
+  \ its `data.branch` holds the branch verbatim. The binding is therefore already\
+  \ written \u2014 `BranchManager._record_binding_in_store` (#1347) has populated\
+  \ `data.branch` at worktree-create time since it shipped, and `list_worktrees` already\
+  \ resolves branches through exactly that field \u2014 the reader is simply the one\
+  \ consumer that never looks. The advertised self-heal `atdd coach reconcile` cannot\
+  \ repair it because the work item is already in the store, leaving `atdd emergency`\
+  \ or `git commit --no-verify` as the only routes, both of which weaken an unrelated\
+  \ control. The uid-slug probe additionally mis-resolves: `refactor/introduce-convention-validator-family-template-architecture`\
+  \ answers registered by colliding with a DIFFERENT work item's uid. Because this\
+  \ gate blocks commits, its error costs are asymmetric \u2014 a false refusal halts\
+  \ registered work outright, whereas a false admission merely fails to catch an unregistered\
+  \ branch \u2014 so resolution must consult the populated binding first and must\
+  \ never harden into a refusal on absent evidence."
+lens: functional.effectiveness
+statement: minimize likelihood of a-registered-branch-being-refused-by-the-commit-gate-because-its-name-is-not-its-work-items-uid
+  by resolving the branch through the populated `data.branch` binding that worktree-create
+  already writes and `atdd worktree list` already reads, rather than guessing a store
+  uid from the branch name, while retaining the uid-slug probe as a secondary index
+  over that same single source so records predating the binding are not newly stranded,
+  and keeping the gate's refusal confined to a branch that matches no work item in
+  a populated store
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C012-UNIT-001-divergent-branch-name-resolves-through-the-populated-binding
+    id: AC-UNIT-001
+    purpose: "a work item whose uid is its title slug and whose branch name differs\
+      \ resolves as registered, through data.branch \u2014 the case that is refused\
+      \ today"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A State Store holding a work item whose uid is its title slug and whose `data.branch`
+      holds a branch name whose slug is NOT that uid
+    - Further work items present, so the store is populated and the empty-store escape
+      cannot apply
+  when:
+    abstract: branch_is_registered is asked about that branch name
+  then:
+    abstract:
+    - "It returns True \u2014 the branch resolves through the populated `data.branch`\
+      \ binding"
+    - It resolves on the full branch name as stored, not on the prefix-stripped slug
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C012-UNIT-002-unregistered-branch-is-still-refused
+    id: AC-UNIT-002
+    purpose: "the gate is repaired, not merely widened into a pass \u2014 a branch\
+      \ bound to no work item still fails in a populated store"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A populated State Store in which no work item carries the queried branch in
+      `data.branch` and no work item's uid equals the branch's prefix-stripped slug
+  when:
+    abstract: branch_is_registered is asked about that branch name
+  then:
+    abstract:
+    - "It returns False \u2014 an unregistered branch is still refused"
+    - The same store answers True for a branch that IS bound, so the refusal is discriminating
+      rather than blanket
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C012-UNIT-003-records-predating-the-binding-are-not-newly-stranded
+    id: AC-UNIT-003
+    purpose: adding the binding index must not regress the branches that the uid-slug
+      probe answers today, since 572 of 876 live work items carry no `data.branch`
+      at all
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A populated State Store holding a work item with NO `data.branch` whose uid
+      equals the prefix-stripped slug of the queried branch
+    - An empty State Store, holding no work items of any kind
+  when:
+    abstract: branch_is_registered is asked about the branch in each store
+  then:
+    abstract:
+    - The pre-binding record still resolves True through the retained uid-slug index
+      over that same single source
+    - "The empty store still returns True \u2014 nothing to check against never blocks\
+      \ a barely-initialised repo"
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C012-SMOKE-001-real-cli-admits-the-commit-on-a-divergent-branch
+    id: AC-SMOKE-001
+    purpose: "the real `atdd coach is-registered` CLI \u2014 the hook's actual blocking\
+      \ consumer \u2014 exits 0 for a divergent-named registered branch and non-zero\
+      \ for an unregistered one"
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real control root with a real State Store, seeded through the storage API
+      with a work item whose `data.branch` diverges from its uid, alongside other
+      work items
+  when:
+    abstract: the real `atdd coach is-registered` CLI path runs against that control
+      root for the divergent branch, and again for a branch bound to no work item
+  then:
+    abstract:
+    - The divergent registered branch exits 0, so the pre-commit hook admits the commit
+    - The unregistered branch exits non-zero, so the hook still blocks it
+    - "Neither invocation reads `.atdd/manifest.yaml` \u2014 the retired fallback\
+      \ is not reinstated"
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'

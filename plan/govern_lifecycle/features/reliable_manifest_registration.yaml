@@ -1,12 +1,13 @@
 urn: "feature:govern-lifecycle:reliable-manifest-registration"
 wagon: "wagon:govern-lifecycle"
-description: "Make atdd issue <slug> reliably register the new issue in .atdd/manifest.yaml: a path-scoped commit lands the manifest entry regardless of unrelated staged changes, and a genuine registration failure exits non-zero with a clear error instead of a silent warning (closes the #344 gap for a dirty working tree)"
+description: "Registration a branch can rely on, on both sides of the commit gate. Authoring: make atdd issue <slug> reliably register the new issue in .atdd/manifest.yaml — a path-scoped commit lands the entry regardless of unrelated staged changes, and a genuine registration failure exits non-zero with a clear error instead of a silent warning (closes the #344 gap for a dirty working tree). Reading: give the pre-commit gate's `atdd coach is-registered` a branch to work-item resolution over the populated `data.branch` binding, so a registered branch is admitted whatever it is named rather than refused because its name is not its work item's uid (#1720)"
 sizing:
-  wmbts: 1
-  footprint_score: 2
+  wmbts: 2
+  footprint_score: 4
   footprint_size: "S"
 wmbts:
   - "wmbt:govern-lifecycle:E008"
+  - "wmbt:govern-lifecycle:C012"
 components:
   backend:
     presentation:
@@ -15,8 +16,8 @@ components:
         rationale: "No new CLI surface — reuses the existing `atdd issue <slug>` command"
     application:
       - type: "use_cases"
-        count: 1
-        rationale: "_commit_manifest_change registration-commit orchestration: propagate a genuine failure to the caller for the registration verb (loud, non-zero), keep the tolerant warning for the status-mirror verb"
+        count: 2
+        rationale: "_commit_manifest_change registration-commit orchestration: propagate a genuine failure to the caller for the registration verb (loud, non-zero), keep the tolerant warning for the status-mirror verb. Plus branch_is_registered's branch to work-item resolution (C012): consult the populated `data.branch` binding before the uid-slug index, both over the single State Store source"
     domain:
       - type: "entities"
         count: 0
