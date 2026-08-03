@@ -1665,6 +1665,8 @@ wagons:
       unresolvable PR to advisory-only instead of a repo-wide block, and by extending
       the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline
       (#1478; renumbered from E062 which origin/main claimed)
+    C013: minimize likelihood of a-gate-check-that-could-not-perform-its-observation-returning-the-verdict-of-one-that-observed-nothing-wrong-so-the-transition-advances-on-an-observation-nobody-made
+      (#1719)
     R010: 'minimize likelihood of the-operator-approval-token-gate-resolving-its-token-path-against-the-literal-per-worktree-cwd-instead-of-the-1346-shared-operational-control-root
       by resolving the approval-token path through atdd.state.paths.resolve_operational_root(ctx.worktree)
       — the same Control-Root resolution every other #1346-migrated operational .atdd/

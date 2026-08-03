@@ -1,0 +1,129 @@
+urn: "wmbt:govern-lifecycle:C013"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-gate-check-that-could-not-perform-its-observation-returning-the-verdict-of-one-that-observed-nothing-wrong-so-the-transition-advances-on-an-observation-nobody-made"
+context_clarifier: "atdd.coach.gate.decision.GateCheckResult carries passed: bool, and evaluate_gate proceeds when tuple(r for r in results if not r.passed) is empty. A check that reaches a branch where it cannot observe has only True available if it does not want to block, so 'I could not look' is spelled exactly like 'I looked and it was fine'. Measured 2026-08-03 on cb4016fc: three independent workers found this shape in one session without looking for it (a pre-smoke-close CI gate that cannot list PRs reporting 'violations: 0, gate result: PASSED'; an outbox drain with no provider registered exiting 0; a C011 scanner comparing the store to itself reporting agreement), and SmokeObligation's own docstring records the distinction the type cannot carry — 'no obligation reads very differently when the issue declared no plan scope at all than when it declared one that asks for no live smoke, and an operator needs to tell those apart'. This is the prerequisite for #1670's conditional mint: a receipt asserting the gates passed must not be writable over an observation that was never made. run_checks' exception-to-FAIL conversion (E046) is NOT this gap and must survive unchanged — a crash is a diagnosable fault, not an honest inability to observe. Separating the two non-failing answers is not an invention for this gate: planner/interlocking/route_space.py:91 independently arrived at the same split in its NOT_APPLICABLE_BASES vocabulary, distinguishing 'outcome-cannot-arise' (this cannot apply) from 'not-yet-assessed' (nobody has looked yet), and singles the second out as _TRANSITIONAL — a state to be resolved rather than lived in. The distinction is a shape this domain keeps producing; the gate is where it had nowhere to go."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-gate-check-that-could-not-perform-its-observation-returning-the-verdict-of-one-that-observed-nothing-wrong-so-the-transition-advances-on-an-observation-nobody-made by replacing the two-state passed bool with a total GateVerdict vocabulary — PASS (observed, satisfied), FAIL (observed, violated), COULD_NOT_CHECK (the observation could not be performed) and NOT_APPLICABLE (observed, no obligation exists) — where evaluate_gate refuses on COULD_NOT_CHECK exactly as it refuses on FAIL while reporting it in its own bucket so an operator can tell 'your code is broken' from 'I could not look at your code', so that no caller of the enforcing gate can read an unmade observation as a clean one"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C013-UNIT-001-could-not-check-refuses-the-transition"
+      id: "AC-UNIT-001"
+      purpose: "A check that could not perform its observation blocks the transition, and the two verdicts that already decided the gate keep deciding it the same way — so the third state is added without regressing C007's AND-semantics"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "GateCheckResults constructed at each verdict the vocabulary declares, through the module's own constructors rather than by setting a bool"
+        - "evaluate_gate called directly — pure, no registry, no subprocess, no store"
+    when:
+      abstract: "evaluate_gate is called over result sets that differ only in which verdict one member carries"
+    then:
+      abstract:
+        - "A set containing a COULD_NOT_CHECK result yields proceed=False"
+        - "A set of PASS results yields proceed=True, so the ordinary green path is untouched"
+        - "A set containing a FAIL result yields proceed=False and enumerates that failure, so C007's AND-semantics are intact"
+        - "COULD_NOT_CHECK blocks even when every other member of the set passed, so one unmade observation is sufficient to refuse"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C013-UNIT-002-could-not-check-is-reported-apart-from-a-failure"
+      id: "AC-UNIT-002"
+      purpose: "Identical in effect, distinct in reporting: the operator must be able to tell 'your code is broken' from 'I could not look at your code', because the remedies are different and a merged list destroys that distinction"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A result set carrying one FAIL and one COULD_NOT_CHECK, each with a distinguishable gate_id"
+        - "The aggregated outcome evaluate_gate returns for it"
+    when:
+      abstract: "the outcome's reported buckets are inspected"
+    then:
+      abstract:
+        - "The FAIL result appears in the failures bucket and the COULD_NOT_CHECK result does not, so an unobservable check is never counted as a failure"
+        - "The COULD_NOT_CHECK result appears in its own bucket, naming its gate_id and rule_id, so the refusal is attributable without re-deriving which check produced it"
+        - "Both remain in the full results record, so no verdict is dropped from the outcome"
+        - "The count a caller renders for a blocked transition is non-zero when the only blocker is a COULD_NOT_CHECK, so a refusal can never be printed as blocked by zero checks"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C013-UNIT-003-a-raised-exception-is-still-a-failure"
+      id: "AC-UNIT-003"
+      purpose: "E046 is preserved exactly: a check that crashed is a diagnosable fault, not an honest inability to observe, and collapsing the two would lose the distinction this WMBT exists to create"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fake GateCheck whose run() raises, of the shapes E046 names (a generic error, a missing tool, a timeout)"
+        - "A GateContext for any transition"
+    when:
+      abstract: "run_checks is called over those checks"
+    then:
+      abstract:
+        - "Each raised exception becomes a result carrying the FAIL verdict, not the COULD_NOT_CHECK verdict"
+        - "The resulting outcome still has proceed=False and the result still appears in the failures bucket, so E046's fail-closed guarantee is unchanged"
+        - "No exception escapes run_checks"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C013-UNIT-004-the-vocabulary-is-total-and-the-module-stays-pure"
+      id: "AC-UNIT-004"
+      purpose: "Every verdict answers the blocking question exactly once and NOT_APPLICABLE proceeds without being confusable with PASS; and the decision module remains importable with no subprocess, no network and no runtime dependency, which is the #955/#865/#1020 compliance bar this vocabulary is being added inside"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The declared verdict vocabulary, enumerated from the module rather than restated in the test, so a verdict added later is covered by construction"
+        - "The decision module's own source, read as text and parsed for its import statements"
+    when:
+      abstract: "each verdict is evaluated for whether it blocks, and the module's imports are inspected"
+    then:
+      abstract:
+        - "Every declared verdict answers the blocking question, so no member of the vocabulary is undefined at the gate"
+        - "NOT_APPLICABLE proceeds, so an issue that owes the check nothing is unaffected — the migration is a vocabulary correction and not a policy change"
+        - "NOT_APPLICABLE is not equal to PASS and is reported apart from it, so 'there was nothing to observe' cannot be read as 'the observation succeeded'"
+        - "A result constructed with a verdict that contradicts its legacy bool is refused rather than silently reconciled, so the two cannot drift apart unnoticed"
+        - "The module imports no subprocess, socket, http, urllib, requests, git or gh module, and nothing from atdd.runtime or atdd.integrations"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C013-SMOKE-001-real-store-not-applicable-yields-the-new-verdict"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real migrated State Store rather than a fake: the one in-tree branch that had nowhere to put this answer now carries NOT_APPLICABLE, and the transition outcome for such an issue is byte-identical to today — the guarantee that migrating it changed no issue's lifecycle"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real migrated State Store under an isolated Control Root, with a work item registered and projected from a GitHub issue number the way the live path registers one"
+        - "The real SmokeExecutionGateCheck, run through its real entry point with no monkeypatching of the store, the obligation resolver or the verdict"
+        - "An issue whose plan scope declares no execution_kind: live_smoke acceptance — the shape of nearly every work item in the repo"
+    when:
+      abstract: "the check is run for SMOKE->REFACTOR and its result is aggregated by evaluate_gate"
+    then:
+      abstract:
+        - "The result carries the NOT_APPLICABLE verdict rather than a bare pass, so the branch that had nowhere to put this answer now has one"
+        - "The aggregated outcome still proceeds, so the issue's SMOKE->REFACTOR edge is decided exactly as it was before the vocabulary landed"
+        - "The result's legacy passed bool is still true, so callers reading it are unaffected by the migration"
+        - "An issue that does declare a live_smoke acceptance and has no attestation still yields FAIL and still blocks, so the fail-closed teeth were not filed off by the migration"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
