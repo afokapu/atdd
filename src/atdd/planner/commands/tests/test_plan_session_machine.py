@@ -6,7 +6,7 @@
 """#1139 — the atdd plan gated session state machine.
 
 Covers durable save/load, the stage gate exit-conditions, keep/pivot/kill via
-the elicit channel, the Confirm lock, and confirm-before-author (no authoring
+the elicit channel, the Ratify lock, and confirm-before-author (no authoring
 before the operator confirms).
 """
 from __future__ import annotations

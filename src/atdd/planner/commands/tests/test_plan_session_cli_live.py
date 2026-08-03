@@ -8,7 +8,7 @@
 Drives a full gated session via subprocess against the real CLI (run-or-fail,
 no skip): start -> Intent/Attach/Compose/Ratify -> keep -> ratify -> author. Asserts the on-Ratify
 boundary really invokes the #1144 writer and produces a schema-valid wagon, and
-that confirm-before-author is enforced (authoring before confirm is refused).
+that confirm-before-author is enforced (authoring before ratify is refused).
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def test_full_session_authors_valid_wagon_via_cli(tmp_path):
     _sess(tmp_path, "unit", "--id", "s1", "--kind", "wagon", "--ref", "play-audio", "--spec", json.dumps(_SPEC))
     _sess(tmp_path, "advance", "--id", "s1", "--step", "ratify")
 
-    # confirm-before-author: authoring before confirm must be refused
+    # confirm-before-author: authoring before ratify must be refused
     pre = _sess(tmp_path, "author", "--id", "s1")
     assert pre.returncode != 0, "author before confirm must fail"
     assert not (tmp_path / "plan" / "play_audio").exists()

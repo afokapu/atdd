@@ -90,7 +90,7 @@ def test_c001_author_refused_before_confirm(tmp_path):
     _to_prepare_with_unit(tmp_path, "c1")
     _sess(tmp_path, "advance", "--id", "c1", "--step", "ratify")
     pre = _sess(tmp_path, "author", "--id", "c1")
-    assert pre.returncode != 0, "authoring before Confirm must be refused (confirm-before-author)"
+    assert pre.returncode != 0, "authoring before Ratify must be refused (confirm-before-author)"
     assert not (tmp_path / "plan" / "play_audio").exists(), "no artifact may be written before confirm"
 
 

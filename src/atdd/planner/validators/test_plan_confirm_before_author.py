@@ -45,7 +45,7 @@ def _scan() -> List[Violation]:
         session.author(lambda kind, spec: wrote.append((kind, spec)))
         violations.append(Violation(
             rule_id=_RULE.rule_id, severity=_RULE.severity, location=_LOC,
-            detail="author() did not refuse before the Confirm lock — the "
+            detail="author() did not refuse before the Ratify lock — the "
                    "confirm-before-author boundary is missing or broken",
         ))
     except SessionGateError:
