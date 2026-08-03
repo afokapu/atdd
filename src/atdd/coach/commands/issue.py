@@ -304,20 +304,34 @@ class IssueManager:
         """Return True if *branch*'s work item is registered — from the store alone.
 
         #1270 slice C: the store-backed replacement for the pre-commit hook's
-        ``grep "slug:" .atdd/manifest.yaml``. Resolves the branch → slug (strips
-        the ``prefix/`` segment; a work item is keyed in the store by its slug
-        uid) and asks the State Store.
+        ``grep "slug:" .atdd/manifest.yaml``.
 
         #1400 CORE-034 (Y002): the manifest fallback that followed is retired. It made this
         gate answer from whichever source happened to be populated — and the two could disagree,
         which meant a branch could be "registered" to the hook and unknown to every command that
         reads the store. One source, one answer.
 
-        Returns True when the slug is registered, OR when the store holds nothing to check
-        against — mirroring the hook's historical "nothing to check ⇒ don't block" behaviour so
-        a barely-initialised repo is never falsely blocked. Returns False only when the repo IS
-        atdd-managed (the store holds work items) yet the slug is absent. Never raises; makes no
-        GitHub calls.
+        #1720: resolution is by BRANCH BINDING first. The original lookup derived a slug from
+        the branch name and asked for it as a uid, but a work item's uid is its TITLE slug
+        (#1272) while its branch name is chosen separately — nothing constrains the two to be
+        equal. When they differ the lookup missed and the gate refused fully registered work,
+        blocking every commit on the branch. Measured on the live Control Root 2026-08-03: of
+        304 work items carrying a branch, 206 — the majority — had a branch slug that was not
+        their uid. ``data.branch`` is written by ``BranchManager._record_binding_in_store``
+        (#1347) at worktree-create time and already read by ``atdd worktree list``; this was
+        the one consumer that never looked.
+
+        The uid-slug probe is RETAINED as a secondary index, not replaced: 572 of those 876
+        live work items carry no ``data.branch`` at all, and replacing the probe would newly
+        strand every one of them whose branch name does equal its uid. Two indexes over the
+        ONE State Store source — not the two disagreeing sources CORE-034 retired, since both
+        legs read the same store.
+
+        Returns True when the branch resolves by either index, OR when the store holds nothing
+        to check against — mirroring the hook's historical "nothing to check ⇒ don't block"
+        behaviour so a barely-initialised repo is never falsely blocked. Returns False only
+        when the repo IS atdd-managed (the store holds work items) yet the branch resolves by
+        neither. Never raises; makes no GitHub calls.
         """
         slug = branch.split("/", 1)[-1] if "/" in branch else branch
         store_has_items = False
@@ -329,9 +343,17 @@ class IssueManager:
             conn = connect(init_state_store(start=self.target_dir))
             try:
                 store = StateStore(conn)
+                # Primary index: the branch binding the worktree-create path writes.
+                # Matched on the full branch name, which is what `data.branch` holds.
+                work_items = store.objects.list(kind=WORK_ITEM_KIND)
+                for obj in work_items:
+                    if (obj.data or {}).get("branch") == branch:
+                        return True
+                # Secondary index over the same source, for records predating the
+                # binding: a work item whose uid IS the branch-derived slug.
                 if store.objects.get(slug) is not None:
                     return True
-                store_has_items = bool(store.objects.list(kind=WORK_ITEM_KIND))
+                store_has_items = bool(work_items)
             finally:
                 conn.close()
         except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
