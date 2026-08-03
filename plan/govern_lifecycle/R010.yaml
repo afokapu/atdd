@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:R005"
+urn: "wmbt:govern-lifecycle:R010"
 step: "resolve"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of the-operator-approval-token-gate-resolving-its-token-path-against-the-literal-per-worktree-cwd-instead-of-the-1346-shared-operational-control-root by resolving the approval-token path through atdd.state.paths.resolve_operational_root(ctx.worktree) — the same Control-Root resolution every other #1346-migrated operational .atdd/ reader uses — so an operator token written by `atdd coach approve` under the single shared Control Root's .atdd/runtime/ is found by the gate no matter which child worktree evaluates the transition, with a worktree-local read retained as a back-compat fallback"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:R005-UNIT-001-token-path-resolves-under-control-root-with-worktree-fallback"
+      urn: "acc:govern-lifecycle:R010-UNIT-001-token-path-resolves-under-control-root-with-worktree-fallback"
       id: "AC-UNIT-001"
       purpose: "The approval-token path resolver computes the token path under the resolved operational Control Root (resolve_operational_root of the worktree), NOT the literal worktree, and — when only a legacy token exists worktree-local — still resolves/reads it as a back-compat fallback"
       phase: "GREEN"
@@ -32,7 +32,7 @@ acceptances:
       created: "2026-07-08"
 
   - identity:
-      urn: "acc:govern-lifecycle:R005-INTEGRATION-001-control-root-token-satisfies-gate-from-child-worktree"
+      urn: "acc:govern-lifecycle:R010-INTEGRATION-001-control-root-token-satisfies-gate-from-child-worktree"
       id: "AC-INTEGRATION-001"
       purpose: "With ApprovalTokenGateCheck evaluating a transition from a child worktree, a valid operator-signed token written under the SHARED Control Root's .atdd/runtime/ (not the child worktree) makes the check PASS; with no token under either location the check FAILS with the operator produce-hint — proven via the GateCheckResult verdict, not a log line"
       phase: "GREEN"
@@ -56,7 +56,7 @@ acceptances:
       created: "2026-07-08"
 
   - identity:
-      urn: "acc:govern-lifecycle:R005-SMOKE-001-coach-approve-token-and-gate-share-one-control-root-location"
+      urn: "acc:govern-lifecycle:R010-SMOKE-001-coach-approve-token-and-gate-share-one-control-root-location"
       id: "AC-SMOKE-001"
       purpose: "Against a temp ATDD_CONTROL_ROOT holding a child worktree and a throwaway issue number (never a live issue): the token written by the real `atdd coach approve` lands under the single shared Control Root's .atdd/runtime/, and a real ApprovalTokenGateCheck evaluated from the child worktree reads that same token — one shared location, no per-worktree divergence"
       phase: "SMOKE"
