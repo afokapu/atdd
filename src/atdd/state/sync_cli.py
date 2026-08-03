@@ -78,26 +78,38 @@ def run_sync_cli(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  - {n}")
 
         if args.push:
-            pushed = push_outbox(store, providers, dry_run=args.dry_run)
-            print(f"outbox: {pushed.verdict.value.upper()} — "
-                  f"{pushed.pushed} pushed, {pushed.failed} failed, "
-                  f"{pushed.skipped_no_provider} skipped-no-provider (of {pushed.pending} pending)")
-            if pushed.unregistered_providers:
-                print("  - no sync provider is registered for: "
-                      f"{', '.join(pushed.unregistered_providers)}; "
-                      "those rows were left pending and nothing will send them")
-            for e in pushed.errors:
-                print(f"  - {e}")
-            _print_backlog(store)
-            # A dry run reports; it never claims to have drained, so its exit code
-            # stays informational. A real --push that left rows behind must not
-            # answer with the exit code of one that emptied the queue (#1711).
-            return 0 if (args.dry_run or pushed.drained) else 1
+            return _drain_and_report(store, providers, dry_run=args.dry_run)
 
         _print_backlog(store, hint=True)
         return 0
     finally:
         conn.close()
+
+
+def _drain_and_report(
+    store: StateStore, providers, *, dry_run: bool,
+) -> int:
+    """Drain the outbox and render the verdict, the refusal reason and the backlog.
+
+    Carved out of :func:`run_sync_cli` rather than inlined: the verdict added a
+    branch that took the caller past the nesting the coder ratchet allows, and a
+    reporting block that owns its own exit code is a unit worth naming anyway.
+    """
+    pushed = push_outbox(store, providers, dry_run=dry_run)
+    print(f"outbox: {pushed.verdict.value.upper()} — "
+          f"{pushed.pushed} pushed, {pushed.failed} failed, "
+          f"{pushed.skipped_no_provider} skipped-no-provider (of {pushed.pending} pending)")
+    if pushed.unregistered_providers:
+        print("  - no sync provider is registered for: "
+              f"{', '.join(pushed.unregistered_providers)}; "
+              "those rows were left pending and nothing will send them")
+    for e in pushed.errors:
+        print(f"  - {e}")
+    _print_backlog(store)
+    # A dry run reports; it never claims to have drained, so its exit code stays
+    # informational. A real --push that left rows behind must not answer with the
+    # exit code of one that emptied the queue (#1711).
+    return 0 if (dry_run or pushed.drained) else 1
 
 
 def _print_backlog(store: StateStore, *, hint: bool = False) -> None:
