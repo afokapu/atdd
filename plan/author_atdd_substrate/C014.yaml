@@ -1,0 +1,91 @@
+urn: "wmbt:author-atdd-substrate:C014"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "unverified-artifact-claim"
+context_clarifier: "when an issue reaches COMPLETE, the `## Artifacts` claim must be answered by ONE convention-bound checker rather than by two independent copies of the same policy — today `IssueManager._verify_artifacts` and `src/atdd/coach/validators/test_issue_gate_completion.py` each carry their own `total == 0` escape and neither binds a rule, so an issue that declares nothing is exempt from the gate entirely while an issue that declares accurately has every entry checked. Enforcement is monotonic in honesty. The checker must therefore treat an empty declaration and a changed-but-undeclared file as observable violations of a declared rule, so that the strictness ratchet is a convention decision and not a hard-coded pass."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of unverified-artifact-claim by requiring one convention-bound checker to answer the `## Artifacts` question for both the validator and the runtime gate, reporting an empty declaration and an undeclared changed file as violations"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C014-UNIT-001-empty-declaration-is-a-violation"
+      id: "AC-UNIT-001"
+      purpose: "An issue body whose `## Artifacts` section declares nothing is reported as a violation of the declared rule instead of being skipped — the `total == 0` free pass is gone from the only remaining implementation"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue body whose `## Artifacts` section is absent, or present with no claim bullets"
+    when:
+      abstract: "the shared artifact-claim checker evaluates the parsed claims for a COMPLETE issue"
+    then:
+      abstract:
+        - "The checker returns a violation whose rule_id is the declared artifacts rule"
+        - "The violation is NOT an empty list — declaring nothing is no longer an exemption"
+        - "The rule_id resolves through `bind_rule`, so severity and disposition come from the convention"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+  - identity:
+      urn: "acc:author-atdd-substrate:C014-UNIT-002-undeclared-changed-file-is-a-violation"
+      id: "AC-UNIT-002"
+      purpose: "The check is bidirectional: a file the work changed but the claim never named is a violation, so an accurate-but-partial declaration stops being indistinguishable from a complete one"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A set of files the work changed, and a claim naming only some of them"
+    when:
+      abstract: "the shared artifact-claim checker evaluates the claim against the changed set"
+    then:
+      abstract:
+        - "Each changed file absent from the claim is reported as a violation naming that path"
+        - "A claim that names every changed file yields no violation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+  - identity:
+      urn: "acc:author-atdd-substrate:C014-UNIT-003-one-bound-implementation-serves-both-enforcers"
+      id: "AC-UNIT-003"
+      purpose: "Exactly one implementation of the artifact policy exists and it is bound to the convention; the acceptance fails if a second copy of the `total == 0` escape reappears in either enforcer"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The coach COMPLETE-gate validator source and the `IssueManager` runtime-gate source"
+    when:
+      abstract: "the artifact policy is located across both enforcers"
+    then:
+      abstract:
+        - "Both enforcers delegate to the one shared checker module"
+        - "Neither enforcer carries its own `total == 0` escape"
+        - "The shared checker calls `bind_rule` at module-import time for every rule it emits"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+  - identity:
+      urn: "acc:author-atdd-substrate:C014-SMOKE-001-complete-gate-answers-from-the-bound-rule"
+      id: "AC-SMOKE-001"
+      purpose: "Verify against a real git checkout in the post-merge state that the COMPLETE runtime gate answers the artifacts question from the bound rule — an empty declaration produces the declared violation, an accurate declaration produces none"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git checkout in the state `atdd auto-phase` sees: on the default branch, at the commit the PR landed"
+    when:
+      abstract: "the real `IssueManager` COMPLETE-gate artifact verification runs over an empty declaration and over an accurate one"
+    then:
+      abstract:
+        - "The empty declaration yields the violation declared by the convention rule, resolved through the real registry"
+        - "The accurate declaration yields no violation and the gate still reports each claim against git"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
