@@ -86,7 +86,21 @@ acceptances:
       id: "AC-SMOKE-001"
       purpose: "Against the real runner and the real validator tree rather than a fake: the deselection this WMBT was raised for is actually counted and actually printed, including under the parallelism that erases pytest's own notice"
       phase: "SMOKE"
-      execution_kind: "live_smoke"
+    # Real TestRunner, real pytest subprocesses, real validator tree, no fakes and
+    # no monkeypatching — but the filesystem is the only infrastructure involved.
+    # planner.acceptance.execution-kind reserves `live_smoke` for "real live
+    # infrastructure (HTTP, DB, auth, deployment)"; this is squarely the
+    # hermetic_integration tier: "real subject, real boundary shape, real
+    # integration sequence — NO live external infrastructure".
+    #
+    # It was drafted as `live_smoke` AND nested one level too deep, inside
+    # `identity`, where the acceptance walker does not read it. Both are corrected
+    # here. Declaring it live_smoke at the level that IS read would have been worse
+    # than the mis-nesting: this file's `_repo_root()` helper calls `pytest.skip`,
+    # and tester.acceptance-violation.live-smoke-acceptance-must-execute forbids a
+    # self-skip in a live_smoke test precisely because a skip records no passing
+    # outcome and so attests vacuously (#1076) — C014's own defect, manufactured.
+    execution_kind: "hermetic_integration"
     harness:
       type: "integration"
       category: "backend"
