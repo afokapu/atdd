@@ -48,8 +48,10 @@ from atdd.enforce.conventions import (
     RuleMetadata,
     compute_scan_policy,
     is_interlocking_rule,
+    load_bound,
     resolve_interlocking_layout,
     rule_metadata,
+    select_rules,
 )
 from atdd.enforce.dispositions import fails_on_violation
 from atdd.enforce.provider_env import provider_env
@@ -136,17 +138,14 @@ def load_config(repo_root: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def _bound_conventions(substrate_home: Path) -> list[dict]:
-    lock_path = substrate_home / ".atdd" / "binding.lock.yaml"
-    if not lock_path.is_file():
-        return []
-    try:
-        lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        raise EnforceUsageError(f"malformed binding.lock.yaml: {exc}") from exc
-    conventions = lock.get("conventions") if isinstance(lock, dict) else None
-    conventions = conventions if isinstance(conventions, list) else []
-    return [c for c in conventions if isinstance(c, dict) and c.get("disposition") == "bound"]
+def _bound_conventions(substrate_home: Path, rules: Optional[set] = None) -> list[dict]:
+    """The ``bound`` convention entries, optionally narrowed to ``rules``.
+
+    Thin seam over the resolution helpers in :mod:`atdd.enforce.conventions`; kept
+    here because it is the name callers and tests already bind to.
+    """
+    bound = load_bound(substrate_home, EnforceUsageError)
+    return select_rules(bound, rules, EnforceUsageError)
 
 
 def _candidate_roots(substrate_home: Path) -> list[Path]:
@@ -300,8 +299,14 @@ def enforce(
     repo_root: Path,
     *,
     path_override: Optional[list[str]] = None,
+    rules: Optional[set] = None,
 ) -> EnforceResult:
     """Enforce every ``bound`` convention against ``repo_root``.
+
+    ``rules`` narrows the run to the named conventions — one provider subprocess per
+    selected rule instead of one per bound rule. Omitted, every bound convention runs,
+    so existing callers (`atdd enforce`, the post-commit hook, CI) are unaffected. A
+    selection naming an unbound or unknown rule raises rather than running nothing.
 
     Raises :class:`EnforceUsageError` (exit 2) on a wiring failure (malformed
     config/lock, unresolvable provider, provider crash).
@@ -309,7 +314,7 @@ def enforce(
     repo_root = repo_root.resolve()
     substrate_home = resolve_substrate_home(repo_root)
     config = load_config(repo_root)  # may raise EnforceUsageError (exit 2)
-    bound = _bound_conventions(substrate_home)
+    bound = _bound_conventions(substrate_home, rules)
 
     if not bound:
         return EnforceResult(verdicts=[], report="enforce: no bound conventions — clean no-op.")

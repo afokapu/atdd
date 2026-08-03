@@ -2,11 +2,12 @@ urn: "feature:govern-lifecycle:issue-author-validate-locally-publish-once"
 wagon: "wagon:govern-lifecycle"
 description: "Make issue authoring validate the full body locally against issue.schema.json before any GitHub call and publish store-first via a single create — preventing non-compliant bodies from ever reaching GitHub (#792). Realized by `atdd author issue`; the IssueManager mint path that first carried this was retired in #1477."
 sizing:
-  wmbts: 1
-  footprint_score: 2
+  wmbts: 2
+  footprint_score: 3
   footprint_size: "S"
 wmbts:
   - "wmbt:govern-lifecycle:E019"
+  - "wmbt:govern-lifecycle:Y007"
 components:
   backend:
     presentation:

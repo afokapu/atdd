@@ -283,23 +283,29 @@ def revise_issue(
     body: Optional[str] = None,
     issue_type: Optional[str] = None,
     feature: Optional[str] = None,
+    title: Optional[str] = None,
     control_root: Optional[Path] = None,
 ) -> RevisionResult:
     """Revise an issue-backed work item store-first, then project to GitHub.
 
     The State Store is authoritative. A store lookup/write failure raises
     :class:`PublishError` and no provider mutation is attempted. The GitHub body
-    update is best-effort projection: on failure it is recorded in the outbox so
-    a retry path can replay it later.
+    and title updates are best-effort projection: on failure each is recorded in
+    the outbox so a retry path can replay it later.
 
     ``feature`` is the hop Break 4 was missing (#1635): the CLI accepted the flag
     and this function had no parameter to carry it. A feature that does not
     resolve against ``plan/`` is refused BEFORE the store write, so a refused
     revision never mutates the binding.
+
+    ``title`` is the last flag with that same gap (#1661). It needs a projection
+    of its own because the issue title is not derived from the body: revising the
+    body moves its H1 and leaves the title stale, which is how #1636 came to
+    disagree with itself.
     """
-    if body is None and issue_type is None and feature is None:
+    if body is None and issue_type is None and feature is None and title is None:
         raise PublishError(
-            "revision requires --body-file, --feature and/or explicit --type"
+            "revision requires --body-file, --feature, --title and/or explicit --type"
         )
 
     if feature is not None:
@@ -323,7 +329,7 @@ def revise_issue(
         try:
             obj = revise_work_item_issue(
                 conn, issue_number, body=body, issue_type=issue_type,
-                feature=feature,
+                feature=feature, title=title,
             )
         except Exception as exc:
             raise PublishError(
@@ -350,6 +356,31 @@ def revise_issue(
                 )
                 logger.warning(
                     "github issue body update deferred to outbox; store revision stands",
+                    extra={"issue_number": issue_number, "slug": obj.uid, "error": str(exc)},
+                )
+
+        # The title is projected separately because GitHub stores it separately:
+        # editing the body never moves the title, so a title-only revision has
+        # no body call to ride along with (#1661).
+        if title is not None:
+            store = StateStore(conn)
+            try:
+                from atdd.integrations.github.issue_state import update_title
+
+                update_title(issue_number, title)
+            except Exception as exc:
+                projection_deferred = True
+                store.sync.enqueue_outbox(
+                    _GITHUB_PROVIDER,
+                    _UPDATE_ISSUE_OP,
+                    {
+                        "issue_number": issue_number,
+                        "slug": obj.uid,
+                        "title": title,
+                    },
+                )
+                logger.warning(
+                    "github issue title update deferred to outbox; store revision stands",
                     extra={"issue_number": issue_number, "slug": obj.uid, "error": str(exc)},
                 )
     finally:
