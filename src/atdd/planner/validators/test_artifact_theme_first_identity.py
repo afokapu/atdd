@@ -71,7 +71,7 @@ def _confirm_session_producing(name: str) -> PlanSession:
     artifact ``name`` — verb-object slug so the earlier verb-object gate passes
     and the artifact-naming gate is the one under test."""
     s = PlanSession(session_id="a1")
-    s.step = Step.CONFIRM.value
+    s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
     s.add_unit(Unit(kind="wagon", ref="wagon:manage-users", verdict=Verdict.KEEP.value,
                     spec={"wagon": "manage-users",
@@ -103,13 +103,13 @@ def _drive_cli_to_confirm(tmp_path, produced_name: str) -> int:
     assert run(["--root", root, "start", "--id", "c1",
                 "--main-job", "mj", "--issue", "demo-slug"]) == 0
     assert run(["--root", root, "source", "--id", "c1", "req"]) == 0
-    assert run(["--root", root, "advance", "--id", "c1", "--step", "locate"]) == 0
-    assert run(["--root", root, "advance", "--id", "c1", "--step", "prepare"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "attach"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "compose"]) == 0
     assert run(["--root", root, "unit", "--id", "c1", "--kind", "wagon",
                 "--ref", "wagon:manage-users", "--spec", spec]) == 0
     assert run(["--root", root, "decide", "--id", "c1",
                 "--ref", "wagon:manage-users", "--verdict", "keep"]) == 0
-    assert run(["--root", root, "advance", "--id", "c1", "--step", "confirm"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "ratify"]) == 0
     return run(["--root", root, "confirm", "--id", "c1"])
 
 

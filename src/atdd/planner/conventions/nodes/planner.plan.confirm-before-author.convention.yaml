@@ -3,7 +3,7 @@ rule_id: planner.plan.confirm-before-author
 kind: rule
 status: active
 statement: 'Nothing is authored before the operator confirms the locked decomposition.
-  The Confirm gate is the conversational-to-deterministic boundary: only on confirmation
+  The Ratify gate is the conversational-to-deterministic boundary: only on ratification
   does atdd plan (the system, not the agent) invoke atdd author <kind> per locked
   unit.'
 implementation:
@@ -11,7 +11,7 @@ implementation:
   ref: test_plan_confirm_before_author::test_confirm_before_author_is_enforced
 content:
   normative_text: The session machine's author pass MUST refuse to invoke any atdd
-    author writer until the session is locked by the operator's Confirm.
+    author writer until the session is locked by the operator's ratification.
   fix_hint: 'PlanSession.author() must raise SessionGateError when self.locked is
     False, before calling any author writer. Keep the lock guard as the first
     statement of author().'
