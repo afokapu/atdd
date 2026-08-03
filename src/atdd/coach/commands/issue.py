@@ -1167,8 +1167,17 @@ class IssueManager:
     def _changed_files(self, landed: Optional[str]) -> List[str]:
         """Every path the work touched, for the reverse pass (changed → declared).
 
-        Read from the same revision the forward pass uses, so the two directions
-        can never disagree about which commit "this work" means.
+        Deliberately asks the SAME revision the forward pass probes, so the two
+        directions can never disagree about which commit "this work" means.
+
+        That inherits the forward pass's known imprecision before the merge:
+        ``main...HEAD`` reads the LOCAL ``main``, so on a branch whose local main
+        is stale the merge-base is old and the set includes paths other PRs
+        merged. Post-merge — the state ``atdd auto-phase`` evaluates in, and the
+        one the COMPLETE gate actually runs in — the question is asked of the
+        commit the PR landed (#1611) and the imprecision does not arise.
+        Narrowing the pre-merge revision to ``origin/main`` would change the
+        forward check too, so it is left to whoever owns that question.
         """
         result = subprocess.run(
             self._artifact_check_argv("diff", landed)[:-1] + ["--name-only", "--"],
