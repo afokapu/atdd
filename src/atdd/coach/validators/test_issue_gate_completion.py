@@ -23,11 +23,25 @@ from pathlib import Path
 import pytest
 
 from atdd.coach.commands.issue import IssueManager
+from atdd.coach.utils.artifact_claims import (
+    RULE_CLAIMS_RESOLVE,
+    RULE_MUST_BE_DECLARED,
+    VALIDATOR_ID,
+)
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.rule_binding import bind_rule
 
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
 REPO_ROOT = find_repo_root()
+
+# SPEC-COACH-RULEID-0007: bound at module-import time, so a rule this validator
+# enforces but no convention declares fails loudly at collection rather than
+# silently enforcing a docstring. Before #1726 this file called bind_rule zero
+# times while guarding the COMPLETE gate.
+_RULE_RESOLVE = bind_rule(RULE_CLAIMS_RESOLVE)
+_RULE_DECLARED = bind_rule(RULE_MUST_BE_DECLARED)
 
 
 # ---------------------------------------------------------------------------
@@ -36,41 +50,35 @@ REPO_ROOT = find_repo_root()
 
 def test_complete_issues_artifacts_valid(github_complete_issues):
     """
-    SPEC-GATE-0002: Artifact claims in COMPLETE issues must match git state.
+    SPEC-GATE-0002 / ``coach.issue.artifact-claims-must-resolve`` +
+    ``coach.issue.artifacts-must-be-declared``.
 
     Given: Issues labelled atdd:COMPLETE
-    When: Parsing the Artifacts section and checking against git
-    Then: Created files exist, Modified files have changes vs main, Deleted files are gone
+    When: Parsing the Artifacts section and checking it with the shared checker
+    Then: Created files exist, Modified files changed, Deleted files are gone —
+          AND the section is a complete record of what the work changed.
+
+    The policy lives in ``atdd.coach.utils.artifact_claims``, which the runtime
+    gate in ``IssueManager`` also calls. This validator used to carry its own
+    copy, including its own ``total == 0`` escape that skipped any issue
+    declaring nothing — so the issues with the least evidence were the ones
+    checked least (#1726). Pass/fail is now the rules' declared disposition,
+    not a hard-coded verdict here.
     """
     manager = IssueManager(target_dir=REPO_ROOT)
 
-    failures = []
-
+    violations = []
     for issue in github_complete_issues:
-        num = issue["number"]
-        body = issue.get("body", "") or ""
-        artifacts = manager._parse_artifacts(body)
-        total = sum(len(v) for v in artifacts.values())
-
-        if total == 0:
-            continue
-
         # #1611: a COMPLETE issue's PR has merged by definition, so the claims are
         # read against the commit that landed them — `main...HEAD` is empty here.
-        valid, messages = manager._verify_artifacts(
-            artifacts, force=False, issue_number=num,
+        report = manager.check_artifacts(
+            manager._parse_artifacts(issue.get("body", "") or ""),
+            force=False,
+            issue_number=issue["number"],
         )
-        if not valid:
-            failed_lines = [m for m in messages if "MISSING" in m or "NO CHANGES" in m or "STILL EXISTS" in m]
-            failures.append(
-                f"#{num}: artifact verification failed\n    " + "\n    ".join(failed_lines)
-            )
+        violations.extend(report.violations)
 
-    assert not failures, (
-        f"\nCOMPLETE issues have invalid artifact claims.\n"
-        f"Fix: Update ## Artifacts section to match actual git state.\n\n"
-        f"Failures ({len(failures)}):\n  " + "\n  ".join(failures)
-    )
+    assert_disposition_satisfied(validator_id=VALIDATOR_ID, violations=violations)
 
 
 # ---------------------------------------------------------------------------
