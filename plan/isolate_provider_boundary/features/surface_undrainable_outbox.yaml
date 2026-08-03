@@ -1,0 +1,41 @@
+urn: feature:isolate-provider-boundary:surface-undrainable-outbox
+wagon: wagon:isolate-provider-boundary
+description: "Names the drainability fault core can honestly detect \u2014 an outbox\
+  \ row whose `provider` routing key has no registered receiver \u2014 and makes the\
+  \ non-empty-AND-unroutable conjunction loud on every operator surface that previously\
+  \ reported health (`atdd state providers`, `atdd state sync`), plus a dedicated\
+  \ `atdd state outbox` surface that lists rows with their computed routability, exits\
+  \ non-zero on a stranded backlog, and discards a row only against a recorded reason\
+  \ (migration v4 adds the `discarded` status with `disposition`/`disposed_at`, so\
+  \ a row leaves the queue by disposition and never by silent DELETE). Zero registered\
+  \ providers stays a supported, provider-free state (ext#40 Phase 2 decision 3);\
+  \ this feature changes only whether the operator is told.\n"
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: S
+wmbts:
+- wmbt:isolate-provider-boundary:E003
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 1
+      rationale: the `atdd state outbox` verb group (list / check / discard) plus
+        the stranded-backlog note appended to the existing providers and sync surfaces
+    application:
+    - type: use_cases
+      count: 2
+      rationale: assess_drainability(store, providers) partitions the pending backlog
+        into routable and unroutable, and SyncStore.discard(id, reason) dispositions
+        one row against a recorded reason
+    domain:
+    - type: value_objects
+      count: 1
+      rationale: "the frozen DrainabilityReport \u2014 pending/drainable/unroutable\
+        \ counts keyed by routing provider, with the oldest row's timestamp"
+    integration:
+    - type: repositories
+      count: 0
+      rationale: reuses SyncStore on the existing connection; migration v4 only adds
+        two columns and one status value to the shipped outbox table

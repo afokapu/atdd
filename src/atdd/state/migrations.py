@@ -150,12 +150,37 @@ CREATE TABLE store_metadata (
 """
 
 
+#: #1655 outbox disposition — the columns that let a row LEAVE the queue without
+#: being sent and without being deleted.
+#:
+#: Before this, ``outbox.status`` was ``pending | sent | failed`` with no fourth
+#: option, so an undeliverable row had exactly two futures: sit pending forever, or
+#: be ``DELETE``d. The first is what produced the stranded backlog #1655 triaged;
+#: the second destroys the audit trail of a decision the store once made. Neither is
+#: acceptable for a queue whose rows are *decisions* (a version to publish, an issue
+#: to file).
+#:
+#: ``discarded`` is that fourth status, and ``disposition`` makes it answerable: a
+#: row may only be discarded against a recorded, non-empty reason (enforced in
+#: :meth:`atdd.state.store.SyncStore.discard`, not by the schema — SQLite cannot
+#: express "non-empty when status='discarded'" without a table rewrite). The row
+#: itself is preserved, so "why is this not in GitHub?" stays answerable forever.
+#:
+#: ``ALTER TABLE ... ADD COLUMN`` is the whole migration: no table rewrite, no data
+#: copy, and every existing row keeps its status with NULL disposition.
+_OUTBOX_DISPOSITION_SQL = """
+ALTER TABLE outbox ADD COLUMN disposition TEXT;
+ALTER TABLE outbox ADD COLUMN disposed_at  TEXT;
+"""
+
+
 #: Ordered, append-only core migrations. NEVER edit an applied migration in place
 #: — add a new one with the next version number.
 CORE_MIGRATIONS: List[Migration] = [
     Migration(version=1, name="core_tables", sql=_CORE_TABLES_SQL),
     Migration(version=2, name="release_kind", sql=_RELEASE_KIND_SQL),
     Migration(version=3, name="overlay_and_metadata", sql=_OVERLAY_TABLES_SQL),
+    Migration(version=4, name="outbox_disposition", sql=_OUTBOX_DISPOSITION_SQL),
 ]
 
 

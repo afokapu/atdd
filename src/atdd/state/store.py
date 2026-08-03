@@ -105,7 +105,9 @@ class SyncMessage:
     provider: str
     payload: Dict[str, Any]
     status: str
-    operation: Optional[str] = None  # outbox only
+    operation: Optional[str] = None    # outbox only
+    created_at: Optional[str] = None   # outbox only — how old a stranded row is
+    disposition: Optional[str] = None  # outbox only — why a discarded row left (#1655)
 
 
 # --------------------------------------------------------------------------- #
@@ -281,13 +283,81 @@ class SyncStore(_BaseStore):
         rows = self._conn.execute(
             "SELECT * FROM outbox WHERE status='pending' ORDER BY id"
         ).fetchall()
-        return [SyncMessage(r["id"], r["provider"], _loads(r["payload"]), r["status"], r["operation"])
-                for r in rows]
+        return [self._outbox_message(r) for r in rows]
+
+    def all_outbox(self) -> List[SyncMessage]:
+        """Every outbox row in id order, whatever its status (#1655).
+
+        :meth:`pending_outbox` answers "what is there left to send?"; this answers
+        "what has this queue ever been asked to do, and what became of it?" — which
+        is the question an operator staring at a stranded backlog is actually
+        asking. Discarded rows are included **by design**: a disposition that
+        vanishes from the listing is indistinguishable from a delete.
+        """
+        rows = self._conn.execute("SELECT * FROM outbox ORDER BY id").fetchall()
+        return [self._outbox_message(r) for r in rows]
+
+    @staticmethod
+    def _outbox_message(row: sqlite3.Row) -> SyncMessage:
+        keys = row.keys()
+        return SyncMessage(
+            row["id"], row["provider"], _loads(row["payload"]), row["status"], row["operation"],
+            created_at=row["created_at"],
+            # Tolerate a store that predates migration v4 rather than raising on a
+            # missing column — a read path must never be the thing that fails.
+            disposition=row["disposition"] if "disposition" in keys else None,
+        )
 
     def mark_sent(self, outbox_id: int) -> None:
         with self._conn:
             self._conn.execute(
                 "UPDATE outbox SET status='sent', sent_at=datetime('now') WHERE id=?", (outbox_id,)
+            )
+
+    def discard(self, outbox_id: int, reason: str) -> None:
+        """Retire an undeliverable outbox row against a recorded ``reason`` (#1655).
+
+        The row is **preserved** and its status becomes ``discarded`` — this is the
+        alternative to the two bad options a stranded row otherwise has (sit pending
+        forever, or be ``DELETE``d and lose the record that the store ever decided
+        it).
+
+        Two refusals, both deliberate:
+
+        - **an empty reason is refused.** "Discarded" without a why is just a slower
+          delete; the reason is the entire point of the status.
+        - **an already-``sent`` row is refused.** Its side-effect happened on the
+          remote. Marking it discarded would claim a decision was retired when it
+          was in fact carried out, which is a worse lie than the silence #1655 fixed.
+
+        Discarding an already-discarded row is likewise refused, so a second reason
+        can never quietly overwrite the first.
+        """
+        if not (reason or "").strip():
+            raise ValueError(
+                f"refusing to discard outbox#{outbox_id} without a reason — a discard "
+                f"with no recorded reason is a delete with extra steps"
+            )
+        row = self._conn.execute(
+            "SELECT status FROM outbox WHERE id=?", (outbox_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"no such outbox row: {outbox_id}")
+        if row["status"] == "sent":
+            raise ValueError(
+                f"refusing to discard outbox#{outbox_id}: it is already 'sent', so its "
+                f"side-effect happened on the remote and cannot be un-decided"
+            )
+        if row["status"] == "discarded":
+            raise ValueError(
+                f"refusing to re-discard outbox#{outbox_id}: it already carries a "
+                f"recorded disposition, which must not be silently overwritten"
+            )
+        with self._conn:
+            self._conn.execute(
+                "UPDATE outbox SET status='discarded', disposition=?, "
+                "disposed_at=datetime('now') WHERE id=?",
+                (reason.strip(), outbox_id),
             )
 
     def enqueue_inbox(self, provider: str, payload: Dict[str, Any]) -> int:

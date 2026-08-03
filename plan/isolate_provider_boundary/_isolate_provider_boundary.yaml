@@ -16,6 +16,7 @@ features:
 - urn: feature:isolate-provider-boundary:verify-remote-conformance
 - urn: feature:isolate-provider-boundary:lock-extension-digests
 - urn: feature:isolate-provider-boundary:validate-extension-integration
+- urn: feature:isolate-provider-boundary:surface-undrainable-outbox
 goal: make it impossible for a lifecycle decision to depend on GitHub, so an extension can be attached
   or removed without changing what core decides
 name: Isolate Provider Boundary
@@ -74,7 +75,10 @@ wmbt:
   E002: maximize likelihood of a deterministic extensions-lock that pins the core schema, lifecycle policy
     and merge policy digests alongside every registered provider digest, so a drifting extension is detected
     before it mirrors
+  E003: maximize likelihood of undrainable-outbox-visibility, so that a non-empty outbox whose rows no
+    registered provider can route is named, surfaced by every operator surface that would otherwise
+    report health, and dispositionable with a recorded reason
   K001: maximize likelihood of a core-extension-smoke proving the mirror is presentation-only, where a
     failing provider never blocks merge and the only projection write-back is through the constrained
     external_refs path
-  total: 6
+  total: 7
