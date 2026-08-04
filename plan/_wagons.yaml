@@ -1282,7 +1282,9 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 119
+    total: 120
+    C015: minimize an-enqueue-that-tells-its-caller-the-write-is-a-durable-retry-and-a-drain-that-exits-0-over-a-queue-it-left-untouched-so-neither-surface-can-say-that-no-registered-provider-will-ever-send-the-row
+      (#1711)
     C018: minimize a-declared-train-reference-that-resolves-to-no-registered-train-and-a-registered-train-with-no-interlocking-both-drifting-unseen-because-no-convention-node-asserts-that-an-issues-train-must-resolve
       (#1590)
     Y008: minimize a-train-reference-written-onto-an-issue-without-any-registry-check-through-a-deprecated-command-that-is-the-only-functional-setter-while-the-non-deprecated-one-refuses-the-flag

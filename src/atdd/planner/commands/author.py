@@ -1490,12 +1490,33 @@ def _revision_violations(body, issue_type) -> list:
     return violations
 
 
+def _deferral_sentence(result) -> str:
+    """What the operator is owed about a projection that did not land (#1711/C015).
+
+    The old sentence — "deferred to the outbox (durable retry)" — was printed
+    unconditionally and decided nothing. "Deferred" implies later; with no
+    registered provider there is no later, and the operator has been told their
+    write is safe. ``deferral_deliverable`` is read from the live registry at the
+    moment of enqueue, so this renders the fact rather than the hope.
+    """
+    if result.deferral_deliverable:
+        return (
+            "the github projection failed and is queued in the outbox — "
+            "run `atdd state sync --push` to send it"
+        )
+    return (
+        "the github projection FAILED and is queued in the outbox, but no "
+        "'github' sync provider is registered, so nothing will send it — the "
+        "write is NOT on github"
+    )
+
+
 def _print_revise_outcome(result) -> None:
     if result.projection_deferred:
         print(
             f"atdd author issue: revised work_item {result.slug!r} "
             f"(state={result.state}) for github #{result.issue_number}; "
-            "github projection deferred to the outbox",
+            f"{_deferral_sentence(result)}",
             file=sys.stderr,
         )
     else:
@@ -1667,7 +1688,7 @@ def _print_publish_outcome(slug: str, result) -> None:
     if result.projection_deferred:
         print(
             f"atdd author issue: published work_item {slug!r} (state={result.state}); "
-            "github projection deferred to the outbox (durable retry)",
+            f"{_deferral_sentence(result)}",
             file=sys.stderr,
         )
     else:

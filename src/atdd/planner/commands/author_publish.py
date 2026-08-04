@@ -17,8 +17,16 @@ Ordering (store-first, #1203/#1272):
    never degrade to a body-only string (the exact gap that orphaned #1271).
 2. GitHub is a projection: create the issue synchronously and link its number as
    the single external_ref. If the projection cannot complete, enqueue the
-   outbox (durable retry) and warn — the store work_item still stands (no
-   orphan, no store-unaware issue).
+   outbox and warn — the store work_item still stands (no orphan, no
+   store-unaware issue).
+
+The enqueue is a retry only if something will read the queue (#1711/C015). Whether
+anything will is a live property of the provider registry, not a property of this
+module, so the result carries ``deferral_deliverable`` and the caller renders the
+sentence that fact supports. With no provider registered the honest sentence is
+that the write did not reach GitHub and nothing as things stand will send it —
+which is what 30 rows enqueued between 2026-07-09 and 2026-07-30 were owed and
+did not get.
 """
 from __future__ import annotations
 
@@ -34,6 +42,29 @@ _GITHUB_PROVIDER = "github"
 _CREATE_ISSUE_OP = "create_issue"
 _UPDATE_ISSUE_OP = "update_issue"
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _deferral_is_deliverable() -> bool:
+    """Whether the row just enqueued for GitHub has anywhere to go (#1711/C015).
+
+    Asked at the moment of deferral, from the live provider registry, because the
+    sentence the caller is about to read is a claim about the future and the
+    registry is the only thing that can back it. Wrapped: a registry that cannot
+    be consulted must not fail a publish whose store write already stands — but
+    it also must not be reported as a provider, so the unknown answer is the
+    conservative one.
+    """
+    try:
+        from atdd.state.providers import can_deliver
+
+        return can_deliver(_GITHUB_PROVIDER)
+    except Exception as exc:  # noqa: BLE001 - the claim degrades; the publish does not
+        logger.warning(
+            "could not read the sync provider registry; reporting the deferral "
+            "as undeliverable rather than promising a retry",
+            extra={"provider": _GITHUB_PROVIDER, "error": str(exc)},
+        )
+        return False
 
 
 class PublishError(Exception):
@@ -54,6 +85,10 @@ class PublishResult:
     state: Optional[str]
     github_number: Optional[int]      # set when the sync projection succeeded
     projection_deferred: bool         # True when enqueued to the outbox instead
+    #: Whether a registered provider exists that could ever send the deferred row
+    #: (#1711/C015). ``None`` when nothing was deferred — a deliverability answer
+    #: for a row that does not exist would be a claim about nothing.
+    deferral_deliverable: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +99,8 @@ class RevisionResult:
     slug: str
     state: Optional[str]
     projection_deferred: bool
+    #: See :attr:`PublishResult.deferral_deliverable`.
+    deferral_deliverable: Optional[bool] = None
 
 
 def derive_slug(title: str) -> str:
@@ -195,6 +232,7 @@ def publish_issue(
 
     github_number: Optional[int] = None
     projection_deferred = False
+    deferral_deliverable: Optional[bool] = None
     try:
         try:
             create_work_item(conn, slug, state=status, data=data)
@@ -272,6 +310,7 @@ def publish_issue(
             )
         except Exception as exc:  # the GitHub issue was NOT created — retry it
             projection_deferred = True
+            deferral_deliverable = _deferral_is_deliverable()
             store.sync.enqueue_outbox(
                 _GITHUB_PROVIDER, _CREATE_ISSUE_OP,
                 {"slug": slug, "title": title, "body": body,
@@ -303,6 +342,7 @@ def publish_issue(
     return PublishResult(
         slug=slug, state=status, github_number=github_number,
         projection_deferred=projection_deferred,
+        deferral_deliverable=deferral_deliverable,
     )
 
 
@@ -369,6 +409,7 @@ def revise_issue(
         ) from exc
 
     projection_deferred = False
+    deferral_deliverable: Optional[bool] = None
     try:
         try:
             obj = revise_work_item_issue(
@@ -388,6 +429,7 @@ def revise_issue(
                 update_body(issue_number, body)
             except Exception as exc:
                 projection_deferred = True
+                deferral_deliverable = _deferral_is_deliverable()
                 store.sync.enqueue_outbox(
                     _GITHUB_PROVIDER,
                     _UPDATE_ISSUE_OP,
@@ -414,6 +456,7 @@ def revise_issue(
                 update_title(issue_number, title)
             except Exception as exc:
                 projection_deferred = True
+                deferral_deliverable = _deferral_is_deliverable()
                 store.sync.enqueue_outbox(
                     _GITHUB_PROVIDER,
                     _UPDATE_ISSUE_OP,
@@ -435,4 +478,5 @@ def revise_issue(
         slug=obj.uid,
         state=obj.state,
         projection_deferred=projection_deferred,
+        deferral_deliverable=deferral_deliverable,
     )

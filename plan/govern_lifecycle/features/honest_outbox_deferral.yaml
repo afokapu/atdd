@@ -1,0 +1,35 @@
+urn: feature:govern-lifecycle:honest-outbox-deferral
+wagon: wagon:govern-lifecycle
+description: 'Make the outbox deferral say what it can back. The enqueue decides its
+  "durable retry" claim from the registered providers at the moment it defers instead
+  of asserting it; the drain returns the four-verdict outcome #1719 gave the transition
+  gate so "nothing to drain" and "nowhere to drain to" stop sharing exit 0; and the
+  pending backlog is reported with the age of its oldest row so accumulation is surfaced.
+  No drainer is built — `atdd state sync --push` already exists, and the measured queue
+  is not safely drainable, so the gap closed here is the claim and the verdict, not
+  the invocation.'
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: S
+wmbts:
+- wmbt:govern-lifecycle:C015
+components:
+  backend:
+    domain:
+    - type: value_objects
+      count: 2
+      rationale: OutboxVerdict — the four states a drain run can honestly report — and
+        OutboxBacklog, the pending count with the age of its oldest row per provider
+    application:
+    - type: use_cases
+      count: 2
+      rationale: derive the drain verdict from what the run actually moved; decide
+        whether a deferral is deliverable by asking the provider registry at enqueue
+        time
+    presentation:
+    - type: controllers
+      count: 2
+      rationale: '`atdd state sync` renders the verdict and the backlog and exits
+        non-zero from --push over a queue it did not drain; `atdd author issue` renders
+        a deferral line that names the drain or says nothing will send the row'
