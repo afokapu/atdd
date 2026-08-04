@@ -1,0 +1,109 @@
+urn: "wmbt:govern-lifecycle:C019"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-declared-train-passing-for-instantiated-because-core-publishes-no-surface-a-consumer-registers-a-journey-map-through-and-no-gate-ever-reads-whether-one-was-dispatched"
+context_clarifier: "Measured on main at ff55607b and re-verified at 7ae53dcb: 16 trains declared in plan/_trains.yaml, 2 interlockings in plan/_trains/_interlockings/, and ZERO callers of InterlockingRunner or resolve_journey anywhere outside src/atdd/runtime/interlocking/ — every other hit in the tree is prose in .atdd/extensions/** conventions. Core ships the route-control engine but gives a consumer nowhere to stand: resolve_journey(journey_map, action) takes a map HANDED IN, TrainExecutor is an INJECTED Protocol satisfied in-tree only by _FakeExecutor in tests, and nothing declares how a consumer supplies either. So the declaration is the only artefact the lifecycle consults, and 'this train is declared' is read as 'this train runs'. #1618 already ruled out the tempting fix: wiring a JOURNEY_MAP into src/atdd/** would invent a Station Master in a toolkit that cannot execute a train, satisfying declaration_to_station with a dead route table while leaving the remaining binding directions vacuously true — so both interlockings are correctly exposed: false, reason: planned-not-exposed, and this WMBT does not touch them. That ruling is what makes the consumer repo load-bearing rather than a caveat: atdd is the route-control LIBRARY and cannot be its own witness, because the Station Master lives in the CONSUMER. The seam therefore gets the shape core already proved for the same problem in atdd.state.providers (#1364): registration empty by default, in-process primary, entry-point discovery secondary, core importing no consumer. The evidence half takes #1602's posture — the run writes its own attestation into the State Store's append-only log and NO CLI verb writes one, because a stamp an operator can type is indistinguishable from a run that happened. The gate then reads that RECORD rather than the registration CLAIM. A silent pass is the defect being removed, so the gate answers in the #1719/C013 vocabulary: PASS for instantiated-and-reachable, FAIL for declared-but-not-instantiated, COULD_NOT_CHECK for could-not-confirm (naming WHAT it could not observe), and NOT_APPLICABLE for a repo that registers nothing and is right not to — atdd itself. That fourth answer is a DELIBERATE addition to #1598's three, recorded in its Entry 3 and Decision 8: of the three, FAIL would assert atdd ought to be a Station Master and reverse #1618, and COULD_NOT_CHECK would be false because the check looked and DID establish the absence. It is not a silent pass — the no-claim message must report the declared-train, interlocking and registration counts, which is how the 16-vs-2 gap gets reported honestly. Paying that gap down is #1578's job, not this one's. Two traps this WMBT's implementation must not fall into: plan/_trains.yaml is a nested theme -> category -> [train] map, so len(yaml['trains']) reads 5 and is wrong by 11 — the count must sum over categories; and the fixture consumer repo must adopt the detector's DEFAULT layout (python/trains/**/*.py + python/app.py) so it needs no .atdd/config.yaml :: interlocking_layout override, which is the repo-specific escape hatch atdd itself needs only because atdd is the outlier."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-declared-train-passing-for-instantiated-because-core-publishes-no-surface-a-consumer-registers-a-journey-map-through-and-no-gate-ever-reads-whether-one-was-dispatched by publishing a consumer-facing journey-map registration surface that is empty by default and names nothing consumer-specific, by having the dispatch itself write an unforgeable attestation into the State Store's append-only log with no CLI verb able to produce one, and by adding a gate that reads that RECORD and answers instantiated-and-reachable / declared-but-not-instantiated / could-not-confirm — plus not-applicable for a repo that registers nothing, whose message must still report the declared-train and registration counts so no answer is silent — all proven on a non-atdd fixture repo that leans on no repo-specific layout override"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C019-UNIT-001-consumer-registers-a-journey-map-through-a-core-surface"
+      id: "AC-UNIT-001"
+      purpose: "Core publishes a surface a consumer hands a journey map to, and core names and imports nothing consumer-specific to do it — the seam #1483 left behind acquires the declared other half it never had"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The core registration surface with zero registrations — the shipped default, exactly as atdd.state.providers.discover_providers() returns an empty mapping with no provider installed"
+        - "A journey map in each of the two shapes resolve_journey already accepts: a direct train_id string, and an {interlocking_id, path} interlocking descriptor"
+    when:
+      abstract: "a consumer registers its journey map in-process, and separately a second one is discovered through the entry-point group a pip-installed consumer package declares"
+    then:
+      abstract:
+        - "Both registrations are discoverable through one core call, and each carries the source it came from, so a later reader can say WHICH consumer claimed what rather than only that something did"
+        - "Zero registrations remains a valid, non-erroring state that returns empty — a repo that installs no consumer is not a fault, and this is what keeps the gate from being fail-closed against every repo that never opted in"
+        - "Core's own module graph names no consumer: the registration module imports nothing outside stdlib and atdd.runtime.interlocking, asserted by reading its imports as source, and the entry-point group is the only place a consumer's name can appear"
+        - "A registration whose factory raises is skipped with a warning rather than aborting discovery, so one broken consumer cannot blind the gate to a working one"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C019-UNIT-002-the-gate-answers-in-four-states-and-never-silently-passes"
+      id: "AC-UNIT-002"
+      purpose: "The gate's whole value is that it distinguishes 'I confirmed it runs' from 'it is merely declared' from 'I could not tell' — collapsing any pair back into a bool re-creates the defect, so each answer is pinned separately and the could-not-confirm one must say WHAT it could not verify"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A registered journey map naming a declared train, and an attestation store that is varied per case: holding a dispatch of that train at HEAD; holding none; and unreadable"
+        - "A repo state with trains declared, and separately a repo state with no journey map registered at all"
+    when:
+      abstract: "the gate check is run against each state"
+    then:
+      abstract:
+        - "A recorded dispatch of a declared train at HEAD yields PASS — instantiated and reachable"
+        - "A registration with no dispatch recorded yields FAIL — declared but not instantiated; the registration is treated as the CLAIM it is and never as the answer"
+        - "An unreadable store, or a registration naming a target that will not resolve, yields COULD_NOT_CHECK, and the message NAMES what could not be observed rather than only reporting that something could not be — a refusal an operator cannot act on is barely better than the vacuous pass it replaces"
+        - "No journey map registered at all yields NOT_APPLICABLE, and its message REPORTS the declared-train count, the interlocking count and the zero registrations — the answer that keeps the 16-vs-2 gap visible instead of passing silently, and the reason this fourth state is not the silent pass #1598 prohibits"
+        - "The declared-train count is summed over plan/_trains.yaml's nested theme -> category structure and reads 16 for this repo, not the 5 a top-level len() returns"
+        - "COULD_NOT_CHECK lands in the outcome's unobservable bucket and FAIL in failures, so the two blocking answers stay distinguishable to a reader — the remedies differ completely"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C019-INTEGRATION-001-the-gate-reads-the-record-and-no-command-can-forge-one"
+      id: "AC-INTEGRATION-001"
+      purpose: "The attestation is worth exactly as much as its unforgeability: if any CLI verb can write one, the gate is reading a claim again with extra steps — this is #1602's thesis applied to dispatch, and it is asserted rather than documented"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real dispatch path through InterlockingRunner against a declared interlocking, unstubbed, and a real State Store"
+        - "The full set of CLI verbs the package exposes"
+    when:
+      abstract: "a dispatch is executed, and separately the CLI surface is searched for any verb that can write a dispatch attestation"
+    then:
+      abstract:
+        - "The dispatch writes its own attestation as an append-only event carrying the action, the resolved route and train id, the commit sha and whether the tree was dirty, and a measured non-zero duration"
+        - "NO CLI verb in the package writes a dispatch attestation — asserted over the command surface, the way #1602 holds the line with test_operator_typed_stamp_is_not_accepted_as_execution_evidence; if you can type it, it is not an attestation"
+        - "A dispatch recorded against a work item the store does not know raises rather than silently producing evidence no gate can find"
+        - "A failure to record is swallowed by the dispatch and logged, never raised into the caller — and because the gate fails closed, a swallowed write reads as 'no dispatch happened', so silence can only ever be stricter and never laxer"
+        - "An attestation captured at a commit other than HEAD does not satisfy the gate at HEAD — the route that was dispatched must be the route being advanced"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C019-SMOKE-001-a-non-atdd-repo-exercises-the-surface-with-no-layout-override"
+      id: "AC-SMOKE-001"
+      purpose: "atdd cannot be its own witness here (#1618): it is the library, the Station Master is the consumer, and it correctly registers nothing. An acceptance that passed only because it ran inside atdd — or only because atdd's own interlocking_layout override pointed the detector at atdd's paths — would be the defect this WMBT exists to remove, wearing the evidence's clothes"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real fixture repository on disk that is NOT the atdd repo: its own directory, its own git repo, its own .atdd/ control root, its own package name, its own plan/_trains.yaml and its own interlocking YAML, with action names and idiom belonging to it rather than to atdd"
+        - "That repo laid out at the detector's DEFAULT layout — python/trains/**/*.py and python/app.py — and carrying NO .atdd/config.yaml :: interlocking_layout key and no other repo-specific override; the shape already proven by the passing bilateral_binding_complete fixture in the train-interlocking-enforcement extension"
+        - "Its Station Master registering its journey map through the core surface, and dispatching through core's InterlockingRunner rather than reimplementing the step loop"
+    when:
+      abstract: "the gate is run against that repo in three states: after a real dispatch, before any dispatch, and with its registration pointed at a target that will not resolve"
+    then:
+      abstract:
+        - "After a real dispatch the gate answers PASS for that repo's declared train, naming the train the dispatch actually routed to"
+        - "Before any dispatch the same repo, same registration, answers FAIL — declared but not instantiated; the static presence of a JOURNEY_MAP literal does not move the answer, which is precisely the dead-route-table state #1618 refused to create"
+        - "With an unresolvable registration target the answer is COULD_NOT_CHECK naming the target it could not resolve"
+        - "None of the three answers depends on any key in that repo's .atdd/config.yaml, asserted by running with the file absent — a check that works only where it was written is the failure being avoided, not a limitation being accepted"
+        - "The atdd repo's own control root, its own .atdd/runtime/ and any live issue are never read or written by the run"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
