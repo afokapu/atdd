@@ -13,6 +13,7 @@ review comment (issue #587):
 """
 from __future__ import annotations
 
+import logging
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -35,6 +36,9 @@ from atdd.coach.handlers.state_machine import (
 # ---------------------------------------------------------------------------
 # Required module-level stub (per handler interface contract)
 # ---------------------------------------------------------------------------
+
+
+logger = logging.getLogger(__name__)
 
 
 def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
@@ -315,7 +319,20 @@ class WatcherEventLoop:
                     },
                     "outcome": {"transitioned": False, "blockers": reasons},
                 })
-            except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+            except Exception as exc:
+                # No suppression marker here: a refusal the log never received is
+                # a refusal nobody can audit, which is the whole reason Decision 5
+                # chose "record and refuse" over a silent no-op. Report it loudly
+                # and let the refusal itself still stand.
+                logger.warning(
+                    "refusal record write failed; the transition was still refused",
+                    extra={
+                        "issue": sm.issue_number,
+                        "from_phase": t.src.value,
+                        "to_phase": t.dst.value,
+                        "error": str(exc),
+                    },
+                )
                 print(f"[watcher] refusal write failed: {exc}", file=sys.stderr)
         return False
 
@@ -336,6 +353,12 @@ class WatcherEventLoop:
         try:
             return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
+            # Observably react, never merely return — see the twin in resume.py.
+            logger.warning(
+                "gate config unreadable; falling back to the built-in "
+                "gated-transition defaults",
+                extra={"path": str(path), "error": str(exc)},
+            )
             print(
                 f"[watcher] .atdd/config.yaml at {path} is unreadable ({exc}); "
                 f"falling back to the built-in gated-transition defaults",

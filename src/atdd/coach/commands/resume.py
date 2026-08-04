@@ -32,6 +32,7 @@ Public surface:
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -51,6 +52,8 @@ from atdd.coach.commands.event_queue import (
 )
 from atdd.coach.commands.runtime_watcher import RuntimeWatcher
 
+
+logger = logging.getLogger(__name__)
 
 TransitionAction = Callable[[int, str, str], dict]
 
@@ -391,6 +394,14 @@ class ResumeRunner:
         try:
             return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
+            # Observably react, never merely return: an unreadable config silently
+            # becoming "the defaults" is how a repo's chosen gate posture
+            # disappears without anyone being told.
+            logger.warning(
+                "gate config unreadable; falling back to the built-in "
+                "gated-transition defaults",
+                extra={"path": str(path), "error": str(exc)},
+            )
             print(
                 f"[resume] .atdd/config.yaml at {path} is unreadable ({exc}); "
                 f"falling back to the built-in gated-transition defaults",
