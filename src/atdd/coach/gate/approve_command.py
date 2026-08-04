@@ -19,10 +19,27 @@ observable. This closes the SILENT DEFAULT. It is not a boundary against an
 agent that unsets its own session variable — see the THREAT MODEL in
 ``approval.py``, which this must not be read as contradicting.
 
-#1376 answers WHERE the receipt lives, #1718 answers WHAT it says produced it.
-The two are independent and both are needed: a correctly attributed token at a
-path the gate cannot read is as useless as a findable one that names the wrong
-actor.
+WHETHER THE EDGE IS LIVE AT ALL (#1735). This command parsed ``FROM->TO``,
+resolved a key, signed and wrote, reading NO issue state and validating the edge
+against NOTHING. Observed 2026-08-03: #1726 had all five of its transitions
+REFUSED by the template gate while both of its ``approve`` calls SUCCEEDED,
+leaving tokens for ``PLANNED->RED`` and ``SMOKE->REFACTOR`` on the enforcement
+surface for an issue sitting at ``INIT``. Correctly attributed, cryptographically
+sound, at the right path — authorising two edges the issue had never crossed. The
+mint now refuses unless the phase machine declares the edge AND the issue is
+standing on it. See ``phase_edges``.
+
+This is a PRECONDITION, not gate execution: running the edge's own gates at mint
+time is #1670's slice C and is blocked. A gate cannot be run for an edge the issue
+is not standing on, so this question is logically prior and needs no gate at all.
+
+#1376 answers WHERE the receipt lives, #1718 answers WHAT it says produced it,
+#1735 answers WHETHER THE EDGE WAS LIVE. The three are independent and all are
+needed: a correctly attributed token at a path the gate cannot read is as useless
+as a findable one that names the wrong actor — and both are worse than useless if
+they authorise a transition the issue was never in a position to make. Provenance
+and certification are different properties, and fixing the first does not touch
+the second.
 """
 from __future__ import annotations
 
@@ -39,17 +56,71 @@ from atdd.coach.gate.approval import (
     resolve_signing_key,
 )
 from atdd.coach.gate.approval_paths import approval_token_path
+from atdd.coach.gate.phase_edges import (
+    PhaseMachineUnavailable,
+    phase_machine,
+    resolve_issue_phase,
+)
 
 
 def _parse_transition(text: str) -> Tuple[str, str]:
-    """Parse ``FROM->TO`` (or ``FROM-TO``) into upper-cased phase names."""
+    """Parse ``FROM->TO`` into two phase names THE LIFECYCLE ACTUALLY DECLARES.
+
+    #1735: this used to split on ``->``, upper-case both halves and return them,
+    validated against nothing — so ``--transition 'BANANA->MOON'`` produced a
+    signed token for an edge that does not exist, and ``INIT->RED`` one for an
+    edge that exists nowhere in the machine. Both halves are now checked against
+    ``phase_machine.convention.yaml``:
+
+    * each name must BE a declared phase (vocabulary), and
+    * ``TO`` must be reachable from ``FROM`` (legality).
+
+    Both are properties of the string alone — no issue state — so they live here,
+    in the function #1735 names, and surface through ``run``'s existing
+    ``ValueError`` channel. WHERE THE ISSUE IS STANDING is a separate question and
+    is asked separately; see ``run``.
+
+    Raises:
+        ValueError: unparseable, unknown phase, or an edge the machine does not
+            declare. The message enumerates the legal alternatives, because a
+            refusal an operator cannot act on is barely better than the mint it
+            replaces.
+        PhaseMachineUnavailable: the declared lifecycle could not be read. NOT
+            downgraded to a permissive parse — see ``phase_edges``.
+    """
     separator = "->" if "->" in text else "-"
     parts = [p.strip() for p in text.split(separator) if p.strip()]
     if len(parts) != 2:
         raise ValueError(
             f"invalid --transition {text!r}; expected FROM->TO (e.g. PLANNED->RED)"
         )
-    return parts[0].upper(), parts[1].upper()
+    from_phase, to_phase = parts[0].upper(), parts[1].upper()
+    _reject_undeclared_edge(from_phase, to_phase, text)
+    return from_phase, to_phase
+
+
+def _reject_undeclared_edge(from_phase: str, to_phase: str, text: str) -> None:
+    """Raise unless the lifecycle declares both phases AND the edge between them.
+
+    Split out of :func:`_parse_transition` so parsing and judging are separate
+    (and so neither carries the other's branches — ``_parse_transition`` took
+    ``coder.refactor.complexity-cyclomatic`` when they were one function). The
+    split is also the honest one: the caller above turns a string into two names,
+    and this turns two names into a verdict about the lifecycle.
+    """
+    machine = phase_machine()
+    for name in (from_phase, to_phase):
+        if name not in machine:
+            raise ValueError(
+                f"unknown phase {name!r} in --transition {text!r}; the lifecycle "
+                f"declares {', '.join(sorted(machine))}"
+            )
+    if to_phase not in machine[from_phase]:
+        reachable = ", ".join(machine[from_phase]) or "nothing (it is a terminal phase)"
+        raise ValueError(
+            f"{from_phase}->{to_phase} is not an edge the lifecycle declares; "
+            f"from {from_phase} you may go to {reachable}"
+        )
 
 
 def _observe_actor(env: Mapping[str, str]) -> Tuple[str, Optional[Dict[str, str]]]:
@@ -122,16 +193,55 @@ def run(
         # swallowed runtime fault — mirrors the cli.py issue-review parse path.
         print(f"Error: {exc}")
         return 1
+    except PhaseMachineUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-01
+        # FAIL CLOSED. Without the declared machine no edge can be judged legal,
+        # and the mint writes an authorisation — so "I could not check" must
+        # refuse. Degrading to a permissive parse here is the failure this issue
+        # exists to close, arrived at from the other direction.
+        print(f"Error: cannot validate the transition — {exc}")
+        return 1
+
+    start = target_dir or Path.cwd()
+
+    # #1735: is the issue STANDING on this edge? The mint read no issue state at
+    # all, so two tokens were written for #1726 — PLANNED->RED and
+    # SMOKE->REFACTOR — while it sat at INIT with all five of its transitions
+    # freshly REFUSED. Those tokens were not inert: each would satisfy
+    # ApprovalTokenGateCheck for its exact tuple the moment the issue ever reached
+    # that edge. Asked BEFORE the token directory is created, so a refusal leaves
+    # nothing behind.
+    #
+    # A PRECONDITION, NOT A GATE RUN. Running the edge's own gates at mint time is
+    # #1670's slice C and is blocked on #1632/#1643. This is the narrower question
+    # that is logically prior: a gate cannot be run for an edge the issue is not
+    # standing on. It resolves the work item through external_refs first and fails
+    # closed when it cannot — the shape SmokeExecutionGateCheck already uses.
+    standing = resolve_issue_phase(start, ns.issue)
+    if not standing:
+        print(f"Error: cannot approve a transition for #{ns.issue} — {standing.reason}")
+        return 1
+    if standing.phase != from_phase:
+        # REFUSE, DO NOT WARN. A written token is consumable; a warning is not a
+        # refusal. And NAME the phase the issue is actually on — the operator's
+        # next move is either to advance the issue or to approve a different edge,
+        # and they cannot choose between those without being told which one this is.
+        reachable = ", ".join(phase_machine().get(standing.phase, ())) or "nothing"
+        print(
+            f"Error: #{ns.issue} is at {standing.phase}, not {from_phase} — refusing "
+            f"to mint an approval for an edge it is not standing on.\n"
+            f"  From {standing.phase} the edges are: {reachable}\n"
+            f"  Approve the edge it is on, or advance the issue first."
+        )
+        return 1
 
     # #1376: mint against the SHARED Control Root (#1346), the same base
-    # ApprovalTokenGateCheck reads from. `target_dir or Path.cwd()` is the literal
-    # current worktree; minting there put the token somewhere a gate evaluating
-    # from a sibling worktree could not see (measured in the #1307 walk). One
-    # resolution at both ends is what makes the token a receipt rather than a
-    # file whose visibility depends on which directory the operator stood in.
-    token_path = approval_token_path(
-        target_dir or Path.cwd(), ns.issue, from_phase, to_phase
-    )
+    # ApprovalTokenGateCheck reads from. `start` is the literal current worktree
+    # and only a STARTING POINT for that resolution; minting at it put the token
+    # somewhere a gate evaluating from a sibling worktree could not see (measured
+    # in the #1307 walk). One resolution at both ends is what makes the token a
+    # receipt rather than a file whose visibility depends on which directory the
+    # operator stood in.
+    token_path = approval_token_path(start, ns.issue, from_phase, to_phase)
     token_path.parent.mkdir(parents=True, exist_ok=True)
 
     approved_by, agent_session = _observe_actor(os.environ if env is None else env)

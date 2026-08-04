@@ -1689,6 +1689,12 @@ wagons:
       single shared Control Root''s .atdd/runtime/ is found by the gate no matter
       which child worktree evaluates the transition, with a worktree-local read retained
       as a back-compat fallback (#1376)'
+    C020: minimize likelihood of atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
+      by reading the issue's phase from the State Store at mint time and validating
+      the requested edge against phase_machine.convention.yaml, refusing — never warning
+      — unless the issue is standing on FROM and the machine declares FROM->TO, with
+      the refusal naming the phase the issue is actually on so the operator can act
+      on it (#1735)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

@@ -27,10 +27,12 @@ from atdd.coach.gate.approve_command import run as run_approve
 from atdd.coach.gate.decision import GateContext, evaluate_transition_gate
 from atdd.coach.gate.registrations import register_approval_checks
 from atdd.coach.gate.registry import GateRegistry
+from atdd.state.smoke_evidence import open_state_store
 
 pytestmark = [pytest.mark.platform]
 
 _GATED_CONFIG = {"gate": {"transitions": {"PLANNED->RED": True}}}
+_UID = "e050-smoke-001-real-block-then-approve"
 
 
 def _ctx(worktree: Path) -> GateContext:
@@ -42,6 +44,13 @@ def _ctx(worktree: Path) -> GateContext:
 def test_blocked_without_token_then_proceeds_after_real_approve(tmp_path: Path, monkeypatch):
     # Pin a deterministic operator signing key for the whole real path.
     monkeypatch.setenv("ATDD_APPROVAL_SIGNING_KEY", "smoke-operator-key")
+    # #1735: the real mint refuses an edge the issue is not standing on, so the
+    # issue must actually be at PLANNED for the PLANNED->RED approval below. This
+    # is a precondition of the real path now, not a convenience.
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
+    with open_state_store(control_root=tmp_path) as store:
+        store.objects.upsert(_UID, "work_item", state="PLANNED", data={})
+        store.external_refs.link(_UID, "github", "issue", "1017")
 
     registry = GateRegistry()
     register_approval_checks(registry)  # real production registration

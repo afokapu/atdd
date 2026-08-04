@@ -34,17 +34,37 @@ import pytest
 from atdd.coach.gate.approval import TOKEN_SCHEMA_VERSION, approval_relpath
 from atdd.coach.gate.approve_command import run as run_approve
 from atdd.state.agent_session import load_provider_table
+from atdd.state.smoke_evidence import open_state_store
 
 pytestmark = [pytest.mark.platform]
 
 _ISSUE, _FROM, _TO = 1718, "INIT", "PLANNED"
 _HUMAN = "alecfokapu"
 _SESSION_ID = "1886c25f-4f38-466c-ae9a-7d94ff0d491f"
+_UID = "c012-unit-001-actor-is-observed"
 
 # Read the provider row out of the shipped table rather than hardcoding a
 # provider's env var name here: core learns no provider (#1540), and a test that
 # names one would have to be edited every time a row is added.
 _ROW = load_provider_table()[0]
+
+
+@pytest.fixture(autouse=True)
+def standing_at_from_phase(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The issue standing on the edge being approved — #1735's precondition.
+
+    Autouse because every test here mints, and where the issue is standing is a
+    precondition of the mint rather than a subject of this acceptance, which is
+    about WHO the token says approved. Seeding real state was chosen over a
+    test-only bypass on the mint: a bypass would be a second ungated way to mint
+    (#1619's defect one layer out) inside the program that exists to close the
+    first, and it would leave this file unable to catch the regression it is here
+    for (#1733).
+    """
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
+    with open_state_store(control_root=tmp_path) as store:
+        store.objects.upsert(_UID, "work_item", state=_FROM, data={})
+        store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
 
 
 def _read_token(root: Path) -> dict:

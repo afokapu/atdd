@@ -1,0 +1,167 @@
+urn: wmbt:govern-lifecycle:C020
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
+context_clarifier: 'approve_command.run() parses FROM->TO with _parse_transition —
+  which splits on `->` and upper-cases both halves with no validation against
+  phase_machine.convention.yaml — then resolves a signing key, builds the token and
+  writes it. It never asks where the issue is standing. Measured live on 2026-08-03:
+  #1726 had PLANNED, RED, GREEN, SMOKE and REFACTOR all REFUSED by the
+  template-compliance gate (its body carried an unfilled placeholder) while both of
+  its `atdd coach approve` calls SUCCEEDED, leaving
+  .atdd/runtime/issue-1726/approvals/{PLANNED-RED,SMOKE-REFACTOR}.json on the shared
+  Control Root for an issue at INIT. Those tokens are not inert — each satisfies
+  ApprovalTokenGateCheck for its exact (issue, from, to) tuple the moment the issue
+  ever reaches that edge, so it is an authorisation granted before the work existed,
+  waiting to be consumed. `atdd coach approve 1726 --transition BANANA->MOON` is
+  equally acceptable today. The fix is a PRECONDITION check, not gate execution:
+  #1670 slice C runs the edge''s own gates and is blocked on #1632/#1643, whereas a
+  gate cannot be run for an edge the issue is not standing on, so this is logically
+  prior and unblocked. It mirrors SmokeExecutionGateCheck, which resolves the work
+  item through external_refs before deciding anything and fails closed when it
+  cannot.'
+lens: functional.effectiveness
+statement: minimize likelihood of atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
+  by reading the issue's phase from the State Store at mint time and validating the
+  requested edge against phase_machine.convention.yaml, refusing — never warning —
+  unless the issue is standing on FROM and the machine declares FROM->TO, with the
+  refusal naming the phase the issue is actually on so the operator can act on it
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C020-UNIT-001-an-edge-the-lifecycle-does-not-declare-is-refused
+    id: AC-UNIT-001
+    purpose: "The transition string is validated against the declared phase machine
+      rather than merely split and upper-cased: a name that is not a phase is refused,
+      and a pair of real phases that is not a declared edge is refused — today
+      `--transition BANANA->MOON` mints a signed token happily"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The transition parser, and phase_machine.convention.yaml as the single source of
+      truth for which phases exist and which edges each declares
+    - 'Three inputs: a pair naming phases that do not exist; a pair of real phases that
+      is not a declared edge (INIT->RED); and a real declared edge (PLANNED->RED)'
+  when:
+    abstract: each transition string is parsed
+  then:
+    abstract:
+    - A name that is not a declared phase is refused, and the refusal enumerates the
+      phases that do exist
+    - A pair of real phases that is not a declared edge is refused, and the refusal
+      enumerates the edges that ARE reachable from the named FROM
+    - A declared edge parses successfully, so the guard discriminates rather than
+      refusing everything
+    - The vocabulary comes from the convention file, never from a phase list written in
+      Python — an unreadable machine RAISES and the mint refuses, because a hardcoded
+      fallback would fork the single source of truth at the one moment it cannot be read
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-04'
+
+- identity:
+    urn: acc:govern-lifecycle:C020-INTEGRATION-001-minting-for-an-edge-the-issue-is-not-on-is-refused
+    id: AC-INTEGRATION-001
+    purpose: "The reproduction of #1726, closed: minting PLANNED->RED for an issue at
+      INIT is REFUSED and NO FILE IS WRITTEN, and the refusal names the phase the issue
+      is actually standing on so the operator can act on it"
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - An isolated Control Root whose State Store holds a work item at INIT, linked to a
+      throwaway issue number through the GitHub external_refs projection
+    - The real approve command (no stubbed store read, no stubbed signing)
+  when:
+    abstract: the real mint is asked to approve PLANNED->RED, and separately
+      SMOKE->REFACTOR — the two edges #1726 actually got tokens for while at INIT
+  then:
+    abstract:
+    - Both mints exit non-zero
+    - No token file exists at either path afterwards, and no approvals directory is left
+      behind — a refusal that still wrote the file would be a warning wearing a refusal's
+      exit code
+    - The refusal names INIT, the phase the issue is actually on, not merely the phase
+      that was requested
+    - The refusal also names the edges reachable from INIT, so the operator's next move
+      is in the message rather than in the convention file
+    - An issue that resolves to no work item, and one whose work item records no phase,
+      are BOTH refused rather than treated as permission — fail-closed, as
+      SmokeExecutionGateCheck is for the same lookup
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-04'
+
+- identity:
+    urn: acc:govern-lifecycle:C020-INTEGRATION-002-the-edge-the-issue-stands-on-still-mints
+    id: AC-INTEGRATION-002
+    purpose: "The check does not over-tighten: the edge the issue is actually standing on
+      still mints a valid token, and an issue that legitimately reaches an edge later can
+      be approved for it then — the precondition gates the mint, it does not disable it"
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - An isolated Control Root whose State Store holds a work item, linked to a throwaway
+      issue number
+    - The real approve command, and the real ApprovalTokenGateCheck to read the result
+      back
+  when:
+    abstract: the mint is asked for the edge the issue is standing on; then the issue is
+      advanced in the store and the mint is asked for the edge it has newly reached
+  then:
+    abstract:
+    - The mint for the edge the issue is standing on exits zero and writes a token
+    - That token satisfies the real gate check for its transition, so the precondition
+      changed which mints are allowed and nothing about what a minted token is
+    - After the issue advances, the newly reachable edge mints successfully — the earlier
+      refusal was about the issue's position at that moment, not a permanent block
+    - The token minted for the earlier edge does not unlock the later one (scope
+      isolation is unaffected by this change)
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-04'
+
+- identity:
+    urn: acc:govern-lifecycle:C020-SMOKE-001-the-real-command-refuses-the-edge-the-issue-is-not-on
+    id: AC-SMOKE-001
+    purpose: "Against the real shipped CLI in a separate real process: `atdd coach
+      approve` refuses an edge the issue is not standing on and writes no token, and
+      accepts the edge it IS standing on — the refusal exists in the artifact an
+      operator actually runs, not only in the in-process call path"
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A temp Control Root holding a real migrated State Store with a work item at INIT,
+      linked to a throwaway issue number that is not any real issue
+    - The real `atdd coach approve` CLI entry point exercised in a SEPARATE REAL PROCESS
+      (no in-process import of the command, no monkeypatching, no fakes), with the
+      source tree first on PYTHONPATH so the run cannot silently exercise the installed
+      wheel instead of this change
+  when:
+    abstract: the real command is asked for PLANNED->RED while the issue is at INIT,
+      then the store is advanced to PLANNED and the same command is run again
+  then:
+    abstract:
+    - The first invocation exits non-zero and its stderr/stdout names INIT, the phase
+      the issue is actually standing on
+    - No token file exists under the temp Control Root after it, so the shipped command
+      leaves no consumable authorisation behind when it refuses
+    - The second invocation, with the issue genuinely at PLANNED, exits zero and the
+      token materialises — the shipped refusal discriminates rather than blocking the
+      command outright
+    - No live GitHub issue and no Control Root outside the temp dir is ever touched, so
+      the repository's own approval corpus is unchanged
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-04'

@@ -40,22 +40,39 @@ from atdd.coach.gate.approve_command import run as run_approve
 from atdd.coach.gate.decision import GateContext, evaluate_transition_gate
 from atdd.coach.gate.registrations import register_approval_checks
 from atdd.coach.gate.registry import GateRegistry
+from atdd.state.smoke_evidence import open_state_store
 
 pytestmark = [pytest.mark.platform, pytest.mark.smoke]
 
 # Never a live issue: the repo's issues are in the low thousands.
 _ISSUE, _FROM, _TO = 999999, "PLANNED", "RED"
 _GATED_CONFIG = {"gate": {"transitions": {f"{_FROM}->{_TO}": True}}}
+_UID = "r010-smoke-001-one-control-root-location"
+
+
+def _stand_at_from_phase(control_root: Path) -> None:
+    """Put the throwaway issue at ``_FROM`` — #1735's mint precondition.
+
+    Seeded at the CONTROL ROOT, which is this file's whole subject: the mint
+    resolves the store from the same base it resolves the token path from, so a
+    work item written here is the one the mint reads no matter which worktree the
+    operator stands in.
+    """
+    with open_state_store(control_root=control_root) as store:
+        store.objects.upsert(_UID, "work_item", state=_FROM, data={})
+        store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
 
 
 @pytest.fixture
-def nested_worktree(tmp_path: Path):
+def nested_worktree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """A temp Control Root with a child worktree nested beneath it."""
     control_root = tmp_path / "project"
     (control_root / ".atdd" / "state").mkdir(parents=True)
     child = control_root / "feat-some-worktree"
     child.mkdir()
     assert approval_control_root(child) == control_root.resolve()
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(control_root.resolve()))
+    _stand_at_from_phase(control_root.resolve())
     return control_root.resolve(), child
 
 
@@ -118,6 +135,8 @@ def test_single_repo_layout_is_unchanged(tmp_path: Path, monkeypatch):
     checkouts and consumer repos behave exactly as they did before #1376.
     """
     monkeypatch.setenv("ATDD_APPROVAL_SIGNING_KEY", "smoke-operator-key")
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
+    _stand_at_from_phase(tmp_path)
     registry = GateRegistry()
     register_approval_checks(registry)
 
