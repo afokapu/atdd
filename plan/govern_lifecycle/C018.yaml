@@ -1,0 +1,167 @@
+urn: wmbt:govern-lifecycle:C018
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: a-declared-train-reference-that-resolves-to-no-registered-train-and-a-registered-train-with-no-interlocking-both-drifting-unseen-because-no-convention-node-asserts-that-an-issues-train-must-resolve
+context_clarifier: 'no convention node states that a work_item''s train must resolve,
+  so no validator enforces it and nothing reads the registry back: measured 2026-08-03
+  on ff55607b, 16 of the 175 non-terminal issue-backed work items carrying a train
+  name one that resolves to nothing (11 spell it "TBD", three "N/A…", one
+  train:coach:place-worktrees which no registry declares, one the bare word
+  "substrate"), and 148 of the remaining 159 name a registered train that no
+  interlocking routes through — the 2026-07-22 store recovery had to verify all 82
+  restored trains against plan/_trains.yaml by hand precisely because nothing else would'
+lens: functional.effectiveness
+statement: minimize likelihood of a-declared-train-reference-that-resolves-to-no-registered-train-and-a-registered-train-with-no-interlocking-both-drifting-unseen-because-no-convention-node-asserts-that-an-issues-train-must-resolve
+  by declaring two coach convention nodes — the reference must resolve to a train the
+  repository registers in plan/_trains.yaml directly or through plan/_trains/_aliases.yaml,
+  and the train it resolves to should carry an interlocking — and binding both to one
+  disposition-gated validator that resolves every non-terminal issue's train against
+  the registry OF THE REPOSITORY UNDER SCAN, so a dangling reference and an
+  unrouted train are each reported with a measured baseline instead of being
+  discovered when a downstream interlocking lookup silently returns nothing
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C018-UNIT-001-unregistered-train-reference-is-a-violation
+    id: AC-UNIT-001
+    purpose: The validator distinguishes the failure shapes a train reference can
+      take — a placeholder that is not a train identity at all, a well-formed identity
+      no registry declares, and a legacy id that resolves only through the alias map
+      — and reports each unresolvable one as a violation naming the registry and the
+      candidates that would have resolved
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A plan/ fixture declaring exactly one train in its registry index plus one legacy
+      alias pointing at it, so resolution has a known-good, a known-alias and a known-bad
+      answer
+    - 'Issue records covering five shapes: the registered canonical id, the alias that
+      resolves to it, a well-formed identity absent from the registry, a placeholder
+      such as TBD, and no train at all'
+    - The validator's scan function under test, called directly (no pytest-in-pytest,
+      no network, no store)
+  when:
+    abstract: the scan is run over the issue records against the plan/ fixture
+  then:
+    abstract:
+    - The registered canonical id produces no violation
+    - The resolvable alias produces no violation, and the verdict names the canonical
+      train it resolved to so a reader is not left holding a legacy spelling
+    - The well-formed but unregistered identity produces a violation naming the registry
+      file and listing registered trains that would have resolved
+    - The placeholder produces a violation saying it is not a train identity, distinguishing
+      "wrong shape" from "shape right, not registered"
+    - An issue carrying NO train produces no violation, because a train is optional
+      for the issue types that do not require one and this rule governs a reference
+      that was set
+    - Every violation carries the bound rule_id and a location naming the issue, so
+      the report is actionable without re-deriving which issue it came from
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C018-UNIT-002-registry-is-read-from-the-repo-under-scan
+    id: AC-UNIT-002
+    purpose: 'Resolution is driven off the registry of the repository being scanned,
+      never atdd''s own: a consumer repository declaring its own trains, its own
+      subjects and its own alias spellings resolves against those, and atdd''s train
+      ids do not resolve there — the check must not work only because it runs inside
+      atdd'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A fixture repository that is NOT atdd — its own wagon names, its own train subjects,
+      and train ids that appear nowhere in atdd's registry
+    - The same fixture declaring its own alias map with its own spelling of the legacy
+      form
+    - No .atdd/config.yaml layout override of any kind, so nothing can be resolved
+      through a path atdd happens to use
+  when:
+    abstract: the resolver is pointed at the fixture repository's root and asked to
+      resolve both its own train ids and atdd's
+  then:
+    abstract:
+    - The consumer repo's own canonical train id resolves, reported against the consumer
+      repo's registry path
+    - The consumer repo's own alias resolves to the consumer repo's canonical id
+    - An atdd train id does NOT resolve in the consumer repo, proving no atdd registry
+      contents leaked into the lookup
+    - A repository with no plan/ tree at all is reported as having nothing to resolve
+      against rather than as being in violation
+    - Interlocking coverage is likewise read from the consumer repo's own interlocking
+      home, so a consumer interlocking routing through a consumer train is found
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C018-UNIT-003-resolved-train-without-interlocking-is-reported
+    id: AC-UNIT-003
+    purpose: The second assertion is a SEPARATE rule with its own id and its own disposition,
+      so a resolved train that no interlocking routes through is reported out loud
+      against a measured baseline without blocking the build the reference rule shares
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A plan/ fixture declaring two trains, exactly one of which an interlocking artifact
+      routes through
+    - The interlocking artifact naming its route's train by path in one case and by
+      train_id in another, so both spellings are exercised
+    - Both convention nodes present in the registry with their declared dispositions
+  when:
+    abstract: the scan is run and its violations are grouped by rule_id
+  then:
+    abstract:
+    - The train an interlocking routes through produces no interlocking violation
+    - The train no interlocking routes through produces a violation carrying the interlocking
+      rule's id, not the reference rule's
+    - A route naming its train by path and a route naming it by train_id both count
+      as coverage, so a registry spelling difference is not read as a missing interlocking
+    - An unresolvable reference produces only the reference violation and no interlocking
+      violation, because there is no resolved train whose interlocking could be missing
+    - The two rule ids are declared with different dispositions, and the gate verdict
+      is taken from the convention rather than asserted in the test
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C018-SMOKE-001-real-validate-coach-reports-the-train-reference
+    id: AC-SMOKE-001
+    purpose: 'Against the real installed package in a real checkout: `atdd validate
+      coach --local` actually selects and runs this validator and reports a dangling
+      train reference, so the rule is enforced by the shipped gate and not only by
+      a test that imports it directly'
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real checkout and the real atdd package, exercised in a separate real process
+      through the real `atdd validate coach --local` entry point
+    - No monkeypatching of the validator or its resolver — the validator is discovered
+      and selected the way CI discovers it
+    - A repository state carrying one issue whose train resolves and one whose train
+      does not
+  when:
+    abstract: the subprocess runs the real validate-coach gate and its output and exit
+      status are captured
+  then:
+    abstract:
+    - The validator is selected and executed — its identifier appears in the run, so
+      it is not silently deselected by the gate's marker expression
+    - The dangling train reference is reported, naming the issue and the value
+    - The resolving reference is not reported
+    - The outcome honours each rule's declared disposition rather than being asserted
+      directly, so severity is governed by the convention and not by the test
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'

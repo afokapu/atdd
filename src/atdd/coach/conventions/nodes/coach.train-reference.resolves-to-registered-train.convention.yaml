@@ -1,0 +1,115 @@
+schema_version: 1.1.0
+rule_id: coach.train-reference.resolves-to-registered-train
+kind: rule
+status: active
+name: An issue's declared train must resolve to a train the repository registers
+statement: >-
+  When an atdd-issue's work_item declares a train, that reference MUST resolve to a train the
+  repository registers — declared in plan/_trains.yaml, reachable through the plan/_trains/_aliases.yaml
+  migration map, or present as the per-train manifest the identity implies — so an issue's lineage
+  can always be located and a dangling reference is reported rather than invisible.
+implementation:
+  type: validator
+  ref: test_issue_train_binding::test_train_references_resolve
+content:
+  normative_text: >-
+    A train on an issue is a REFERENCE. Its interlocking, its route space and its sequence live with
+    the train, not with the issue, so the reference is the only thing the issue holds and it is
+    meaningful only if it resolves. Before #1590 nothing asserted that: `atdd update <N> --train`
+    wrote any string at all (proven — it accepted `train:bogus:does-not-exist`), because the registry
+    cross-reference that command already owns runs only on a `--status` transition and never on a bare
+    field write. With no convention node stating the invariant there was no validator to enforce it,
+    which is why the 2026-07-22 State Store recovery had to resolve each of 82 restored trains to a
+    registered canonical URN by hand and verify it against the registry: the tooling offered no
+    guarantee to lean on.
+
+    Resolution reads the registry OF THE REPOSITORY UNDER SCAN. Nothing here knows atdd's train ids,
+    atdd's subjects or atdd's directory idiom, so a consumer repository declaring its own trains
+    through the same substrate is held to its own registry — a check that passes only because it runs
+    inside atdd would be the defect, not the evidence.
+  fix_hint: |-
+    The named issue declares a train that resolves to nothing the repository
+    registers. Repair as follows:
+
+      1. See what this repository actually registers:
+           python -c "import yaml,sys;d=yaml.safe_load(open('plan/_trains.yaml'));\
+             print('\n'.join(sorted(e['train_id'] for b in d['trains'].values() \
+             for l in b.values() for e in l)))"
+         or resolve a candidate directly:
+           atdd repo resolve train:<subject>:<slug>
+      2. Set the reference to a train that resolves:
+           atdd author issue --revise <N> --train train:<subject>:<slug>
+         That validates against the registry BEFORE the store write, so a value
+         that would violate this rule is refused rather than recorded.
+      3. A PLACEHOLDER is not a train. "TBD", "N/A", a bare subject or a feature
+         URN in the Train slot is reported as a malformed reference: either name
+         a registered train or leave the field unset. Unset is legitimate — a
+         train is optional for the issue types that do not require one, and this
+         rule governs only a reference that WAS set.
+      4. A legacy NNNN-slug id still resolves through plan/_trains/_aliases.yaml
+         (#1421). If yours does not, add the alias rather than renaming history.
+      5. If the train genuinely should exist, author it instead of pointing the
+         issue at nothing:
+           atdd author train --spec <spec.yaml>
+
+    Disposition is ADVISORY with a recorded baseline, not because the rule is
+    soft but because the corpus predates it: measured 2026-08-03 on ff55607b, 16
+    of the 175 non-terminal issue-backed work items carrying a train name one
+    that does not resolve. Landing strict would red the build on commit one and
+    the gate would be reverted within the hour. The WRITE side is strict — every
+    sanctioned setter refuses an unresolvable train — so the baseline can only
+    shrink. Escalate this node to strict when it reaches zero.
+
+    See #1590 for the setter gap, and coach.train-reference.resolved-train-has-interlocking
+    for the second-order dangling reference this one leaves open.
+  exceptions:
+  - >-
+    A work_item with no train at all is out of scope. A train is optional for the issue types that do
+    not require one (cleanup, analysis, planning, tracking), and this rule governs a reference that
+    was SET, not the decision to set one. The train-required gate is a separate concern.
+  - >-
+    Terminal issues (COMPLETE / OBSOLETE) are historical and are not reported — repairing the lineage
+    of shipped work changes nothing that can still be acted on.
+  - >-
+    A repository with no plan/ tree has no registry to resolve against and is not in violation. A
+    hermetic caller minting issues in a bare directory is not reported for the absence of a graph it
+    never had.
+metadata:
+  severity: 3
+  disposition: advisory
+  introduced_in: 4.39.0
+  aliases: []
+terms:
+- term_id: train_reference
+  text: the train the issue declares, recorded on the work item and mirrored in the body.
+  values:
+    store_field: work_item.data.train
+    body_row: "| Train | `train:<subject>:<slug>` |"
+    typed_shape: "train:<subject>:<slug>"
+    legacy_shape: "NNNN-slug (resolvable through the alias map, #1421)"
+- term_id: registers
+  text: >-
+    the repository declares the train. Satisfied by an entry in the registry index, by the migration
+    alias map naming a registered canonical id, or by the per-train manifest the identity implies
+    existing on disk — the same dual resolution the shipped TrainResolver performs, so this rule is
+    not stricter than the resolver the repo already ships.
+  values:
+    registry_index: plan/_trains.yaml
+    alias_map: plan/_trains/_aliases.yaml
+    manifest_shape: "plan/_trains/<subject>/<slug>.yaml"
+- term_id: repository_under_scan
+  text: >-
+    the root the reference is resolved against, which is the repository being validated and never the
+    toolkit's own checkout. The consumer-neutrality obligation this node exists under.
+  values:
+    anti_pattern: >-
+      .atdd/config.yaml :: interlocking_layout, which overrides the runtime-interlocking detector to
+      atdd's own src/atdd/runtime/interlocking/*.py paths — a check that works only where it was
+      written. This node adds no second one.
+- term_id: disposition_rationale
+  text: advisory with a recorded baseline while the pre-existing corpus is cleared; the write side is strict.
+  values:
+    measured_2026_08_03: "16 of 175 non-terminal work items carrying a train name one that does not resolve, on ff55607b"
+    baseline_breakdown: "11 'TBD', 3 'N/A…', 1 train:coach:place-worktrees, 1 'substrate'"
+    write_side: "strict — author issue create/--revise and the deprecated atdd update all refuse an unresolvable train"
+    escalate_when: "the unresolved set reaches zero"

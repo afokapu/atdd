@@ -1,0 +1,158 @@
+urn: wmbt:govern-lifecycle:Y008
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: a-train-reference-written-onto-an-issue-without-any-registry-check-through-a-deprecated-command-that-is-the-only-functional-setter-while-the-non-deprecated-one-refuses-the-flag
+context_clarifier: '`atdd update <N> --train <id>` writes ANY string into
+  work_item.data.train — proven, it accepted train:bogus:does-not-exist — because the
+  registry cross-reference it already owns runs only on a --status transition and
+  never on a bare field write; meanwhile the non-deprecated `atdd author issue
+  --revise --train` REFUSES the flag by name (#1661 closed the silent-ignore but
+  defined no semantics), so on 2026-08-03 the only working way to set a train was the
+  deprecated command with no validation and the validated command could not set one
+  at all'
+lens: functional.effectiveness
+statement: minimize likelihood of a-train-reference-written-onto-an-issue-without-any-registry-check-through-a-deprecated-command-that-is-the-only-functional-setter-while-the-non-deprecated-one-refuses-the-flag
+  by resolving the train against the repository's registry BEFORE any store write on
+  every sanctioned setter — refusing an unresolvable value on create, on the deprecated
+  update, and on revise, where --train stops being refused and starts being honoured
+  and validated — so an operator has a non-deprecated validated way to set or correct
+  a train and no path can write a reference the validator will later report
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:Y008-UNIT-001-create-rejects-an-unregistered-train
+    id: AC-UNIT-001
+    purpose: '`atdd author issue --train <id>` refuses a train that resolves to nothing
+      BEFORE the store connection is opened, so a refused mint leaves no half-published
+      record, while a registered train — canonical or alias-resolved — is written'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A real on-disk State Store in a temporary control root, plus a plan/ fixture
+      declaring one train and one alias for it
+    - The create path exercised at its seam, with the GitHub projection stubbed so
+      only the store write is under test
+    - 'Three mint requests: a registered canonical train, a resolvable alias, and a
+      well-formed train id no registry declares'
+  when:
+    abstract: each mint request is run against the store and the resulting work item
+      is read back
+  then:
+    abstract:
+    - The registered canonical train is written to work_item.data.train unchanged
+    - The resolvable alias is accepted, so an operator is not forced to migrate a legacy
+      spelling before they can record lineage
+    - The unregistered train is refused with a non-zero outcome whose message names
+      the registry and the candidates that would have resolved
+    - After the refusal NO work item exists for that slug, so the guard runs before
+      the store write and not after it
+    - A mint that names no train at all is accepted, because a train is optional for
+      the issue types that do not require one
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:Y008-UNIT-002-revise-writes-a-validated-train
+    id: AC-UNIT-002
+    purpose: '`atdd author issue --revise <N> --train <urn>` — the non-deprecated
+      surface — honours the flag and validates it, instead of refusing it by name, so
+      a validated non-deprecated way to correct a train exists'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A State Store holding a work item bound to a GitHub issue number through external_refs,
+      whose data.train is null, plus a plan/ fixture declaring one train
+    - The revise path exercised through its whole chain — the argparse namespace, the
+      publish helper, the store writer — with the GitHub projection stubbed
+    - 'Four revise requests: --train alone, --train with --body-file, --body-file alone,
+      and --train naming an unregistered train'
+  when:
+    abstract: each revise request is run against the store and the work item's data
+      is read back
+  then:
+    abstract:
+    - --train alone leaves data.train equal to the value supplied, and is not refused
+      for lacking --body-file and --type
+    - --train with --body-file leaves both written, so neither field overwrites the
+      other
+    - --body-file alone leaves data.train exactly as it was, so a revision naming no
+      train never clears an existing reference
+    - --train naming an unregistered train exits non-zero and leaves the stored train
+      unchanged, with no GitHub projection attempted
+    - --train is no longer a member of the revise refusal set, and the guard pinning
+      that set names the remaining flags exactly, so honouring it was a visible edit
+      rather than a silent widening
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:Y008-UNIT-003-update-setter-rejects-an-unregistered-train
+    id: AC-UNIT-003
+    purpose: The deprecated `atdd update <N> --train` — the setter that accepted
+      train:bogus:does-not-exist — cross-references the registry on a bare field write
+      too, not only when a --status transition happens to run its gate
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The update setter exercised at the seam that applies its text fields, over a
+      plan/ fixture declaring one train
+    - 'Three writes: a registered train, an unregistered train, and a write that touches
+      other fields but names no train'
+  when:
+    abstract: each write is applied and the fields that reached the store are read
+      back
+  then:
+    abstract:
+    - The registered train is written
+    - The unregistered train is refused, and NONE of the other fields in the same request
+      are written either, so a refused update is not half-applied
+    - The refusal message names the registry and the resolvable candidates, matching
+      what the create and revise paths say, so the three setters do not each explain
+      the same failure differently
+    - A write naming no train is unaffected, so the guard costs the other fields nothing
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:Y008-SMOKE-001-real-cli-revise-writes-a-validated-train
+    id: AC-SMOKE-001
+    purpose: 'Against the real shipped CLI as a subprocess: `atdd author issue --revise
+      <N> --train <urn>` reaches the store, and an unregistered value exits non-zero
+      changing nothing — an in-process test would prove the seam threads the argument
+      but not that the shipped entry point does'
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real on-disk control-root State Store holding a work item bound to an issue
+      number, and a real plan/ tree declaring one train
+    - The actual `atdd author issue --revise` CLI run as a separate process with the
+      GitHub projection unreachable, so the outbox path is taken and no network is
+      required
+    - No in-process import of the module under test and no monkeypatching
+  when:
+    abstract: the real CLI is run once with a registered train and once with an unregistered
+      one, and the store is read back by a separate process each time
+  then:
+    abstract:
+    - After the registered run the work item read back reports data.train equal to the
+      value the operator supplied
+    - The registered run exits zero and names the train it set, so a caller can tell
+      a write from a silently dropped flag
+    - The unregistered run exits non-zero and the stored train is unchanged
+    - The refusal is emitted by the shipped entry point, so the guard is not one that
+      exists only when the seam is called directly
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
