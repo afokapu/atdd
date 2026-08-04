@@ -84,6 +84,23 @@ def _entry_point_factories() -> Dict[str, ProviderFactory]:
     return out
 
 
+def can_deliver(provider: str) -> bool:
+    """Whether a message enqueued for ``provider`` has anywhere to go right now (#1711).
+
+    The outbox is the failure handler for every store-first provider write, and
+    the caller of that handler is told its write is a "durable retry". With no
+    provider registered that sentence is unbacked — :func:`push_outbox` will
+    leave the row pending on every run, forever. This is the question that
+    sentence has to be decided from, asked at the moment of enqueue rather than
+    assumed, and it is deliberately a *live* read: registering a provider changes
+    the answer with no edit to the message.
+
+    Cheap by construction — the answer is a registry membership test — so a
+    caller on the failure path pays nothing to tell the truth.
+    """
+    return provider in discover_providers()
+
+
 def discover_providers() -> Dict[str, SyncProvider]:
     """Build the ``{name: SyncProvider}`` mapping from every registration mechanism.
 

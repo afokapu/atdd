@@ -108,6 +108,26 @@ class SyncMessage:
     operation: Optional[str] = None  # outbox only
 
 
+@dataclass(frozen=True)
+class OutboxBacklog:
+    """What is waiting in the outbox, and since when (#1711/C015).
+
+    ``pending_outbox`` returns the rows but not their age, so the figure that
+    actually distinguishes a moving queue from a stalled one — the enqueue time
+    of the oldest row still waiting — was reachable only by opening the SQLite
+    file by hand. Thirty pending rows reads as a busy queue; thirty pending rows
+    whose oldest is from 2026-07-09 reads as a queue that has not moved in 25
+    days, which is the fact this defect was found through.
+
+    ``by_provider`` is a count per provider name rather than a total, so a single
+    unregistered provider is attributable instead of averaged into the rest.
+    """
+
+    pending: int
+    oldest_enqueued_at: Optional[str]          # None exactly when pending == 0
+    by_provider: Dict[str, int] = field(default_factory=dict)
+
+
 # --------------------------------------------------------------------------- #
 # Stores
 # --------------------------------------------------------------------------- #
@@ -283,6 +303,28 @@ class SyncStore(_BaseStore):
         ).fetchall()
         return [SyncMessage(r["id"], r["provider"], _loads(r["payload"]), r["status"], r["operation"])
                 for r in rows]
+
+    def outbox_backlog(self) -> OutboxBacklog:
+        """The pending queue summarised: how many, since when, and for whom (#1711).
+
+        One pass over the pending rows rather than three queries — the table is
+        the size of the undelivered backlog, and a summary that needed its own
+        round trip per figure would discourage printing it, which is how the
+        figure went unprinted for 25 days in the first place.
+        """
+        rows = self._conn.execute(
+            "SELECT provider, created_at FROM outbox WHERE status='pending'"
+        ).fetchall()
+        by_provider: Dict[str, int] = {}
+        oldest: Optional[str] = None
+        for row in rows:
+            by_provider[row["provider"]] = by_provider.get(row["provider"], 0) + 1
+            created = row["created_at"]
+            if created is not None and (oldest is None or created < oldest):
+                oldest = created
+        return OutboxBacklog(
+            pending=len(rows), oldest_enqueued_at=oldest, by_provider=by_provider,
+        )
 
     def mark_sent(self, outbox_id: int) -> None:
         with self._conn:
