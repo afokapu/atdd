@@ -1510,50 +1510,18 @@ class IssueManager:
             return 1
         issue_number, issue, client = resolved
 
-        updated = []
+        updated: List[str] = []
 
-        # Status transition with validation
         if status:
-            status = status.upper()
-            current_labels, current_status = self._read_phase_labels(issue)
-            issue_body = issue.get("body", "") or ""
-
-            if not self._transition_gates_pass(
-                issue_number, issue_id, issue_body, current_status, status,
-                branch, train, force,
-            ):
+            applied = self._apply_status_transition(
+                client, issue_number, issue_id, issue,
+                status.upper(), branch, train, force,
+            )
+            if applied is None:
                 return 1
+            updated.append(applied)
 
-            # #1452: STORE FIRST, LABEL AS ITS PROJECTION. The order matters and
-            # is load-bearing, not cosmetic. `atdd:<PHASE>` is a *rendering* of
-            # `objects.state`, so the source of truth must move before the
-            # artifact derived from it. Writing the label first is how 236 issues
-            # (56%) ended up carrying a phase their store never earned: the
-            # projection landed, something failed after it, and the label was
-            # left asserting a transition that never happened.
-            self._update_manifest_status(issue_number, status)
-
-            # Project the store's new state onto GitHub. This is the sole
-            # authoritative `atdd:*` label write in the codebase — enforced by
-            # coach.issue.phase-label-projection-only.
-            if not self._write_phase_label(client, issue_number, current_labels, status):
-                # Exit red. Reporting success here is how a half-applied transition
-                # becomes an invisible one: CI reads 0 and moves on (#1621).
-                return 1
-            updated.append(f"status: {status}")
-
-        # Validate branch prefix (every branch = a worktree)
-        if branch and not self._branch_prefix_allowed(branch):
-            return 1
-
-        # #1590: the train cross-reference runs on a BARE FIELD WRITE too, not
-        # only on a --status transition. This is the hole that made `atdd update
-        # <N> --train <anything>` the repository's only functional train setter
-        # AND its only unvalidated one — proven, it accepted
-        # `train:bogus:does-not-exist`. Refused BEFORE _apply_text_updates so a
-        # rejected train does not take the other fields in the same request down
-        # with it half-written.
-        if train and not status and not self._gate_train_crossref(train):
+        if not self._field_writes_allowed(branch, train, transitioning=bool(status)):
             return 1
 
         updated.extend(
@@ -1561,15 +1529,79 @@ class IssueManager:
                 issue_number, branch, train, feature_urn, archetypes
             )
         )
-
-        if updated:
-            print(f"Updated #{issue_number}:")
-            for u in updated:
-                print(f"  {u}")
-        else:
-            print("Nothing to update.")
-
+        self._report_updates(issue_number, updated)
         return 0
+
+    def _apply_status_transition(
+        self,
+        client: Any,
+        issue_number: int,
+        issue_id: str,
+        issue: dict,
+        status: str,
+        branch: Optional[str],
+        train: Optional[str],
+        force: bool,
+    ) -> Optional[str]:
+        """Run the phase transition; the line to report, or None having failed."""
+        current_labels, current_status = self._read_phase_labels(issue)
+        issue_body = issue.get("body", "") or ""
+
+        if not self._transition_gates_pass(
+            issue_number, issue_id, issue_body, current_status, status,
+            branch, train, force,
+        ):
+            return None
+
+        # #1452: STORE FIRST, LABEL AS ITS PROJECTION. The order matters and
+        # is load-bearing, not cosmetic. `atdd:<PHASE>` is a *rendering* of
+        # `objects.state`, so the source of truth must move before the
+        # artifact derived from it. Writing the label first is how 236 issues
+        # (56%) ended up carrying a phase their store never earned: the
+        # projection landed, something failed after it, and the label was
+        # left asserting a transition that never happened.
+        self._update_manifest_status(issue_number, status)
+
+        # Project the store's new state onto GitHub. This is the sole
+        # authoritative `atdd:*` label write in the codebase — enforced by
+        # coach.issue.phase-label-projection-only.
+        if not self._write_phase_label(client, issue_number, current_labels, status):
+            # Exit red. Reporting success here is how a half-applied transition
+            # becomes an invisible one: CI reads 0 and moves on (#1621).
+            return None
+        return f"status: {status}"
+
+    def _field_writes_allowed(
+        self, branch: Optional[str], train: Optional[str], *, transitioning: bool
+    ) -> bool:
+        """Every gate a BARE FIELD WRITE must pass before anything is written.
+
+        Refused HERE, ahead of ``_apply_text_updates``, so a rejected value does
+        not take the other fields in the same request down with it half-written.
+
+        #1590: the train cross-reference belongs in this set. It used to run only
+        from ``_transition_gates_pass``, which runs only when ``--status`` is
+        supplied — so ``atdd update <N> --train <anything>`` was the repository's
+        only functional train setter AND its only unvalidated one. Proven: it
+        accepted ``train:bogus:does-not-exist`` and printed "Updated". Skipped
+        while transitioning because the transition gate has already run it, and a
+        second run would print the same diagnosis twice.
+        """
+        if branch and not self._branch_prefix_allowed(branch):
+            return False
+        if train and not transitioning and not self._gate_train_crossref(train):
+            return False
+        return True
+
+    @staticmethod
+    def _report_updates(issue_number: int, updated: List[str]) -> None:
+        """Name what changed, or say plainly that nothing did."""
+        if not updated:
+            print("Nothing to update.")
+            return
+        print(f"Updated #{issue_number}:")
+        for line in updated:
+            print(f"  {line}")
 
     def _resolve_issue(self, issue_id: str) -> Optional[Tuple[int, dict, Any]]:
         """(issue_number, issue, client). None (after printing) when it cannot be read."""

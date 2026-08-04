@@ -42,7 +42,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import yaml
 
@@ -61,7 +61,6 @@ __all__ = [
     "registered_trains",
     "resolve_train",
     "train_aliases",
-    "train_in_body",
     "train_relpath",
 ]
 
@@ -75,10 +74,11 @@ _TYPED_TRAIN_RE = re.compile(r"^train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$")
 #: ``NNNN-slug`` — the legacy flat id still resolvable through the alias map.
 _LEGACY_TRAIN_RE = re.compile(r"^\d{4}-[a-z0-9][a-z0-9-]*$")
 
-#: The body's Metadata table row, e.g. ``| Train | `train:s:x` |``.
-_BODY_TRAIN_RE = re.compile(
-    r"(?im)^\s*\|\s*Train\s*\|\s*`?\s*([^\s|`]+)\s*`?\s*\|"
-)
+# NOTE: there is deliberately no `train_in_body` peer of `feature_in_body`. The
+# feature rule holds the body's Feature row and the stored field to EACH OTHER, so
+# it needs to read both; the train rule holds the stored reference to the REGISTRY
+# and reads the body nowhere. A body reader here would be dead code whose only
+# effect was to duplicate `feature_in_body`.
 
 
 def is_train_id(value: Optional[str]) -> bool:
@@ -94,15 +94,6 @@ def is_train_id(value: Optional[str]) -> bool:
     if not text:
         return False
     return bool(_TYPED_TRAIN_RE.match(text) or _LEGACY_TRAIN_RE.match(text))
-
-
-def train_in_body(body: Optional[str]) -> Optional[str]:
-    """The Train value the issue body's Metadata table declares, if any."""
-    match = _BODY_TRAIN_RE.search(body or "")
-    if not match:
-        return None
-    value = match.group(1).strip()
-    return value or None
 
 
 def train_relpath(train_id: str) -> str:
@@ -163,6 +154,22 @@ def _read_yaml(path: Path, *, what: str) -> Optional[Any]:
         return None
 
 
+def _registry_entries(trains: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
+    """Every dict entry inside a nested ``{group: {bucket: [entry]}}`` registry.
+
+    Yields rather than accumulating so the shape-tolerance (any of the three
+    levels may be malformed in a hand-edited registry) lives in one flat walk
+    instead of nesting three deep inside the caller.
+    """
+    for buckets in trains.values():
+        if not isinstance(buckets, dict):
+            continue
+        for entries in buckets.values():
+            if not isinstance(entries, list):
+                continue
+            yield from (entry for entry in entries if isinstance(entry, dict))
+
+
 def registered_trains(start: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
     """``{train_id: entry}`` for every train the repo's registry index declares.
 
@@ -171,25 +178,15 @@ def registered_trains(start: Optional[Path] = None) -> Dict[str, Dict[str, Any]]
     its own subjects, and this must not care.
     """
     doc = _read_yaml(plan_root(start).parent / TRAINS_REGISTRY, what="trains-registry")
-    if not isinstance(doc, dict):
-        return {}
-    trains = doc.get("trains")
+    trains = doc.get("trains") if isinstance(doc, dict) else None
     if not isinstance(trains, dict):
         return {}
 
     found: Dict[str, Dict[str, Any]] = {}
-    for buckets in trains.values():
-        if not isinstance(buckets, dict):
-            continue
-        for entries in buckets.values():
-            if not isinstance(entries, list):
-                continue
-            for entry in entries:
-                if not isinstance(entry, dict):
-                    continue
-                train_id = str(entry.get("train_id") or "").strip()
-                if train_id:
-                    found.setdefault(train_id, entry)
+    for entry in _registry_entries(trains):
+        train_id = str(entry.get("train_id") or "").strip()
+        if train_id:
+            found.setdefault(train_id, entry)
     return found
 
 
@@ -253,18 +250,28 @@ def interlocking_index(start: Optional[Path] = None) -> Dict[str, List[str]]:
         if not isinstance(doc, dict):
             continue
         interlocking_id = str(doc.get("interlocking_id") or path.stem).strip()
-        for route in doc.get("routes") or []:
-            if not isinstance(route, dict):
-                continue
-            for key in _route_train_keys(route):
-                bucket = index.setdefault(key, [])
-                if interlocking_id not in bucket:
-                    bucket.append(interlocking_id)
+        for key in _covered_train_keys(doc):
+            bucket = index.setdefault(key, [])
+            if interlocking_id not in bucket:
+                bucket.append(interlocking_id)
     return index
 
 
+def _covered_train_keys(interlocking: Dict[str, Any]) -> Iterator[str]:
+    """Every key any of an interlocking's routes offers for train matching."""
+    for route in interlocking.get("routes") or []:
+        if isinstance(route, dict):
+            yield from _route_train_keys(route)
+
+
 def _route_train_keys(route: Dict[str, Any]) -> Tuple[str, ...]:
-    """Every key a route offers for matching the train it drives."""
+    """Every key a route offers for matching the train it drives.
+
+    Both spellings, because a route may name its train either way and the two
+    must agree on one answer: atdd's own two interlocking artifacts carry
+    ``train_id`` in the typed form and in the legacy form respectively, and both
+    carry ``train_path``.
+    """
     keys: List[str] = []
     train_id = str(route.get("train_id") or "").strip()
     if train_id:

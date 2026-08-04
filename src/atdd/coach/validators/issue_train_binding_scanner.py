@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._store_issue_rows import issue_backed_rows
 from atdd.coach.validators._violation import Violation
 from atdd.planner.commands.train_binding import (
     interlocking_index, plan_is_available, resolve_train,
@@ -112,26 +113,7 @@ def scan_store_train_references(control_root: Optional[Path] = None) -> List[Vio
     selected by ``atdd validate coach --local --skip-api`` rather than silently
     deselected by its marker expression.
     """
-    from atdd.coach.commands.issue_feature_binding import (
-        GITHUB_PROVIDER, ISSUE_REF_KIND, _open_store,
+    return scan_train_references(
+        issue_backed_rows(control_root, fields=("train",)),
+        plan_root=control_root,
     )
-
-    store = _open_store(control_root)
-    rows = store.conn.execute(
-        "SELECT r.ref_value, o.state, o.data FROM external_refs r "
-        "JOIN objects o ON o.uid = r.object_uid "
-        "WHERE r.provider = ? AND r.ref_kind = ?",
-        (GITHUB_PROVIDER, ISSUE_REF_KIND),
-    ).fetchall()
-
-    import json
-
-    issues: List[Dict[str, Any]] = []
-    for ref_value, state, data in rows:
-        payload = json.loads(data) if data else {}
-        issues.append({
-            "number": ref_value,
-            "status": state,
-            "train": payload.get("train"),
-        })
-    return scan_train_references(issues, plan_root=control_root)

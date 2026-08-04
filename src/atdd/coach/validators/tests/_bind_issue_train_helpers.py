@@ -22,11 +22,12 @@ from typing import Any, Dict, Iterable, Optional
 
 import yaml
 
-from atdd.state.db import connect, init_state_store
-from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
 from atdd.state.store import StateStore
 
-ISSUE_REF_KIND = "issue"
+from ._issue_binding_store import (
+    GITHUB_PROVIDER, ISSUE_REF_KIND, WORK_ITEM_KIND, control_root, link_issue,
+    open_store, read_issue_data,
+)
 
 # ---------------------------------------------------------------------------
 # The consumer repository's OWN vocabulary — nothing atdd would ever declare
@@ -50,21 +51,6 @@ ATDD_TRAIN_ID = "train:self-compliance:validate-lifecycle"
 #: The feature the seeded work items bind to, so the feature-binding guard on the
 #: create path is satisfied and only the TRAIN guard is under test.
 CONSUMER_FEATURE = f"feature:{CONSUMER_WAGON}:couple-wagons"
-
-
-def control_root(tmp_path: Path) -> Path:
-    """A directory the State Store will accept as a control root.
-
-    No ``interlocking_layout``, no ``code_roots``, no layout keys at all — the
-    fixture must be resolvable from its own structure alone.
-    """
-    (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
-    (tmp_path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    return tmp_path
-
-
-def open_store(root: Path) -> StateStore:
-    return StateStore(connect(init_state_store(start=root)))
 
 
 def _wagon_dir(wagon: str) -> str:
@@ -214,7 +200,11 @@ def seed_issue(
     body: str = "",
     extra: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """A work item linked to its github issue, as the real mint leaves it."""
+    """A work item linked to its github issue, as the real mint leaves it.
+
+    ``feature`` is always populated so the create path's #1635 feature guard is
+    satisfied and only the TRAIN guard is ever what a refusal is attributable to.
+    """
     data: Dict[str, Any] = {
         "title": slug,
         "type": "implementation",
@@ -224,18 +214,9 @@ def seed_issue(
         "body": body,
     }
     data.update(extra or {})
-    store.objects.upsert(slug, WORK_ITEM_KIND, state=state, data=data)
-    store.external_refs.link(slug, GITHUB_PROVIDER, ISSUE_REF_KIND, str(issue_number))
-    return slug
-
-
-def read_issue_data(store: StateStore, issue_number: int) -> Dict[str, Any]:
-    """The stored work item's ``data`` for a github issue number."""
-    ref = store.external_refs.resolve(GITHUB_PROVIDER, ISSUE_REF_KIND, str(issue_number))
-    assert ref is not None, f"github issue #{issue_number} is not registered in the store"
-    obj = store.objects.get(ref.object_uid)
-    assert obj is not None, f"work item {ref.object_uid!r} is missing from the store"
-    return dict(obj.data or {})
+    return link_issue(
+        store, slug=slug, issue_number=issue_number, state=state, data=data,
+    )
 
 
 def rule_ids(violations) -> list:

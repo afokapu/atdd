@@ -19,11 +19,12 @@ import importlib
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from atdd.state.db import connect, init_state_store
-from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
 from atdd.state.store import StateStore
 
-ISSUE_REF_KIND = "issue"
+from ._issue_binding_store import (
+    GITHUB_PROVIDER, ISSUE_REF_KIND, WORK_ITEM_KIND, control_root, link_issue,
+    open_store, read_issue_data,
+)
 
 # The feature this issue authored, and the WMBT its YAML declares.
 FEATURE_URN = "feature:govern-lifecycle:bind-issue-feature"
@@ -34,17 +35,6 @@ ABSENT_FEATURE_URN = "feature:govern-lifecycle:no-such-feature-exists"
 
 # A train identity wearing a feature's clothes — the drift measured on #1626.
 TRAIN_URN_IN_FEATURE_SLOT = "train:issue-lifecycle:drive-state-machine"
-
-
-def control_root(tmp_path: Path) -> Path:
-    """A directory the State Store will accept as a control root."""
-    (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
-    (tmp_path / ".atdd" / "config.yaml").write_text("version: '1.0'\n", encoding="utf-8")
-    return tmp_path
-
-
-def open_store(root: Path) -> StateStore:
-    return StateStore(connect(init_state_store(start=root)))
 
 
 def seed_issue(
@@ -71,18 +61,9 @@ def seed_issue(
         "body": body,
     }
     data.update(extra or {})
-    store.objects.upsert(slug, WORK_ITEM_KIND, state=state, data=data)
-    store.external_refs.link(slug, GITHUB_PROVIDER, ISSUE_REF_KIND, str(issue_number))
-    return slug
-
-
-def read_issue_data(store: StateStore, issue_number: int) -> Dict[str, Any]:
-    """The stored work item's ``data`` for a github issue number."""
-    ref = store.external_refs.resolve(GITHUB_PROVIDER, ISSUE_REF_KIND, str(issue_number))
-    assert ref is not None, f"github issue #{issue_number} is not registered in the store"
-    obj = store.objects.get(ref.object_uid)
-    assert obj is not None, f"work item {ref.object_uid!r} is missing from the store"
-    return dict(obj.data or {})
+    return link_issue(
+        store, slug=slug, issue_number=issue_number, state=state, data=data,
+    )
 
 
 def write_plan_tree(root: Path, *, wmbts=(FEATURE_WMBT,)) -> Path:
