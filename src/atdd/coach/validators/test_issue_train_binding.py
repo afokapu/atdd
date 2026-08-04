@@ -72,14 +72,43 @@ def test_rules_are_bound() -> None:
     assert _INTERLOCKING_RULE.rule_id == _INTERLOCKING_RULE_ID
 
 
-def test_scanner_reports_an_unregistered_train() -> None:
-    """Fault control: the scan must be able to fail, or it enforces nothing."""
+def test_scanner_reports_an_unregistered_train(tmp_path) -> None:
+    """Fault control: the scan must be able to fail, or it enforces nothing.
+
+    Resolved against a plan tree this test BUILDS, never the ambient repo. The
+    first version of this control passed ``find_repo_root()`` and was therefore
+    green inside atdd and red in a consumer repo, where there is no ``plan/``
+    tree, the scan correctly reports nothing, and the control read that correct
+    silence as a broken scanner. `validate-consumer` caught it — which is the
+    node's own thesis landing on the node's own test: a check that works only
+    because it runs inside atdd is the defect, not the evidence.
+
+    An empty ``plan/`` directory is the whole fixture. It makes the registry
+    resolvable-but-empty, which is exactly the state in which a well-formed
+    reference must be reported as unregistered.
+    """
+    (tmp_path / "plan").mkdir()
+
     violations = scan_train_references(
         [{"number": 1, "train": "train:no-such-subject:no-such-train"}],
-        plan_root=find_repo_root(),
+        plan_root=tmp_path,
     )
     assert violations, "the scanner passed a train reference that resolves to nothing"
     assert violations[0].rule_id == _RULE.rule_id
+
+
+def test_a_repo_with_no_plan_tree_reports_nothing(tmp_path) -> None:
+    """The other half of the same lesson, asserted rather than left implicit.
+
+    A consumer repo with no ``plan/`` tree has no registry to hold references
+    against, so silence there is the CORRECT answer and not a hole. Pinning it
+    stops the fault control above from being 'fixed' back into ambient
+    resolution by someone who reads the silence as a bug.
+    """
+    assert scan_train_references(
+        [{"number": 1, "train": "train:no-such-subject:no-such-train"}],
+        plan_root=tmp_path,
+    ) == []
 
 
 def test_train_references_resolve() -> None:

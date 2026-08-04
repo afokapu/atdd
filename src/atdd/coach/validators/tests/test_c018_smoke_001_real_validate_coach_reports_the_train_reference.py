@@ -98,33 +98,71 @@ def test_both_rules_resolve_through_the_shipped_registry() -> None:
             pytest.fail(f"rule {rule_id!r} is not in the shipped registry: {exc}")
 
 
-def test_the_real_run_reports_the_repositorys_own_dangling_references() -> None:
-    """It RUNS, over this checkout, and says what it found.
+def test_the_real_run_reports_a_dangling_reference(tmp_path) -> None:
+    """It RUNS, against a real store, and says what it found.
 
     Collection alone is not enforcement: a validator can be collected and then
-    scan nothing. This drives the real validator in a separate process against
-    the real store and the real ``plan/`` tree and requires it to name both rules
-    it enforces — which, over a corpus that carries 16 unresolvable references and
-    148 unrouted trains, it can only do by having actually looked.
+    scan nothing. This drives the real validator in a separate real process
+    against a real on-disk State Store and a real ``plan/`` tree — one issue whose
+    train resolves and one whose train does not, which is the repository state
+    C018-SMOKE-001 declares.
+
+    THE CORPUS IS BUILT BY THE TEST, NOT INHERITED. The first version of this
+    asserted against "this checkout's own" store and passed only on a developer
+    machine: CI checks out a tree with no ``.atdd/state/state.sqlite`` (it is
+    gitignored), so the scan saw zero rows, reported nothing, and the assertion
+    read that as "collected but enforced nothing". Same defect class as the
+    ambient-repo fault control in the validator itself — an assertion resting on
+    state that happens to exist where it was written.
 
     Asserted through the ADVISORY warning text rather than through an exit code,
     because the outcome is governed by each node's declared disposition and this
     test must not pin policy the convention owns.
     """
-    result = _pytest(str(_VALIDATOR_FILE), "-q", "-W", "always")
+    from .._store_issue_rows import issue_backed_rows  # noqa: F401  (ships check)
+    from ._bind_issue_train_helpers import (
+        ABSENT_TRAIN, CONSUMER_TRAIN, control_root, open_store, seed_issue,
+        write_consumer_plan_tree,
+    )
+
+    root = control_root(tmp_path)
+    write_consumer_plan_tree(root)
+    subprocess.run(["git", "init", "-q", "."], cwd=root, check=True, timeout=60)
+
+    store = open_store(root)
+    seed_issue(store, slug="resolves", issue_number=940001, train=CONSUMER_TRAIN)
+    seed_issue(store, slug="dangles", issue_number=940002, train=ABSENT_TRAIN)
+    store.conn.commit()
+    store.conn.close()
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(_SRC)
+    env["ATDD_CONTROL_ROOT"] = str(root)
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", str(_VALIDATOR_FILE),
+         "-q", "-p", "no:cacheprovider", "-W", "always"],
+        cwd=root, env=env, capture_output=True, text=True, timeout=600,
+    )
     combined = result.stdout + result.stderr
 
     assert result.returncode == 0, (
-        "the shipped validator did not pass over its own repository. Both rules "
-        "are advisory with recorded baselines, so a non-zero exit means something "
-        f"other than the known debt failed:\n{combined}"
+        "the shipped validator did not pass over a corpus carrying one dangling "
+        "reference. Both rules are advisory, so a non-zero exit means something "
+        f"other than the reported debt failed:\n{combined}"
     )
-    for rule_id in (_REFERENCE_RULE, _INTERLOCKING_RULE):
-        assert rule_id in combined, (
-            f"the real run never mentioned {rule_id}, so the validator was "
-            f"collected but enforced nothing:\n{combined}"
-        )
-    assert "github-issue#" in combined, (
-        "the run reported no per-issue location, so it produced a verdict without "
-        f"having scanned the corpus:\n{combined}"
+    assert _REFERENCE_RULE in combined, (
+        f"the real run never mentioned {_REFERENCE_RULE}, so the validator was "
+        f"collected but enforced nothing:\n{combined}"
+    )
+    assert ABSENT_TRAIN in combined, (
+        "the run did not name the dangling train it was given, so it produced a "
+        f"verdict without having scanned the corpus:\n{combined}"
+    )
+    assert "github-issue#940002" in combined, (
+        "the run reported no per-issue location for the dangling reference, so "
+        f"the report is not actionable:\n{combined}"
+    )
+    assert "github-issue#940001" not in combined, (
+        "the run reported the issue whose train RESOLVES, so it is not "
+        f"discriminating between the two:\n{combined}"
     )
