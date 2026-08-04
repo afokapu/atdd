@@ -1533,6 +1533,7 @@ def _publish_revision(args, body) -> int:
             issue_type=args.issue_type,
             feature=args.feature,
             title=args.title,
+            train=args.train,
         )
     except PublishError as exc:
         logger.warning(
@@ -1557,6 +1558,14 @@ def _publish_revision(args, body) -> int:
             f"atdd author issue: title set to {args.title!r}",
             file=sys.stderr,
         )
+    if args.train:
+        # Same reason as --feature: a caller must be able to tell a write from a
+        # dropped flag. This one additionally distinguishes a write from the
+        # REFUSAL this flag used to get (#1661), which also printed to stderr.
+        print(
+            f"atdd author issue: train set to {args.train}",
+            file=sys.stderr,
+        )
     _print_revise_outcome(result)
     return 0
 
@@ -1568,11 +1577,20 @@ def _publish_revision(args, body) -> int:
 # extensions_lock (aborts before opening the file, because a half-written lock
 # looks pinned). The set is pinned by a test — widening it to silence a newly
 # dropped flag is a visible, reviewable act, not a quiet one.
+#
+# `--train` LEFT this set in #1590. It was refused here on the grounds that a
+# revision defines no semantics for create-time metadata — correct at the time,
+# but it left the repository with NO validated non-deprecated way to set a train:
+# the only functional setter was the deprecated `atdd update <N> --train`, which
+# wrote any string at all (proven: `train:bogus:does-not-exist`). The revise path
+# now defines the semantics — resolve against the repo's train registry, refuse
+# what does not resolve, write what does — so the flag is honoured rather than
+# declined. That is the same visible, reviewable edit this comment demands of
+# anyone WIDENING the set; narrowing it requires actually wiring the writer.
 _REVISE_UNSUPPORTED: tuple[tuple[str, str, str], ...] = (
     ("slug", "--slug", "the work item's uid, which a revision does not move"),
     ("status", "--status", "owned by the phase machine; use `atdd coach transition <N> <STATUS>`"),
     ("branch", "--branch", "create-time metadata; set it when the issue is authored"),
-    ("train", "--train", "create-time metadata; set it when the issue is authored"),
 )
 
 
@@ -1601,19 +1619,21 @@ def _run_issue_revise(args) -> int:
         return 2
 
     # `--feature` alone is a valid revision (#1635), and so is `--title` alone
-    # (#1661). Neither previously was: the precondition demanded --body-file
-    # and/or --type, so an operator correcting only a wrong binding or a wrong
-    # title was turned away — and when they satisfied it by also passing
-    # --body-file, the value was silently dropped further down.
+    # (#1661) and `--train` alone (#1590). None previously was: the precondition
+    # demanded --body-file and/or --type, so an operator correcting only a wrong
+    # binding, a wrong title or a wrong train was turned away — and when they
+    # satisfied it by also passing --body-file, the value was silently dropped
+    # further down.
     if (
         args.body_file is None
         and args.issue_type is None
         and args.feature is None
         and args.title is None
+        and args.train is None
     ):
         print(
             "atdd author issue: --revise requires --body-file, --feature, "
-            "--title and/or explicit --type",
+            "--title, --train and/or explicit --type",
             file=sys.stderr,
         )
         return 2

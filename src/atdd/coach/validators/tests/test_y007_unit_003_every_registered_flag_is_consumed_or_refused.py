@@ -162,7 +162,7 @@ def test_the_refusal_set_is_exactly_the_flags_the_revise_path_declines() -> None
     means suppressing a drop requires editing an explicit list of things the
     command REFUSES — a visible, reviewable act, not a silent one.
     """
-    assert set(UNSUPPORTED_ON_REVISE) == {"--slug", "--status", "--branch", "--train"}, (
+    assert set(UNSUPPORTED_ON_REVISE) == {"--slug", "--status", "--branch"}, (
         "the revise refusal set changed. Every entry must be a flag the revise "
         "path deliberately declines, never a flag it silently drops: "
         f"{sorted(UNSUPPORTED_ON_REVISE)}"
@@ -175,6 +175,10 @@ def test_the_guard_reads_the_parser_not_a_copy_of_it() -> None:
     The failure mode being prevented is Y006-UNIT-001's: a guard whose flag
     list is a literal in the test file, which therefore only ever knows about
     flags someone remembered to add to it.
+
+    Note the mechanism working as designed in #1590: `--train` left the refusal
+    set, and the previous assertion is what forced that removal to be paired with
+    a real writer rather than being quietly reclassified.
     """
     dests = _registered_dests()
 

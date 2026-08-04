@@ -322,6 +322,24 @@ edges:
   target_ref: coach.lifecycle.phase-machine
   type: runs_alongside
 - confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: 'the second hop presupposes the first: there is no resolved train whose interlocking could be missing until the reference has resolved, so this rule is evaluated only where the reference rule passed and an unresolvable reference is reported once rather than twice'
+  source_ref: coach.train-reference.resolved-train-has-interlocking
+  strength: critical
+  target_ref: coach.train-reference.resolves-to-registered-train
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: "two halves of the same class: each holds ONE field the work item stores as a REFERENCE into the plan graph \u2014 data.feature to a feature YAML, data.train to the train registry \u2014 and each was unenforced because nothing read the reference back, so both landed advisory over a pre-existing corpus and both resolve through a planner-side primitive the coach validator delegates to rather than a registry read of its own"
+  source_ref: coach.train-reference.resolves-to-registered-train
+  strength: important
+  target_ref: coach.issue.feature-binding-must-resolve
+  type: runs_alongside
+- confidence: 1.0
   constraint: discretionary
   control: internal
   foundation: start_to_start

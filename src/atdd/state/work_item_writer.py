@@ -153,6 +153,7 @@ def revise_work_item_issue(
     issue_type: Optional[str] = None,
     feature: Optional[str] = None,
     title: Optional[str] = None,
+    train: Optional[str] = None,
 ) -> Object:
     """Revise an existing issue-backed work item through the State Store.
 
@@ -175,6 +176,15 @@ def revise_work_item_issue(
     --type bug`` exited 0 with ``data.title`` unchanged. Where a body accompanied
     it the result was worse than a no-op: the body's H1 moved and the issue title
     did not, so the two disagreed until an operator repaired it by hand (#1636).
+    ``None`` means "unchanged" here too.
+
+    ``train`` is the last of the four (#1590). It was not dropped here — it was
+    REFUSED at the CLI (#1661), on the grounds that a revision defines no
+    semantics for create-time metadata. It now does: the only functional train
+    setter was the DEPRECATED ``atdd update <N> --train``, and that one wrote any
+    string at all, so refusing the flag on the validated command left the
+    repository with no validated non-deprecated way to record lineage. The caller
+    resolves the value against the repo's train registry before calling this;
     ``None`` means "unchanged" here too.
     """
     store = StateStore(conn)
@@ -203,8 +213,12 @@ def revise_work_item_issue(
         updates["feature"] = feature
     if title is not None:
         updates["title"] = title
+    if train is not None:
+        updates["train"] = train
     if not updates:
-        raise ValueError("revision requires body, issue_type, feature and/or title")
+        raise ValueError(
+            "revision requires body, issue_type, feature, title and/or train"
+        )
 
     obj = store.objects.upsert(
         existing.uid,
