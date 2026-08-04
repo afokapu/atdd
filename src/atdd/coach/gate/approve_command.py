@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,6 +62,8 @@ from atdd.coach.gate.phase_edges import (
     phase_machine,
     resolve_issue_phase,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_transition(text: str) -> Tuple[str, str]:
@@ -188,16 +191,31 @@ def run(
 
     try:
         from_phase, to_phase = _parse_transition(ns.transition)
-    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-01
-        # CLI arg error surfaced to the operator (print + non-zero exit), not a
-        # swallowed runtime fault — mirrors the cli.py issue-review parse path.
+    except ValueError as exc:
+        # A REFUSED MINT IS WORTH A RECORD, not only a line on the operator's
+        # terminal. `print` reaches whoever is watching and nowhere else; the log
+        # is what a later audit of "why does this issue have no token" can find.
+        # That is the same argument #1670 makes about gates that cannot say why
+        # they refused, applied to the mint — so this logs AND prints, which is
+        # what coder.logging.coach-silent-swallow asks for, instead of carrying an
+        # inline suppression marker past it (#1680 counts 84 of those already).
+        logger.warning(
+            "approval mint refused: the transition could not be parsed or is not "
+            "an edge the lifecycle declares",
+            extra={"issue": ns.issue, "transition": ns.transition, "error": str(exc)},
+        )
         print(f"Error: {exc}")
         return 1
-    except PhaseMachineUnavailable as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-01
+    except PhaseMachineUnavailable as exc:
         # FAIL CLOSED. Without the declared machine no edge can be judged legal,
         # and the mint writes an authorisation — so "I could not check" must
         # refuse. Degrading to a permissive parse here is the failure this issue
         # exists to close, arrived at from the other direction.
+        logger.warning(
+            "approval mint refused: the phase machine could not be read, so no "
+            "edge could be judged legal",
+            extra={"issue": ns.issue, "transition": ns.transition, "error": str(exc)},
+        )
         print(f"Error: cannot validate the transition — {exc}")
         return 1
 
