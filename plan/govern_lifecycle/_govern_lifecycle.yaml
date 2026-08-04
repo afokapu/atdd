@@ -80,11 +80,14 @@ features:
   - urn: "feature:govern-lifecycle:define-transition-autonomy"
   - urn: "feature:govern-lifecycle:bind-issue-feature"
   - urn: "feature:govern-lifecycle:fix-auto-phase-label-write-credential"
+  - urn: "feature:govern-lifecycle:honest-outbox-deferral"
 
 wmbt:
-  total: 117
+  total: 119
   R011: "minimize a-phase-advance-crossing-a-gated-edge-without-the-gate-ever-looking-because-the-check-registry-is-populated-by-one-cli-verb-and-an-unpopulated-registry-is-read-as-permission-to-proceed (#1619)"
+  C015: "minimize an-enqueue-that-tells-its-caller-the-write-is-a-durable-retry-and-a-drain-that-exits-0-over-a-queue-it-left-untouched-so-neither-surface-can-say-that-no-registered-provider-will-ever-send-the-row (#1711)"
   C014: "minimize a-validator-run-reporting-the-verdict-of-one-that-observed-its-subject-when-it-either-could-not-see-the-subject-or-silently-declined-to-look-at-half-of-it (#1632)"
+  C016: "minimize likelihood of a-registered-branch-being-refused-by-the-commit-gate-because-its-name-is-not-its-work-items-uid by resolving the branch through the populated `data.branch` binding that worktree-create already writes and `atdd worktree list` already reads, rather than guessing a store uid from the branch name, while retaining the uid-slug probe as a secondary index over that same single source so records predating the binding are not newly stranded, and keeping the gate's refusal confined to a branch that matches no work item in a populated store (#1720)"
   C012: "minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature by observing the acting agent session at the mint through the shipped resolve_session() instead of defaulting to $USER, recording that session as its own token field distinct from the human account, folding the resulting actor into the signed canonical scope, and stamping a token schema_version so the pre-fix corpus reads as a regime that could not attribute (#1718)"
   R009: "minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe (#1621)"
   Y007: "minimize a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer (#1661)"
