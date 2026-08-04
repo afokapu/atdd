@@ -1,0 +1,103 @@
+urn: "wmbt:govern-lifecycle:R011"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-phase-advance-crossing-a-gated-edge-without-the-gate-ever-looking-because-the-check-registry-is-populated-by-one-cli-verb-and-an-unpopulated-registry-is-read-as-permission-to-proceed"
+context_clarifier: "Two facts compose into a silent bypass, both verified on main at ff55607b. (1) register_approval_checks() and register_smoke_execution_check() have exactly ONE non-test call site between them — src/atdd/coach/commands/issue_transition.py run(), the `atdd coach transition` verb dispatch — so GATE_REGISTRY's contents depend on HOW a transition was invoked rather than on WHICH edge is crossed. (2) An unpopulated registry is read as proceed in TWO places, not the one the issue names: IssueLifecycle._transition_gate returns 0 outright when GATE_REGISTRY.is_empty() (issue_lifecycle.py:411), and decision.evaluate_transition_gate returns GateOutcome(proceed=True) when checks_for(from,to) is empty — so even removing the first, an edge whose checks were never registered still proceeds. The conjunction means four phase-advancing paths cross gated edges unchallenged: programmatic IssueLifecycle.transition, the issue_reconcile_state replay and the CLI all reach the gate through issue_transition.apply_transition, resume.py's PLANNED_PATH walk consults only can_transition (phase-machine LEGALITY, not gates), and handlers/watcher.py::_apply_transition writes the phase-transition decision record and mutates the state machine with no gate call at all. The migration this fail-open was built for (#958/#1017) has landed. The fix binds registration to gate EVALUATION rather than to a CLI verb, at a single impure enforcement seam every phase-advancing path calls, and makes a gated edge with no check after registration ran refuse as COULD_NOT_CHECK (the #1719/C013 verdict for an observation that could not be performed) instead of passing. It deliberately does NOT change the pure evaluate_transition_gate, whose empty-registry no-op is D019-UNIT-002's shipped migration-safety contract: the refusal belongs at the enforcement layer that guarantees registration ran, not at the pure function that cannot know whether it did. Consumer-repo parity is first-class, not a follow-up: a consumer repo drives transitions through this same substrate, inherits PLANNED->RED gating from DEFAULT_GATED_TRANSITIONS with no config of its own, and must be refused on a programmatic path exactly as atdd is."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-phase-advance-crossing-a-gated-edge-without-the-gate-ever-looking-because-the-check-registry-is-populated-by-one-cli-verb-and-an-unpopulated-registry-is-read-as-permission-to-proceed by binding check registration to gate EVALUATION at one impure enforcement seam that every phase-advancing path (the apply_transition chokepoint, the resume PLANNED_PATH walk, and the watcher) calls before advancing, and by making a gated edge that still has no registered check after registration ran REFUSE as COULD_NOT_CHECK rather than proceed — with the pure evaluate_transition_gate's empty-registry no-op left intact as D019's migration-safety contract, and with the refusal proven on a non-atdd consumer repo through a programmatic, non-CLI path"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R011-UNIT-001-enforcement-seam-registers-before-evaluating"
+      id: "AC-UNIT-001"
+      purpose: "The enforcement seam populates the check registry as part of evaluating a transition, so a caller that never shelled out to the `atdd coach transition` verb still gets the same checks consulted — registration is bound to the edge being crossed, not to how the caller was invoked"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A registry that starts with zero registered checks, standing in for every non-CLI phase-advancing path"
+        - "A config that gates PLANNED -> RED (the shipped default), and a GateContext for that edge whose worktree holds no approval token"
+    when:
+      abstract: "the enforcement seam is asked to decide the transition, having been handed the empty registry"
+    then:
+      abstract:
+        - "The registry is populated by the call: the approval check registered for PLANNED -> RED is present afterwards, and the smoke-execution check for SMOKE -> REFACTOR with it"
+        - "The outcome is proceed=False, and its blocking result is a FAIL attributed to the approval check's bound rule id — the gate looked and found no token, rather than not looking"
+        - "Registration remains an explicit call at the seam, never an import-time side effect: importing the seam module alone leaves the module-level GATE_REGISTRY untouched"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R011-UNIT-002-gated-edge-with-no-registered-check-refuses-as-could-not-check"
+      id: "AC-UNIT-002"
+      purpose: "An unpopulated registry on a gated edge is an error condition, not a green light: after registration has run, a gated edge that still carries no check refuses as COULD_NOT_CHECK — while the pure evaluate_transition_gate keeps the empty-registry no-op that D019-UNIT-002 pins as migration safety"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A gated edge for which registration registers no check — the fault-injected shape of a deleted registrar, and the shape of an operator gating an edge no check covers"
+        - "A config that gates that edge, and a GateContext for it"
+    when:
+      abstract: "the enforcement seam decides the transition, and separately the pure evaluate_transition_gate is called with the same empty registry, config and context"
+    then:
+      abstract:
+        - "The enforcement seam returns proceed=False"
+        - "Its blocking result carries the COULD_NOT_CHECK verdict and lands in the outcome's unobservable bucket, not in failures — the remedy is to make the check able to look, not to fix the work"
+        - "The message names the unregistered edge, so the refusal states a reason an operator can act on"
+        - "The pure evaluate_transition_gate, called directly with the same empty registry, still returns proceed=True — D019-UNIT-002's contract is unchanged, and the refusal lives only at the layer that guarantees registration ran"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R011-INTEGRATION-001-every-phase-advancing-path-consults-the-seam"
+      id: "AC-INTEGRATION-001"
+      purpose: "Each path that can advance an issue's phase evaluates the gate through the enforcement seam before it advances, and deleting any one of those calls turns the suite RED — the wiring is guarded per path, the way #1602's registrar already is"
+      phase: "GREEN"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The three phase-advancing call sites: the apply_transition chokepoint reached by the CLI verb, the programmatic IssueLifecycle.transition and the issue_reconcile_state replay; the resume runner's PLANNED_PATH walk; and the watcher's transition applier"
+        - "Each site's source, read as source rather than imported as a value, because a registration is a statement and only reading it can tell whether it is still there"
+    when:
+      abstract: "each call site is inspected for its call to the enforcement seam, and each is separately exercised with a gated edge and no approval token"
+    then:
+      abstract:
+        - "Every one of the three sites calls the enforcement seam, and a site that stops calling it fails this acceptance by name — naming which path lost its gate"
+        - "Exercised on a gated edge with no token, each path refuses: the transition chokepoint returns non-zero before any label or phase write, the resume walk does not advance the phase and writes no phase-transition decision record for the refused step, and the watcher does not mutate the state machine"
+        - "The `atdd coach transition` verb's own behaviour is unchanged: the same edge, the same refusal, the same operator message as before this issue"
+        - "The fail-closed half is untouched: an errored or timed-out check still counts as a failure across the full blocking set"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:R011-SMOKE-001-consumer-repo-programmatic-transition-is-refused"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real non-atdd repository on disk: a programmatic, non-CLI phase advance across a gated edge with no approval token is REFUSED — the consumer inherits the enforcement, not only atdd. An acceptance that passed only because it ran inside atdd would be the defect, not the evidence"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real fixture repository on disk that is NOT the atdd repo: its own directory, its own git repo, its own .atdd/ control root, and no gate.transitions config of its own — so PLANNED -> RED is gated only by the shipped DEFAULT_GATED_TRANSITIONS a consumer inherits"
+        - "No approval token anywhere under that repo's control root, and no token minted by this test — the mint side belongs to #1670"
+        - "The real production transition code, unstubbed. The single stubbed boundary is the GitHub CLI: a real executable on PATH answering `gh issue view` with a canned issue carrying the PLANNED phase label, so the gate evaluates the real edge without a live GitHub. Nothing in the gate, registry, registration or decision path is faked"
+    when:
+      abstract: "the fixture repo's phase is advanced PLANNED -> RED through the programmatic path — IssueLifecycle.transition, never the `atdd coach transition` CLI verb — with the fixture repo as the target directory"
+    then:
+      abstract:
+        - "The transition is REFUSED: a non-zero result, and the refusal is attributed to the approval-token check's bound rule id, so it is the gate refusing and not a fetch, layout or configuration error wearing the same exit code"
+        - "No phase or label write occurs in the fixture repo: the issue's recorded phase after the refusal is the one it started with"
+        - "The atdd repo's own control root, its own .atdd/runtime/ and any live issue are never read or written by the run"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
