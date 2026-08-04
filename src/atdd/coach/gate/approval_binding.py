@@ -39,7 +39,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -73,17 +73,41 @@ APPROVAL_TTL = timedelta(hours=24)
 class BranchBinding:
     """The branch an issue is bound to, or a sayable reason there is none.
 
-    Two fields rather than an ``Optional[str]`` because the three ways this can come
-    back empty need three different operator actions — register the issue, record its
-    branch, or fix the store — and a bare ``None`` collapses them into one
-    unactionable refusal. :attr:`reason` is written to be printed verbatim.
+    More than an ``Optional[str]`` because the three ways this can come back empty
+    need three different operator actions — register the issue, record its branch,
+    or fix the store — and a bare ``None`` collapses them into one unactionable
+    refusal. :attr:`reason` is written to be printed verbatim. :attr:`uid` is the
+    work item that WAS found when one was, so a caller can name it.
     """
 
     branch: Optional[str] = None
+    uid: Optional[str] = None
     reason: Optional[str] = None
 
     def __bool__(self) -> bool:
         return bool(self.branch)
+
+
+def _branch_in_store(store, issue_number: int) -> Tuple[Optional[str], Optional[str]]:
+    """``(uid, branch)`` for ``issue_number``; ``(None, None)`` if it resolves to nothing.
+
+    Extracted from :func:`resolve_issue_branch` rather than inlined, so the store
+    walk — resolve the ref, load the object, read its ``data`` bag — sits at one
+    nesting level instead of three inside a ``try``/``with``. Same shape and same
+    reason as #1720's ``_resolve_branch_in_store``, which took the identical
+    ``coder.refactor.complexity-nesting`` finding on the identical chain.
+
+    Reads only. What an empty answer MEANS is the caller's to say, because the
+    caller is the half that has to make it actionable.
+    """
+    ref = store.external_refs.resolve(
+        _GITHUB_PROVIDER, _ISSUE_REF_KIND, str(int(issue_number))
+    )
+    if ref is None:
+        return None, None
+    data = getattr(store.objects.get(ref.object_uid), "data", None)
+    branch = data.get(_BRANCH_KEY) if isinstance(data, dict) else None
+    return ref.object_uid, branch
 
 
 def resolve_issue_branch(start: Path, issue_number: int) -> BranchBinding:
@@ -105,20 +129,7 @@ def resolve_issue_branch(start: Path, issue_number: int) -> BranchBinding:
 
     try:
         with open_state_store(control_root=Path(start)) as store:
-            ref = store.external_refs.resolve(
-                _GITHUB_PROVIDER, _ISSUE_REF_KIND, str(int(issue_number))
-            )
-            if ref is None:
-                return BranchBinding(
-                    reason=(
-                        f"#{issue_number} resolves to no work item in the State Store, "
-                        f"so there is no branch to bind the approval to "
-                        f"(register it with `atdd worktree create {issue_number}`)"
-                    )
-                )
-            obj = store.objects.get(ref.object_uid)
-            data = getattr(obj, "data", None)
-            branch = (data or {}).get(_BRANCH_KEY) if isinstance(data, dict) else None
+            uid, branch = _branch_in_store(store, issue_number)
     except Exception as exc:  # noqa: BLE001 — reported as a reason, never raised
         logger.warning(
             "approval branch binding: the State Store could not be read",
@@ -131,10 +142,19 @@ def resolve_issue_branch(start: Path, issue_number: int) -> BranchBinding:
             )
         )
 
-    if not branch:
+    if uid is None:
         return BranchBinding(
             reason=(
-                f"work item {ref.object_uid!r} (#{issue_number}) records no branch, "
+                f"#{issue_number} resolves to no work item in the State Store, "
+                f"so there is no branch to bind the approval to "
+                f"(register it with `atdd worktree create {issue_number}`)"
+            )
+        )
+    if not branch:
+        return BranchBinding(
+            uid=uid,
+            reason=(
+                f"work item {uid!r} (#{issue_number}) records no branch, "
                 f"so there is no branch to bind the approval to "
                 f"(re-register it with `atdd worktree create {issue_number}`)"
             )

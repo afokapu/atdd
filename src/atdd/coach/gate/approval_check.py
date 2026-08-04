@@ -61,6 +61,28 @@ GATE_ID = "approval-token"
 RULE_ID = "govern-lifecycle.E050.operator-approval-required"
 
 
+# The three strings every verdict below is phrased in terms of. Derived from ctx
+# rather than threaded through as parameters: each regime's method needs a
+# different subset, and passing all three to each was what pushed `run` past the
+# `coder.refactor.complexity-length` threshold in the first place.
+def _rel(ctx: GateContext):
+    """The token's path RELATIVE to the Control Root — what an operator reads."""
+    return approval_relpath(ctx.issue_number, ctx.from_phase, ctx.to_phase)
+
+
+def _edge(ctx: GateContext) -> str:
+    """``FROM->TO``, upper-cased, as the token's own scope spells it."""
+    return f"{ctx.from_phase.upper()}->{ctx.to_phase.upper()}"
+
+
+def _produce(ctx: GateContext) -> str:
+    """The remedy every refusal ends with — what to run to get a valid token."""
+    return (
+        f"operator must approve: atdd coach approve {ctx.issue_number} "
+        f"--transition {_edge(ctx)}"
+    )
+
+
 @dataclass(frozen=True)
 class ApprovalTokenGateCheck:
     """Passes iff an operator-signed approval token exists for the transition."""
@@ -76,7 +98,6 @@ class ApprovalTokenGateCheck:
     now: Optional[str] = None
 
     def run(self, ctx: GateContext) -> GateCheckResult:
-        rel = approval_relpath(ctx.issue_number, ctx.from_phase, ctx.to_phase)
         # #1376: the base is the SHARED Control Root (#1346), not ctx.worktree —
         # which _transition_gate sets to the literal cwd. Resolving here what
         # `atdd coach approve` resolves at mint is what makes the token a receipt
@@ -85,19 +106,14 @@ class ApprovalTokenGateCheck:
         location = locate_approval_token(
             ctx.worktree, ctx.issue_number, ctx.from_phase, ctx.to_phase
         )
-        token_path = location.path
         key = self.signing_key if self.signing_key is not None else resolve_signing_key()
-        produce = (
-            f"operator must approve: atdd coach approve {ctx.issue_number} "
-            f"--transition {ctx.from_phase.upper()}->{ctx.to_phase.upper()}"
-        )
 
         if not location.exists:
             return GateCheckResult(
                 self.gate_id, self.rule_id, False,
-                f"no operator approval token for "
-                f"{ctx.from_phase.upper()}->{ctx.to_phase.upper()} (expected {rel} "
-                f"under the Control Root: {location.control_root_path}); {produce}",
+                f"no operator approval token for {_edge(ctx)} (expected {_rel(ctx)} "
+                f"under the Control Root: {location.control_root_path}); "
+                f"{_produce(ctx)}",
             )
         if location.legacy:
             logger.warning(
@@ -107,43 +123,63 @@ class ApprovalTokenGateCheck:
                        "control_root_path": str(location.control_root_path)},
             )
         try:
-            token_data = json.loads(token_path.read_text())
+            token_data = json.loads(location.path.read_text())
         except (OSError, ValueError) as exc:
             logger.warning(
                 "approval token unreadable; failing closed",
                 extra={"gate_id": self.gate_id, "rule_id": self.rule_id,
-                       "path": str(token_path), "issue": ctx.issue_number, "error": str(exc)},
+                       "path": str(location.path), "issue": ctx.issue_number,
+                       "error": str(exc)},
             )
             return GateCheckResult(
                 self.gate_id, self.rule_id, False,
-                f"approval token at {rel} is unreadable/unparseable (fail-closed): {exc}; {produce}",
+                f"approval token at {_rel(ctx)} is unreadable/unparseable "
+                f"(fail-closed): {exc}; {_produce(ctx)}",
             )
 
-        edge = f"{ctx.from_phase.upper()}->{ctx.to_phase.upper()}"
-        token_branch = token_data.get("branch")
-        token_expiry = token_data.get("expires_at")
+        # WHICH REGIME the token belongs to is read off the token itself, never off
+        # a date or a migration flag, so the answer needs no state and cannot drift.
+        if not token_data.get("branch") and not token_data.get("expires_at"):
+            return self._pre_binding_verdict(token_data, ctx, key)
+        return self._bound_verdict(token_data, ctx, key)
 
-        # THE EARLIER REGIME (#1721). A token carrying neither field predates the
-        # binding — 169 such tokens were measured on 2026-08-03 — and is verified
-        # exactly as it was before, with no branch and no clock. This is the same
-        # boundary #1718 drew for `schema_version`: a token is read under the
-        # regime it was minted in, never retro-invalidated by a rule that did not
-        # exist when it was signed. The pass message SAYS which regime it is, so
-        # an unbound token cannot quietly present as a bound one.
-        if not token_branch and not token_expiry:
-            if verify_token(token_data, ctx.issue_number, ctx.from_phase, ctx.to_phase, key):
-                return GateCheckResult(
-                    self.gate_id, self.rule_id, True,
-                    f"approval token present for {edge} (PRE-BINDING token: bound to "
-                    f"no branch and carrying no expiry, so it is accepted under the "
-                    f"regime it was minted in): {describe_attribution(token_data)}",
-                )
+    # -- the two regimes, one method each ----------------------------------- #
+    def _pre_binding_verdict(self, token_data, ctx: GateContext, key) -> GateCheckResult:
+        """A token carrying NEITHER a branch nor an expiry: verified as it always was.
+
+        169 such tokens were measured on 2026-08-03 — the entire corpus at the time
+        — because the mint never passed either field. They are verified with no
+        branch and no clock, which is the pre-#1525 contract ``verify_token``
+        preserves by defaulting both to ``None``.
+
+        The same boundary #1718 drew for ``schema_version``: a token is read under
+        the regime it was minted in, never retro-invalidated by a rule that did not
+        exist when it was signed. Drawn on what the token CARRIES rather than on
+        when it was found, so it needs no migration and no cutoff date.
+
+        And the pass message SAYS so. A regime nobody surfaces is a regime nobody
+        reads, so an unbound token cannot quietly present here as a bound one.
+        """
+        if verify_token(token_data, ctx.issue_number, ctx.from_phase, ctx.to_phase, key):
             return GateCheckResult(
-                self.gate_id, self.rule_id, False,
-                f"approval token at {rel} does not match this transition or its "
-                f"signature is invalid (scope/signature mismatch); {produce}",
+                self.gate_id, self.rule_id, True,
+                f"approval token present for {_edge(ctx)} (PRE-BINDING token: bound "
+                f"to no branch and carrying no expiry, so it is accepted under the "
+                f"regime it was minted in): {describe_attribution(token_data)}",
             )
+        return GateCheckResult(
+            self.gate_id, self.rule_id, False,
+            f"approval token at {_rel(ctx)} does not match this transition or its "
+            f"signature is invalid (scope/signature mismatch); {_produce(ctx)}",
+        )
 
+    def _bound_verdict(self, token_data, ctx: GateContext, key) -> GateCheckResult:
+        """A token asserting a branch and/or an expiry: both are ENFORCED here.
+
+        This is the half #1525 built and no call site ever reached. The branch comes
+        from the State Store's issue binding — see ``approval_binding`` for why it
+        must not come from the cwd — and the clock from ``self.now`` or the wall.
+        """
         binding = resolve_issue_branch(ctx.worktree, ctx.issue_number)
         if not binding:
             # COULD_NOT_CHECK, not FAIL (#1719/C013). The token asserts a branch
@@ -153,7 +189,7 @@ class ApprovalTokenGateCheck:
             # different too — which is the whole reason this verdict exists.
             return GateCheckResult.could_not_check(
                 self.gate_id, self.rule_id,
-                f"approval token at {rel} is bound to a branch, but the branch "
+                f"approval token at {_rel(ctx)} is bound to a branch, but the branch "
                 f"#{ctx.issue_number} is bound to could not be observed, so the "
                 f"binding could not be checked: {binding.reason}",
             )
@@ -169,14 +205,15 @@ class ApprovalTokenGateCheck:
             # passing as an operator approval on the strength of its approved_by.
             return GateCheckResult(
                 self.gate_id, self.rule_id, True,
-                f"approval token present for {edge} (bound to branch "
-                f"{binding.branch}, valid until {token_expiry}): "
+                f"approval token present for {_edge(ctx)} (bound to branch "
+                f"{binding.branch}, valid until {token_data.get('expires_at')}): "
                 f"{describe_attribution(token_data)}",
             )
         return GateCheckResult(
             self.gate_id, self.rule_id, False,
-            f"approval token at {rel} "
-            f"{self._diagnose(token_data, ctx, key, binding.branch, now)}; {produce}",
+            f"approval token at {_rel(ctx)} "
+            f"{self._diagnose(token_data, ctx, key, binding.branch, now)}; "
+            f"{_produce(ctx)}",
         )
 
     def _diagnose(self, token_data, ctx: GateContext, key, branch: str, now: str) -> str:
