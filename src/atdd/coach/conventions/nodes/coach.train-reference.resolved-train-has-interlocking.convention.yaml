@@ -92,6 +92,17 @@ terms:
   text: advisory with a recorded baseline; the debt is #1578's to pay down.
   values:
     measured_2026_08_03: "6 of 16 registered trains carry no interlocking route; 148 of 159 resolving work items name one of them, on ff55607b"
+    measured_2026_08_04: >-
+      149 of 160. The +1 is #1590 ITSELF: it declared no train until this issue's own
+      `atdd author issue --revise --train` wrote one, and the train it names
+      (train:self-compliance:validate-lifecycle) is one of the 6 uncovered. Recorded rather
+      than smoothed over — a baseline whose author quietly excluded their own contribution
+      is not a baseline. The train-count halves are unchanged: still 6 of 16, still 2
+      artifacts carrying 10 routes.
     interlocking_artifacts: "2 files, 10 routed trains — coverage is per-route, not per-file"
     ratchet_path: "#1578 NEW-D: advisory -> per-wagon ratchet -> strict"
     escalate_when: "the uncovered set reaches zero"
+    note_on_drift: >-
+      This count moves whenever any issue gains or loses a train, so treat it as a dated
+      measurement rather than a live invariant. The 6-of-16 train figure is the stable one
+      and the one #1578 actually ratchets against; the per-issue count is downstream of it.
