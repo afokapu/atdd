@@ -12,11 +12,19 @@ test, no monkeypatching, no fakes. This proves the replay property is closed in
 the shipped artifact rather than only in the test tree, which is exactly the
 gap the live 19-of-19 reproduction exposed.
 
-Scope note: refusing a cross-branch token at the TRANSITION gate additionally
-requires the gate consumer to pass the current branch into verify_token. That
-consumer is the approval-token path seam owned by #1376 and is deliberately NOT
-modified here, so this smoke covers the signing/verification path it can honestly
-reach.
+Scope note — THE GAP THIS NAMED IS NOW CLOSED (#1721, 2026-08-04). It used to read:
+*"refusing a cross-branch token at the TRANSITION gate additionally requires the
+gate consumer to pass the current branch into verify_token. That consumer is the
+approval-token path seam owned by #1376 and is deliberately NOT modified here."*
+
+That was an honest note about a real limit, and it is worth recording what happened
+to it: #1376's Out of Scope explicitly excluded changing ``verify_token`` semantics,
+so the gap this sentence pointed at was owned by NEITHER issue and sat open. It was
+also invisible to the routine gate, because this file carries
+``pytestmark = [pytest.mark.platform]`` and the standard marker expression deselects
+it — a test that named an unclosed gap, in a file the usual run does not execute.
+#1721 wired both call sites; C010-INTEGRATION-003/004/005 cover the gate. This file
+still covers the pure signing/verification path, which is all it ever claimed.
 """
 from __future__ import annotations
 
