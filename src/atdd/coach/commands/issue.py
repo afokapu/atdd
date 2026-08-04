@@ -24,6 +24,8 @@ from typing import Dict, List, Optional, Any, Set, Tuple
 
 import yaml
 
+from atdd.coach.utils.artifact_claims import ArtifactClaimReport, check_artifact_claims
+
 logger = logging.getLogger(__name__)
 
 # Literal placeholder splice point in PARENT-ISSUE-TEMPLATE.md (Phase 2 of #682)
@@ -1126,51 +1128,63 @@ class IssueManager:
             for rev in (f"{sha}^{{commit}}", f"{sha}^^{{commit}}")
         )
 
+    def check_artifacts(
+        self,
+        artifacts: Dict[str, List[str]],
+        force: bool = False,
+        issue_number: Optional[int] = None,
+    ) -> ArtifactClaimReport:
+        """Check artifact claims against git. The policy is not decided here.
+
+        This method owns only the git arithmetic — WHICH revision answers each
+        question. Before the merge the claims are read against the branch:
+        Created/Deleted in ``HEAD``, Modified as ``main...HEAD``. After it —
+        which is when auto-phase runs — they are read against the commit the PR
+        landed, because ``main...HEAD`` is empty by construction once the branch
+        is main (#1611).
+
+        WHAT the answers mean is ``atdd.coach.utils.artifact_claims``, the one
+        implementation the CI validator also calls. It used to be duplicated
+        here, escape and all: an empty declaration returned a free pass, and
+        nothing ever asked the reverse question (#1726).
+        """
+        landed = self._landed_commit(issue_number)
+        report = check_artifact_claims(
+            artifacts,
+            resolves=lambda kind, path: self._artifact_resolves(kind, path, landed),
+            # --force waives verification against git, which is what the reverse
+            # pass is; the declaration itself is still required.
+            changed_files=None if force else self._changed_files(landed),
+            issue_number=issue_number,
+            against=f"in {landed[:8]}" if landed else "vs main",
+            force=force,
+        )
+        if landed:
+            report = ArtifactClaimReport(
+                report.violations,
+                (f"  Verifying against the commit PR landed: {landed[:8]}", *report.messages),
+            )
+        return report
+
     def _verify_artifacts(
         self,
         artifacts: Dict[str, List[str]],
         force: bool = False,
         issue_number: Optional[int] = None,
     ) -> Tuple[bool, List[str]]:
-        """Verify artifact claims against git state.
+        """``check_artifacts`` as the ``(valid, messages)`` pair callers expect."""
+        report = self.check_artifacts(artifacts, force=force, issue_number=issue_number)
+        return report.satisfied, list(report.messages)
 
-        Before the merge the claims are read against the branch: Created/Deleted in
-        ``HEAD``, Modified as ``main...HEAD``. After it — which is when auto-phase
-        runs — they are read against the commit the PR landed, because ``main...HEAD``
-        is empty by construction once the branch is main (#1611).
-
-        - Created: file must exist in the landed tree
-        - Modified: file must have changed in the landed commit
-        - Deleted: file must NOT exist in the landed tree
-        """
-        total = sum(len(v) for v in artifacts.values())
-        if total == 0:
-            return True, ["  No artifacts declared"]
-
-        landed = self._landed_commit(issue_number)
-        all_valid = True
-        messages: List[str] = []
-        if landed:
-            messages.append(f"  Verifying against the commit PR landed: {landed[:8]}")
-        for kind in ("created", "modified", "deleted"):
-            valid, group_messages = self._verify_artifact_group(
-                kind, artifacts[kind], force, landed=landed,
-            )
-            all_valid = all_valid and valid
-            messages.extend(group_messages)
-
-        return all_valid, messages
-
-    # kind -> (message prefix, check mode, git prints output when satisfied,
-    #          satisfied word, unsatisfied word)
+    # kind -> (check mode, git prints output when the claim is satisfied)
     #
     # "tree" asks whether the path is in a revision's tree, "diff" whether a
     # revision changed it; the revisions themselves depend on whether the work has
     # landed yet, so they are resolved per run rather than baked in here (#1611).
     _ARTIFACT_CHECKS = {
-        "created": ("  Created:  ", "tree", True, "EXISTS", "MISSING"),
-        "modified": ("  Modified: ", "diff", True, "CHANGED", "NO CHANGES"),
-        "deleted": ("  Deleted:  ", "tree", False, "CONFIRMED GONE", "STILL EXISTS"),
+        "created": ("tree", True),
+        "modified": ("diff", True),
+        "deleted": ("tree", False),
     }
 
     @staticmethod
@@ -1182,37 +1196,35 @@ class IssueManager:
             return ["git", "diff", f"{landed}^", landed, "--"]
         return ["git", "diff", "main...HEAD", "--"]
 
-    def _verify_artifact_group(
-        self,
-        kind: str,
-        paths: List[str],
-        force: bool,
-        landed: Optional[str] = None,
-    ) -> Tuple[bool, List[str]]:
-        """Verify one artifact group (created / modified / deleted) against git."""
-        prefix, mode, expect_output, satisfied, unsatisfied = self._ARTIFACT_CHECKS[kind]
-        argv = self._artifact_check_argv(mode, landed)
-        against = f"in {landed[:8]}" if landed else "vs main"
+    def _artifact_resolves(self, kind: str, path: str, landed: Optional[str]) -> bool:
+        """Whether git agrees with one claim — the probe the shared checker calls."""
+        mode, expect_output = self._ARTIFACT_CHECKS[kind]
+        result = subprocess.run(
+            self._artifact_check_argv(mode, landed) + [path],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        return bool(result.stdout.strip()) == expect_output
 
-        all_valid = True
-        messages: List[str] = []
-        for path in paths:
-            if force:
-                messages.append(f"{prefix}{path} — SKIPPED (--force)")
-                continue
+    def _changed_files(self, landed: Optional[str]) -> List[str]:
+        """Every path the work touched, for the reverse pass (changed → declared).
 
-            result = subprocess.run(
-                argv + [path],
-                capture_output=True, text=True, cwd=str(self.target_dir),
-            )
-            if bool(result.stdout.strip()) == expect_output:
-                messages.append(f"{prefix}{path} — {satisfied}")
-            else:
-                suffix = f" {against}" if mode == "diff" else ""
-                messages.append(f"{prefix}{path} — {unsatisfied}{suffix}")
-                all_valid = False
+        Deliberately asks the SAME revision the forward pass probes, so the two
+        directions can never disagree about which commit "this work" means.
 
-        return all_valid, messages
+        That inherits the forward pass's known imprecision before the merge:
+        ``main...HEAD`` reads the LOCAL ``main``, so on a branch whose local main
+        is stale the merge-base is old and the set includes paths other PRs
+        merged. Post-merge — the state ``atdd auto-phase`` evaluates in, and the
+        one the COMPLETE gate actually runs in — the question is asked of the
+        commit the PR landed (#1611) and the imprecision does not arise.
+        Narrowing the pre-merge revision to ``origin/main`` would change the
+        forward check too, so it is left to whoever owns that question.
+        """
+        result = subprocess.run(
+            self._artifact_check_argv("diff", landed)[:-1] + ["--name-only", "--"],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
     @staticmethod
     def _parse_issue_type(body: str) -> Optional[str]:
@@ -2023,26 +2035,32 @@ class IssueManager:
     def _gate_artifacts(
         self, issue_number: int, issue_id: str, issue_body: str, force: bool
     ) -> bool:
-        """The artifacts the issue body declares all exist."""
+        """The issue's ``## Artifacts`` section is a record git agrees with.
+
+        There is no ``artifact_count == 0`` branch here any more. Declaring
+        nothing used to print a warning and pass, which made deleting the
+        section the cheapest route to COMPLETE — the record the gate exists to
+        produce was the one thing it did not require (#1726).
+        """
         artifacts = self._parse_artifacts(issue_body)
-        artifact_count = sum(len(v) for v in artifacts.values())
-        if artifact_count == 0:
-            if not force:
-                print(f"  Warning: No artifacts declared in issue body")
-            return True
+        declared = sum(len(v) for v in artifacts.values())
 
         if force:
             print(f"  Bypassing artifact verification (--force)")
         else:
-            print(f"Verifying {artifact_count} artifacts for #{issue_number}:")
+            print(f"Verifying {declared} artifacts for #{issue_number}:")
 
-        artifacts_valid, artifact_messages = self._verify_artifacts(
-            artifacts, force=force, issue_number=issue_number,
-        )
-        for msg in artifact_messages:
+        report = self.check_artifacts(artifacts, force=force, issue_number=issue_number)
+        for msg in report.messages:
             print(msg)
 
-        if not artifacts_valid:
+        # Reported either way; whether it BLOCKS is the rule's disposition, not
+        # this call site's opinion.
+        for violation in report.violations:
+            if violation not in report.blocking:
+                print(f"  [advisory] {violation.rule_id}: {violation.detail}")
+
+        if not report.satisfied:
             print(f"\nError: Artifact verification failed — cannot transition to COMPLETE")
             print(f"  Fix: Update ## Artifacts section with correct paths")
             print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")

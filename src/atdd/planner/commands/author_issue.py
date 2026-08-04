@@ -50,6 +50,47 @@ def issue_type_enum() -> list[str]:
     return list(((load_schema().get("properties") or {}).get("type") or {}).get("enum") or [])
 
 
+#: What an `## Artifacts` subsection carries when it has nothing to declare yet.
+#:
+#: Deliberately NOT a `- ` bullet: the parser reads bullets as claims, so any
+#: bullet here would be a claim about a file. And deliberately not the
+#: parenthesised `(none yet)` either — that string is a declared unfilled-template
+#: placeholder (``issue_template.PLACEHOLDER_STRINGS``) which the E019 gate
+#: rejects, so emitting it would trade one gate-invalid scaffold for another.
+#:
+#: An italic instruction is neither: it parses as zero artifacts, carries no
+#: placeholder, and tells the worker exactly how to fill it (#1726).
+EMPTY_DECLARATION = (
+    "_Nothing declared yet — derive this section mechanically with "
+    "`git diff --name-only origin/main..HEAD` before COMPLETE._"
+)
+
+
+@lru_cache(maxsize=1)
+def _repo_relative_path_re():
+    """The compiled `repoRelativePath` pattern the schema declares."""
+    definitions = load_schema().get("definitions") or {}
+    pattern = (definitions.get("repoRelativePath") or {}).get("pattern")
+    if not pattern:  # pragma: no cover — the schema is shipped with the package
+        raise ValueError(
+            "issue.schema.json declares no definitions.repoRelativePath pattern; "
+            "the authoring path cannot tell a repo-relative path from prose."
+        )
+    return re.compile(pattern)
+
+
+def is_repo_relative_path(text: str) -> bool:
+    """Whether *text* is a path the COMPLETE gate can resolve, per the schema.
+
+    The one place that answers "is this bullet a claim or is it prose?". The
+    `## Artifacts` section is resolved as real file paths by the COMPLETE gate
+    while the schema typed it as a free-form string, so prose was as valid as a
+    path until the gate rejected it (#1726). Both the generator and the coach
+    checker read this, so neither can invent its own idea of a path.
+    """
+    return bool(_repo_relative_path_re().match((text or "").strip()))
+
+
 # Matches a Metadata Status value in either the table form
 # (``| Status | `INIT` |``) or a plain ``Status: INIT`` line. Only the first
 # occurrence is read — the Metadata table is the first place Status appears.
@@ -248,13 +289,20 @@ def create_issue_body(spec: dict | None = None) -> str:
     )
 
     parts.append(
+        # The scaffold must be gate-valid on emission. It used to read
+        # "- The artifact this issue lands." / "- None so far.", which parses as
+        # THREE artifact claims and fails the COMPLETE gate — so the toolkit
+        # shipped a body that was schema-valid and gate-invalid at the same
+        # time, and the cheapest way to satisfy the gate was to delete the
+        # section (#1726). The parenthesised form parses as zero claims: valid
+        # at INIT, a completeness violation at COMPLETE, never a false claim.
         "## Artifacts\n\n"
         "### Created\n\n"
-        "- The artifact this issue lands.\n\n"
+        f"{EMPTY_DECLARATION}\n\n"
         "### Modified\n\n"
-        "- None so far.\n\n"
+        f"{EMPTY_DECLARATION}\n\n"
         "### Deleted\n\n"
-        "- None so far."
+        f"{EMPTY_DECLARATION}"
     )
 
     parts.append(
