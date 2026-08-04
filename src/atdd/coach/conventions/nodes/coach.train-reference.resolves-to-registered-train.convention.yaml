@@ -31,11 +31,13 @@ content:
     The named issue declares a train that resolves to nothing the repository
     registers. Repair as follows:
 
-      1. See what this repository actually registers:
-           python -c "import yaml,sys;d=yaml.safe_load(open('plan/_trains.yaml'));\
-             print('\n'.join(sorted(e['train_id'] for b in d['trains'].values() \
-             for l in b.values() for e in l)))"
-         or resolve a candidate directly:
+      1. See what this repository actually registers. The violation's own detail
+         already lists the registered trains — that is deliberate, so nobody has
+         to re-derive the registry by hand the way the 2026-07-22 recovery did.
+         For the full list, read the registry index:
+           plan/_trains.yaml            (trains[<subject>][<bucket>][].train_id)
+           plan/_trains/_aliases.yaml   (legacy NNNN-slug -> canonical, #1421)
+         To check one candidate:
            atdd repo resolve train:<subject>:<slug>
       2. Set the reference to a train that resolves:
            atdd author issue --revise <N> --train train:<subject>:<slug>
