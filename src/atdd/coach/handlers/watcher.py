@@ -117,6 +117,13 @@ class WatcherEventLoop:
     _escalation_sink:
         Optional list; if provided, escalation dicts are appended here
         instead of going to stderr (used in tests).
+    worktree:
+        Where the transition gate resolves an approval token from (#1619).
+        Defaults to the cwd, matching every other gate caller.
+    gate_config:
+        The ``gate.transitions`` config this loop is held to (#1619). Defaults to
+        the worktree's own ``.atdd/config.yaml``, so the watcher gates exactly as
+        the CLI does in that repo.
     """
 
     def __init__(
@@ -129,6 +136,8 @@ class WatcherEventLoop:
         escalation_channel: Optional[str],
         _escalation_sink: Optional[list] = None,
         coach_run_id: Optional[str] = None,
+        worktree: Optional[Path] = None,
+        gate_config: Optional[dict] = None,
     ) -> None:
         self.machines = machines
         self.runtime_dir = Path(runtime_dir)
@@ -137,6 +146,8 @@ class WatcherEventLoop:
         self.escalation_channel = escalation_channel
         self._escalation_sink = _escalation_sink
         self.coach_run_id = coach_run_id or str(uuid.uuid4())
+        self.worktree = Path(worktree) if worktree is not None else Path.cwd()
+        self._gate_config = gate_config
         self._stale_warned = False
 
         self.runtime_watcher = RuntimeWatcher(
@@ -163,8 +174,9 @@ class WatcherEventLoop:
     def process_one_event(self, *, timeout: float = 1.0) -> Optional[str]:
         """Consume one event from the queue and apply the resulting transition.
 
-        Returns ``"applied"`` if a transition fired, ``"ignored"`` otherwise,
-        or ``None`` if the queue was empty within ``timeout``.
+        Returns ``"applied"`` if a transition fired, ``"refused"`` if the gate
+        declined one, ``"ignored"`` if no machine proposed one, or ``None`` if the
+        queue was empty within ``timeout``.
         """
         event = self.queue.get(timeout=timeout)
         if event is None:
@@ -190,17 +202,41 @@ class WatcherEventLoop:
         return applied
 
     def _dispatch(self, event: dict) -> str:
+        """Route one event. Returns what actually happened to it.
+
+        ``"refused"`` is reported apart from ``"ignored"`` (#1619): an event that
+        proposed a real transition the GATE declined is a different fact from an
+        event no machine cared about, and collapsing them would leave a refused
+        advance counted as applied — the same "absence reads as a normal outcome"
+        defect this issue exists to remove.
+        """
         for sm in self.machines:
             t = _proposed_transition(sm, event)
             if t is not None:
-                self._apply_transition(sm, t, event)
-                return "applied"
+                return "applied" if self._apply_transition(sm, t, event) else "refused"
         return "ignored"
 
     def _apply_transition(
         self, sm: StateMachine, t: Transition, source_event: dict
-    ) -> None:
-        """Write decision record then mutate the state machine."""
+    ) -> bool:
+        """Evaluate the gate, then write the decision record and mutate the machine.
+
+        Returns True if the machine advanced, False if the gate refused.
+
+        Before #1619 this path evaluated NO gate at all — it was not a path where
+        the gate fired and found nothing; there was no gate call. Every gated edge
+        the watcher crossed was crossed unchallenged.
+
+        DECISION 5 — RECORD AND REFUSE, not block silently. The synchronous paths
+        have a caller who receives a non-zero exit and a printed reason. The
+        watcher has none, so a silent no-op would make a GATED event
+        indistinguishable from an IGNORED one — the same defect class as the
+        fail-open this issue closes: an absence that reads as a normal outcome.
+        On refusal it therefore writes a refusal record and leaves the machine
+        exactly where it was.
+        """
+        if not self._gate_allows(sm, t, source_event):
+            return False
         decision_id = str(uuid.uuid4())
         record: dict[str, Any] = {
             "decision_id": decision_id,
@@ -226,6 +262,86 @@ class WatcherEventLoop:
 
         sm.history.append(sm.phase)
         sm.phase = t.dst
+        return True
+
+    def _gate_allows(
+        self, sm: StateMachine, t: Transition, source_event: dict
+    ) -> bool:
+        """Whether the enforcing transition gate permits this advance (#1619).
+
+        On refusal, records it under ``phase-transition-refused`` and returns
+        False. The type is deliberately NOT ``phase-transition``: that is the type
+        ``resume.reconstruct_state`` rebuilds phases from, so a refusal wearing it
+        could be replayed as a reached phase by a later resume run.
+        """
+        from atdd.coach.gate.decision import GateContext
+        from atdd.coach.gate.enforcement import enforce_transition_gate
+
+        outcome = enforce_transition_gate(
+            self._resolve_gate_config(),
+            GateContext(
+                issue_number=sm.issue_number,
+                from_phase=t.src.value,
+                to_phase=t.dst.value,
+                worktree=self.worktree,
+            ),
+        )
+        if outcome.proceed:
+            return True
+
+        reasons = [f"[{b.gate_id} / {b.rule_id}] {b.message}" for b in outcome.blockers]
+        print(
+            f"[watcher] #{sm.issue_number}: transition gate REFUSED "
+            f"{t.src.value}->{t.dst.value}; the state machine was not advanced "
+            f"({len(outcome.blockers)} check(s) blocked).",
+            file=sys.stderr,
+        )
+        for reason in reasons:
+            print(f"[watcher]   ✗ {reason}", file=sys.stderr)
+
+        if self._decision_writer is not None:
+            try:
+                self._decision_writer.append({
+                    "decision_id": str(uuid.uuid4()),
+                    "timestamp": _now_iso(),
+                    "coach_run_id": self.coach_run_id,
+                    "issue_number": sm.issue_number,
+                    "decision_type": "phase-transition-refused",
+                    "inputs": {
+                        "event_type": source_event.get("event_type"),
+                        "sha": (source_event.get("payload") or {}).get("sha"),
+                        "from_phase": t.src.value,
+                        "proposed_phase": t.dst.value,
+                    },
+                    "outcome": {"transitioned": False, "blockers": reasons},
+                })
+            except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+                print(f"[watcher] refusal write failed: {exc}", file=sys.stderr)
+        return False
+
+    def _resolve_gate_config(self) -> dict:
+        """The ``gate.transitions`` config this loop is held to.
+
+        An explicit ``gate_config`` wins; otherwise the worktree's own
+        ``.atdd/config.yaml``. An unreadable or absent config yields ``{}``, which
+        leaves ``DEFAULT_GATED_TRANSITIONS`` in charge — it gates MORE, never less.
+        """
+        if self._gate_config is not None:
+            return self._gate_config
+        import yaml
+
+        path = self.worktree / ".atdd" / "config.yaml"
+        if not path.exists():
+            return {}
+        try:
+            return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            print(
+                f"[watcher] .atdd/config.yaml at {path} is unreadable ({exc}); "
+                f"falling back to the built-in gated-transition defaults",
+                file=sys.stderr,
+            )
+            return {}
 
     # --- stale-warn ---------------------------------------------------------
 

@@ -59,6 +59,11 @@ _PHASE_ADVANCING_SITES = {
 _ISSUE = 999013
 _GATED_CONFIG = {"gate": {"transitions": {"PLANNED->RED": True}}}
 
+#: The watcher drives only RED/GREEN/SMOKE/REFACTOR (``watcher._ADVANCE_FROM``),
+#: so its acceptance gates an edge it can actually propose. See the comment in
+#: the watcher test for why gating PLANNED->RED there would be vacuous.
+_WATCHER_GATED_CONFIG = {"gate": {"transitions": {"RED->GREEN": True}}}
+
 
 def _calls(path: Path, func_name: str) -> bool:
     """True iff ``path``'s source contains a call to ``func_name``."""
@@ -98,13 +103,29 @@ def test_phase_advancing_path_calls_the_enforcement_seam(label: str, module: Pat
 
 
 def test_the_empty_registry_fail_open_is_gone_from_the_transition_chokepoint():
-    """R011-INTEGRATION-001: fail-open A is deleted, not merely bypassed."""
-    source = (_PKG / "coach" / "commands" / "issue_lifecycle.py").read_text(encoding="utf-8")
-    assert "GATE_REGISTRY.is_empty()" not in source, (
+    """R011-INTEGRATION-001: fail-open A is deleted, not merely bypassed.
+
+    Asserted over the AST, not over the file's text. A substring search also
+    matches the prose explaining that the branch was removed, so it would fail on
+    a correct fix that documents itself — which is exactly what it did on first
+    run. What must be absent is the CALL, not the words.
+    """
+    tree = ast.parse(
+        (_PKG / "coach" / "commands" / "issue_lifecycle.py").read_text(encoding="utf-8")
+    )
+    empty_checks = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and getattr(node.func, "attr", None) == "is_empty"
+        and getattr(getattr(node.func, "value", None), "id", None) == "GATE_REGISTRY"
+    ]
+    assert not empty_checks, (
         "issue_lifecycle._transition_gate still short-circuits on an empty "
-        "registry. That branch IS the fail-open (#1619 fail-open A): it converts "
-        "a missing registration into a silent pass. The seam now guarantees "
-        "registration ran, so the branch has nothing left to protect."
+        "registry (GATE_REGISTRY.is_empty() called at line(s) "
+        f"{[n.lineno for n in empty_checks]}). That branch IS the fail-open "
+        "(#1619 fail-open A): it converts a missing registration into a silent "
+        "pass. The seam now guarantees registration ran, so the branch has "
+        "nothing left to protect."
     )
 
 
@@ -153,7 +174,13 @@ def test_watcher_refuses_a_gated_edge_and_records_the_refusal(tmp_path: Path):
     runtime_dir = tmp_path / "runtime"
     queue = CoachEventQueue(runtime_dir=runtime_dir)
     sm = initialize_state_machine(issue_number=_ISSUE)
-    sm.phase = Phase.PLANNED
+    # RED->GREEN, not PLANNED->RED: `watcher._ADVANCE_FROM` maps only RED, GREEN,
+    # SMOKE and REFACTOR, so a `Phase: PLANNED` trailer proposes NO transition and
+    # the event is ignored before any gate could be consulted. Gating an edge the
+    # watcher cannot drive would make this test pass while proving nothing — it is
+    # the "refused for the wrong reason" trap one file over. RED->GREEN is in
+    # `registrations._CANDIDATE_TRANSITIONS`, so the approval check covers it.
+    sm.phase = Phase.RED
 
     loop = WatcherEventLoop(
         machines=[sm],
@@ -161,8 +188,8 @@ def test_watcher_refuses_a_gated_edge_and_records_the_refusal(tmp_path: Path):
         queue=queue,
         stale_warn_minutes=None,
         escalation_channel=None,
-        worktree=tmp_path,          # no approval token lives here
-        gate_config=_GATED_CONFIG,  # PLANNED->RED is gated
+        worktree=tmp_path,                 # no approval token lives here
+        gate_config=_WATCHER_GATED_CONFIG,  # RED->GREEN is gated
     )
 
     queue.put({
@@ -172,14 +199,20 @@ def test_watcher_refuses_a_gated_edge_and_records_the_refusal(tmp_path: Path):
         "payload": {
             "sha": "deadbeef", "parent_sha": None, "branch": "feat/x",
             "worktree_path": str(tmp_path), "author": "t <t@e.com>",
-            "trailers": {"Issue": str(_ISSUE), "Phase": "PLANNED"},
+            "trailers": {"Issue": str(_ISSUE), "Phase": "RED"},
         },
     })
-    loop.process_one_event(timeout=1.0)
+    verdict = loop.process_one_event(timeout=1.0)
 
-    assert sm.phase is Phase.PLANNED, (
+    assert verdict == "refused", (
+        f"the event must be reported as REFUSED, distinctly from 'ignored' (no "
+        f"machine wanted it) and 'applied' (it happened); got {verdict!r}. If this "
+        f"is 'ignored', the fixture proposed no transition and the gate was never "
+        f"reached — the test would then prove nothing."
+    )
+    assert sm.phase is Phase.RED, (
         "the watcher advanced the state machine across a gated edge with no "
-        "approval token — today it evaluates no gate on this path at all"
+        "approval token — before #1619 it evaluated no gate on this path at all"
     )
 
     records = _read_jsonl(runtime_dir / "coach" / "decisions.jsonl")

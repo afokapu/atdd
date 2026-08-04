@@ -398,18 +398,26 @@ class IssueLifecycle:
         IssueManager.update()'s label/phase swap) when any check fails.
         Fail-closed: an errored/timed-out check counts as a failure.
 
-        Migration-safe by construction: ``GATE_REGISTRY`` ships empty, so every
-        transition is a no-op here until #958/#1017 register real checks. ``force``
-        bypasses with a loud warning, mirroring the other transition gates.
-        """
-        from atdd.coach.gate.decision import GateContext, evaluate_transition_gate
-        from atdd.coach.gate.registry import GATE_REGISTRY
+        Registration is bound to EVALUATION, not to a CLI verb (#1619). This
+        method is reached by the ``atdd coach transition`` verb, by programmatic
+        ``IssueLifecycle.transition`` and by the ``issue_reconcile_state`` replay
+        — three of the four phase-advancing paths — and
+        ``enforce_transition_gate`` registers the checks before deciding, so none
+        of them can reach a verdict against an empty registry.
 
-        # Fast path + migration safety: an empty registry can never block, so
-        # skip the gate (and its issue fetch) entirely until checks are
-        # registered (#958/#1017). This keeps the shipped behavior a true no-op.
-        if GATE_REGISTRY.is_empty():
-            return 0
+        The ``GATE_REGISTRY.is_empty() -> return 0`` fast path that used to stand
+        here is GONE. It was described as #958/#1017 migration safety; both
+        landed, and it had become the thing that converted a missing registration
+        into a silent pass. The seam now guarantees registration ran, so the
+        branch had nothing left to protect. Its other job — skipping the issue
+        fetch — is not worth a bypass; an ungated edge still short-circuits inside
+        the seam, one fetch later.
+
+        ``force`` bypasses with a loud warning, mirroring the other transition
+        gates.
+        """
+        from atdd.coach.gate.decision import GateContext
+        from atdd.coach.gate.enforcement import enforce_transition_gate
 
         issue = self._fetch_issue(issue_number)
         if not issue:
@@ -422,7 +430,7 @@ class IssueLifecycle:
             to_phase=target_status.upper(),
             worktree=self.target_dir,
         )
-        outcome = evaluate_transition_gate(GATE_REGISTRY, self._load_config(), ctx)
+        outcome = enforce_transition_gate(self._load_config(), ctx)
         if outcome.proceed:
             return 0
 
@@ -469,11 +477,15 @@ class IssueLifecycle:
         label swap, the store-first write, and the manifest mirror; COMPLETE
         also auto-archives.
 
-        NOTE: this path intentionally does NOT register the operator-approval
-        gate check — only the ``atdd coach transition`` verb (and the deprecated
-        ``atdd issue --status`` shim that delegates to it) does. That preserves
-        the historical behavior where ``atdd update``/``atdd archive`` never
-        enforced the operator token.
+        NOTE (#1619): this path is now held to the same gates as the CLI verb.
+        It used to escape them — registration lived at the ``atdd coach
+        transition`` verb dispatch, so a programmatic caller evaluated an empty
+        registry and proceeded. That was described as preserving the historical
+        behaviour where ``atdd update``/``atdd archive`` never enforced the
+        operator token; what it actually preserved was a bypass, since whether a
+        gated edge enforces must depend on the edge, not on which entry point the
+        caller reached for. ``enforce_transition_gate`` registers before deciding,
+        so every caller of ``apply_transition`` gets the same checks.
 
         Args:
             issue_number: GitHub issue number.

@@ -15,7 +15,7 @@ Reverse coherence (#399) demands that an enforced rule name a validator which
 literally binds it, so the rule can never quietly become a mechanism-less claim
 again. The mechanism this validator guards is *wiring*, and wiring is exactly what
 rots silently: delete the ``register_smoke_execution_check()`` call at the
-transition dispatch, or rename the check's ``rule_id``, and the gate goes on
+enforcement seam, or rename the check's ``rule_id``, and the gate goes on
 existing while enforcing nothing. Both are one-line edits that no other test in
 the repo would notice.
 
@@ -50,10 +50,19 @@ _RULE = bind_rule("coach.lifecycle.no-green-to-refactor-without-smoke")
 #: Where the check must be registered for the rule to have any effect at all.
 _TRANSITION = ("SMOKE", "REFACTOR")
 
-#: The verb dispatch that must call the registration. Named as a path rather than
+#: The seam that must call the registration. Named as a path rather than
 #: imported-and-introspected because the call is a statement, not a value: only
 #: reading the source can tell whether it is still there.
-_DISPATCH = Path(atdd.__file__).resolve().parent / "coach" / "commands" / "issue_transition.py"
+#:
+#: MOVED BY #1619, and the move is the point. This pointer used to name
+#: ``coach/commands/issue_transition.py`` — the ``atdd coach transition`` verb
+#: dispatch — because that was the only thing in the tree that registered. That
+#: was the defect: it made the registry's contents depend on HOW a transition was
+#: invoked rather than on WHICH edge was crossed, so four other phase-advancing
+#: paths evaluated an empty registry. Registration now lives at the gate
+#: evaluation seam, where every path reaches it. This guard follows the wiring it
+#: guards; it was not suppressed and its assertion is not weakened.
+_DISPATCH = Path(atdd.__file__).resolve().parent / "coach" / "gate" / "enforcement.py"
 _REGISTRAR = "register_smoke_execution_check"
 
 

@@ -1,14 +1,14 @@
 """Config-gated registration of the operator-approval check INTO the #1020 gate.
 
-This module performs a SIDE EFFECT on import: it registers an
-``ApprovalTokenGateCheck`` into the module-level ``GATE_REGISTRY`` for the
-operator-gateable phase transitions, so the worker's
-``atdd issue <N> --status <next>`` is refused until an operator-signed token
-exists.
+Defines the registrars. It does NOT perform them on import.
 
-``register_approval_checks()`` is called EXPLICITLY at the ``atdd issue
---status`` CLI dispatch — NOT as an import-time side effect, and NOT from the
-gate package ``__init__``. Importing this module must stay pure: a side-effect
+``register_approval_checks()`` and ``register_smoke_execution_check()`` are
+called from ``atdd.coach.gate.enforcement.ensure_gate_checks_registered``, which
+every gate evaluation runs before deciding (#1619) — NOT as an import-time side
+effect, and NOT from the gate package ``__init__``. Before #1619 the sole caller
+was the ``atdd coach transition`` verb dispatch, which made the registry's
+contents depend on how a transition was invoked rather than on which edge was
+being crossed; binding registration to evaluation is what closed that. Importing this module must stay pure: a side-effect
 registration into the module-level ``GATE_REGISTRY`` would pollute it for the
 #1020 migration-safety tests (and #1017's own integration/smoke tests) that
 assert behaviour against the live registry, since test collection imports every
@@ -57,9 +57,8 @@ _SMOKE_EXECUTION_TRANSITION = ("SMOKE", "REFACTOR")
 def register_smoke_execution_check(registry=GATE_REGISTRY) -> None:
     """Idempotently register the smoke-execution check for SMOKE->REFACTOR (#1602).
 
-    Called explicitly from the ``atdd coach transition`` dispatch beside
-    ``register_approval_checks``, and for the same reason deliberately NOT an
-    import-time side effect: a side-effect registration into the module-level
+    Called explicitly from the enforcement seam beside ``register_approval_checks``
+    (#1619), and for the same reason deliberately NOT an import-time side effect: a side-effect registration into the module-level
     ``GATE_REGISTRY`` would pollute it for #1020's migration-safety tests, which
     assert against the live registry that test collection imports every module
     into.
