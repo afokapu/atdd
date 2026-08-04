@@ -40,6 +40,7 @@ from unittest.mock import MagicMock, patch
 
 from atdd.coach.commands.issue_lifecycle import IssueLifecycle
 from atdd.coach.gate.live_smoke import write_live_smoke_plan_scope
+from atdd.coach.gate.approve_command import run as run_approve
 from atdd.coach.gate.registrations import register_smoke_execution_check
 from atdd.coach.gate.registry import GATE_REGISTRY
 from atdd.coach.gate.smoke_execution_check import GATE_ID, SmokeExecutionGateCheck
@@ -154,12 +155,30 @@ def test_no_attestation_blocks_smoke_to_refactor(worktree: Path, smoke_issue, cl
 # --------------------------------------------------------------------------- #
 
 
-def test_passing_attestation_allows_smoke_to_refactor(worktree: Path, smoke_issue, clean_registry):
+def test_passing_attestation_allows_smoke_to_refactor(
+    worktree: Path, smoke_issue, clean_registry, monkeypatch
+):
     """Smoke ran and passed => the gate must let the transition through.
 
     Without this control the suite could not tell a working gate from one that
     blocks unconditionally.
+
+    #1619: the chokepoint now registers the production checks itself instead of
+    consulting only what a caller registered, and ``SMOKE->REFACTOR`` is one of
+    ``registrations._CANDIDATE_TRANSITIONS`` — so the real
+    ``ApprovalTokenGateCheck`` is on this edge too and fails closed with no token.
+    The negative control still has to be a control, so the fixture mints a real
+    operator token for the throwaway issue under ``worktree``. The subject of this
+    test is unchanged: with the attestation present the transition proceeds, and
+    the fault-injection case above still proves the smoke check is what blocks
+    when it is absent.
     """
+    monkeypatch.setenv("ATDD_APPROVAL_SIGNING_KEY", "spike-1602-negative-control-key")
+    assert run_approve(
+        [str(ISSUE), "--transition", "SMOKE->REFACTOR", "--by", "operator"],
+        target_dir=worktree,
+    ) == 0, "fixture precondition: the real approve command must mint the token"
+
     register_smoke_execution_check(clean_registry)
     _attest(worktree)
 

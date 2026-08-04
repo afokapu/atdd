@@ -27,6 +27,15 @@ import pytest
 
 pytestmark = [pytest.mark.platform]
 
+# #1619: the resume walk now consults the enforcing transition gate, and
+# PLANNED->RED is gated by DEFAULT_GATED_TRANSITIONS. These tests are about
+# resume DURABILITY and idempotency, not about gates, so they declare their gate
+# posture explicitly rather than depending on whatever config the cwd happens to
+# carry. Pinning `worktree` to the test's own tmp tree matters just as much: left
+# to its default the token lookup resolves up to the REAL shared Control Root.
+_UNGATED_FOR_DURABILITY = {"gate": {"transitions": {"PLANNED->RED": False}}}
+
+
 
 def _agent_dir(runtime_dir: Path, agent_id: str) -> Path:
     d = runtime_dir / "agents" / agent_id
@@ -77,6 +86,8 @@ def test_watcher_reattaches_with_queue_and_event_stream(tmp_path):
 
     runner = ResumeRunner(
         runtime_dir=runtime,
+        worktree=runtime,
+        gate_config=_UNGATED_FOR_DURABILITY,
         run_id="run-r001-watch-1",
         decision_writer=writer,
     )
@@ -137,6 +148,8 @@ def test_handled_events_not_re_emitted(tmp_path):
 
     runner = ResumeRunner(
         runtime_dir=runtime,
+        worktree=runtime,
+        gate_config=_UNGATED_FOR_DURABILITY,
         run_id=run_id,
         decision_writer=writer,
     )
@@ -185,6 +198,8 @@ def test_each_event_arrives_exactly_once(tmp_path):
     writer = DecisionWriter(runtime_dir=runtime)
     runner = ResumeRunner(
         runtime_dir=runtime,
+        worktree=runtime,
+        gate_config=_UNGATED_FOR_DURABILITY,
         run_id="run-r001-watch-3",
         decision_writer=writer,
     )
