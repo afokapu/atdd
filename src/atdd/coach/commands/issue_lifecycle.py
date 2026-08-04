@@ -398,20 +398,9 @@ class IssueLifecycle:
         IssueManager.update()'s label/phase swap) when any check fails.
         Fail-closed: an errored/timed-out check counts as a failure.
 
-        Registration is bound to EVALUATION, not to a CLI verb (#1619). This
-        method is reached by the ``atdd coach transition`` verb, by programmatic
-        ``IssueLifecycle.transition`` and by the ``issue_reconcile_state`` replay
-        — three of the four phase-advancing paths — and
-        ``enforce_transition_gate`` registers the checks before deciding, so none
-        of them can reach a verdict against an empty registry.
-
-        The ``GATE_REGISTRY.is_empty() -> return 0`` fast path that used to stand
-        here is GONE. It was described as #958/#1017 migration safety; both
-        landed, and it had become the thing that converted a missing registration
-        into a silent pass. The seam now guarantees registration ran, so the
-        branch had nothing left to protect. Its other job — skipping the issue
-        fetch — is not worth a bypass; an ungated edge still short-circuits inside
-        the seam, one fetch later.
+        Registration is bound to EVALUATION, not to a CLI verb (#1619), and the
+        ``GATE_REGISTRY.is_empty() -> return 0`` fast path that used to stand here
+        is GONE — see :mod:`atdd.coach.gate.enforcement` for why both.
 
         ``force`` bypasses with a loud warning, mirroring the other transition
         gates.
@@ -441,10 +430,11 @@ class IssueLifecycle:
         # is "blocked by 0 failing gate check(s)" and then lists nothing — a
         # refusal that names no reason, which is the same defect class as the
         # vacuous pass this verdict was added to remove.
+        to_phase = target_status.upper()
         if force:
             print(
                 f"::warning::Transition gate bypassed (--force) for "
-                f"{from_phase} -> {target_status.upper()}; "
+                f"{from_phase} -> {to_phase}; "
                 f"{len(outcome.blockers)} check(s) blocked "
                 f"({len(outcome.failures)} failed, "
                 f"{len(outcome.unobservable)} could not be checked)."
@@ -452,7 +442,7 @@ class IssueLifecycle:
             return 0
 
         print(
-            f"\nError: Transition {from_phase} -> {target_status.upper()} blocked "
+            f"\nError: Transition {from_phase} -> {to_phase} blocked "
             f"by {len(outcome.blockers)} gate check(s):"
         )
         for f in outcome.failures:
@@ -461,7 +451,7 @@ class IssueLifecycle:
         # the work, an unobservable check means make the check able to look.
         for u in outcome.unobservable:
             print(f"  ? [{u.gate_id} / {u.rule_id}] COULD NOT CHECK: {u.message}")
-        print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
+        print(f"  Bypass: atdd coach transition {issue_number} {to_phase} --force")
         return 1
 
     def transition(self, issue_number: int, status: str, force: bool = False) -> int:

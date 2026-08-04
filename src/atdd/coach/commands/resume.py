@@ -248,39 +248,43 @@ class ResumeRunner:
 
         for issue in issue_numbers:
             phase_name = reconstructed.get(issue, Phase.INIT.value)
-            idx = _phase_index(phase_name)
-            if idx < 0:
+            if _phase_index(phase_name) < 0:
                 # BLOCKED or unknown; the resume runner cannot make
                 # forward progress without operator action. Leave the
                 # phase as-is and continue with siblings.
                 final[issue] = phase_name
                 continue
-
-            current = phase_name
-            while current != Phase.COMPLETE.value:
-                idx = _phase_index(current)
-                if idx < 0 or idx + 1 >= len(PLANNED_PATH):
-                    break
-                next_phase = PLANNED_PATH[idx + 1]
-                # Stop walking past COMPLETE — MERGED is owned by the
-                # PR-merge handler, not the per-issue resume runner.
-                if next_phase == Phase.MERGED:
-                    break
-                if not can_transition(Phase(current), next_phase):
-                    break
-
-                # ``can_transition`` answers phase-machine LEGALITY, not whether
-                # the edge's gates are green (#1619). A step the gate refuses
-                # stops the walk here, exactly as an illegal one does: the run
-                # keeps whatever it legally AND legitimately earned, and nothing
-                # is forced past a gate that said no.
-                if not self._step_transition(issue, current, next_phase.value):
-                    break
-                current = next_phase.value
-
-            final[issue] = current
+            final[issue] = self._walk_forward(issue, phase_name)
 
         return final
+
+    def _walk_forward(self, issue: int, start_phase: str) -> str:
+        """Advance one issue along ``PLANNED_PATH`` as far as it legitimately can.
+
+        Returns the phase it came to rest at. Stops on the first step that is off
+        the path, illegal per the phase machine, or REFUSED BY THE GATE — the
+        three are deliberately the same kind of stop (#1619): ``can_transition``
+        answers phase-machine LEGALITY, never whether the edge's gates are green,
+        so a walk that consulted only it would drive straight past a gate that
+        said no. The run keeps whatever it legally AND legitimately earned, and
+        nothing is forced.
+        """
+        current = start_phase
+        while current != Phase.COMPLETE.value:
+            idx = _phase_index(current)
+            if idx < 0 or idx + 1 >= len(PLANNED_PATH):
+                break
+            next_phase = PLANNED_PATH[idx + 1]
+            # Stop walking past COMPLETE — MERGED is owned by the
+            # PR-merge handler, not the per-issue resume runner.
+            if next_phase == Phase.MERGED:
+                break
+            if not can_transition(Phase(current), next_phase):
+                break
+            if not self._step_transition(issue, current, next_phase.value):
+                break
+            current = next_phase.value
+        return current
 
     def _step_transition(self, issue: int, src: str, dst: str) -> bool:
         """Drive one step. Returns True if the phase advanced, False if refused.
