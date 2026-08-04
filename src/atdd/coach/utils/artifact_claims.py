@@ -185,6 +185,26 @@ def check_artifact_claims(
     for kind in KINDS:
         prefix, satisfied_word, unsatisfied_word = _RENDERING[kind]
         for path in artifacts.get(kind, ()):
+            # Is-it-a-path is asked BEFORE git, and before --force, because it
+            # needs neither. Asking git first hides prose in the `deleted`
+            # subsection entirely: absence is what a deletion claim EXPECTS, so
+            # `- None.` is "confirmed gone" and passes silently. Observed live on
+            # #1720 and #1711 — "Deleted: None. — CONFIRMED GONE" — which is this
+            # issue's own defect in its fourth form, prose earning a green because
+            # the check it faces cannot fail on it.
+            if not is_repo_relative_path(path):
+                messages.append(f"{prefix}{path} — NOT A PATH")
+                violations.append(
+                    _violation(
+                        RULE_CLAIMS_RESOLVE,
+                        location,
+                        f"{kind} claim {path!r} is prose, not a repo-relative path "
+                        f"(issue.schema.json definitions.repoRelativePath), so no "
+                        f"revision can confirm or refute it. Name the file, or leave "
+                        f"the subsection with no bullet at all.",
+                    )
+                )
+                continue
             if force:
                 messages.append(f"{prefix}{path} — SKIPPED (--force)")
                 continue
@@ -193,24 +213,15 @@ def check_artifact_claims(
                 continue
             suffix = f" {against}" if against else ""
             messages.append(f"{prefix}{path} — {unsatisfied_word}{suffix}")
-            # Two very different repairs wear the same "MISSING" label: a path
-            # that git disagrees with (stale, renamed, wrong subsection) and a
-            # bullet that was never a path at all. Say which, using the schema's
-            # own definition rather than a second opinion invented here.
-            if is_repo_relative_path(path):
-                detail = (
+            violations.append(
+                _violation(
+                    RULE_CLAIMS_RESOLVE,
+                    location,
                     f"{kind} claim {path!r} does not resolve against git "
                     f"({unsatisfied_word}{suffix}) — the path is stale, renamed, "
-                    f"or filed under the wrong subsection."
+                    f"or filed under the wrong subsection.",
                 )
-            else:
-                detail = (
-                    f"{kind} claim {path!r} is prose, not a repo-relative path "
-                    f"(issue.schema.json definitions.repoRelativePath), so it "
-                    f"resolves against nothing. Name the file, or use the "
-                    f"explicit-empty form `- (none yet)`."
-                )
-            violations.append(_violation(RULE_CLAIMS_RESOLVE, location, detail))
+            )
 
     if changed_files is not None:
         for path in sorted(set(changed_files) - declared):

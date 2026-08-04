@@ -91,6 +91,26 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-08-03"
   - identity:
+      urn: "acc:author-atdd-substrate:C014-UNIT-005-prose-is-not-a-claim-in-any-subsection"
+      id: "AC-UNIT-005"
+      purpose: "A bullet that is not a repo-relative path is a violation in EVERY subsection, decided before git is asked — otherwise prose under `### Deleted` passes, because absence is exactly what a deletion claim expects"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A claim bullet that is prose rather than a repo-relative path, filed under Created, Modified or Deleted in turn"
+    when:
+      abstract: "the shared artifact-claim checker evaluates it"
+    then:
+      abstract:
+        - "Each of the three subsections yields a violation of the resolve rule — including `deleted`, where the git probe would otherwise report CONFIRMED GONE and pass"
+        - "The verdict does not depend on the git probe: prose is refused before git is asked, and `--force` does not waive it, because deciding it needs no revision at all"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+  - identity:
       urn: "acc:author-atdd-substrate:C014-SMOKE-001-complete-gate-answers-from-the-bound-rule"
       id: "AC-SMOKE-001"
       purpose: "Verify against a real git checkout in the post-merge state that the COMPLETE runtime gate answers the artifacts question from the bound rule — an empty declaration produces the declared violation, an accurate declaration produces none"
