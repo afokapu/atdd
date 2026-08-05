@@ -336,13 +336,15 @@ def decide_mint(
         check for check in registered
         if getattr(check, "gate_id", None) != APPROVAL_GATE_ID
     ]
-    coverage_of = lambda verified, none_owed: MintCoverage(  # noqa: E731
-        registered=len(registered),
-        excluded=len(registered) - len(substantive),
-        evaluated=len(substantive),
-        verified=verified,
-        none_owed=none_owed,
-    )
+    def coverage_of(verified: int, none_owed: int) -> MintCoverage:
+        """This edge's coverage, with only the two outcome counts varying."""
+        return MintCoverage(
+            registered=len(registered),
+            excluded=len(registered) - len(substantive),
+            evaluated=len(substantive),
+            verified=verified,
+            none_owed=none_owed,
+        )
 
     if not substantive:
         # #1632's rule: 0 of N evaluated is not N evaluated and nothing found.
