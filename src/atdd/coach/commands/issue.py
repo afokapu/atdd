@@ -972,52 +972,15 @@ class IssueManager:
         # the common path, not the edge.
         already_closed = (issue.get("state") or "").upper() == "CLOSED"
 
-        subs: List[dict] = []
         closed_count = 0
+        total_subs = 0
 
         if already_closed:
             print(f"#{issue_number} is already closed.")
         else:
-            # A refused, rate-limited or dropped call here is a FAILED archive,
-            # not a line in the log (#1742). The sub-issue loop used to
-            # downgrade its failure to a warning and fall through, and the
-            # parent close was not guarded at all — so the caller either saw
-            # exit 0 over an issue whose sub-issues were still open, or an
-            # unhandled traceback. Both are the #1621 failure class: a
-            # half-applied transition that does not say so.
-            try:
-                subs = client.get_sub_issues(issue_number)
-                for sub in subs:
-                    if sub.get("state") == "open":
-                        client.close_issue(sub["number"])
-                        print(f"  Closed sub-issue #{sub['number']}")
-                        closed_count += 1
-                client.close_issue(issue_number)
-            except GitHubClientError as e:
-                # Log AND print, the shape `_write_phase_label` already uses
-                # for its own refusal: the structured record is what a CI run
-                # or a later audit can find, the prose below is what the
-                # operator reads now. A handler that only prints is invisible
-                # to both (`coder.logging.coach-silent-swallow`).
-                logger.error(
-                    "archive failed; issue left open",
-                    extra={
-                        "issue": issue_number,
-                        "sub_issues_closed": closed_count,
-                        "error": str(e),
-                    },
-                )
-                print(
-                    f"\nError: could not archive #{issue_number} — {e}\n"
-                    f"  Closed {closed_count} sub-issue(s) before the failure; "
-                    f"#{issue_number} itself is NOT closed.\n"
-                    f"  The store already reads COMPLETE: the transition "
-                    f"landed, only the archive did not. Clear the cause and "
-                    f"re-run `atdd coach transition {issue_number} COMPLETE` "
-                    f"— archive is idempotent."
-                )
-                return 1
-            print(f"  Closed parent #{issue_number}")
+            rc, closed_count, total_subs = self._close_issue_tree(client, issue_number)
+            if rc != 0:
+                return rc
 
         # NO LABEL WRITE HERE (#1742). `archive` closes issues; it does not
         # project phase. `_write_phase_label`, driven by `IssueManager.update`,
@@ -1049,10 +1012,59 @@ class IssueManager:
         self._store_set_status(issue_number, "COMPLETE")
         self._store_update_fields(issue_number, {"archived": date.today().isoformat()})
 
-        total_subs = len(subs) if subs else 0
         print(f"\nArchived #{issue_number}: closed {closed_count} sub-issues, "
               f"{total_subs} total")
         return 0
+
+    def _close_issue_tree(self, client, issue_number: int) -> Tuple[int, int, int]:
+        """Close every open sub-issue, then the parent. → (rc, closed, total).
+
+        A refused, rate-limited or dropped call here is a FAILED archive, not a
+        line in the log (#1742). The sub-issue loop used to downgrade its
+        failure to a warning and fall through, and the parent close was not
+        guarded at all — so the caller either saw exit 0 over an issue whose
+        sub-issues were still open, or an unhandled traceback. Both are the
+        #1621 failure class: a half-applied transition that does not say so.
+        """
+        from atdd.coach.github import GitHubClientError
+
+        closed_count = 0
+        subs: List[dict] = []
+        try:
+            subs = client.get_sub_issues(issue_number)
+            for sub in subs:
+                if sub.get("state") == "open":
+                    client.close_issue(sub["number"])
+                    print(f"  Closed sub-issue #{sub['number']}")
+                    closed_count += 1
+            client.close_issue(issue_number)
+        except GitHubClientError as e:
+            # Log AND print, the shape `_write_phase_label` already uses for its
+            # own refusal: the structured record is what a CI run or a later
+            # audit can find, the prose is what the operator reads now. A
+            # handler that only prints is invisible to both
+            # (`coder.logging.coach-silent-swallow`).
+            logger.error(
+                "archive failed; issue left open",
+                extra={
+                    "issue": issue_number,
+                    "sub_issues_closed": closed_count,
+                    "error": str(e),
+                },
+            )
+            print(
+                f"\nError: could not archive #{issue_number} — {e}\n"
+                f"  Closed {closed_count} sub-issue(s) before the failure; "
+                f"#{issue_number} itself is NOT closed.\n"
+                f"  The store already reads COMPLETE: the transition landed, "
+                f"only the archive did not. Clear the cause and re-run "
+                f"`atdd coach transition {issue_number} COMPLETE` — archive is "
+                f"idempotent."
+            )
+            return 1, closed_count, len(subs)
+
+        print(f"  Closed parent #{issue_number}")
+        return 0, closed_count, len(subs)
 
     # -------------------------------------------------------------------------
     # Gate verification helpers (used by update → COMPLETE)
