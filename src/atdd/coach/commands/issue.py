@@ -978,7 +978,13 @@ class IssueManager:
         if already_closed:
             print(f"#{issue_number} is already closed.")
         else:
-            # Close all open sub-issues
+            # A refused, rate-limited or dropped call here is a FAILED archive,
+            # not a line in the log (#1742). The sub-issue loop used to
+            # downgrade its failure to a warning and fall through, and the
+            # parent close was not guarded at all — so the caller either saw
+            # exit 0 over an issue whose sub-issues were still open, or an
+            # unhandled traceback. Both are the #1621 failure class: a
+            # half-applied transition that does not say so.
             try:
                 subs = client.get_sub_issues(issue_number)
                 for sub in subs:
@@ -986,12 +992,18 @@ class IssueManager:
                         client.close_issue(sub["number"])
                         print(f"  Closed sub-issue #{sub['number']}")
                         closed_count += 1
+                client.close_issue(issue_number)
             except GitHubClientError as e:
-                print(f"  Warning: Could not close sub-issues: {e}")
-                closed_count = 0
-
-            # Close parent
-            client.close_issue(issue_number)
+                print(
+                    f"\nError: could not archive #{issue_number} — {e}\n"
+                    f"  Closed {closed_count} sub-issue(s) before the failure; "
+                    f"#{issue_number} itself is NOT closed.\n"
+                    f"  The store already reads COMPLETE: the transition "
+                    f"landed, only the archive did not. Clear the cause and "
+                    f"re-run `atdd coach transition {issue_number} COMPLETE` "
+                    f"— archive is idempotent."
+                )
+                return 1
             print(f"  Closed parent #{issue_number}")
 
         # NO LABEL WRITE HERE (#1742). `archive` closes issues; it does not

@@ -98,7 +98,18 @@ def apply_transition(
     if status.upper() == "COMPLETE":
         arc_rc = manager.archive(issue_id=issue_id)
         if arc_rc != 0:
-            print(f"Warning: Archive step returned {arc_rc} after COMPLETE transition.")
+            # A failure, not a warning (#1742). This used to print and fall
+            # through to the re-enter below, so `atdd coach transition <N>
+            # COMPLETE` exited 0 over an archive that never completed — the
+            # #1621 failure class, where a half-applied transition reports
+            # green and the operator learns about it from the issue tracker.
+            print(
+                f"\nError: #{issue_number} moved to COMPLETE in the store, but "
+                f"the archive step failed (exit {arc_rc}) — sub-issues and/or "
+                f"#{issue_number} itself may still be open. See the archive "
+                f"error above; re-run this command once its cause is cleared."
+            )
+            return arc_rc
 
     # R002: re-enter in display-only mode so the post-transition path does not
     # attempt to create a worktree branch (and therefore cannot fail on the

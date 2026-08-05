@@ -30,7 +30,11 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import atdd.coach.commands.issue as issue_module
+import atdd.coach.commands.issue_lifecycle as lifecycle_module
 from atdd.coach.commands.issue import IssueManager
+from atdd.coach.commands.issue_transition import apply_transition
+from atdd.coach.github import GitHubClientError
 from atdd.state.db import connect, init_state_store
 from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
 from atdd.state.store import StateStore
@@ -188,3 +192,96 @@ def test_archive_leaves_a_stale_phase_label_alone(tmp_path, monkeypatch):
 
     client.add_label.assert_not_called()
     client.remove_label.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# The silent-success hole — the #1621 failure class
+# ---------------------------------------------------------------------------
+
+
+def test_unclosable_sub_issue_fails_the_archive(tmp_path, monkeypatch):
+    """A refused sub-issue close is a failed archive, not a logged warning.
+
+    This path used to print `Warning: Could not close sub-issues` and return 0,
+    leaving WMBTs open under an issue reported as archived.
+    """
+    mgr = _init_repo(tmp_path)
+    client = _client(
+        monkeypatch, mgr, state="OPEN", subs=[{"number": 1690, "state": "open"}],
+    )
+    client.close_issue.side_effect = GitHubClientError("403 Forbidden")
+
+    assert mgr._archive_github("1689") != 0
+
+
+def test_unreadable_sub_issues_fails_the_archive(tmp_path, monkeypatch):
+    """Not knowing what to close is not the same as having closed it.
+
+    Also covers a latent crash: `subs` was assigned inside the `try`, so a
+    failure in `get_sub_issues` left it unbound and the summary line below
+    raised `NameError` over the warning that had just claimed success.
+    """
+    mgr = _init_repo(tmp_path)
+    client = _client(monkeypatch, mgr, state="OPEN")
+    client.get_sub_issues.side_effect = GitHubClientError("502 Bad Gateway")
+
+    assert mgr._archive_github("1689") != 0
+
+
+def test_unclosable_parent_is_reported_not_raised(tmp_path, monkeypatch):
+    """The parent close was unguarded — the error escaped as a traceback.
+
+    #1621 is on record twice about a raw traceback being read as GitHub
+    flakiness. It must come back as a non-zero return with a diagnosis.
+    """
+    mgr = _init_repo(tmp_path)
+    client = _client(monkeypatch, mgr, state="OPEN")
+    client.close_issue.side_effect = GitHubClientError("403 Forbidden")
+
+    assert mgr._archive_github("1689") != 0
+
+
+def test_failed_archive_fails_the_whole_transition(tmp_path, monkeypatch, capsys):
+    """`atdd coach transition <N> COMPLETE` must not exit 0 over a failed archive.
+
+    `apply_transition` printed `Warning: Archive step returned N` and then
+    returned the re-enter code, so the command reported success over a
+    half-applied terminal transition — exactly the shape #1621 was about.
+    """
+    calls = []
+
+    class _Lifecycle:
+        def __init__(self, target_dir=None):
+            self.target_dir = target_dir
+
+        def _transition_gate(self, *a, **k):
+            return 0
+
+        def _compliance_gate(self, *a, **k):
+            return 0
+
+        def _reenter_display_only(self, *a, **k):
+            calls.append("reenter")
+            return 0
+
+    class _Manager:
+        def __init__(self, target_dir=None):
+            pass
+
+        def update(self, **kwargs):
+            return 0
+
+        def archive(self, **kwargs):
+            return 1
+
+    monkeypatch.setattr(lifecycle_module, "IssueLifecycle", _Lifecycle)
+    monkeypatch.setattr(issue_module, "IssueManager", _Manager)
+
+    rc = apply_transition(1689, "COMPLETE", target_dir=tmp_path)
+
+    assert rc != 0, "A failed archive must fail the transition, not warn about it."
+    assert "archive step failed" in capsys.readouterr().out
+    assert calls == [], (
+        "The re-enter display must not run over a failed archive — it is what "
+        "made the failure look like an ordinary successful transition."
+    )
