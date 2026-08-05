@@ -50,6 +50,43 @@ UNOBLIGATED_ISSUE = 999602
 UNOBLIGATED_UID = "c021-unobligated-work-item"
 
 
+#: Every edge the registrars touch, so the fixture below can put the shared
+#: registry back exactly as it found it.
+_CANDIDATE_EDGES = (
+    ("PLANNED", "RED"), ("RED", "GREEN"), ("GREEN", "SMOKE"),
+    ("SMOKE", "REFACTOR"), ("REFACTOR", "COMPLETE"),
+)
+
+
+@pytest.fixture(autouse=True)
+def restore_the_shared_registry():
+    """Put ``GATE_REGISTRY`` back after each test.
+
+    This file drives the REAL mint, which registers into the REAL module-level
+    registry — that is the behaviour under test (#1619: the registrars run at
+    exactly one call site, so the mint has to call them itself). But
+    ``registrations.py`` is explicitly non-side-effecting on import precisely
+    because a populated ``GATE_REGISTRY`` breaks #1020's migration-safety tests,
+    which assert against the live registry that collection imports every module
+    into. Leaving it populated made
+    ``test_e050_integration_002_token_allows_transition`` and
+    ``test_e045_integration_failing_check_refuses_transition`` fail when run after
+    this file and pass in isolation — an order-dependent false red manufactured by
+    the very test asserting the registrars run.
+
+    Snapshot and restore through the public API, so fidelity is not traded away:
+    the registrars, the checks and the registry class are all the real ones.
+    """
+    from atdd.coach.gate.registry import GATE_REGISTRY
+
+    before = {edge: GATE_REGISTRY.checks_for(*edge) for edge in _CANDIDATE_EDGES}
+    yield
+    for edge, checks in before.items():
+        GATE_REGISTRY.clear(*edge)
+        for check in checks:
+            GATE_REGISTRY.register(*edge, check)
+
+
 @pytest.fixture
 def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A real git checkout whose Control Root is itself, gating SMOKE->REFACTOR."""

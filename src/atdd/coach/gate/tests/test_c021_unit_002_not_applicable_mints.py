@@ -127,6 +127,53 @@ def test_a_verified_pass_counts_as_verified(tmp_path):
     assert decision.coverage.none_owed == 0
 
 
+def test_the_command_says_what_it_certified_on_the_success_path(tmp_path, monkeypatch, capsys):
+    """A bare ✓ reads the same whether anything was verified or not.
+
+    ``decide_mint`` distinguishing the two is worth nothing if the command
+    prints neither. This is the assertion that the distinction reaches the
+    operator rather than living in a dataclass.
+    """
+    from atdd.coach.gate import approve_command, mint_gate
+
+    worktree = _worktree(tmp_path)
+    registry = GateRegistry()
+    registry.register("SMOKE", "REFACTOR", _ScriptedCheck(GateVerdict.NOT_APPLICABLE))
+    monkeypatch.setattr(mint_gate, "GATE_REGISTRY", registry)
+    monkeypatch.setattr(mint_gate, "DEFAULT_REGISTRARS", ())
+
+    approve_command.run(
+        [str(_ISSUE), "--transition", "SMOKE->REFACTOR"], target_dir=worktree, env={}
+    )
+    out = capsys.readouterr().out
+
+    assert "verified an obligation: 0" in out, (
+        f"the mint printed a bare success over a run that verified nothing:\n{out}"
+    )
+    assert "found none owed: 1" in out
+
+
+def test_an_unconditional_edge_does_not_claim_gate_coverage(tmp_path, monkeypatch, capsys):
+    """PLANNED->RED runs no checks, so it must not print a coverage line.
+
+    Printing one would be the mirror-image dishonesty: a mint that certified
+    nothing describing itself as though it had.
+    """
+    from atdd.coach.gate import approve_command, mint_gate
+
+    worktree = _worktree(tmp_path)
+    monkeypatch.setattr(mint_gate, "GATE_REGISTRY", GateRegistry())
+    monkeypatch.setattr(mint_gate, "DEFAULT_REGISTRARS", ())
+
+    assert approve_command.run(
+        [str(_ISSUE), "--transition", "PLANNED->RED"], target_dir=worktree, env={}
+    ) == 0
+    out = capsys.readouterr().out
+
+    assert "gate coverage" not in out
+    assert "✓ approved PLANNED->RED" in out
+
+
 def test_the_token_written_under_not_applicable_is_the_ordinary_token(tmp_path, monkeypatch):
     """Proceeding here must change nothing downstream.
 

@@ -19,15 +19,28 @@ observable. This closes the SILENT DEFAULT. It is not a boundary against an
 agent that unsets its own session variable — see the THREAT MODEL in
 ``approval.py``, which this must not be read as contradicting.
 
-#1376 answers WHERE the receipt lives, #1718 answers WHAT it says produced it.
-The two are independent and both are needed: a correctly attributed token at a
-path the gate cannot read is as useless as a findable one that names the wrong
-actor.
+WHETHER ANYTHING WAS CHECKED (#1670 slice C). Everything above concerns the
+token's provenance and location; none of it touches what the token ASSERTS ABOUT
+THE WORK. This command parsed, signed and wrote without consulting
+``GATE_REGISTRY`` once, so on ``#1726`` — measured 2026-08-03 — both approve calls
+SUCCEEDED while all five of that issue's transitions were REFUSED by the template
+gate, leaving two tokens for an issue at ``INIT``. The mint now runs the edge's
+substantive checks first and REFUSES TO WRITE unless they proceed. See
+:mod:`atdd.coach.gate.mint_gate`, including why it covers ``SMOKE->REFACTOR`` and
+no other edge.
+
+#1376 answers WHERE the receipt lives, #1718 answers WHAT it says produced it,
+#1670 answers WHETHER IT CERTIFIES ANYTHING. All three are independent and all
+three are needed: a correctly attributed token at a path the gate cannot read is
+as useless as a findable one that names the wrong actor — and both are still only
+a signed assertion that somebody pressed a key until the mint depends on an
+observation.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +52,9 @@ from atdd.coach.gate.approval import (
     resolve_signing_key,
 )
 from atdd.coach.gate.approval_paths import approval_token_path
+from atdd.coach.gate.mint_gate import decide_mint
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_transition(text: str) -> Tuple[str, str]:
@@ -123,15 +139,36 @@ def run(
         print(f"Error: {exc}")
         return 1
 
+    start = target_dir or Path.cwd()
+
+    # #1670 slice C — THE CONDITIONAL MINT. Run the checks this edge registers and
+    # refuse to sign unless they proceed. Asked BEFORE the token directory is
+    # created and before anything is written: ApprovalTokenGateCheck reads the
+    # filesystem, so a mint that writes the file and then prints an objection has
+    # authorised the transition regardless of its exit code. The refusal has to BE
+    # the absence of the artifact.
+    #
+    # `decide_mint` covers SMOKE->REFACTOR alone and returns proceed=True
+    # unconditionally for every other edge, so this block changes nothing for the
+    # four whose registry holds only this feature's own approval check.
+    decision = decide_mint(start, ns.issue, from_phase, to_phase)
+    if not decision.proceed:
+        logger.warning(
+            "approval mint refused: the checks registered for this edge did not proceed",
+            extra={"issue": ns.issue, "transition": f"{from_phase}->{to_phase}",
+                   "verdict": decision.verdict.value if decision.verdict else None},
+        )
+        print(decision.render())
+        return 1
+
     # #1376: mint against the SHARED Control Root (#1346), the same base
-    # ApprovalTokenGateCheck reads from. `target_dir or Path.cwd()` is the literal
-    # current worktree; minting there put the token somewhere a gate evaluating
-    # from a sibling worktree could not see (measured in the #1307 walk). One
-    # resolution at both ends is what makes the token a receipt rather than a
-    # file whose visibility depends on which directory the operator stood in.
-    token_path = approval_token_path(
-        target_dir or Path.cwd(), ns.issue, from_phase, to_phase
-    )
+    # ApprovalTokenGateCheck reads from. `start` is the literal current worktree
+    # and only a STARTING POINT for that resolution; minting at it put the token
+    # somewhere a gate evaluating from a sibling worktree could not see (measured
+    # in the #1307 walk). One resolution at both ends is what makes the token a
+    # receipt rather than a file whose visibility depends on which directory the
+    # operator stood in.
+    token_path = approval_token_path(start, ns.issue, from_phase, to_phase)
     token_path.parent.mkdir(parents=True, exist_ok=True)
 
     approved_by, agent_session = _observe_actor(os.environ if env is None else env)
@@ -161,4 +198,10 @@ def run(
         f"✓ approved {from_phase}->{to_phase} for issue #{ns.issue} "
         f"({describe_attribution(token)}): {token_path}"
     )
+    if decision.conditional:
+        # SAY WHAT WAS CERTIFIED, on the success path too. A mint whose only check
+        # reported NOT_APPLICABLE verified nothing, and a bare ✓ reads identically
+        # to one that verified an obligation — which is the vacuous green this
+        # slice removes, re-entering through the line the operator actually reads.
+        print(decision.render())
     return 0
