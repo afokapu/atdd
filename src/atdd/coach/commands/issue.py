@@ -964,36 +964,47 @@ class IssueManager:
             print(f"Error: {e}")
             return 1
 
-        if issue.get("state") == "closed":
+        # `gh issue view --json state` answers UPPERCASE ("CLOSED"), so the
+        # unnormalized `== "closed"` this guard used never matched and the
+        # already-closed short-circuit never fired — for any issue, ever. The
+        # normalized form is the one `_sync_labels` already uses above (#1742).
+        # Every merge-then-transition arrives here already closed, so this is
+        # the common path, not the edge.
+        already_closed = (issue.get("state") or "").upper() == "CLOSED"
+
+        subs: List[dict] = []
+        closed_count = 0
+
+        if already_closed:
             print(f"#{issue_number} is already closed.")
-            return 0
+        else:
+            # Close all open sub-issues
+            try:
+                subs = client.get_sub_issues(issue_number)
+                for sub in subs:
+                    if sub.get("state") == "open":
+                        client.close_issue(sub["number"])
+                        print(f"  Closed sub-issue #{sub['number']}")
+                        closed_count += 1
+            except GitHubClientError as e:
+                print(f"  Warning: Could not close sub-issues: {e}")
+                closed_count = 0
 
-        # Close all open sub-issues
-        try:
-            subs = client.get_sub_issues(issue_number)
-            closed_count = 0
-            for sub in subs:
-                if sub.get("state") == "open":
-                    client.close_issue(sub["number"])
-                    print(f"  Closed sub-issue #{sub['number']}")
-                    closed_count += 1
-        except GitHubClientError as e:
-            print(f"  Warning: Could not close sub-issues: {e}")
-            closed_count = 0
+            # Close parent
+            client.close_issue(issue_number)
+            print(f"  Closed parent #{issue_number}")
 
-        # Close parent
-        client.close_issue(issue_number)
-        print(f"  Closed parent #{issue_number}")
-
-        # Swap label to atdd:COMPLETE
-        try:
-            labels = [l["name"] for l in issue.get("labels", [])]
-            phase_labels = [l for l in labels if l.startswith("atdd:") and l != "atdd-issue"]
-            if phase_labels:
-                client.remove_label(issue_number, phase_labels)
-            client.add_label(issue_number, ["atdd:COMPLETE"])
-        except GitHubClientError as e:
-            print(f"  Warning: Could not update labels: {e}")
+            # Swap label to atdd:COMPLETE
+            try:
+                labels = [l["name"] for l in issue.get("labels", [])]
+                phase_labels = [
+                    l for l in labels if l.startswith("atdd:") and l != "atdd-issue"
+                ]
+                if phase_labels:
+                    client.remove_label(issue_number, phase_labels)
+                client.add_label(issue_number, ["atdd:COMPLETE"])
+            except GitHubClientError as e:
+                print(f"  Warning: Could not update labels: {e}")
 
         # COMPLETE is carried by the atdd:COMPLETE label (REST) + the manifest
         # archive record below (#1051) — no Projects v2 board write.
