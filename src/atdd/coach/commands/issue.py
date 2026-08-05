@@ -994,6 +994,19 @@ class IssueManager:
                         closed_count += 1
                 client.close_issue(issue_number)
             except GitHubClientError as e:
+                # Log AND print, the shape `_write_phase_label` already uses
+                # for its own refusal: the structured record is what a CI run
+                # or a later audit can find, the prose below is what the
+                # operator reads now. A handler that only prints is invisible
+                # to both (`coder.logging.coach-silent-swallow`).
+                logger.error(
+                    "archive failed; issue left open",
+                    extra={
+                        "issue": issue_number,
+                        "sub_issues_closed": closed_count,
+                        "error": str(e),
+                    },
+                )
                 print(
                     f"\nError: could not archive #{issue_number} — {e}\n"
                     f"  Closed {closed_count} sub-issue(s) before the failure; "

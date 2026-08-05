@@ -28,6 +28,7 @@ passed against the broken guard and proved nothing.
 """
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock
 
 import atdd.coach.commands.issue as issue_module
@@ -228,17 +229,27 @@ def test_unreadable_sub_issues_fails_the_archive(tmp_path, monkeypatch):
     assert mgr._archive_github("1689") != 0
 
 
-def test_unclosable_parent_is_reported_not_raised(tmp_path, monkeypatch):
+def test_unclosable_parent_is_reported_not_raised(tmp_path, monkeypatch, caplog):
     """The parent close was unguarded — the error escaped as a traceback.
 
     #1621 is on record twice about a raw traceback being read as GitHub
-    flakiness. It must come back as a non-zero return with a diagnosis.
+    flakiness. It must come back as a non-zero return with a diagnosis, and
+    that diagnosis must be *logged*, not only printed: a handler that prints
+    and returns leaves no record a CI run or a later audit can find. That is
+    `coder.logging.coach-silent-swallow`, and it is how the first cut of this
+    very fix failed validate-coder.
     """
     mgr = _init_repo(tmp_path)
     client = _client(monkeypatch, mgr, state="OPEN")
     client.close_issue.side_effect = GitHubClientError("403 Forbidden")
 
-    assert mgr._archive_github("1689") != 0
+    with caplog.at_level(logging.ERROR):
+        assert mgr._archive_github("1689") != 0
+
+    assert any(r.levelno >= logging.ERROR for r in caplog.records), (
+        "The archive failure must leave a structured log record, not just "
+        "stdout prose."
+    )
 
 
 def test_failed_archive_fails_the_whole_transition(tmp_path, monkeypatch, capsys):
