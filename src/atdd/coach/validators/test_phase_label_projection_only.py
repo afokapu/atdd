@@ -35,6 +35,7 @@ Run: ``atdd validate coach``
 """
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import Dict, List, Mapping
@@ -59,7 +60,17 @@ REPO_ROOT = find_repo_root()
 # The ONLY code path allowed to write an `atdd:<PHASE>` label. It is the
 # store-first authoritative writer described in
 # `issue_transition.apply_transition` step 3.
+#
+# The exemption is scoped to the METHOD, not the file. #1742: this rule has
+# always been method-scoped in its prose — "IssueManager.update is its sole
+# authoritative writer" — but the exemption was applied per path, so the whole
+# of issue.py was unscanned. A second raw writer grew inside it
+# (`_archive_github`'s remove-then-add swap), wrote `atdd:COMPLETE` a second
+# time on every terminal transition, and the sweep stayed green the entire
+# time. Granularity mismatch, not a missing pattern. Everything in this file
+# outside `_write_phase_label` is now scanned like any other module.
 AUTHORITATIVE_WRITER = "src/atdd/coach/commands/issue.py"
+AUTHORITATIVE_WRITER_METHOD = "_write_phase_label"
 
 # The `atdd:` token, in either a literal (`atdd:COMPLETE`) or an interpolated
 # form (`atdd:${PHASE}`, `atdd:{status}`, `f"atdd:{status}"`). The interpolated
@@ -88,6 +99,27 @@ def _is_test_path(rel: str) -> bool:
     )
 
 
+def exempt_line_span(source: str) -> range:
+    """The line span of `_write_phase_label`, or an empty span (#1742).
+
+    Fails closed on purpose. If the source will not parse, or holds no method
+    by that name, nothing is exempt and the whole text is scanned. A guard that
+    resolves an ambiguous exemption in favour of the exemption is how the
+    second writer survived.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return range(0)
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == AUTHORITATIVE_WRITER_METHOD
+        ):
+            return range(node.lineno, (node.end_lineno or node.lineno) + 1)
+    return range(0)
+
+
 def scan_for_raw_phase_label_writes(
     sources: Mapping[str, str],
 ) -> List[Violation]:
@@ -99,9 +131,18 @@ def scan_for_raw_phase_label_writes(
     """
     violations: List[Violation] = []
     for rel_path in sorted(sources):
-        if rel_path == AUTHORITATIVE_WRITER or _is_test_path(rel_path):
+        if _is_test_path(rel_path):
             continue
+        # Method-scoped, not file-scoped (#1742): only the body of
+        # `_write_phase_label` is exempt, and only inside the file that owns it.
+        exempt_lines = (
+            exempt_line_span(sources[rel_path])
+            if rel_path == AUTHORITATIVE_WRITER
+            else range(0)
+        )
         for lineno, line in enumerate(sources[rel_path].splitlines(), start=1):
+            if lineno in exempt_lines:
+                continue
             if not _ATDD_LABEL_TOKEN.search(line):
                 continue
             if _SHELL_LABEL_WRITE.search(line):
@@ -110,14 +151,20 @@ def scan_for_raw_phase_label_writes(
                 kind = "python (`add_label`/`remove_label`)"
             else:
                 continue
+            where = (
+                f"outside {AUTHORITATIVE_WRITER_METHOD}, in the very file that "
+                f"owns it — the exemption covers that one method, not this "
+                f"module"
+                if rel_path == AUTHORITATIVE_WRITER
+                else f"outside IssueManager.update ({AUTHORITATIVE_WRITER})"
+            )
             violations.append(
                 Violation(
                     rule_id=_RULE_ID,
                     severity=_SEVERITY,
                     location=f"{rel_path}:{lineno}",
                     detail=(
-                        f"raw {kind} write of an atdd:<PHASE> label outside "
-                        f"IssueManager.update ({AUTHORITATIVE_WRITER}). The "
+                        f"raw {kind} write of an atdd:<PHASE> label {where}. The "
                         "label is a projection of objects.state; writing it "
                         "here bypasses the phase machine, the train gate, the "
                         "COMPLETE gates and the store write. Drive the phase "
@@ -212,6 +259,47 @@ def test_authoritative_writer_exists_and_actually_writes_the_label():
         "whichever module took over, so the guard keeps covering exactly one "
         "writer."
     )
+    assert exempt_line_span(text), (
+        f"{AUTHORITATIVE_WRITER} no longer defines "
+        f"`{AUTHORITATIVE_WRITER_METHOD}`, so the method-scoped exemption "
+        "resolves to nothing and every label write in the file will be "
+        "flagged. Re-point AUTHORITATIVE_WRITER_METHOD at whatever renamed it."
+    )
+
+
+def test_authoritative_writer_holds_exactly_one_phase_label_write():
+    """Exactly one. "Contains a writer" was never the property that mattered.
+
+    The assertion above only ever checked that the exempt file *contains* a
+    phase-label write. #1742: `_archive_github` grew a second one inside the
+    same file, wrote `atdd:COMPLETE` over `atdd:COMPLETE` on every terminal
+    transition for as long as it took to catch it on the wire, and this test
+    passed throughout — because one writer and two writers both satisfy
+    "contains". Count them, and require the survivor to sit inside the one
+    method the exemption names.
+    """
+    text = (REPO_ROOT / AUTHORITATIVE_WRITER).read_text()
+    span = exempt_line_span(text)
+    writes = [
+        lineno
+        for lineno, line in enumerate(text.splitlines(), start=1)
+        if _ATDD_LABEL_TOKEN.search(line)
+        and (_SHELL_LABEL_WRITE.search(line) or _PY_LABEL_WRITE.search(line))
+    ]
+    assert len(writes) == 1, (
+        f"{AUTHORITATIVE_WRITER} holds {len(writes)} raw atdd:<PHASE> label "
+        f"writes at lines {writes}; the exemption sanctions exactly one, in "
+        f"`{AUTHORITATIVE_WRITER_METHOD}`. A second writer in this file is the "
+        "#1742 regrowth: it bypasses the phase machine, the train gate and the "
+        "COMPLETE gates, and it double-delivers the label. Route it through "
+        f"`{AUTHORITATIVE_WRITER_METHOD}` or delete it."
+    )
+    assert writes[0] in span, (
+        f"The one label write in {AUTHORITATIVE_WRITER} is at line {writes[0]}, "
+        f"outside `{AUTHORITATIVE_WRITER_METHOD}` (lines "
+        f"{span.start}-{span.stop - 1}). The exemption covers that method, not "
+        "the module: a write that has moved out of it is unsanctioned."
+    )
 
 
 def test_authoritative_writer_writes_the_store_before_the_label():
@@ -289,12 +377,66 @@ def test_guard_catches_a_shell_script_label_writer():
     assert len(violations) == 1, f"Expected 1 violation, got {violations}"
 
 
+_SANCTIONED = '''
+class IssueManager:
+    @staticmethod
+    def _write_phase_label(client, issue_number, current_labels, status):
+        phase_labels = [l for l in current_labels if l.startswith("atdd:")]
+        if phase_labels:
+            client.remove_label(issue_number, phase_labels)
+        client.add_label(issue_number, [f"atdd:{status}"])
+        return True
+'''
+
+
 def test_guard_does_not_fire_on_the_authoritative_writer():
-    """IssueManager.update is the sanctioned writer — it must stay green."""
-    violations = scan_for_raw_phase_label_writes(
-        {AUTHORITATIVE_WRITER: 'client.add_label(issue_number, [f"atdd:{status}"])\n'}
+    """`_write_phase_label` is the sanctioned writer — it must stay green."""
+    violations = scan_for_raw_phase_label_writes({AUTHORITATIVE_WRITER: _SANCTIONED})
+    assert violations == [], f"False positives: {[v.location for v in violations]}"
+
+
+def test_guard_catches_a_second_writer_inside_the_exempt_file():
+    """The #1742 regrowth, verbatim: a raw swap in the authoritative file.
+
+    This is the case the file-scoped exemption could not see. `_archive_github`
+    lived in the exempt path, so its remove-then-add swap was never scanned —
+    the guard was green while the label was being written twice on every
+    terminal transition. Scoping the exemption to `_write_phase_label` is what
+    makes this red.
+    """
+    regrown = _SANCTIONED + '''
+    def _archive_github(self, issue_id):
+        client.remove_label(issue_number, phase_labels)
+        client.add_label(issue_number, ["atdd:COMPLETE"])
+        return 0
+'''
+    violations = scan_for_raw_phase_label_writes({AUTHORITATIVE_WRITER: regrown})
+    locations = [v.location for v in violations]
+    assert len(violations) == 1, (
+        "A raw atdd:<PHASE> write outside `_write_phase_label` must be caught "
+        f"even inside {AUTHORITATIVE_WRITER}. Caught: {locations}"
     )
-    assert violations == []
+    assert violations[0].rule_id == _RULE_ID
+    assert AUTHORITATIVE_WRITER_METHOD in violations[0].detail
+
+
+def test_exempt_span_fails_closed_when_the_method_is_gone():
+    """No `_write_phase_label` ⇒ nothing exempt, not everything exempt.
+
+    A renamed or deleted method must not silently re-open the whole file. The
+    integrity test above catches the rename loudly; this makes the scanner's
+    own behaviour safe in the meantime.
+    """
+    assert exempt_line_span("def something_else():\n    pass\n") == range(0)
+    assert exempt_line_span("this is not python ((") == range(0)
+
+    violations = scan_for_raw_phase_label_writes(
+        {AUTHORITATIVE_WRITER: 'client.add_label(n, [f"atdd:{status}"])\n'}
+    )
+    assert len(violations) == 1, (
+        "With no `_write_phase_label` to anchor it, the exemption must resolve "
+        "to nothing and the file must be scanned like any other."
+    )
 
 
 def test_guard_does_not_fire_on_tests_or_non_phase_labels():
