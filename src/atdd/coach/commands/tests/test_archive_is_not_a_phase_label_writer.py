@@ -143,3 +143,48 @@ def test_open_issue_is_still_closed_with_its_sub_issues(tmp_path, monkeypatch):
 
     closed = [c.args[0] for c in client.close_issue.call_args_list]
     assert closed == [1690, 1689]
+
+
+# ---------------------------------------------------------------------------
+# The second writer itself (defect 2)
+# ---------------------------------------------------------------------------
+
+
+def test_archive_writes_no_phase_label_on_an_open_issue(tmp_path, monkeypatch):
+    """Archive closes issues. It does not project phase — not on any path.
+
+    The casing fix alone would have left the swap sitting behind a guard, one
+    open issue away from firing. `archive()` has exactly one caller,
+    `issue_transition.apply_transition`, which runs `IssueManager.update` —
+    and therefore `_write_phase_label` — before it. The swap was redundant
+    there and unsanctioned everywhere.
+    """
+    mgr = _init_repo(tmp_path)
+    client = _client(
+        monkeypatch, mgr, state="OPEN",
+        labels=[{"name": "atdd-issue"}, {"name": "atdd:REFACTOR"}],
+    )
+
+    assert mgr._archive_github("1689") == 0
+
+    client.add_label.assert_not_called()
+    client.remove_label.assert_not_called()
+
+
+def test_archive_leaves_a_stale_phase_label_alone(tmp_path, monkeypatch):
+    """Not even a *wrong* label is archive's to correct.
+
+    A label that disagrees with the store is a projection to be re-rendered by
+    the authoritative writer, or reconciled by `atdd coach sync-labels`. Fixing
+    it here is how the second writer justified itself in the first place.
+    """
+    mgr = _init_repo(tmp_path)
+    client = _client(
+        monkeypatch, mgr, state="OPEN",
+        labels=[{"name": "atdd-issue"}, {"name": "atdd:RED"}],
+    )
+
+    assert mgr._archive_github("1689") == 0
+
+    client.add_label.assert_not_called()
+    client.remove_label.assert_not_called()

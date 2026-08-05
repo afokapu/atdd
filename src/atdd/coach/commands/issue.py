@@ -994,17 +994,21 @@ class IssueManager:
             client.close_issue(issue_number)
             print(f"  Closed parent #{issue_number}")
 
-            # Swap label to atdd:COMPLETE
-            try:
-                labels = [l["name"] for l in issue.get("labels", [])]
-                phase_labels = [
-                    l for l in labels if l.startswith("atdd:") and l != "atdd-issue"
-                ]
-                if phase_labels:
-                    client.remove_label(issue_number, phase_labels)
-                client.add_label(issue_number, ["atdd:COMPLETE"])
-            except GitHubClientError as e:
-                print(f"  Warning: Could not update labels: {e}")
+        # NO LABEL WRITE HERE (#1742). `archive` closes issues; it does not
+        # project phase. `_write_phase_label`, driven by `IssueManager.update`,
+        # is the sole authoritative writer of an `atdd:<PHASE>` label — store
+        # first, label rendered from it, behind the phase machine, the train
+        # gate and the COMPLETE gates.
+        #
+        # What stood here was a raw remove-then-add swap with no no-op
+        # short-circuit, so it re-wrote `atdd:COMPLETE` over `atdd:COMPLETE`.
+        # It was also redundant: the only caller of `archive()` is
+        # `issue_transition.apply_transition`, which runs `update()` — and
+        # therefore the sanctioned projection — first.
+        #
+        # Do not restore it. `coach.phase-label.projection-only` now scopes its
+        # exemption to `_write_phase_label` alone, so a second writer in this
+        # file fails the guard rather than hiding behind a file-wide allowlist.
 
         # COMPLETE is carried by the atdd:COMPLETE label (REST) + the manifest
         # archive record below (#1051) — no Projects v2 board write.
