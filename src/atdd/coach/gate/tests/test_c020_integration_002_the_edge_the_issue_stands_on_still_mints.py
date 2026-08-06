@@ -40,6 +40,7 @@ pytestmark = [pytest.mark.platform]
 
 _ISSUE = 999736
 _UID = "mint-does-not-check-the-edge-is-reachable-integration-002"
+_BRANCH = "feat/mint-does-not-check-the-edge-is-reachable"
 _KEY = "integration-operator-key"
 
 
@@ -53,7 +54,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def _stand_at(repo: Path, phase: str) -> None:
     """Put the issue at ``phase`` — what a real transition does to the store."""
     with open_state_store(control_root=repo) as store:
-        store.objects.upsert(_UID, "work_item", state=phase, data={})
+        store.objects.upsert(_UID, "work_item", state=phase, data={"branch": _BRANCH})
         store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
 
 

@@ -52,6 +52,7 @@ pytestmark = [pytest.mark.platform]
 # Never a live issue: the repo's issues are in the low thousands.
 _ISSUE = 999735
 _UID = "mint-does-not-check-the-edge-is-reachable-integration-001"
+_BRANCH = "feat/mint-does-not-check-the-edge-is-reachable"
 
 #: The two edges #1726 got tokens for while standing at INIT.
 _ORPHANED_EDGES = (("PLANNED", "RED"), ("SMOKE", "REFACTOR"))
@@ -67,7 +68,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _register(repo: Path, state: str | None) -> None:
     with open_state_store(control_root=repo) as store:
-        store.objects.upsert(_UID, "work_item", state=state, data={})
+        store.objects.upsert(_UID, "work_item", state=state, data={"branch": _BRANCH})
         store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
 
 

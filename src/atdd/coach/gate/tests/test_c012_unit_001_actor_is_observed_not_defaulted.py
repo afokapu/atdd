@@ -42,6 +42,7 @@ _ISSUE, _FROM, _TO = 1718, "INIT", "PLANNED"
 _HUMAN = "alecfokapu"
 _SESSION_ID = "1886c25f-4f38-466c-ae9a-7d94ff0d491f"
 _UID = "c012-unit-001-actor-is-observed"
+_BRANCH = "feat/mint-observes-its-actor"
 
 # Read the provider row out of the shipped table rather than hardcoding a
 # provider's env var name here: core learns no provider (#1540), and a test that
@@ -50,20 +51,23 @@ _ROW = load_provider_table()[0]
 
 
 @pytest.fixture(autouse=True)
-def standing_at_from_phase(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The issue standing on the edge being approved — #1735's precondition.
+def mintable_issue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """BOTH preconditions the mint now requires: a branch (#1721) and a phase (#1735).
 
-    Autouse because every test here mints, and where the issue is standing is a
-    precondition of the mint rather than a subject of this acceptance, which is
-    about WHO the token says approved. Seeding real state was chosen over a
-    test-only bypass on the mint: a bypass would be a second ungated way to mint
-    (#1619's defect one layer out) inside the program that exists to close the
-    first, and it would leave this file unable to catch the regression it is here
-    for (#1733).
+    Autouse because every test here mints, and neither precondition is a subject of
+    this acceptance — which is about WHO the token says approved, not what it is
+    bound to or which edge is live. One `upsert` carries both: `state` is where the
+    issue is standing, `data["branch"]` is what the approval will be bound to.
+
+    Seeding real state was chosen over a test-only bypass on the mint, and the
+    argument is the same for both issues: a bypass would be a second ungated way to
+    mint (#1619's defect one layer out) inside a file whose job is to prove the mint
+    observes correctly, and a test that can route around the code it guards proves
+    nothing (#1733).
     """
     monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
     with open_state_store(control_root=tmp_path) as store:
-        store.objects.upsert(_UID, "work_item", state=_FROM, data={})
+        store.objects.upsert(_UID, "work_item", state=_FROM, data={"branch": _BRANCH})
         store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
 
 

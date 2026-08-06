@@ -48,6 +48,7 @@ pytestmark = [pytest.mark.platform, pytest.mark.smoke]
 # Never a live issue: the repo's issues are in the low thousands.
 _ISSUE, _FROM, _TO = 999737, "PLANNED", "RED"
 _UID = "c020-smoke-001-real-command-refuses-the-edge"
+_BRANCH = "feat/mint-does-not-check-the-edge-is-reachable"
 
 
 def _env(root: Path) -> dict:
@@ -64,7 +65,7 @@ def _stand_at(root: Path, phase: str) -> None:
     """Put the throwaway issue at ``phase`` in a REAL migrated store."""
     (root / ".atdd" / "state").mkdir(parents=True, exist_ok=True)
     with open_state_store(control_root=root) as store:
-        store.objects.upsert(_UID, "work_item", state=phase, data={})
+        store.objects.upsert(_UID, "work_item", state=phase, data={"branch": _BRANCH})
         store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
 
 

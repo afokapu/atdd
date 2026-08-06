@@ -16,16 +16,20 @@ corpus opened (every one of those was minted by the real command).
 The token is written under a temp root, so the repository's own approval corpus
 is never touched and no 170th token joins the population this issue counts.
 
-Scope note, mirroring C010-SMOKE-001: neither the mint nor the check passes
-``branch``/``expires_at``, so tokens still replay across branches and never
-expire. That consumer seam is owned by #1376 and is deliberately not modified
-here; this smoke covers the attribution path it can honestly reach. (#1721 is
-closing that half on its own branch; this file does not depend on it either way.)
+Scope note, mirroring C010-SMOKE-001 — UPDATED BY #1721 (2026-08-04). This used to
+read: *"neither the mint nor the check passes branch/expires_at, so tokens still
+replay across branches and never expire. That consumer seam is owned by #1376 and
+is deliberately not modified here."* Both call sites now pass both arguments, so
+that sentence is no longer true and is not left standing — a scope note that
+outlives its gap is how the gap stayed unowned in the first place (it is exactly
+what C010-SMOKE-001's note did for three weeks). C010-INTEGRATION-003/004/005 own
+the branch/expiry behaviour.
 
-A SECOND SCOPE NOTE, added by #1735: the real mint now refuses an edge the issue
-is not standing on, so this file seeds the issue at ``_FROM`` before running the
-real command. That is a precondition of reaching the attribution path, not a
-subject of this acceptance — C020-INTEGRATION-001/002 own the precondition itself.
+A SECOND SCOPE NOTE, added by #1735: the real mint also refuses an edge the issue
+is not standing on, so this file seeds the issue at ``_FROM`` as well as binding a
+branch to it. Both are preconditions of REACHING the attribution path, not
+subjects of this acceptance — C020-INTEGRATION-001/002 own the edge precondition
+itself. This file still covers the attribution path only.
 
 RED state: the real command records ``$USER`` and writes no ``agent_session``,
 so the assertions on the minted token fail.
@@ -49,6 +53,7 @@ _SESSION_ID = "smoke-c012-0000-1111-2222-333344445555"
 _SHELL_ACCOUNT = "a-human-who-did-not-approve-this"
 _KEY = "smoke-operator-key"
 _UID = "c012-smoke-001-real-mint-records-the-session"
+_BRANCH = "feat/mint-observes-its-actor"
 
 # Runs in a fresh interpreter AFTER the real mint: reads the real token off disk
 # through the real gate check, then mints a pre-fix-shaped token (the field set
@@ -103,37 +108,45 @@ def _env(root: Path) -> dict:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(src_root) + os.pathsep + env.get("PYTHONPATH", "")
     env["ATDD_APPROVAL_SIGNING_KEY"] = _KEY
+    # Both subprocesses must resolve the SAME store the seeding below writes to, or
+    # the real mint refuses twice over: for want of a branch binding (#1721) and for
+    # an edge it cannot see the issue standing on (#1735). The readback then cannot
+    # check the token it recorded either.
+    env["ATDD_CONTROL_ROOT"] = str(root)
     # Pin BOTH sides of the observation so the run asserts the same thing on a
     # human's machine and on an agent's: a known session id, and a shell account
     # that must not end up on the token.
     env[_SESSION_ENV] = _SESSION_ID
     env["USER"] = _SHELL_ACCOUNT
-    # Both subprocesses must resolve the SAME store the seeding below writes to, or
-    # the real mint refuses for an edge it cannot see the issue standing on (#1735).
-    env["ATDD_CONTROL_ROOT"] = str(root)
     return env
 
 
-def _stand_at_from_phase(root: Path) -> None:
-    """Put the issue at ``_FROM`` so the real command has a live edge to approve.
+def _seed_mintable_issue(root: Path) -> None:
+    """Both of the mint's preconditions, in one upsert.
 
-    Written from THIS process into the Control Root both subprocesses resolve, so
-    the real command reads real state rather than being handed a value. ``root`` is
-    made a Control Root first: the seeding runs without the ATDD_CONTROL_ROOT that
-    is set only in the subprocesses' env, so resolution would otherwise walk upward
-    and find the developer's real store.
+    #1721 requires a branch binding — the token is bound to the branch the State
+    Store binds the issue to, and the mint refuses rather than writing an unbound
+    one. #1735 requires the issue to be STANDING on the edge being approved. One
+    `upsert` carries both: `state` is where it stands, `data["branch"]` is what the
+    approval binds to.
+
+    Written from THIS process into the same Control Root both subprocesses resolve,
+    so the real command reads real state rather than being handed a value. `root` is
+    made a Control Root first: the seeding runs without the ATDD_CONTROL_ROOT that is
+    set only in the subprocesses' env, so resolution would otherwise walk upward and
+    find the developer's real store.
     """
     from atdd.state.smoke_evidence import open_state_store
 
     (root / ".atdd" / "state").mkdir(parents=True, exist_ok=True)
     with open_state_store(control_root=root) as store:
-        store.objects.upsert(_UID, "work_item", state=_FROM, data={})
+        store.objects.upsert(_UID, "work_item", state=_FROM, data={"branch": _BRANCH})
         store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
 
 
 def test_the_real_command_mints_a_session_attributed_token(tmp_path: Path):
     env = _env(tmp_path)
-    _stand_at_from_phase(tmp_path)
+    _seed_mintable_issue(tmp_path)
 
     minted = subprocess.run(
         [sys.executable, "-m", "atdd.cli", "coach", "approve",
