@@ -42,6 +42,8 @@ pytestmark = [pytest.mark.platform]
 
 _RULE = "repo.govern-lifecycle.c021"
 _ISSUE = 999022
+_UID = "c021-unit-002-not-applicable"
+_BRANCH = "feat/token-proves-gates-passed"
 
 
 @dataclass(frozen=True)
@@ -71,7 +73,28 @@ def _worktree(tmp_path: Path) -> Path:
          "-q", "--allow-empty", "-m", "root"],
         cwd=tmp_path, check=True,
     )
+    _bind_issue(tmp_path)
     return tmp_path
+
+
+def _bind_issue(root: Path) -> None:
+    """Seed the State Store branch binding the mint requires (#1721).
+
+    #1721 merged after this file was written and added a precondition ahead of the
+    gate run: a mint refuses outright for an issue the store binds to no branch.
+    Without this the tests below would refuse for #1721's reason and pass for the
+    wrong one — the vacuous green this whole slice exists to remove.
+
+    Real state, not a bypass, following the pattern #1721 established in
+    ``test_c012_unit_001``: a test-only escape on the mint would be a second
+    ungated way to mint (#1619), inside a file whose subject is the mint refusing.
+    """
+    from atdd.state.smoke_evidence import open_state_store
+
+    with open_state_store(control_root=root) as store:
+        store.objects.upsert(_UID, "work_item", state="SMOKE", data={"branch": _BRANCH})
+        store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
+
 
 
 def _decide(worktree: Path, verdict: GateVerdict):

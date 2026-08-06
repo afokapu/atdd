@@ -104,9 +104,19 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
+#: The branch binding #1721 requires of every mint. Seeded on every work item
+#: here because this file drives the REAL command: without it the mint refuses on
+#: the missing binding before it ever reaches the gate run, and every refusal
+#: assertion below would pass for #1721's reason instead of this acceptance's.
+#: Real state rather than a bypass, per the pattern #1721 set in C012-UNIT-001.
+_BRANCH = "feat/token-proves-gates-passed"
+
+
 def _register(repo: Path, uid: str, issue: int, data: dict | None = None) -> None:
     with open_state_store(control_root=repo) as store:
-        store.objects.upsert(uid, "work_item", state="SMOKE", data=data or {})
+        store.objects.upsert(
+            uid, "work_item", state="SMOKE", data={**(data or {}), "branch": _BRANCH}
+        )
         store.external_refs.link(uid, "github", "issue", str(issue))
 
 

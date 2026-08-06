@@ -19,21 +19,32 @@ observable. This closes the SILENT DEFAULT. It is not a boundary against an
 agent that unsets its own session variable — see the THREAT MODEL in
 ``approval.py``, which this must not be read as contradicting.
 
-WHETHER ANYTHING WAS CHECKED (#1670 slice C). Everything above concerns the
-token's provenance and location; none of it touches what the token ASSERTS ABOUT
-THE WORK. This command parsed, signed and wrote without consulting
-``GATE_REGISTRY`` once, so on ``#1726`` — measured 2026-08-03 — both approve calls
-SUCCEEDED while all five of that issue's transitions were REFUSED by the template
-gate, leaving two tokens for an issue at ``INIT``. The mint now runs the edge's
-substantive checks first and REFUSES TO WRITE unless they proceed. See
-:mod:`atdd.coach.gate.mint_gate`, including why it covers ``SMOKE->REFACTOR`` and
-no other edge.
+WHAT IT IS FOR (#1721). #1525 built branch and expiry into ``canonical_scope`` /
+``sign_approval`` / ``verify_token`` and NEITHER CALL SITE PASSED THEM, so every
+token minted since replayed across branches and never expired — the binding
+shipped and was never connected. This command now passes both. The branch comes
+from the State Store's issue binding, never from the current directory, and the
+expiry from :data:`~atdd.coach.gate.approval_binding.APPROVAL_TTL`; the reasoning
+for both lives in ``approval_binding``. No signing logic changed here: #1525's is
+correct, and every line #1721 added is an argument at a call site.
 
-#1376 answers WHERE the receipt lives, #1718 answers WHAT it says produced it,
-#1670 answers WHETHER IT CERTIFIES ANYTHING. All three are independent and all
-three are needed: a correctly attributed token at a path the gate cannot read is
-as useless as a findable one that names the wrong actor — and both are still only
-a signed assertion that somebody pressed a key until the mint depends on an
+WHETHER ANYTHING WAS CHECKED (#1670 slice C). Everything above concerns the
+token's provenance, location and validity window; none of it touches what the
+token ASSERTS ABOUT THE WORK. This command parsed, signed and wrote without
+consulting ``GATE_REGISTRY`` once, so on ``#1726`` — measured 2026-08-03 — both
+approve calls SUCCEEDED while all five of that issue's transitions were REFUSED
+by the template gate, leaving two tokens for an issue at ``INIT``. The mint now
+runs the edge's substantive checks first and REFUSES TO WRITE unless they
+proceed. See :mod:`atdd.coach.gate.mint_gate`, including why it covers
+``SMOKE->REFACTOR`` and no other edge.
+
+FOUR INDEPENDENT QUESTIONS, four answers, none of which subsumes another. #1376
+answers WHERE the receipt lives, #1718 WHAT it says produced it, #1721 WHAT IT IS
+FOR — which branch, and for how long — and #1670 WHETHER IT CERTIFIES ANYTHING.
+All four are needed: a correctly attributed token at a path the gate cannot read
+is as useless as a findable one that names the wrong actor; both are as useless
+as one that authorises every branch forever; and all three are still only a
+signed assertion that somebody pressed a key until the mint depends on an
 observation.
 """
 from __future__ import annotations
@@ -51,6 +62,7 @@ from atdd.coach.gate.approval import (
     describe_attribution,
     resolve_signing_key,
 )
+from atdd.coach.gate.approval_binding import expiry_for, resolve_issue_branch
 from atdd.coach.gate.approval_paths import approval_token_path
 from atdd.coach.gate.mint_gate import decide_mint
 
@@ -141,12 +153,31 @@ def run(
 
     start = target_dir or Path.cwd()
 
+    # TWO PRECONDITIONS, both asked BEFORE the token directory is created, so a
+    # refusal leaves nothing behind. Order is deliberate: #1721's is a single
+    # store lookup and answers "is there a piece of work here at all", while
+    # #1670's runs the edge's gate checks. Asking the cheap structural question
+    # first means an issue bound to nothing never pays for a gate run, and the
+    # operator gets the more fundamental refusal rather than a downstream one.
+
+    # #1721: what the approval is FOR. Resolved from the State Store's issue
+    # binding, not from `git rev-parse` in this directory — see approval_binding
+    # for why cwd would re-create the coupling #1376 removed.
+    binding = resolve_issue_branch(start, ns.issue)
+    if not binding:
+        # REFUSE rather than mint unbound. Falling back to a branchless token
+        # would manufacture a fresh pre-#1525-regime artifact — valid on every
+        # branch, forever — which is the exact defect this issue closes. The 169
+        # legacy tokens are tolerated because they predate the binding; there is
+        # no reason to add a 170th.
+        print(f"Error: cannot mint an approval for #{ns.issue} — {binding.reason}")
+        return 1
+
     # #1670 slice C — THE CONDITIONAL MINT. Run the checks this edge registers and
-    # refuse to sign unless they proceed. Asked BEFORE the token directory is
-    # created and before anything is written: ApprovalTokenGateCheck reads the
-    # filesystem, so a mint that writes the file and then prints an objection has
-    # authorised the transition regardless of its exit code. The refusal has to BE
-    # the absence of the artifact.
+    # refuse to sign unless they proceed. Also before anything is written:
+    # ApprovalTokenGateCheck reads the filesystem, so a mint that writes the file
+    # and then prints an objection has authorised the transition regardless of its
+    # exit code. The refusal has to BE the absence of the artifact.
     #
     # `decide_mint` covers SMOKE->REFACTOR alone and returns proceed=True
     # unconditionally for every other edge, so this block changes nothing for the
@@ -186,22 +217,38 @@ def run(
                 f"observed, and the observed actor is what the token records."
             )
 
+    approved_at = datetime.now(timezone.utc)
+    expires_at = expiry_for(approved_at)
     token = build_token(
         ns.issue, from_phase, to_phase,
         approved_by=approved_by,
-        approved_at=datetime.now(timezone.utc).isoformat(),
+        approved_at=approved_at.isoformat(),
         agent_session=agent_session,
+        branch=binding.branch,
+        expires_at=expires_at,
         key=resolve_signing_key(),
     )
     token_path.write_text(json.dumps(token, indent=2) + "\n")
     print(
         f"✓ approved {from_phase}->{to_phase} for issue #{ns.issue} "
-        f"({describe_attribution(token)}): {token_path}"
+        f"({describe_attribution(token)})"
     )
+    # Both bindings are STATED, because both are refusal conditions the operator
+    # will meet later and neither is legible in the path or the attribution line.
+    # An approval whose two limits are invisible at the moment it is granted is
+    # how a gate ends up refusing for a reason nobody was told about.
+    print(f"  bound to branch {binding.branch} — valid until {expires_at}")
     if decision.conditional:
         # SAY WHAT WAS CERTIFIED, on the success path too. A mint whose only check
         # reported NOT_APPLICABLE verified nothing, and a bare ✓ reads identically
         # to one that verified an obligation — which is the vacuous green this
         # slice removes, re-entering through the line the operator actually reads.
+        #
+        # Placed ABOVE the token line for the same reason #1721 placed its own
+        # above it: that line is load-bearing output, not a footer.
         print(decision.render())
+    # The token path stays the LAST line: `atdd coach approve`'s output is parsed
+    # for it (C012-SMOKE-001 takes the real path from the real command rather than
+    # assuming one), so anything added below would silently break that reader.
+    print(f"  token: {token_path}")
     return 0

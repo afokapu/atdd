@@ -16,10 +16,15 @@ corpus opened (every one of those was minted by the real command).
 The token is written under a temp root, so the repository's own approval corpus
 is never touched and no 170th token joins the population this issue counts.
 
-Scope note, mirroring C010-SMOKE-001: neither the mint nor the check passes
-``branch``/``expires_at``, so tokens still replay across branches and never
-expire. That consumer seam is owned by #1376 and is deliberately not modified
-here; this smoke covers the attribution path it can honestly reach.
+Scope note, mirroring C010-SMOKE-001 — UPDATED BY #1721 (2026-08-04). This used to
+read: *"neither the mint nor the check passes branch/expires_at, so tokens still
+replay across branches and never expire. That consumer seam is owned by #1376 and
+is deliberately not modified here."* Both call sites now pass both arguments, so
+that sentence is no longer true and is not left standing — a scope note that
+outlives its gap is how the gap stayed unowned in the first place (it is exactly
+what C010-SMOKE-001's note did for three weeks). C010-INTEGRATION-003/004/005 own
+the branch/expiry behaviour; this file still covers the attribution path only, and
+now seeds the branch binding the real mint requires as a precondition.
 
 RED state: the real command records ``$USER`` and writes no ``agent_session``,
 so the assertions on the minted token fail.
@@ -42,6 +47,8 @@ _SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 _SESSION_ID = "smoke-c012-0000-1111-2222-333344445555"
 _SHELL_ACCOUNT = "a-human-who-did-not-approve-this"
 _KEY = "smoke-operator-key"
+_UID = "c012-smoke-001-real-mint-records-the-session"
+_BRANCH = "feat/mint-observes-its-actor"
 
 # Runs in a fresh interpreter AFTER the real mint: reads the real token off disk
 # through the real gate check, then mints a pre-fix-shaped token (the field set
@@ -85,7 +92,7 @@ print(json.dumps({
 """
 
 
-def _env() -> dict:
+def _env(root: Path) -> dict:
     """Ambient env plus the source tree on PYTHONPATH.
 
     The interpreter also has a published atdd wheel installed, and a smoke that
@@ -96,6 +103,10 @@ def _env() -> dict:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(src_root) + os.pathsep + env.get("PYTHONPATH", "")
     env["ATDD_APPROVAL_SIGNING_KEY"] = _KEY
+    # Both subprocesses must resolve the SAME store the seeding below wrote to, or
+    # the real mint refuses for want of a branch binding (#1721) and the real
+    # readback cannot check the one it recorded.
+    env["ATDD_CONTROL_ROOT"] = str(root)
     # Pin BOTH sides of the observation so the run asserts the same thing on a
     # human's machine and on an agent's: a known session id, and a shell account
     # that must not end up on the token.
@@ -104,8 +115,27 @@ def _env() -> dict:
     return env
 
 
+def _bind(root: Path) -> None:
+    """Bind the issue to a branch — the precondition the real mint now enforces.
+
+    Written from the test process into the same Control Root both subprocesses
+    resolve, so the real command reads real state rather than being handed a value.
+    """
+    from atdd.state.smoke_evidence import open_state_store
+
+    # Make `root` a Control Root before asking for its store: the seeding happens in
+    # THIS process, which has no ATDD_CONTROL_ROOT pointing at the temp dir (that is
+    # set only in the subprocesses' env), so resolution would otherwise walk upward
+    # and find the developer's real one.
+    (root / ".atdd" / "state").mkdir(parents=True, exist_ok=True)
+    with open_state_store(control_root=root) as store:
+        store.objects.upsert(_UID, "work_item", state=_FROM, data={"branch": _BRANCH})
+        store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
+
+
 def test_the_real_command_mints_a_session_attributed_token(tmp_path: Path):
-    env = _env()
+    env = _env(tmp_path)
+    _bind(tmp_path)
 
     minted = subprocess.run(
         [sys.executable, "-m", "atdd.cli", "coach", "approve",
