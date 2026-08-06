@@ -19,10 +19,20 @@ observable. This closes the SILENT DEFAULT. It is not a boundary against an
 agent that unsets its own session variable — see the THREAT MODEL in
 ``approval.py``, which this must not be read as contradicting.
 
-#1376 answers WHERE the receipt lives, #1718 answers WHAT it says produced it.
-The two are independent and both are needed: a correctly attributed token at a
-path the gate cannot read is as useless as a findable one that names the wrong
-actor.
+WHAT IT IS FOR (#1721). #1525 built branch and expiry into ``canonical_scope`` /
+``sign_approval`` / ``verify_token`` and NEITHER CALL SITE PASSED THEM, so every
+token minted since replayed across branches and never expired — the binding
+shipped and was never connected. This command now passes both. The branch comes
+from the State Store's issue binding, never from the current directory, and the
+expiry from :data:`~atdd.coach.gate.approval_binding.APPROVAL_TTL`; the reasoning
+for both lives in ``approval_binding``. No signing logic changed here: #1525's is
+correct, and every line #1721 added is an argument at a call site.
+
+#1376 answers WHERE the receipt lives, #1718 answers WHAT it says produced it,
+#1721 answers WHAT IT IS FOR — which branch, and for how long. The three are
+independent and all are needed: a correctly attributed token at a path the gate
+cannot read is as useless as a findable one that names the wrong actor, and both
+are as useless as one that authorises every branch forever.
 """
 from __future__ import annotations
 
@@ -38,6 +48,7 @@ from atdd.coach.gate.approval import (
     describe_attribution,
     resolve_signing_key,
 )
+from atdd.coach.gate.approval_binding import expiry_for, resolve_issue_branch
 from atdd.coach.gate.approval_paths import approval_token_path
 
 
@@ -123,15 +134,30 @@ def run(
         print(f"Error: {exc}")
         return 1
 
+    start = target_dir or Path.cwd()
+
+    # #1721: what the approval is FOR. Resolved from the State Store's issue
+    # binding, not from `git rev-parse` in this directory — see approval_binding
+    # for why cwd would re-create the coupling #1376 removed. Asked BEFORE the
+    # token directory is created, so a refusal leaves nothing behind.
+    binding = resolve_issue_branch(start, ns.issue)
+    if not binding:
+        # REFUSE rather than mint unbound. Falling back to a branchless token
+        # would manufacture a fresh pre-#1525-regime artifact — valid on every
+        # branch, forever — which is the exact defect this issue closes. The 169
+        # legacy tokens are tolerated because they predate the binding; there is
+        # no reason to add a 170th.
+        print(f"Error: cannot mint an approval for #{ns.issue} — {binding.reason}")
+        return 1
+
     # #1376: mint against the SHARED Control Root (#1346), the same base
-    # ApprovalTokenGateCheck reads from. `target_dir or Path.cwd()` is the literal
-    # current worktree; minting there put the token somewhere a gate evaluating
-    # from a sibling worktree could not see (measured in the #1307 walk). One
-    # resolution at both ends is what makes the token a receipt rather than a
-    # file whose visibility depends on which directory the operator stood in.
-    token_path = approval_token_path(
-        target_dir or Path.cwd(), ns.issue, from_phase, to_phase
-    )
+    # ApprovalTokenGateCheck reads from. `start` is the literal current worktree
+    # and only a STARTING POINT for that resolution; minting at it put the token
+    # somewhere a gate evaluating from a sibling worktree could not see (measured
+    # in the #1307 walk). One resolution at both ends is what makes the token a
+    # receipt rather than a file whose visibility depends on which directory the
+    # operator stood in.
+    token_path = approval_token_path(start, ns.issue, from_phase, to_phase)
     token_path.parent.mkdir(parents=True, exist_ok=True)
 
     approved_by, agent_session = _observe_actor(os.environ if env is None else env)
@@ -149,16 +175,29 @@ def run(
                 f"observed, and the observed actor is what the token records."
             )
 
+    approved_at = datetime.now(timezone.utc)
+    expires_at = expiry_for(approved_at)
     token = build_token(
         ns.issue, from_phase, to_phase,
         approved_by=approved_by,
-        approved_at=datetime.now(timezone.utc).isoformat(),
+        approved_at=approved_at.isoformat(),
         agent_session=agent_session,
+        branch=binding.branch,
+        expires_at=expires_at,
         key=resolve_signing_key(),
     )
     token_path.write_text(json.dumps(token, indent=2) + "\n")
     print(
         f"✓ approved {from_phase}->{to_phase} for issue #{ns.issue} "
-        f"({describe_attribution(token)}): {token_path}"
+        f"({describe_attribution(token)})"
     )
+    # Both bindings are STATED, because both are refusal conditions the operator
+    # will meet later and neither is legible in the path or the attribution line.
+    # An approval whose two limits are invisible at the moment it is granted is
+    # how a gate ends up refusing for a reason nobody was told about.
+    print(f"  bound to branch {binding.branch} — valid until {expires_at}")
+    # The token path stays the LAST line: `atdd coach approve`'s output is parsed
+    # for it (C012-SMOKE-001 takes the real path from the real command rather than
+    # assuming one), so anything added below would silently break that reader.
+    print(f"  token: {token_path}")
     return 0
