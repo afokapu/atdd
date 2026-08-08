@@ -51,14 +51,18 @@ _UID = "r010-smoke-001-one-control-root-location"
 _BRANCH = "feat/r010-approval-token-control-root"
 
 
-def _bind(control_root: Path) -> None:
-    """Bind the throwaway issue to a branch in the store.
+def _seed_mintable_issue(control_root: Path) -> None:
+    """Both of the mint's preconditions, seeded at the CONTROL ROOT.
 
-    #1721 made the branch binding a PRECONDITION of the mint: the token is bound to
-    the branch the State Store binds the issue to, and the mint refuses rather than
-    writing an unbound one. Seeded at the CONTROL ROOT, which is the point of this
-    file — the mint and the gate resolve the store from the same base they resolve
-    the token path from, so a binding written here is the one both ends read.
+    #1721 made the branch binding a precondition: the token is bound to the branch
+    the State Store binds the issue to, and the mint refuses rather than writing an
+    unbound one — hence ``data["branch"]``. #1735 made the issue's phase one too:
+    the mint refuses an edge the issue is not standing on — hence ``state``.
+
+    Seeded at the CONTROL ROOT, which is this file's whole subject: the mint and the
+    gate resolve the store from the same base they resolve the token path from, so a
+    work item written here is the one both ends read, no matter which worktree the
+    operator stands in.
     """
     with open_state_store(control_root=control_root) as store:
         store.objects.upsert(_UID, "work_item", state=_FROM, data={"branch": _BRANCH})
@@ -74,7 +78,7 @@ def nested_worktree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     child.mkdir()
     assert approval_control_root(child) == control_root.resolve()
     monkeypatch.setenv("ATDD_CONTROL_ROOT", str(control_root.resolve()))
-    _bind(control_root.resolve())
+    _seed_mintable_issue(control_root.resolve())
     return control_root.resolve(), child
 
 
@@ -138,7 +142,7 @@ def test_single_repo_layout_is_unchanged(tmp_path: Path, monkeypatch):
     """
     monkeypatch.setenv("ATDD_APPROVAL_SIGNING_KEY", "smoke-operator-key")
     monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
-    _bind(tmp_path)
+    _seed_mintable_issue(tmp_path)
     registry = GateRegistry()
     register_approval_checks(registry)
 

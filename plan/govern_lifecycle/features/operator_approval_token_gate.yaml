@@ -2,7 +2,7 @@ urn: "feature:govern-lifecycle:operator-approval-token-gate"
 wagon: "wagon:govern-lifecycle"
 description: "Registers an operator-reserved approval-token check INTO the #1020 enforcing-phase-transition gate (GATE_REGISTRY) rather than forking transition logic. The check passes only when an operator-signed approval token exists for the exact (issue, from, to) transition — a filesystem artifact decoupled from the cmux Feed so its ~120s soft-expiry can neither satisfy nor bypass it — and fails otherwise, so the worker's `atdd issue <N> --status RED` is hard-refused (non-zero, no label/phase swap) until a human approves. Adds the operator path to PRODUCE the token: `atdd coach approve <N> --transition PLANNED->RED`. Pure token sign/verify/scope logic lives in a stdlib-only domain module; the file-reading check is its integration sibling; registration is a config-gated import side-effect wired at the `atdd issue --status` dispatch (never a gate-package import, so the #1020 empty-registry tests stay green)."
 sizing:
-  wmbts: 4
+  wmbts: 5
   footprint_score: 5
   footprint_size: "M"
 wmbts:
@@ -10,6 +10,9 @@ wmbts:
   - "wmbt:govern-lifecycle:C010"
   - "wmbt:govern-lifecycle:C012"
   - "wmbt:govern-lifecycle:R010"
+  # #1735: the mint refuses an edge the issue cannot cross. C012 changed what the
+  # token says about its AUTHOR; this constrains what it may be minted FOR at all.
+  - "wmbt:govern-lifecycle:C020"
 components:
   backend:
     presentation:
