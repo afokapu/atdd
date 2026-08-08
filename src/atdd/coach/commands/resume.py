@@ -32,6 +32,8 @@ Public surface:
 from __future__ import annotations
 
 import json
+import logging
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,6 +52,8 @@ from atdd.coach.commands.event_queue import (
 )
 from atdd.coach.commands.runtime_watcher import RuntimeWatcher
 
+
+logger = logging.getLogger(__name__)
 
 TransitionAction = Callable[[int, str, str], dict]
 
@@ -133,6 +137,12 @@ class ResumeRunner:
     run_id: str
     decision_writer: DecisionWriter
     transition_action: Optional[TransitionAction] = None
+    #: Where the gate resolves an approval token from, and the config that says
+    #: which edges are gated (#1619). Defaults keep every existing caller working:
+    #: ``worktree`` falls back to the cwd, and ``gate_config`` to the repo's
+    #: ``.atdd/config.yaml``, so a resume run gates exactly as the CLI does.
+    worktree: Optional[Path] = None
+    gate_config: Optional[dict] = None
     _watcher: Optional[RuntimeWatcher] = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -238,35 +248,50 @@ class ResumeRunner:
 
         for issue in issue_numbers:
             phase_name = reconstructed.get(issue, Phase.INIT.value)
-            idx = _phase_index(phase_name)
-            if idx < 0:
+            if _phase_index(phase_name) < 0:
                 # BLOCKED or unknown; the resume runner cannot make
                 # forward progress without operator action. Leave the
                 # phase as-is and continue with siblings.
                 final[issue] = phase_name
                 continue
-
-            current = phase_name
-            while current != Phase.COMPLETE.value:
-                idx = _phase_index(current)
-                if idx < 0 or idx + 1 >= len(PLANNED_PATH):
-                    break
-                next_phase = PLANNED_PATH[idx + 1]
-                # Stop walking past COMPLETE — MERGED is owned by the
-                # PR-merge handler, not the per-issue resume runner.
-                if next_phase == Phase.MERGED:
-                    break
-                if not can_transition(Phase(current), next_phase):
-                    break
-
-                self._step_transition(issue, current, next_phase.value)
-                current = next_phase.value
-
-            final[issue] = current
+            final[issue] = self._walk_forward(issue, phase_name)
 
         return final
 
-    def _step_transition(self, issue: int, src: str, dst: str) -> None:
+    def _walk_forward(self, issue: int, start_phase: str) -> str:
+        """Advance one issue along ``PLANNED_PATH`` as far as it legitimately can.
+
+        Returns the phase it came to rest at. Stops on the first step that is off
+        the path, illegal per the phase machine, or REFUSED BY THE GATE — the
+        three are deliberately the same kind of stop (#1619): ``can_transition``
+        answers phase-machine LEGALITY, never whether the edge's gates are green,
+        so a walk that consulted only it would drive straight past a gate that
+        said no. The run keeps whatever it legally AND legitimately earned, and
+        nothing is forced.
+        """
+        current = start_phase
+        while current != Phase.COMPLETE.value:
+            idx = _phase_index(current)
+            if idx < 0 or idx + 1 >= len(PLANNED_PATH):
+                break
+            next_phase = PLANNED_PATH[idx + 1]
+            # Stop walking past COMPLETE — MERGED is owned by the
+            # PR-merge handler, not the per-issue resume runner.
+            if next_phase == Phase.MERGED:
+                break
+            if not can_transition(Phase(current), next_phase):
+                break
+            if not self._step_transition(issue, current, next_phase.value):
+                break
+            current = next_phase.value
+        return current
+
+    def _step_transition(self, issue: int, src: str, dst: str) -> bool:
+        """Drive one step. Returns True if the phase advanced, False if refused.
+
+        #1619: returns a verdict rather than None so ``drive_to_complete`` can
+        stop the walk on a refusal instead of driving on past a gate that said no.
+        """
         record = {
             "decision_id": _phase_transition_decision_id(self.run_id, issue, src, dst),
             "timestamp": _now(),
@@ -277,9 +302,17 @@ class ResumeRunner:
             "outcome": {"transitioned": True, "new_phase": dst},
         }
         # Idempotent replay: a transition already in the durable log is a
-        # no-op — the consumer side of P001's idempotency contract.
+        # no-op — the consumer side of P001's idempotency contract. Already
+        # recorded means already earned, so the walk continues past it.
         if self.decision_writer.has_decision(record["decision_id"]):
-            return
+            return True
+        # The enforcing gate (#1619). Evaluated BEFORE the transition_action
+        # guard below: a gated edge with no approval token must refuse whether or
+        # not orchestration happens to be wired, and reporting "no
+        # transition_action" for an edge that was never going to be allowed would
+        # name the wrong obstacle.
+        if not self._gate_allows(issue, src, dst):
+            return False
         # A resume run with pending phases MUST have a real transition_action.
         # Without one the runner would paper-stamp the phase to COMPLETE with
         # no persona spawn and no orchestration — the #734 / #662 paper fast-
@@ -297,3 +330,85 @@ class ResumeRunner:
         # paper stamp.
         self.transition_action(issue, src, dst)
         self.decision_writer.append(record)
+        return True
+
+    def _gate_allows(self, issue: int, src: str, dst: str) -> bool:
+        """Evaluate the enforcing transition gate for one step (#1619).
+
+        On refusal, records the refusal and returns False. The record is
+        DELIBERATELY not ``decision_type: "phase-transition"``:
+        :func:`reconstruct_state` rebuilds each issue's phase from every such
+        record's ``inputs.target_phase``, so writing a refusal under that type
+        would make the next resume reconstruct the refused phase as REACHED and
+        skip past a transition that never happened — a paper fast-forward
+        laundered through the durable log, which is the #734/#662 bug this runner
+        already refuses to commit directly.
+        """
+        from atdd.coach.gate.decision import GateContext
+        from atdd.coach.gate.enforcement import enforce_transition_gate
+
+        worktree = Path(self.worktree) if self.worktree is not None else Path.cwd()
+        outcome = enforce_transition_gate(
+            self._resolve_gate_config(worktree),
+            GateContext(
+                issue_number=issue, from_phase=src, to_phase=dst, worktree=worktree
+            ),
+        )
+        if outcome.proceed:
+            return True
+
+        reasons = [f"[{b.gate_id} / {b.rule_id}] {b.message}" for b in outcome.blockers]
+        print(
+            f"#{issue}: resume stopped at {dst} — the transition gate refused "
+            f"{src}->{dst} ({len(outcome.blockers)} check(s) blocked). The store "
+            f"keeps whatever it legitimately earned so far, and nothing was forced."
+        )
+        for reason in reasons:
+            print(f"  ✗ {reason}")
+        self.decision_writer.append({
+            "decision_id": (
+                f"{_phase_transition_decision_id(self.run_id, issue, src, dst)}"
+                f":refused"
+            ),
+            "timestamp": _now(),
+            "coach_run_id": self.run_id,
+            "issue_number": issue,
+            "decision_type": "phase-transition-refused",
+            "inputs": {"current_phase": src, "proposed_phase": dst},
+            "outcome": {"transitioned": False, "blockers": reasons},
+        })
+        return False
+
+    def _resolve_gate_config(self, worktree: Path) -> dict:
+        """The ``gate.transitions`` config this run is held to.
+
+        An explicit ``gate_config`` wins; otherwise the worktree's own
+        ``.atdd/config.yaml``, so a resume run gates exactly as the CLI does in
+        that repo. An unreadable or absent config yields ``{}``, which leaves
+        ``DEFAULT_GATED_TRANSITIONS`` in charge — the consumer-repo default, and
+        fail-closed in the sense that matters: it gates MORE, never less.
+        """
+        if self.gate_config is not None:
+            return self.gate_config
+        import yaml
+
+        path = Path(worktree) / ".atdd" / "config.yaml"
+        if not path.exists():
+            return {}
+        try:
+            return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            # Observably react, never merely return: an unreadable config silently
+            # becoming "the defaults" is how a repo's chosen gate posture
+            # disappears without anyone being told.
+            logger.warning(
+                "gate config unreadable; falling back to the built-in "
+                "gated-transition defaults",
+                extra={"path": str(path), "error": str(exc)},
+            )
+            print(
+                f"[resume] .atdd/config.yaml at {path} is unreadable ({exc}); "
+                f"falling back to the built-in gated-transition defaults",
+                file=sys.stderr,
+            )
+            return {}

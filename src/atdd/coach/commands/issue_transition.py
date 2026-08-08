@@ -11,16 +11,14 @@ gate/compliance/re-enter building blocks stay on
 Two public entry points:
 
 - :func:`apply_transition` — the orchestration itself (gate → compliance →
-  ``IssueManager.update`` → COMPLETE archive → re-enter). It does NOT register
-  the operator-approval gate check; the caller decides whether that gate is
-  active. This preserves the historical split: ``atdd issue --status`` (now
-  ``atdd coach transition``) enforces the operator token, while the deprecated
-  ``atdd update``/``atdd archive`` paths — which call
-  ``IssueLifecycle.transition`` directly — never did.
+  ``IssueManager.update`` → COMPLETE archive → re-enter). The gate it runs
+  registers its own checks (#1619), so EVERY caller of this function gets the
+  same checks consulted. The historical split — where the CLI verb enforced the
+  operator token and the deprecated ``atdd update``/``atdd archive`` paths did
+  not — is GONE, deliberately: it made enforcement a property of the caller
+  rather than of the edge being crossed.
 - :func:`run` — the ``atdd coach transition`` CLI entry. Parses ``<N> <TO>
-  [--force]``, registers the operator-approval gate check (exactly as the old
-  ``atdd issue --status`` CLI dispatch did — see #1017), then calls
-  ``apply_transition``.
+  [--force]`` and calls ``apply_transition``. It no longer registers anything.
 
 ``IssueLifecycle.transition`` now delegates to :func:`apply_transition`, so its
 existing callers (``atdd update``/``atdd archive`` shims, the #1020/#1017 gate
@@ -58,8 +56,9 @@ def apply_transition(
     5. Re-enter in display-only mode so a landed transition is never masked by a
        branch-creation layout error.
 
-    Does NOT register the operator-approval gate check — see the module
-    docstring. Returns 0 on success, non-zero on any gate/validation failure.
+    The gate registers the checks it consults (#1619), so a programmatic caller
+    is held to the same edges as the CLI verb. Returns 0 on success, non-zero on
+    any gate/validation failure.
     """
     # Shared write helpers stay on IssueManager (store/manifest/github); the
     # gate/compliance/re-enter building blocks stay on IssueLifecycle. We import
@@ -71,7 +70,8 @@ def apply_transition(
 
     # Enforcing per-transition gate — the #1020 keystone. A failing registered
     # check returns non-zero here, so we never reach IssueManager.update()'s
-    # label/phase swap. Empty registry => no-op.
+    # label/phase swap. The gate registers its own checks (#1619), so this is
+    # enforcing for every caller — not only for the CLI verb below.
     gate_rc = lifecycle._transition_gate(issue_number, status, force=force)
     if gate_rc != 0:
         return gate_rc
@@ -136,27 +136,20 @@ def _build_parser() -> argparse.ArgumentParser:
 def run(argv: list[str]) -> int:
     """``atdd coach transition <N> <TO> [--force]`` — the canonical CLI entry.
 
-    Registers the operator-approval gate check into the #1020 ``GATE_REGISTRY``
-    (idempotent) exactly as the old ``atdd issue --status`` CLI dispatch did
-    (#1017), then applies the transition. Which transitions actually enforce is
-    decided by ``.atdd/config.yaml`` ``gate.transitions`` (default PLANNED->RED).
+    Parses and applies. It NO LONGER REGISTERS the gate checks (#1619).
+
+    It used to, and that was the defect. Registration living at this verb dispatch
+    made ``GATE_REGISTRY``'s contents depend on HOW a transition was invoked
+    rather than on WHICH edge was being crossed, so every path that did not shell
+    out to this verb — programmatic ``IssueLifecycle.transition``, the
+    ``issue_reconcile_state`` replay, the ``resume.py`` walk, the watcher —
+    evaluated an empty registry and proceeded.
+
+    ``atdd.coach.gate.enforcement.enforce_transition_gate`` now performs the
+    registration as part of deciding, so this verb gets exactly the checks it
+    always did, by the same route as every other caller. Which transitions
+    actually ENFORCE is still decided by ``.atdd/config.yaml`` ``gate.transitions``
+    (default PLANNED->RED) — unchanged.
     """
     ns = _build_parser().parse_args(argv)
-
-    # #1017 — make the operator-approval check available to the enforcing gate.
-    # Called EXPLICITLY here at the verb dispatch (not an import-time side
-    # effect) so importing the module stays pure and #1020's empty-registry
-    # migration-safety tests stay green.
-    from atdd.coach.gate.registrations import (
-        register_approval_checks,
-        register_smoke_execution_check,
-    )
-
-    register_approval_checks()
-    # #1602 — same seam, same reason: make the smoke-execution check AVAILABLE to
-    # SMOKE->REFACTOR. Registering does not enforce; `is_transition_gated` still
-    # decides, and `SMOKE->REFACTOR` is absent from DEFAULT_GATED_TRANSITIONS, so
-    # this is inert until a repo opts in via `.atdd/config.yaml`. Without the call
-    # the check could never run at all, opt-in or not.
-    register_smoke_execution_check()
     return apply_transition(ns.issue_number, ns.status, force=ns.force)

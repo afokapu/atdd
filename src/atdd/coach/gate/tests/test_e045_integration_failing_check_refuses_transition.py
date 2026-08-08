@@ -28,6 +28,7 @@ import pytest
 from atdd.coach.gate.decision import GateCheckResult
 from atdd.coach.gate.registry import GATE_REGISTRY
 from atdd.coach.commands.issue_lifecycle import IssueLifecycle
+from atdd.coach.gate.approve_command import run as run_approve
 
 pytestmark = [pytest.mark.platform]
 
@@ -99,8 +100,31 @@ def test_failing_check_refuses_transition_label_unchanged(
     )
 
 
-def test_passing_check_allows_transition(tmp_path: Path, planned_issue, clean_registry):
-    """E045-INTEGRATION-002: a passing registered check lets the transition proceed."""
+def test_passing_check_allows_transition(
+    tmp_path: Path, planned_issue, clean_registry, monkeypatch
+):
+    """E045-INTEGRATION-002: a passing registered check lets the transition proceed.
+
+    #1619 CHANGED WHAT "ALL CHECKS PASS" REQUIRES HERE. The chokepoint used to
+    consult only whatever a caller had registered, so a lone passing fake was the
+    whole registry. It now registers the production checks itself — that is the
+    fix, since the registry's contents must depend on the edge being crossed and
+    not on which caller got here — so ``PLANNED->RED`` also carries the real
+    ``ApprovalTokenGateCheck``, which fails closed with no token present.
+
+    The acceptance is unchanged and its bar is now HIGHER: *every* registered
+    check passing lets the transition proceed. So the fixture mints a real
+    operator token for the throwaway issue with the real ``atdd coach approve``,
+    under ``tmp_path``. Nothing is stubbed and no assertion is weakened — the
+    alternative, ungating the edge in config, would have made the fake check stop
+    running too and turned a real E045 into a vacuous pass.
+    """
+    monkeypatch.setenv("ATDD_APPROVAL_SIGNING_KEY", "e045-integration-002-key")
+    assert run_approve(
+        ["1020", "--transition", "PLANNED->RED", "--by", "operator"],
+        target_dir=tmp_path,
+    ) == 0, "fixture precondition: the real approve command must mint the token"
+
     clean_registry.register(
         "PLANNED", "RED",
         _FakeCheck("GT-TEST-PASS", "repo.govern-lifecycle.E045-pass", verdict_passed=True),

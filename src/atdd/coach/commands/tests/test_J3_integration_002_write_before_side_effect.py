@@ -20,6 +20,15 @@ import pytest
 
 pytestmark = [pytest.mark.platform]
 
+# #1619: the resume walk now consults the enforcing transition gate, and
+# PLANNED->RED is gated by DEFAULT_GATED_TRANSITIONS. These tests are about
+# resume DURABILITY and idempotency, not about gates, so they declare their gate
+# posture explicitly rather than depending on whatever config the cwd happens to
+# carry. Pinning `worktree` to the test's own tmp tree matters just as much: left
+# to its default the token lookup resolves up to the REAL shared Control Root.
+_UNGATED_FOR_DURABILITY = {"gate": {"transitions": {"PLANNED->RED": False}}}
+
+
 
 def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
@@ -94,6 +103,8 @@ def test_resume_after_crash_does_not_duplicate_decision(tmp_path):
     writer = DecisionWriter(runtime_dir=tmp_path)
     runner = ResumeRunner(
         runtime_dir=tmp_path,
+        worktree=tmp_path,
+        gate_config=_UNGATED_FOR_DURABILITY,
         run_id=run_id,
         decision_writer=writer,
         transition_action=record_action,
@@ -143,6 +154,8 @@ def test_resume_re_issues_side_effect_for_crashed_transition(tmp_path):
     writer = DecisionWriter(runtime_dir=tmp_path)
     runner = ResumeRunner(
         runtime_dir=tmp_path,
+        worktree=tmp_path,
+        gate_config=_UNGATED_FOR_DURABILITY,
         run_id=run_id,
         decision_writer=writer,
         transition_action=action,

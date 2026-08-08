@@ -398,18 +398,15 @@ class IssueLifecycle:
         IssueManager.update()'s label/phase swap) when any check fails.
         Fail-closed: an errored/timed-out check counts as a failure.
 
-        Migration-safe by construction: ``GATE_REGISTRY`` ships empty, so every
-        transition is a no-op here until #958/#1017 register real checks. ``force``
-        bypasses with a loud warning, mirroring the other transition gates.
-        """
-        from atdd.coach.gate.decision import GateContext, evaluate_transition_gate
-        from atdd.coach.gate.registry import GATE_REGISTRY
+        Registration is bound to EVALUATION, not to a CLI verb (#1619), and the
+        ``GATE_REGISTRY.is_empty() -> return 0`` fast path that used to stand here
+        is GONE — see :mod:`atdd.coach.gate.enforcement` for why both.
 
-        # Fast path + migration safety: an empty registry can never block, so
-        # skip the gate (and its issue fetch) entirely until checks are
-        # registered (#958/#1017). This keeps the shipped behavior a true no-op.
-        if GATE_REGISTRY.is_empty():
-            return 0
+        ``force`` bypasses with a loud warning, mirroring the other transition
+        gates.
+        """
+        from atdd.coach.gate.decision import GateContext
+        from atdd.coach.gate.enforcement import enforce_transition_gate
 
         issue = self._fetch_issue(issue_number)
         if not issue:
@@ -422,7 +419,7 @@ class IssueLifecycle:
             to_phase=target_status.upper(),
             worktree=self.target_dir,
         )
-        outcome = evaluate_transition_gate(GATE_REGISTRY, self._load_config(), ctx)
+        outcome = enforce_transition_gate(self._load_config(), ctx)
         if outcome.proceed:
             return 0
 
@@ -433,10 +430,11 @@ class IssueLifecycle:
         # is "blocked by 0 failing gate check(s)" and then lists nothing — a
         # refusal that names no reason, which is the same defect class as the
         # vacuous pass this verdict was added to remove.
+        to_phase = target_status.upper()
         if force:
             print(
                 f"::warning::Transition gate bypassed (--force) for "
-                f"{from_phase} -> {target_status.upper()}; "
+                f"{from_phase} -> {to_phase}; "
                 f"{len(outcome.blockers)} check(s) blocked "
                 f"({len(outcome.failures)} failed, "
                 f"{len(outcome.unobservable)} could not be checked)."
@@ -444,7 +442,7 @@ class IssueLifecycle:
             return 0
 
         print(
-            f"\nError: Transition {from_phase} -> {target_status.upper()} blocked "
+            f"\nError: Transition {from_phase} -> {to_phase} blocked "
             f"by {len(outcome.blockers)} gate check(s):"
         )
         for f in outcome.failures:
@@ -453,7 +451,7 @@ class IssueLifecycle:
         # the work, an unobservable check means make the check able to look.
         for u in outcome.unobservable:
             print(f"  ? [{u.gate_id} / {u.rule_id}] COULD NOT CHECK: {u.message}")
-        print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
+        print(f"  Bypass: atdd coach transition {issue_number} {to_phase} --force")
         return 1
 
     def transition(self, issue_number: int, status: str, force: bool = False) -> int:
@@ -469,11 +467,15 @@ class IssueLifecycle:
         label swap, the store-first write, and the manifest mirror; COMPLETE
         also auto-archives.
 
-        NOTE: this path intentionally does NOT register the operator-approval
-        gate check — only the ``atdd coach transition`` verb (and the deprecated
-        ``atdd issue --status`` shim that delegates to it) does. That preserves
-        the historical behavior where ``atdd update``/``atdd archive`` never
-        enforced the operator token.
+        NOTE (#1619): this path is now held to the same gates as the CLI verb.
+        It used to escape them — registration lived at the ``atdd coach
+        transition`` verb dispatch, so a programmatic caller evaluated an empty
+        registry and proceeded. That was described as preserving the historical
+        behaviour where ``atdd update``/``atdd archive`` never enforced the
+        operator token; what it actually preserved was a bypass, since whether a
+        gated edge enforces must depend on the edge, not on which entry point the
+        caller reached for. ``enforce_transition_gate`` registers before deciding,
+        so every caller of ``apply_transition`` gets the same checks.
 
         Args:
             issue_number: GitHub issue number.
