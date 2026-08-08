@@ -104,28 +104,14 @@ def scan_store_bindings(control_root: Optional[Path] = None) -> List[Violation]:
     neither the ``github_api`` nor the ``platform`` marker and is therefore
     selected by ``atdd validate coach --local --skip-api`` rather than silently
     deselected by its marker expression.
+
+    The row read is shared with the train-reference scanner (#1590) rather than
+    written twice: two copies of "which work items are issue-backed" is a place
+    for the two scans to silently disagree about their own population.
     """
-    from atdd.coach.commands.issue_feature_binding import (
-        GITHUB_PROVIDER, ISSUE_REF_KIND, _open_store,
+    from atdd.coach.validators._store_issue_rows import issue_backed_rows
+
+    return scan_feature_bindings(
+        issue_backed_rows(control_root, fields=("feature", "body")),
+        plan_root=control_root,
     )
-
-    store = _open_store(control_root)
-    rows = store.conn.execute(
-        "SELECT r.ref_value, o.state, o.data FROM external_refs r "
-        "JOIN objects o ON o.uid = r.object_uid "
-        "WHERE r.provider = ? AND r.ref_kind = ?",
-        (GITHUB_PROVIDER, ISSUE_REF_KIND),
-    ).fetchall()
-
-    import json
-
-    issues: List[Dict[str, Any]] = []
-    for ref_value, state, data in rows:
-        payload = json.loads(data) if data else {}
-        issues.append({
-            "number": ref_value,
-            "status": state,
-            "feature": payload.get("feature"),
-            "body": payload.get("body"),
-        })
-    return scan_feature_bindings(issues, plan_root=control_root)

@@ -1421,53 +1421,30 @@ class IssueManager:
     def _validate_train_against_trains_yaml(
         self, train_value: str,
     ) -> Tuple[bool, List[str]]:
-        """Cross-reference train value against _trains.yaml.
+        """Cross-reference a train value against the repository's train registry.
 
-        Returns (valid, messages). If _trains.yaml doesn't exist, passes (no constraint).
+        Delegates to the planner-side resolution primitive (#1590) rather than
+        re-reading the registry here. The local reader this replaced knew only
+        exact ``_trains.yaml`` ``train_id`` entries plus loose flat
+        ``plan/_trains/*.yaml`` stems, so it REJECTED a legitimate legacy alias:
+        ``0001-self-compliance-validate`` is registered nowhere by that name and
+        resolves only through ``plan/_trains/_aliases.yaml`` (#1421), which the
+        old reader never opened. It also could not see a typed train's nested
+        manifest. One resolution, shared with the write-time guards and the
+        coach.train-reference validator, is the only way all three agree.
+
+        Returns ``(valid, messages)``. A repo with no ``plan/`` tree passes: there
+        is no registry to cross-reference against.
         """
-        plan_dir = self.target_dir / "plan"
-        valid_ids = self._registered_train_ids(plan_dir)
+        from atdd.planner.commands.train_binding import plan_is_available, resolve_train
 
-        if not valid_ids:
-            # No trains defined — skip cross-ref
+        if not plan_is_available(self.target_dir):
             return True, []
 
-        if train_value in valid_ids:
-            return True, [f"  Train: {train_value} — VALID (in _trains.yaml)"]
-
-        return False, [f"  Train: {train_value} — NOT FOUND in _trains.yaml"]
-
-    @staticmethod
-    def _registered_train_ids(plan_dir: Path) -> set:
-        """Every known train id: the _trains.yaml registry plus loose _trains/ stems."""
-        valid_ids: set = set()
-
-        trains_file = plan_dir / "_trains.yaml"
-        if trains_file.exists():
-            with open(trains_file) as f:
-                data = yaml.safe_load(f) or {}
-            valid_ids.update(IssueManager._train_ids_in_registry(data))
-
-        trains_dir = plan_dir / "_trains"
-        if trains_dir.exists():
-            valid_ids.update(f.stem for f in trains_dir.glob("*.yaml"))
-
-        return valid_ids
-
-    @staticmethod
-    def _train_ids_in_registry(data: dict) -> set:
-        """Train ids inside the nested {theme: {category: [train]}} registry shape."""
-        train_ids: set = set()
-        for categories in data.get("trains", {}).values():
-            if not isinstance(categories, dict):
-                continue
-            for trains_list in categories.values():
-                if not isinstance(trains_list, list):
-                    continue
-                train_ids.update(t.get("train_id", "") for t in trains_list)
-
-        train_ids.discard("")
-        return train_ids
+        verdict = resolve_train(train_value, self.target_dir)
+        if verdict.resolved:
+            return True, [f"  Train: {train_value} — VALID ({verdict.detail})"]
+        return False, [f"  Train: {train_value} — NOT REGISTERED ({verdict.detail})"]
 
     def _validate_pr_exists_for_branch(
         self, branch_name: str,
@@ -1545,40 +1522,18 @@ class IssueManager:
             return 1
         issue_number, issue, client = resolved
 
-        updated = []
+        updated: List[str] = []
 
-        # Status transition with validation
         if status:
-            status = status.upper()
-            current_labels, current_status = self._read_phase_labels(issue)
-            issue_body = issue.get("body", "") or ""
-
-            if not self._transition_gates_pass(
-                issue_number, issue_id, issue_body, current_status, status,
-                branch, train, force,
-            ):
+            applied = self._apply_status_transition(
+                client, issue_number, issue_id, issue,
+                status.upper(), branch, train, force,
+            )
+            if applied is None:
                 return 1
+            updated.append(applied)
 
-            # #1452: STORE FIRST, LABEL AS ITS PROJECTION. The order matters and
-            # is load-bearing, not cosmetic. `atdd:<PHASE>` is a *rendering* of
-            # `objects.state`, so the source of truth must move before the
-            # artifact derived from it. Writing the label first is how 236 issues
-            # (56%) ended up carrying a phase their store never earned: the
-            # projection landed, something failed after it, and the label was
-            # left asserting a transition that never happened.
-            self._update_manifest_status(issue_number, status)
-
-            # Project the store's new state onto GitHub. This is the sole
-            # authoritative `atdd:*` label write in the codebase — enforced by
-            # coach.issue.phase-label-projection-only.
-            if not self._write_phase_label(client, issue_number, current_labels, status):
-                # Exit red. Reporting success here is how a half-applied transition
-                # becomes an invisible one: CI reads 0 and moves on (#1621).
-                return 1
-            updated.append(f"status: {status}")
-
-        # Validate branch prefix (every branch = a worktree)
-        if branch and not self._branch_prefix_allowed(branch):
+        if not self._field_writes_allowed(branch, train, transitioning=bool(status)):
             return 1
 
         updated.extend(
@@ -1586,15 +1541,79 @@ class IssueManager:
                 issue_number, branch, train, feature_urn, archetypes
             )
         )
-
-        if updated:
-            print(f"Updated #{issue_number}:")
-            for u in updated:
-                print(f"  {u}")
-        else:
-            print("Nothing to update.")
-
+        self._report_updates(issue_number, updated)
         return 0
+
+    def _apply_status_transition(
+        self,
+        client: Any,
+        issue_number: int,
+        issue_id: str,
+        issue: dict,
+        status: str,
+        branch: Optional[str],
+        train: Optional[str],
+        force: bool,
+    ) -> Optional[str]:
+        """Run the phase transition; the line to report, or None having failed."""
+        current_labels, current_status = self._read_phase_labels(issue)
+        issue_body = issue.get("body", "") or ""
+
+        if not self._transition_gates_pass(
+            issue_number, issue_id, issue_body, current_status, status,
+            branch, train, force,
+        ):
+            return None
+
+        # #1452: STORE FIRST, LABEL AS ITS PROJECTION. The order matters and
+        # is load-bearing, not cosmetic. `atdd:<PHASE>` is a *rendering* of
+        # `objects.state`, so the source of truth must move before the
+        # artifact derived from it. Writing the label first is how 236 issues
+        # (56%) ended up carrying a phase their store never earned: the
+        # projection landed, something failed after it, and the label was
+        # left asserting a transition that never happened.
+        self._update_manifest_status(issue_number, status)
+
+        # Project the store's new state onto GitHub. This is the sole
+        # authoritative `atdd:*` label write in the codebase — enforced by
+        # coach.issue.phase-label-projection-only.
+        if not self._write_phase_label(client, issue_number, current_labels, status):
+            # Exit red. Reporting success here is how a half-applied transition
+            # becomes an invisible one: CI reads 0 and moves on (#1621).
+            return None
+        return f"status: {status}"
+
+    def _field_writes_allowed(
+        self, branch: Optional[str], train: Optional[str], *, transitioning: bool
+    ) -> bool:
+        """Every gate a BARE FIELD WRITE must pass before anything is written.
+
+        Refused HERE, ahead of ``_apply_text_updates``, so a rejected value does
+        not take the other fields in the same request down with it half-written.
+
+        #1590: the train cross-reference belongs in this set. It used to run only
+        from ``_transition_gates_pass``, which runs only when ``--status`` is
+        supplied — so ``atdd update <N> --train <anything>`` was the repository's
+        only functional train setter AND its only unvalidated one. Proven: it
+        accepted ``train:bogus:does-not-exist`` and printed "Updated". Skipped
+        while transitioning because the transition gate has already run it, and a
+        second run would print the same diagnosis twice.
+        """
+        if branch and not self._branch_prefix_allowed(branch):
+            return False
+        if train and not transitioning and not self._gate_train_crossref(train):
+            return False
+        return True
+
+    @staticmethod
+    def _report_updates(issue_number: int, updated: List[str]) -> None:
+        """Name what changed, or say plainly that nothing did."""
+        if not updated:
+            print("Nothing to update.")
+            return
+        print(f"Updated #{issue_number}:")
+        for line in updated:
+            print(f"  {line}")
 
     def _resolve_issue(self, issue_id: str) -> Optional[Tuple[int, dict, Any]]:
         """(issue_number, issue, client). None (after printing) when it cannot be read."""
@@ -1857,8 +1876,14 @@ class IssueManager:
         for msg in train_messages:
             print(msg)
         if not train_valid:
-            print(f"\nError: Train '{current_train}' (from manifest) not found in _trains.yaml")
-            print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
+            print(
+                f"\nError: Train '{current_train}' (from the store) does not "
+                f"resolve to a registered train"
+            )
+            print(
+                f"  Fix: atdd author issue --revise {issue_id} --train "
+                f"train:<subject>:<slug>   # validated at write time (#1590)"
+            )
             return False
         return True
 
@@ -1873,9 +1898,11 @@ class IssueManager:
             "  Fix:",
             "    1. cd into the issue's worktree (find via: git worktree list | grep <branch>):",
             "       cd /path/to/<feat-or-fix>-<slug>",
-            "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"0001-self-compliance-validate\")",
+            "    2. Pick a train_id from plan/_trains.yaml::trains[].train_id (e.g. \"train:<subject>:<slug>\")",
             "    3. Run:",
-            f"       atdd update {issue_id} --train <train_id>   # then: atdd coach transition {issue_id} {status}",
+            f"       atdd author issue --revise {issue_id} --train <train_id>   # then: atdd coach transition {issue_id} {status}",
+            "       (the non-deprecated setter; it resolves the train against the",
+            "        registry before writing, so an unregistered value is refused)",
             "  Why train: implementation-type issues require lineage to a Train past PLANNED",
             "  so cross-cutting work threads to a shared journey. (See `plan/_trains.yaml`.)",
         ):
@@ -1932,13 +1959,22 @@ class IssueManager:
             print(line)
 
     def _gate_train_crossref(self, train: str) -> bool:
-        """The --train value names a train registered in _trains.yaml."""
+        """The --train value resolves to a train this repository registers."""
         train_valid, train_messages = self._validate_train_against_trains_yaml(train)
         for msg in train_messages:
             print(msg)
         if not train_valid:
-            print(f"\nError: Train '{train}' not found in _trains.yaml")
-            print(f"  Fix: Use a valid train_id or add the train to plan/_trains.yaml")
+            # The verdict detail already names the registry, the manifest path
+            # probed and the candidates that would have resolved — printed above.
+            # Repeating a vaguer version of it here is how #1590's operators were
+            # told "not found in _trains.yaml" about a value that was never a
+            # train identity in the first place.
+            print(f"\nError: Train '{train}' does not resolve to a registered train")
+            print(
+                "  Fix: name a train the registry above lists, author the train "
+                "(atdd author train --spec <spec.yaml>), or register its alias in "
+                "plan/_trains/_aliases.yaml"
+            )
             return False
         return True
 

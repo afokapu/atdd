@@ -1,0 +1,108 @@
+schema_version: 1.1.0
+rule_id: coach.train-reference.resolved-train-has-interlocking
+kind: rule
+status: active
+name: The train an issue resolves to should carry an interlocking
+statement: >-
+  When an atdd-issue's declared train RESOLVES, the train it resolved to SHOULD be covered by an
+  interlocking the repository declares — some interlocking artifact routing through it — so a gate that
+  depends on the train's interlocking finds one instead of passing vacuously over an absent route.
+implementation:
+  type: validator
+  ref: test_issue_train_binding::test_resolved_trains_have_an_interlocking
+content:
+  normative_text: >-
+    This is the SECOND-ORDER dangling reference, deliberately held as its own rule rather than folded
+    into coach.train-reference.resolves-to-registered-train. The two failure modes are different in
+    kind and different in cost: a reference naming no registered train is broken lineage the operator
+    wrote, while a registered train nobody has authored an interlocking for is undischarged planning
+    debt. Collapsing them into one rule would force one disposition on both, and the measured
+    populations are two orders of magnitude apart.
+
+    A registered train with no interlocking is still a dangling reference, one hop further out: the
+    issue resolves to a train, the train resolves to no route, and a gate asking "did this train's
+    interlocking hold?" gets no subject. That gate then either fails cryptically or — worse — passes
+    over nothing at all. Operator ruling, 2026-08-03: the check is worth having, so it is declared,
+    measured and reported.
+
+    Coverage is read from the repository's OWN interlocking home through the shared discovery
+    primitive, and a route may name its train by train_id or by train_path — both count, so a registry
+    spelling difference is never read as a missing interlocking.
+  fix_hint: |-
+    The named issue resolves to a registered train that no interlocking in this
+    repository routes through. This is planning debt, not a broken write — the
+    reference itself is fine.
+
+      1. See which interlockings exist and what they route through:
+           ls plan/_trains/_interlockings/
+           cat plan/_trains/_interlockings.yaml
+      2. Either add a route for this train to an existing interlocking whose
+         journey it belongs to, or author a new one:
+           atdd author interlocking --spec <spec.yaml>
+         Each route names its train by train_path (the per-train manifest) and by
+         train_id; either spelling is matched, so use the one the surrounding
+         routes use.
+      3. Do NOT repoint the issue at a different train to silence this. The
+         reference is correct; the interlocking is the thing that is missing.
+
+    Disposition is ADVISORY with a recorded baseline. Measured 2026-08-03 on
+    ff55607b: 6 of the 16 registered trains carry no interlocking route, and 148
+    of the 159 non-terminal work items whose train resolves name one of those 6.
+    Two interlocking artifacts exist and between them they route through 10 of
+    the 16 trains — note that the count is per-ROUTE, not per-file, so "two
+    files" is not "two covered trains".
+
+    Paying this down is #1578's work, and its NEW-D already describes the same
+    advisory -> per-wagon ratchet -> strict path. Re-record the baseline in this
+    node's terms as it shrinks; escalate to strict when it reaches zero. NEVER
+    raise it to green a red build (#1617).
+  exceptions:
+  - >-
+    An issue whose train does not resolve is reported by
+    coach.train-reference.resolves-to-registered-train and NOT here: there is no resolved train whose
+    interlocking could be missing, and reporting both would double-count one defect.
+  - >-
+    A work_item with no train at all is out of scope, for the same reason it is out of scope for the
+    reference rule.
+  - >-
+    Terminal issues (COMPLETE / OBSOLETE) are historical and are not reported.
+  - >-
+    A repository declaring no interlockings at all is not reported per-issue. Nothing has been claimed
+    and then left unrouted; the repo has simply not adopted interlockings, which is a posture, not a
+    dangling reference.
+metadata:
+  severity: 2
+  disposition: advisory
+  introduced_in: 4.39.0
+  aliases: []
+terms:
+- term_id: interlocking_coverage
+  text: >-
+    some interlocking artifact the repository declares carries a route whose train is this one, matched
+    by the route's train_id or by its train_path.
+  values:
+    home: plan/_trains/_interlockings
+    index: plan/_trains/_interlockings.yaml
+    route_keys: "routes[].train_id | routes[].train_path"
+- term_id: second_order_reference
+  text: >-
+    the issue -> train -> interlocking chain. The reference rule holds the first hop; this rule holds
+    the second, so a gate reading the interlocking has a subject to read.
+- term_id: disposition_rationale
+  text: advisory with a recorded baseline; the debt is #1578's to pay down.
+  values:
+    measured_2026_08_03: "6 of 16 registered trains carry no interlocking route; 148 of 159 resolving work items name one of them, on ff55607b"
+    measured_2026_08_04: >-
+      149 of 160. The +1 is #1590 ITSELF: it declared no train until this issue's own
+      `atdd author issue --revise --train` wrote one, and the train it names
+      (train:self-compliance:validate-lifecycle) is one of the 6 uncovered. Recorded rather
+      than smoothed over — a baseline whose author quietly excluded their own contribution
+      is not a baseline. The train-count halves are unchanged: still 6 of 16, still 2
+      artifacts carrying 10 routes.
+    interlocking_artifacts: "2 files, 10 routed trains — coverage is per-route, not per-file"
+    ratchet_path: "#1578 NEW-D: advisory -> per-wagon ratchet -> strict"
+    escalate_when: "the uncovered set reaches zero"
+    note_on_drift: >-
+      This count moves whenever any issue gains or loses a train, so treat it as a dated
+      measurement rather than a live invariant. The 6-of-16 train figure is the stable one
+      and the one #1578 actually ratchets against; the per-issue count is downstream of it.

@@ -132,6 +132,31 @@ def _require_resolvable_feature(
         raise PublishError(f"invalid --feature: {verdict.detail}")
 
 
+def _require_resolvable_train(
+    train: Optional[str], control_root: Optional[Path]
+) -> None:
+    """Refuse a train reference that resolves to no registered train (#1590).
+
+    Unlike ``--feature``, a train is OPTIONAL: it is required only past PLANNED
+    and only for the issue types that require lineage, so ``None`` is accepted
+    and nothing is derived from the body. What is refused is a train the operator
+    DID name and the repository does not register — which before #1590 was
+    written verbatim by every setter (proven: ``train:bogus:does-not-exist``).
+
+    Skipped when there is no ``plan/`` tree to resolve against, for the same
+    reason the feature guard is: a hermetic caller minting into a bare temp
+    directory has no registry to check, and failing it for the absence of one it
+    never had would be the guard misfiring rather than working.
+    """
+    from atdd.planner.commands.train_binding import plan_is_available, resolve_train
+
+    if train is None or not plan_is_available(control_root):
+        return
+    verdict = resolve_train(train, control_root)
+    if not verdict.resolved:
+        raise PublishError(f"invalid --train: {verdict.detail}")
+
+
 def _derive_feature(body: str, control_root: Optional[Path]) -> Optional[str]:
     """The feature URN implied by the body's Metadata table, when it resolves.
 
@@ -185,6 +210,10 @@ def publish_issue(
                 "in plan/, and none could be derived from the body's Feature row"
             )
         _require_resolvable_feature(feature, control_root)
+
+    # #1590: refused BEFORE the store connection too, so a mint naming a train
+    # the repo does not register writes nothing at all.
+    _require_resolvable_train(train, control_root)
 
     data: Dict[str, Any] = {
         "title": title, "type": issue_type, "branch": branch,
@@ -324,6 +353,7 @@ def revise_issue(
     issue_type: Optional[str] = None,
     feature: Optional[str] = None,
     title: Optional[str] = None,
+    train: Optional[str] = None,
     control_root: Optional[Path] = None,
 ) -> RevisionResult:
     """Revise an issue-backed work item store-first, then project to GitHub.
@@ -342,14 +372,28 @@ def revise_issue(
     of its own because the issue title is not derived from the body: revising the
     body moves its H1 and leaves the title stale, which is how #1636 came to
     disagree with itself.
+
+    ``train`` is honoured here from #1590 onwards. #1661 REFUSED it by name
+    ("create-time metadata; set it when the issue is authored"), which closed the
+    silent-ignore correctly but left the repository with no non-deprecated way to
+    set or correct a train: the only functional setter was the deprecated
+    ``atdd update <N> --train``, and that one validated nothing. Defining the
+    semantics — write it, and refuse a value the registry does not resolve — is
+    what makes the validated path non-deprecated. Like ``feature``, a revision
+    naming no train leaves an existing reference untouched.
     """
-    if body is None and issue_type is None and feature is None and title is None:
+    if (
+        body is None and issue_type is None and feature is None
+        and title is None and train is None
+    ):
         raise PublishError(
-            "revision requires --body-file, --feature, --title and/or explicit --type"
+            "revision requires --body-file, --feature, --title, --train "
+            "and/or explicit --type"
         )
 
     if feature is not None:
         _require_resolvable_feature(feature, control_root)
+    _require_resolvable_train(train, control_root)
 
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
@@ -370,7 +414,7 @@ def revise_issue(
         try:
             obj = revise_work_item_issue(
                 conn, issue_number, body=body, issue_type=issue_type,
-                feature=feature, title=title,
+                feature=feature, title=title, train=train,
             )
         except Exception as exc:
             raise PublishError(

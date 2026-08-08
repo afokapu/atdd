@@ -1,0 +1,48 @@
+urn: feature:govern-lifecycle:bind-issue-train
+wagon: wagon:govern-lifecycle
+description: 'Hold every atdd-issue''s train reference to the repository''s own train
+  registry: a validator resolves the declared train against plan/_trains.yaml (directly
+  or through plan/_trains/_aliases.yaml) and reports a resolved train that has no
+  interlocking, and every sanctioned setter — create, revise, and the deprecated
+  update — refuses a train that does not resolve, so the reference is validated at
+  write time and enforced repo-wide thereafter. Resolution reads the registry of the
+  repository under scan, never atdd''s own, so a consumer repository is held to its
+  own trains.'
+sizing:
+  wmbts: 2
+  footprint_score: 6
+  footprint_size: M
+wmbts:
+- wmbt:govern-lifecycle:C018
+- wmbt:govern-lifecycle:Y008
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 3
+      rationale: 'The three train-setting surfaces gain a write-time guard: `atdd
+        author issue --train` on create, `atdd author issue --revise --train` (newly
+        honoured rather than refused), and the deprecated `atdd update <N> --train`
+        that was the only functional setter'
+    - type: validators
+      count: 1
+      rationale: 'One disposition-gated coach validator carrying both rules: a
+        declared train must resolve to a registered train, and a resolved train
+        should have an interlocking'
+    application:
+    - type: use_cases
+      count: 2
+      rationale: resolve a declared train reference against a repo's registry + alias
+        map; index which interlocking routes cover which train
+    domain:
+    - type: value_objects
+      count: 1
+      rationale: "TrainBinding — the declared train reference plus its verdict\
+        \ against the repo's registry (resolved, unbound, malformed or unregistered)\
+        \ and the interlockings covering the train it resolved to"
+    integration:
+    - type: repositories
+      count: 1
+      rationale: Plan-graph reader over plan/_trains.yaml, plan/_trains/_aliases.yaml
+        and the interlocking home, rooted on the repository under scan so a consumer
+        repo resolves against its own declarations

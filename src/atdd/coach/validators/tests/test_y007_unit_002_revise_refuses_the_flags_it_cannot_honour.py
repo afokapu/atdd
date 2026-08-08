@@ -47,11 +47,17 @@ _SEED_TITLE = "revise-refusal-probe"
 # The flags the revise path declares no semantics for, and the reason each is
 # refused rather than written. Kept as data so the refusal set is one list, and
 # so Y007-UNIT-003 can assert this is exactly the set the guard tolerates.
+#
+# `--train` LEFT this set in #1590, which gave the revise path real semantics for
+# it: resolve against the repo's train registry, refuse what does not resolve,
+# write what does. It is now covered by Y008-UNIT-002 as a HONOURED flag. The
+# original entry was right for #1661 — a flag with no semantics must be refused,
+# not dropped — but refusing it left the repository with no validated
+# non-deprecated way to set a train at all.
 UNSUPPORTED_ON_REVISE: dict[str, str] = {
     "--slug": "the work item's uid, which a revision does not move",
     "--status": "owned by the phase machine",
     "--branch": "create-time metadata",
-    "--train": "create-time metadata",
 }
 
 

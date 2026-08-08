@@ -129,9 +129,11 @@ def test_issues_have_train_field(github_issues, github_project_fields, github_pr
 
     assert not violations, (
         f"\nIssues past PLANNED must have a valid Train field (not TBD, not blank).\n"
-        f"Fix: Run `atdd update <issue_number> --train <train_id>` "
-        f'(e.g. "atdd update 467 --train 0001-self-compliance-validate"; '
-        f"see plan/_trains.yaml::trains[].id for valid train ids).\n\n"
+        f"Fix: Run `atdd author issue --revise <issue_number> --train <train_id>` "
+        f'(e.g. "atdd author issue --revise 467 --train train:self-compliance:validate-lifecycle"; '
+        f"see plan/_trains.yaml::trains[].train_id for valid train ids). That path "
+        f"resolves the train against the registry before writing (#1590), so an "
+        f"unregistered value is refused rather than recorded.\n\n"
         f"Violations ({len(violations)}):\n  " + "\n  ".join(violations)
     )
 
