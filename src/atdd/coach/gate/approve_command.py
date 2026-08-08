@@ -38,19 +38,24 @@ sound, at the right path — authorising two edges the issue had never crossed. 
 mint now refuses unless the phase machine declares the edge AND the issue is
 standing on it. See ``phase_edges``.
 
-This is a PRECONDITION, not gate execution: running the edge's own gates at mint
-time is #1670's slice C and is blocked. A gate cannot be run for an edge the issue
-is not standing on, so this question is logically prior and needs no gate at all.
+WHETHER ANYTHING WAS CHECKED (#1670 slice C). Everything above concerns the
+token's provenance, location and validity window; none of it touches what the
+token ASSERTS ABOUT THE WORK. This command parsed, signed and wrote without
+consulting ``GATE_REGISTRY`` once, so on ``#1726`` — measured 2026-08-03 — both
+approve calls SUCCEEDED while all five of that issue's transitions were REFUSED
+by the template gate, leaving two tokens for an issue at ``INIT``. The mint now
+runs the edge's substantive checks first and REFUSES TO WRITE unless they
+proceed. See :mod:`atdd.coach.gate.mint_gate`, including why it covers
+``SMOKE->REFACTOR`` and no other edge.
 
-FOUR QUESTIONS, FOUR ISSUES, ALL INDEPENDENT. #1376 answers WHERE the receipt
-lives, #1718 answers WHAT it says produced it, #1721 answers WHAT IT IS FOR —
-which branch, and for how long — and #1735 answers WHETHER THE EDGE WAS LIVE at
-all. All four are needed: a correctly attributed token at a path the gate cannot
-read is as useless as a findable one that names the wrong actor; both are as
-useless as one that authorises every branch forever; and all three are worse than
-useless if they authorise a transition the issue was never in a position to make.
-Provenance, scope and certification are different properties, and fixing any one
-of them does not touch the others.
+FOUR INDEPENDENT QUESTIONS, four answers, none of which subsumes another. #1376
+answers WHERE the receipt lives, #1718 WHAT it says produced it, #1721 WHAT IT IS
+FOR — which branch, and for how long — and #1670 WHETHER IT CERTIFIES ANYTHING.
+All four are needed: a correctly attributed token at a path the gate cannot read
+is as useless as a findable one that names the wrong actor; both are as useless
+as one that authorises every branch forever; and all three are still only a
+signed assertion that somebody pressed a key until the mint depends on an
+observation.
 """
 from __future__ import annotations
 
@@ -74,6 +79,7 @@ from atdd.coach.gate.phase_edges import (
     phase_machine,
     resolve_issue_phase,
 )
+from atdd.coach.gate.mint_gate import decide_mint
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +239,13 @@ def run(
 
     start = target_dir or Path.cwd()
 
+    # THREE PRECONDITIONS, all asked BEFORE the token directory is created, so a
+    # refusal leaves nothing behind. Order is deliberate: #1735's edge check and
+    # #1721's store lookup are cheap structural questions — is this edge live, is
+    # there work bound here at all — while #1670's runs the edge's gate checks. The
+    # cheap questions first means an issue on the wrong edge never pays for a gate
+    # run, and the operator gets the more fundamental refusal rather than a
+    # downstream one.
     # #1735: is the issue STANDING on this edge? The mint read no issue state at
     # all, so two tokens were written for #1726 — PLANNED->RED and
     # SMOKE->REFACTOR — while it sat at INIT with all five of its transitions
@@ -242,10 +255,11 @@ def run(
     # nothing behind.
     #
     # A PRECONDITION, NOT A GATE RUN. Running the edge's own gates at mint time is
-    # #1670's slice C and is blocked on #1632/#1643. This is the narrower question
-    # that is logically prior: a gate cannot be run for an edge the issue is not
-    # standing on. It resolves the work item through external_refs first and fails
-    # closed when it cannot — the shape SmokeExecutionGateCheck already uses.
+    # #1670's slice C, which now lives at the bottom of this block. This is the
+    # narrower question that is logically prior and needs no gate at all: a gate
+    # cannot be run for an edge the issue is not standing on — which is why it is
+    # asked first even though both refuse. It resolves the work item through
+    # external_refs and fails closed when it cannot — SmokeExecutionGateCheck's shape.
     standing = resolve_issue_phase(start, ns.issue)
     if not standing:
         print(f"Error: cannot approve a transition for #{ns.issue} — {standing.reason}")
@@ -266,8 +280,7 @@ def run(
 
     # #1721: what the approval is FOR. Resolved from the State Store's issue
     # binding, not from `git rev-parse` in this directory — see approval_binding
-    # for why cwd would re-create the coupling #1376 removed. Asked BEFORE the
-    # token directory is created, so a refusal leaves nothing behind.
+    # for why cwd would re-create the coupling #1376 removed.
     binding = resolve_issue_branch(start, ns.issue)
     if not binding:
         # REFUSE rather than mint unbound. Falling back to a branchless token
@@ -276,6 +289,25 @@ def run(
         # legacy tokens are tolerated because they predate the binding; there is
         # no reason to add a 170th.
         print(f"Error: cannot mint an approval for #{ns.issue} — {binding.reason}")
+        return 1
+
+    # #1670 slice C — THE CONDITIONAL MINT. Run the checks this edge registers and
+    # refuse to sign unless they proceed. Also before anything is written:
+    # ApprovalTokenGateCheck reads the filesystem, so a mint that writes the file
+    # and then prints an objection has authorised the transition regardless of its
+    # exit code. The refusal has to BE the absence of the artifact.
+    #
+    # `decide_mint` covers SMOKE->REFACTOR alone and returns proceed=True
+    # unconditionally for every other edge, so this block changes nothing for the
+    # four whose registry holds only this feature's own approval check.
+    decision = decide_mint(start, ns.issue, from_phase, to_phase)
+    if not decision.proceed:
+        logger.warning(
+            "approval mint refused: the checks registered for this edge did not proceed",
+            extra={"issue": ns.issue, "transition": f"{from_phase}->{to_phase}",
+                   "verdict": decision.verdict.value if decision.verdict else None},
+        )
+        print(decision.render())
         return 1
 
     # #1376: mint against the SHARED Control Root (#1346), the same base
@@ -324,6 +356,15 @@ def run(
     # An approval whose two limits are invisible at the moment it is granted is
     # how a gate ends up refusing for a reason nobody was told about.
     print(f"  bound to branch {binding.branch} — valid until {expires_at}")
+    if decision.conditional:
+        # SAY WHAT WAS CERTIFIED, on the success path too. A mint whose only check
+        # reported NOT_APPLICABLE verified nothing, and a bare ✓ reads identically
+        # to one that verified an obligation — which is the vacuous green this
+        # slice removes, re-entering through the line the operator actually reads.
+        #
+        # Placed ABOVE the token line for the same reason #1721 placed its own
+        # above it: that line is load-bearing output, not a footer.
+        print(decision.render())
     # The token path stays the LAST line: `atdd coach approve`'s output is parsed
     # for it (C012-SMOKE-001 takes the real path from the real command rather than
     # assuming one), so anything added below would silently break that reader.

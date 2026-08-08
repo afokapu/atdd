@@ -39,7 +39,7 @@ def test_y007_unit_001_no_tty_pypi_prompt_resolves_without_input(tmp_path, monke
          ), \
          patch(
              "atdd.coach.commands.upgrader.auto_upgrade",
-             return_value=True,
+             return_value=(True, ""),
          ) as mock_upgrade, \
          patch("sys.stdin.isatty", return_value=False), \
          patch("builtins.input", side_effect=exploding_input):
