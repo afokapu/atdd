@@ -45,138 +45,20 @@ REPO_ROOT = find_repo_root()
 
 
 # ============================================================================
-# E008: Issue Train Enforcement (GitHub Issues)
+# E008: Issue Train Enforcement
 # ============================================================================
-
-
-def _load_valid_train_ids():
-    """Load all valid train IDs from plan/_trains.yaml and plan/_trains/*.yaml."""
-    plan_dir = REPO_ROOT / "plan"
-    trains_file = plan_dir / "_trains.yaml"
-    valid_ids = set()
-
-    if trains_file.exists():
-        with open(trains_file) as f:
-            data = yaml.safe_load(f) or {}
-        for theme_key, categories in data.get("trains", {}).items():
-            if isinstance(categories, dict):
-                for cat_key, trains_list in categories.items():
-                    if isinstance(trains_list, list):
-                        for t in trains_list:
-                            tid = t.get("train_id", "")
-                            if tid:
-                                valid_ids.add(tid)
-
-    trains_dir = plan_dir / "_trains"
-    if trains_dir.exists():
-        for f in trains_dir.glob("*.yaml"):
-            valid_ids.add(f.stem)
-
-    return valid_ids
-
-
-# Post-PLANNED phases where Train field is required
-_POST_PLANNED_STATUSES = {"RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE"}
-
-
-def test_issues_have_train_field(github_issues, github_project_fields, github_project_items):
-    """
-    SPEC-SESSION-VAL-0050: Issues must have a non-empty Train field
-
-    Given: Open issues in the GitHub Project (label: atdd-issue)
-    When: Checking the Train custom field value
-    Then: Issues past PLANNED phase must have Train != TBD and != blank
-          Issues at PLANNED phase get a warning if Train is TBD
-
-    E008 acceptance criteria: `atdd validate coach` fails if issue has no train assignment.
-    """
-    if "ATDD Train" not in github_project_fields:
-        pytest.skip("Train field not configured in Project")
-
-    violations = []
-    warnings_list = []
-
-    for issue in github_issues:
-        num = issue["number"]
-        item = github_project_items.get(num)
-        if not item:
-            continue
-
-        values = item["fields"]
-        train_value = (values.get("ATDD Train") or "").strip()
-        status_value = (values.get("ATDD Status") or "UNKNOWN").strip().upper()
-
-        is_empty = not train_value or train_value.upper() == "TBD"
-
-        if is_empty and status_value in _POST_PLANNED_STATUSES:
-            violations.append(
-                f"#{num} (status={status_value}): Train field is "
-                f"{'TBD' if train_value.upper() == 'TBD' else 'empty'}"
-            )
-        elif is_empty and status_value == "PLANNED":
-            warnings_list.append(
-                f"#{num} (status=PLANNED): Train field is TBD — "
-                f"required before transitioning past PLANNED"
-            )
-
-    if warnings_list:
-        w.warn(
-            f"Issue train assignment warnings ({len(warnings_list)}):\n  "
-            + "\n  ".join(warnings_list),
-            category=UserWarning,
-            stacklevel=1,
-        )
-
-    assert not violations, (
-        f"\nIssues past PLANNED must have a valid Train field (not TBD, not blank).\n"
-        f"Fix: Run `atdd update <issue_number> --train <train_id>` "
-        f'(e.g. "atdd update 467 --train 0001-self-compliance-validate"; '
-        f"see plan/_trains.yaml::trains[].id for valid train ids).\n\n"
-        f"Violations ({len(violations)}):\n  " + "\n  ".join(violations)
-    )
-
-
-def test_issue_train_references_valid_train_id(github_issues, github_project_fields, github_project_items):
-    """
-    SPEC-SESSION-VAL-0051: Issue Train field must reference a valid train_id
-
-    Given: Issues with a non-empty Train field
-    When: Cross-referencing against plan/_trains.yaml
-    Then: The Train value matches a known train_id
-
-    E008 acceptance criteria: Train value must reference a valid train_id from _trains.yaml.
-    """
-    valid_train_ids = _load_valid_train_ids()
-    if not valid_train_ids:
-        pytest.skip("No trains found in plan/_trains.yaml")
-
-    if "ATDD Train" not in github_project_fields:
-        pytest.skip("Train field not configured in Project")
-
-    invalid = []
-
-    for issue in github_issues:
-        num = issue["number"]
-        item = github_project_items.get(num)
-        if not item:
-            continue
-
-        train_value = (item["fields"].get("ATDD Train") or "").strip()
-
-        # Skip empty/TBD — handled by SPEC-SESSION-VAL-0050
-        if not train_value or train_value.upper() == "TBD":
-            continue
-
-        if train_value not in valid_train_ids:
-            invalid.append(
-                f"#{num}: Train='{train_value}' not found in _trains.yaml"
-            )
-
-    assert not invalid, (
-        f"\nIssue Train field values must reference valid train IDs from plan/_trains.yaml.\n"
-        f"Valid train IDs: {', '.join(sorted(list(valid_train_ids)[:10]))}...\n\n"
-        f"Invalid references ({len(invalid)}):\n  " + "\n  ".join(invalid)
-    )
+#
+# SPEC-SESSION-VAL-0050 / 0051 USED TO LIVE HERE as two validators reading the
+# "ATDD Train" custom field off the Projects v2 board. #1051 decommissioned the
+# board and #1761 removed the last of its read paths, this pair included.
+#
+# The enforcement did not go with them. `IssueManager._gate_train_required`
+# (coach/commands/issue.py) applies the same rule — a train is required past
+# PLANNED for implementation-type issues, and its value must resolve in
+# plan/_trains.yaml — reading the local manifest mirror at transition time,
+# which is where the lineage actually lives. That gate blocks the transition;
+# these validators could only report after the fact, and once the board was
+# gone they could only skip.
 
 
 # ============================================================================

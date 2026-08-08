@@ -1,8 +1,8 @@
 """
 GitHub API client for ATDD issue tracking.
 
-Wraps `gh` CLI for GitHub Issues, Projects v2, sub-issues, and labels.
-Requires `gh` CLI to be installed and authenticated with `project` scope.
+Wraps `gh` CLI for GitHub Issues, sub-issues, and labels.
+Requires `gh` CLI to be installed and authenticated.
 
 Usage:
     client = GitHubClient(repo="afokapu/atdd")
@@ -100,14 +100,14 @@ def _credential_in_play() -> str:
 class ProjectConfig:
     """GitHub repo configuration from .atdd/config.yaml.
 
-    The Projects v2 board was decommissioned in #1051; ``project_number`` /
-    ``project_id`` are retained as optional, no-longer-required fields so older
-    configs still load, but no board operation consumes them.
+    ``repo`` is the whole of it. #1051 decommissioned the Projects v2 board and
+    #1761 removed the ``project_number`` / ``project_id`` fields it left behind:
+    they were kept "optional" rather than deleted, which is precisely why the
+    board's write and bootstrap paths outlived its read paths. An unread key is
+    an invitation to write to it again.
     """
 
     repo: str
-    project_number: Optional[int] = None
-    project_id: Optional[str] = None
 
     @classmethod
     def from_config(cls, config_path: Path) -> "ProjectConfig":
@@ -132,19 +132,14 @@ class ProjectConfig:
                 "Run 'atdd init' to set up GitHub integration."
             )
 
-        return cls(
-            repo=github["repo"],
-            project_number=github.get("project_number"),
-            project_id=github.get("project_id"),
-        )
+        return cls(repo=github["repo"])
 
 
 class GitHubClient:
     """GitHub API client using `gh` CLI."""
 
-    def __init__(self, repo: str, project_id: Optional[str] = None):
+    def __init__(self, repo: str):
         self.repo = repo
-        self.project_id = project_id
         self._check_gh()
 
     def _check_gh(self) -> None:
@@ -367,54 +362,18 @@ class GitHubClient:
         ])
 
     # -------------------------------------------------------------------------
-    # Projects v2
-    # -------------------------------------------------------------------------
-
-    def set_project_field_number(
-        self, item_id: str, field_id: str, value: float
-    ) -> None:
-        """Set a number field on a project item."""
-        self._graphql(
-            f'mutation {{ updateProjectV2ItemFieldValue(input: {{ '
-            f'projectId: "{self.project_id}", itemId: "{item_id}", '
-            f'fieldId: "{field_id}", value: {{ number: {value} }} '
-            f'}}) {{ projectV2Item {{ id }} }} }}'
-        )
-
-    def rename_project_field(self, field_id: str, new_name: str) -> None:
-        """Rename a Project v2 field in-place (preserves existing values)."""
-        self._graphql(
-            f'mutation {{ updateProjectV2Field(input: {{ '
-            f'fieldId: "{field_id}", name: "{new_name}" '
-            f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id name }} '
-            f'... on ProjectV2SingleSelectField {{ id name }} }} }} }}'
-        )
-        logger.info("Renamed field %s → %s", field_id, new_name, extra={"field_id": field_id, "new_name": new_name})
-
-    def delete_project_field(self, field_id: str) -> None:
-        """Delete a Project v2 field."""
-        self._graphql(
-            f'mutation {{ deleteProjectV2Field(input: {{ '
-            f'fieldId: "{field_id}" '
-            f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} '
-            f'... on ProjectV2SingleSelectField {{ id }} }} }} }}'
-        )
-        logger.info("Deleted field %s", field_id, extra={"field_id": field_id})
-
-    # -------------------------------------------------------------------------
     # Batch prefetch (validator optimization)
     # -------------------------------------------------------------------------
 
     def prefetch_validator_data(self) -> Dict[str, Any]:
         """Fetch all data needed by coach validators in minimal API calls.
 
-        Combines multiple GraphQL queries into two batched requests (one for
-        project data, one for sub-issues which needs a preview header), plus
-        one REST call for issues. Replaces 7 sequential calls with 3 parallel.
+        Two parallel groups: one REST call set for issues, and two GraphQL
+        calls for sub-issues (which need a preview header).
 
         Returns dict with keys:
-            issues, complete_issues, project_fields, project_items,
-            sub_issues, closed_sub_issues
+            issues, complete_issues, all_open_issues, sub_issues,
+            closed_sub_issues
         """
         from concurrent.futures import ThreadPoolExecutor
 
@@ -426,85 +385,14 @@ class GitHubClient:
             results["complete_issues"] = self.list_issues_by_label("atdd:COMPLETE")
             results["all_open_issues"] = self.list_all_open_issues()
 
-        def _fetch_project_data():
-            """Fetch project fields + all items in one GraphQL call."""
-            owner, name = self.repo.split("/")
-            query = """
-            {
-              node(id: "%s") {
-                ... on ProjectV2 {
-                  fields(first: 30) {
-                    nodes {
-                      ... on ProjectV2Field { id name dataType }
-                      ... on ProjectV2SingleSelectField { id name dataType options { id name } }
-                    }
-                  }
-                  items(first: 100) {
-                    pageInfo { hasNextPage endCursor }
-                    nodes {
-                      id
-                      content { ... on Issue { number } }
-                      fieldValues(first: 30) {
-                        nodes {
-                          ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2Field { name } } }
-                          ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2Field { name } } }
-                          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2SingleSelectField { name } } }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            """ % self.project_id
-            data = self._graphql(query)
-            project = data.get("data", {}).get("node", {})
-
-            # Parse fields (data_type, options as {name: id})
-            fields_raw = project.get("fields", {}).get("nodes", [])
-            fields = {}
-            for f in fields_raw:
-                name = f.get("name")
-                if name:
-                    entry = {"id": f["id"], "data_type": f.get("dataType")}
-                    if "options" in f:
-                        entry["options"] = {
-                            opt["name"]: opt["id"] for opt in f["options"]
-                        }
-                    fields[name] = entry
-            results["project_fields"] = fields
-
-            # Parse items
-            items = {}
-            for item in project.get("items", {}).get("nodes", []):
-                content = item.get("content") or {}
-                number = content.get("number")
-                if number is None:
-                    continue
-                field_vals = {}
-                for fv in item.get("fieldValues", {}).get("nodes", []):
-                    field_info = fv.get("field") or {}
-                    fname = field_info.get("name")
-                    if not fname:
-                        continue
-                    if "text" in fv:
-                        field_vals[fname] = fv["text"]
-                    elif "number" in fv:
-                        field_vals[fname] = fv["number"]
-                    elif "name" in fv and fv["name"] != fname:
-                        field_vals[fname] = fv["name"]
-                items[number] = {"item_id": item["id"], "fields": field_vals}
-            results["project_items"] = items
-
         def _fetch_sub_issues():
             """Fetch open + closed sub-issues in two GraphQL calls (needs preview header)."""
             results["sub_issues"] = self.get_all_sub_issues("atdd-issue", "OPEN")
             results["closed_sub_issues"] = self.get_all_sub_issues("atdd-issue", "CLOSED")
 
-        with ThreadPoolExecutor(max_workers=3) as pool:
+        with ThreadPoolExecutor(max_workers=2) as pool:
             futures = [
                 pool.submit(_fetch_issues),
-                pool.submit(_fetch_project_data),
                 pool.submit(_fetch_sub_issues),
             ]
             for f in futures:

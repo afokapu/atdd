@@ -457,10 +457,7 @@ class IssueManager:
         from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
         try:
             project_config = ProjectConfig.from_config(self.config_file)
-            return GitHubClient(
-                repo=project_config.repo,
-                project_id=project_config.project_id,
-            )
+            return GitHubClient(repo=project_config.repo)
         except GitHubClientError as e:
             logger.debug("GitHub client not available: %s", e, extra={"error": str(e)})
             return None

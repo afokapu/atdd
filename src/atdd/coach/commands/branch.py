@@ -106,7 +106,7 @@ class BranchManager:
         pr_title = f"{prefix}: {slug.replace('-', ' ')} (#{issue_number})"
         try:
             proj = ProjectConfig.from_config(self.config_file)
-            client = GitHubClient(repo=proj.repo, project_id=proj.project_id)
+            client = GitHubClient(repo=proj.repo)
             issue_data = client.get_issue(issue_number)
             gh_title = issue_data.get("title", "")
             if gh_title:
