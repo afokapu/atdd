@@ -43,7 +43,7 @@ def test_e008_unit_006_first_run_names_its_successor(tmp_path, monkeypatch, caps
              "atdd.coach.commands.upgrader.is_outdated",
              return_value=(True, "3.106.0", "4.27.0"),
          ), \
-         patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=True), \
+         patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=(True, "")), \
          patch("sys.stdin.isatty", return_value=False), \
          patch("builtins.input", side_effect=exploding_input):
         rc = Upgrader(repo_root=tmp_path).run(yes=False)
@@ -77,7 +77,7 @@ def test_e008_unit_006_first_run_does_not_replace_itself(tmp_path, monkeypatch):
              "atdd.coach.commands.upgrader.is_outdated",
              return_value=(True, "3.106.0", "4.27.0"),
          ), \
-         patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=True), \
+         patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=(True, "")), \
          patch("sys.stdin.isatty", return_value=False), \
          patch("builtins.input", side_effect=exploding_input):
         for p in patches:

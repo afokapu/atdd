@@ -43,7 +43,7 @@ def test_y007_unit_005_no_tty_run_states_its_decision(tmp_path, monkeypatch, cap
              "atdd.coach.commands.upgrader.is_outdated",
              return_value=(True, "3.106.0", "4.27.0"),
          ), \
-         patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=True), \
+         patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=(True, "")), \
          patch("sys.stdin.isatty", return_value=False), \
          patch("builtins.input", side_effect=exploding_input):
         Upgrader(repo_root=tmp_path).run(yes=False)
