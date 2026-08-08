@@ -29,9 +29,11 @@ fail OPEN: the one moment the machine cannot be read is the one moment a
 hardcoded copy is most likely to disagree with it.
 
 PRECONDITION, NOT GATE EXECUTION. Running the edge's gates at mint time is #1670's
-slice C and is blocked on #1632/#1643. This is the far narrower question that is
+slice C, which has since landed in :mod:`atdd.coach.gate.mint_gate` and runs after
+this module in ``approve_command``. This is the far narrower question that is
 logically prior and needs no gate at all: a gate cannot be run for an edge the
-issue is not standing on.
+issue is not standing on — so it is asked first, and an issue on the wrong edge
+never pays for a gate run.
 """
 from __future__ import annotations
 
