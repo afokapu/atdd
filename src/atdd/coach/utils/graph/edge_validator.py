@@ -47,6 +47,7 @@ class IssueType(Enum):
 
     ORPHAN = "orphan"  # URN declared but not referenced
     BROKEN = "broken"  # URN referenced but not resolvable
+    UNDECLARED = "undeclared"  # URN referenced and resolvable, but declared by nothing
     NON_DETERMINISTIC = "non_deterministic"  # URN resolves to multiple artifacts
     MISSING_EDGE = "missing_edge"  # Required edge not present
     CYCLE = "cycle"  # Circular dependency detected
@@ -260,17 +261,28 @@ class EdgeValidator:
         self, families: Optional[List[str]] = None
     ) -> List[ValidationIssue]:
         """
-        Find broken URN references (referenced but not resolvable).
+        Find URN references that no artefact backs.
 
-        Broken URNs are referenced in the graph but don't resolve to
-        any filesystem artifact.  Uses resolution metadata stored on
-        each node by GraphBuilder.
+        Two distinct defects, reported as two issue types because they are two
+        different questions and a single answer to both is what let 44
+        synthesized endpoints pass as declared ones (#1758):
+
+        - ``BROKEN`` — referenced but **not resolvable**: no file exists.
+        - ``UNDECLARED`` — referenced and *resolvable*, but **declared by
+          nothing**. The endpoint was manufactured from another artefact's URN
+          text by ``TraceabilityGraph._ensure_node``; a file happens to exist at
+          the resolved path, so ``is_broken`` is False and this check would
+          otherwise reach it nowhere.
+
+        Both use resolution/provenance metadata stored on each node by
+        GraphBuilder. Unresolvable-and-undeclared reports as ``BROKEN`` only —
+        the stronger and more actionable statement.
 
         Args:
             families: Families to check. If None, checks all.
 
         Returns:
-            List of broken reference issues
+            List of broken-reference and undeclared-reference issues
         """
         issues = []
         target_families = set(families) if families else None
@@ -290,6 +302,24 @@ class EdgeValidator:
                         location=None,
                         context=f"Family: {node.family}",
                         suggestion="Create the missing artifact or fix the URN",
+                    )
+                )
+            elif node.metadata.get("declared") is False:
+                issues.append(
+                    ValidationIssue(
+                        issue_type=IssueType.UNDECLARED,
+                        severity=IssueSeverity.ERROR,
+                        urn=urn,
+                        message=(
+                            "Undeclared URN: referenced by an edge but declared "
+                            "by no artifact"
+                        ),
+                        location=node.artifact_path,
+                        context=f"Family: {node.family}",
+                        suggestion=(
+                            "Declare this URN in the artifact it belongs to, or "
+                            "correct the URN that references it"
+                        ),
                     )
                 )
 
