@@ -1,5 +1,5 @@
 # Post-Merge Lifecycle: complete the ATDD issue lifecycle after PR merge.
-# Closes WMBT sub-issues and updates Project v2.
+# Closes WMBT sub-issues.
 #
 # This workflow MUST NOT write an `atdd:<PHASE>` label (#1452). The phase label is
 # a PROJECTION of `objects.state`, emitted by IssueManager.update and by nothing
@@ -79,101 +79,12 @@ jobs:
       # see coach.issue.phase-label-projection-only
       # (src/atdd/coach/validators/test_phase_label_projection_only.py).
 
-      - name: Update Project v2 ATDD Status
-        if: steps.extract.outputs.found == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE: ${{ steps.extract.outputs.issue }}
-          REPO: ${{ github.repository }}
-          PROJECT_ID: PVT_kwHOAIbyOM4BPpKf
-        run: |
-          OWNER="${REPO%%/*}"
-          NAME="${REPO##*/}"
-
-          # Get issue node ID
-          ISSUE_NODE_ID=$(gh api graphql -f query='
-            query($owner: String!, $name: String!, $number: Int!) {
-              repository(owner: $owner, name: $name) {
-                issue(number: $number) { id }
-              }
-            }' -f owner="$OWNER" -f name="$NAME" -F number="$ISSUE" \
-            --jq '.data.repository.issue.id' 2>/dev/null) || true
-
-          if [ -z "$ISSUE_NODE_ID" ]; then
-            echo "::warning::Could not fetch issue node ID. Skipping project update."
-            exit 0
-          fi
-
-          # Find the project item ID for this issue
-          ITEM_ID=$(gh api graphql -f query='
-            query($nodeId: ID!) {
-              node(id: $nodeId) {
-                ... on Issue {
-                  projectItems(first: 10) {
-                    nodes { id project { id } }
-                  }
-                }
-              }
-            }' -f nodeId="$ISSUE_NODE_ID" \
-            --jq ".data.node.projectItems.nodes[] | select(.project.id == \"${PROJECT_ID}\") | .id" 2>/dev/null) || true
-
-          if [ -z "$ITEM_ID" ]; then
-            echo "::notice::Issue #${ISSUE} not in project. Skipping project field update."
-            exit 0
-          fi
-
-          # Get the "ATDD Status" field ID and COMPLETE option ID
-          FIELD_DATA=$(gh api graphql -f query='
-            query($projectId: ID!) {
-              node(id: $projectId) {
-                ... on ProjectV2 {
-                  fields(first: 30) {
-                    nodes {
-                      ... on ProjectV2SingleSelectField {
-                        id
-                        name
-                        options { id name }
-                      }
-                    }
-                  }
-                }
-              }
-            }' -f projectId="$PROJECT_ID" 2>/dev/null) || true
-
-          if [ -z "$FIELD_DATA" ]; then
-            echo "::warning::Could not fetch project fields. Skipping project update."
-            exit 0
-          fi
-
-          FIELD_ID=$(echo "$FIELD_DATA" | jq -r '
-            .data.node.fields.nodes[]
-            | select(.name == "ATDD Status")
-            | .id' 2>/dev/null) || true
-          OPTION_ID=$(echo "$FIELD_DATA" | jq -r '
-            .data.node.fields.nodes[]
-            | select(.name == "ATDD Status")
-            | .options[]
-            | select(.name == "COMPLETE")
-            | .id' 2>/dev/null) || true
-
-          if [ -z "$FIELD_ID" ] || [ -z "$OPTION_ID" ]; then
-            echo "::warning::ATDD Status field or COMPLETE option not found. Skipping."
-            exit 0
-          fi
-
-          # Update the field
-          gh api graphql -f query='
-            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-              updateProjectV2ItemFieldValue(input: {
-                projectId: $projectId
-                itemId: $itemId
-                fieldId: $fieldId
-                value: { singleSelectOptionId: $optionId }
-              }) { projectV2Item { id } }
-            }' -f projectId="$PROJECT_ID" -f itemId="$ITEM_ID" \
-               -f fieldId="$FIELD_ID" -f optionId="$OPTION_ID"
-
-          echo "Updated ATDD Status to COMPLETE for issue #${ISSUE}."
+      # #1761: the "Update Project v2 ATDD Status" step USED TO LIVE HERE and was
+      # deleted. It hardcoded a board node id and fired a GraphQL field-value
+      # mutation on every merge into `main` — a live remote write to a board the
+      # toolkit decommissioned in #1051, where the phase had already moved to the
+      # `atdd:<phase>` label and the train to the manifest. Nothing read what it
+      # wrote. Do not re-add it: the board is gone, not optional.
 
       # ─── Version bump: now owned by the State Store (#1172) ──────────────
       # The former "Bump version on main (atomic with retries)" step pushed a
