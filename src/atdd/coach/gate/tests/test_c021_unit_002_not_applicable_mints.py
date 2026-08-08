@@ -45,6 +45,14 @@ _ISSUE = 999022
 _UID = "c021-unit-002-not-applicable"
 _BRANCH = "feat/token-proves-gates-passed"
 
+#: The PLANNED->RED control below needs an issue STANDING at PLANNED, which is a
+#: second work item rather than a second edge on the first: #1735 refuses a mint
+#: for an edge the issue is not on, and :data:`_ISSUE` is at SMOKE because that is
+#: the edge this file's subject covers. One work item cannot be both, so the
+#: control gets its own — see :func:`_bind_the_planned_control`.
+_PLANNED_ISSUE = 999023
+_PLANNED_UID = "c021-unit-002-planned-control"
+
 
 @dataclass(frozen=True)
 class _ScriptedCheck:
@@ -95,6 +103,29 @@ def _bind_issue(root: Path) -> None:
         store.objects.upsert(_UID, "work_item", state="SMOKE", data={"branch": _BRANCH})
         store.external_refs.link(_UID, "github", "issue", str(_ISSUE))
 
+
+def _bind_the_planned_control(root: Path) -> None:
+    """Seed a SECOND work item, standing at PLANNED, for the unconditional-edge control.
+
+    #1735 merged after this file was written and refuses to mint for an edge the
+    issue is not standing on. The two PLANNED->RED assertions below were written
+    against :data:`_ISSUE`, which sits at SMOKE — so after #1735 they were refused
+    with "is at SMOKE, not PLANNED" and proved nothing about the unconditional
+    edge. That check is right and the fixture was stale.
+
+    The control cannot be dropped: it is what proves slice C is scoped to
+    SMOKE->REFACTOR alone. So it gets an issue actually standing at PLANNED —
+    real state, in the same store, seeded the same way — rather than a relaxed
+    precondition or a bypass, either of which would be a second ungated way to
+    mint (#1619) inside a file about the mint refusing.
+    """
+    from atdd.state.smoke_evidence import open_state_store
+
+    with open_state_store(control_root=root) as store:
+        store.objects.upsert(
+            _PLANNED_UID, "work_item", state="PLANNED", data={"branch": _BRANCH}
+        )
+        store.external_refs.link(_PLANNED_UID, "github", "issue", str(_PLANNED_ISSUE))
 
 
 def _decide(worktree: Path, verdict: GateVerdict):
@@ -181,15 +212,19 @@ def test_an_unconditional_edge_does_not_claim_gate_coverage(tmp_path, monkeypatc
 
     Printing one would be the mirror-image dishonesty: a mint that certified
     nothing describing itself as though it had.
+
+    Minted for :data:`_PLANNED_ISSUE`, not :data:`_ISSUE`: since #1735 an issue
+    only mints the edge it is standing on, and this control is about PLANNED->RED.
     """
     from atdd.coach.gate import approve_command, mint_gate
 
     worktree = _worktree(tmp_path)
+    _bind_the_planned_control(worktree)
     monkeypatch.setattr(mint_gate, "GATE_REGISTRY", GateRegistry())
     monkeypatch.setattr(mint_gate, "DEFAULT_REGISTRARS", ())
 
     assert approve_command.run(
-        [str(_ISSUE), "--transition", "PLANNED->RED"], target_dir=worktree, env={}
+        [str(_PLANNED_ISSUE), "--transition", "PLANNED->RED"], target_dir=worktree, env={}
     ) == 0
     out = capsys.readouterr().out
 
@@ -207,6 +242,7 @@ def test_the_token_written_under_not_applicable_is_the_ordinary_token(tmp_path, 
     from atdd.coach.gate import approve_command, mint_gate
 
     worktree = _worktree(tmp_path)
+    _bind_the_planned_control(worktree)
     registry = GateRegistry()
     registry.register("SMOKE", "REFACTOR", _ScriptedCheck(GateVerdict.NOT_APPLICABLE))
     monkeypatch.setattr(mint_gate, "GATE_REGISTRY", registry)
@@ -222,12 +258,15 @@ def test_the_token_written_under_not_applicable_is_the_ordinary_token(tmp_path, 
     )
     # Compared against a PLANNED->RED token from the same command, which takes the
     # unconditional path — so any field the conditional path added or dropped shows
-    # up as a key difference rather than having to be enumerated here.
+    # up as a key difference rather than having to be enumerated here. The baseline
+    # is minted for _PLANNED_ISSUE because since #1735 only an issue standing at
+    # PLANNED can mint that edge; the comparison is over KEYS, so a second issue
+    # number changes nothing about what is being asserted.
     assert approve_command.run(
-        [str(_ISSUE), "--transition", "PLANNED->RED"], target_dir=worktree, env={}
+        [str(_PLANNED_ISSUE), "--transition", "PLANNED->RED"], target_dir=worktree, env={}
     ) == 0
     baseline = json.loads(
-        approval_token_path(worktree, _ISSUE, "PLANNED", "RED").read_text()
+        approval_token_path(worktree, _PLANNED_ISSUE, "PLANNED", "RED").read_text()
     )
     assert set(token) == set(baseline), (
         "the conditionally-minted token has a different shape from an ordinary "

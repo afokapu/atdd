@@ -49,6 +49,14 @@ OBLIGATED_UID = "c021-obligated-work-item"
 UNOBLIGATED_ISSUE = 999602
 UNOBLIGATED_UID = "c021-unobligated-work-item"
 
+#: Owes a live-smoke run like ``OBLIGATED_ISSUE``, but is STANDING AT PLANNED —
+#: the scope control at the bottom of this file. It is a third work item rather
+#: than a second edge on the obligated one because since #1735 a mint is refused
+#: outright for an edge the issue is not standing on, and an issue cannot stand at
+#: SMOKE and PLANNED at once.
+PLANNED_ISSUE = 999603
+PLANNED_UID = "c021-planned-obligated-work-item"
+
 
 #: Every edge the registrars touch, so the fixture below can put the shared
 #: registry back exactly as it found it.
@@ -112,10 +120,18 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 _BRANCH = "feat/token-proves-gates-passed"
 
 
-def _register(repo: Path, uid: str, issue: int, data: dict | None = None) -> None:
+def _register(
+    repo: Path, uid: str, issue: int, data: dict | None = None, state: str = "SMOKE"
+) -> None:
+    """Seed one work item. ``state`` defaults to SMOKE — the edge under test.
+
+    It is a parameter at all because of #1735: the mint now refuses for an edge the
+    issue is not standing on, so the PLANNED->RED control below needs a work item
+    recorded at PLANNED rather than the SMOKE one it used to reuse.
+    """
     with open_state_store(control_root=repo) as store:
         store.objects.upsert(
-            uid, "work_item", state="SMOKE", data={**(data or {}), "branch": _BRANCH}
+            uid, "work_item", state=state, data={**(data or {}), "branch": _BRANCH}
         )
         store.external_refs.link(uid, "github", "issue", str(issue))
 
@@ -231,13 +247,27 @@ def test_planned_to_red_is_unaffected_in_both_cases(repo: Path) -> None:
     On the four other forward edges the registry holds nothing but
     ``ApprovalTokenGateCheck``, so a conditional mint there would consult the
     approval check to decide whether to write an approval. This asserts the
-    narrowing is real and not merely intended: the obligated issue — whose
-    SMOKE->REFACTOR mint is refused above — still mints PLANNED->RED.
-    """
-    _register(repo, OBLIGATED_UID, OBLIGATED_ISSUE, write_live_smoke_plan_scope(repo))
+    narrowing is real and not merely intended: an issue carrying the SAME
+    unsatisfied live-smoke obligation that gets SMOKE->REFACTOR refused above
+    still mints PLANNED->RED.
 
-    assert _mint(repo, OBLIGATED_ISSUE, "PLANNED->RED") == 0, (
+    It is a THIRD work item, not ``OBLIGATED_ISSUE`` again. This control used to
+    mint PLANNED->RED for the issue standing at SMOKE, and #1735 — which refuses
+    any mint for an edge the issue is not standing on — now refuses that with "is
+    at SMOKE, not PLANNED". #1735's precondition is correct and the control is
+    load-bearing (the SMOKE->REFACTOR-only scope is a ruling recorded in #1670),
+    so the fixture is what changes: the obligation is reproduced on an issue
+    actually standing at PLANNED. ``write_live_smoke_plan_scope`` writes the same
+    plan artifacts and returns the same scope binding, so the obligation is
+    identical and only the phase differs — which is the one variable this asserts on.
+    """
+    _register(
+        repo, PLANNED_UID, PLANNED_ISSUE,
+        write_live_smoke_plan_scope(repo), state="PLANNED",
+    )
+
+    assert _mint(repo, PLANNED_ISSUE, "PLANNED->RED") == 0, (
         "the conditional mint leaked onto PLANNED->RED, where the only registered "
         "check is the approval check whose artifact the mint is producing"
     )
-    assert approval_token_path(repo, OBLIGATED_ISSUE, "PLANNED", "RED").exists()
+    assert approval_token_path(repo, PLANNED_ISSUE, "PLANNED", "RED").exists()

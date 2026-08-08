@@ -51,15 +51,19 @@ _ROW = load_provider_table()[0]
 
 
 @pytest.fixture(autouse=True)
-def bound_issue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The branch binding the mint now requires (#1721).
+def mintable_issue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """BOTH preconditions the mint now requires: a branch (#1721) and a phase (#1735).
 
-    Autouse because every test here mints, and the binding is a precondition of the
-    mint rather than a subject of this acceptance — which is about WHO the token
-    says approved, not what it is bound to. Seeding real state was chosen over a
-    test-only bypass on the mint: a bypass would be a second ungated way to mint
-    (#1619) inside a file whose job is to prove the mint observes correctly, and a
-    test that can route around the code it guards proves nothing (#1733).
+    Autouse because every test here mints, and neither precondition is a subject of
+    this acceptance — which is about WHO the token says approved, not what it is
+    bound to or which edge is live. One `upsert` carries both: `state` is where the
+    issue is standing, `data["branch"]` is what the approval will be bound to.
+
+    Seeding real state was chosen over a test-only bypass on the mint, and the
+    argument is the same for both issues: a bypass would be a second ungated way to
+    mint (#1619's defect one layer out) inside a file whose job is to prove the mint
+    observes correctly, and a test that can route around the code it guards proves
+    nothing (#1733).
     """
     monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
     with open_state_store(control_root=tmp_path) as store:
