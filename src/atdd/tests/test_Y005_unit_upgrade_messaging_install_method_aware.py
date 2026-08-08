@@ -236,7 +236,7 @@ class TestUpgraderUsesUpgradeCommand:
                    return_value=(True, "3.0.0", "4.0.0")), \
              patch("atdd.version_check.upgrade_command", return_value="pipx upgrade atdd"), \
              patch("atdd.coach.commands.upgrader.upgrade_command", return_value="pipx upgrade atdd"), \
-             patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=True):
+             patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=(True, "")):
             rc = Upgrader(repo_root=tmp_path).run(yes=True)
 
         out = capsys.readouterr().out
@@ -256,7 +256,7 @@ class TestUpgraderUsesUpgradeCommand:
                    return_value=(True, "3.0.0", "4.0.0")), \
              patch("atdd.version_check.upgrade_command", return_value="pipx upgrade atdd"), \
              patch("atdd.coach.commands.upgrader.upgrade_command", return_value="pipx upgrade atdd"), \
-             patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=True):
+             patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=(True, "")):
             rc = Upgrader(repo_root=tmp_path).run(yes=True)
 
         out = capsys.readouterr().out

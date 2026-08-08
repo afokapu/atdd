@@ -46,7 +46,7 @@ def test_y007_unit_004_yes_bypasses_pypi_prompt(tmp_path, monkeypatch, isatty):
              "atdd.coach.commands.upgrader.is_outdated",
              return_value=(True, "3.106.0", "4.27.0"),
          ), \
-         patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=True), \
+         patch("atdd.coach.commands.upgrader.auto_upgrade", return_value=(True, "")), \
          patch("sys.stdin.isatty", return_value=isatty), \
          patch("builtins.input", side_effect=exploding_input):
         rc = Upgrader(repo_root=tmp_path).run(yes=True)

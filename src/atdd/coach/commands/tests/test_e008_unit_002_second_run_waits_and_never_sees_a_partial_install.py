@@ -46,7 +46,7 @@ def test_e008_unit_002_mutating_sections_do_not_overlap(tmp_path, monkeypatch):
         left = time.monotonic()
         with intervals_lock:
             intervals.append((entered, left))
-        return True
+        return True, ""
 
     results = {}
 
