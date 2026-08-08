@@ -1,0 +1,120 @@
+urn: wmbt:govern-lifecycle:C011
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: a-declared-feature-urn-that-resolves-to-nothing-in-plan-and-drifts-unseen-because-no-validator-holds-an-atdd-issue-body-or-its-stored-binding-to-the-plan-graph
+context_clarifier: 'the issue body''s Feature row and the store''s work_item.data.feature
+  are both unvalidated, so a train URN wearing a feature''s clothes passes unnoticed:
+  measured 2026-07-28, #1626 declares feature:issue-lifecycle:drive-state-machine
+  (a train identity, not a feature) while its real feature is feature:govern-lifecycle:define-transition-autonomy,
+  and #1635 itself carries feature:govern-lifecycle:reliable-manifest-registration,
+  an unrelated feature about manifest commits'
+lens: functional.effectiveness
+statement: minimize likelihood of a-declared-feature-urn-that-resolves-to-nothing-in-plan-and-drifts-unseen-because-no-validator-holds-an-atdd-issue-body-or-its-stored-binding-to-the-plan-graph
+  by adding a disposition-gated coach validator that resolves every open atdd-issue's
+  declared feature against plan/ and reports an absent, malformed or non-resolving
+  binding as a violation, and that holds the body's Feature row and the stored feature
+  field to the same value, so drift is caught at validation time rather than discovered
+  when a downstream lookup silently returns nothing
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C011-UNIT-001-non-resolving-feature-is-a-violation
+    id: AC-UNIT-001
+    purpose: "The validator distinguishes the three failure shapes \u2014 no binding\
+      \ at all, a syntactically-wrong binding, and a well-formed binding naming a\
+      \ feature plan/ does not contain \u2014 and reports each as a violation with\
+      \ the URN and the issue named"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A plan/ fixture containing exactly one real feature YAML, so resolution has
+      a known-good and a known-bad answer
+    - 'Four issue records: one binding to the real feature, one binding to a train
+      URN, one binding to a well-formed feature URN absent from plan/, and one with
+      no binding at all'
+    - The validator's scan function under test, called directly (no pytest-in-pytest,
+      no network)
+  when:
+    abstract: the scan is run over the four issue records against the plan/ fixture
+  then:
+    abstract:
+    - The issue binding to the real feature produces no violation
+    - The train URN produces a violation saying the declared value is not a feature
+      identity
+    - The well-formed-but-absent feature URN produces a violation naming the URN and
+      reporting that it resolves to nothing in plan/
+    - The issue with no binding produces a violation, so an unbound issue is reported
+      rather than passing by default
+    - Every violation carries the bound rule_id and a location naming the issue, so
+      the report is actionable without re-deriving which issue it came from
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:C011-UNIT-002-body-and-store-binding-must-agree
+    id: AC-UNIT-002
+    purpose: "The two places a feature is recorded \u2014 the body's Feature row and\
+      \ the stored work_item.data.feature \u2014 are held to each other, so the exact\
+      \ divergence measured on #1626 (body populated, store NULL) is a reported violation\
+      \ rather than an invisible state"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'Issue records paired with stored work items in four shapes: both agreeing,
+      body set and store null, store set and body absent, and the two set to different
+      feature URNs'
+    - The same scan function, given both the body text and the stored data
+  when:
+    abstract: the scan is run over the four pairs
+  then:
+    abstract:
+    - Agreement produces no violation
+    - "Body set with a null stored feature produces a violation \u2014 this is the\
+      \ #1626 shape measured on 2026-07-28"
+    - Store set with the body's Feature row absent produces a violation
+    - Two different feature URNs produce a violation quoting both values, so a reader
+      can tell which side to correct
+    - The rule is bound through bind_rule at module import, so the validator cannot
+      ship referencing a rule no convention declares
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:C011-SMOKE-001-real-validate-coach-reports-the-binding
+    id: AC-SMOKE-001
+    purpose: 'Against the real installed package in a real checkout: `atdd validate
+      coach --local` actually runs this validator and reports a broken binding, so
+      the rule is enforced by the shipped gate and not only by a test that imports
+      it directly'
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real checkout and the real atdd package, exercised in a separate real process
+      through the real `atdd validate coach --local` entry point
+    - A repository state carrying one atdd-issue whose declared feature resolves and
+      one whose declared feature does not
+    - "No monkeypatching of the validator or its resolver \u2014 the validator is\
+      \ discovered and selected the way CI discovers it"
+  when:
+    abstract: the subprocess runs the real validate-coach gate and its output and
+      exit status are captured
+  then:
+    abstract:
+    - "The validator is selected and executed \u2014 its identifier appears in the\
+      \ run, so it is not silently deselected by the gate's marker expression"
+    - The non-resolving binding is reported, naming the issue and the URN
+    - The resolving binding is not reported
+    - The outcome honours the rule's declared disposition rather than being asserted
+      directly, so severity is governed by the convention and not by the test
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'

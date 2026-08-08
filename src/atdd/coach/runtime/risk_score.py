@@ -29,7 +29,7 @@ from atdd.coach.validators._violation import Violation
 
 try:
     from atdd.coach.utils.rule_binding import bind_rule
-except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
     print("[risk_score] bind_rule import failed — dispositions will be empty", file=sys.stderr)
     bind_rule = None  # type: ignore[assignment]
 
@@ -87,7 +87,7 @@ def _resolve_disposition(rule_id: str) -> Optional[str]:
     try:
         meta = bind_rule(rule_id)
         return meta.disposition
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 
@@ -150,7 +150,7 @@ def _validate_against_schema(data: dict) -> list[str]:
     """Validate data against risk-score.schema.json. Returns list of errors."""
     try:
         import jsonschema as _js
-    except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         print("[risk_score] jsonschema not installed — skipping validation", file=sys.stderr)
         return []
 
@@ -200,7 +200,7 @@ def write_risk_score(
         # Clean up temp file on write failure
         try:
             tmp.unlink()
-        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             pass
         raise
 

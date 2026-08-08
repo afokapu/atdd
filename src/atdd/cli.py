@@ -1040,7 +1040,7 @@ Phase descriptions:
     # (#758) is decommissioned.
     plan_parser = subparsers.add_parser(
         "plan",
-        help="Run the atdd plan gated decomposition session (Define→Locate→Prepare→Confirm→author).",
+        help="Run the atdd plan gated decomposition session (Intent→Attach→Compose→Ratify→author).",
         add_help=False,
     )
     plan_parser.add_argument("plan_args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
@@ -2155,10 +2155,17 @@ Phase descriptions:
             from atdd.coach.commands.validation_baseline import (
                 write_validation_baseline,
             )
+            # C014 (#1632): record how much of the suite this run did NOT
+            # evaluate. `None` when the coverage probe could not read pytest's
+            # collection output — an unmeasured run must not record a zero.
+            report = getattr(
+                coach.validator_runner, "last_coverage_report", None
+            )
             write_validation_baseline(
                 phase=args.phase,
                 skipped_api=skip_api,
                 repo_root=repo_path,
+                could_not_check=report.could_not_check if report else None,
             )
 
         return rc

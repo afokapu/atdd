@@ -2,7 +2,7 @@ urn: "feature:govern-lifecycle:enforcing-phase-transition-gate"
 wagon: "wagon:govern-lifecycle"
 description: "Makes the phase-transition gate enforcing: carves a pure gate-decision module (evaluate_transition_gate) + an empty-by-default check registry + a pluggable GateCheck contract, and turns IssueLifecycle.transition() into a thin caller that refuses a transition (non-zero, no label/phase swap) when a registered check fails. Ships the mechanism inert (registry empty) so #958/#1017 register real blocking checks later without bricking in-flight issues."
 sizing:
-  wmbts: 4
+  wmbts: 6
   footprint_score: 6
   footprint_size: "M"
 wmbts:
@@ -10,6 +10,8 @@ wmbts:
   - "wmbt:govern-lifecycle:E046"
   - "wmbt:govern-lifecycle:C007"
   - "wmbt:govern-lifecycle:D019"
+  - "wmbt:govern-lifecycle:C014"
+  - "wmbt:govern-lifecycle:C013"
 components:
   backend:
     presentation:

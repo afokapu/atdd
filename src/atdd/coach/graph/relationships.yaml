@@ -117,6 +117,15 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: start_to_start
+  reason: 'two halves of the same store-versus-projection class: the phase label is a rendering of objects.state and the issue body''s Feature row is a rendering of objects.data.feature, so each rule holds one stored field to the artifact that displays it, and a divergence in either direction is invisible until something downstream silently resolves to nothing'
+  source_ref: coach.issue.feature-binding-must-resolve
+  strength: important
+  target_ref: coach.phase-label.projection-only
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: "the GREEN\u2192REFACTOR ordering is a phase-machine invariant"
   source_ref: coach.lifecycle.no-green-to-refactor-without-smoke
@@ -2109,7 +2118,7 @@ edges:
   target_ref: planner.train.interlocking-home
   type: requires
 - confidence: 1.0
-  reason: the D/L/P/C lifecycle's Confirm gate enforces confirm-before-author
+  reason: the session lifecycle's Ratify gate enforces confirm-before-author
   source_ref: planner.plan.session-lifecycle
   target_ref: planner.plan.confirm-before-author
   type: requires

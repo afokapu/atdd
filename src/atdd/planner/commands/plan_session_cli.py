@@ -5,8 +5,11 @@ The LLM/agent calls these ops between conversation turns; each op loads the
 durable session, applies one deterministic mutation, saves, and prints the
 session state as JSON to stdout so the agent can read it. keep/pivot/kill flows
 through the #1096a `elicit` contract (an inline Claude adapter here); on
-`confirm` the session locks; `author` invokes the #1144 writers per kept unit
+`ratify` the session locks; `author` invokes the #1144 writers per kept unit
 (the conversational->deterministic boundary). Stdlib + plan_session + elicit.
+
+Stages: Intent -> Attach -> Compose -> Ratify -> author (#1688). `confirm` is
+kept as an alias of `ratify` and is the deprecation window.
 """
 from __future__ import annotations
 
@@ -53,6 +56,13 @@ def _emit(payload: dict) -> int:
 
 
 _SPEC_FILE_SUFFIXES = (".json", ".yaml", ".yml")
+
+# Every spelling that means "lock the decomposition". argparse sets the
+# subparser dest to the name the operator TYPED, not the canonical parser name,
+# so `ratify` and its `confirm` alias arrive as different values of `args.op`.
+# Dispatching on `"ratify"` alone would let `atdd plan confirm` fall through the
+# if/elif chain to save() and exit ZERO with the session still unlocked (#1688).
+LOCK_OPS = ("ratify", "confirm")
 
 
 def _looks_like_a_path(raw: str) -> bool:
@@ -114,9 +124,9 @@ def build_parser() -> argparse.ArgumentParser:
     bi.add_argument("--issue", dest="issue_ref", required=True,
                     help="local ATDD issue identity (manifest slug); the GitHub number is a synced projection")
     with_id(sub.add_parser("show", help="print session state"))
-    mj = sub.add_parser("main-job", help="set the JTBD main job (Define)"); with_id(mj); mj.add_argument("text")
-    sc = sub.add_parser("source", help="capture a source (Locate)"); with_id(sc); sc.add_argument("text")
-    un = sub.add_parser("unit", help="add a candidate unit (Prepare)"); with_id(un)
+    mj = sub.add_parser("main-job", help="set the JTBD main job (Intent)"); with_id(mj); mj.add_argument("text")
+    sc = sub.add_parser("source", help="capture a source (Attach)"); with_id(sc); sc.add_argument("text")
+    un = sub.add_parser("unit", help="add a candidate unit (Compose)"); with_id(un)
     un.add_argument("--kind", required=True); un.add_argument("--ref", required=True)
     un.add_argument("--spec", default="{}",
                     help="inline JSON object atdd-author spec for the unit, "
@@ -126,10 +136,14 @@ def build_parser() -> argparse.ArgumentParser:
     de = sub.add_parser("decide", help="keep/pivot/kill a unit via the elicit channel"); with_id(de)
     de.add_argument("--ref", required=True); de.add_argument("--verdict", required=True, choices=["keep", "pivot", "kill"])
     de.add_argument("--mod", default=None, dest="modification")
-    with_id(sub.add_parser("confirm", help="lock the decomposition (confirm-before-author boundary)"))
-    with_id(sub.add_parser("reopen", help="withdraw the confirmation and return to Prepare "
+    # `confirm` is an ALIAS, and the alias is the whole deprecation window (#1688).
+    # argparse sets `op` to the name the operator typed, so both spellings must be
+    # dispatched — see LOCK_OPS below.
+    with_id(sub.add_parser("ratify", aliases=["confirm"],
+                           help="lock the decomposition (ratify-before-author boundary)"))
+    with_id(sub.add_parser("reopen", help="withdraw the ratification and return to Compose "
                                           "(the sanctioned way to edit a locked session)"))
-    with_id(sub.add_parser("author", help="author kept units via atdd author (post-confirm)"))
+    with_id(sub.add_parser("author", help="author kept units via atdd author (post-ratify)"))
     return p
 
 
@@ -175,7 +189,7 @@ def run(argv: list[str]) -> int:
             s.advance(Step(args.step))
         elif args.op == "decide":
             s.decide(args.ref, _resolver_for(args.verdict, args.modification))
-        elif args.op == "confirm":
+        elif args.op in LOCK_OPS:
             s.confirm()
         elif args.op == "author":
             authored = s.author(build_author_fn(root))

@@ -31,7 +31,7 @@
     "## Validation": {"type": "string", "description": "Gate Tests + Success Criteria."},
     "## Decisions": {"type": "string", "description": "Resolved questions and their rationale."},
     "## Activity Log": {"type": "string", "description": "Dated progress entries."},
-    "## Artifacts": {"type": "string", "description": "Created / Modified / Deleted artifacts."},
+    "## Artifacts": {"type": "string", "description": "Created / Modified / Deleted artifacts, as `- ` bullets under the three H3 subsections. Every bullet is an `artifactEntry` (see definitions): either a repo-relative path the COMPLETE gate can resolve against git, or the explicit-empty placeholder `(none yet)` for a section that has nothing to declare yet. Prose is neither — a bullet like `- The artifact this issue lands.` reads as a claim, resolves against nothing, and fails `coach.issue.artifact-claims-must-resolve` (#1726)."},
     "## Release Gate": {"type": "string", "description": "Version bump + publish checklist."},
     "## Notes": {"type": "string", "description": "Additional context that does not fit elsewhere."},
     "status": {
@@ -43,6 +43,30 @@
       "type": "string",
       "description": "Issue type classification.",
       "enum": ["implementation", "bug", "feature", "refactor", "docs", "chore", "devops"]
+    }
+  },
+  "definitions": {
+    "artifactEntry": {
+      "description": "One `- ` bullet under `## Artifacts` → `### Created` / `### Modified` / `### Deleted`. The `## Artifacts` section was the one part of the body the COMPLETE gate resolves as REAL FILE PATHS while the schema typed it as an unconstrained string, so prose was as valid as a path right up until the gate rejected it (#1726). This definition is what lets the authoring path tell the two apart; `coach.issue.artifact-claims-must-resolve` is what enforces it. A subsection with nothing to declare yet carries NO bullet at all — see emptyDeclaration.",
+      "oneOf": [
+        {"$ref": "#/definitions/repoRelativePath"},
+        {"$ref": "#/definitions/placeholderBullet"}
+      ]
+    },
+    "repoRelativePath": {
+      "type": "string",
+      "description": "A path relative to the repo root, as git names it: no whitespace, carrying a `/` or an extension, and not ending in `.` (which is how a prose sentence ends). Matches `src/atdd/cli.py`, `.github/workflows/atdd-validate.yml`, `CLAUDE.md`; rejects `The artifact this issue lands.`, `None so far.`, `drift-guard test`. Globs, URLs and external artefacts are deliberately out of scope — #1726 declared redefining what counts as an artifact out of scope, so the vocabulary stays exactly the set git can answer for.",
+      "pattern": "^(?=.*[./])[^\\s]*[^\\s.]$"
+    },
+    "placeholderBullet": {
+      "type": "string",
+      "description": "A parenthesised bullet, which the body parser skips rather than reading as a claim (`IssueManager._artifact_path`). Accepted so a hand-written `- (pending)` is not mistaken for a file, but NOT what the generator emits: strings like `(none yet)` are declared unfilled-template placeholders that the E019 gate rejects.",
+      "pattern": "^\\(.*\\)$"
+    },
+    "emptyDeclaration": {
+      "type": "string",
+      "description": "The explicit-empty form for a subsection with nothing to declare yet: NO bullet at all, and an italic note saying how to fill it. Not a bullet, because every bullet is read as a claim about a file; not `(none yet)`, because that is a declared unfilled-template placeholder the E019 gate rejects. It parses as zero artifacts — valid at INIT, and a `coach.issue.artifacts-must-be-declared` violation at COMPLETE. This is what `atdd author issue` emits, replacing the prose scaffold (`- The artifact this issue lands.`) that parsed as three claims and failed the gate it was destined for (#1726).",
+      "pattern": "^_.*_$"
     }
   }
 }

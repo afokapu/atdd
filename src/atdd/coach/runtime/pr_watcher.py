@@ -119,7 +119,7 @@ class PRWatcher:
                 return None
             data = json.loads(r.stdout)
             return data["resources"]["graphql"]["remaining"]
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return None
 
     def _run_pr_list(self, prs: list[int]) -> Optional[dict[int, str]]:

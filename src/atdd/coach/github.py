@@ -12,6 +12,7 @@ Usage:
 
 import json
 import logging
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,75 @@ logger = logging.getLogger(__name__)
 
 class GitHubClientError(Exception):
     """Raised when a GitHub API call fails."""
+
+
+class GitHubPermissionError(GitHubClientError):
+    """A ``gh`` call was refused because the credential lacks the permission.
+
+    A subclass, so every existing ``except GitHubClientError`` keeps catching it —
+    but a distinct type, because the two failures have opposite remedies. A
+    transport error is worth retrying; a scope that was never granted never
+    becomes granted by trying again.
+
+    #1621: the auto-phase workflow's label writes were refused on every run with
+    ``Resource not accessible by personal access token``, and because that arrived
+    as a plain ``GitHubClientError`` with the same shape as any other failure, two
+    separate investigations read it as GitHub flakiness.
+    """
+
+    def __init__(
+        self, message: str, *, command: Optional[List[str]] = None, stderr: str = "",
+    ) -> None:
+        self.command = list(command or [])
+        self.stderr = stderr
+        super().__init__(message)
+
+
+#: How GitHub words "authenticated, but not authorised". The wording differs by
+#: credential kind — ``personal access token`` for a PAT, ``integration`` for
+#: GITHUB_TOKEN and GitHub Apps — and both mean the same thing to a caller.
+#:
+#: These are *phrases*, deliberately, not the status code. HTTP 403 is NOT a
+#: permission signature: GitHub also returns 403 for secondary rate limits and
+#: abuse detection, which are transient and for which retrying is precisely the
+#: remedy. Matching on the code would tell an operator waiting out a rate limit
+#: that their token lacks a scope — the same species of misdiagnosis this
+#: classification exists to end, merely pointing the other way.
+_PERMISSION_REFUSAL_SIGNATURES = (
+    "resource not accessible by personal access token",
+    "resource not accessible by integration",
+    "must have admin rights",
+    "you do not have permission",
+    "requires one of the following scopes",
+    "resource protected by organization saml enforcement",
+)
+
+#: Wording that makes a failure transient no matter what else it resembles.
+#: Checked first, so the classifier fails toward "a plain error worth retrying"
+#: rather than toward a confident wrong diagnosis.
+_TRANSIENT_SIGNATURES = (
+    "rate limit",
+    "abuse detection",
+    "please retry",
+    "try again later",
+    "secondary rate",
+)
+
+
+def _is_permission_refusal(stderr: str) -> bool:
+    """Whether ``stderr`` is GitHub declining for lack of scope, not a fault."""
+    lowered = stderr.lower()
+    if any(sig in lowered for sig in _TRANSIENT_SIGNATURES):
+        return False
+    return any(sig in lowered for sig in _PERMISSION_REFUSAL_SIGNATURES)
+
+
+def _credential_in_play() -> str:
+    """Which credential ``gh`` would have used — the first thing to check."""
+    for name in ("GH_TOKEN", "GITHUB_TOKEN"):
+        if os.environ.get(name):
+            return f"the token in ${name}"
+    return "the credential from `gh auth login`"
 
 
 @dataclass
@@ -104,9 +174,20 @@ class GitHubClient:
             input=input_text,
         )
         if result.returncode != 0:
+            stderr = result.stderr.strip()
+            if _is_permission_refusal(stderr):
+                raise GitHubPermissionError(
+                    f"gh command refused for lack of permission: {' '.join(args)}\n"
+                    f"stderr: {stderr}\n"
+                    f"GitHub accepted {_credential_in_play()} and then declined the "
+                    "operation, so this is a missing scope, not an outage — retrying "
+                    "cannot help. Check that the credential actually carries the "
+                    "permission this call needs.",
+                    command=args, stderr=stderr,
+                )
             raise GitHubClientError(
                 f"gh command failed: {' '.join(args)}\n"
-                f"stderr: {result.stderr.strip()}"
+                f"stderr: {stderr}"
             )
         return result.stdout.strip()
 
