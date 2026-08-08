@@ -444,9 +444,9 @@ class IssueManager:
     def _has_github_config(self) -> bool:
         """Check if GitHub integration is configured.
 
-        Only ``github.repo`` is required (#1051): the Projects v2 board — and
-        its ``project_id`` — was decommissioned, so the issue label (REST) plus
-        the local manifest carry all state.
+        ``github.repo`` is the only key there is (#1051, #1761): the Projects
+        v2 board was decommissioned and its config fields deleted, so the
+        issue label (REST) plus the local manifest carry all state.
         """
         config = self._load_config()
         github = config.get("github", {})
