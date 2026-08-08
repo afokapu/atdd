@@ -8,12 +8,16 @@ diagnostics plugin's session-finish hook. Designed to complete in
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
+
+
+logger = logging.getLogger(__name__)
 
 
 def diagnostics_path(repo_root: Path, phase: str) -> Path:
@@ -41,10 +45,24 @@ def print_latest_diagnostics(
 
     try:
         document = yaml.safe_load(artifact.read_text()) or {}
-    except yaml.YAMLError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-06
-        # Reported via print + non-zero exit code — observable by both
-        # the user and CI. Re-raising would obscure the actual problem
-        # (corrupt artifact) behind a stack trace.
+    except yaml.YAMLError as exc:
+        # Re-raising would obscure the actual problem (a corrupt artifact)
+        # behind a stack trace, so the print + non-zero exit stay exactly as
+        # they were.
+        #
+        # What the print does NOT do is leave a record. It reaches whoever is
+        # watching the terminal and nowhere else, so a later question — "why
+        # did `--diagnostics-only` report nothing for this run" — has nothing
+        # to find. That is what coder.logging.coach-silent-swallow measures:
+        # no log AND no raise AND an explicit return. `print` and `return 2`
+        # are not reactions the rule can see, which is why the marker this
+        # replaces was misjustified rather than a false positive (#1756;
+        # established by #1735 and fixed the same way in approve_command.py).
+        logger.warning(
+            "diagnostics artifact could not be parsed; reporting a read "
+            "failure instead of a summary",
+            extra={"artifact": str(artifact), "phase": phase, "error": str(exc)},
+        )
         print(f"Failed to parse diagnostics artifact at {artifact}: {exc}")
         return 2
 
