@@ -79,7 +79,14 @@ def _capture_pytest_cmds(
         markers=markers,
     )
 
-    return captured
+    # C014 (#1632): run_tests now also spawns a `--collect-only` coverage probe to
+    # count what the marker expression removes, because xdist collects in workers
+    # and the deselected count never reaches the controller that prints the
+    # summary. That probe is a collection pass, not an execution stage — E025 is
+    # about the marker expression the RUN uses, so drop it here. Its own selection
+    # is asserted by C014-SMOKE-001. Filtering (rather than reordering) keeps the
+    # stage indices these tests rely on unchanged.
+    return [cmd for cmd in captured if "--collect-only" not in cmd]
 
 
 def _all_m_args(cmds: list[list[str]]) -> list[str]:

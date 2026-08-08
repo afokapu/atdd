@@ -60,7 +60,7 @@ In short:
 | You want to… | ATDD gives you… |
 |---|---|
 | stop agents skipping instructions | `atdd gate` — coercive mandatory tool-output bootstrap |
-| turn vague intent into executable structure | `atdd plan` — a gated decomposition session (Define→Locate→Prepare→Confirm→author) |
+| turn vague intent into executable structure | `atdd plan` — a gated decomposition session (Intent→Attach→Compose→Ratify→author) |
 | keep planning, testing, and code in lock-step | a deterministic lifecycle: `INIT → PLANNED → RED → GREEN → SMOKE → REFACTOR → COMPLETE → MERGED` |
 | run multiple agents without merge chaos | `atdd coach` + worktrees + per-issue runtime isolation |
 | recover from interrupted work | JSONL event logs and resumable train runs *(decomposition target)* |
@@ -88,13 +88,13 @@ Planning-first flow via the gated `atdd plan` session:
 
 ```bash
 atdd plan start --id my-plan --main-job "What job is to be done?"
-atdd plan advance --id my-plan --step locate
+atdd plan advance --id my-plan --step attach
 atdd plan source  --id my-plan "docs/spec.md + repo context"
-atdd plan advance --id my-plan --step prepare
+atdd plan advance --id my-plan --step compose
 atdd plan unit    --id my-plan --kind wagon --ref my-wagon --spec '{...}'
-atdd plan advance --id my-plan --step confirm
+atdd plan advance --id my-plan --step ratify
 atdd plan decide  --id my-plan --ref my-wagon --verdict keep
-atdd plan confirm --id my-plan        # confirm-before-author boundary
+atdd plan ratify  --id my-plan        # the ratify-before-author boundary (`confirm` still works)
 atdd plan author  --id my-plan        # system authors each kept unit via `atdd author`
 ```
 
@@ -107,9 +107,10 @@ atdd plan author  --id my-plan        # system authors each kept unit via `atdd 
 ### Plan
 
 `atdd plan` is the gated decomposition session: a durable, on-disk state machine
-that runs **Define → Locate → Prepare → Confirm → author** (the LLM/agent runs the
-dialogue within each step; `atdd plan` holds the gated session state and enforces
-the transitions).
+that runs **Intent → Attach → Compose → Ratify → author** (the LLM/agent runs the
+dialogue within each stage; `atdd plan` holds the gated session state and enforces
+the transitions). The stages name what the *operator* is deciding, not what the
+tool is doing.
 
 It answers:
 
@@ -117,13 +118,19 @@ It answers:
 
 The gates:
 
-- **Define** — establish the JTBD main job (no advance without it);
-- **Locate** — capture sources and current `plan/` state;
-- **Prepare** — draft candidate units, each carrying a valid `atdd author` spec;
-- **Confirm** — operator keep/pivot/kill locks the decomposition. This is the
-  **confirm-before-author** boundary: nothing is written before confirm;
-- **author** — on confirm, the system invokes `atdd author <kind>` per locked unit,
-  landing schema-valid plan artifacts deterministically.
+- **Intent** — declare the JTBD main job and its boundaries (no advance without it);
+- **Attach** — connect that intent to existing repository context: sources and
+  current `plan/` state;
+- **Compose** — arrange the proposed decomposition, each unit carrying a valid
+  `atdd author` spec;
+- **Ratify** — operator keep/pivot/kill approves, rejects or redirects the
+  composition and locks it. This is the **confirm-before-author** boundary:
+  nothing is written before the operator ratifies. (The stage is Ratify; the rule
+  keeps the name `confirm-before-author`.)
+- **Author** — on ratification, the system invokes `atdd author <kind>` per locked
+  unit, landing schema-valid plan artifacts deterministically.
+
+`atdd plan confirm` remains as an alias of `atdd plan ratify`.
 
 ### Train
 
@@ -274,9 +281,9 @@ atdd init --export-schemas         # Export convention schemas to consumer repo
 
 ```bash
 atdd plan start --id <id> --main-job "<job to be done>"
-atdd plan advance --id <id> --step locate|prepare|confirm
+atdd plan advance --id <id> --step attach|compose|ratify
 atdd plan source/unit/decide --id <id> ...
-atdd plan confirm --id <id> && atdd plan author --id <id>
+atdd plan ratify --id <id> && atdd plan author --id <id>
 ```
 
 `atdd plan` is a read-only planning surface. It should render a deterministic brief and propose a train. It should not mutate GitHub, git, the manifest, or `plan/` artifacts.
@@ -423,7 +430,7 @@ Layer responsibilities:
 
 | Layer | Owns | Does not own |
 |---|---|---|
-| `atdd.plan` | the gated decomposition session (D/L/P/C) + on-confirm authoring via `atdd author` | issue creation, branches, PRs, merge policy |
+| `atdd.plan` | the gated decomposition session (Intent/Attach/Compose/Ratify) + on-ratify authoring via `atdd author` | issue creation, branches, PRs, merge policy |
 | `atdd.train` | train model, run state, persistence, events, TrainRunner | phase policy, low-level runtime control |
 | `atdd.coach.core` | pure policy: advance/block/escalate/merge readiness | I/O, subprocess, GitHub, cmux, worktrees |
 | `atdd.runtime` | worktrees, agent control, multiplexer views | ATDD phase decisions |

@@ -173,11 +173,40 @@ class SmokeExecutionGateCheck:
     def _not_applicable(
         self, ctx: GateContext, transition: str, uid: str, obligation: SmokeObligation
     ) -> GateCheckResult:
-        """PASS for an issue whose plan scope asks for no live-smoke run.
+        """NOT_APPLICABLE for an issue whose plan scope asks for no live-smoke run.
 
         Separate from the fail-closed body so the two answers cannot be confused
         while reading: this one is reached only when the obligation is genuinely
         empty, and it never consults the attestation store at all.
+
+        THE VERDICT NOW CARRIES THAT SEPARATION (#1719/C013). Until the gate had
+        a four-state vocabulary this branch had to return ``passed=True`` — the
+        same value the attested body returns — so the distinction the paragraph
+        above describes lived only in the prose and in the message string. It is
+        in the type now, and the docstring is no longer the thing holding it.
+
+        NOT ``COULD_NOT_CHECK``, and the difference matters here specifically.
+        This branch observed successfully: it resolved the work item, read its
+        plan scope, and correctly concluded that nothing in it asks for a live
+        smoke run. That is "I looked, and there is no obligation", not "I could
+        not look". Returning the blocking verdict here would refuse
+        ``SMOKE->REFACTOR`` for essentially every work item in the repo — the
+        edge is enabled in ``.atdd/config.yaml`` and this check is registered for
+        it — leaving ``--force`` as the routine exit. That is the rubber-stamp
+        failure :mod:`~atdd.coach.gate.smoke_obligation` exists to prevent, and
+        re-creating it by way of a vocabulary correction would be a worse version
+        of the bug being fixed.
+
+        A KNOWN NARROWER GAP, DELIBERATELY LEFT (see #1719's report). When
+        ``obligation.scopes`` is empty the work item named no feature and no
+        train, so the check did not locate a plan scope to read — arguably a
+        genuine could-not-check rather than a not-applicable, and
+        :class:`~atdd.coach.gate.smoke_obligation.SmokeObligation` already
+        records which case this is. Splitting it here would change the transition
+        outcome for every unbound work item, which is a policy decision belonging
+        to #1602's owner and to the #1689 backfill, not to this vocabulary
+        change. Both cases return NOT_APPLICABLE today, and the message
+        distinguishes them for a reader via ``describe_scope()``.
         """
         logger.debug(
             "smoke-execution gate: not applicable",
@@ -185,8 +214,8 @@ class SmokeExecutionGateCheck:
                    "issue": ctx.issue_number, "uid": uid,
                    "scopes": list(obligation.scopes)},
         )
-        return GateCheckResult(
-            self.gate_id, self.rule_id, True,
+        return GateCheckResult.not_applicable(
+            self.gate_id, self.rule_id,
             f"{transition} not applicable: #{ctx.issue_number} ({uid}) declares no "
             f"live_smoke acceptance, so smoke execution is not required for this "
             f"transition ({obligation.describe_scope()})",

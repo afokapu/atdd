@@ -3,11 +3,11 @@ rule_id: planner.plan.confirm-requires-interlocking-sanity
 kind: policy
 status: active
 name: Confirm requires interlocking sanity
-statement: Confirm cannot lock a train-bearing plan when required interlocking sanity
+statement: Ratify cannot lock a train-bearing plan when required interlocking sanity
   fails.
 terms:
 - term_id: confirm_gate
-  text: Confirm refuses to lock a train-bearing plan when required interlocking sanity
+  text: Ratify refuses to lock a train-bearing plan when required interlocking sanity
     fails, and a failure leaves the session unlocked
 implementation:
   type: validator

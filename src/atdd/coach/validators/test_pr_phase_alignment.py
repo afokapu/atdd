@@ -37,8 +37,23 @@ pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
 REPO_ROOT = find_repo_root()
 
-# File path patterns that indicate code changes (not just planner artifacts)
+# File path patterns that indicate code changes (not just planner artifacts).
+#
+# C014 (#1632): every prefix below `src/` describes the downstream consumer repo
+# named in this module's docstring (its PRs #307, #308). This toolkit's own code
+# lives under `src/atdd/`, which matched none of them — so `_classify_changed_files`
+# filed every source file in this repo under `other`, `evaluate_phase_violations`
+# returned early on `if not classified.get("code")`, and BOTH rules this module
+# declares were unreachable here. Measured 2026-08-03 through the live PRManager
+# across all 18 open PRs and 196 changed files: code=0 on every single PR, with 46
+# `src/` files sitting in `other`. Neither SPEC-COACH-PRGATE-0002 (warn) nor
+# COACH-PRGATE-0003 (fail, severity 4) had ever fired in this repo.
+#
+# `_TEST_PATH_PATTERNS` is matched BEFORE these prefixes, so adding `src/` does not
+# reclassify this repo's tests as code — a RED-phase PR is still expected to carry
+# test files and is not retroactively made a violation.
 _CODE_PATH_PREFIXES = (
+    "src/",
     "python/",
     "web/src/",
     "supabase/functions/",
