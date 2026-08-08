@@ -164,7 +164,7 @@ Rule: **Train is not the Temporal/LangGraph-equivalent. TrainRunner is the equiv
 | **`atdd.coach.core`** | Phase machine, transition rules, evidence-evaluation rules, persona/prompt-template mapping, merge-readiness rules, escalation policy. Pure functions of (Evidence, Conventions). | Any I/O, any state, any subprocess, any external API |
 | **`atdd.train`** | Stateful orchestration: sessions, retries, event loop, wave concurrency, resume, persistence reads/writes, conventions loading | Phase semantics, persona mapping, spawn mechanics, GitHub API calls |
 | **`atdd.runtime.worktree`** | git worktree create/remove, branch safety, working-tree invariants | Phase decisions, GitHub label state |
-| **`atdd.integrations.github`** | Issue labels, Projects v2 fields, PR state/merge, check runs | Phase semantics, decision logic |
+| **`atdd.integrations.github`** | Issue labels, PR state/merge, check runs | Phase semantics, decision logic |
 | **`atdd.validators`** | Run validation against repo state, emit `ValidatorReport` rows | Decide what to do with violations |
 | **`atdd.observer`** | Read events.jsonl + per-agent output.log; surface in CLI/TUI | Write any orchestration state |
 
@@ -735,6 +735,14 @@ class Multiplexer(Protocol):
 Import-discipline test asserts none of these exist on the Multiplexer protocol.
 
 ### 4.10 GitHub integration contracts
+
+> **Historical as written.** The `projects_v2` module and the board sync inside
+> `transition_phase` below were the #882 design; they were never the shipped
+> contract for long. #1051 decommissioned the Projects v2 board, and #1761
+> removed its last bootstrap and write paths. As shipped, `transition_phase`
+> swaps the `atdd:<phase>` label over REST and nothing else, there is no
+> `projects_v2.py`, and `PROJECT_TOKEN` is not consulted anywhere. The rest of
+> this section — `issue_state`, `pr`, `checks` — still describes live code.
 
 ```python
 # atdd/integrations/github/issue_state.py
