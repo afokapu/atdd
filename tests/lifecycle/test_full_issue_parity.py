@@ -72,11 +72,11 @@ def test_full_lifecycle_init_to_complete(tmp_repo, fake_github, fake_agent, fake
         runner.handle_event(run_id, _tick())
         assert runner.status(run_id).current_phase == expected
 
-    # Merge gate (§10.1): PR merged, label + board both at COMPLETE.
+    # Merge gate (§10.1): PR merged and the label at COMPLETE. The board-status
+    # assertion that sat here was the #882 guard; #1051 decommissioned the board
+    # and #1761 removed its last writers, so the label is the whole projection.
     assert fake_github.pr_for(issue.number).state == "MERGED"
     assert fake_github.issue(issue.number).labels == {ISSUE_LABEL, "atdd:COMPLETE"}
-    # Projects v2 Status field synced atomically with the label (closes #882).
-    assert fake_github.project_v2_status(issue.number) == "COMPLETE"
 
     # Architectural assertions (§10.1).
     _assert_event_log_replayable(persistence, run_id)

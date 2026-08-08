@@ -1,7 +1,7 @@
 """
 Issue management for ATDD tracking via GitHub Issues.
 
-Creates GitHub Issues with Project v2 custom fields and WMBT sub-issues.
+Creates GitHub Issues with `atdd:<phase>` labels and WMBT sub-issues.
 Requires `gh` CLI authenticated with `project` scope.
 
 Usage:
@@ -126,7 +126,7 @@ def _resolve_branch_in_store(store, branch: str) -> Optional[bool]:
 
 
 class IssueManager:
-    """Manage ATDD issues via GitHub Issues and Projects v2."""
+    """Manage ATDD issues via GitHub Issues and the State Store."""
 
     def __init__(self, target_dir: Optional[Path] = None):
         """
