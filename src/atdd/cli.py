@@ -1303,6 +1303,24 @@ Phase descriptions:
         help="Skip the live PyPI check (use local stamp only)",
     )
 
+    # ----- atdd self-upgrade -----
+    # The seam the packaged post-merge / post-checkout hooks call (#1762). NOT a
+    # flag on `upgrade`: that command finishes with sync + init --force, and
+    # init --force writes to GitHub (#1703) — nothing a hook firing on every
+    # branch switch should be able to reach. This one only installs.
+    subparsers.add_parser(
+        "self-upgrade",
+        help="Bring the install current, quietly and without blocking (used by post-* git hooks)",
+        description=(
+            "Upgrade atdd if a newer version is already known from the local version "
+            "cache, serialised on the install-scoped upgrade lock and declining rather "
+            "than waiting when another upgrade holds it. Always exits 0 and writes only "
+            "to stderr: it is called from git hooks whose exit codes git discards, and "
+            "it must never make a completed git operation look like a failure. The "
+            "pre-push version gate is unaffected — it still only gates."
+        ),
+    )
+
     # ----- atdd repo {graph,orphans,broken,validate,resolve,declarations,viz} -----
     # Renamed from the legacy `urn` namespace per spec §9.1 (issue #414).
     # A deprecation shim for the legacy command is registered further down
@@ -2503,6 +2521,10 @@ Phase descriptions:
             no_pypi=getattr(args, "no_pypi", False),
         )
 
+    elif args.command == "self-upgrade":
+        from atdd.coach.commands.upgrader import run_self_upgrade
+        return run_self_upgrade()
+
     # atdd repo {graph,orphans,broken,validate,resolve,declarations,families,viz,
     #            rules,wmbt-rules,train-rules,security-rules}
     elif args.command == "repo":
@@ -2736,15 +2758,25 @@ def cli() -> int:
         pass
 
     # Check if repo needs sync after ATDD upgrade (at startup)
-    # Skip if running 'atdd upgrade' — it handles its own messaging
-    if not (len(sys.argv) > 1 and sys.argv[1] == "upgrade"):
+    # Skip if running 'atdd upgrade' — it handles its own messaging — or
+    # 'atdd self-upgrade', which is a git hook nobody invoked and whose whole
+    # discipline is to say nothing when it has nothing to report (#1762). A pull
+    # that was already current must not grow two banners.
+    if not (len(sys.argv) > 1 and sys.argv[1] in ("upgrade", "self-upgrade")):
         print_upgrade_sync_notice()
 
     try:
         result = main()
     finally:
-        # Check for newer versions on PyPI (at end)
-        print_update_notice()
+        # Check for newer versions on PyPI (at end).
+        #
+        # Not after `atdd self-upgrade` (#1762). __version__ was resolved at
+        # import time, so a run that just succeeded would end by advising the
+        # operator to upgrade to the version it had that moment installed —
+        # a self-upgrade that reads as a failure, which is exactly what E009's
+        # output discipline forbids.
+        if not (len(sys.argv) > 1 and sys.argv[1] == "self-upgrade"):
+            print_update_notice()
     return result
 
 
