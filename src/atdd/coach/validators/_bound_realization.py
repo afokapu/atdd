@@ -462,10 +462,11 @@ class BoundRealizationResolver:
         if recorded != actual:
             return concluded(
                 "stale-substrate-digest",
-                f"binding lock records substrate_lock_digest {recorded!r} but the "
-                f"substrate on disk digests to {actual!r} — the lock no longer "
-                f"describes this substrate, so it proves nothing about it. "
-                f"Re-run `atdd bind`.",
+                f"{self.lock_path} records substrate_lock_digest {recorded!r} but "
+                f"the substrate on disk digests to {actual!r} — the lock no longer "
+                f"describes this substrate, so it proves nothing about it (and "
+                f"nothing else reads this key, so the drift is otherwise silent). "
+                f"Re-run `atdd bind --check`.",
             )
 
         # 3. EXACT selection on the asserted identity convention_id == rule_id.
