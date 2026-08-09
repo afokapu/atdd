@@ -100,9 +100,11 @@ Concrete locations covered:
   URN families but the enumeration has different semantics
   (issue-classification, not URN-syntax) and an authoritative spec
   (issue.convention.yaml). Out of scope.
-- `src/atdd/coach/schemas/{session,project_fields,label_taxonomy}.schema.json`
-  — same archetype taxonomy as above, mirrored in JSON Schema for GitHub
-  Project v2 fields.
+- `src/atdd/coach/schemas/{session,label_taxonomy}.schema.json`
+  — same archetype taxonomy as above, mirrored in JSON Schema.
+  (`project_fields.schema.json` was audited here too; it described the
+  Projects v2 board fields and was deleted with the board's last writers
+  in #1761.)
 - `src/atdd/coder/validators/test_dead_code_python.py::TEST_DIRS = {"test", "tests"}`,
   similar `{"test", "tests"}` patterns — directory names, not URN families.
 - `.github/workflows/atdd-validate.yml` `'atdd-wmbt'` label expressions —

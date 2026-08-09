@@ -66,7 +66,7 @@ In short:
 | recover from interrupted work | JSONL event logs and resumable train runs *(decomposition target)* |
 | catch regressions before review | validators + per-rule dispositions + rule-ID binding |
 | sync rules across Claude, Codex, Gemini, GLM | `atdd sync` — managed blocks that preserve user content |
-| treat issues, PRs, plan artifacts, and releases as one system | GitHub Issues + Project v2 fields + manifest + release gates |
+| treat issues, PRs, plan artifacts, and releases as one system | GitHub Issues + `atdd:<phase>` labels + manifest + release gates |
 
 ---
 
@@ -98,7 +98,7 @@ atdd plan ratify  --id my-plan        # the ratify-before-author boundary (`conf
 atdd plan author  --id my-plan        # system authors each kept unit via `atdd author`
 ```
 
-> **Mandatory:** issue and PR creation go through `atdd`. Direct `gh issue create` / `gh pr create` bypass manifest registration, WMBT sub-issues, Project v2 fields, and branch/merge guards.
+> **Mandatory:** issue and PR creation go through `atdd`. Direct `gh issue create` / `gh pr create` bypass manifest registration, WMBT sub-issues, store-first work-item creation, and branch/merge guards.
 
 ---
 
@@ -225,7 +225,7 @@ For the consumer, the benefit is simple:
 - clearer planning before issue creation;
 - resumable runs;
 - event logs for debugging;
-- GitHub issue / PR / Project v2 sync;
+- GitHub issue / PR / check-run sync;
 - evidence-based phase advancement.
 
 ---
@@ -271,7 +271,7 @@ stateDiagram-v2
 ### Initialization
 
 ```bash
-atdd init                          # Bootstrap .atdd/ + GitHub labels + Project v2 fields
+atdd init                          # Bootstrap .atdd/ + GitHub labels + workflows
 atdd init --force                  # Reinitialize managed blocks
 atdd init --worktree-layout        # Migrate to flat-sibling worktree layout
 atdd init --export-schemas         # Export convention schemas to consumer repo
@@ -420,7 +420,7 @@ flowchart TB
     TR --> PERSIST[train.persistence<br/>events + evidence]
     PERSIST --> CORE[Coach-core<br/>pure policy]
     TR --> RUNTIME[Runtime<br/>worktree]
-    TR --> GH[Integrations<br/>GitHub issue / PR / checks / Projects v2]
+    TR --> GH[Integrations<br/>GitHub issue / PR / checks]
     TR --> VAL[Validators<br/>ValidatorReport]
     OBS[Observer<br/>read-only event stream] --> PERSIST
     RUNTIME --> AGENT[worker agents]
@@ -434,7 +434,7 @@ Layer responsibilities:
 | `atdd.train` | train model, run state, persistence, events, TrainRunner | phase policy, low-level runtime control |
 | `atdd.coach.core` | pure policy: advance/block/escalate/merge readiness | I/O, subprocess, GitHub, cmux, worktrees |
 | `atdd.runtime` | worktrees, agent control, multiplexer views | ATDD phase decisions |
-| `atdd.integrations.github` | labels, Projects v2, PRs, checks | ATDD policy |
+| `atdd.integrations.github` | labels, PRs, checks | ATDD policy |
 | `atdd.validators` | validation reports | orchestration decisions |
 | `atdd.observer` | read-only visibility | writing orchestration state |
 

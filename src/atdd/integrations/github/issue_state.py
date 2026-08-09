@@ -87,10 +87,12 @@ def read_train(issue: int) -> Optional[str]:
 def set_train(issue: int, train_id: str) -> None:
     """Persist *train_id* as a label hint (``atdd-train:<id>``).
 
-    The canonical Train value lives in the Projects v2 ``ATDD Train`` text field
-    and the issue-body table; this adapter records the lightweight label so a
-    pure label read can recover lineage. Project-field writes go through the
-    Projects v2 adapter from the train layer (Child 7).
+    The canonical Train value lives in the issue-body table and the local
+    manifest mirror; this adapter records the lightweight label so a pure label
+    read can recover lineage. It used to name the Projects v2 ``ATDD Train``
+    field as canonical and defer field writes to a board adapter — #1051
+    decommissioned the board and #1761 removed its last writers, so there is no
+    such adapter and nothing to defer to.
     """
     _gh.run_gh(
         ["issue", "edit", str(issue), "--add-label", f"atdd-train:{train_id}"]

@@ -49,7 +49,7 @@ patterns:
       contains: "gh issue create"
     reason: >
       gh issue create bypasses atdd manifest registration, WMBT sub-issue
-      generation, and Project v2 field setup. Any issue created this way will
+      generation, and store-first work-item creation. Any issue created this way will
       be missing from .atdd/manifest.yaml and flagged by atdd validate coach.
       Incident: #659 was filed with gh issue create and lacked manifest entry.
     alternative: "atdd author issue --title <title> --slug <slug>"

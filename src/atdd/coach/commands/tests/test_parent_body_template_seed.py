@@ -15,7 +15,7 @@ pytestmark = [pytest.mark.platform]
 def _make_manager(tmp_path: Path):
     (tmp_path / ".atdd").mkdir()
     (tmp_path / ".atdd" / "config.yaml").write_text(
-        "github:\n  repo: afokapu/atdd\n  project_number: 1\n",
+        "github:\n  repo: afokapu/atdd\n",
         encoding="utf-8",
     )
     from atdd.coach.commands.issue import IssueManager

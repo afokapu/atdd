@@ -83,7 +83,7 @@ def _make_fake_client(
 def _write_atdd_config(tmp_path: Path) -> None:
     (tmp_path / ".atdd").mkdir(exist_ok=True)
     (tmp_path / ".atdd" / "config.yaml").write_text(
-        "github:\n  repo: afokapu/atdd\n  project_number: 1\n",
+        "github:\n  repo: afokapu/atdd\n",
         encoding="utf-8",
     )
 

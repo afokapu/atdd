@@ -1,7 +1,7 @@
 """
 Issue management for ATDD tracking via GitHub Issues.
 
-Creates GitHub Issues with Project v2 custom fields and WMBT sub-issues.
+Creates GitHub Issues with `atdd:<phase>` labels and WMBT sub-issues.
 Requires `gh` CLI authenticated with `project` scope.
 
 Usage:
@@ -126,7 +126,7 @@ def _resolve_branch_in_store(store, branch: str) -> Optional[bool]:
 
 
 class IssueManager:
-    """Manage ATDD issues via GitHub Issues and Projects v2."""
+    """Manage ATDD issues via GitHub Issues and the State Store."""
 
     def __init__(self, target_dir: Optional[Path] = None):
         """
@@ -444,9 +444,9 @@ class IssueManager:
     def _has_github_config(self) -> bool:
         """Check if GitHub integration is configured.
 
-        Only ``github.repo`` is required (#1051): the Projects v2 board — and
-        its ``project_id`` — was decommissioned, so the issue label (REST) plus
-        the local manifest carry all state.
+        ``github.repo`` is the only key there is (#1051, #1761): the Projects
+        v2 board was decommissioned and its config fields deleted, so the
+        issue label (REST) plus the local manifest carry all state.
         """
         config = self._load_config()
         github = config.get("github", {})
@@ -457,10 +457,7 @@ class IssueManager:
         from atdd.coach.github import GitHubClient, ProjectConfig, GitHubClientError
         try:
             project_config = ProjectConfig.from_config(self.config_file)
-            return GitHubClient(
-                repo=project_config.repo,
-                project_id=project_config.project_id,
-            )
+            return GitHubClient(repo=project_config.repo)
         except GitHubClientError as e:
             logger.debug("GitHub client not available: %s", e, extra={"error": str(e)})
             return None

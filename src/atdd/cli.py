@@ -722,7 +722,7 @@ Phase descriptions:
     init_parser = subparsers.add_parser(
         "init",
         help="Initialize ATDD structure in consumer repo",
-        description="Bootstrap GitHub infrastructure (labels, Project v2, fields) and .atdd/ config"
+        description="Bootstrap GitHub infrastructure (labels, workflows, branch protection) and .atdd/ config"
     )
     init_parser.add_argument(
         "--force", "-f",

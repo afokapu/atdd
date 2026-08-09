@@ -178,25 +178,9 @@
           "description": "GitHub repository in owner/name format",
           "pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$",
           "examples": ["org/repo", "afokapu/atdd"]
-        },
-        "project_number": {
-          "type": "integer",
-          "description": "GitHub Projects v2 number (visible in URL)",
-          "minimum": 1,
-          "examples": [1]
-        },
-        "project_id": {
-          "type": "string",
-          "description": "GitHub Projects v2 node ID (GraphQL identifier)",
-          "pattern": "^PVT_",
-          "examples": ["PVT_kwHOAIbyOM4BPpKf"]
-        },
-        "field_schema": {
-          "const": "atdd/coach/schemas/project_fields.schema.json",
-          "description": "Reference to the custom field schema definition"
         }
       },
-      "required": ["repo", "project_number", "project_id"],
+      "required": ["repo"],
       "additionalProperties": false
     },
     "themes": {

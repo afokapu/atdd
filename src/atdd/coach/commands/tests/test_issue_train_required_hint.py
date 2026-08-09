@@ -37,7 +37,7 @@ def _setup_atdd_config(tmp_path: Path) -> Path:
     cfg_dir = tmp_path / ".atdd"
     cfg_dir.mkdir()
     (cfg_dir / "config.yaml").write_text(yaml.safe_dump({
-        "github": {"repo": "owner/repo", "project_id": "PVT_test"},
+        "github": {"repo": "owner/repo"},
     }))
     return tmp_path
 
