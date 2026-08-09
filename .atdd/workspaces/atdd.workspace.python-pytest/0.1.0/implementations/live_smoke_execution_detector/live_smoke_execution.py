@@ -23,6 +23,18 @@ PROVENANCE — ported from core
     The pure self-skip matcher is copied; the ``atdd.coach.*`` couplings and the
     plan/ walk were REMOVED (see HOW THE live_smoke GATE IS DECIDED below).
 
+    The matcher table itself now lives in the policy-free sibling
+    ``self_skip_kernel.py`` and is no longer duplicated here. This module keeps
+    its own SELECTION POLICY — report the mechanism appearing earliest in the
+    SOURCE — which differs from core's (earliest in the MATCHER TABLE). The two
+    disagree when a file carries several mechanisms; that divergence predates
+    this extraction and is preserved by it deliberately, because changing either
+    caller's reported label is a behaviour change the extraction must not make.
+    Core is held to the same table by
+    ``src/atdd/tester/validators/tests/test_self_skip_matcher_parity.py``, which
+    reads the kernel as text rather than importing it (core imports no detector
+    code).
+
 DECOUPLED FROM CORE (the 4 couplings, per task §3 / GOTCHAS):
   * ``bind_rule("tester.acceptance-violation.live-smoke-acceptance-must-execute")``
     ->  module-level ``RULE_LIVE_SMOKE_MUST_EXECUTE`` constant. Severity 4 /
@@ -67,7 +79,16 @@ from __future__ import annotations
 
 import fnmatch
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from self_skip_kernel import (  # noqa: E402  (path-local sibling, see PROVENANCE)
+    SELF_SKIP_MATCHERS,
+    find_self_skips,
+    first_by_source_position,
+)
 
 # The CORE convention rule_id this detector realizes (NOT a new node).
 RULE_LIVE_SMOKE_MUST_EXECUTE = (
@@ -81,15 +102,12 @@ _LIVE_SMOKE_HEADER_RE = re.compile(
 )
 _HEADER_SCAN_LINES = 30  # only the leading comment block (core parity, avoids body strings)
 
-# Self-skip mechanisms that let a live_smoke test "pass" by never executing.
-# Copied verbatim (in spirit) from core ``_SELF_SKIP_PATTERNS``.
+# Self-skip mechanisms now come from the policy-free kernel. Re-exported under
+# the historical private name so any existing reader of this module keeps
+# working; the compiled form is rebuilt from the kernel's (pattern, label) data
+# rather than restated, so there is exactly one table in this workspace.
 _SELF_SKIP_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"\bpytest\.skip\s*\("), "pytest.skip(...)"),
-    (re.compile(r"\bpytest\.importorskip\s*\("), "pytest.importorskip(...)"),
-    (re.compile(r"@\s*(?:pytest\.mark\.)?skipif\b"), "@pytest.mark.skipif"),
-    (re.compile(r"@\s*(?:pytest\.mark\.)?skip\b"), "@pytest.mark.skip"),
-    (re.compile(r"\bmark\.skipif?\s*\("), "pytest.mark.skip(if)(...)"),
-    (re.compile(r"\blive_smoke_available\s*\("), "live_smoke_available() self-skip guard"),
+    (re.compile(pattern), label) for pattern, label in SELF_SKIP_MATCHERS
 ]
 
 
@@ -115,15 +133,10 @@ def detect_self_skip(source: str) -> tuple[int, int, str] | None:
     locations only; the decidable negative check (does this file self-skip at all?)
     is unaffected.
     """
-    best: tuple[int, int, str] | None = None
-    for pattern, label in _SELF_SKIP_PATTERNS:
-        for m in pattern.finditer(source):
-            lineno = source.count("\n", 0, m.start()) + 1
-            line_start = source.rfind("\n", 0, m.start()) + 1
-            col = m.start() - line_start
-            if best is None or (lineno, col) < (best[0], best[1]):
-                best = (lineno, col, label)
-    return best
+    # Delegates to the kernel for the FACTS; the selection POLICY (earliest by
+    # source position) stays here and is unchanged.
+    hit = first_by_source_position(find_self_skips(source))
+    return None if hit is None else (hit.line, hit.col, hit.mechanism)
 
 
 # ---------------------------------------------------------------------------
