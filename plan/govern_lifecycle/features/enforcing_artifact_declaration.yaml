@@ -1,0 +1,23 @@
+urn: "feature:govern-lifecycle:enforcing-artifact-declaration"
+wagon: "wagon:govern-lifecycle"
+description: "Keep the toolchain from generating the violation the `## Artifacts` gate exists to catch. #1726 bound the Artifacts claim to the merge commit; this feature covers the commands that instruct an author to add files to a commit whose declaration is already written, and makes each of them name the declaration it invalidates. The first and most systematic of those is the registry drift remediation, which prescribes `git add` of three mirrors plus `git commit --amend` and knows, at the moment it prints that, exactly which files are about to be appended. The fix is always in the instruction rather than in the rule — exempting an artifact class from the requirement would re-open the hole #1726 closed."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:C022"
+components:
+  backend:
+    domain:
+      - type: "value_objects"
+        count: 1
+        rationale: "The mirror set the remediation re-stages, named once so the amend instruction and the declaration warning cannot describe different files"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No new use case — the drift check already computes the drifted-file report the warning is derived from"
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "format_fix_hint renders the declaration consequence of the amend it prescribes, on the drift path only"

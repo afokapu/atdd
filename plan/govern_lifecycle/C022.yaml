@@ -1,0 +1,84 @@
+urn: "wmbt:govern-lifecycle:C022"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated"
+context_clarifier: "format_fix_hint() in src/atdd/coach/commands/registry.py is the only text an operator sees when a registry mirror drifts, and it ends with `git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml && git commit --amend --no-edit`. The `## Artifacts` section of the issue was authored from `git diff --name-only origin/main..HEAD` as that diff stood BEFORE the resync; the amend then appends up to three files the declaration does not mention. Since #1726 bound the Artifacts claim to the merge commit, the REFACTOR -> COMPLETE gate refuses exactly those undeclared paths — so the toolchain's own prescribed fix manufactures the violation the gate exists to catch, and it caught #1726's own worker while it was implementing #1726. The remediation is the one place in the repo that knows files are about to be appended to a commit whose declaration is already written: the drift report has already computed and printed `drifted_files` at that point. The fix belongs in the instruction, not in the rule — exempting registry mirrors from the Artifacts requirement would re-open the hole #1726 closed."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated by having format_fix_hint() name the consequence of the amend it prescribes — that the resynced mirrors enter the commit after `## Artifacts` was written and leave the declaration stale by exactly those paths — and name the mechanical re-derivation (`git diff --name-only origin/main..HEAD`) the author must run before pushing, while emitting nothing at all on the clean path so a repo with no drift is unchanged, and without exempting any mirror from the Artifacts requirement"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C022-UNIT-001-the-remediation-names-the-declaration-it-invalidates"
+      id: "AC-UNIT-001"
+      purpose: "An instruction that appends files to an already-declared commit and stops there is the generator of the undeclared case. The hint must carry the consequence and the exact re-derivation, in the same breath as the amend, because the amend is the last thing the operator reads before running it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A drift report listing the registry mirrors that are about to be resynced"
+        - "The same report with an empty drifted-files list, since the check calls the formatter either way"
+    when:
+      abstract: "format_fix_hint(drift_report) is called"
+    then:
+      abstract:
+        - "The returned string still carries the resync command and the re-stage-and-amend instruction, so the remediation that works is not traded for the warning"
+        - "It states that the amend adds those files to a commit whose `## Artifacts` section was already written, so the operator is told what the instruction costs and not merely that a declaration exists"
+        - "It names `git diff --name-only origin/main..HEAD` as the re-derivation to run before pushing, because a warning that does not name the mechanical derivation leaves the author to guess at the one the gate actually applies"
+        - "The files the amend will add and the files the warning is about are the same set, taken from the drift report the check already computed rather than from a second hard-coded list that can drift from the first"
+        - "The empty-report case still warns, naming the mirrors generically, so a call site that reports no per-file detail does not silently drop the consequence"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-08"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C022-UNIT-002-a-repo-with-no-drift-gains-no-new-output"
+      id: "AC-UNIT-002"
+      purpose: "The cheap way to satisfy AC-UNIT-001 is to print the declaration warning unconditionally. That would put an Artifacts lecture in front of every operator on every clean check, and the warning would stop meaning anything on the one run where it is true"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A registry whose mirror already matches its source-of-truth files, checked through the same check-mode path that prints the hint on drift"
+    when:
+      abstract: "the check runs and the in-sync branch is taken"
+    then:
+      abstract:
+        - "The output reports the registry as in sync and contains no `## Artifacts` text, no re-derivation command and no amend instruction"
+        - "The clean output is byte-identical to what the same check printed before this change, so 'no new output' is pinned rather than asserted about a subset of lines"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-08"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C022-SMOKE-001-the-real-drift-check-carries-the-warning-to-the-operator"
+      id: "AC-SMOKE-001"
+      purpose: "The unit tests pin the formatter. What the operator acts on is whatever the real check prints, and the formatter is reached through a call site that passes its own drift report. This closes the gap between 'the string is right' and 'the string arrives'"
+      phase: "SMOKE"
+    # Real RegistryBuilder, real check-mode dispatch, real formatter, nothing
+    # monkeypatched — but the drifted repo is a tmp_path fixture, so the only
+    # infrastructure involved is the filesystem. planner.acceptance.execution-kind
+    # reserves `live_smoke` for real live infrastructure (HTTP, DB, auth,
+    # deployment); this is the hermetic_integration tier, as C014-SMOKE-001 and
+    # C021-SMOKE-001 were both corrected to be.
+    execution_kind: "hermetic_integration"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A repository on disk whose wagon manifest declares a WMBT count its `plan/_wagons.yaml` mirror does not carry — the exact drift a WMBT-adding branch produces"
+        - "The real RegistryBuilder pointed at it, with no stubbing of the drift detection, the check dispatch or the hint formatter"
+    when:
+      abstract: "the check-mode run that a pre-push hook and the COMPLETE gate both invoke is performed against that repository"
+    then:
+      abstract:
+        - "The run reports drift and its output carries the declaration warning and the re-derivation command, so the consequence reaches the operator through the real surface and not only through a direct call to the formatter"
+        - "The output names the drifted mirror, so the warning is about the files that are actually about to be appended"
+        - "The same run against a repository whose mirror is in sync reports no drift and emits neither the warning nor the amend instruction, so the discriminating control is the drift and not the code path being unconditional"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-08"
