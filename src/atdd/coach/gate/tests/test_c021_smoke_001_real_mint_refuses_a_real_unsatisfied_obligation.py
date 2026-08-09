@@ -97,7 +97,16 @@ def restore_the_shared_registry():
 
 @pytest.fixture
 def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A real git checkout whose Control Root is itself, gating SMOKE->REFACTOR."""
+    """A real git checkout whose Control Root is itself, gating SMOKE->REFACTOR.
+
+    STANDING ON :data:`_BRANCH` since #1765. The mint resolves the commit it
+    certifies from the branch the State Store binds the issue to, so a checkout
+    that carries the binding but not the branch is a repo where that head does not
+    exist and every mint below would refuse for #1765's reason rather than this
+    acceptance's. Creating the branch makes the fixture what it always claimed to
+    be — the issue's OWN worktree — instead of leaving it a third directory that
+    only happened to work while HEAD came from the cwd.
+    """
     monkeypatch.setenv("ATDD_CONTROL_ROOT", str(tmp_path))
     (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".atdd" / "config.yaml").write_text(
@@ -109,6 +118,7 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
          "-q", "--allow-empty", "-m", "root"],
         cwd=tmp_path, check=True,
     )
+    subprocess.run(["git", "checkout", "-q", "-b", _BRANCH], cwd=tmp_path, check=True)
     return tmp_path
 
 
