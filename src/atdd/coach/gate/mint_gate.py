@@ -73,6 +73,35 @@ THE FOUR CONDITIONS FROM #1670, AND WHERE EACH LANDS
    branch/expiry binding, in flight on another branch; NO SECOND BINDING IS BUILT
    HERE.
 
+WHOSE HEAD (#1765)
+------------------
+Condition 4 says *bound to HEAD*, and the first implementation bound it to **a**
+HEAD rather than the issue's: :func:`resolve_head` shelled ``git rev-parse HEAD``
+in the directory the operator happened to be standing in. Measured 2026-08-08 on
+the first two issues to cross this edge after slice C merged — ``#1671`` and
+``#1653`` both printed ``a24b3e237007``, which was the head of a THIRD branch, the
+orchestrator's working directory. Neither issue's own commit appeared. The token
+was correctly bound to each issue's branch by #1721, so the output named one
+branch and attested a commit from another. A gate run against an unrelated commit
+is not stale evidence; it is evidence about something else.
+
+The commit is now resolved the way the branch already is — through the issue's
+State Store binding, by reusing :func:`~atdd.coach.gate.approval_binding.resolve_issue_branch`
+rather than adding a resolver (#1755 records seven functions already resolving
+these same graph edges; an eighth to fix this would be the defect that issue is
+about). ``worktree`` still selects the REPOSITORY whose refs are read, the config,
+and the Control Root — a linked worktree shares ``refs/heads/*`` with every other
+worktree of its repo, which is exactly why the branch's head is the same answer
+from all of them and ``HEAD`` is not. It no longer selects the COMMIT.
+
+``SmokeExecutionGateCheck._head_sha`` is deliberately NOT changed with it: it is
+the transition gate's own permissiveness, argued in its docstring, and #1765
+scopes it out. The consequence is stated rather than hidden — the mint's
+precondition is now the issue's tree while the check it consumes still reads the
+invoking worktree's, so a mint from a foreign directory refuses on a branch head
+it cannot name before it can mislead, but a smoke staleness clause evaluated from
+a foreign directory remains #1602's to close.
+
 PURITY: unlike ``decision.py`` this module is impure by nature — it runs git and
 drives a registry of checks that open a store. It is the mint's counterpart to
 ``command_check.py``, and the pure verdict logic it composes stays in
@@ -86,6 +115,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Optional, Sequence, Tuple
 
+from atdd.coach.gate.approval_binding import resolve_issue_branch
 from atdd.coach.gate.approval_check import GATE_ID as APPROVAL_GATE_ID
 from atdd.coach.gate.decision import (
     GateContext,
@@ -121,8 +151,82 @@ DEFAULT_REGISTRARS: Tuple[Callable[..., None], ...] = (
 _GIT_TIMEOUT_S = 10
 
 
-def resolve_head(worktree: Path) -> Optional[str]:
-    """The commit the approval would be granted for, or ``None``.
+@dataclass(frozen=True)
+class HeadBinding:
+    """The commit the approval would be granted for, or a sayable reason there is none.
+
+    The same shape and the same discipline as
+    :class:`~atdd.coach.gate.approval_binding.BranchBinding`, for the same reason:
+    the ways this comes back empty need different operator actions — register the
+    issue, record its branch, fetch the branch into this repository, fix the store
+    — and a bare ``None`` collapses them into one unactionable refusal. What is
+    NOT collapsed either way is "could not resolve" against "resolved to nothing";
+    both are unmade observations and neither may read as a clean answer.
+
+    :attr:`branch` is the branch that WAS found when one was, so a refusal on the
+    step after can name it.
+    """
+
+    sha: Optional[str] = None
+    branch: Optional[str] = None
+    reason: Optional[str] = None
+
+    def __bool__(self) -> bool:
+        return bool(self.sha)
+
+
+def _branch_head(start: Path, branch: str) -> Optional[str]:
+    """The commit ``refs/heads/<branch>`` names, read from the repo at ``start``.
+
+    ``start`` selects the REPOSITORY, never the tree — and that distinction is the
+    whole of #1765. Every linked worktree of a repository shares one ``refs/``
+    namespace, so ``rev-parse refs/heads/<branch>`` returns the same commit from
+    all of them while ``rev-parse HEAD`` returns a different one in each. Asking
+    for the named ref is what makes the answer a property of the issue rather than
+    of where the operator was standing.
+
+    ``--verify --quiet`` with the full ``refs/heads/`` prefix so an unknown branch
+    is exit 1 and silence rather than a partial match or a flag; ``^{commit}``
+    peels an annotated-tag-shaped ref to the commit the gates would run against.
+    ``None`` for every fault, which the caller turns into a refusal — no fallback
+    to ``HEAD`` exists here, because falling back is the defect.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(start), "rev-parse", "--verify", "--quiet",
+             f"refs/heads/{branch}^{{commit}}"],
+            capture_output=True, text=True, timeout=_GIT_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug(
+            "conditional mint: cannot resolve the issue's branch head",
+            extra={"start": str(start), "branch": branch, "error": str(exc)},
+        )
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
+def resolve_head(start: Path, issue_number: int) -> HeadBinding:
+    """The commit the approval for ``issue_number`` would be granted for.
+
+    THE ISSUE'S HEAD, NOT THE OPERATOR'S (#1765). This used to shell ``git
+    rev-parse HEAD`` in the invoking directory, so on 2026-08-08 two approvals
+    were evaluated against the head of a third, unrelated branch — the one the
+    orchestrator's shell was sitting in. The branch is resolved through the State
+    Store binding by #1721 and the edge's legality by #1735; this was the one
+    field still taken from the cwd, which made the mint's output internally
+    inconsistent: it named one branch and attested a commit from another.
+
+    So the commit is resolved the way the branch already is, by REUSING
+    :func:`~atdd.coach.gate.approval_binding.resolve_issue_branch` — #1755 records
+    seven functions resolving these same graph edges already, two pairs of them
+    sharing a name with incompatible signatures, and adding an eighth to fix a
+    cwd-coupling bug would be the defect that issue exists to name. ``start`` is a
+    STARTING POINT for Control-Root and repository resolution, never the location
+    itself, which is the contract ``approval_paths`` and ``approval_binding`` both
+    keep.
 
     SEPARATE FROM ``SmokeExecutionGateCheck._head_sha`` ON PURPOSE, and the
     difference is a policy one rather than an oversight. That function returns
@@ -137,26 +241,34 @@ def resolve_head(worktree: Path) -> Optional[str]:
     evidence is current", which is #1670's condition 3 in the place it is easiest
     to miss, because nothing fails and nothing is printed.
 
-    So the mint asks the question itself and refuses on ``None``, and
+    So the mint asks the question itself and refuses on an empty binding, and
     ``SmokeExecutionGateCheck`` is left exactly as it is: strictness is added
     where the authorisation is written, not taken out of the transition gate,
     where it would change behaviour repo-wide for every issue in every
     non-git environment.
+
+    Never raises, for ``resolve_issue_branch``'s reason: a store fault comes back
+    as a binding carrying the fault, so "could not resolve" stays distinguishable
+    from "resolved to nothing", and ``decision.run_checks`` cannot flatten a
+    raised exception into a ``FAIL`` that would read as an observed violation.
     """
-    try:
-        proc = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=str(worktree), capture_output=True, text=True, timeout=_GIT_TIMEOUT_S,
+    binding = resolve_issue_branch(start, issue_number)
+    if not binding:
+        return HeadBinding(reason=binding.reason)
+
+    sha = _branch_head(start, binding.branch)
+    if sha is None:
+        return HeadBinding(
+            branch=binding.branch,
+            reason=(
+                f"the State Store binds #{issue_number} to branch "
+                f"{binding.branch!r}, but no commit could be read for "
+                f"refs/heads/{binding.branch} in the repository at {start} "
+                f"(fetch or create the branch there, or re-register the issue "
+                f"with `atdd worktree create {issue_number}`)"
+            ),
         )
-    except (OSError, subprocess.SubprocessError) as exc:
-        logger.debug(
-            "conditional mint: cannot resolve HEAD",
-            extra={"worktree": str(worktree), "error": str(exc)},
-        )
-        return None
-    if proc.returncode != 0:
-        return None
-    return proc.stdout.strip() or None
+    return HeadBinding(sha=sha, branch=binding.branch)
 
 
 @dataclass(frozen=True)
@@ -199,6 +311,13 @@ class MintDecision:
     at all. A ``proceed=True`` with ``conditional=False`` is an ordinary
     unconditional mint — the four other forward edges, and any repo that has not
     enabled this one — and must not be reported as though gates were run.
+
+    ``head`` and ``branch`` are the tree the gates were run against, carried as
+    FIELDS and not only interpolated into :attr:`reason` (#1765). The defect that
+    issue closes was invisible for exactly as long as the commit existed only
+    inside a sentence: nothing could compare the sha the mint named against the
+    branch the token was bound to, because only one of the two was a value. They
+    are populated whenever the mint got far enough to name them.
     """
 
     proceed: bool
@@ -207,6 +326,8 @@ class MintDecision:
     coverage: Optional[MintCoverage] = None
     outcome: Optional[GateOutcome] = None
     verdict: Optional[GateVerdict] = None
+    head: Optional[str] = None
+    branch: Optional[str] = None
 
     def render(self) -> str:
         """The operator-facing text, refusals included.
@@ -257,10 +378,13 @@ def _unconditional(reason: str) -> MintDecision:
 
 def _refuse(reason: str, *, coverage: Optional[MintCoverage] = None,
             outcome: Optional[GateOutcome] = None,
-            verdict: GateVerdict = GateVerdict.COULD_NOT_CHECK) -> MintDecision:
+            verdict: GateVerdict = GateVerdict.COULD_NOT_CHECK,
+            head: Optional[str] = None,
+            branch: Optional[str] = None) -> MintDecision:
     return MintDecision(
         proceed=False, conditional=True, reason=reason,
         coverage=coverage, outcome=outcome, verdict=verdict,
+        head=head, branch=branch,
     )
 
 
@@ -277,9 +401,14 @@ def decide_mint(
     """May a signed approval be written for this transition?
 
     Args:
-        worktree: where the mint was invoked; the base for HEAD, the config and
-            the gate context handed to each check.
-        issue_number: the issue the approval would authorise.
+        worktree: where the mint was invoked. A STARTING POINT — for the config,
+            for the repository whose refs are read, for the Control Root the store
+            resolves under, and for the gate context handed to each check. NOT the
+            commit: since #1765 the tree the gates are certified against comes from
+            the issue's own branch binding, because "where a human is standing" is
+            not what a work item is about.
+        issue_number: the issue the approval would authorise, and — through its
+            State Store binding — the branch whose head the gates are run against.
         from_phase / to_phase: the edge, already upper-cased and parsed.
         registry: the gate registry to consult. Defaults to the shipped
             ``GATE_REGISTRY``, resolved at call time rather than bound as a
@@ -359,16 +488,21 @@ def decide_mint(
         )
 
     # 5. Can the tree the approval is for be named? See resolve_head: this closes
-    #    the one hole consuming SmokeExecutionGateCheck leaves open.
-    head = resolve_head(worktree)
-    if head is None:
+    #    the one hole consuming SmokeExecutionGateCheck leaves open — and, since
+    #    #1765, names the ISSUE's tree rather than whichever one the operator was
+    #    standing in. The refusal names the issue, not the directory: the operator
+    #    cannot fix a binding they were told about as a path.
+    head = resolve_head(worktree, issue_number)
+    if not head:
         return _refuse(
-            f"{edge}: REFUSED — HEAD could not be resolved in {worktree}, so "
-            f"whether the evidence is current or stale could not be established. "
-            f"The smoke attestation's staleness clause is disabled when HEAD is "
-            f"unknown, so proceeding would sign an approval over evidence nothing "
-            f"checked against the code being advanced.",
-            coverage=coverage_of(0, 0),
+            f"{edge}: REFUSED — the branch head #{issue_number} is bound to could "
+            f"not be resolved, so whether the evidence is current or stale could "
+            f"not be established: {head.reason}. The smoke attestation's staleness "
+            f"clause is disabled when the head is unknown, so proceeding would sign "
+            f"an approval over evidence nothing checked against the code being "
+            f"advanced — and falling back to HEAD in {worktree} would certify "
+            f"whichever tree the mint happened to be invoked from (#1765).",
+            coverage=coverage_of(0, 0), branch=head.branch,
         )
 
     # 6. Run them, fail-closed, and aggregate with the gate's own AND-semantics.
@@ -382,7 +516,8 @@ def decide_mint(
     if not outcome.proceed:
         logger.warning(
             "conditional mint refused",
-            extra={"issue": issue_number, "transition": edge, "head": head,
+            extra={"issue": issue_number, "transition": edge, "head": head.sha,
+                   "branch": head.branch,
                    "failures": len(outcome.failures),
                    "unobservable": len(outcome.unobservable)},
         )
@@ -390,18 +525,29 @@ def decide_mint(
             GateVerdict.FAIL if outcome.failures else GateVerdict.COULD_NOT_CHECK
         )
         return _refuse(
-            f"{edge}: REFUSED for #{issue_number} at {head[:12]} — "
+            f"{edge}: REFUSED for #{issue_number} at {head.sha[:12]} "
+            f"(head of {head.branch}) — "
             f"{len(outcome.blockers)} check(s) stand in the way.",
             coverage=coverage, outcome=outcome, verdict=verdict,
+            head=head.sha, branch=head.branch,
         )
 
     # NOT "the gates passed". A mint whose only check reported NOT_APPLICABLE
     # verified nothing, and must not say otherwise — see MintCoverage.
+    #
+    # The BRANCH is named beside the commit (#1765). The two approvals that
+    # produced that issue were internally inconsistent — the token bound to one
+    # branch, the sha belonging to another — and a bare sha is unfalsifiable to
+    # the operator reading it. Printed together, a repeat of that defect is
+    # visible in the line itself rather than only by running rev-parse in three
+    # worktrees, which is how it was actually found.
     return MintDecision(
         proceed=True, conditional=True, coverage=coverage, outcome=outcome,
         verdict=GateVerdict.PASS if outcome.passed_checks else GateVerdict.NOT_APPLICABLE,
+        head=head.sha, branch=head.branch,
         reason=(
-            f"{edge}: gates evaluated for #{issue_number} at {head[:12]} — "
+            f"{edge}: gates evaluated for #{issue_number} at {head.sha[:12]} "
+            f"(head of {head.branch}) — "
             f"{coverage.evaluated} check(s) run, {coverage.verified} verified an "
             f"obligation, {coverage.none_owed} found none owed."
         ),
