@@ -90,6 +90,7 @@ import yaml
 from atdd.enforce.registry import path_b_is_blocking
 from atdd.enforce.resolution import ProviderResolutionError, resolve_provider
 from atdd.substrate.binding.composer import realized_conventions
+from atdd.substrate.binding.lock_loader import IMPLEMENTATION_MANIFEST
 from atdd.substrate.binding.plan import substrate_lock_digest
 
 _log = logging.getLogger(__name__)
@@ -176,7 +177,6 @@ BASIS_OUTCOME: Dict[str, str] = {
 
 
 LOCK_RELPATH = Path(".atdd") / "binding.lock.yaml"
-IMPLEMENTATION_MANIFEST = "atdd.implementation.yaml"
 
 #: Where vendored implementation manifests live under a substrate home. Both
 #: trees are searched: a workspace package ships the detectors for its own

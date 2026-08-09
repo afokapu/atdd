@@ -65,7 +65,10 @@ def verify_package_digest(project_root: str | Path, entry: dict) -> None:
         )
 
 
-_IMPLEMENTATION_MANIFEST = "atdd.implementation.yaml"
+#: The per-implementation manifest filename. Public because it is the one
+#: name every reader of the vendored substrate must agree on — the
+#: reverse-coherence proof resolver (#1773) walks the same files this does.
+IMPLEMENTATION_MANIFEST = "atdd.implementation.yaml"
 
 
 def _discover_implementations(pkg_dir: Path) -> list[dict]:
@@ -79,7 +82,7 @@ def _discover_implementations(pkg_dir: Path) -> list[dict]:
     import yaml
 
     impls: list[dict] = []
-    for mp in sorted(pkg_dir.rglob(_IMPLEMENTATION_MANIFEST)):
+    for mp in sorted(pkg_dir.rglob(IMPLEMENTATION_MANIFEST)):
         try:
             data = yaml.safe_load(mp.read_text(encoding="utf-8")) or {}
         except (OSError, ValueError):
