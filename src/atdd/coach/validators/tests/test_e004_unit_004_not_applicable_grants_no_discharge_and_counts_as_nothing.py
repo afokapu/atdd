@@ -115,15 +115,25 @@ def test_the_toolkit_lock_is_never_borrowed_for_a_consumer(unconfigured):
     assert resolver.substrate_home == unconfigured
     assert not resolver.lock_path.is_file()
 
-    # Every rule the toolkit's own lock declares bound resolves to NOTHING here.
-    toolkit_lock = br.BoundRealizationResolver.for_repo(_toolkit_root())
+
+@pytest.mark.platform
+def test_no_rule_from_the_toolkits_own_lock_resolves_for_a_consumer(unconfigured):
+    """The borrowed-verdict failure, driven over the REAL borrowable rule set.
+
+    Split from its sibling and PLATFORM-marked because the premise — "the toolkit
+    ships a populated lock to borrow" — is only true in the toolkit's own
+    checkout. Installed as a wheel there is no `.atdd` beside the package, so the
+    rule set this asserts over does not exist. The sibling above keeps the part
+    that is true everywhere and runs in every consumer.
+    """
     import yaml
 
-    bound_ids = [
-        c["convention_id"]
-        for c in (yaml.safe_load(toolkit_lock.lock_path.read_text()) or {})["conventions"]
-    ]
+    toolkit = br.BoundRealizationResolver.for_repo(_toolkit_root())
+    lock = yaml.safe_load(toolkit.lock_path.read_text(encoding="utf-8")) or {}
+    bound_ids = [c["convention_id"] for c in lock["conventions"]]
     assert bound_ids, "the premise: the toolkit really does ship a populated lock"
+
+    resolver = br.BoundRealizationResolver.for_repo(unconfigured)
     for rule_id in bound_ids:
         proof = resolver.proof_for(rule_id)
         assert proof.outcome == br.NOT_APPLICABLE
