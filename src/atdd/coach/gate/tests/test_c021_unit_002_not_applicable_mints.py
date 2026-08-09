@@ -71,6 +71,14 @@ class _ScriptedCheck:
 
 
 def _worktree(tmp_path: Path) -> Path:
+    """The issue's OWN worktree: bound to :data:`_BRANCH` and standing on it.
+
+    The checkout step arrived with #1765. The mint now resolves the commit it
+    certifies from the issue's branch binding rather than from ``HEAD`` here, so a
+    repo that carries the binding but not the branch refuses before any check runs
+    — and the NOT_APPLICABLE safety property this file exists to hold would then
+    be asserted against a refusal for an unrelated reason.
+    """
     (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".atdd" / "config.yaml").write_text(
         "gate:\n  transitions:\n    SMOKE->REFACTOR: true\n"
@@ -81,6 +89,7 @@ def _worktree(tmp_path: Path) -> Path:
          "-q", "--allow-empty", "-m", "root"],
         cwd=tmp_path, check=True,
     )
+    subprocess.run(["git", "checkout", "-q", "-b", _BRANCH], cwd=tmp_path, check=True)
     _bind_issue(tmp_path)
     return tmp_path
 

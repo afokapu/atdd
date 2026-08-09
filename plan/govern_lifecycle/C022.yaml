@@ -1,0 +1,95 @@
+urn: "wmbt:govern-lifecycle:C022"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-conditional-mint-evaluating-an-edges-gates-at-the-head-of-whatever-directory-the-operator-was-standing-in-rather-than-at-the-head-of-the-branch-the-state-store-binds-the-issue-to-so-a-signed-approval-attests-a-commit-belonging-to-unrelated-work"
+context_clarifier: "resolve_head(worktree) in src/atdd/coach/gate/mint_gate.py shells `git rev-parse HEAD` in the directory the mint was invoked from, and its own docstring names that directory as the base for HEAD. Measured 2026-08-08 on the first two issues to cross SMOKE->REFACTOR after #1670 slice C merged: both #1671 and #1653 printed `gates evaluated ... at a24b3e237007`, which was the HEAD of feat-token-proves-gates-passed — the orchestrator's working directory and a THIRD branch. #1671's own head was 237d727e5a37 and #1653's was d7a53da439c4; neither issue's commit appeared. The token itself was correctly bound to each issue's own branch by #1721, so the output is internally inconsistent: it names one branch and attests a commit from another. No false authorisation resulted only because SmokeExecutionGateCheck returned NOT_APPLICABLE for both — neither declares an execution_kind: live_smoke acceptance — so nothing was verified against the wrong tree; had either declared one, the mint would have accepted or refused on a smoke attestation belonging to unrelated work. This is the defect #1376 and #1721 each closed once already, one layer further in: #1376 stopped the token's LOCATION depending on the operator's directory, #1721 stopped its VALIDITY depending on it, and this is the EVIDENCE depending on it. #1670's fourth condition is 'refuse on stale evidence, bound to HEAD'; the mint is bound to A head and not the issue's, and a gate run against an unrelated commit is not stale evidence but evidence about something else. The resolution to reuse already exists and must not be duplicated: approval_binding.resolve_issue_branch (#1721) reads the branch through open_state_store + external_refs.resolve and NEVER RAISES — a store fault comes back as a binding carrying the fault, so 'could not resolve' stays distinguishable from 'resolved to nothing'. #1755 records seven functions already resolving these same graph edges, two pairs sharing a name with incompatible signatures, so an eighth resolver written to fix a cwd-coupling bug would be the defect that issue exists to name. Every linked worktree of a repository shares one refs/ namespace, which is why refs/heads/<branch> is the same commit read from any worktree while HEAD is a different one in each: the invoking directory selects the REPOSITORY, never the commit. SmokeExecutionGateCheck._head_sha is deliberately OUT OF SCOPE — its permissiveness on an unresolvable HEAD is argued in its own docstring and tightening it would change atdd coach transition repo-wide for every issue in every non-git environment."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of the-conditional-mint-evaluating-an-edges-gates-at-the-head-of-whatever-directory-the-operator-was-standing-in-rather-than-at-the-head-of-the-branch-the-state-store-binds-the-issue-to-so-a-signed-approval-attests-a-commit-belonging-to-unrelated-work by resolving the commit the same way the branch already is — reusing approval_binding.resolve_issue_branch and reading refs/heads/<that branch> so the answer is a property of the issue rather than of the operator's location — by refusing, never falling back to the invoking directory's HEAD, when that branch head cannot be resolved, by naming the ISSUE and the branch in that refusal rather than a path the operator cannot act on, and by printing the branch beside the commit on the success path so a token that names one branch while attesting another branch's commit is visible in the line an operator reads, while NOT_APPLICABLE still proceeds and an empty registry still reads as COULD_NOT_CHECK"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C022-UNIT-001-the-mint-names-the-issues-branch-head-not-the-invoking-worktrees"
+      id: "AC-UNIT-001"
+      purpose: "The defect exactly: two approvals signed on 2026-08-08 named a commit belonging to a third branch because the mint asked git for HEAD where it was standing. The discriminating fact is that the two answers DIFFER, so the test has to be run from a worktree whose own HEAD is a different commit from the issue's — measuring the mint from the issue's own directory is where the bug hides"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "One repository with two branches at two different commits, and the State Store binding the issue to the first of them"
+        - "The mint invoked from a worktree standing on the SECOND branch, so `git rev-parse HEAD` there answers a commit the issue has nothing to do with"
+        - "The same registry evaluated from the issue's OWN worktree, as the no-regression control"
+    when:
+      abstract: "the conditional mint decides SMOKE->REFACTOR from each directory"
+    then:
+      abstract:
+        - "The commit the decision carries is the head of the branch the store binds the issue to, and is NOT the head of the worktree the mint was invoked from"
+        - "The operator-facing text names that same commit and names the branch beside it, so a token naming one branch while attesting another's commit is legible in the line rather than only by running rev-parse in three worktrees"
+        - "A mint from the issue's own worktree yields the same commit and the same decision, so the fix removes a dependency on the operator's location rather than adding one"
+        - "The commit the decision carries is the commit the enforcing branch binding names, so the mint's two claims agree"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-08"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C022-UNIT-002-an-unresolvable-branch-head-refuses-naming-the-issue"
+      id: "AC-UNIT-002"
+      purpose: "A mint that silently used the wrong tree is worse than one that says it could not find the right one — so the refusal must be a refusal and not a fallback, and it must name the ISSUE and the branch rather than a directory the operator cannot act on. The two invariants this refusal is easiest to break are asserted alongside it: NOT_APPLICABLE must still proceed, or every issue owing no live smoke is stranded (787 of 787 when the edge was enabled), and an empty registry must still read as COULD_NOT_CHECK"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue the store binds to a branch that does not exist in the repository the mint was invoked from, with a substantive check registered that would otherwise pass"
+        - "An issue the store binds to no branch at all, and an issue that resolves to no work item"
+        - "The same foreign-worktree arrangement with the only substantive check returning NOT_APPLICABLE, and separately with an empty registry"
+    when:
+      abstract: "the conditional mint decides SMOKE->REFACTOR under each"
+    then:
+      abstract:
+        - "An unresolvable branch head refuses with COULD_NOT_CHECK and no token is written, rather than falling back to the invoking directory's HEAD"
+        - "The refusal names the issue number and the branch that could not be resolved, and its text does not contain the invoking worktree's own commit — an operator told about a path cannot fix a binding"
+        - "An issue bound to no branch, and an issue resolving to no work item, are refused with the reason the store binding reports rather than with a raised exception, so 'could not resolve' stays distinguishable from 'resolved to nothing'"
+        - "NOT_APPLICABLE still proceeds and still reports zero verified, from a foreign worktree as from the issue's own, so no issue owing no live smoke is stranded by this change"
+        - "An empty registry is still COULD_NOT_CHECK and is still decided before the branch head is asked for, so the skip-count refusal cannot be displaced by a resolution failure"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-08"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C022-SMOKE-001-the-real-command-signs-for-the-issues-tree-from-a-foreign-worktree"
+      id: "AC-SMOKE-001"
+      purpose: "The two bad approvals were written by the REAL command, from a real foreign directory, so the shipped artifact is the subject: the exact invocation that produced them must now print the issue's own head. Asserted against the commit read out of the real repository rather than against a literal, so the test cannot pass by agreeing with itself"
+      phase: "SMOKE"
+    # Real `approve_command.run`, real registrars, real SmokeExecutionGateCheck, a
+    # real git repository with two real worktrees and a real migrated SQLite State
+    # Store, nothing monkeypatched — but a tmp_path Control Root, SQLite and git are
+    # the only infrastructure involved. planner.acceptance.execution-kind reserves
+    # `live_smoke` for real LIVE infrastructure (HTTP, DB service, auth, deployment);
+    # this is the hermetic_integration tier, exactly as C021-SMOKE-001 is.
+    #
+    # Declaring it live_smoke would also be self-referentially wrong for the same
+    # reason it was there: it would give THIS issue a live_smoke obligation, so
+    # SmokeExecutionGateCheck would demand an attestation from the very issue
+    # fixing the mint that consumes it.
+    execution_kind: "hermetic_integration"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repository with a real linked worktree on a second branch at a different commit, and a real migrated State Store binding the issue to the FIRST branch the way `atdd worktree create` binds one"
+        - "The real `atdd coach approve <N> --transition SMOKE->REFACTOR` entry point invoked from the SECOND worktree, with no monkeypatching of the registry, the check, the store or the token writer"
+    when:
+      abstract: "the command is run from the foreign worktree, and the two branch heads are read back out of the real repository with git"
+    then:
+      abstract:
+        - "The commit printed by the shipped command equals the head of the branch the store binds the issue to, read from the repository rather than asserted as a literal"
+        - "That commit is not the head of the worktree the command was invoked from, and the two heads are asserted to differ so the comparison discriminates"
+        - "The token the command writes is bound to the same branch whose head it printed, so the artifact's two claims agree — which is the property the observed output violated"
+        - "The command exits 0 and writes the token, so the fix constrains which commit is certified rather than making the command unusable from a sibling worktree"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-08"

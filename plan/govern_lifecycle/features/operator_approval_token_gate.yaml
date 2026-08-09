@@ -6,7 +6,11 @@ sizing:
   # were not the same five — #1735 added C020 and #1670 added C021. The union carries
   # both, so the count follows. `footprint_score`/`footprint_size` are unchanged:
   # they score `components`, which neither side touched.
-  wmbts: 6
+  #
+  # 7 with #1765's C022: the mint resolves the commit it certifies from the issue's
+  # branch binding instead of from the invoking directory. Same `components`, so
+  # `footprint_score`/`footprint_size` are again untouched.
+  wmbts: 7
   footprint_score: 5
   footprint_size: "M"
 wmbts:
@@ -23,6 +27,11 @@ wmbts:
   # #1735: the mint refuses an edge the issue cannot cross. C012 changed what the
   # token says about its AUTHOR; this constrains what it may be minted FOR at all.
   - "wmbt:govern-lifecycle:C020"
+  # #1765: WHOSE head. C021 made the mint run the edge's gates; it ran them at the
+  # head of whatever directory the operator was standing in, so two approvals were
+  # signed against a third branch's commit. C022 resolves the commit through the
+  # same store binding C010 already resolves the branch through.
+  - "wmbt:govern-lifecycle:C022"
 components:
   backend:
     presentation:
