@@ -208,44 +208,52 @@ def _branch_head(start: Path, branch: str) -> Optional[str]:
     return proc.stdout.strip() or None
 
 
+# WHY ``resolve_head`` LOOKS THE WAY IT DOES (#1765).
+#
+# THE ISSUE'S HEAD, NOT THE OPERATOR'S. This used to shell ``git rev-parse HEAD``
+# in the invoking directory, so on 2026-08-08 two approvals were evaluated against
+# the head of a third, unrelated branch — the one the orchestrator's shell was
+# sitting in. The branch is resolved through the State Store binding by #1721 and
+# the edge's legality by #1735; this was the one field still taken from the cwd,
+# which made the mint's output internally inconsistent: it named one branch and
+# attested a commit from another.
+#
+# So the commit is resolved the way the branch already is, by REUSING
+# ``approval_binding.resolve_issue_branch`` — #1755 records seven functions
+# resolving these same graph edges already, two pairs of them sharing a name with
+# incompatible signatures, and adding an eighth to fix a cwd-coupling bug would be
+# the defect that issue exists to name. ``start`` is a STARTING POINT for
+# Control-Root and repository resolution, never the location itself, which is the
+# contract ``approval_paths`` and ``approval_binding`` both keep.
+#
+# SEPARATE FROM ``SmokeExecutionGateCheck._head_sha`` ON PURPOSE, and the
+# difference is a policy one rather than an oversight. That function returns
+# ``None`` when git is silent and ``evaluate_smoke_execution`` then disables its
+# staleness clause ENTIRELY — deliberate, and its own docstring argues it: "an
+# unresolvable HEAD is an environment fault, and turning it into 'smoke did not
+# run' would make the gate unfixable rather than fail-closed."
+#
+# For a GATE that is defensible. For a MINT it means the evidence's binding to the
+# tree is silently switched off and a signed authorisation is written anyway — "I
+# could not look at whether this evidence is stale" passing as "the evidence is
+# current", which is #1670's condition 3 in the place it is easiest to miss,
+# because nothing fails and nothing is printed.
+#
+# So the mint asks the question itself and refuses on an empty binding, and
+# ``SmokeExecutionGateCheck`` is left exactly as it is: strictness is added where
+# the authorisation is written, not taken out of the transition gate, where it
+# would change behaviour repo-wide for every issue in every non-git environment.
+#
+# Kept as a comment rather than a docstring deliberately: ``coder.refactor
+# .complexity-length`` counts docstring lines as code and skips ``#`` lines, so a
+# thoroughly documented 18-line function scored 54 against a 50 limit. The
+# reasoning is unabridged; only its form moved. The rule's own miscount is filed
+# separately — do NOT "tidy" this back into the docstring without reading that.
 def resolve_head(start: Path, issue_number: int) -> HeadBinding:
     """The commit the approval for ``issue_number`` would be granted for.
 
-    THE ISSUE'S HEAD, NOT THE OPERATOR'S (#1765). This used to shell ``git
-    rev-parse HEAD`` in the invoking directory, so on 2026-08-08 two approvals
-    were evaluated against the head of a third, unrelated branch — the one the
-    orchestrator's shell was sitting in. The branch is resolved through the State
-    Store binding by #1721 and the edge's legality by #1735; this was the one
-    field still taken from the cwd, which made the mint's output internally
-    inconsistent: it named one branch and attested a commit from another.
-
-    So the commit is resolved the way the branch already is, by REUSING
-    :func:`~atdd.coach.gate.approval_binding.resolve_issue_branch` — #1755 records
-    seven functions resolving these same graph edges already, two pairs of them
-    sharing a name with incompatible signatures, and adding an eighth to fix a
-    cwd-coupling bug would be the defect that issue exists to name. ``start`` is a
-    STARTING POINT for Control-Root and repository resolution, never the location
-    itself, which is the contract ``approval_paths`` and ``approval_binding`` both
-    keep.
-
-    SEPARATE FROM ``SmokeExecutionGateCheck._head_sha`` ON PURPOSE, and the
-    difference is a policy one rather than an oversight. That function returns
-    ``None`` when git is silent and ``evaluate_smoke_execution`` then disables its
-    staleness clause ENTIRELY — deliberate, and its own docstring argues it: *"an
-    unresolvable HEAD is an environment fault, and turning it into 'smoke did not
-    run' would make the gate unfixable rather than fail-closed."*
-
-    For a GATE that is defensible. For a MINT it means the evidence's binding to
-    the tree is silently switched off and a signed authorisation is written
-    anyway — "I could not look at whether this evidence is stale" passing as "the
-    evidence is current", which is #1670's condition 3 in the place it is easiest
-    to miss, because nothing fails and nothing is printed.
-
-    So the mint asks the question itself and refuses on an empty binding, and
-    ``SmokeExecutionGateCheck`` is left exactly as it is: strictness is added
-    where the authorisation is written, not taken out of the transition gate,
-    where it would change behaviour repo-wide for every issue in every
-    non-git environment.
+    THE ISSUE'S HEAD, NOT THE OPERATOR'S — see the comment block above for why,
+    and why this is deliberately separate from ``SmokeExecutionGateCheck``.
 
     Never raises, for ``resolve_issue_branch``'s reason: a store fault comes back
     as a binding carrying the fault, so "could not resolve" stays distinguishable
