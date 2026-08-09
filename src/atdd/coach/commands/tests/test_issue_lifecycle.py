@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from atdd.coach.commands.issue_feature_binding import WmbtResolution
 from atdd.coach.commands.issue_lifecycle import IssueLifecycle
 
 pytestmark = [pytest.mark.platform]
@@ -28,7 +29,10 @@ def _print_context_for_status(status: str, capsys) -> str:
     lifecycle._print_context(
         issue=issue,
         status=status,
-        sub_issues=[],
+        # A WmbtResolution, not a list: #1635 changed `sub_issues` from a list of
+        # GitHub issues to the three-outcome resolution the banner renders, and
+        # this helper kept handing over `[]`.
+        sub_issues=WmbtResolution(issue_number=174, resolved=False, reason="unbound"),
         slug="smoke-workflow-consistency",
         prefix="chore",
         worktree_path=None,

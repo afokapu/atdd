@@ -16,8 +16,9 @@ for the wrong reason and would mask the real gap once it is closed.
 from __future__ import annotations
 
 import importlib
+import subprocess
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from atdd.state.db import connect, init_state_store
 from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
@@ -28,6 +29,13 @@ ISSUE_REF_KIND = "issue"
 # The feature this issue authored, and the WMBT its YAML declares.
 FEATURE_URN = "feature:govern-lifecycle:bind-issue-feature"
 FEATURE_WMBT = "wmbt:govern-lifecycle:Y006"
+
+# The two WMBTs of the #1735 observation, kept by their real codes so the
+# fixture and the incident read as the same thing: C020 was authored by the
+# issue's own commit and the banner omitted it; C021 lives only on a sibling
+# branch and the banner listed it as the issue's.
+ISSUE_BRANCH_WMBT = "wmbt:govern-lifecycle:C020"
+SIBLING_BRANCH_WMBT = "wmbt:govern-lifecycle:C021"
 
 # A well-formed feature URN that resolves to nothing in plan/.
 ABSENT_FEATURE_URN = "feature:govern-lifecycle:no-such-feature-exists"
@@ -108,6 +116,42 @@ def write_plan_tree(root: Path, *, wmbts=(FEATURE_WMBT,)) -> Path:
     path = features / "bind_issue_feature.yaml"
     path.write_text(yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
     return path
+
+
+def git(root: Path, *args: str) -> subprocess.CompletedProcess:
+    """Run git in *root*, raising with its stderr when it fails."""
+    proc = subprocess.run(
+        ["git", *args], cwd=str(root), capture_output=True, text=True, timeout=60,
+    )
+    assert proc.returncode == 0, f"git {' '.join(args)} failed: {proc.stderr}"
+    return proc
+
+
+def make_two_worktree_repo(
+    tmp_path: Path, *, issue_branch: str, sibling_branch: str = "feat/somewhere-else"
+) -> Tuple[Path, Path]:
+    """A REAL git repo with two REAL worktrees on two different branches.
+
+    Returns ``(sibling, issue_tree)``: the checkout an operator happens to be
+    standing in, and the one holding ``issue_branch``. Both carry ``.atdd/``,
+    because ``.atdd/config.yaml`` is a tracked file and a git worktree therefore
+    gets one — which is exactly why resolving from cwd looked plausible.
+
+    Two real worktrees rather than two directories: the resolution under test
+    reads ``git worktree list --porcelain``, so a pair of ordinary directories
+    would be resolvable by no mechanism and the test would pass for the wrong
+    reason.
+    """
+    sibling = control_root(tmp_path / "sibling")
+    git(sibling, "init", "-q", "-b", sibling_branch)
+    git(sibling, "config", "user.email", "harness@atdd.test")
+    git(sibling, "config", "user.name", "harness")
+    git(sibling, "add", "-A")
+    git(sibling, "commit", "-q", "-m", "seed")
+
+    issue_tree = tmp_path / "issue-tree"
+    git(sibling, "worktree", "add", "-q", "-b", issue_branch, str(issue_tree))
+    return sibling, issue_tree
 
 
 def write_stub_gh(root: Path, issues: Dict[int, Dict[str, Any]]) -> Path:
