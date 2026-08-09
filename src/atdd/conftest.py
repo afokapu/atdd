@@ -107,6 +107,44 @@ def _git_repo_pollution_guard(request):
 
 
 # ---------------------------------------------------------------------------
+# Version-cache isolation (#1762)
+#
+# `~/.atdd/version_cache.json` is a per-USER file outside every repository, so
+# the core.bare/HEAD guard above cannot see it. It became reachable from the
+# push gate when #1762 moved `_gate_against_pypi` onto the 24 h cached resolver,
+# and `_resolve_latest_version` writes as well as reads.
+#
+# Two things go wrong without this. A test that patches `_fetch_latest_version`
+# and runs the gate leaves the developer's real cache naming a version that was
+# never published — measured: a suite run left `latest_version: "4.0.0"`, which
+# would have told this machine's push gate it was current for the next 24 hours.
+# And because the write makes `last_check` fresh, the NEXT test's patched
+# "latest" is ignored in favour of the fabricated cached one, so the suite passes
+# or fails depending on what ran before it.
+#
+# Redirecting the two module globals is enough: every reader and writer resolves
+# them at call time. The file is removed before each test so no cross-test state
+# survives — that freshness is the whole point.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def _version_cache_root(tmp_path_factory):
+    """A session-lifetime directory standing in for ``~/.atdd``."""
+    return tmp_path_factory.mktemp("atdd-version-cache")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_version_cache(monkeypatch, _version_cache_root):
+    """Point the PyPI version cache away from the developer's home directory."""
+    from atdd import version_check
+
+    cache_file = _version_cache_root / "version_cache.json"
+    cache_file.unlink(missing_ok=True)
+    monkeypatch.setattr(version_check, "CACHE_DIR", _version_cache_root)
+    monkeypatch.setattr(version_check, "CACHE_FILE", cache_file)
+
+
+# ---------------------------------------------------------------------------
 # ATDD<N> cmux workspace leak guard (issue #771 — broadened scope)
 #
 # Any test that invokes `atdd coach <N>` without --dry-run will spawn a real

@@ -19,25 +19,39 @@ the mutating sections are serialised on a lock scoped to that install — never
 to a checkout, since sixty worktrees have sixty ``.atdd/`` roots and would
 serialise against nothing. A run that cannot take the lock refuses and says so;
 it never proceeds unlocked, and there is no environment variable that skips it.
+
+#1762 — the "not automatic" half of the first property is deliberately
+withdrawn, and :func:`self_upgrade` is where. It is a *separate* entry point
+from :class:`Upgrader`, not a flag on it, because the two answer different
+questions: ``atdd upgrade`` is a command an operator ran, and finishes the job
+with ``sync`` + ``init --force``; ``self_upgrade`` is a hook nobody asked for,
+and does nothing but bring the install current. The boundary that did NOT move
+is wmbt:integration-hardening:Y004 — the *blocking* pre-push gate still only
+gates. See :func:`self_upgrade` for why the post-* triggers are safe.
 """
 
 import contextlib
 import errno
 import hashlib
 import logging
+import os
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator, Optional, TextIO, Tuple
 
 from atdd import __version__
 from atdd.version_check import (
     get_upgrade_notes,
+    _gate_version,
+    _is_newer,
+    _load_cache,
     _load_repo_config,
     _get_last_toolkit_version,
     _read_sync_record,
+    _resolve_latest_version,
     record_toolkit_sync,
     is_outdated,
     auto_upgrade,
@@ -144,6 +158,193 @@ def upgrade_lock(timeout: Optional[float] = None) -> Iterator[Path]:
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
     finally:
         handle.close()
+
+
+# --- Self-upgrade at a non-blocking trigger (#1762, wmbt:integration-hardening:E009) ---
+
+#: What a self-upgrade attempt did. Returned rather than printed so a test can
+#: tell "declined, there was nothing to do" from "declined, the lock was held"
+#: without parsing prose — a distinction the hook itself does not care about,
+#: since every one of these is exit 0 to git.
+#:
+#: ``declined`` deliberately covers three shapes that differ only in prose: the
+#: install is already current, no latest version could be resolved at all, or the
+#: install is one this path must not touch (editable, dev, or unknowable). All
+#: three mean "no upgrade was warranted here", and all three are silent.
+SELF_UPGRADE_DECLINED = "declined"
+SELF_UPGRADE_UPGRADED = "upgraded"
+SELF_UPGRADE_CONTENDED = "contended"
+SELF_UPGRADE_FAILED = "failed"
+SELF_UPGRADE_DISABLED = "disabled"
+
+
+def _say(stream: Optional[TextIO], message: str) -> None:
+    """Write one advisory line, always to stderr.
+
+    A post-* hook's stdout belongs to whatever is reading git's output. Porcelain
+    parsers, `git pull | tee`, and the agents that drive this repo all read it;
+    a self-upgrade notice landing there would be a data corruption, not a
+    cosmetic one. Everything this path emits is advisory, so everything goes to
+    stderr — which is also where the hooks already send `atdd state reconcile`.
+    """
+    print(message, file=stream if stream is not None else sys.stderr)
+
+
+def _self_upgrade_pending() -> Tuple[Optional[str], Optional[str]]:
+    """``(installed, latest)`` when an upgrade looks worth attempting, else ``(None, None)``.
+
+    Ordered cheapest-first, because this runs on every ``git pull`` and every
+    branch switch:
+
+    1. The **cached** latest version — one small file read while the cache is
+       fresh. This is the same 24 h cache #1762 put the push gate on, so the
+       trigger and the gate cannot disagree about what "current" means: the hook
+       upgrades to exactly the version the next push will be judged against.
+    2. A comparison against ``__version__``, which costs nothing. This can only
+       ever *skip* work, and only when the package we are executing already
+       claims to be at or past the latest. Inside the packaged post-* hooks that
+       is exactly right: they invoke the console script and export no
+       ``PYTHONPATH``, so ``__version__`` is the installed version.
+    3. Only then :func:`_gate_version`, which spawns ``atdd --version`` (~1.5 s)
+       to get the authoritative answer the push gate itself uses — immune to the
+       ``src/atdd.egg-info/PKG-INFO`` ghost a source checkout can carry (#1449).
+       ``None`` means dev/editable/unknowable, and declining is correct: an
+       editable install must not be silently pip-upgraded out from under its
+       owner, which is also why ``auto_upgrade()`` refuses one outright.
+    """
+    latest = _resolve_latest_version(_load_cache(), time.time())
+    if not latest:
+        return None, None
+
+    if __version__ != "0.0.0" and not _is_newer(latest, __version__):
+        return None, None
+
+    installed = _gate_version()
+    if installed is None or not _is_newer(latest, installed):
+        return None, None
+
+    return installed, latest
+
+
+def self_upgrade(stream: Optional[TextIO] = None) -> str:
+    """Bring this install current, at a trigger where nothing can be refused.
+
+    Called by the packaged ``post-merge`` and ``post-checkout`` hooks, which is
+    the entire design (#1762). **Git ignores the exit code of every ``post-*``
+    hook** — that is git's own contract, not a convention this repo hopes holds
+    — so an upgrade placed here cannot refuse anyone's operation. The merge has
+    already landed; the branch has already switched. There is nothing left to
+    block, which is precisely what makes upgrading safe here and unsafe in the
+    pre-push gate that wmbt:integration-hardening:Y004 correctly locked down.
+
+    Consequences of that, each load-bearing:
+
+    - **Nothing raises.** A caller that cannot fail must not be handed an
+      exception. Every failure — a broken cache, an unreachable PyPI, a pip that
+      dies, a lock that will not open — resolves to a returned outcome and at
+      most one line on stderr. The bare ``except`` at the end is the backstop
+      for the ones not enumerated.
+    - **:func:`auto_upgrade` directly, never :meth:`Upgrader.run`.** ``run()``
+      finishes with ``atdd sync`` and ``atdd init --force``, and ``init --force``
+      writes to GitHub (#1703). None of that belongs in a hook that fires on
+      every branch switch. ``version_check`` imports neither ``ProjectInitializer``
+      nor ``AgentConfigSync``, so calling into it cannot inherit that reach.
+    - **The lock is tried, not waited on.** :data:`UPGRADE_LOCK_TIMEOUT` is 300 s,
+      which is right for a command an operator is watching and wrong here: a
+      contended lock means a sibling worktree is *already doing this upgrade on
+      our behalf*, so waiting would stall a human's terminal after a pull to
+      duplicate work that is being done. Decline and let the winner finish —
+      E008's guarantee that neither observes a partial install is unchanged,
+      because it comes from the lock, not from the wait.
+    - **Silence when there is nothing to say.** ``current`` and ``unknowable``
+      print nothing at all. A pull that was already up to date must not grow a
+      banner; the repo has enough of those.
+
+    Returns:
+        One of the ``SELF_UPGRADE_*`` constants. The hook discards it — git
+        would discard the exit status anyway — but it is what the E009 gate
+        tests assert against.
+    """
+    if os.environ.get("CI") == "true":
+        # The same no-op the hooks already take at their top. Restated here so
+        # the CLI verb is not a way around it. Not a bypass: CI installs a
+        # pinned toolkit on purpose, and an agent that rewrote its own
+        # dependency mid-job would make every build irreproducible.
+        return SELF_UPGRADE_DISABLED
+
+    try:
+        installed, latest = _self_upgrade_pending()
+        if installed is None or latest is None:
+            return SELF_UPGRADE_DECLINED
+
+        try:
+            with upgrade_lock(timeout=0):
+                # Re-read inside the lock. Between the check above and this
+                # line a sibling worktree may have finished the very upgrade we
+                # queued for, and a second pip run over an install that is
+                # already current is exactly the "partial install" hazard E008
+                # exists to prevent.
+                if not _is_newer(latest, _gate_version() or latest):
+                    return SELF_UPGRADE_DECLINED
+
+                upgraded, detail = auto_upgrade()
+        except UpgradeLockUnavailable:
+            logger.debug(
+                "self-upgrade declined, install lock contended",
+                extra={"phase": "upgrade-lock", "step": "self-upgrade",
+                       "outcome": "contended"},
+            )
+            _say(stream, (
+                "ATDD self-upgrade: another upgrade holds the install lock, so this "
+                "one stood down. Your git operation is unaffected."
+            ))
+            return SELF_UPGRADE_CONTENDED
+
+        if not upgraded:
+            _say(stream, (
+                f"ATDD self-upgrade: still at {installed} — {detail or 'no reason given'}. "
+                f"Nothing was changed and your git operation is unaffected. "
+                f"Upgrade when convenient: {upgrade_command()}"
+            ))
+            return SELF_UPGRADE_FAILED
+
+        _say(stream, f"ATDD self-upgraded: {installed} → {latest}")
+        return SELF_UPGRADE_UPGRADED
+
+    except Exception as exc:
+        # Not swallowed — reported, on the stream the hook already writes to and
+        # with the reason attached. What must not happen is the exception
+        # escaping into a hook whose whole guarantee is that it cannot affect
+        # the operation it follows.
+        logger.debug(
+            "self-upgrade failed: %s", exc,
+            extra={"phase": "self-upgrade", "outcome": "exception"},
+        )
+        _say(stream, (
+            f"ATDD self-upgrade: skipped — {type(exc).__name__}: {exc}. "
+            f"Nothing was changed and your git operation is unaffected."
+        ))
+        return SELF_UPGRADE_FAILED
+
+
+def run_self_upgrade() -> int:
+    """``atdd self-upgrade`` — the CLI seam the packaged post-* hooks call.
+
+    Always 0. There is no failure a caller of this command could act on: git has
+    already discarded the exit status by the time it would see one, and the hook
+    that shells it must never turn an upgrade into a reason a pull looked
+    broken. The outcome travels in the text on stderr, not in the exit code.
+
+    It is a CLI verb rather than a ``python3 -c 'from atdd...'`` block — which
+    is what the pre-push gate does — because that block cannot reach a
+    pipx-isolated install at all: the system ``python3`` has no ``atdd`` on its
+    path, and the pre-push hook only gets away with it by exporting
+    ``PYTHONPATH=<repo>/src`` inside the toolkit's own checkout. The post-*
+    hooks already guard on ``command -v atdd``, which resolves the console
+    script that always works.
+    """
+    self_upgrade()
+    return 0
 
 
 class Upgrader:

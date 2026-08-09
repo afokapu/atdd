@@ -32,4 +32,14 @@ if ! atdd state reconcile >&2; then
     echo "  backup is retained. Run 'atdd state reconcile' to see the report." >&2
 fi
 
+# --- Self-upgrade (#1762, wmbt:integration-hardening:E009) ---
+# The other moment a checkout has just changed its relationship to the world. Same
+# contract as post-merge: git ignores this hook's exit code, so the upgrade cannot
+# refuse the branch switch that has already happened, and the pre-push gate
+# (wmbt:integration-hardening:Y004) keeps gating and only gating.
+#
+# LAST, so replacing the `atdd` console script cannot strand the reconcile above.
+# stderr only; always exits 0.
+atdd self-upgrade >&2 || true
+
 exit 0

@@ -1,0 +1,186 @@
+urn: wmbt:integration-hardening:E009
+step: execute
+direction: minimize
+dimension: quantity
+object_of_control: git-operations-refused-solely-to-tell-a-human-to-run-an-upgrade-a-machine-could-have-run-itself
+context_clarifier: "when the toolkit publishes four releases in one working session\
+  \ and the pre-push version gate (wmbt:integration-hardening:Y004) therefore refuses\
+  \ push after push with 'atdd 4.38.9 is outdated (latest: 4.38.10). Run `atdd upgrade`\
+  \ then retry your git operation' — a refusal that is correct as a gate and useless\
+  \ as a remedy, because the command it names is one a machine can run in seconds\
+  \ and the moment it names is the one moment when something is pending; Y004 rightly\
+  \ forbids upgrading from inside a blocking hook and wmbt:integration-hardening:Y007\
+  \ rightly stopped at making `atdd upgrade` runnable rather than automatic, so between\
+  \ two correct decisions nobody owned 'upgrade automatically where blocking is impossible',\
+  \ leaving a human reacting to a refusal as the only path to currency; git ignores\
+  \ the exit code of post-merge and post-checkout by its own contract, so those triggers\
+  \ can carry the upgrade without acquiring the power to refuse anything"
+lens: functional.efficiency
+statement: "minimize quantity of git-operations-refused-solely-to-tell-a-human-to-run-an-upgrade-a-machine-could-have-run-itself\
+  \ by calling auto_upgrade() from the packaged post-merge and post-checkout hooks\
+  \ — behind the install-scoped upgrade_lock E008 already built, declining rather\
+  \ than waiting when a sibling worktree holds it, and reporting to stderr only so\
+  \ nothing that parses a stream sees it — and by routing the push gate's PyPI\
+  \ comparison through the 24 h cached resolver that already exists instead of the\
+  \ uncached fetch it calls today, so a checkout that has just synced with the world\
+  \ is already current by the time it is asked to push, while the gate itself keeps\
+  \ Y004's posture exactly: still fail-closed, still never calling auto_upgrade(),\
+  \ still naming the remedy, and still honouring no bypass variable — rarely reached,\
+  \ not less strict"
+acceptances:
+- identity:
+    urn: acc:integration-hardening:E009-UNIT-001-a-failed-self-upgrade-never-affects-the-git-operation
+    id: AC-EXEC-001
+    purpose: "The load-bearing safety property, and the one a mock-and-assert-called\
+      \ test proves nothing about: the mechanism must be shown FAILING. A pull that\
+      \ triggers a self-upgrade which raises, returns False, or finds no upgrade command\
+      \ at all must be indistinguishable from a pull that triggered nothing"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A checkout the resolver reports as outdated, so the self-upgrade path is genuinely
+      entered rather than skipped
+    - "auto_upgrade() is injected with each failure shape in turn — raising an\
+      \ exception, returning (False, detail), and returning (False, '') with no detail"
+  when:
+    abstract: The post-hook self-upgrade entry point is invoked, and the hook script
+      that calls it is run for real against a temporary repository
+  then:
+    abstract:
+    - No exception escapes the entry point in any of the three failure shapes, and
+      it reports the same exit status as a run that had nothing to do
+    - The hook exits 0 in every shape, so git's operation completes exactly as it would
+      have without the hook
+    - The working tree is byte-for-byte unchanged — the self-upgrade writes no file
+      into the repository, and in particular touches neither core.hooksPath nor any
+      other git config
+    - The failure is stated on stderr, naming the underlying reason and saying the
+      git operation was unaffected, and stdout receives nothing at all
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-08-08'
+- identity:
+    urn: acc:integration-hardening:E009-UNIT-002-concurrent-post-hooks-serialise-and-neither-sees-a-partial-install
+    id: AC-EXEC-002
+    purpose: "Sixty worktrees pull all day. Two that pull at the same instant must\
+      \ not both rewrite the shared install — and the one that loses must decline\
+      \ immediately rather than stalling a human's terminal behind E008's five-minute\
+      \ wait, because in a post-hook the winner is already doing the work on its behalf"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - Two post-hook self-upgrades launched concurrently against one install, with the
+      real install-scoped lock and no patching of the locking path
+    - auto_upgrade() is patched to a slow function recording entry and exit timestamps
+  when:
+    abstract: Both are run at once, and separately one is run while a live external
+      holder keeps the lock
+  then:
+    abstract:
+    - "Exactly one of the two enters auto_upgrade(); the intervals never overlap, so\
+      \ neither observes a partial install"
+    - The one that does not win declines promptly instead of waiting out the upgrade
+      command's bounded lock timeout, and says on stderr that another upgrade holds
+      the lock
+    - Both report success to their hook, and no environment variable exists that skips
+      the lock
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-08-08'
+- identity:
+    urn: acc:integration-hardening:E009-UNIT-003-the-push-gate-makes-no-uncached-pypi-call-and-still-fails-closed
+    id: AC-CONF-003
+    purpose: "The push path stops paying for the network on every push without becoming\
+      \ permissive: the gate reads the 24 h cache the repo already writes, and a genuinely\
+      \ outdated install is still refused with no bypass"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A fresh version cache naming a latest version, and urlopen patched to fail the
+      test if it is called at all
+    - Separately, a cache older than the check interval, and a cache absent entirely
+  when:
+    abstract: The push gate is run against each cache state, with the installed version
+      set above and below the cached latest in turn
+  then:
+    abstract:
+    - With a fresh cache the gate performs zero urlopen calls and still reaches a verdict
+    - A stale or absent cache is refreshed at most once and the refreshed value is
+      written back, so the cost is bounded to one fetch per interval rather than one
+      per push
+    - An install below the resolved latest still exits 1 and still names `atdd upgrade`;
+      an install at or above it still exits 0
+    - No environment variable is honoured that would let an outdated install through,
+      and the gate still fails open — never closed — when the version is unknowable
+      or no version can be resolved at all
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-08-08'
+- identity:
+    urn: acc:integration-hardening:E009-UNIT-004-the-gate-keeps-its-y004-posture-and-never-self-upgrades
+    id: AC-CONF-004
+    purpose: "Y004 is not being relaxed, it is being made rarely reached. The obvious\
+      \ shortcut while implementing this WMBT is to call the new self-upgrade from\
+      \ the gate too — which would repeal Y004 silently. Pin it"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The gate run against an outdated install, with auto_upgrade and the post-hook
+      self-upgrade entry point both patched with call tracking
+    - The pre-push hook template and the version-gate module read from disk for a static
+      scan
+  when:
+    abstract: The gate is invoked, and the blocking-hook surface is scanned for any
+      reference to the automatic upgrade path
+  then:
+    abstract:
+    - The gate calls neither auto_upgrade() nor the self-upgrade entry point, exits
+      1, and names `atdd upgrade`
+    - The pre-push template contains no invocation of the self-upgrade path, and the
+      version-gate module imports nothing that would let it acquire one
+    - The only callers of the self-upgrade entry point are the CLI handler and the
+      non-blocking post-merge and post-checkout hooks, whose exit codes git discards
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-08-08'
+- identity:
+    urn: acc:integration-hardening:E009-SMOKE-001-a-real-post-merge-run-cannot-refuse-the-operation-it-follows
+    id: AC-EXEC-005
+    purpose: "SMOKE: the packaged hooks executed by a real git in a real repository,\
+      \ with the real CLI — the claim 'git ignores post-* exit codes' verified\
+      \ rather than assumed, because the entire safety argument rests on it"
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real temporary git repository with the packaged post-merge and post-checkout
+      hooks installed and executable
+    - The self-upgrade path is made to fail deterministically inside the hook, and
+      is separately made to exit non-zero outright
+  when:
+    abstract: A real `git merge` and a real `git checkout` are run against that repository
+      and their exit codes and output are captured
+  then:
+    abstract:
+    - Both git commands exit 0 and complete their work — the merge lands and the branch
+      switches — regardless of what the hook did
+    - Nothing the hook printed reaches the stdout that git's own callers parse
+    - The repository is left with no file the hook wrote, and `git config --get core.hooksPath`
+      reports exactly what it reported before
+  metadata:
+    author: atdd:run-upgrade-unattended
+    created: '2026-08-08'

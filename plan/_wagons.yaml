@@ -2126,7 +2126,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 24
+    total: 25
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2174,6 +2174,11 @@ wagons:
       by serialising the mutating section on a lock scoped to the install rather than
       the checkout, making an already-current run a no-op, and refusing loudly rather
       than proceeding unlocked (#1628, ~60 agents share one pipx install)
+    E009: minimize quantity of git-operations-refused-solely-to-tell-a-human-to-run-an-upgrade-a-machine-could-have-run-itself
+      by calling auto_upgrade() from the non-blocking post-merge and post-checkout
+      hooks behind E008's install lock, and routing the push gate's PyPI comparison
+      through the 24 h cached resolver instead of the uncached fetch — leaving Y004's
+      fail-closed gate untouched but rarely reached (#1762)
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/
