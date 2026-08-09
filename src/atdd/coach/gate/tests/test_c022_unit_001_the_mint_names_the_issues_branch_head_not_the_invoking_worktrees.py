@@ -6,7 +6,7 @@
 # Assertion: behavioral
 """C022-UNIT-001 — the mint certifies the ISSUE's tree, not the operator's.
 
-``resolve_head(worktree)`` shelled ``git rev-parse HEAD`` in the directory the
+``resolve_issue_head(worktree)`` shelled ``git rev-parse HEAD`` in the directory the
 mint was invoked from. Measured 2026-08-08 on the first two issues to cross
 ``SMOKE->REFACTOR`` after #1670 slice C merged::
 

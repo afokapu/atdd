@@ -40,7 +40,7 @@ import pytest
 
 from atdd.coach.gate.approval_paths import approval_token_path
 from atdd.coach.gate.decision import GateCheckResult, GateContext, GateVerdict
-from atdd.coach.gate.mint_gate import decide_mint, resolve_head
+from atdd.coach.gate.mint_gate import decide_mint, resolve_issue_head
 from atdd.coach.gate.registry import GateRegistry
 
 pytestmark = [pytest.mark.platform]
@@ -208,9 +208,9 @@ def test_an_empty_binding_is_reported_rather_than_raised(repo):
     would report an unreadable store as an observed violation. So the resolution
     reports instead, and the two shapes of nothing keep their own reasons.
     """
-    unbound = resolve_head(repo["foreign"], _UNBOUND_ISSUE)
-    unknown = resolve_head(repo["foreign"], _UNKNOWN_ISSUE)
-    dangling = resolve_head(repo["foreign"], _DANGLING_ISSUE)
+    unbound = resolve_issue_head(repo["foreign"], _UNBOUND_ISSUE)
+    unknown = resolve_issue_head(repo["foreign"], _UNKNOWN_ISSUE)
+    dangling = resolve_issue_head(repo["foreign"], _DANGLING_ISSUE)
 
     assert not unbound and not unknown and not dangling
     assert "records no branch" in unbound.reason
