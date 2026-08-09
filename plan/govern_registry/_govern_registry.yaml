@@ -23,7 +23,8 @@ produce:
   to: internal
 consume: []
 wmbt:
-  total: 3
+  total: 4
   D001: "minimize likelihood of registry-scope-ambiguity by keeping the atdd validate rule registry rooted at the core src/atdd tree alone, recording the core-only decision with its evidence, and proving that admitting the extension mirror nodes would add no new rule and only duplicate ids"
   E001: "minimize likelihood of convention-mirror-drift by resolving every extension node's source.legacy_rule_id against the live core rule registry and failing loudly on any node whose named core rule no longer exists, so a renamed or deleted core rule cannot leave an extension mirror pointing at nothing"
   E002: "maximize likelihood of duplicate-rule-detection by raising DuplicateRuleError on any rule_id declared in both the core registry and the extension mirror set, stating the CORE-precedes-extension precedence, so a cross-registry collision fails loudly instead of silently shadowing the core rule"
+  E004: "maximize likelihood of bound-realization-proof-completeness by discharging reverse coherence for an enforced rule only when the exact implementation the digest-coherent binding lock selects back-references it, emits it, reports through a resolvable channel, is runnable and is blockingly executed, and refusing under a distinct named basis when any single link of that chain is missing, so a provider realization can succeed a core validator without a lock row alone ever being mistaken for enforcement"
