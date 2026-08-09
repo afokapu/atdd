@@ -1,0 +1,139 @@
+urn: "wmbt:govern-registry:E004"
+step: "execute"
+direction: "maximize"
+dimension: "likelihood"
+object_of_control: "bound-realization-proof-completeness"
+context_clarifier: "coach.rule-id.validator-binding-violation requires every enforced rule — strict, suppress-and-clean and advisory — to name real bidirectional executable enforcement, but the only evidence it accepts is a Python bind_rule callsite in core, so a rule an admitted provider already enforces cannot discharge the agnostic requirement and must keep a ceremonial core twin; #1207 already widened the accepted proof once by resolution rather than by new schema, admitting an executing convention variant, and this adds a third proof by the same mechanism — a COMPLETE bound provider realization, where the digest-coherent binding lock selects exactly one implementation for the rule and that exact implementation back-references it in realizes_convention, emits it in emits_rule_ids, declares a resolvable report channel, is runnable and is blockingly executed; a lock row alone is never proof, because bound may still be skipped, exempt, unrunnable, semantically inert or non-blocking"
+lens: "functional.effectiveness"
+statement: "maximize likelihood of bound-realization-proof-completeness by discharging reverse coherence for an enforced rule only when the exact implementation the digest-coherent binding lock selects back-references it, emits it, reports through a resolvable channel, is runnable and is blockingly executed, and refusing under a distinct named basis when any single link of that chain is missing, so a provider realization can succeed a core validator without a lock row alone ever being mistaken for enforcement"
+acceptances:
+  - identity:
+      urn: "acc:govern-registry:E004-UNIT-001-complete-realization-discharges-without-a-validator-field"
+      id: "AC-UNIT-001"
+      purpose: "an enforced rule with NO validator: field and no placeholder value passes reverse coherence when a complete bound realization proves it — the discharge fires ahead of the missing-validator and resolution branches, so it is not a new declaration in disguise"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a synthetic substrate whose binding lock selects one bound implementation for a rule id, whose manifest back-references and emits that rule id, declares a present report channel, and whose workspace provider CLI resolves, with Path B configured as a blocking gate"
+        - "a registry in which that rule id is enforced and carries no validator: field at all"
+    when:
+      abstract: "reverse coherence is evaluated over that registry and substrate"
+    then:
+      abstract:
+        - "the resolver's proof for the rule is PROVEN on the complete-bound-realization basis and discharges"
+        - "reverse coherence emits NO violation for the rule, even though it declares no validator: field and no placeholder value"
+        - "the same rule with the same registry but no substrate DOES violate — proving the discharge came from the realization and not from the rule's own declaration"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-09"
+  - identity:
+      urn: "acc:govern-registry:E004-UNIT-002-every-broken-link-refuses-under-its-own-name"
+      id: "AC-UNIT-002"
+      purpose: "each link of the proof chain, broken alone against an otherwise complete realization, refuses the discharge under its OWN named basis — so a predicate that could not fail is never mistaken for one that passed"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a complete bound realization, and one fault injected per arm: stale substrate_lock_digest; no lock entry for the rule; a lock entry whose disposition is not bound; two lock entries claiming the rule; no implementation manifest for the selected implementation_id; two manifests declaring that implementation_id; two implementations realizing the rule; realizes_convention lacking the rule; emits_rule_ids lacking the rule; realizes_convention not a subset of emits_rule_ids; no report channel; a report channel naming an absent file; an unresolvable workspace provider; a non-blocking Path B"
+    when:
+      abstract: "the bound-realization proof is resolved for the rule under each injected fault in turn"
+    then:
+      abstract:
+        - "every arm refuses — none discharges, and none raises"
+        - "every arm reports a DISTINCT basis, and the set of bases observed is exactly the refusal vocabulary, so no arm is silently served by another arm's name"
+        - "each refusal's detail names the broken link rather than reporting only that the rule is unproven"
+        - "an unreadable lock and an unreadable manifest are reported as acquisition failures, distinct from every refusal, and neither collapses into a clean result"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-09"
+  - identity:
+      urn: "acc:govern-registry:E004-UNIT-003-existing-proofs-and-dispositions-are-unchanged"
+      id: "AC-UNIT-003"
+      purpose: "widening the accepted proof changes nothing about the two proofs that already existed, about advisory's obligation to carry proof, or about documentation-only's inability to acquire fake enforcement"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "rules proven by a literal bind_rule callsite, rules proven by an executing convention variant, an advisory rule with neither, and a documentation-only rule"
+    when:
+      abstract: "reverse coherence is evaluated with the third proof present"
+    then:
+      abstract:
+        - "the literal-binding rules and the convention-variant rules pass exactly as before"
+        - "advisory remains an enforced disposition: an advisory rule with no proof of any kind still violates"
+        - "documentation-only behaviour is unchanged — it must still carry no validator: field, and a bound realization does not turn it into an enforced rule"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-09"
+  - identity:
+      urn: "acc:govern-registry:E004-UNIT-004-not-applicable-grants-no-discharge-and-counts-as-nothing"
+      id: "AC-UNIT-004"
+      purpose: "a consumer with no local substrate is owed nothing by the provider-proof branch — the branch concludes NOT_APPLICABLE without erroring, and the enforced rule still fails reverse coherence, and the branch is never counted as verified enforcement"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "a repository with no consumer-local binding lock, and an enforced rule with no literal binding and no convention variant"
+    when:
+      abstract: "the provider-proof branch is resolved for that rule"
+    then:
+      abstract:
+        - "the branch concludes NOT_APPLICABLE on the no-local-substrate basis and does not raise"
+        - "the branch grants NO discharge, and the enforced rule still violates reverse coherence"
+        - "the branch is not counted as verified enforcement — only a PROVEN outcome is"
+        - "the resolver never borrows the toolkit's own vendored lock to answer for a consumer, so a substrate-less consumer receives no manufactured proof"
+        - "the outcome and basis vocabularies are closed and total: every basis pairs with exactly one outcome, and a proof built with a basis outside the vocabulary, or with a basis contradicting its outcome, is refused rather than reconciled"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-09"
+  - identity:
+      urn: "acc:govern-registry:E004-UNIT-005-no-second-verdict-type-and-no-provider-code-in-core"
+      id: "AC-UNIT-005"
+      purpose: "the structural commitments hold as executable assertions rather than as prose: the proof module imports no transition-gate verdict type, defines no second verdict enum, and pulls no provider or detector code into core"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "the bound-realization proof module and the reverse-coherence validator as source"
+    when:
+      abstract: "their import graph and their module namespace are inspected"
+    then:
+      abstract:
+        - "neither imports GateVerdict, nor anything else, from atdd.coach.gate — the verdict meanings are reused without importing the transition-gate type"
+        - "the proof module defines no Enum at all, so no second verdict vocabulary is authored"
+        - "no module under the vendored substrate trees is imported by either module, transitively — core reads manifests, locks and reports as data and never imports a detector"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-09"
+  - identity:
+      urn: "acc:govern-registry:E004-SMOKE-001-real-substrate-proves-a-complete-bound-realization"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's own real committed substrate — real binding lock, real vendored manifests, real provider CLI on disk, real CI workflow — at least one bound rule resolves a complete realization end to end, so the predicate is satisfiable by real artifacts and not only by fixtures"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's own committed .atdd/binding.lock.yaml, its vendored workspace and extension implementation manifests, its vendored provider CLI, and its real .github CI workflow"
+    when:
+      abstract: "the bound-realization proof is resolved over the real substrate for every convention the real lock declares bound"
+    then:
+      abstract:
+        - "at least one real bound rule is PROVEN on the complete-bound-realization basis, with a real implementation_id, a real workspace_id and a real on-disk manifest path"
+        - "the real lock's substrate_lock_digest matches the real substrate on disk, so the live proof rests on a digest-coherent lock rather than a stale one"
+        - "no rule absent from the real lock is proven, and a rule id that matches no lock entry exactly is refused rather than resolved by a looser match"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-09"

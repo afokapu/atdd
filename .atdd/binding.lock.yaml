@@ -1,5 +1,5 @@
 schema_version: 1.0.0
-substrate_lock_digest: sha256:2ae62340b84936eb7a31fa06be0eee65fd5394ad368929034b253bf2150eb7fa
+substrate_lock_digest: sha256:bf766b1f2322c151e0dab74c8f02ac48b509047698ca4880380f61d42195e690
 conventions:
 - convention_id: coder.boundaries.http-client
   disposition: bound
