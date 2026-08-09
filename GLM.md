@@ -96,7 +96,7 @@ issues:
     update: "atdd coach transition <N> <STATUS>"
     pr: "atdd pr <N>"
   removed_commands:
-    # #1309 (BREAKING): the `atdd issue` monolith is GONE. Umbrella #1303
+    # #1309 (4.0.0, BREAKING): the `atdd issue` monolith is GONE. Umbrella #1303
     # split it across the author (create) and coach (lifecycle) archetypes.
     # Running it now exits non-zero and names the replacement.
     - "atdd issue <slug>              → use: atdd author issue --title <title> --slug <slug>"
@@ -105,18 +105,14 @@ issues:
     - "atdd issue <N> --status <S>    → use: atdd coach transition <N> <S>"
     - "atdd issue <N> --close-wmbt <ID> → use: atdd coach close-wmbt <N> <ID>"
     - "atdd issue <N> --check         → use: atdd coach check <N>"
+    - "atdd issue <N> --sync-wmbts    → use: atdd coach sync-wmbts <N>"
     - "atdd issue reconcile           → use: atdd coach reconcile"
     - "atdd issue sync-labels         → use: atdd coach sync-labels [<N>|--all]"
     - "atdd issue is-registered <br>  → use: atdd coach is-registered <branch>"
     - "atdd issue review <N>          → use: atdd coach issue-review <N>"
     - "atdd issue <slug> --dry-run    → use: atdd author issue --slug <slug> --dry-run"
-    # #1477 (BREAKING): `atdd new` — the last live entry into the orphaned
-    # IssueManager mint path — is GONE, and the WMBT sub-issue backfill that
-    # rode on it (`atdd coach sync-wmbts`) goes with it: it resolved plan
-    # artifacts through a `wagon` field the store no longer carries.
-    - "atdd new <slug>                → use: atdd author issue --title <title> --slug <slug>"
-    - "atdd coach sync-wmbts <N>      → removed; no replacement (wagon → train + feature)"
   deprecated_commands:
+    - "atdd new <slug>    → use: atdd author issue --title <title> --slug <slug>"
     - "atdd archive <N>   → use: atdd coach transition <N> COMPLETE"
     - "atdd branch <N>    → use: atdd worktree create <N>"
   prohibited_commands:

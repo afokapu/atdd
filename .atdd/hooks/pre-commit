@@ -1,74 +1,115 @@
 #!/bin/sh
-# ATDD managed hook dispatcher — DO NOT EDIT (#1492).
+# ATDD pre-commit hook — blocks commits on main/master and unregistered branches.
+# Installed by `atdd init`.
 #
-# This file is FIXED CONTENT. The real logic for this hook lives in the
-# INSTALLED atdd package, and this dispatcher does nothing but exec it.
-#
-# Why: `.atdd/hooks/*` used to be a snapshot COPY of the packaged templates,
-# refreshed only by `atdd init --force` — a flag that is forbidden because it
-# caused #793. So every hook fix ever made reached only repos initialised after
-# it landed, and 6 of 11 hooks were never installed at all. A dispatcher has no
-# logic to go stale: `pipx upgrade atdd` is now sufficient to propagate a hook
-# fix, and the pre-push version gate (#1449) already keeps everyone current.
-#
-# Editing this file changes nothing about the logic that runs. It will be
-# replaced on the next `atdd sync` (your copy is preserved as *.local.bak).
-#
-# FAILS CLOSED: if the packaged hook cannot be resolved, this BLOCKS rather
-# than silently allowing. A guard that allows on error is not a guard — that is
-# the claude-pre-tool-use.sh defect (inert in every consumer repo). There is
-# deliberately no bypass env var here: E030 retired that entire class.
+# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
+# For genuine emergencies: atdd emergency --reason "<reason>"
 
-_HOOK_NAME='pre-commit'
+set -e
 
-# Resolve the packaged hook via the `atdd` console script, which is the only
-# entry point that survives a pipx install (the toolkit lives in an isolated
-# venv that a bare `python3` cannot import — measured, #1492).
-_resolve_packaged_hook() {
-    _atdd_bin=$(command -v atdd 2>/dev/null) || return 1
-    [ -n "$_atdd_bin" ] || return 1
-    # </dev/null: never consume the hook's stdin (pre-push reads refs from it).
-    "$_atdd_bin" hooks path "$_HOOK_NAME" 2>/dev/null </dev/null
-}
+# --- Emergency bypass check (E031) ---
+_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
 
-# Retry, because `pipx upgrade atdd` unlinks the console script for ~1.3s of its
-# ~6s run (measured, #1492). Without this, an upgrade racing a commit would fire
-# the block spuriously — and an enforcement message that cries wolf is how
-# operators learn to reach for bypasses (#1442). Retrying rides through the
-# transient window; a genuinely absent atdd still blocks, which is correct.
-_HOOK_PATH=''
-_try=0
-while [ "$_try" -lt 3 ]; do
-    _HOOK_PATH=$(_resolve_packaged_hook)
-    if [ -n "$_HOOK_PATH" ] && [ -f "$_HOOK_PATH" ]; then
-        break
+# --- Source-checkout live-source bridge (#928 Gap 4 Item 3) ---
+# Inside the atdd toolkit source checkout, prepend src/ so the bare `python3`
+# version gate AND `atdd validate` import atdd from the WORKING TREE, not the
+# installed wheel. Removes the manual `PYTHONPATH=src` bridge; no-op elsewhere.
+if [ -n "$_REPO_ROOT" ] && [ -d "$_REPO_ROOT/src/atdd" ] && \
+   grep -q '^name = "atdd"' "$_REPO_ROOT/pyproject.toml" 2>/dev/null; then
+    export PYTHONPATH="$_REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+fi
+if [ -n "$_REPO_ROOT" ]; then
+    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
+    if [ -f "$_BYPASS_FILE" ]; then
+        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
+            printf "ATDD: Emergency bypass active (pre-commit). Reason: %s\n" \
+                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
+            exit 0
+        else
+            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
+        fi
     fi
-    _HOOK_PATH=''
-    _try=$((_try + 1))
-    if [ "$_try" -lt 3 ]; then
-        sleep 1
-    fi
-done
-
-if [ -z "$_HOOK_PATH" ]; then
-    # `echo` only, never `cat <<EOF`: this branch runs precisely when the
-    # environment is broken, and a message that needs an external binary to
-    # print is a message that goes missing when it matters most. `echo` is a
-    # shell builtin and always available.
-    echo "" >&2
-    echo "ATDD: cannot resolve the packaged '$_HOOK_NAME' hook from the installed atdd." >&2
-    echo "" >&2
-    echo "The guard could not run, so this operation is BLOCKED rather than" >&2
-    echo "silently allowed. This is an install problem, not a problem with" >&2
-    echo "your change." >&2
-    echo "" >&2
-    echo "Repair:" >&2
-    echo "  pipx upgrade atdd        # or: pipx install --force atdd" >&2
-    echo "  atdd doctor              # diagnose interpreter / PATH problems" >&2
-    echo "" >&2
-    exit 1
 fi
 
-# exec via `sh` rather than relying on the executable bit surviving the wheel.
-# Every hook template is #!/bin/sh (enforced by the dispatcher-parity test).
-exec sh "$_HOOK_PATH" "$@"
+# --- Resolve current branch ---
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+# Allow: detached HEAD (CI)
+if [ -z "$BRANCH" ]; then
+    exit 0
+fi
+
+# --- Block all direct commits on main/master ---
+case "$BRANCH" in
+    main|master)
+        # Allow: CI-only env bypass
+        if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_COMMIT:-0}" = "1" ]; then
+            exit 0
+        fi
+        # Allow: manifest-only registration commit (atdd author issue runs on main)
+        # A commit whose staged set is exactly .atdd/manifest.yaml cannot cause the
+        # harm this guard exists to prevent (mass code edits, bare-mode contamination).
+        _STAGED=$(git diff --cached --name-only 2>/dev/null || echo "")
+        if [ "$_STAGED" = ".atdd/manifest.yaml" ]; then
+            exit 0
+        fi
+        cat >&2 <<EOF
+
+ATDD: Commit blocked — you are on $BRANCH.
+
+NEVER edit files directly on $BRANCH.
+Always create a worktree branch FIRST, before making any changes:
+
+  atdd worktree create <issue-number>
+
+If you already have uncommitted changes, recover them:
+
+  git stash
+  atdd worktree create <issue-number>
+  cd ../<worktree-dir>
+  git stash pop
+
+CI bypass (requires CI=true):
+  CI=true ATDD_ALLOW_MAIN_COMMIT=1 git commit ...
+
+EOF
+        exit 1
+        ;;
+esac
+
+# --- Verify branch is registered (store-backed, #1270 slice C) ---
+# Resolves branch → work item through the State Store (manifest fallback) via
+# `atdd coach is-registered`, replacing the legacy `grep "slug:" manifest.yaml`.
+# (Repointed from `atdd issue is-registered` by #1382/C5a so C5b's deletion of the
+# `atdd issue` monolith cannot break the commit gate.)
+# Skips when atdd is unavailable (never hard-breaks a commit) and when the repo
+# is not atdd-managed (the helper exits 0 with nothing to check).
+if command -v atdd >/dev/null 2>&1; then
+    if ! atdd coach is-registered "$BRANCH" >/dev/null 2>&1; then
+        cat >&2 <<EOF
+
+ATDD: Branch '$BRANCH' is not registered as an ATDD work item.
+
+Self-heal:
+  atdd coach reconcile
+
+Every branch must be created through the ATDD workflow:
+  1. atdd author issue --title <t> --slug <s>   # Create issue first
+  2. atdd worktree create <N>     # Create the worktree from the issue
+
+For genuine emergencies: atdd emergency --reason "<reason>"
+
+EOF
+        exit 1
+    fi
+fi
+
+# --- Staged file count warning (advisory only — never blocks) ---
+STAGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
+MAX_STAGED=${ATDD_MAX_STAGED:-20}
+
+if [ "$STAGED" -gt "$MAX_STAGED" ]; then
+    echo "ATDD WARNING: $STAGED files staged. Consider splitting into smaller commits." >&2
+fi
+
+exit 0

@@ -1,74 +1,281 @@
 #!/bin/sh
-# ATDD managed hook dispatcher — DO NOT EDIT (#1492).
+# ATDD pre-push hook — version gate + branch protection + blocking validators.
+# Installed by `atdd init`.
 #
-# This file is FIXED CONTENT. The real logic for this hook lives in the
-# INSTALLED atdd package, and this dispatcher does nothing but exec it.
-#
-# Why: `.atdd/hooks/*` used to be a snapshot COPY of the packaged templates,
-# refreshed only by `atdd init --force` — a flag that is forbidden because it
-# caused #793. So every hook fix ever made reached only repos initialised after
-# it landed, and 6 of 11 hooks were never installed at all. A dispatcher has no
-# logic to go stale: `pipx upgrade atdd` is now sufficient to propagate a hook
-# fix, and the pre-push version gate (#1449) already keeps everyone current.
-#
-# Editing this file changes nothing about the logic that runs. It will be
-# replaced on the next `atdd sync` (your copy is preserved as *.local.bak).
-#
-# FAILS CLOSED: if the packaged hook cannot be resolved, this BLOCKS rather
-# than silently allowing. A guard that allows on error is not a guard — that is
-# the claude-pre-tool-use.sh defect (inert in every consumer repo). There is
-# deliberately no bypass env var here: E030 retired that entire class.
+# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
+# For genuine emergencies: atdd emergency --reason "<reason>"
 
-_HOOK_NAME='pre-push'
+set -e
 
-# Resolve the packaged hook via the `atdd` console script, which is the only
-# entry point that survives a pipx install (the toolkit lives in an isolated
-# venv that a bare `python3` cannot import — measured, #1492).
-_resolve_packaged_hook() {
-    _atdd_bin=$(command -v atdd 2>/dev/null) || return 1
-    [ -n "$_atdd_bin" ] || return 1
-    # </dev/null: never consume the hook's stdin (pre-push reads refs from it).
-    "$_atdd_bin" hooks path "$_HOOK_NAME" 2>/dev/null </dev/null
-}
+# --- Emergency bypass check (E031) ---
+# atdd emergency --reason "<text>" creates .atdd/EMERGENCY_BYPASS with a TTL of 5 min.
+# If the file is fresh, all hook gates are skipped for this one operation.
+_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
 
-# Retry, because `pipx upgrade atdd` unlinks the console script for ~1.3s of its
-# ~6s run (measured, #1492). Without this, an upgrade racing a commit would fire
-# the block spuriously — and an enforcement message that cries wolf is how
-# operators learn to reach for bypasses (#1442). Retrying rides through the
-# transient window; a genuinely absent atdd still blocks, which is correct.
-_HOOK_PATH=''
-_try=0
-while [ "$_try" -lt 3 ]; do
-    _HOOK_PATH=$(_resolve_packaged_hook)
-    if [ -n "$_HOOK_PATH" ] && [ -f "$_HOOK_PATH" ]; then
-        break
+# --- Source-checkout live-source bridge (#928 Gap 4 Item 3) ---
+# Inside the atdd toolkit source checkout, prepend src/ so the bare `python3`
+# version gate AND `atdd validate` import atdd from the WORKING TREE, not the
+# installed wheel. Removes the manual `PYTHONPATH=src` bridge; no-op elsewhere.
+if [ -n "$_REPO_ROOT" ] && [ -d "$_REPO_ROOT/src/atdd" ] && \
+   grep -q '^name = "atdd"' "$_REPO_ROOT/pyproject.toml" 2>/dev/null; then
+    export PYTHONPATH="$_REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+fi
+if [ -n "$_REPO_ROOT" ]; then
+    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
+    if [ -f "$_BYPASS_FILE" ]; then
+        # find -mmin -5: matches if file was modified less than 5 minutes ago
+        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
+            printf "ATDD: Emergency bypass active (pre-push). Reason: %s\n" \
+                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
+            printf "  Remove .atdd/EMERGENCY_BYPASS when the emergency is resolved.\n" >&2
+            exit 0
+        else
+            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
+        fi
     fi
-    _HOOK_PATH=''
-    _try=$((_try + 1))
-    if [ "$_try" -lt 3 ]; then
-        sleep 1
-    fi
-done
+fi
 
-if [ -z "$_HOOK_PATH" ]; then
-    # `echo` only, never `cat <<EOF`: this branch runs precisely when the
-    # environment is broken, and a message that needs an external binary to
-    # print is a message that goes missing when it matters most. `echo` is a
-    # shell builtin and always available.
-    echo "" >&2
-    echo "ATDD: cannot resolve the packaged '$_HOOK_NAME' hook from the installed atdd." >&2
-    echo "" >&2
-    echo "The guard could not run, so this operation is BLOCKED rather than" >&2
-    echo "silently allowed. This is an install problem, not a problem with" >&2
-    echo "your change." >&2
-    echo "" >&2
-    echo "Repair:" >&2
-    echo "  pipx upgrade atdd        # or: pipx install --force atdd" >&2
-    echo "  atdd doctor              # diagnose interpreter / PATH problems" >&2
-    echo "" >&2
+# --- Bare-mode contamination guard (#629 Layer 1) ---
+# A worktree with core.bare=true silently mass-deletes its files on the next
+# `git add -A`. Wave 12 (PRs #625, #627) shipped 220k-line deletions this way.
+if [ "$(git config --get core.bare 2>/dev/null)" = "true" ]; then
+    cat >&2 <<'BARE_MSG'
+
+ATDD: Pre-push blocked — this worktree has core.bare=true.
+
+This is the bare-mode contamination signature that mass-deleted PRs
+#625 and #627 in Wave 12 (220,000 lines / 1,277 files each).
+
+Recovery:
+  1. git config core.bare false
+  2. git log --oneline -5         # audit recent commits for surprise deletions
+  3. git show --stat HEAD         # confirm last commit's diff is sane
+
+For genuine emergencies: atdd emergency --reason "<reason>"
+
+BARE_MSG
     exit 1
 fi
 
-# exec via `sh` rather than relying on the executable bit surviving the wheel.
-# Every hook template is #!/bin/sh (enforced by the dispatcher-parity test).
-exec sh "$_HOOK_PATH" "$@"
+# --- Version gate ---
+python3 -c "
+import sys
+try:
+    from atdd.version_check import _gate_main
+    _gate_main()
+except ImportError:
+    print('ATDD: the python3 running this hook (' + sys.executable + ') cannot import atdd.', file=sys.stderr)
+    print('  This is an environment/path problem, NOT a stale package: atdd is', file=sys.stderr)
+    print('  likely installed in an isolated venv (pipx) that is not on the path', file=sys.stderr)
+    print('  of this interpreter. Diagnose and fix:  atdd doctor', file=sys.stderr)
+    sys.exit(1)
+" 2>&1
+if [ $? -ne 0 ]; then exit 1; fi
+
+# --- Store-as-source-of-truth gate (#1503) ---
+# This block is a dispatcher: the gate logic lives in the installed package, so
+# fixing it needs no hook edit. The hook file itself is still a byte-identical
+# projection of this template (.atdd/hooks/pre-push is tracked, and
+# test_template_and_installed_hook_are_byte_identical enforces the match) — so
+# changing these lines requires regenerating that projection in the same commit.
+#
+# Blocking is scoped to the work_item bound to THIS branch. Repo-wide drift is
+# reported as advisory only — a repo-wide block would red-gate every branch on
+# pre-existing history (#1516 backfills it).
+python3 -c "
+import sys
+try:
+    from atdd.coach.store_mirror_gate import _gate_main
+    _gate_main()
+except ImportError:
+    print('ATDD: the python3 running this hook (' + sys.executable + ') cannot import atdd.', file=sys.stderr)
+    print('  Diagnose and fix:  atdd doctor', file=sys.stderr)
+    sys.exit(1)
+" 2>&1
+if [ $? -ne 0 ]; then exit 1; fi
+
+REMOTE="$1"
+URL="$2"
+
+# Accumulate the last ref's SHAs for blast-radius detection below.
+LAST_LOCAL_SHA=""
+LAST_REMOTE_SHA=""
+
+# Read each ref being pushed (stdin: local_ref local_sha remote_ref remote_sha)
+while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+    # Track for blast-radius detection (last ref wins; most pushes have one ref)
+    LAST_LOCAL_SHA="$LOCAL_SHA"
+    LAST_REMOTE_SHA="$REMOTE_SHA"
+
+    # Block manual tag pushes (tags should only come from CI publish workflow)
+    case "$LOCAL_REF" in
+        refs/tags/*)
+            echo "ATDD: Manual tag pushes blocked. Tags are created by the publish workflow." >&2
+            exit 1
+            ;;
+    esac
+
+    # Only guard pushes targeting main or master
+    case "$REMOTE_REF" in
+        refs/heads/main|refs/heads/master) ;;
+        *) continue ;;
+    esac
+
+    # Allow: CI-only env bypass
+    if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_PUSH:-0}" = "1" ]; then
+        continue
+    fi
+
+    # --- Block all direct pushes to main/master ---
+    BRANCH=$(echo "$REMOTE_REF" | sed 's|refs/heads/||')
+    cat >&2 <<EOF
+
+ATDD: All direct pushes to $BRANCH are blocked.
+
+Every change must go through a worktree branch and PR.
+Create one first:
+  atdd worktree create <issue-number>
+
+CI bypass (requires CI=true):
+  CI=true ATDD_ALLOW_MAIN_PUSH=1 git push ...
+
+EOF
+    exit 1
+done
+
+# --- Blocking validator pass (#583) ---
+# Runs the blast-radius subset of local validators for the files in this push.
+# Only phases whose source paths appear in the diff are validated.
+#
+# Auto-skipped when:
+#   CI=true                        — CI runs the full suite; no double-run
+#   No ATDD source files changed   — fast path for non-toolkit pushes
+if [ "${CI:-}" != "true" ] && [ -n "$LAST_LOCAL_SHA" ]; then
+
+    # Compute the set of files changed in this push.
+    NULL_SHA="0000000000000000000000000000000000000000"
+    if [ -z "$LAST_REMOTE_SHA" ] || [ "$LAST_REMOTE_SHA" = "$NULL_SHA" ]; then
+        # New branch — diff against origin/main if reachable, else the previous commit
+        BASE=$(git rev-parse --verify origin/main 2>/dev/null || \
+               git rev-parse --verify origin/HEAD 2>/dev/null || echo "")
+        if [ -n "$BASE" ]; then
+            CHANGED_FILES=$(git diff --name-only "${BASE}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
+        else
+            PARENT=$(git rev-parse --verify "${LAST_LOCAL_SHA}^" 2>/dev/null || echo "")
+            if [ -n "$PARENT" ]; then
+                CHANGED_FILES=$(git diff --name-only "${PARENT}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
+            else
+                CHANGED_FILES=""
+            fi
+        fi
+    else
+        # Branch update — compare the pushed range
+        CHANGED_FILES=$(git diff --name-only "${LAST_REMOTE_SHA}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
+    fi
+
+    # Map changed files → validator phases (same mapping as post-commit hook)
+    RUN_REPO=0
+    RUN_PLANNER=0
+    RUN_TESTER=0
+    RUN_CODER=0
+    RUN_COACH=0
+
+    while IFS= read -r _f; do
+        case "$_f" in
+            plan/*)              RUN_REPO=1; RUN_PLANNER=1 ;;
+            contracts/*)         RUN_REPO=1; RUN_TESTER=1 ;;
+            src/atdd/planner/*)  RUN_PLANNER=1 ;;
+            src/atdd/tester/*)   RUN_TESTER=1 ;;
+            src/atdd/coder/*)    RUN_CODER=1 ;;
+            src/atdd/coach/*)    RUN_COACH=1 ;;
+            .atdd/manifest.yaml) RUN_COACH=1 ;;
+        esac
+    done <<__BLAST__
+$CHANGED_FILES
+__BLAST__
+
+    # Fast path — nothing in blast-radius, skip entirely
+    if [ "${RUN_REPO}${RUN_PLANNER}${RUN_TESTER}${RUN_CODER}${RUN_COACH}" != "00000" ]; then
+        echo "ATDD pre-push: running blast-radius validators (--local --skip-api)..." >&2
+
+        FAIL=0
+        if [ "$RUN_REPO" = "1" ]; then
+            # The full `atdd repo validate` URN-graph traversal builds the entire
+            # repo graph (~thousands of URNs, ~2-4 min) — far too slow for a
+            # local fast-fail gate. It is DEFERRED TO CI by default: the
+            # `validate-conventions` job runs the authoritative traceability
+            # check (resolution/urn_traceability over the real repo graph), so a
+            # graph regression still cannot reach main. The RUN_PLANNER /
+            # RUN_TESTER legs below still run --local --skip-api on plan/ and
+            # contracts/ changes, preserving fast local feedback.
+            # Opt in to the full local traversal with ATDD_PREPUSH_FULL=1.
+            if [ "${ATDD_PREPUSH_FULL:-0}" = "1" ]; then
+                atdd repo validate >&2 2>&1 || FAIL=1
+            else
+                echo "ATDD pre-push: deferring full 'atdd repo validate' URN-graph traversal to CI (set ATDD_PREPUSH_FULL=1 to run it locally)." >&2
+            fi
+        fi
+        if [ "$RUN_PLANNER" = "1" ]; then
+            atdd validate planner --local --skip-api >&2 2>&1 || FAIL=1
+        fi
+        if [ "$RUN_TESTER" = "1" ]; then
+            atdd validate tester --local --skip-api >&2 2>&1 || FAIL=1
+        fi
+        if [ "$RUN_CODER" = "1" ]; then
+            atdd validate coder --local --skip-api >&2 2>&1 || FAIL=1
+        fi
+        if [ "$RUN_COACH" = "1" ]; then
+            atdd validate coach --local --skip-api >&2 2>&1 || FAIL=1
+        fi
+
+        if [ "$FAIL" = "1" ]; then
+            cat >&2 <<'VALIDATE_FAIL'
+
+ATDD: Pre-push blocked — one or more local validators failed (see above).
+
+These validators catch violations that burn CI cycles when pushed.
+Fix the issues above, then retry your push.
+
+For genuine emergencies: atdd emergency --reason "<reason>"
+
+VALIDATE_FAIL
+            exit 1
+        fi
+    fi
+fi
+
+# --- Registry mirror drift gate (wmbt:govern-lifecycle:E021) ---
+# Runs atdd registry update --check to confirm plan/_wagons.yaml,
+# plan/_trains.yaml, and contracts/_artifacts.yaml are in sync with source.
+# Auto-skipped: CI=true (CI check is the authoritative gate).
+# Auto-heal covers all non-CI cases (E023 registry auto-resync).
+if [ "${CI:-}" != "true" ]; then
+    if ! atdd registry update --check >&2 2>&1; then
+        echo "ATDD: registry mirrors auto-resynced (atdd registry update --yes)" >&2
+        atdd registry update --yes >&2 2>&1 || true
+        git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml 2>/dev/null || true
+        echo "ATDD: mirrors resynced and re-staged; continuing push..." >&2
+    fi
+fi
+
+# --- Uncommitted delta warning (advisory only — never blocks) ---
+UNCOMMITTED=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
+UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+TOTAL=$((UNCOMMITTED + UNTRACKED))
+MAX_UNCOMMITTED=${ATDD_MAX_UNCOMMITTED:-10}
+
+if [ "$TOTAL" -gt "$MAX_UNCOMMITTED" ]; then
+    cat >&2 <<WARN
+
+ATDD WARNING: $TOTAL uncommitted/untracked files detected.
+
+Consider committing your work in smaller increments.
+Large uncommitted deltas risk losing work if a hook blocks.
+
+  git add -p    # Stage incrementally
+  git commit    # Commit frequently
+
+WARN
+fi
+
+exit 0
