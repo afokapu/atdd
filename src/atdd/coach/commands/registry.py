@@ -31,6 +31,15 @@ class RegistryDriftError(Exception):
         self.drift_report: dict = drift_report or {}
 
 
+# The mirrors the remediation tells the operator to re-stage. Named once so the
+# instruction and the declaration warning below cannot name different sets.
+MIRROR_FILES = (
+    "plan/_wagons.yaml",
+    "plan/_trains.yaml",
+    "contracts/_artifacts.yaml",
+)
+
+
 def format_fix_hint(drift_report: dict) -> str:
     """Return an actionable fix-hint for registry drift, suitable for stderr.
 
@@ -38,7 +47,8 @@ def format_fix_hint(drift_report: dict) -> str:
         drift_report: dict with optional 'drifted_files' key listing file paths.
 
     Returns:
-        Multi-line string containing 'atdd registry update --yes' and any drifted files.
+        Multi-line string containing 'atdd registry update --yes', any drifted
+        files, and the `## Artifacts` re-derivation the amend obliges (#1739).
     """
     lines = [
         "Registry mirror is out of sync with source-of-truth files.",
@@ -51,10 +61,37 @@ def format_fix_hint(drift_report: dict) -> str:
         for f in drifted_files:
             lines.append(f"  - {f}")
     lines.append(
-        "Then re-stage and push: git add plan/_wagons.yaml plan/_trains.yaml "
-        "contracts/_artifacts.yaml && git commit --amend --no-edit"
+        "Then re-stage and push: git add " + " ".join(MIRROR_FILES)
+        + " && git commit --amend --no-edit"
     )
+    lines.extend(_format_declaration_warning(drifted_files))
     return "\n".join(lines)
+
+
+def _format_declaration_warning(drifted_files: list) -> list:
+    """The `## Artifacts` consequence of the amend the hint just prescribed (#1739).
+
+    The instruction above appends the resynced mirrors to a commit whose
+    ``## Artifacts`` section was authored from the diff as it stood *before* the
+    resync. Following it verbatim therefore leaves the declaration stale by
+    exactly those paths, and the REFACTOR -> COMPLETE gate refuses an undeclared
+    path (#1726). The check already knows which files are about to be appended,
+    so it is the one place that can say so.
+    """
+    subject = (
+        "the files listed above"
+        if drifted_files
+        else "the registry mirrors named above"
+    )
+    return [
+        "",
+        f"⚠️  That --amend adds {subject} to a commit whose `## Artifacts`",
+        "   section was written from the diff BEFORE this resync, so the",
+        "   declaration will be stale by exactly those paths.",
+        "   Re-derive `## Artifacts` from the amended commit before pushing —",
+        "   the REFACTOR -> COMPLETE gate refuses an undeclared path:",
+        "     git diff --name-only origin/main..HEAD",
+    ]
 import yaml
 import json
 import re

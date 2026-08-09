@@ -1286,7 +1286,13 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 119
+    total: 120
+    C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
+      by having format_fix_hint() name the consequence of the amend it prescribes
+      and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
+      author must run before pushing, over the drifted-file set the check already
+      computed, while emitting nothing on the clean path and exempting no mirror from
+      the Artifacts requirement (#1739)
     C021: minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers
       by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose
       registry holds a substantive check — where it registers the same checks the
