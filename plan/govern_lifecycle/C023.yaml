@@ -1,4 +1,4 @@
-urn: "wmbt:govern-lifecycle:C022"
+urn: "wmbt:govern-lifecycle:C023"
 step: "confirm"
 direction: "minimize"
 dimension: "likelihood"
@@ -8,7 +8,7 @@ lens: "functional.effectiveness"
 statement: "minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated by having format_fix_hint() name the consequence of the amend it prescribes — that the resynced mirrors enter the commit after `## Artifacts` was written and leave the declaration stale by exactly those paths — and name the mechanical re-derivation (`git diff --name-only origin/main..HEAD`) the author must run before pushing, while emitting nothing at all on the clean path so a repo with no drift is unchanged, and without exempting any mirror from the Artifacts requirement"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:C022-UNIT-001-the-remediation-names-the-declaration-it-invalidates"
+      urn: "acc:govern-lifecycle:C023-UNIT-001-the-remediation-names-the-declaration-it-invalidates"
       id: "AC-UNIT-001"
       purpose: "An instruction that appends files to an already-declared commit and stops there is the generator of the undeclared case. The hint must carry the consequence and the exact re-derivation, in the same breath as the amend, because the amend is the last thing the operator reads before running it"
       phase: "GREEN"
@@ -33,7 +33,7 @@ acceptances:
       created: "2026-08-08"
 
   - identity:
-      urn: "acc:govern-lifecycle:C022-UNIT-002-a-repo-with-no-drift-gains-no-new-output"
+      urn: "acc:govern-lifecycle:C023-UNIT-002-a-repo-with-no-drift-gains-no-new-output"
       id: "AC-UNIT-002"
       purpose: "The cheap way to satisfy AC-UNIT-001 is to print the declaration warning unconditionally. That would put an Artifacts lecture in front of every operator on every clean check, and the warning would stop meaning anything on the one run where it is true"
       phase: "GREEN"
@@ -54,7 +54,7 @@ acceptances:
       created: "2026-08-08"
 
   - identity:
-      urn: "acc:govern-lifecycle:C022-SMOKE-001-the-real-drift-check-carries-the-warning-to-the-operator"
+      urn: "acc:govern-lifecycle:C023-SMOKE-001-the-real-drift-check-carries-the-warning-to-the-operator"
       id: "AC-SMOKE-001"
       purpose: "The unit tests pin the formatter. What the operator acts on is whatever the real check prints, and the formatter is reached through a call site that passes its own drift report. This closes the gap between 'the string is right' and 'the string arrives'"
       phase: "SMOKE"

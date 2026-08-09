@@ -1,6 +1,6 @@
-# URN: test:govern-lifecycle:enforcing-artifact-declaration:C022-UNIT-002-a-repo-with-no-drift-gains-no-new-output
-# Acceptance: acc:govern-lifecycle:C022-UNIT-002-a-repo-with-no-drift-gains-no-new-output
-# WMBT: wmbt:govern-lifecycle:C022
+# URN: test:govern-lifecycle:enforcing-artifact-declaration:C023-UNIT-002-a-repo-with-no-drift-gains-no-new-output
+# Acceptance: acc:govern-lifecycle:C023-UNIT-002-a-repo-with-no-drift-gains-no-new-output
+# WMBT: wmbt:govern-lifecycle:C023
 # Phase: GREEN
 # Layer: unit
 # Assertion: behavioral

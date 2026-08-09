@@ -1,6 +1,6 @@
-# URN: test:govern-lifecycle:enforcing-artifact-declaration:C022-SMOKE-001-the-real-drift-check-carries-the-warning-to-the-operator
-# Acceptance: acc:govern-lifecycle:C022-SMOKE-001-the-real-drift-check-carries-the-warning-to-the-operator
-# WMBT: wmbt:govern-lifecycle:C022
+# URN: test:govern-lifecycle:enforcing-artifact-declaration:C023-SMOKE-001-the-real-drift-check-carries-the-warning-to-the-operator
+# Acceptance: acc:govern-lifecycle:C023-SMOKE-001-the-real-drift-check-carries-the-warning-to-the-operator
+# WMBT: wmbt:govern-lifecycle:C023
 # Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral

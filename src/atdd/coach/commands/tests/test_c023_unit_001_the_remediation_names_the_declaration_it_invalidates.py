@@ -1,6 +1,6 @@
-# URN: test:govern-lifecycle:enforcing-artifact-declaration:C022-UNIT-001-the-remediation-names-the-declaration-it-invalidates
-# Acceptance: acc:govern-lifecycle:C022-UNIT-001-the-remediation-names-the-declaration-it-invalidates
-# WMBT: wmbt:govern-lifecycle:C022
+# URN: test:govern-lifecycle:enforcing-artifact-declaration:C023-UNIT-001-the-remediation-names-the-declaration-it-invalidates
+# Acceptance: acc:govern-lifecycle:C023-UNIT-001-the-remediation-names-the-declaration-it-invalidates
+# WMBT: wmbt:govern-lifecycle:C023
 # Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
