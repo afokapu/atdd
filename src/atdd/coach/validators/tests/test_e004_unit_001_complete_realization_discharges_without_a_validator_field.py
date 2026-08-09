@@ -1,3 +1,11 @@
+# URN: test:govern-registry:govern-registry:E004-UNIT-001-complete-realization-discharges-without-a-validator-field
+# Acceptance: acc:govern-registry:E004-UNIT-001-complete-realization-discharges-without-a-validator-field
+# WMBT: wmbt:govern-registry:E004
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: behavioral
+# Purpose: A provider-realized enforced rule discharges reverse coherence with no validator: field and no placeholder, because the proof is consulted ahead of both rejection branches.
 """acc:govern-registry:E004-UNIT-001 — the discharge, and where it fires.
 
 The claim under test is not merely "a complete realization proves a rule". It is

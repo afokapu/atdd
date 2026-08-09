@@ -1,3 +1,11 @@
+# URN: test:govern-registry:govern-registry:E004-UNIT-004-not-applicable-grants-no-discharge-and-counts-as-nothing
+# Acceptance: acc:govern-registry:E004-UNIT-004-not-applicable-grants-no-discharge-and-counts-as-nothing
+# WMBT: wmbt:govern-registry:E004
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: behavioral
+# Purpose: A substrate-less consumer's provider-proof branch concludes NOT_APPLICABLE without erroring, grants NO discharge, and is never counted as verified enforcement.
 """acc:govern-registry:E004-UNIT-004 — the branch that is owed nothing.
 
 ``NOT_APPLICABLE`` is the member of the vocabulary that carries the risk of

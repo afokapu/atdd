@@ -1,3 +1,11 @@
+# URN: test:govern-registry:govern-registry:E004-UNIT-002-every-broken-link-refuses-under-its-own-name
+# Acceptance: acc:govern-registry:E004-UNIT-002-every-broken-link-refuses-under-its-own-name
+# WMBT: wmbt:govern-registry:E004
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: behavioral
+# Purpose: Each link of the proof chain, broken alone against an otherwise complete realization, refuses under its OWN named basis — a predicate nobody has shown can fail is not a predicate that passed.
 """acc:govern-registry:E004-UNIT-002 — the fault matrix.
 
 A predicate nobody has shown can fail is exactly the theatre program #1772

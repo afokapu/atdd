@@ -1,3 +1,11 @@
+# URN: test:govern-registry:govern-registry:E004-UNIT-003-existing-proofs-and-dispositions-are-unchanged
+# Acceptance: acc:govern-registry:E004-UNIT-003-existing-proofs-and-dispositions-are-unchanged
+# WMBT: wmbt:govern-registry:E004
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: behavioral
+# Purpose: Widening the accepted proof changes nothing for the literal and convention-variant discharges, advisory's obligation to carry proof, or documentation-only's inability to acquire enforcement.
 """acc:govern-registry:E004-UNIT-003 — what widening the proof must NOT change.
 
 Only the vocabulary of accepted evidence widened. The two proofs that already

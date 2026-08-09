@@ -1,3 +1,11 @@
+# URN: test:govern-registry:govern-registry:E004-UNIT-005-no-second-verdict-type-and-no-provider-code-in-core
+# Acceptance: acc:govern-registry:E004-UNIT-005-no-second-verdict-type-and-no-provider-code-in-core
+# WMBT: wmbt:govern-registry:E004
+# Phase: GREEN
+# Layer: unit
+# Runtime: python
+# Assertion: structural
+# Purpose: GateVerdict is not imported, no second verdict enum is defined, and no provider or detector code is imported into core — asserted against a real import graph, not documented.
 """acc:govern-registry:E004-UNIT-005 — the structural commitments, executed.
 
 Two promises this slice makes are the kind that hold perfectly in prose and rot

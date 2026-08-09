@@ -1,3 +1,11 @@
+# URN: test:govern-registry:govern-registry:E004-SMOKE-001-real-substrate-proves-a-complete-bound-realization
+# Acceptance: acc:govern-registry:E004-SMOKE-001-real-substrate-proves-a-complete-bound-realization
+# WMBT: wmbt:govern-registry:E004
+# Phase: SMOKE
+# Layer: integration
+# Runtime: python
+# Assertion: behavioral
+# Purpose: Over the toolkit's own real committed substrate, at least one bound rule resolves the complete chain — so the predicate is satisfiable by real artifacts and not only by fixtures.
 """acc:govern-registry:E004-SMOKE-001 — the predicate against real artifacts.
 
 Fixtures prove the chain refuses. Only the real substrate proves it can be
