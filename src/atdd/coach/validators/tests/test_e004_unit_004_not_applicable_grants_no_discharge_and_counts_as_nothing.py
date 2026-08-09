@@ -128,6 +128,8 @@ def test_no_rule_from_the_toolkits_own_lock_resolves_for_a_consumer(unconfigured
     """
     import yaml
 
+    from atdd.enforce.runner import _toolkit_root
+
     toolkit = br.BoundRealizationResolver.for_repo(_toolkit_root())
     lock = yaml.safe_load(toolkit.lock_path.read_text(encoding="utf-8")) or {}
     bound_ids = [c["convention_id"] for c in lock["conventions"]]
