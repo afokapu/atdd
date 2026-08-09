@@ -2565,7 +2565,10 @@ wagons:
     Y001: 'minimize likelihood of a slug-rename mutating object identity: renaming
       slug or title must leave uid and the .atdd/state/projection/<uid>.yaml filename
       unchanged'
-    total: 7
+    Y002: 'minimize likelihood of a rename-addressability failure: atdd state object
+      rename must address every work item the store holds, never refusing one because
+      its uid is not wi_<ULID>-shaped'
+    total: 8
   total: 0
   manifest: plan/project_shared_state/_project_shared_state.yaml
   path: plan/project_shared_state/

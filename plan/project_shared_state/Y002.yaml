@@ -1,0 +1,134 @@
+urn: wmbt:project-shared-state:Y002
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: rename-addressability
+context_clarifier: the rename verb resolves a work item by the uid the store actually
+  holds, whatever form minted it; the wi_<ULID> shape is a mint-time and projection-document
+  contract (E004), never a lookup precondition, so rename refuses only a uid the store
+  does not hold or an object that is not a work item
+lens: functional.availability
+statement: 'minimize likelihood of a rename-addressability failure: atdd state object
+  rename must address every work item the store holds, never refusing one because
+  its uid is not wi_<ULID>-shaped'
+acceptances:
+- identity:
+    urn: acc:project-shared-state:Y002-UNIT-001-addresses-every-live-uid-form
+    id: AC-UNIT-001
+    phase: RED
+    purpose: rename addresses both live uid forms, not only the wi_<ULID> form that
+      was never minted
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A store holding one work item under an unverified:<slug> uid and one under a
+      bare slug uid
+  when:
+    abstract: each object is renamed by the uid the store holds
+  then:
+    abstract:
+    - Both renames succeed and each object's display slug and title carry the new
+      values
+    - Neither object's uid changes and no second object appears
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:project-shared-state:Y002-UNIT-002-refuses-unheld-uid-and-foreign-kind
+    id: AC-UNIT-002
+    phase: RED
+    purpose: dropping the shape gate must not let rename address a uid the store lacks
+      or rewrite another kind
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A store holding one work item and one object of a different kind under a non-wi_
+      uid
+  when:
+    abstract: rename is attempted against an absent uid and against the foreign-kind
+      object
+  then:
+    abstract:
+    - The absent uid is refused as not found and nothing is written
+    - The foreign-kind object is refused by kind and its stored kind is unchanged
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:project-shared-state:Y002-UNIT-003-title-and-body-h1-move-together
+    id: AC-UNIT-003
+    phase: RED
+    purpose: a title rename must not mint a divergence between data.title and the
+      body's leading H1
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A work item whose body carries a leading H1, and one whose body carries none
+  when:
+    abstract: each is renamed with a new title
+  then:
+    abstract:
+    - The first object's stored title and its body's leading H1 both become the new
+      title
+    - The second object's title changes and no H1 is synthesised into its body
+    - An H1 appearing only inside a fenced code block is left untouched and is never
+      treated as the heading
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:project-shared-state:Y002-SMOKE-001-rename-addressability
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: "End-to-end: rename-addressability holds against a real checkout, the\
+      \ installed atdd CLI, and a real state.sqlite \u2014 no manual patching."
+  execution_kind: live_smoke
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and an isolated control root whose
+      store holds both live uid forms
+  when:
+    abstract: atdd state object rename is driven end-to-end through the real CLI against
+      each uid form
+  then:
+    abstract:
+    - Each rename exits zero and reports the uid it renamed, with no manual patching
+    - rename-addressability is observed to hold end-to-end against real infrastructure
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
+- identity:
+    urn: acc:project-shared-state:Y002-UNIT-004-shared-h1-parser-pins-commonmark-edges
+    id: AC-UNIT-004
+    phase: RED
+    purpose: pin the CommonMark edge cases where a second, independently-written H1
+      parser diverged, so the duplication cannot silently reopen
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - Bodies exercising an ATX closing sequence, an empty H1, and a longer fence enclosing
+      a shorter one
+  when:
+    abstract: the shared parser reads each heading and then rewrites it to a new title
+  then:
+    abstract:
+    - A trailing ATX closing sequence is not part of the heading text, and a bare
+      '#' reads as an empty heading rather than as absent
+    - A fence is closed only by a run at least as long as the one that opened it,
+      so a shorter run inside it is not a heading
+    - 'Every case round-trips: reading back a rewritten heading yields exactly the
+      title that was written'
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-29'
