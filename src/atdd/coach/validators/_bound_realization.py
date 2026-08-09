@@ -393,7 +393,15 @@ class BoundRealizationResolver:
         try:
             data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
+            # An unreadable lock is an acquisition failure that must stay
+            # visible: it becomes a `could_not_check` proof rather than a clean
+            # refusal, and it is logged so it is diagnosable even when the caller
+            # only renders the outcome.
             self._lock_error = f"{path} could not be read: {exc}"
+            _log.warning(
+                "binding lock unreadable — bound-realization proof is unobservable",
+                extra={"lock_path": str(path), "error_type": type(exc).__name__},
+            )
             return
         if not isinstance(data, dict):
             self._lock_error = f"{path} is not a mapping"
@@ -630,6 +638,18 @@ class BoundRealizationResolver:
         try:
             resolve_provider(candidate_roots, workspace_id, f"^{contract}")
         except ProviderResolutionError as exc:
+            # Not swallowed: the failure becomes the refusal's own named basis.
+            # Logged as well, because an unresolvable provider is an operator
+            # problem worth seeing even when only the verdict is rendered.
+            _log.info(
+                "workspace provider does not resolve — refusing bound-realization proof",
+                extra={
+                    "rule_id": rule_id,
+                    "workspace_id": workspace_id,
+                    "contract": contract,
+                    "error_type": type(exc).__name__,
+                },
+            )
             return concluded(
                 "provider-unrunnable",
                 f"workspace provider {workspace_id!r} (contract ^{contract}) for "
