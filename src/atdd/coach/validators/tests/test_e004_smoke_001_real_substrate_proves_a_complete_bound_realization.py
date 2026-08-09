@@ -32,7 +32,14 @@ from atdd.coach.validators._bound_realization import (
 )
 from atdd.substrate.binding.plan import substrate_lock_digest
 
-pytestmark = [pytest.mark.coach]
+#: PLATFORM-marked, and the reason is the acceptance itself. Every assertion here
+#: is about the TOOLKIT's own committed substrate — its binding lock, its vendored
+#: manifests, its provider CLI, its CI workflow. A consumer repository has none of
+#: those, so running this there asserts the consumer owns artifacts it was never
+#: meant to own: `atdd validate <phase>` deselects `platform` for exactly this
+#: class. This is the consumer's real filter, NOT a device to deselect a failure —
+#: in the toolkit checkout the module runs in full and is not permitted to skip.
+pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 _REPO_ROOT = find_repo_root()
 

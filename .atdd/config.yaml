@@ -12,13 +12,6 @@ release:
   tag_prefix: v
 code:
   toolkit: src/atdd
-# Theme taxonomy (#1317). The toolkit self-governs to its own abstraction
-# stack (commons/plan/test/code/coach, #970/#951), so declare it explicitly:
-# `planner.theme.must-be-canonical` resolves the canonical set from
-# get_theme_map(config), and without this block the built-in game-domain
-# DEFAULT_THEME_MAP would make the toolkit accept game themes and reject its
-# own plan/test/code/coach wagons. Digits 5-9 keep the game-domain defaults
-# (get_theme_map merges, it cannot remove digits) but are unused here.
 themes:
   '0': commons
   '1': plan
@@ -48,47 +41,17 @@ route_train_wagon_coverage:
   - web/src/**/App.tsx
   allowlist: []
 toolkit:
-  last_version: 3.106.0
+  last_version: 4.39.0
 github:
   repo: afokapu/atdd
 coach:
   token_alert_threshold: 400000
-# Enforcing phase-transition gate (#1020). Operator control over which phase
-# transitions consult their registered gate checks, keyed by "FROM->TO".
-# PLANNED->RED is gated by default (atdd.coach.gate.decision.DEFAULT_GATED_TRANSITIONS);
-# entries here override per transition. The check registry ships EMPTY, so a
-# gated transition is a no-op until #958/#1017 register checks into GATE_REGISTRY.
 gate:
   transitions:
     PLANNED->RED: true
-    # #1602: SmokeExecutionGateCheck — SMOKE->REFACTOR requires an attestation
-    # written by a live-smoke run that actually executed. Safe to enable because
-    # the check is OPT-IN PER ISSUE (atdd.coach.gate.smoke_obligation): it applies
-    # only to an issue whose own plan scope declares an
-    # `execution_kind: live_smoke` acceptance, and passes as "not applicable" for
-    # every issue that declares none — 787 of 787 work items in this repo at the
-    # time this line landed. Enabling it repo-wide with a repo-level opt-in would
-    # instead demand an attestation from every in-flight issue and make --force
-    # the routine exit, which is the failure this issue exists to remove.
     SMOKE->REFACTOR: true
-
-# Convention validator suite promotion (#1207): conventions/** is the
-# authoritative convention-graph enforcement path; legacy persona validators
-# run in parallel as compatibility shims during transition.
 validators:
   conventions_authoritative: true
-
-# Interlocking bilateral-binding detector layout (#1597; consumes core #1596's
-# config-driven detector). atdd's own runtime interlocking machinery does NOT
-# follow the game-app layout the detector defaults to: the InterlockingRunner and
-# the function-based Station Master (resolve_journey) live under
-# src/atdd/runtime/interlocking/, not python/trains/**/*.py + python/app.py. This
-# override points the runtime + Station Master selectors at atdd's real surfaces so
-# the binding directions close on atdd's own code (dogfooding). interlocking_yaml /
-# train_yaml / e2e_tests stay at their defaults — plan/_trains/_interlockings/*.yaml
-# already matches atdd's declared route space. The detector reads this via the
-# ATDD_INTERLOCKING_LAYOUT env override; wiring config -> env is core #1596's
-# enforce-side plumbing (see the dogfood report for its status in this worktree).
 interlocking_layout:
   python_runtime:
   - src/atdd/runtime/interlocking/*.py

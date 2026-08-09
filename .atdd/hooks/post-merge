@@ -19,7 +19,7 @@
 # the claude-pre-tool-use.sh defect (inert in every consumer repo). There is
 # deliberately no bypass env var here: E030 retired that entire class.
 
-_HOOK_NAME='pre-merge-commit'
+_HOOK_NAME='post-merge'
 
 # Resolve the packaged hook via the `atdd` console script, which is the only
 # entry point that survives a pipx install (the toolkit lives in an isolated

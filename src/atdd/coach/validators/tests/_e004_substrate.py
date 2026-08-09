@@ -77,24 +77,22 @@ def _digest_of(root: Path) -> str:
 # --------------------------------------------------------------------------- #
 # the complete realization                                                    #
 # --------------------------------------------------------------------------- #
-def build_complete(root: Path) -> Path:
-    """Write a complete bound realization for :data:`RULE_ID` under ``root``.
+def _write_substrate_lock(root: Path) -> None:
+    """The substrate lock the plan is keyed to.
 
-    Every link of the chain resolves: digest-coherent lock, exactly one bound
-    entry whose ``convention_id`` is exactly the rule id, exactly one manifest
-    for the selected implementation, ownership and emission both naming the rule,
-    a present report channel, a resolvable provider CLI, and a blocking Path B.
+    Its CONTENT is irrelevant to the proof — only its digest is — so it stays
+    minimal on purpose.
     """
     atdd = root / ".atdd"
-    (atdd).mkdir(parents=True, exist_ok=True)
-
-    # The substrate lock the plan is keyed to. Its CONTENT is irrelevant to the
-    # proof — only its digest is — so it stays minimal on purpose.
+    atdd.mkdir(parents=True, exist_ok=True)
     (atdd / "substrate.lock.yaml").write_text(
         yaml.safe_dump({"artifacts": [{"id": WORKSPACE_ID, "enabled": True}]}),
         encoding="utf-8",
     )
 
+
+def _write_workspace(root: Path) -> None:
+    """The provider package: a workspace manifest and a ``cli/scan.py``."""
     ws = _workspace_dir(root)
     (ws / "cli").mkdir(parents=True, exist_ok=True)
     (ws / "atdd.workspace.yaml").write_text(
@@ -110,6 +108,9 @@ def build_complete(root: Path) -> Path:
     # Present, never invoked — the chain proves the CLI resolves, not that it runs.
     (ws / "cli" / "scan.py").write_text("", encoding="utf-8")
 
+
+def _write_implementation(root: Path) -> None:
+    """The detector manifest that owns AND emits the rule, plus its report file."""
     impl = _impl_dir(root)
     impl.mkdir(parents=True, exist_ok=True)
     write_manifest(
@@ -128,23 +129,36 @@ def build_complete(root: Path) -> Path:
     )
     (impl / REPORT).write_text("", encoding="utf-8")
 
-    write_lock(
-        root,
-        {
-            "schema_version": "1.0.0",
-            "substrate_lock_digest": _digest_of(root),
-            "conventions": [
-                {
-                    "convention_id": RULE_ID,
-                    "disposition": "bound",
-                    "implementation_id": IMPL_ID,
-                    "workspace_id": WORKSPACE_ID,
-                    "contract_version": CONTRACT,
-                }
-            ],
-        },
-    )
 
+def _write_binding_lock(root: Path) -> None:
+    """One bound entry whose ``convention_id`` is EXACTLY the rule id."""
+    entry = {
+        "convention_id": RULE_ID,
+        "disposition": "bound",
+        "implementation_id": IMPL_ID,
+        "workspace_id": WORKSPACE_ID,
+        "contract_version": CONTRACT,
+    }
+    lock = {
+        "schema_version": "1.0.0",
+        "substrate_lock_digest": _digest_of(root),
+        "conventions": [entry],
+    }
+    write_lock(root, lock)
+
+
+def build_complete(root: Path) -> Path:
+    """Write a complete bound realization for :data:`RULE_ID` under ``root``.
+
+    Every link of the chain resolves: digest-coherent lock, exactly one bound
+    entry whose ``convention_id`` is exactly the rule id, exactly one manifest
+    for the selected implementation, ownership and emission both naming the rule,
+    a present report channel, a resolvable provider CLI, and a blocking Path B.
+    """
+    _write_substrate_lock(root)
+    _write_workspace(root)
+    _write_implementation(root)
+    _write_binding_lock(root)  # after the substrate lock — it digests it
     set_path_b_blocking(root)
     return root
 
