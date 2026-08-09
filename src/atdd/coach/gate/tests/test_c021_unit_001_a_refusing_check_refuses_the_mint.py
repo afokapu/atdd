@@ -84,7 +84,11 @@ def _gated_worktree(tmp_path: Path) -> Path:
     tree, and it cannot certify anything about a tree it cannot name. Faking
     that away here would test the mint against a precondition it does not have.
 
-    It also seeds the branch binding #1721 requires — see :func:`_bind_issue`.
+    It also seeds the branch binding #1721 requires — see :func:`_bind_issue` —
+    and CHECKS THAT BRANCH OUT, because since #1765 the mint resolves the commit
+    it certifies from that binding rather than from ``HEAD`` in this directory. A
+    checkout carrying the binding but not the branch would refuse for #1765's
+    reason and prove nothing about the check verdicts this file is about.
     """
     (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".atdd" / "config.yaml").write_text(
@@ -96,6 +100,7 @@ def _gated_worktree(tmp_path: Path) -> Path:
          "-q", "--allow-empty", "-m", "root"],
         cwd=tmp_path, check=True,
     )
+    subprocess.run(["git", "checkout", "-q", "-b", _BRANCH], cwd=tmp_path, check=True)
     _bind_issue(tmp_path)
     return tmp_path
 

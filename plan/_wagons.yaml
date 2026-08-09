@@ -1702,6 +1702,13 @@ wagons:
       — unless the issue is standing on FROM and the machine declares FROM->TO, with
       the refusal naming the phase the issue is actually on so the operator can act
       on it (#1735)
+    C022: minimize likelihood of the-conditional-mint-evaluating-an-edges-gates-at-the-head-of-whatever-directory-the-operator-was-standing-in-rather-than-at-the-head-of-the-branch-the-state-store-binds-the-issue-to
+      by resolving the commit the same way the branch already is — reusing approval_binding.resolve_issue_branch
+      and reading refs/heads/<that branch>, which every worktree of the repository
+      shares — by refusing rather than falling back to the invoking directory's HEAD
+      when it cannot be resolved, by naming the issue and the branch in that refusal,
+      and by printing the branch beside the commit so a token naming one branch while
+      attesting another's commit is legible (#1765)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
