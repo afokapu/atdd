@@ -69,7 +69,7 @@ rules:
   - id: "coach.phase-label.projection-only"
     severity: 4
     disposition: strict
-    description: "The atdd:<PHASE> label is a PROJECTION of objects.state and may be written only by IssueManager.update, which writes the store first and renders the label from it. No workflow, shell script or module may write an atdd:<PHASE> label directly (`gh issue edit --add-label/--remove-label`, or a GitHub-client `add_label`/`remove_label` carrying an `atdd:` phase token). A direct write bypasses the phase machine, the train gate, the COMPLETE gates and the store write in one step: the label moves and objects.state does not. Strict disposition: bypass is forbidden; no inline suppress."
+    description: "The atdd:<PHASE> label is a PROJECTION of objects.state and may be written only by IssueManager.update, which writes the store first and renders the label from it. No workflow, shell script or module may write an atdd:<PHASE> label directly (`gh issue edit --add-label/--remove-label`, or a GitHub-client `add_label`/`remove_label` carrying an `atdd:` phase token). A direct write bypasses the phase machine, the train gate, the COMPLETE gates and the store write in one step: the label moves and objects.state does not. The exemption is scoped to the `_write_phase_label` METHOD, not to the module that holds it: a second raw writer elsewhere in the same file is a violation (#1742, where `_archive_github` grew one and double-delivered `atdd:COMPLETE` on every terminal transition while the guard stayed green). Strict disposition: bypass is forbidden; no inline suppress."
     introduced_in: "4.13.0"
     aliases: []
     validator: "test_phase_label_projection_only::test_no_raw_atdd_phase_label_writes_outside_issue_manager"

@@ -964,36 +964,39 @@ class IssueManager:
             print(f"Error: {e}")
             return 1
 
-        if issue.get("state") == "closed":
+        # `gh issue view --json state` answers UPPERCASE ("CLOSED"), so the
+        # unnormalized `== "closed"` this guard used never matched and the
+        # already-closed short-circuit never fired — for any issue, ever. The
+        # normalized form is the one `_sync_labels` already uses above (#1742).
+        # Every merge-then-transition arrives here already closed, so this is
+        # the common path, not the edge.
+        already_closed = (issue.get("state") or "").upper() == "CLOSED"
+
+        closed_count = 0
+        total_subs = 0
+
+        if already_closed:
             print(f"#{issue_number} is already closed.")
-            return 0
+        else:
+            rc, closed_count, total_subs = self._close_issue_tree(client, issue_number)
+            if rc != 0:
+                return rc
 
-        # Close all open sub-issues
-        try:
-            subs = client.get_sub_issues(issue_number)
-            closed_count = 0
-            for sub in subs:
-                if sub.get("state") == "open":
-                    client.close_issue(sub["number"])
-                    print(f"  Closed sub-issue #{sub['number']}")
-                    closed_count += 1
-        except GitHubClientError as e:
-            print(f"  Warning: Could not close sub-issues: {e}")
-            closed_count = 0
-
-        # Close parent
-        client.close_issue(issue_number)
-        print(f"  Closed parent #{issue_number}")
-
-        # Swap label to atdd:COMPLETE
-        try:
-            labels = [l["name"] for l in issue.get("labels", [])]
-            phase_labels = [l for l in labels if l.startswith("atdd:") and l != "atdd-issue"]
-            if phase_labels:
-                client.remove_label(issue_number, phase_labels)
-            client.add_label(issue_number, ["atdd:COMPLETE"])
-        except GitHubClientError as e:
-            print(f"  Warning: Could not update labels: {e}")
+        # NO LABEL WRITE HERE (#1742). `archive` closes issues; it does not
+        # project phase. `_write_phase_label`, driven by `IssueManager.update`,
+        # is the sole authoritative writer of an `atdd:<PHASE>` label — store
+        # first, label rendered from it, behind the phase machine, the train
+        # gate and the COMPLETE gates.
+        #
+        # What stood here was a raw remove-then-add swap with no no-op
+        # short-circuit, so it re-wrote `atdd:COMPLETE` over `atdd:COMPLETE`.
+        # It was also redundant: the only caller of `archive()` is
+        # `issue_transition.apply_transition`, which runs `update()` — and
+        # therefore the sanctioned projection — first.
+        #
+        # Do not restore it. `coach.phase-label.projection-only` now scopes its
+        # exemption to `_write_phase_label` alone, so a second writer in this
+        # file fails the guard rather than hiding behind a file-wide allowlist.
 
         # COMPLETE is carried by the atdd:COMPLETE label (REST) + the manifest
         # archive record below (#1051) — no Projects v2 board write.
@@ -1009,10 +1012,59 @@ class IssueManager:
         self._store_set_status(issue_number, "COMPLETE")
         self._store_update_fields(issue_number, {"archived": date.today().isoformat()})
 
-        total_subs = len(subs) if subs else 0
         print(f"\nArchived #{issue_number}: closed {closed_count} sub-issues, "
               f"{total_subs} total")
         return 0
+
+    def _close_issue_tree(self, client, issue_number: int) -> Tuple[int, int, int]:
+        """Close every open sub-issue, then the parent. → (rc, closed, total).
+
+        A refused, rate-limited or dropped call here is a FAILED archive, not a
+        line in the log (#1742). The sub-issue loop used to downgrade its
+        failure to a warning and fall through, and the parent close was not
+        guarded at all — so the caller either saw exit 0 over an issue whose
+        sub-issues were still open, or an unhandled traceback. Both are the
+        #1621 failure class: a half-applied transition that does not say so.
+        """
+        from atdd.coach.github import GitHubClientError
+
+        closed_count = 0
+        subs: List[dict] = []
+        try:
+            subs = client.get_sub_issues(issue_number)
+            for sub in subs:
+                if sub.get("state") == "open":
+                    client.close_issue(sub["number"])
+                    print(f"  Closed sub-issue #{sub['number']}")
+                    closed_count += 1
+            client.close_issue(issue_number)
+        except GitHubClientError as e:
+            # Log AND print, the shape `_write_phase_label` already uses for its
+            # own refusal: the structured record is what a CI run or a later
+            # audit can find, the prose is what the operator reads now. A
+            # handler that only prints is invisible to both
+            # (`coder.logging.coach-silent-swallow`).
+            logger.error(
+                "archive failed; issue left open",
+                extra={
+                    "issue": issue_number,
+                    "sub_issues_closed": closed_count,
+                    "error": str(e),
+                },
+            )
+            print(
+                f"\nError: could not archive #{issue_number} — {e}\n"
+                f"  Closed {closed_count} sub-issue(s) before the failure; "
+                f"#{issue_number} itself is NOT closed.\n"
+                f"  The store already reads COMPLETE: the transition landed, "
+                f"only the archive did not. Clear the cause and re-run "
+                f"`atdd coach transition {issue_number} COMPLETE` — archive is "
+                f"idempotent."
+            )
+            return 1, closed_count, len(subs)
+
+        print(f"  Closed parent #{issue_number}")
+        return 0, closed_count, len(subs)
 
     # -------------------------------------------------------------------------
     # Gate verification helpers (used by update → COMPLETE)
