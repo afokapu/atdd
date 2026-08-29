@@ -3,7 +3,7 @@ rule_id: planner.contract.registry-coherence
 kind: constraint
 status: active
 name: Contract registry producer/consumer coherence
-statement: Every contract URN on a wagon produce/consume must resolve to a contract registered in contracts/_contracts.yaml; no cross-wagon produce/consume edge may carry contract null; every produced contract must have a consumer or be explicitly marked external.
+statement: Every contract URN on a wagon produce/consume must resolve to a contract registered in contracts/_contracts.yaml; no cross-wagon produce/consume edge may carry contract null; every produced contract must have a consumer or be explicitly marked external; and the registry's declared producers/consumers must agree with the wagon produce/consume graph, with exactly one producing wagon per contract.
 implementation:
   type: validator
   ref: test_contract_registry_coherence::test_contract_registry_coherence
@@ -12,12 +12,16 @@ source:
   legacy_section: contract-coherence
   extraction_mode: summary
 content:
-  normative_text: 'The authored registry contracts/_contracts.yaml is the single source of truth for a contract''s identity, path, theme, producers, and consumers. Three coherence invariants hold across the plan/<wagon>/_<wagon>.yaml produce/consume graph and that registry. (1) UNREGISTERED: every non-null contract: URN declared on a produce or consume entry must strip to an identity that exists in the registry. (2) NULL-CROSS-WAGON: whenever an artifact NAME produced by one wagon is consumed by a different wagon (a cross-wagon edge), the producing entry must declare a non-null contract — a contract: null cross-wagon edge is a dangling producer. (3) UNCONSUMED: every produce entry that declares a non-null contract must be consumed by at least one other wagon or be explicitly marked to: external. Closes the dangling-producer / contract: null class from the #250 audit.'
+  normative_text: 'The authored registry contracts/_contracts.yaml is the single source of truth for a contract''s identity, path, theme, producers, and consumers. Four coherence invariants hold across the plan/<wagon>/_<wagon>.yaml produce/consume graph and that registry. (1) UNREGISTERED: every non-null contract: URN declared on a produce or consume entry must strip to an identity that exists in the registry. (2) NULL-CROSS-WAGON: whenever an artifact NAME produced by one wagon is consumed by a different wagon (a cross-wagon edge), the producing entry must declare a non-null contract — a contract: null cross-wagon edge is a dangling producer. (3) UNCONSUMED: every produce entry that declares a non-null contract must be consumed by at least one other wagon or be explicitly marked to: external. (4) WRITER-DIVERGENCE: the producers and consumers the registry declares for an identity must equal the set of wagons that respectively produce and consume that artifact NAME in the graph, and no contract may be produced by more than one wagon. The registry says who writes a contract; the graph is where writing actually happens, and the two are not allowed to disagree. Invariant 4 also supplies the guard invariant 3 lacks: `to: external` is the default when `to` is omitted, so blanket-external produce entries void the UNCONSUMED check — a registry that declares a consumer the graph does not have is caught by WRITER-DIVERGENCE regardless of the external mark. Declared writers are read from contracts/_contracts.yaml (authoritative) with a per-identity fallback to the built contracts/_artifacts.yaml, which carries the same producer/consumers provenance for contracts not yet authored through create_contract. Closes the dangling-producer / contract: null class from the #250 audit and the inverted-writer class from #1404.'
   constraints:
   - every non-null contract URN on produce/consume resolves to a registered contract identity
   - no cross-wagon produce/consume edge carries contract null
   - every produced contract is consumed by another wagon or explicitly marked external
   - registry keys are contract identities; the contract: URN prefix is stripped before lookup
+  - the registry's declared producers for an identity equal the wagons that produce that artifact name in the graph
+  - the registry's declared consumers for an identity equal the wagons that consume that artifact name in the graph
+  - a contract has exactly one producing wagon
+  - declared writers resolve from contracts/_contracts.yaml, falling back per-identity to contracts/_artifacts.yaml; wagon: refs are stripped to bare slugs before comparison
 metadata:
   severity: 3
   disposition: advisory
@@ -34,3 +38,7 @@ terms:
   text: a produce->consume relationship in which an artifact NAME produced by one wagon is consumed by a different wagon, keyed on the artifact name.
 - term_id: dangling_producer
   text: a producing entry on a cross-wagon edge whose contract field is null, so no contract binds the edge.
+- term_id: declared_writers
+  text: the producers and consumers a registry entry names for a contract identity, normalized to bare wagon slugs. Read from contracts/_contracts.yaml (authored by create_contract, #1330) with a per-identity fallback to the built contracts/_artifacts.yaml, whose producer (singular) + consumers keys carry the same provenance.
+- term_id: writer_divergence
+  text: a disagreement between a contract's declared writers and the wagons that actually produce or consume that artifact name in the plan graph — including a contract produced by more than one wagon, or one whose registry-declared producer produces it nowhere (#1404).

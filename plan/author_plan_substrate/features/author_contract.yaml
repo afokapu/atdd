@@ -1,12 +1,13 @@
 urn: "feature:author-plan-substrate:author-contract"
 wagon: "wagon:author-plan-substrate"
-description: "Authoring of a contract as a first-class plan unit. `atdd plan` gains a contract unit kind that flows through add → decide → confirm → author like every other plan-layer artifact: the plan Confirm→author seam (build_author_fn) dispatches kind contract to create_contract, and the `atdd author contract --spec` subcommand invokes the same writer. create_contract validates the theme-first identity, derives the schema path from it (contracts/{theme}/…/{aspect}.schema.json), sets $id to contract:{identity}, writes a schema-valid draft-07 JSON Schema, and dedup-inserts a thin entry into contracts/_contracts.yaml (registry maintenance; the coherence validator on that registry is #1332). An invalid identity (bad shape or unknown theme) is rejected before any write. Contracts stop being hand-authored loose files outside the guardrails (#1314 B)."
+description: "Authoring of a contract as a first-class plan unit. `atdd plan` gains a contract unit kind that flows through add → decide → confirm → author like every other plan-layer artifact: the plan Confirm→author seam (build_author_fn) dispatches kind contract to create_contract, and the `atdd author contract --spec` subcommand invokes the same writer. create_contract validates the theme-first identity, derives the schema path from it (contracts/{theme}/…/{aspect}.schema.json), sets $id to contract:{identity}, writes a schema-valid draft-07 JSON Schema, and dedup-inserts a thin entry into contracts/_contracts.yaml (registry maintenance; the coherence validator on that registry is #1332). An invalid identity (bad shape or unknown theme) is rejected before any write. Contracts stop being hand-authored loose files outside the guardrails (#1314 B). The registry the writer maintains is held coherent by planner.contract.registry-coherence, whose WRITER-DIVERGENCE invariant (#1404) cross-checks the producers/consumers this writer records against the plan/<wagon> produce/consume graph and refuses more than one producing wagon per contract."
 sizing:
-  wmbts: 1
-  footprint_score: 5
+  wmbts: 2
+  footprint_score: 6
   footprint_size: "S"
 wmbts:
   - "wmbt:author-plan-substrate:E008"
+  - "wmbt:author-plan-substrate:C007"
 components:
   backend:
     presentation:
