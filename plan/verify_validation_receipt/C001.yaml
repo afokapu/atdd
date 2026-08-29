@@ -1,0 +1,95 @@
+urn: wmbt:verify-validation-receipt:C001
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: forged-pass-receipts-read-as-a-valid-pass
+context_clarifier: "A pass-receipt is committed, mutable YAML that nothing validates\
+  \ on read, so at conflict time the cheap resolution \u2014 pick a side or hand-edit\
+  \ \u2014 produces a receipt asserting a pass for a tree nobody validated (issue\
+  \ #1566, Decision 1). Even the honest whole-tree resolution is indistinguishable\
+  \ from the dangerous one at the git level (a clean merge is not evidence the receipt\
+  \ is valid). verify-on-read must recompute the source hash and reject any receipt\
+  \ whose recorded key does not match the tree it is read against, so a stale or hand-edited\
+  \ receipt fails instead of being trusted. This is fault-injection-shaped: the test\
+  \ must confirm the injected mismatch actually lands, so the reject path genuinely\
+  \ fires.\n"
+lens: functional.effectiveness
+statement: 'minimize likelihood of forged-pass-receipts-read-as-a-valid-pass by having
+  verify-on-read recompute the source hash and reject a receipt whose recorded key
+  does not match the tree it is read against, returning a non-zero verification result
+  rather than trusting a stale or hand-edited receipt
+
+  '
+acceptances:
+- identity:
+    urn: acc:verify-validation-receipt:C001-UNIT-001-stale-source-hash-is-rejected
+    id: AC-UNIT-001
+    purpose: verify-on-read rejects a receipt whose recorded source_hash does not
+      match the current tree (fault-injected mismatch must land and fire the reject
+      path)
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A local receipt written by write_validation_baseline for a phase, with atdd_version
+      pinned to the current version
+    - The recorded source_hash is overwritten with a deliberately wrong value distinct
+      from compute_source_hash(phase)
+  when:
+    abstract: verify_validation_baseline(phase) is called against that receipt
+  then:
+    abstract:
+    - 'The fault landed: the injected source_hash differs from compute_source_hash(phase)
+      (asserted, so the reject path is genuinely exercised)'
+    - verify_validation_baseline returns a non-zero (failure) result
+  metadata:
+    author: atdd:receipt-source-hash-1566
+    created: '2026-07-20'
+- identity:
+    urn: acc:verify-validation-receipt:C001-UNIT-002-handedited-verdict-is-rejected
+    id: AC-UNIT-002
+    purpose: A hand-edited receipt that flips a failing tree into an apparent pass
+      does not read as valid
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A local receipt for a phase whose recorded source_hash is edited by hand to
+      a plausible-looking but incorrect value
+  when:
+    abstract: verify_validation_baseline(phase) is called
+  then:
+    abstract:
+    - 'The fault landed: the edited source_hash differs from compute_source_hash(phase)
+      (asserted)'
+    - verify_validation_baseline returns non-zero and does not report the phase as
+      PASS
+  metadata:
+    author: atdd:receipt-source-hash-1566
+    created: '2026-07-20'
+- identity:
+    urn: acc:verify-validation-receipt:C001-UNIT-003-matching-receipt-still-verifies
+    id: AC-UNIT-003
+    purpose: 'Control: a receipt whose recorded source_hash matches the current tree
+      still verifies as PASS, so the reject in UNIT-001/002 is discriminating, not
+      blanket-failing'
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A local receipt freshly written by write_validation_baseline for the current
+      tree and version
+  when:
+    abstract: verify_validation_baseline(phase) is called without mutating the receipt
+  then:
+    abstract:
+    - verify_validation_baseline returns zero (PASS)
+  metadata:
+    author: atdd:receipt-source-hash-1566
+    created: '2026-07-20'

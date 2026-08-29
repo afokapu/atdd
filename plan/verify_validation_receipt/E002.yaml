@@ -1,0 +1,44 @@
+urn: wmbt:verify-validation-receipt:E002
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: environment-nonreproducible-source-hashes
+context_clarifier: 'compute_source_hash hashes Path(atdd.__file__).parent/<phase>/{validators,conventions,schemas}
+  via rglob("*"), which sweeps in __pycache__/*.pyc bytecode from the *installed*
+  package. The hash drifted between two runs in the same session with no source change
+  (issue #1566: 642f06c1 -> ff1f23a1), so a receipt keyed on environment-specific
+  bytecode cannot be verified in a different environment. The hash must be computed
+  over toolkit source files only, excluding __pycache__ and *.pyc, so the recorded
+  key is reproducible.
+
+  '
+lens: functional.effectiveness
+statement: "minimize likelihood of environment-nonreproducible-source-hashes by computing\
+  \ the toolkit content hash over source files only \u2014 excluding __pycache__ directories\
+  \ and *.pyc bytecode from the installed package \u2014 so compute_source_hash is\
+  \ stable across environments and runs\n"
+acceptances:
+- identity:
+    urn: acc:verify-validation-receipt:E002-UNIT-001-hash-ignores-pyc-bytecode
+    id: AC-UNIT-001
+    purpose: compute_source_hash is unchanged when __pycache__/*.pyc bytecode appears
+      or changes under a hashed toolkit dir
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - compute_source_hash is imported from atdd.coach.commands.validation_baseline
+    - The source hash for a phase is computed once as a baseline
+  when:
+    abstract: A __pycache__/<name>.pyc file is created (or mutated) under one of that
+      phase's hashed toolkit subdirectories, and compute_source_hash is called again
+  then:
+    abstract:
+    - 'The fault landed: a .pyc file now exists under the hashed tree that was not
+      there for the baseline (asserted)'
+    - The recomputed source hash equals the baseline hash (bytecode is excluded)
+  metadata:
+    author: atdd:receipt-source-hash-1566
+    created: '2026-07-20'
