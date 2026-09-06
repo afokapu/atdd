@@ -49,3 +49,23 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-09-06"
+  - identity:
+      urn: "acc:author-atdd-substrate:E010-SMOKE-001-real-cli-mint-reports-today"
+      id: "AC-SMOKE-001"
+      purpose: "The real CLI in a real checkout emits a body whose dates are the day it ran"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the repo CLI invoked as `python -m atdd`"
+    when:
+      abstract: "`atdd author issue --dry-run` renders a body, writing nothing (no store, no gh)"
+    then:
+      abstract:
+        - "Every ISO-8601 date the emitted body carries is the day the command ran"
+        - "The unit guards cannot mask a regression here: this path monkeypatches nothing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"
