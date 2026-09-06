@@ -30,6 +30,7 @@ import pytest
 
 from atdd.coach.commands.pr import PRManager
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators._violation import Violation
 
@@ -88,6 +89,13 @@ _FAILING_PHASES = frozenset({"GREEN"})
 RULE_ID_PRGATE_GREEN = "COACH-PRGATE-0003"
 SEVERITY_PRGATE_GREEN = 4
 
+# Early-phase gate (#1791). Skipping INIT → SMOKE entirely is a superset of the
+# omission COACH-PRGATE-0003 already fails on, so it carries the same severity.
+# Bound at import time so an undeclared rule fails loudly (SPEC-COACH-RULEID-0007).
+_RULE_EARLY = bind_rule("coach.pr.early-phase-ships-code")
+RULE_ID_PRGATE_EARLY = "COACH-PRGATE-0002"
+SEVERITY_PRGATE_EARLY = _RULE_EARLY.severity
+
 
 def _classify_changed_files(files: List[str]) -> dict:
     """Classify PR changed files into code, test, and plan categories."""
@@ -143,8 +151,13 @@ def evaluate_phase_violations(
     code_files = classified["code"]
 
     if phase in _EARLY_PHASES:
-        items.append(_format_code_files(code_files, phase, pr_number, issue_number))
-        logging.getLogger(__name__).warning(
+        items.append(Violation(
+            rule_id=RULE_ID_PRGATE_EARLY,
+            severity=SEVERITY_PRGATE_EARLY,
+            location=f"PR#{pr_number}:0",
+            detail=_format_code_files(code_files, phase, pr_number, issue_number),
+        ))
+        logging.getLogger(__name__).error(
             "SPEC-COACH-PRGATE-0002: PR #%d has code changes but issue #%d is at %s",
             pr_number, issue_number, phase,
             extra={
@@ -244,9 +257,10 @@ def test_pr_phase_alignment():
           only when accepted as advisory warnings).
     """
     _count, violations = scan_pr_phase_alignment(REPO_ROOT)
-    # Filter out the legacy opaque-string warnings — the disposition gate
-    # treats unknown opaque entries as strict, but INIT/PLANNED warnings are
-    # informational by design (preserved from SPEC-COACH-PRGATE-0002).
+    # #1791: INIT/PLANNED used to arrive here as opaque strings and were
+    # filtered out, so a full lifecycle skip reached the gate as nothing at all.
+    # They now carry COACH-PRGATE-0002 and flow through like any other rule;
+    # this filter remains only to drop genuinely unstructured legacy entries.
     structured_only = [v for v in violations if hasattr(v, "rule_id")]
     assert_disposition_satisfied(
         validator_id="pr_phase_alignment",
@@ -289,7 +303,7 @@ def test_evaluate_phase_violations_emits_structured_violation_for_green_with_cod
     assert "GREEN" in v.detail
 
 
-def test_evaluate_phase_violations_returns_warning_string_for_init_with_code():
+def test_evaluate_phase_violations_emits_violation_for_init_with_code():
     """SPEC-COACH-PRGATE-0002: INIT-phase PR with code emits opaque warn (preserved semantics)."""
     classified = _make_classified(code=["python/auth/login.py"])
     items = evaluate_phase_violations(
@@ -299,14 +313,14 @@ def test_evaluate_phase_violations_returns_warning_string_for_init_with_code():
         classified=classified,
     )
 
-    # Backwards compat: INIT/PLANNED stays as opaque strings (no rule_id),
-    # ratcheted by string count under the existing pr_phase_alignment validator_id.
-    assert any(isinstance(item, str) for item in items)
-    assert all(not isinstance(item, Violation) for item in items)
+    # #1791: INIT/PLANNED now carries a rule_id like GREEN does. A full
+    # lifecycle skip is a superset of the omission PRGATE-0003 already fails on.
+    assert any(isinstance(item, Violation) for item in items)
+    assert items[0].rule_id == RULE_ID_PRGATE_EARLY
 
 
-def test_evaluate_phase_violations_returns_warning_string_for_planned_with_code():
-    """SPEC-COACH-PRGATE-0002: PLANNED-phase PR with code emits opaque warn."""
+def test_evaluate_phase_violations_emits_violation_for_planned_with_code():
+    """SPEC-COACH-PRGATE-0002: PLANNED-phase PR with code fails the gate (#1791)."""
     classified = _make_classified(code=["web/src/match/Match.tsx"])
     items = evaluate_phase_violations(
         pr_number=43,
@@ -315,8 +329,8 @@ def test_evaluate_phase_violations_returns_warning_string_for_planned_with_code(
         classified=classified,
     )
 
-    assert any(isinstance(item, str) for item in items)
-    assert all(not isinstance(item, Violation) for item in items)
+    assert any(isinstance(item, Violation) for item in items)
+    assert items[0].rule_id == RULE_ID_PRGATE_EARLY
 
 
 def test_evaluate_phase_violations_quiet_for_green_with_only_tests():

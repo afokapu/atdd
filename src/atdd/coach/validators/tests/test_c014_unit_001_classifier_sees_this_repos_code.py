@@ -127,8 +127,8 @@ def test_green_with_this_repos_own_code_produces_the_structured_violation():
     assert structured[0].severity == SEVERITY_PRGATE_GREEN
 
 
-def test_init_and_planned_with_this_repos_own_code_produce_a_warn_item():
-    """SPEC-COACH-PRGATE-0002 — reachable, and still a warn rather than a fail."""
+def test_init_and_planned_with_this_repos_own_code_produce_a_violation():
+    """SPEC-COACH-PRGATE-0002 — reachable, and a structured rule since #1791."""
     classified = _classify_changed_files([_OWN_CODE])
 
     for phase in ("INIT", "PLANNED"):
@@ -138,8 +138,8 @@ def test_init_and_planned_with_this_repos_own_code_produce_a_warn_item():
             phase=phase,
             classified=classified,
         )
-        assert any(isinstance(item, str) for item in items), phase
-        assert not any(isinstance(item, Violation) for item in items), phase
+        assert any(isinstance(item, Violation) for item in items), phase
+        assert items[0].rule_id == "COACH-PRGATE-0002", phase
 
 
 # --------------------------------------------------------------------------- #
