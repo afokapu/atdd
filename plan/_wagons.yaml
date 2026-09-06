@@ -209,6 +209,8 @@ wagons:
       checker to answer the `## Artifacts` question for both the validator and the
       runtime gate, reporting an empty declaration and an undeclared changed file
       as violations
+    E010: minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when
+      authoring an issue body
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
