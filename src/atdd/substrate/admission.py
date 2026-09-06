@@ -244,6 +244,43 @@ def _rebind(project_root: Path) -> list[str]:
     return sorted(before - after)
 
 
+def _orphaned_workspaces(root: Path, target: dict) -> list[tuple[str, dict]]:
+    """Workspaces of ``target`` that no remaining admitted artifact still needs."""
+    remaining = installer.list_substrate(root)
+    orphans: list[tuple[str, dict]] = []
+    for w in target.get("workspaces") or []:
+        wid = w.get("id")
+        still_needed = any(
+            any(dep.get("id") == wid for dep in (a.get("workspaces") or []))
+            for a in remaining
+        )
+        entry = next((a for a in remaining if a.get("id") == wid), None)
+        if not still_needed and entry is not None:
+            orphans.append((wid, entry))
+    return orphans
+
+
+def _prune(root: Path, target: dict) -> tuple[list[str], list[str]]:
+    """Reclaim disk for ``target`` and every workspace it alone was holding open.
+
+    Returns ``(pruned, uninstalled)`` — the workspace ids dropped from the lock,
+    and the directories actually deleted. Deleting nothing is not a failure: a
+    package installed by reference has no directory of ours to reclaim.
+    """
+    pruned: list[str] = []
+    uninstalled: list[str] = []
+    for wid, entry in _orphaned_workspaces(root, target):
+        installer.remove_lock_entry(root, wid)
+        pruned.append(wid)
+        deleted = _uninstall(root, entry)
+        if deleted:
+            uninstalled.append(deleted)
+    deleted = _uninstall(root, target)  # the package the operator actually named
+    if deleted:
+        uninstalled.append(deleted)
+    return pruned, uninstalled
+
+
 def remove(
     ref: str, *, project_root: str | Path, force: bool = False, prune: bool = False
 ) -> dict:
@@ -294,26 +331,7 @@ def remove(
 
     installer.remove_lock_entry(root, target["id"])
 
-    pruned: list[str] = []
-    uninstalled: list[str] = []
-    if prune:
-        remaining = installer.list_substrate(root)
-        for w in target.get("workspaces") or []:
-            wid = w.get("id")
-            still_needed = any(
-                any(dep.get("id") == wid for dep in (a.get("workspaces") or []))
-                for a in remaining
-            )
-            entry = next((a for a in remaining if a.get("id") == wid), None)
-            if not still_needed and entry is not None:
-                installer.remove_lock_entry(root, wid)
-                pruned.append(wid)
-                deleted = _uninstall(root, entry)
-                if deleted:
-                    uninstalled.append(deleted)
-        deleted = _uninstall(root, target)  # the package the operator actually named
-        if deleted:
-            uninstalled.append(deleted)
+    pruned, uninstalled = _prune(root, target) if prune else ([], [])
 
     unbound = _rebind(root)
     coherence.assert_coherent(root)  # verify the report before making it

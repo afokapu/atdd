@@ -69,6 +69,42 @@ def _bound_entries(project_root: str | Path) -> list[dict]:
     return [c for c in (data.get("conventions") or []) if c.get("disposition") == BOUND]
 
 
+def _entry_violations(entry: dict, installed: set[str]) -> list[CoherenceViolation]:
+    """The ways one bound entry can disagree with the substrate lock."""
+    rule = entry.get("convention_id", "<unknown>")
+    package = entry.get("package_id")
+    if not package:
+        return [
+            CoherenceViolation(
+                rule,
+                "bound, but records no owning package_id, so it cannot be "
+                "attributed to an installed package — re-run `atdd substrate bind`",
+            )
+        ]
+
+    found: list[CoherenceViolation] = []
+    if package not in installed:
+        found.append(
+            CoherenceViolation(
+                rule,
+                f"bound to package {package!r}, which is not installed per "
+                "substrate.lock.yaml",
+                package,
+            )
+        )
+    workspace = entry.get("workspace_id")
+    if workspace and workspace not in installed:
+        found.append(
+            CoherenceViolation(
+                rule,
+                f"bound to workspace {workspace!r}, which is not installed per "
+                "substrate.lock.yaml",
+                workspace,
+            )
+        )
+    return found
+
+
 def check_coherence(project_root: str | Path) -> list[CoherenceViolation]:
     """Every bound rule that references a package the substrate lock does not carry.
 
@@ -77,38 +113,8 @@ def check_coherence(project_root: str | Path) -> list[CoherenceViolation]:
     """
     installed = _installed_ids(project_root)
     violations: list[CoherenceViolation] = []
-
     for entry in _bound_entries(project_root):
-        rule = entry.get("convention_id", "<unknown>")
-        package = entry.get("package_id")
-        if not package:
-            violations.append(
-                CoherenceViolation(
-                    rule,
-                    "bound, but records no owning package_id, so it cannot be "
-                    "attributed to an installed package — re-run `atdd substrate bind`",
-                )
-            )
-            continue
-        if package not in installed:
-            violations.append(
-                CoherenceViolation(
-                    rule,
-                    f"bound to package {package!r}, which is not installed per "
-                    "substrate.lock.yaml",
-                    package,
-                )
-            )
-        workspace = entry.get("workspace_id")
-        if workspace and workspace not in installed:
-            violations.append(
-                CoherenceViolation(
-                    rule,
-                    f"bound to workspace {workspace!r}, which is not installed per "
-                    "substrate.lock.yaml",
-                    workspace,
-                )
-            )
+        violations.extend(_entry_violations(entry, installed))
     return violations
 
 
