@@ -68,6 +68,23 @@ artifacts:
   producer: wagon:reconcile-dispositions
   consumers:
   - wagon:enforce-conventions-ci
+- id: commons:documentation-verdict
+  urn: contract:commons:documentation-verdict
+  version: 1.0.0
+  title: Documentation obligation verdict
+  description: 'The verdict an installed documentation capability returns for a declared
+    documentation obligation. This is the divergence signal that selects the next
+    train in interlocking:govern-documentation-obligation. NOT_APPLICABLE and COULD_NOT_CHECK
+    are distinct by design: the first means there was nothing to judge, the second
+    means the capability ran and could not observe. Shape is fixed by THE BINDING
+    and matches the shipped atdd.extension.planner.docs DocumentationCheck exactly:
+    verdict, findings, checked. Collapsing NOT_APPLICABLE into COULD_NOT_CHECK is
+    the defect class recorded in #1745, #1774 and #1716.'
+  path: contracts/commons/documentation-verdict.schema.json
+  producer: ''
+  consumers:
+  - wagon:govern-lifecycle
+  - wagon:enforce-merge-authority
 - id: commons:enforce-verdict
   urn: contract:commons:enforce-verdict
   version: 1.0.0

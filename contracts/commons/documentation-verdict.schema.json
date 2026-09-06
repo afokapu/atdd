@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "contract:commons:documentation-verdict",
+  "$id": "commons:documentation-verdict",
   "title": "Documentation obligation verdict",
   "description": "The verdict an installed documentation capability returns for a declared documentation obligation. This is the divergence signal that selects the next train in interlocking:govern-documentation-obligation. NOT_APPLICABLE and COULD_NOT_CHECK are distinct by design: the first means there was nothing to judge, the second means the capability ran and could not observe. Shape is fixed by THE BINDING and matches the shipped atdd.extension.planner.docs DocumentationCheck exactly: verdict, findings, checked. Collapsing NOT_APPLICABLE into COULD_NOT_CHECK is the defect class recorded in #1745, #1774 and #1716.",
   "version": "1.0.0",

@@ -56,41 +56,63 @@ trains:
       - bind-extension-conventions
       - govern-providers
   documentation-obligation:
-    nominal:
-    - train_id: train:documentation-obligation:prove-documentation-obligation
-      description: 'Nominal-path train: the documentation obligation is declared at
-        Ratify, registered as an owned projection field, projected one-way into the
-        issue body, discharged in the implementation worktree, and verified at COMPLETE
-        and again at merge.'
-      path: plan/_trains/documentation-obligation/prove-documentation-obligation.yaml
-      wagons:
-      - govern-documentation-obligation
-      category: nominal
     alternate:
     - train_id: train:documentation-obligation:proceed-without-capability
-      description: 'Alternate-path train: no documentation capability is installed,
-        so there is genuinely nothing to judge. NOT_APPLICABLE permits, and no capability
-        was consulted.'
+      description: 'Alternate-path train (category: alternate): no documentation capability
+        is registered on the atdd.documentation entry-point group, so there is genuinely
+        nothing to judge. The verdict is NOT_APPLICABLE and the lifecycle proceeds.
+        This is the route that keeps core''s documentation contract from conscripting
+        a consumer that installed no documentation extension, and it is deliberately
+        distinct from the nominal route: no capability was consulted.'
       path: plan/_trains/documentation-obligation/proceed-without-capability.yaml
       wagons:
       - govern-documentation-obligation
+      - govern-lifecycle
       category: alternate
+    nominal:
+    - train_id: train:documentation-obligation:prove-documentation-obligation
+      description: 'Nominal-path train (category: nominal): the documentation obligation
+        is declared at Ratify, registered as an owned projection field, projected
+        one-way into the issue body, discharged in the implementation worktree, and
+        verified at COMPLETE and again at merge. The installed documentation capability
+        returns PASS and accepted software enters main with its accepted documentation.
+        This is the journey the other three routes diverge from.'
+      path: plan/_trains/documentation-obligation/prove-documentation-obligation.yaml
+      wagons:
+      - define-plans
+      - govern-projection-fields
+      - author-atdd-substrate
+      - govern-documentation-obligation
+      - govern-lifecycle
+      - enforce-merge-authority
+      category: nominal
     exception:
     - train_id: train:documentation-obligation:remediate-undischarged-obligation
-      description: 'Exception-path train: the obligation was declared and observed
-        undischarged. FAIL refuses the transition and the work returns to the worktree,
-        which is where documentation is authored.'
+      description: 'Exception-path train (category: exception): the obligation was
+        declared and the capability observed that it was not discharged — a declared
+        artifact is missing from the change set, or the authored documentation violates
+        the installed policy. The verdict is FAIL. The transition is refused and the
+        work returns to the implementation worktree, which is where documentation
+        is authored; COMPLETE verifies, it does not author.'
       path: plan/_trains/documentation-obligation/remediate-undischarged-obligation.yaml
       wagons:
       - govern-documentation-obligation
+      - govern-lifecycle
+      - enforce-merge-authority
       category: exception
     error:
     - train_id: train:documentation-obligation:restore-obligation-observability
-      description: 'Error-path train: the capability ran but could not observe. COULD_NOT_CHECK
-        blocks, and the remedy is to restore observability rather than to author documentation.'
+      description: 'Error-path train (category: error): a documentation capability
+        is installed and ran to completion but could not answer — its toolchain is
+        absent, the documentation tree is unreadable, or a render failed in a way
+        it cannot attribute. The verdict is COULD_NOT_CHECK. This blocks, and it is
+        deliberately not the exception route: nothing was observed to be wrong, so
+        the remedy is to restore observability rather than to author documentation.
+        Conflating this with a pass is the defect class #1745, #1774 and #1716 record.'
       path: plan/_trains/documentation-obligation/restore-obligation-observability.yaml
       wagons:
       - govern-documentation-obligation
+      - govern-lifecycle
       category: error
   issue-lifecycle:
     nominal:

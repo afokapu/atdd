@@ -141,7 +141,10 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 28
+    total: 29
+    E010: minimize likelihood of a body-store-divergence for the documentation obligation,
+      by projecting the stored declaration into the issue body in one direction only
+      and never parsing the rendered row back
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -595,7 +598,10 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 13
+    total: 14
+    D002: maximize likelihood of a documentation-declaration recorded as first-class
+      work-item state at Ratify, so every ratified plan states whether it changes
+      accepted documentation and why when it does not
     D001: minimize likelihood of session-without-main-job — Define gate requires a
       JTBD main-job before Locate opens
     L001: minimize likelihood of unbound-source-capture — Locate binds captured sources
@@ -1135,6 +1141,9 @@ wagons:
     name: commons:project:projection-object
     telemetry: null
   wmbt:
+    C005: minimize likelihood of an undocumented-merge, by refusing entry to main
+      when the declared documentation obligation is unresolved, and by failing closed
+      when the obligation lookup itself cannot be performed
     C001: minimize likelihood of an illegal-transition-merge, in which a canonical
       and schema-valid projection diff whose phase change is not lifecycle-legal relative
       to the merge-base, or which carries no evidence for a gate it skips, is admitted
@@ -1167,7 +1176,7 @@ wagons:
       executes the full section-4 required-check set (projection canonicality, projection
       schema, legal transition, trailer/diff cross-check, field-writer, no-secrets,
       core no-provider) and fails the run when any one of them fails
-    total: 8
+    total: 9
   total: 0
   manifest: plan/enforce_merge_authority/_enforce_merge_authority.yaml
   path: plan/enforce_merge_authority/
@@ -1260,6 +1269,70 @@ wagons:
   total: 0
   manifest: plan/freeze_runtime_contracts/_freeze_runtime_contracts.yaml
   path: plan/freeze_runtime_contracts/
+- wagon: govern-documentation-obligation
+  description: The lifecycle-core half of the documentation system. Declares a documentation
+    obligation as first-class work-item state at Ratify, checks the integrity of that
+    declaration without any knowledge of documentation format or repository layout,
+    and delegates every content judgement to an installed documentation capability
+    discovered through an entry point. Core never names AsciiDoc, ADRs, a documentation
+    taxonomy, a rendering toolchain or a documentation graph; those belong to the
+    standard documentation extension. Prevents accepted software entering main with
+    an unresolved documentation obligation, and prevents a capability that could not
+    observe from being read as a pass.
+  theme: commons
+  subject: agent:coach
+  context: ratifying-a-plan-that-changes-what-the-system-documents, and gating an
+    issue at COMPLETE and at merge on whether the declared documentation obligation
+    was discharged
+  action: records the documentation impact declared at Ratify as store state, refuses
+    a declaration that is structurally incomplete, resolves at most one installed
+    documentation capability, and converts that capability's verdict into a transition
+    decision in which NOT_APPLICABLE permits and COULD_NOT_CHECK blocks
+  goal: prove a change documented what it changed before it merges, without core learning
+    any documentation policy, so a consumer that installs no documentation extension
+    keeps a working lifecycle
+  outcome: a ratified plan carries a documentation declaration; a declaration naming
+    artifacts absent from the change set fails COMPLETE; an installed capability that
+    cannot answer blocks rather than passes; a repository with no documentation capability
+    installed is NOT_APPLICABLE and proceeds
+  produce:
+  - name: commons:govern:declaration-integrity-check
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:documentation-capability-seam
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:documentation-verdict
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: null
+    from: wagon:define-plans
+    name: commons:plan:documentation-declaration
+    telemetry: null
+  - contract: null
+    from: wagon:govern-projection-fields
+    name: commons:govern:field-ownership-policy
+    telemetry: null
+  - contract: null
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:lifecycle-evidence
+    telemetry: null
+  wmbt:
+    C001: minimize likelihood of an unobserved-obligation being reported as a discharged
+      one, by resolving the installed documentation capability and treating COULD_NOT_CHECK
+      as a blocking verdict distinct from NOT_APPLICABLE
+    D001: maximize likelihood of a format-agnostic declaration-integrity-check that
+      decides a documentation declaration is well-formed and its named artifacts are
+      present in the change set, so core proves the obligation without reading a single
+      documentation file
+    total: 2
+  total: 0
+  manifest: plan/govern_documentation_obligation/_govern_documentation_obligation.yaml
+  path: plan/govern_documentation_obligation/
 - wagon: govern-lifecycle
   description: Orchestrates ATDD lifecycle, manages GitHub issues, validates phase
     transitions, maintains registries
@@ -1286,7 +1359,10 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 120
+    total: 121
+    C017: minimize likelihood of an undocumented-completion, by refusing the COMPLETE
+      transition when the declared documentation obligation is unresolved or could
+      not be observed
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1781,6 +1857,9 @@ wagons:
     telemetry: null
     from: wagon:enforce-merge-authority
   wmbt:
+    D003: maximize likelihood of a declared documentation-field-ownership entry naming
+      the single legal writer and merge rule of the documentation obligation field,
+      so the new field cannot corrupt the committed projection
     C001: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting
       a field-ownership policy that omits any projection schema field or names a writer
       outside the declared writer set
@@ -1807,7 +1886,7 @@ wagons:
     R001: maximize likelihood of an unsafe-merge-conflict being raised with an actionable
       report naming the field, both sides' writers, and the failing ownership or evidence
       rule, never resolved by blind max phase
-    total: 8
+    total: 9
   total: 0
   manifest: plan/govern_projection_fields/_govern_projection_fields.yaml
   path: plan/govern_projection_fields/
