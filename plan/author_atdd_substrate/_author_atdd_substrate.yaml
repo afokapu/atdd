@@ -86,3 +86,4 @@ wmbt:
   E009: "minimize quantity of unreviewed-authored-prose by routing every authoring write through a pre-write review that enforces only the repo-declared review rules over a staged copy and refuses the write when any of them fires, so a prose finding surfaces before the artifact exists rather than after it is committed"
   C012: "minimize likelihood of author-without-publish by requiring the generate path to reach the store-first publish and to fail loud (no body-only degrade) when the store is unreachable"
   C014: "minimize likelihood of unverified-artifact-claim by requiring one convention-bound checker to answer the `## Artifacts` question for both the validator and the runtime gate, reporting an empty declaration and an undeclared changed file as violations"
+  E010: "minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when authoring an issue body"
