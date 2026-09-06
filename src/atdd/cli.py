@@ -53,7 +53,13 @@ from atdd.coach.commands.inventory import RepositoryInventory
 from atdd.coach.commands.test_runner import TestRunner
 from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
-from atdd.coach.commands.issue import IssueManager
+# NOT imported here (#1794): `atdd.coach.commands.issue` reaches
+# `atdd.coach.utils.artifact_claims`, whose module-scope `bind_rule` builds the
+# entire convention registry (~1.5s on the first call). At module scope that cost
+# lands on EVERY invocation — `atdd --help` included, and each of the four git
+# hooks, several times per commit. `IssueManager` is deferred to the three call
+# sites below instead. Do NOT make `bind_rule` lazy to fix this: failing loudly at
+# import is deliberate (SPEC-COACH-RULEID-0007).
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand
@@ -2220,6 +2226,8 @@ Phase descriptions:
             # DEPRECATED alias for `atdd substrate list` (#1239) — still works.
             _deprecation_warning("atdd list --substrate", "atdd substrate list", stream=sys.stderr)
             return _substrate_list(args)
+        from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
         manager = IssueManager()
         return manager.list()
 
@@ -2297,6 +2305,8 @@ Phase descriptions:
         # `atdd issue`, which #1309 removed; rather than repoint that hint at
         # another command that cannot do the job, the bare form is simply not
         # deprecated. Emitting a warning here would send operators nowhere.
+        from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
         manager = IssueManager()
         return manager.update(
             issue_id=args.session_id,
@@ -2678,6 +2688,8 @@ Phase descriptions:
         manifest_command = getattr(args, "manifest_command", None)
         if manifest_command == "backfill":
             repo_root = Path(args.repo) if args.repo else find_repo_root()
+            from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
             manager = IssueManager(repo_root)
             return manager.reconcile()
         manifest_parser.print_help()

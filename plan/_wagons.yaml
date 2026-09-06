@@ -1961,6 +1961,8 @@ wagons:
     D006: minimize undetected frontend composition root drift via source scan
     D007: minimize unverified wagon trains.ts export contracts via source scan
     D008: minimize unstructured train YAML render metadata via JSON Schema
+    E002: minimize quantity of convention-registry-builds-forced-by-cli-startup when
+      the CLI entrypoint is imported to dispatch any command
   total: 0
   manifest: plan/implement_code/_implement_code.yaml
   path: plan/implement_code/
