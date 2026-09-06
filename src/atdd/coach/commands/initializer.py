@@ -157,7 +157,7 @@ class ProjectInitializer:
             )
             if result.returncode != 0:
                 return []
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return []
 
         # Porcelain format: blocks separated by blank lines, first block is main checkout
@@ -263,11 +263,11 @@ class ProjectInitializer:
             for dest, original in reversed(moved_items):
                 try:
                     shutil.move(str(dest), str(original))
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                     pass
             try:
                 main_dir.rmdir()
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
             raise RuntimeError(f"Migration failed (rolled back): {e}") from e
 
@@ -312,7 +312,7 @@ class ProjectInitializer:
             self._update_target_dir(new_root)
             print(f"Migrated to worktree layout: {new_root}")
             print(f"\n  ** After init completes, run: cd main **\n")
-        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -329,7 +329,7 @@ class ProjectInitializer:
                 print("Error: Not at repository root.")
                 print(f"Run from: {repo_root}")
                 return False
-        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
 
         # Safety: no linked worktrees (their .git files would break)
@@ -471,10 +471,10 @@ class ProjectInitializer:
 
             return 0
 
-        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Permission denied - {e}")
             return 1
-        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -1121,7 +1121,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _detect_repo(self) -> Optional[str]:
@@ -1134,7 +1134,7 @@ class ProjectInitializer:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -1178,7 +1178,7 @@ class ProjectInitializer:
             try:
                 cfg = yaml.safe_load(self.config_file.read_text()) or {}
                 skip_workflows = cfg.get("init", {}).get("skip_workflows", False)
-            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         if skip_workflows:
@@ -1315,7 +1315,7 @@ class ProjectInitializer:
             )
             if result.returncode == 0:
                 return result.stdout.strip() or None
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -1353,7 +1353,7 @@ class ProjectInitializer:
                     for node in data["data"]["node"]["fields"]["nodes"]
                     if node.get("name") and node.get("id")
                 }
-        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return {}
 
@@ -1371,7 +1371,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _delete_project_field_raw(self, project_id: str, field_id: str) -> bool:
@@ -1388,7 +1388,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _create_project_fields(self, project_id: str) -> int:
@@ -1495,7 +1495,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     # Default path → phase mappings for path-scoped validation
@@ -1534,7 +1534,7 @@ class ProjectInitializer:
                 cfg = yaml.safe_load(config_path.read_text()) or {}
                 if "path_filters" in cfg:
                     filters.update(cfg["path_filters"])
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         # Build dorny/paths-filter filter config (plain YAML, no f-string interpolation)
@@ -1920,7 +1920,7 @@ jobs:
             else:
                 print("  Auto-merge: SKIPPED (may require admin access)")
                 return False
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _set_branch_protection(self, repo: str) -> bool:

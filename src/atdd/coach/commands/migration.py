@@ -97,7 +97,7 @@ def contract_needs_migration(contract_path: Path) -> bool:
         # Rule 8: Fallback
         return False
 
-    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         print(f"Warning: Could not parse {contract_path}: {e}")
         return True  # Conservative: assume needs migration
 

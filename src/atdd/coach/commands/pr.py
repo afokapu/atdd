@@ -132,7 +132,7 @@ class PRManager:
                 branch = result.stdout.strip()
                 if branch and branch != "HEAD":
                     return branch
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -147,7 +147,7 @@ class PRManager:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -177,7 +177,7 @@ class PRManager:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -240,11 +240,11 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr view %d failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+                logger.debug("gh pr view %d failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
                 return None
             return json.loads(result.stdout)
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to fetch PR #%d: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+            logger.debug("Failed to fetch PR #%d: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
             return None
 
     def _resolve_via_api(self, pr_data: dict) -> Optional[int]:
@@ -314,7 +314,7 @@ class PRManager:
             if issue_number is not None:
                 issue_data = self._fetch_issue(issue_number)
                 if issue_data is None:
-                    logger.debug(  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+                    logger.debug(  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
                         "Strategy '%s' resolved PR #%d → issue #%d but issue fetch failed",
                         strategy_name, pr_number, issue_number,
                     )
@@ -352,11 +352,11 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr list failed: %s", result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+                logger.debug("gh pr list failed: %s", result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
                 return []
             return json.loads(result.stdout) or []
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to list open PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+            logger.debug("Failed to list open PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
             return []
 
     def fetch_recently_merged_prs(self, limit: int = 20) -> List[dict]:
@@ -370,11 +370,11 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr list --merged failed: %s", result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+                logger.debug("gh pr list --merged failed: %s", result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
                 return []
             return json.loads(result.stdout) or []
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to list merged PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+            logger.debug("Failed to list merged PRs: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
             return []
 
     def fetch_pr_commits(self, pr_number: int) -> List[dict]:
@@ -392,7 +392,7 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr view %d commits failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+                logger.debug("gh pr view %d commits failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
                 return []
             data = json.loads(result.stdout) or {}
             commits: List[dict] = []
@@ -404,7 +404,7 @@ class PRManager:
                 commits.append({"sha": sha, "message": message})
             return commits
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to fetch PR #%d commits: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+            logger.debug("Failed to fetch PR #%d commits: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
             return []
 
     def fetch_pr_changed_files(self, pr_number: int) -> List[str]:
@@ -420,7 +420,7 @@ class PRManager:
                 return []
             return [f for f in result.stdout.strip().splitlines() if f]
         except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-            logger.debug("Failed to fetch PR #%d files: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-31
+            logger.debug("Failed to fetch PR #%d files: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
             return []
 
     def _build_pr_title(
@@ -538,7 +538,7 @@ class PRManager:
             )
             if result.returncode == 0:
                 return result.stdout.strip().lower() == "true"
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return False
 

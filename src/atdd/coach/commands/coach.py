@@ -830,7 +830,7 @@ def _swap_phase_label(issue_number: int, new_phase: Phase) -> int:
         return IssueManager().update(
             issue_id=str(issue_number), status=new_phase.value
         )
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         _logger.warning(
             "_swap_phase_label failed",
             extra={

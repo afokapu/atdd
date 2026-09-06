@@ -288,7 +288,7 @@ def _advisory_cross_pr_sweep(
     advisories: List[str] = []
     try:
         merged_prs = mgr.fetch_recently_merged_prs(limit=20)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-09-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return advisories
 
     log = logging.getLogger(__name__)

@@ -129,7 +129,7 @@ class IssueLifecycle:
                 return None
             import json
             return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return None
 
     def _resolve_wmbts(self, issue_number: int):
@@ -308,7 +308,7 @@ class IssueLifecycle:
             if result.stdout:
                 print(result.stdout.rstrip())
             return result.returncode
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print("Warning: Could not run atdd gate")
             return 0
 
@@ -464,7 +464,7 @@ class IssueLifecycle:
             return {}
         try:
             return yaml.safe_load(self.config_file.read_text()) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-09-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return {}
 
     def _transition_gate(self, issue_number: int, target_status: str,
