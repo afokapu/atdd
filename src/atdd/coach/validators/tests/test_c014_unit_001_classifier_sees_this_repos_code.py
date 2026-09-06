@@ -33,6 +33,7 @@ from atdd.coach.validators.test_pr_phase_alignment import (
     SEVERITY_PRGATE_GREEN,
     _classify_changed_files,
     evaluate_phase_violations,
+    select_blocking_violations,
 )
 
 # Real paths from this repo's own tree. `src/atdd/coach/commands/issue.py` is the
@@ -140,6 +141,30 @@ def test_init_and_planned_with_this_repos_own_code_produce_a_violation():
         )
         assert any(isinstance(item, Violation) for item in items), phase
         assert items[0].rule_id == "COACH-PRGATE-0002", phase
+
+
+def test_init_with_plan_only_changes_stays_quiet():
+    """INIT is exactly the phase for plan artifacts — they must not trip the gate."""
+    classified = _classify_changed_files(["plan/govern_lifecycle/E070.yaml"])
+    assert evaluate_phase_violations(
+        pr_number=1660, issue_number=1653, phase="INIT", classified=classified,
+    ) == []
+
+
+def test_early_phase_gate_routes_through_the_shared_pr_scoper():
+    """#1791 wiring: this gate narrows to the PR under validation like its siblings.
+
+    The selector's own behaviour is E070's to prove (unit_002/unit_003); this
+    asserts only that COACH-PRGATE-0002 is routed through it rather than
+    failing every branch for a sibling PR's offense.
+    """
+    offenders = [
+        Violation(rule_id="COACH-PRGATE-0002", severity=4,
+                  location=f"PR#{n}:0", detail=f"PR #{n} ships code at INIT")
+        for n in (1763, 1764)
+    ]
+    assert select_blocking_violations(offenders, current_pr=1793) == []
+    assert [v.location for v in select_blocking_violations(offenders, 1764)] == ["PR#1764:0"]
 
 
 # --------------------------------------------------------------------------- #

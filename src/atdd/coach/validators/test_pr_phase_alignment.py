@@ -203,6 +203,18 @@ def evaluate_phase_violations(
     return items
 
 
+def select_blocking_violations(
+    violations: Sequence[Any], current_pr: Optional[int]
+) -> List[Any]:
+    """Select the violations that should FAIL this strict gate on this CI run.
+
+    Named to mirror the sibling PR gates (#1478/E070) and delegating to the same
+    shared selector: every offender is still produced and logged by the scan;
+    this only narrows what reaches the disposition gate.
+    """
+    return select_for_current_pr(violations, current_pr)
+
+
 def scan_pr_phase_alignment(repo_root: Path) -> Tuple[int, Sequence]:
     """Scan open PRs for phase alignment violations.
 
@@ -274,7 +286,7 @@ def test_pr_phase_alignment():
     # `current_pr is None` (local run, or branch before its PR exists) blocks
     # nothing — the offender is still failed on the run that CAN name it.
     current_pr = _pre_smoke._current_pr_number(REPO_ROOT)
-    blocking = select_for_current_pr(structured_only, current_pr)
+    blocking = select_blocking_violations(structured_only, current_pr)
     if structured_only and not blocking:
         logging.getLogger(__name__).info(
             "pr_phase_alignment: %d offender(s) seen across open PRs; none belong "
