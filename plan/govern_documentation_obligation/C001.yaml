@@ -6,7 +6,7 @@ object_of_control: unobserved-obligation
 context_clarifier: 'when an installed documentation capability runs to completion
   but cannot answer, which this repository has repeatedly collapsed into a pass (#1745,
   #1774, #1716)'
-lens: functional.reliability
+lens: functional.effectiveness
 statement: minimize likelihood of an unobserved-obligation being reported as a discharged
   one, by resolving the installed documentation capability and treating COULD_NOT_CHECK
   as a blocking verdict distinct from NOT_APPLICABLE

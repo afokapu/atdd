@@ -6,7 +6,7 @@ object_of_control: body-store-divergence
 context_clarifier: when the stored documentation obligation is rendered into the issue
   body, in a repository where two writable copies of the same fact are an active defect
   class
-lens: functional.reliability
+lens: functional.effectiveness
 statement: minimize likelihood of a body-store-divergence for the documentation obligation,
   by projecting the stored declaration into the issue body in one direction only and
   never parsing the rendered row back

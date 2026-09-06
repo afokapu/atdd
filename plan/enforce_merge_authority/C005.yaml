@@ -5,7 +5,7 @@ dimension: likelihood
 object_of_control: undocumented-merge
 context_clarifier: when a pull request reaches the merge boundary, on a gate with
   known holes that must not be inherited silently by the documentation check
-lens: functional.reliability
+lens: functional.effectiveness
 statement: minimize likelihood of an undocumented-merge, by refusing entry to main
   when the declared documentation obligation is unresolved, and by failing closed
   when the obligation lookup itself cannot be performed
