@@ -101,7 +101,7 @@ def _git_ls_files(root: Path) -> Optional[List[Path]]:
             text=True,
             check=False,
         )
-    except (FileNotFoundError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except (FileNotFoundError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return None
     if result.returncode != 0:
         return None

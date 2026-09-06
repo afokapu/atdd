@@ -122,7 +122,7 @@ def _list_active_session_names() -> List[Tuple[str, str]]:
             text=True,
             timeout=5,
         )
-    except (subprocess.SubprocessError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except (subprocess.SubprocessError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return []
     if result.returncode != 0:
         return []

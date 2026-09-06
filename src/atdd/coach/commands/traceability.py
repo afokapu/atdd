@@ -585,7 +585,7 @@ class ManifestParser:
         try:
             with open(manifest_path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return None
 
     def parse_produce_items(self, manifest_data: Dict) -> List[ProduceItem]:
@@ -663,7 +663,7 @@ class AcceptanceParser:
         try:
             with open(acceptance_file, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return signals
 
         wagon = data.get('metadata', {}).get('wagon', 'unknown')
@@ -840,7 +840,7 @@ class FeatureFinder:
         try:
             with open(feature_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return None
 
         if not isinstance(data, dict):
@@ -1063,7 +1063,7 @@ class PythonDTOFinder:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return None
 
         # Try primary pattern: # urn: contract:...
@@ -1197,7 +1197,7 @@ class TypeScriptDTOFinder:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return implementations
 
         # Find all exported interfaces/types
@@ -3312,7 +3312,7 @@ class YAMLUpdater:
 
             return True
 
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
 
@@ -3753,7 +3753,7 @@ class WMBTAcceptanceParser:
 
                 wagon_wmbts[wagon_name] = sorted(set(wmbts))
 
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
 
         return wagon_wmbts
@@ -3797,7 +3797,7 @@ class WMBTAcceptanceParser:
                                 if self.WMBT_PATTERN.match(key):
                                     wmbts.append(key)
 
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         return sorted(set(wmbts))

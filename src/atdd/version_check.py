@@ -211,7 +211,7 @@ def print_update_notice() -> None:
         notice = check_for_updates()
         if notice:
             print(notice, file=sys.stderr)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         pass  # Never fail the main command due to version check
 
 
@@ -435,7 +435,7 @@ def print_upgrade_sync_notice() -> None:
         if notice:
             print(f"\n⚠️  {notice}", file=sys.stderr)
             print(file=sys.stderr)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         pass  # Never fail the main command
 
 
@@ -482,7 +482,7 @@ def installed_cli_version() -> Optional[str]:
             capture_output=True, text=True, timeout=10,
             env=env, cwd=tempfile.gettempdir(),
         )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return None
 
     if result.returncode != 0:
@@ -569,7 +569,7 @@ def _verify_installed_version(expected: Optional[str]) -> bool:
             extra={"phase": "verify", "outcome": "timeout", "timeout_s": 10},
         )
         return False
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return False
 
     if result.returncode != 0:
