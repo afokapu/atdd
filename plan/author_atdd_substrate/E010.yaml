@@ -31,20 +31,21 @@ acceptances:
   - identity:
       urn: "acc:author-atdd-substrate:E010-UNIT-002-no-literal-date-survives-in-the-generator"
       id: "AC-UNIT-002"
-      purpose: "Guard the regression shape itself: no hardcoded ISO date may sit in the generator's body-assembly source"
+      purpose: "Guard the regression shape itself: with the clock frozen, no date the generator emits may differ from the frozen day"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "The source of atdd.planner.commands.author_issue"
+        - "A valid issue spec accepted by create_issue_body"
+        - "A known current date, injected by freezing the clock the generator reads"
     when:
-      abstract: "The module source is scanned for literal ISO-8601 dates inside the Metadata table assembly"
+      abstract: "create_issue_body(spec) is called and every ISO-8601 date in the emitted body is collected"
     then:
       abstract:
-        - "No literal YYYY-MM-DD string is emitted into the Date row"
-        - "The check names the offending line when it fails, so the fix location is unambiguous"
+        - "Every date the body carries equals the frozen day, across the whole body and not only the Date row"
+        - "The check names the offending value when it fails, so the fix location is unambiguous"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-09-06"
