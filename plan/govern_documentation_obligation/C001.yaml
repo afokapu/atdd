@@ -1,0 +1,75 @@
+urn: wmbt:govern-documentation-obligation:C001
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: unobserved-obligation
+context_clarifier: 'when an installed documentation capability runs to completion
+  but cannot answer, which this repository has repeatedly collapsed into a pass (#1745,
+  #1774, #1716)'
+lens: functional.reliability
+statement: minimize likelihood of an unobserved-obligation being reported as a discharged
+  one, by resolving the installed documentation capability and treating COULD_NOT_CHECK
+  as a blocking verdict distinct from NOT_APPLICABLE
+acceptances:
+- given:
+    abstract:
+    - An installed documentation capability that returns COULD_NOT_CHECK with a reason
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: A capability that ran but could not observe must block, never permit
+    urn: acc:govern-documentation-obligation:C001-UNIT-001-red-could-not-check-blocks
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-06'
+  then:
+    abstract:
+    - The transition is blocked
+    - The reason reaches the report rather than collapsing into a clean result
+  when:
+    abstract: the obligation verdict is resolved
+- given:
+    abstract:
+    - A repository with no documentation capability registered on the entry-point
+      group
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: GREEN
+    purpose: A consumer that installed no documentation extension must keep a working
+      lifecycle, which is the entire point of the core/extension boundary
+    urn: acc:govern-documentation-obligation:C001-UNIT-002-absent-capability-is-not-applicable
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-06'
+  then:
+    abstract:
+    - The verdict is NOT_APPLICABLE and the transition proceeds
+    - NOT_APPLICABLE is distinguishable from COULD_NOT_CHECK in the report
+  when:
+    abstract: the obligation verdict is resolved
+- given:
+    abstract:
+    - A real installed capability whose check raises
+  harness:
+    category: backend
+    type: e2e
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: A raising or hanging capability must degrade to FAIL, not to a pass
+    urn: acc:govern-documentation-obligation:C001-SMOKE-001-capability-raise-is-failure
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-06'
+  then:
+    abstract:
+    - The verdict is FAIL and the transition is blocked
+    - The raised error is named in the gate report
+  when:
+    abstract: a COMPLETE transition is attempted against the live gate

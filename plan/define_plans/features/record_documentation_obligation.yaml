@@ -1,0 +1,27 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: declare_documentation_impact() at the Ratify gate; read_documentation_declaration()
+        for the gate path
+      type: use_cases
+    domain:
+    - count: 1
+      rationale: DocumentationImpact (change|none) with its artifact list or reason,
+        validated as a total pair
+      type: value_objects
+    integration:
+    - count: 1
+      rationale: store writer persisting the declaration on the work item
+      type: repositories
+description: 'Ratify records the plan''s documentation impact as first-class work-item
+  state: impact change with artifacts, or impact none with a reason. Lands advisory
+  with a live escalate_when.'
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 1
+urn: feature:define-plans:record-documentation-obligation
+wagon: wagon:define-plans
+wmbts:
+- wmbt:define-plans:D002

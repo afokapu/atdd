@@ -17,6 +17,7 @@ features:
 - urn: feature:govern-projection-fields:verify-merge-matrix
 - urn: feature:govern-projection-fields:mark-object-tombstone
 - urn: feature:govern-projection-fields:define-actor-ownership
+- urn: feature:govern-projection-fields:register-documentation-obligation-field
 goal: prevent same-object and wrong-writer corruption of the committed projection, so the shared source
   of truth stays trustworthy without an operator adjudicating every merge
 name: Govern Projection Fields
@@ -65,6 +66,7 @@ consume:
   telemetry: null
   from: wagon:enforce-merge-authority
 wmbt:
+  D003: maximize likelihood of a declared documentation-field-ownership entry naming the single legal writer and merge rule of the documentation obligation field, so the new field cannot corrupt the committed projection
   C001: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting a field-ownership
     policy that omits any projection schema field or names a writer outside the declared writer set
   C002: minimize likelihood of a merge-matrix-blind-spot, by exercising every ownership merge rule against
@@ -86,4 +88,4 @@ wmbt:
   R001: maximize likelihood of an unsafe-merge-conflict being raised with an actionable report naming
     the field, both sides' writers, and the failing ownership or evidence rule, never resolved by blind
     max phase
-  total: 8
+  total: 9

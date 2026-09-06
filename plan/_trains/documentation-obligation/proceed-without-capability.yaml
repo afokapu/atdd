@@ -1,0 +1,39 @@
+train_id: train:documentation-obligation:proceed-without-capability
+title: Proceed With No Documentation Capability Installed
+description: 'Alternate-path train (category: alternate): no documentation capability
+  is registered on the atdd.documentation entry-point group, so there is genuinely
+  nothing to judge. The verdict is NOT_APPLICABLE and the lifecycle proceeds. This
+  is the route that keeps core''s documentation contract from conscripting a consumer
+  that installed no documentation extension, and it is deliberately distinct from
+  the nominal route: no capability was consulted.'
+category: alternate
+themes:
+- commons
+family: behavior
+primary_wagon: govern-documentation-obligation
+sequence:
+- step: 1
+  intent: Resolve the entry-point group and find no documentation capability registered
+  from: wagon:govern-documentation-obligation
+  to: system:atdd-cli
+  artifact: commons:documentation-capability-seam
+- step: 2
+  intent: Emit NOT_APPLICABLE, recording that nothing was consulted rather than that
+    all passed
+  from: wagon:govern-documentation-obligation
+  to: system:atdd-cli
+  artifact: commons:documentation-verdict
+- step: 3
+  intent: Permit the transition while core's own declaration-integrity checks still
+    apply
+  from: wagon:govern-lifecycle
+  to: system:atdd-cli
+  artifact: commons:documentation-complete-decision
+participants:
+- wagon:govern-documentation-obligation
+- wagon:govern-lifecycle
+- system:atdd-cli
+status: planned
+source_interlocking:
+  interlocking_id: interlocking:govern-documentation-obligation
+  route_id: proceed-without-capability

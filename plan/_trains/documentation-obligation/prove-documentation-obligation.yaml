@@ -1,0 +1,66 @@
+train_id: train:documentation-obligation:prove-documentation-obligation
+title: Prove A Change Documented What It Changed
+description: 'Nominal-path train (category: nominal): the documentation obligation
+  is declared at Ratify, registered as an owned projection field, projected one-way
+  into the issue body, discharged in the implementation worktree, and verified at
+  COMPLETE and again at merge. The installed documentation capability returns PASS
+  and accepted software enters main with its accepted documentation. This is the journey
+  the other three routes diverge from.'
+category: nominal
+themes:
+- commons
+family: behavior
+primary_wagon: govern-documentation-obligation
+sequence:
+- step: 1
+  intent: Record the plan's documentation impact as first-class work-item state at
+    Ratify
+  from: wagon:define-plans
+  to: system:atdd-cli
+  artifact: commons:documentation-declaration
+- step: 2
+  intent: Resolve the declaration's field to its single legal writer and merge rule
+  from: wagon:govern-projection-fields
+  to: system:atdd-cli
+  artifact: commons:documentation-field-ownership
+- step: 3
+  intent: Project the stored declaration into the issue body in one direction only
+  from: wagon:author-atdd-substrate
+  to: system:github-mirror
+  artifact: commons:documentation-body-projection
+- step: 4
+  intent: Decide the declaration is well-formed and its named artifacts are in the
+    change set
+  from: wagon:govern-documentation-obligation
+  to: system:atdd-cli
+  artifact: commons:declaration-integrity-check
+- step: 5
+  intent: Resolve the installed documentation capability and read back its verdict
+  from: wagon:govern-documentation-obligation
+  to: system:atdd-cli
+  artifact: commons:documentation-verdict
+- step: 6
+  intent: Permit the COMPLETE transition on a discharged obligation
+  from: wagon:govern-lifecycle
+  to: system:atdd-cli
+  artifact: commons:documentation-complete-decision
+- step: 7
+  intent: Permit entry to main, so accepted software and accepted documentation arrive
+    together
+  from: wagon:enforce-merge-authority
+  to: system:git
+  artifact: commons:documentation-merge-decision
+participants:
+- wagon:define-plans
+- wagon:govern-projection-fields
+- wagon:author-atdd-substrate
+- wagon:govern-documentation-obligation
+- wagon:govern-lifecycle
+- wagon:enforce-merge-authority
+- system:atdd-cli
+- system:git
+- system:github-mirror
+status: planned
+source_interlocking:
+  interlocking_id: interlocking:govern-documentation-obligation
+  route_id: prove-documentation-obligation

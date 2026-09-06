@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "contract:commons:documentation-verdict",
+  "title": "Documentation obligation verdict",
+  "description": "The verdict an installed documentation capability returns for a declared documentation obligation. This is the divergence signal that selects the next train in interlocking:govern-documentation-obligation. NOT_APPLICABLE and COULD_NOT_CHECK are distinct by design: the first means there was nothing to judge, the second means the capability ran and could not observe. Shape is fixed by THE BINDING and matches the shipped atdd.extension.planner.docs DocumentationCheck exactly: verdict, findings, checked. Collapsing NOT_APPLICABLE into COULD_NOT_CHECK is the defect class recorded in #1745, #1774 and #1716.",
+  "version": "1.0.0",
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_APPLICABLE",
+        "COULD_NOT_CHECK"
+      ],
+      "description": "PASS and NOT_APPLICABLE permit; FAIL and COULD_NOT_CHECK block. Plain strings, deliberately not an enum: importing GateVerdict into the documentation domain and defining a second enum are both forbidden (#1772 Decisions 16-18, #1774)."
+    },
+    "findings": {
+      "type": "array",
+      "description": "Human-readable findings; each names a path or a document identity. The COULD_NOT_CHECK reason reaches HERE, not a separate field \u2014 shape fixed by the shipped atdd.extension.planner.docs capability.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rule_id": {
+            "type": "string"
+          },
+          "where": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "where",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "checked": {
+      "type": "array",
+      "description": "What the capability actually examined. Empty on NOT_APPLICABLE.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "verdict"
+  ],
+  "additionalProperties": false,
+  "x-artifact-metadata": {
+    "producers": [
+      "wagon:govern-documentation-obligation"
+    ],
+    "consumers": [
+      "wagon:govern-lifecycle",
+      "wagon:enforce-merge-authority"
+    ]
+  }
+}

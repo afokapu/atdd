@@ -1,0 +1,33 @@
+urn: wmbt:govern-projection-fields:D003
+step: define
+direction: maximize
+dimension: likelihood
+object_of_control: documentation-field-ownership
+context_clarifier: when the documentation obligation is added to the work-item projection,
+  which rejects a diff whose committing writer does not own a touched field
+lens: functional.effectiveness
+statement: maximize likelihood of a declared documentation-field-ownership entry naming
+  the single legal writer and merge rule of the documentation obligation field, so
+  the new field cannot corrupt the committed projection
+acceptances:
+- given:
+    abstract:
+    - A projection diff touching the documentation obligation field
+    - No ownership entry declared for that field
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: An unregistered projection field must fail the field-writer validator
+      rather than merge silently
+    urn: acc:govern-projection-fields:D003-UNIT-001-red-unregistered-documentation-field
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-06'
+  then:
+    abstract:
+    - The diff is rejected naming the unowned field
+  when:
+    abstract: the field-writer validator runs

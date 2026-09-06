@@ -1,0 +1,18 @@
+components:
+  backend:
+    domain:
+    - count: 1
+      rationale: the documentation-obligation FieldOwnership entry naming its writer
+        and merge rule
+      type: value_objects
+description: Register the documentation-obligation field in the field-ownership policy
+  with its single legal writer and merge rule. A hard CI prerequisite of the declaration
+  feature.
+sizing:
+  footprint_score: 3
+  footprint_size: S
+  wmbts: 1
+urn: feature:govern-projection-fields:register-documentation-obligation-field
+wagon: wagon:govern-projection-fields
+wmbts:
+- wmbt:govern-projection-fields:D003

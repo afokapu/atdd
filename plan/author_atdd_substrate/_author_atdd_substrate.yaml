@@ -19,6 +19,7 @@ features:
   - urn: "feature:author-atdd-substrate:author-gate"
   - urn: "feature:author-atdd-substrate:package-composition"
   - urn: "feature:author-atdd-substrate:author-issue-body"
+  - urn: "feature:author-atdd-substrate:project-documentation-obligation"
 
 produce:
   - name: commons:author:substrate-schemas
@@ -57,7 +58,8 @@ produce:
 consume: []
 
 wmbt:
-  total: 28
+  total: 29
+  E010: "minimize likelihood of a body-store-divergence for the documentation obligation, by projecting the stored declaration into the issue body in one direction only and never parsing the rendered row back"
   D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind and freezing the controlled vocabularies"
   C009: "minimize likelihood of orphan-extension-convention-nodes by asserting in atdd validate package that every convention node an extension owns is an endpoint of at least one edge in the extension's relationships.yaml"
   C008: "minimize likelihood of orphan-convention-nodes by asserting every convention node appears as a source_ref or target_ref of at least one relationship-graph edge (no node outside the graph), making graph integrity bidirectional"

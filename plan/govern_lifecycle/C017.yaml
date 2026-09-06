@@ -1,0 +1,53 @@
+urn: wmbt:govern-lifecycle:C017
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: undocumented-completion
+context_clarifier: when an issue reaches COMPLETE carrying a declared documentation
+  obligation, consulted through the registered phase-transition gate rather than a
+  parallel one
+lens: functional.reliability
+statement: minimize likelihood of an undocumented-completion, by refusing the COMPLETE
+  transition when the declared documentation obligation is unresolved or could not
+  be observed
+acceptances:
+- given:
+    abstract:
+    - An issue declaring a documentation change whose artifact is absent from the
+      branch diff
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: A declared obligation that did not occur must block COMPLETE
+    urn: acc:govern-lifecycle:C017-UNIT-001-red-declared-change-absent-blocks-complete
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-06'
+  then:
+    abstract:
+    - The transition is refused naming the undischarged artifact
+  when:
+    abstract: the COMPLETE transition is attempted
+- given:
+    abstract:
+    - A real issue at REFACTOR with an unresolved declared documentation obligation
+  harness:
+    category: backend
+    type: e2e
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: The gate must hold over the real transition path, not only in a unit
+      harness
+    urn: acc:govern-lifecycle:C017-SMOKE-001-live-complete-refuses-unresolved-obligation
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-06'
+  then:
+    abstract:
+    - The command exits non-zero and names the documentation obligation
+  when:
+    abstract: atdd coach transition to COMPLETE is run

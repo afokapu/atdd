@@ -1,0 +1,22 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: project_documentation_obligation() rendering the stored declaration
+        into the issue body section
+      type: use_cases
+    presentation:
+    - count: 1
+      rationale: the Documentation body section view, generated from the same schema
+        the validator projects
+      type: views
+description: Render the stored documentation obligation into the issue body as a one-way
+  projection. The body row is a rendering for humans and is never parsed back.
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:author-atdd-substrate:project-documentation-obligation
+wagon: wagon:author-atdd-substrate
+wmbts:
+- wmbt:author-atdd-substrate:E009

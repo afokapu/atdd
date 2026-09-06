@@ -1,0 +1,36 @@
+components:
+  backend:
+    application:
+    - count: 2
+      rationale: resolve_documentation_capability() over the entry-point group; judge_documentation()
+        invoking it and normalising a raise or timeout to FAIL.
+      type: use_cases
+    - count: 1
+      rationale: 'Pass None only when genuinely unknown: None means COULD_NOT_CHECK and blocks, []
+        means an empty diff and permits. The two are different facts at the seam.'
+      type: guards
+    domain:
+    - count: 2
+      rationale: DocumentationCheck (verdict, findings, checked) and Finding (rule_id, where, message)
+        - the exact shapes atdd.extension.planner.docs returns, read from its source, not inferred.
+      type: value_objects
+    - count: 1
+      rationale: VerdictPolicy keeps NOT_APPLICABLE and COULD_NOT_CHECK distinct. Core owns the four
+        wire literals as one shared module; the extension delegates to it, so neither side re-declares
+        an enum.
+      type: policies
+    integration:
+    - count: 1
+      rationale: 'Entry-point loader over atdd.documentation, naming no extension. Wire types only:
+        declaration dict|None, change_set list[str]|None; the capability calls .get(), never a dataclass.'
+      type: repositories
+description: 'The capability seam: resolve at most one installed documentation capability via entry
+  point, hand it the declaration and change set, and read back a verdict. Absent capability is NOT_APPLICABLE.'
+sizing:
+  footprint_score: 8
+  footprint_size: M
+  wmbts: 1
+urn: feature:govern-documentation-obligation:delegate-content-judgement
+wagon: wagon:govern-documentation-obligation
+wmbts:
+- wmbt:govern-documentation-obligation:C001

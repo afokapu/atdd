@@ -82,9 +82,11 @@ features:
   - urn: "feature:govern-lifecycle:fix-auto-phase-label-write-credential"
   - urn: "feature:govern-lifecycle:honest-outbox-deferral"
   - urn: "feature:govern-lifecycle:enforcing-artifact-declaration"
+  - urn: "feature:govern-lifecycle:reject-undocumented-completion"
 
 wmbt:
-  total: 120
+  total: 121
+  C017: "minimize likelihood of an undocumented-completion, by refusing the COMPLETE transition when the declared documentation obligation is unresolved or could not be observed"
   C023: "minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated by having format_fix_hint() name the consequence of the amend it prescribes and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the author must run before pushing, over the drifted-file set the check already computed, while emitting nothing on the clean path and exempting no mirror from the Artifacts requirement (#1739)"
   C021: "minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose registry holds a substantive check — where it registers the same checks the transition dispatch registers, excludes the approval check from its own precondition, refuses on FAIL and COULD_NOT_CHECK while proceeding on NOT_APPLICABLE, refuses when zero substantive checks were evaluated, and refuses when HEAD cannot be resolved (#1670)"
   C015: "minimize an-enqueue-that-tells-its-caller-the-write-is-a-durable-retry-and-a-drain-that-exits-0-over-a-queue-it-left-untouched-so-neither-surface-can-say-that-no-registered-provider-will-ever-send-the-row (#1711)"

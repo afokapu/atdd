@@ -1,0 +1,18 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: the COMPLETE gate check invoking declaration integrity then the capability
+        seam, returning a structured verdict
+      type: use_cases
+description: COMPLETE consults the documentation obligation through the registered
+  phase-transition gate. PASS and NOT_APPLICABLE permit; FAIL and COULD_NOT_CHECK
+  block with the reason reported.
+sizing:
+  footprint_score: 6
+  footprint_size: M
+  wmbts: 1
+urn: feature:govern-lifecycle:reject-undocumented-completion
+wagon: wagon:govern-lifecycle
+wmbts:
+- wmbt:govern-lifecycle:C012

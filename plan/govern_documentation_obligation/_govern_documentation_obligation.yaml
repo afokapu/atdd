@@ -1,0 +1,65 @@
+action: records the documentation impact declared at Ratify as store state, refuses
+  a declaration that is structurally incomplete, resolves at most one installed documentation
+  capability, and converts that capability's verdict into a transition decision in
+  which NOT_APPLICABLE permits and COULD_NOT_CHECK blocks
+context: ratifying-a-plan-that-changes-what-the-system-documents, and gating an issue
+  at COMPLETE and at merge on whether the declared documentation obligation was discharged
+description: The lifecycle-core half of the documentation system. Declares a documentation
+  obligation as first-class work-item state at Ratify, checks the integrity of that
+  declaration without any knowledge of documentation format or repository layout,
+  and delegates every content judgement to an installed documentation capability discovered
+  through an entry point. Core never names AsciiDoc, ADRs, a documentation taxonomy,
+  a rendering toolchain or a documentation graph; those belong to the standard documentation
+  extension. Prevents accepted software entering main with an unresolved documentation
+  obligation, and prevents a capability that could not observe from being read as
+  a pass.
+features:
+- urn: feature:govern-documentation-obligation:check-declaration-integrity
+- urn: feature:govern-documentation-obligation:delegate-content-judgement
+goal: prove a change documented what it changed before it merges, without core learning
+  any documentation policy, so a consumer that installs no documentation extension
+  keeps a working lifecycle
+name: Govern Documentation Obligation
+outcome: a ratified plan carries a documentation declaration; a declaration naming
+  artifacts absent from the change set fails COMPLETE; an installed capability that
+  cannot answer blocks rather than passes; a repository with no documentation capability
+  installed is NOT_APPLICABLE and proceeds
+subject: agent:coach
+theme: commons
+urn: wagon:govern-documentation-obligation
+wagon: govern-documentation-obligation
+produce:
+- name: commons:govern:declaration-integrity-check
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:govern:documentation-capability-seam
+  contract: null
+  telemetry: null
+  to: internal
+- name: commons:govern:documentation-verdict
+  contract: null
+  telemetry: null
+  to: internal
+consume:
+- contract: null
+  from: wagon:define-plans
+  name: commons:plan:documentation-declaration
+  telemetry: null
+- contract: null
+  from: wagon:govern-projection-fields
+  name: commons:govern:field-ownership-policy
+  telemetry: null
+- contract: null
+  from: wagon:enforce-merge-authority
+  name: commons:enforce:lifecycle-evidence
+  telemetry: null
+wmbt:
+  C001: minimize likelihood of an unobserved-obligation being reported as a discharged
+    one, by resolving the installed documentation capability and treating COULD_NOT_CHECK
+    as a blocking verdict distinct from NOT_APPLICABLE
+  D001: maximize likelihood of a format-agnostic declaration-integrity-check that
+    decides a documentation declaration is well-formed and its named artifacts are
+    present in the change set, so core proves the obligation without reading a single
+    documentation file
+  total: 2

@@ -19,6 +19,7 @@ features:
 - urn: feature:enforce-merge-authority:run-merge-checks
 - urn: feature:enforce-merge-authority:define-required-checks
 - urn: feature:enforce-merge-authority:enforce-rule-disposition
+- urn: feature:enforce-merge-authority:reject-undocumented-merge
 goal: make CI the merge authority so that a canonical but lifecycle-illegal, untrailered, or secret-bearing
   projection change cannot reach the shared source of truth
 name: Enforce Merge Authority
@@ -51,6 +52,7 @@ consume:
   name: commons:project:projection-object
   telemetry: null
 wmbt:
+  C005: minimize likelihood of an undocumented-merge, by refusing entry to main when the declared documentation obligation is unresolved, and by failing closed when the obligation lookup itself cannot be performed
   C001: minimize likelihood of an illegal-transition-merge, in which a canonical and schema-valid projection
     diff whose phase change is not lifecycle-legal relative to the merge-base, or which carries no evidence
     for a gate it skips, is admitted to the protected branch
@@ -77,4 +79,4 @@ wmbt:
   E002: maximize likelihood of a merge-authority-run on push and pull request that executes the full section-4
     required-check set (projection canonicality, projection schema, legal transition, trailer/diff cross-check,
     field-writer, no-secrets, core no-provider) and fails the run when any one of them fails
-  total: 8
+  total: 9

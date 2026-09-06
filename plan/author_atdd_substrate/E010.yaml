@@ -1,0 +1,35 @@
+urn: wmbt:author-atdd-substrate:E010
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: body-store-divergence
+context_clarifier: when the stored documentation obligation is rendered into the issue
+  body, in a repository where two writable copies of the same fact are an active defect
+  class
+lens: functional.reliability
+statement: minimize likelihood of a body-store-divergence for the documentation obligation,
+  by projecting the stored declaration into the issue body in one direction only and
+  never parsing the rendered row back
+acceptances:
+- given:
+    abstract:
+    - An issue body whose documentation row has been hand-edited to disagree with
+      the store
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: The body row is a rendering; reading it back re-creates the divergence
+      class this feature exists to avoid
+    urn: acc:author-atdd-substrate:E010-UNIT-001-red-body-is-never-read-back
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-06'
+  then:
+    abstract:
+    - The store value is used
+    - The edited body row does not influence the decision
+  when:
+    abstract: the obligation is resolved for a gate decision

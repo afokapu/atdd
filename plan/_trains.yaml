@@ -55,6 +55,43 @@ trains:
       wagons:
       - bind-extension-conventions
       - govern-providers
+  documentation-obligation:
+    nominal:
+    - train_id: train:documentation-obligation:prove-documentation-obligation
+      description: 'Nominal-path train: the documentation obligation is declared at
+        Ratify, registered as an owned projection field, projected one-way into the
+        issue body, discharged in the implementation worktree, and verified at COMPLETE
+        and again at merge.'
+      path: plan/_trains/documentation-obligation/prove-documentation-obligation.yaml
+      wagons:
+      - govern-documentation-obligation
+      category: nominal
+    alternate:
+    - train_id: train:documentation-obligation:proceed-without-capability
+      description: 'Alternate-path train: no documentation capability is installed,
+        so there is genuinely nothing to judge. NOT_APPLICABLE permits, and no capability
+        was consulted.'
+      path: plan/_trains/documentation-obligation/proceed-without-capability.yaml
+      wagons:
+      - govern-documentation-obligation
+      category: alternate
+    exception:
+    - train_id: train:documentation-obligation:remediate-undischarged-obligation
+      description: 'Exception-path train: the obligation was declared and observed
+        undischarged. FAIL refuses the transition and the work returns to the worktree,
+        which is where documentation is authored.'
+      path: plan/_trains/documentation-obligation/remediate-undischarged-obligation.yaml
+      wagons:
+      - govern-documentation-obligation
+      category: exception
+    error:
+    - train_id: train:documentation-obligation:restore-obligation-observability
+      description: 'Error-path train: the capability ran but could not observe. COULD_NOT_CHECK
+        blocks, and the remedy is to restore observability rather than to author documentation.'
+      path: plan/_trains/documentation-obligation/restore-obligation-observability.yaml
+      wagons:
+      - govern-documentation-obligation
+      category: error
   issue-lifecycle:
     nominal:
     - train_id: train:issue-lifecycle:drive-state-machine

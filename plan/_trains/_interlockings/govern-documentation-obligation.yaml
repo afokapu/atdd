@@ -1,0 +1,189 @@
+schema_version: 1.0.0
+interlocking_id: interlocking:govern-documentation-obligation
+title: Govern The Documentation Obligation
+theme: commons
+status: draft
+source:
+  path: plan/_trains/_interlockings/govern-documentation-obligation.yaml
+  content_digest: e2ffce9fc6c8f78c175f1dfcccb4f6d849ffcbfb42a66259f33c821000b8a10e
+entrypoint:
+  actions: []
+  exposed: false
+  reason: planned-not-exposed
+route_resolution:
+  strategy: fail_on_multiple_match
+lifelines:
+- ref: wagon:define-plans
+- ref: wagon:govern-projection-fields
+- ref: wagon:author-atdd-substrate
+- ref: wagon:govern-documentation-obligation
+- ref: wagon:govern-lifecycle
+- ref: wagon:enforce-merge-authority
+- ref: system:atdd-cli
+- ref: system:git
+- ref: system:github-mirror
+messages:
+- id: msg:record-obligation
+  from: wagon:define-plans
+  to: system:atdd-cli
+  kind: control
+  intent: Record the plan's documentation impact as work-item state at Ratify
+  wmbt_refs:
+  - wmbt:define-plans:D002
+  payload:
+    contract: null
+    no_payload_reason: the declaration is store state written in-process; nothing
+      crosses a boundary at this step
+- id: msg:register-obligation-field
+  from: wagon:govern-projection-fields
+  to: system:atdd-cli
+  kind: control
+  intent: Resolve the obligation field to its single legal writer and merge rule
+  wmbt_refs:
+  - wmbt:govern-projection-fields:D003
+  payload:
+    contract: null
+    no_payload_reason: policy lookup against the committed field-ownership policy;
+      no payload crosses the boundary
+- id: msg:project-obligation-to-body
+  from: wagon:author-atdd-substrate
+  to: system:github-mirror
+  kind: boundary
+  intent: Project the stored declaration into the issue body, one direction only
+  wmbt_refs:
+  - wmbt:author-atdd-substrate:E010
+  payload:
+    contract: null
+    no_payload_reason: a rendered markdown body for human readers; never parsed back,
+      so it carries no contract
+- id: msg:check-declaration-integrity
+  from: wagon:govern-documentation-obligation
+  to: system:atdd-cli
+  kind: control
+  intent: Decide the declaration is well-formed and its named artifacts are in the
+    change set
+  wmbt_refs:
+  - wmbt:govern-documentation-obligation:D001
+  payload:
+    contract: null
+    no_payload_reason: declared paths are opaque strings compared against the change
+      set; no file content is read
+- id: msg:emit-documentation-verdict
+  from: wagon:govern-documentation-obligation
+  to: system:atdd-cli
+  kind: control
+  intent: Resolve the installed capability and emit the verdict that selects the next
+    train
+  wmbt_refs:
+  - wmbt:govern-documentation-obligation:C001
+  payload:
+    contract: commons:documentation-verdict
+- id: msg:decide-complete
+  from: wagon:govern-lifecycle
+  to: system:atdd-cli
+  kind: control
+  intent: Permit or refuse the COMPLETE transition on the verdict
+  wmbt_refs:
+  - wmbt:govern-lifecycle:C017
+  payload:
+    contract: commons:documentation-verdict
+- id: msg:decide-merge
+  from: wagon:enforce-merge-authority
+  to: system:git
+  kind: boundary
+  intent: Permit or refuse entry to main on the same invariant COMPLETE enforced
+  wmbt_refs:
+  - wmbt:enforce-merge-authority:C005
+  payload:
+    contract: commons:documentation-verdict
+fragments:
+- id: frag:documentation-verdict
+  kind: alt
+  wmbt_refs:
+  - wmbt:govern-documentation-obligation:C001
+  - wmbt:govern-lifecycle:C017
+  - wmbt:enforce-merge-authority:C005
+  acceptance_refs:
+  - acceptance:could-not-check-blocks
+  - acceptance:absent-capability-is-not-applicable
+  guards:
+  - id: guard:documentation-obligation-discharged
+    expression: documentation_verdict == "PASS"
+    wmbt_refs:
+    - wmbt:govern-documentation-obligation:C001
+  - id: guard:documentation-capability-absent
+    expression: documentation_verdict == "NOT_APPLICABLE"
+    wmbt_refs:
+    - wmbt:govern-documentation-obligation:C001
+  - id: guard:documentation-obligation-undischarged
+    expression: documentation_verdict == "FAIL"
+    wmbt_refs:
+    - wmbt:govern-lifecycle:C017
+  - id: guard:documentation-obligation-unobservable
+    expression: documentation_verdict == "COULD_NOT_CHECK"
+    wmbt_refs:
+    - wmbt:enforce-merge-authority:C005
+invariants:
+- id: inv:could-not-check-never-permits
+  expression: documentation_verdict != "COULD_NOT_CHECK" or transition_blocked
+  wmbt_ref: wmbt:govern-documentation-obligation:C001
+- id: inv:documentation-enters-main-with-its-software
+  expression: not merge_permitted or documentation_obligation_resolved
+  wmbt_ref: wmbt:enforce-merge-authority:C005
+routes:
+- route_id: prove-documentation-obligation
+  category: nominal
+  priority: 0
+  guard_ref: guard:documentation-obligation-discharged
+  train_id: train:documentation-obligation:prove-documentation-obligation
+  train_path: plan/_trains/documentation-obligation/prove-documentation-obligation.yaml
+  projection:
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+    expected_sequence_digest: a7d4e261fde06792e56f02a532d9b931d002bd33c2a9e1f53333fda62c4a2884
+- route_id: proceed-without-capability
+  category: alternate
+  priority: 1
+  guard_ref: guard:documentation-capability-absent
+  train_id: train:documentation-obligation:proceed-without-capability
+  train_path: plan/_trains/documentation-obligation/proceed-without-capability.yaml
+  projection:
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+    expected_sequence_digest: f54261d883406eea4b2d643f33636bf1cfb9840071231b9c31c97b9c02af22eb
+- route_id: remediate-undischarged-obligation
+  category: exception
+  priority: 2
+  guard_ref: guard:documentation-obligation-undischarged
+  train_id: train:documentation-obligation:remediate-undischarged-obligation
+  train_path: plan/_trains/documentation-obligation/remediate-undischarged-obligation.yaml
+  projection:
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+    expected_sequence_digest: 7fd2aa53331f67d1a96fa5c881e02c172adb63fa6bdca89c823b876dd9fbef79
+- route_id: restore-obligation-observability
+  category: error
+  priority: 3
+  guard_ref: guard:documentation-obligation-unobservable
+  train_id: train:documentation-obligation:restore-obligation-observability
+  train_path: plan/_trains/documentation-obligation/restore-obligation-observability.yaml
+  projection:
+    fields:
+    - step
+    - intent
+    - from
+    - to
+    - artifact
+    expected_sequence_digest: cb45ba60c6b4040d953b9af1471dadcd734a006d0dd644f63e8ecaeda41c4305
