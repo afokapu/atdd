@@ -28,15 +28,16 @@ rules:
     introduced_in: "1.67.0"
 
   # Emitted at runtime by test_pr_phase_alignment.py (Violation rule_id
-  # COACH-PRGATE-0002). Advisory on introduction (#1791): 10 of 10 open PRs
-  # currently ship code at INIT/PLANNED, so strict would stop the fleet the way
-  # the suppression cliff did. Advisory still makes the skip VISIBLE — before
-  # #1791 these arrived as opaque strings and were filtered out before the gate
-  # ran, so a full lifecycle skip was silent. Flip to strict once drained.
+  # COACH-PRGATE-0002). Strict, and safe to be strict because the validator
+  # routes through `_pr_scope.select_for_current_pr` (#1478/E070) like its two
+  # sibling PR gates: the scan still sees every offender, but only the PR under
+  # validation is failed. The 10 open PRs shipping code at INIT/PLANNED today
+  # each fail on their OWN run, which is enforcement rather than the cross-PR
+  # coupling that a fleet-wide strict gate would have been.
   - id: "coach.pr.early-phase-ships-code"
     aliases: ["COACH-PRGATE-0002"]
     severity: 4
-    disposition: advisory
+    disposition: strict
     validator: "test_pr_phase_alignment::test_pr_phase_alignment"
     description: "PR ships code files while its linked issue is still at atdd:INIT or atdd:PLANNED — the lifecycle was skipped entirely (issue #1791; incident pattern #256)"
     introduced_in: "4.41.0"

@@ -29,8 +29,10 @@ from typing import Any, List, Optional, Sequence, Tuple
 import pytest
 
 from atdd.coach.commands.pr import PRManager
+from atdd.coach.validators import test_pr_merge_blocks_pre_smoke_close as _pre_smoke
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._pr_scope import select_for_current_pr
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators._violation import Violation
 
@@ -262,9 +264,27 @@ def test_pr_phase_alignment():
     # They now carry COACH-PRGATE-0002 and flow through like any other rule;
     # this filter remains only to drop genuinely unstructured legacy entries.
     structured_only = [v for v in violations if hasattr(v, "rule_id")]
+
+    # #1478/E070: this gate scans EVERY open PR, so without scoping one offender
+    # reds every other contributor's CI — cross-PR coupling, not enforcement.
+    # Its siblings (pre-SMOKE close, closes-keyword) already route through
+    # `_pr_scope`; this one never did, which is the only reason a strict
+    # disposition here would have stopped the fleet. Scope it the same way:
+    # log every offender for repo-health visibility, fail only the PR under test.
+    # `current_pr is None` (local run, or branch before its PR exists) blocks
+    # nothing — the offender is still failed on the run that CAN name it.
+    current_pr = _pre_smoke._current_pr_number(REPO_ROOT)
+    blocking = select_for_current_pr(structured_only, current_pr)
+    if structured_only and not blocking:
+        logging.getLogger(__name__).info(
+            "pr_phase_alignment: %d offender(s) seen across open PRs; none belong "
+            "to the PR under validation (%s), so none block this run",
+            len(structured_only), current_pr,
+            extra={"offenders_seen": len(structured_only), "current_pr": current_pr},
+        )
     assert_disposition_satisfied(
         validator_id="pr_phase_alignment",
-        violations=structured_only,
+        violations=blocking,
     )
 
 
