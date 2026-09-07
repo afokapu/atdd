@@ -1,74 +1,74 @@
 #!/bin/sh
-# ATDD managed hook dispatcher — DO NOT EDIT (#1492).
+# ATDD pre-merge-commit hook — version gate + main-merge protection.
+# Installed by `atdd init`.
 #
-# This file is FIXED CONTENT. The real logic for this hook lives in the
-# INSTALLED atdd package, and this dispatcher does nothing but exec it.
-#
-# Why: `.atdd/hooks/*` used to be a snapshot COPY of the packaged templates,
-# refreshed only by `atdd init --force` — a flag that is forbidden because it
-# caused #793. So every hook fix ever made reached only repos initialised after
-# it landed, and 6 of 11 hooks were never installed at all. A dispatcher has no
-# logic to go stale: `pipx upgrade atdd` is now sufficient to propagate a hook
-# fix, and the pre-push version gate (#1449) already keeps everyone current.
-#
-# Editing this file changes nothing about the logic that runs. It will be
-# replaced on the next `atdd sync` (your copy is preserved as *.local.bak).
-#
-# FAILS CLOSED: if the packaged hook cannot be resolved, this BLOCKS rather
-# than silently allowing. A guard that allows on error is not a guard — that is
-# the claude-pre-tool-use.sh defect (inert in every consumer repo). There is
-# deliberately no bypass env var here: E030 retired that entire class.
+# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
+# For genuine emergencies: atdd emergency --reason "<reason>"
 
-_HOOK_NAME='pre-merge-commit'
+set -e
 
-# Resolve the packaged hook via the `atdd` console script, which is the only
-# entry point that survives a pipx install (the toolkit lives in an isolated
-# venv that a bare `python3` cannot import — measured, #1492).
-_resolve_packaged_hook() {
-    _atdd_bin=$(command -v atdd 2>/dev/null) || return 1
-    [ -n "$_atdd_bin" ] || return 1
-    # </dev/null: never consume the hook's stdin (pre-push reads refs from it).
-    "$_atdd_bin" hooks path "$_HOOK_NAME" 2>/dev/null </dev/null
-}
+# --- Emergency bypass check (E031) ---
+_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
 
-# Retry, because `pipx upgrade atdd` unlinks the console script for ~1.3s of its
-# ~6s run (measured, #1492). Without this, an upgrade racing a commit would fire
-# the block spuriously — and an enforcement message that cries wolf is how
-# operators learn to reach for bypasses (#1442). Retrying rides through the
-# transient window; a genuinely absent atdd still blocks, which is correct.
-_HOOK_PATH=''
-_try=0
-while [ "$_try" -lt 3 ]; do
-    _HOOK_PATH=$(_resolve_packaged_hook)
-    if [ -n "$_HOOK_PATH" ] && [ -f "$_HOOK_PATH" ]; then
-        break
+# --- Source-checkout live-source bridge (#928 Gap 4 Item 3) ---
+# Inside the atdd toolkit source checkout, prepend src/ so the bare `python3`
+# version gate AND `atdd validate` import atdd from the WORKING TREE, not the
+# installed wheel. Removes the manual `PYTHONPATH=src` bridge; no-op elsewhere.
+if [ -n "$_REPO_ROOT" ] && [ -d "$_REPO_ROOT/src/atdd" ] && \
+   grep -q '^name = "atdd"' "$_REPO_ROOT/pyproject.toml" 2>/dev/null; then
+    export PYTHONPATH="$_REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+fi
+if [ -n "$_REPO_ROOT" ]; then
+    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
+    if [ -f "$_BYPASS_FILE" ]; then
+        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
+            printf "ATDD: Emergency bypass active (pre-merge-commit). Reason: %s\n" \
+                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
+            exit 0
+        else
+            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
+        fi
     fi
-    _HOOK_PATH=''
-    _try=$((_try + 1))
-    if [ "$_try" -lt 3 ]; then
-        sleep 1
-    fi
-done
-
-if [ -z "$_HOOK_PATH" ]; then
-    # `echo` only, never `cat <<EOF`: this branch runs precisely when the
-    # environment is broken, and a message that needs an external binary to
-    # print is a message that goes missing when it matters most. `echo` is a
-    # shell builtin and always available.
-    echo "" >&2
-    echo "ATDD: cannot resolve the packaged '$_HOOK_NAME' hook from the installed atdd." >&2
-    echo "" >&2
-    echo "The guard could not run, so this operation is BLOCKED rather than" >&2
-    echo "silently allowed. This is an install problem, not a problem with" >&2
-    echo "your change." >&2
-    echo "" >&2
-    echo "Repair:" >&2
-    echo "  pipx upgrade atdd        # or: pipx install --force atdd" >&2
-    echo "  atdd doctor              # diagnose interpreter / PATH problems" >&2
-    echo "" >&2
-    exit 1
 fi
 
-# exec via `sh` rather than relying on the executable bit surviving the wheel.
-# Every hook template is #!/bin/sh (enforced by the dispatcher-parity test).
-exec sh "$_HOOK_PATH" "$@"
+# --- Version gate ---
+python3 -c "
+import sys
+try:
+    from atdd.version_check import _gate_main
+    _gate_main()
+except ImportError:
+    print('ATDD: the python3 running this hook (' + sys.executable + ') cannot import atdd.', file=sys.stderr)
+    print('  This is an environment/path problem, NOT a stale package: atdd is', file=sys.stderr)
+    print('  likely installed in an isolated venv (pipx) that is not on the path', file=sys.stderr)
+    print('  of this interpreter. Diagnose and fix:  atdd doctor', file=sys.stderr)
+    sys.exit(1)
+" 2>&1
+if [ $? -ne 0 ]; then exit 1; fi
+
+# --- Block merges into main/master ---
+BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+case "$BRANCH" in
+    main|master) ;;
+    *) exit 0 ;;
+esac
+
+# Allow: CI-only env bypass
+if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_MERGE:-0}" = "1" ]; then
+    exit 0
+fi
+
+cat >&2 <<EOF
+
+ATDD: Direct merges into $BRANCH are blocked.
+
+Use a PR workflow instead of merging locally.
+Work in a worktree branch:
+  atdd branch <issue-number>
+
+CI bypass (requires CI=true):
+  CI=true ATDD_ALLOW_MAIN_MERGE=1 git merge ...
+
+EOF
+exit 1
