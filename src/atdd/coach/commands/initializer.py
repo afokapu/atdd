@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import yaml
+from atdd.coach.utils.yaml_block_edit import remove_top_level_block, set_top_level_block
 
 logger = logging.getLogger(__name__)
 
@@ -787,9 +788,12 @@ class ProjectInitializer:
         if cfg.get("repo") == repo_block:
             return  # already current — no-op
 
-        cfg["repo"] = repo_block
-        with open(self.config_file, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        # #1455: edit the `repo:` block in place. Loading and re-dumping the
+        # whole document discards every operator comment — PyYAML drops them at
+        # parse — and this writer only ever changes one top-level key.
+        self.config_file.write_text(
+            set_top_level_block(self.config_file.read_text(), "repo", repo_block)
+        )
         print(f"  Wrote substrate fields to {self.config_file}")
 
     def _remove_substrate_config(self) -> None:
@@ -802,9 +806,10 @@ class ProjectInitializer:
         if not isinstance(cfg, dict) or "repo" not in cfg:
             return
 
-        del cfg["repo"]
-        with open(self.config_file, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        # #1455: remove only that block; the rest of the file is not re-rendered.
+        self.config_file.write_text(
+            remove_top_level_block(self.config_file.read_text(), "repo")
+        )
         print(f"  Removed substrate fields from {self.config_file}")
 
     #: Marker identifying a file we wrote, so a refresh can tell an installed
@@ -1947,8 +1952,10 @@ jobs:
             "field_schema": "atdd/coach/schemas/project_fields.schema.json",
         }
 
-        with open(self.config_file, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        # #1455: same reason — one top-level key, edited in place.
+        self.config_file.write_text(
+            set_top_level_block(self.config_file.read_text(), "github", config["github"])
+        )
 
         print(f"  Updated: {self.config_file} (github section)")
 
