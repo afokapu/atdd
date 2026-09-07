@@ -1717,6 +1717,14 @@ wagons:
       when it cannot be resolved, by naming the issue and the branch in that refusal,
       and by printing the branch beside the commit so a token naming one branch while
       attesting another's commit is legible (#1765)
+    E071: 'minimize quantity of smoke-acceptances-unclassified-by-whether-they-can-produce-a-live-smoke-attestation
+      by adding a live-smoke-attestability axis to E027''s existing docs/smoke-audit.md
+      census — can-attest-today / should-declare / never-attestable-by-construction
+      — and closing that census gate''s open direction so no row survives its acceptance
+      URN, giving the planner-side obligation smoke_obligation.py deliberately defers
+      an empirical target list before it is made mandatory against 299 SMOKE acceptances
+      of which exactly one declares execution_kind: live_smoke (#1664, after #1602
+      and E069)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

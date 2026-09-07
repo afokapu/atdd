@@ -76,15 +76,21 @@ def train_wagons(trains_doc: dict) -> Set[str]:
     a train names its wagons in ``wagons[]``. Groups and categories are opaque
     here: membership is what matters, not which train confers it.
     """
-    wagons: Set[str] = set()
-    for group in (trains_doc.get("trains") or {}).values():
-        if not isinstance(group, dict):
-            continue
-        for entries in group.values():
-            for entry in entries or []:
-                if isinstance(entry, dict):
-                    wagons.update(entry.get("wagons") or [])
-    return wagons
+    return {w for group in (trains_doc.get("trains") or {}).values()
+            for entry in _train_entries(group)
+            for w in (entry.get("wagons") or [])}
+
+
+def _train_entries(group: object) -> List[dict]:
+    """Every train dict inside one ``trains -> <group>`` block.
+
+    A group nests one more level by category (``nominal``, ``exception``, ...),
+    and malformed entries are skipped rather than raising: this walks authored
+    YAML, and a classifier that crashes on a bad document classifies nothing.
+    """
+    if not isinstance(group, dict):
+        return []
+    return [e for entries in group.values() for e in (entries or []) if isinstance(e, dict)]
 
 
 def classify(
