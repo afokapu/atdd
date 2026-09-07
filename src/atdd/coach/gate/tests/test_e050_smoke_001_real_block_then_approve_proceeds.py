@@ -78,9 +78,9 @@ def test_blocked_without_token_then_proceeds_after_real_approve(tmp_path: Path, 
     assert proceeded.proceed is True
 
     # 4) Scope isolation under the real path: the PLANNED->RED token does NOT
-    #    unlock RED->GREEN (which the registration also gates a check on).
+    #    unlock REFACTOR->COMPLETE. REFACTOR->COMPLETE rather than RED->GREEN since #1798: RED is declared `autonomy: agent`, so the approval check is NOT_APPLICABLE there and the isolation this asserts could no longer be observed on that edge.
     next_ctx = GateContext(
-        issue_number=1017, from_phase="RED", to_phase="GREEN", worktree=tmp_path
+        issue_number=1017, from_phase="REFACTOR", to_phase="COMPLETE", worktree=tmp_path
     )
-    next_gated = {"gate": {"transitions": {"RED->GREEN": True}}}
+    next_gated = {"gate": {"transitions": {"REFACTOR->COMPLETE": True}}}
     assert evaluate_transition_gate(registry, next_gated, next_ctx).proceed is False

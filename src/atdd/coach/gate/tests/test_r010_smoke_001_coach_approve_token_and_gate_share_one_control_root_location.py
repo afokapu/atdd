@@ -125,11 +125,11 @@ def test_real_approve_and_real_gate_share_one_control_root_location(
     assert evaluate_transition_gate(registry, _GATED_CONFIG, _ctx(sibling)).proceed is True
 
     # 5) Scope isolation still holds on the real path: the PLANNED->RED receipt
-    #    does not unlock RED->GREEN.
+    #    does not unlock REFACTOR->COMPLETE. REFACTOR->COMPLETE rather than RED->GREEN since #1798: RED is declared `autonomy: agent`, so the approval check is NOT_APPLICABLE there and the isolation this asserts could no longer be observed on that edge.
     next_ctx = GateContext(
-        issue_number=_ISSUE, from_phase="RED", to_phase="GREEN", worktree=child
+        issue_number=_ISSUE, from_phase="REFACTOR", to_phase="COMPLETE", worktree=child
     )
-    next_gated = {"gate": {"transitions": {"RED->GREEN": True}}}
+    next_gated = {"gate": {"transitions": {"REFACTOR->COMPLETE": True}}}
     assert evaluate_transition_gate(registry, next_gated, next_ctx).proceed is False
 
 

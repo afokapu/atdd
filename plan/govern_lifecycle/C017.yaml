@@ -1,0 +1,72 @@
+urn: "wmbt:govern-lifecycle:C017"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "operator-approval-tokens-demanded-on-an-edge-the-machine-declares-agent-submittable"
+context_clarifier: "when a phase-transition gate evaluates, because gate.transitions gates an EDGE while two checks of different kinds ride on it: SMOKE->REFACTOR is listed to switch on the #1602 smoke-execution evidence check, and ApprovalTokenGateCheck attaches to the same edge as collateral, so the lifecycle stops on a human at an edge phase_machine.convention.yaml declares autonomy agent on the stated grounds that it gates machine-checkable evidence rather than an operator's judgement"
+lens: "functional.effectiveness"
+statement: "minimize quantity of operator-approval-tokens-demanded-on-an-edge-the-machine-declares-agent-submittable when a phase-transition gate evaluates"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C017-UNIT-001-an-agent-edge-owes-no-approval-token"
+      id: "AC-UNIT-001"
+      purpose: "The approval check reports not-applicable on an edge whose FROM phase declares autonomy agent"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A gate context for an edge whose FROM phase declares autonomy agent"
+        - "No approval token on disk for that edge"
+    when:
+      abstract: "ApprovalTokenGateCheck runs"
+    then:
+      abstract:
+        - "The verdict is NOT_APPLICABLE, so the transition proceeds without a token"
+        - "The message names the declared autonomy, so the reason is attributable to the convention"
+        - "An operator edge with no token still FAILS, so the change removes no existing refusal"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"
+  - identity:
+      urn: "acc:govern-lifecycle:C017-UNIT-002-doubt-keeps-the-gate"
+      id: "AC-UNIT-002"
+      purpose: "Only a positive read of autonomy agent lifts the token requirement"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A phase machine that cannot be read, or a phase declaring no autonomy, or any value other than agent"
+    when:
+      abstract: "ApprovalTokenGateCheck runs against an edge with no token"
+    then:
+      abstract:
+        - "The token is still demanded, so uncertainty keeps the gate rather than opening it"
+        - "An unreadable machine is reported rather than swallowed"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"
+  - identity:
+      urn: "acc:govern-lifecycle:C017-SMOKE-001-the-real-repo-demands-no-token-on-smoke-to-refactor"
+      id: "AC-SMOKE-001"
+      purpose: "In a real checkout the repo's own committed machine lifts the token on SMOKE->REFACTOR while the edge stays gated"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The repository's committed phase machine and .atdd/config.yaml, read from disk"
+    when:
+      abstract: "The approval check runs on SMOKE->REFACTOR with no token present"
+    then:
+      abstract:
+        - "The verdict is NOT_APPLICABLE, so no operator stop remains on that edge"
+        - "SMOKE->REFACTOR is still listed in gate.transitions, so the #1602 evidence check still runs"
+        - "PLANNED->RED still demands a token, so the one operator judgement gate is untouched"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"

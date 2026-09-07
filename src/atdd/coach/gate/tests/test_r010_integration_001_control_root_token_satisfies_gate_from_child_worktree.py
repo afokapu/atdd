@@ -113,7 +113,9 @@ def test_legacy_worktree_local_token_still_passes_the_gate(nested_worktree):
 
 
 def test_scope_isolation_survives_the_move(nested_worktree):
-    """A Control-Root PLANNED->RED token does NOT unlock RED->GREEN.
+    """A Control-Root PLANNED->RED token does NOT unlock REFACTOR->COMPLETE.
+
+    REFACTOR->COMPLETE rather than RED->GREEN since #1798: RED is declared `autonomy: agent`, so the approval check is NOT_APPLICABLE there and the isolation this asserts could no longer be observed on that edge.
 
     Moving the base must not weaken the scope binding the token already had:
     the relpath is per-transition, and verify_token still checks the signed scope.
@@ -122,7 +124,7 @@ def test_scope_isolation_survives_the_move(nested_worktree):
     _write_token(control_root)
 
     other = GateContext(
-        issue_number=_ISSUE, from_phase="RED", to_phase="GREEN", worktree=child
+        issue_number=_ISSUE, from_phase="REFACTOR", to_phase="COMPLETE", worktree=child
     )
     assert ApprovalTokenGateCheck(signing_key=_KEY).run(other).passed is False
 

@@ -85,6 +85,31 @@ def _declared_targets(spec) -> Tuple[str, ...]:
     return tuple(str(t).upper() for t in targets if t)
 
 
+def declared_autonomy(phase: str, path: Optional[Path] = None) -> Optional[str]:
+    """The ``autonomy`` scalar the machine declares for ``phase`` (#1798).
+
+    The submitting-authority axis #1626 added. It reads from the SAME file and
+    raises the SAME :class:`PhaseMachineUnavailable` as :func:`phase_machine`, so
+    a caller cannot end up with one function's answer and the other's silence.
+
+    Returns ``None`` when the phase is absent or declares no autonomy — a fact,
+    not a failure. Callers decide what an absent declaration means; the gate
+    treats it as "keep the gate".
+    """
+    source = Path(path) if path is not None else PHASE_MACHINE_PATH
+    try:
+        data = yaml.safe_load(source.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise PhaseMachineUnavailable(
+            f"the phase machine at {source} could not be read: {exc}"
+        ) from exc
+
+    phases = (data or {}).get("phases") or {}
+    spec = phases.get(phase) or {}
+    value = spec.get("autonomy") if isinstance(spec, dict) else None
+    return value if isinstance(value, str) else None
+
+
 def phase_machine(path: Optional[Path] = None) -> Dict[str, Tuple[str, ...]]:
     """``{PHASE: (reachable, phases, ...)}`` as the convention declares it.
 
