@@ -341,7 +341,7 @@ def _upgrade_sync_message(last_version: str) -> Optional[str]:
     upgrade notes appended. None when the installed version is not newer."""
     if not _is_newer(__version__, last_version):
         return None
-    msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init"
+    msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd upgrade"
     notes = get_upgrade_notes(last_version, __version__)
     if notes:
         msg += "\n" + "\n".join(f"  → {v}: {note}" for v, note in notes)
@@ -393,7 +393,7 @@ def check_upgrade_sync_needed() -> Optional[str]:
             # An ATDD repo that has never recorded a sync (fresh init, or a
             # config predating the legacy field). Treat as needing sync — but
             # with no credible from-version, do not invent one.
-            return f"ATDD upgraded to {__version__}. Run: atdd sync && atdd init"
+            return f"ATDD upgraded to {__version__}. Run: atdd upgrade"
 
     return _upgrade_sync_message(recorded)
 

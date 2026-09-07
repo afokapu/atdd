@@ -1436,10 +1436,6 @@ wagons:
       an issue by validating the body against issue.schema.json before any GitHub
       call and publishing store-first via a single create (#792; the mint-path create+edit
       acceptances retired with the mint path in #1477)'
-    E020: minimize codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md
-      by renaming the persona template to CONDUCTOR.md.tmpl, updating AgentConfigSync.AGENT_FILES['codex']
-      to 'CONDUCTOR.md', and emitting a migration notice when a stale AGENTS.md with
-      managed block is detected (#794)
     E021: minimize registry-mirror-drift-accumulates-on-main-because-no-push-or-ci-gate-enforces-atdd-registry-update-before-landing
       by applying a one-shot atdd registry update --yes chore commit, wiring atdd
       registry update --check into the pre-push hook, and adding a required atdd-registry-drift
@@ -1683,19 +1679,14 @@ wagons:
       by widening the signed scope to bind the branch and an expiry, so verification
       rejects a token presented on a branch it was not signed for and a token presented
       after its expiry
-    E065: 'minimize likelihood of the-claude-md-agent-context-file-exceeding-the-operator-line-budget-or-losing-its-atdd-lifecycle-and-command-pointers
-      (rehomed from spawn-agents #1483)'
     E066: 'minimize likelihood of the-operator-emergency-bypass-doc-being-absent-or-documenting-an-env-var-escape-hatch-instead-of-the-cli
       (rehomed from spawn-agents #1483)'
     E067: 'minimize likelihood of the-deployed-freedom-layer-allow-list-pre-authorizing-a-forbidden-command-or-an-unscoped-bash-prefix
       (rehomed from spawn-agents #1483; policy/freedom_layer_bash_scope variant is
       still live)'
-    E068: 'minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-or-a-destructive-force-flag-to-agents
-      (rehomed from spawn-agents #1483; renumbered from E064 which origin/main claimed)'
-    R007: 'minimize likelihood of the-claude-md-size-budget-rule-being-absent-from-the-atdd-validate-coach-surface
-      (rehomed from spawn-agents #1483)'
-    R008: 'minimize likelihood of the-no-bypass-advertising-rule-being-absent-from-the-atdd-validate-coach-surface
-      (rehomed from spawn-agents #1483)'
+    E068: minimize likelihood of an-upgrade-banner-teaching-agents-to-run-a-forbidden-flag
+      by keeping the banner free of `--force` and naming a verb that can act (#1811
+      retired this WMBT's three CLAUDE.md acceptances with the projection itself)
     E069: 'minimize likelihood of a-smoke-execution-gate-that-no-run-can-ever-satisfy-because-the-repo-declares-zero-live-smoke-acceptances-so-smoke-to-refactor-is-reachable-only-by-force
       by declaring the repo''s first execution_kind: live_smoke acceptance and anchoring
       it to a test that drives the whole #1602 chain against real infrastructure through
@@ -2856,8 +2847,6 @@ wagons:
     P001: Define validate lifecycle train
     R001: Wire URN traceability across plan, test, code
     K001: Both atdd validate and local pytest pass on the toolkit itself
-    Y001: atdd sync preserves user content outside managed block and warns on within-block
-      deletions
   total: 0
   manifest: plan/self_compliance_migration/_self_compliance_migration.yaml
   path: plan/self_compliance_migration/

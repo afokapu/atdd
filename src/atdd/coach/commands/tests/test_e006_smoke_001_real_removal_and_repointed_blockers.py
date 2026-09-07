@@ -15,7 +15,6 @@ The four orphan classes this pins:
   1. the CLI surface itself                (`atdd issue` -> fail-loud, rc != 0)
   2. the shipped `gh issue create` blockers (gh.shim / pre-commit / PreToolUse)
   3. the coach convention `cli_commands:`   (issue.convention.yaml)
-  4. the managed CONDUCTOR.md `issues:` block
 """
 from __future__ import annotations
 
@@ -155,11 +154,9 @@ def test_issue_convention_cli_commands_names_coach_and_author():
         )
 
 
-def test_conductor_template_issues_block_names_coach_and_author():
-    text = _repo_text("src/atdd/coach/templates/CONDUCTOR.md")
-    assert 'enter: "atdd coach' in text or "enter: 'atdd coach" in text
-    assert '"atdd issue <N>"' not in text
-    assert '"atdd issue <N> --status <STATUS>"' not in text
+# #1811 retired the agent-config projection, so there is no CONDUCTOR.md template
+# left to assert on. The surviving checks below cover the same ground where it
+# still exists: the convention document and the live CLI deprecation hints.
 
 
 def test_no_deprecation_warning_recommends_the_removed_command():
