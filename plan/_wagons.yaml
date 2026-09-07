@@ -142,7 +142,7 @@ wagons:
   consume: []
   wmbt:
     total: 29
-    E010: minimize likelihood of a body-store-divergence for the documentation obligation,
+    E011: minimize likelihood of a body-store-divergence for the documentation obligation,
       by projecting the stored declaration into the issue body in one direction only
       and never parsing the rendered row back
     D001: maximize likelihood of schema-valid substrate by defining one canonical
@@ -1362,7 +1362,7 @@ wagons:
     from: wagon:implement-code
   wmbt:
     total: 121
-    C017: minimize likelihood of an undocumented-completion, by refusing the COMPLETE
+    C019: minimize likelihood of an undocumented-completion, by refusing the COMPLETE
       transition when the declared documentation obligation is unresolved or could
       not be observed
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
