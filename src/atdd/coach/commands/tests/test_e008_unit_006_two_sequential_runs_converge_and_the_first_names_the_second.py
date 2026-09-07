@@ -107,13 +107,15 @@ def test_e008_unit_006_second_run_finishes_the_sync_and_a_third_is_a_no_op(tmp_p
     # when the shared install moved 4.27.0 -> 4.28.0 mid-session.
     with patch("atdd.coach.commands.upgrader.__version__", "4.27.0"), \
          patch("atdd.version_check.__version__", "4.27.0"), \
-         patch("atdd.coach.commands.upgrader.subprocess.run", return_value=_Ok()) as ran, \
+         patch("atdd.coach.commands.upgrader.run_repo_refresh", return_value=0) as ran, \
          patch("sys.stdin.isatty", return_value=False), \
          patch("builtins.input", side_effect=exploding_input):
         rc_two = Upgrader(repo_root=tmp_path).run(yes=False, no_pypi=True)
 
     assert rc_two == 0, f"the second step must succeed, got {rc_two}"
-    assert ran.call_count >= 2, "the second step must run sync and init --force"
+    # #1820: one in-process refresh, not two shelled verbs. The second used to be
+    # `atdd init --force`, forbidden by #793 and a no-op per #1600.
+    assert ran.call_count == 1, "the second step must perform the refresh"
 
     # Step three: nothing left to do.
     with patch("atdd.coach.commands.upgrader.__version__", "4.27.0"), \
