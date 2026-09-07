@@ -69,8 +69,19 @@ def test_e008_smoke_001_two_real_concurrent_upgrades_serialise_on_one_install(tm
         )
 
     # Both checkouts end up stamped current — no partial install left behind.
+    #
+    # #1820: read the stamp where it actually lives. `config.yaml` only ever
+    # changed here because the run ended in `atdd init --force`, which rewrote it;
+    # that flag is forbidden (#793) and the refresh no longer shells it. The stamp
+    # is the untracked per-checkout record (#1641) — git-tracked `config.yaml` was
+    # reverted by every checkout and absent in every fresh worktree, which is why
+    # #1641 moved it.
     for repo in (repo_a, repo_b):
-        stamp = (repo / ".atdd" / "config.yaml").read_text()
+        record = repo / ".atdd" / "runtime" / "toolkit-sync.json"
+        assert record.is_file(), (
+            f"{repo.name} wrote no sync record — the refresh did not complete"
+        )
+        stamp = record.read_text()
         assert "0.0.1" not in stamp, (
-            f"{repo.name} was left on its stale stamp — the sync did not complete:\n{stamp}"
+            f"{repo.name} was left on its stale stamp — the refresh did not complete:\n{stamp}"
         )

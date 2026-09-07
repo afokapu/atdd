@@ -43,18 +43,15 @@ def test_y007_unit_002_no_tty_sync_prompt_resolves_without_input(tmp_path, monke
         return _Ok()
 
     with patch("atdd.coach.commands.upgrader.__version__", "4.27.0"), \
-         patch("atdd.coach.commands.upgrader.subprocess.run", side_effect=record), \
+         patch("atdd.coach.commands.upgrader.run_repo_refresh", side_effect=lambda *_a, **_k: calls.append(["refresh"]) or 0), \
          patch("sys.stdin.isatty", return_value=False), \
          patch("builtins.input", side_effect=exploding_input):
         rc = Upgrader(repo_root=tmp_path).run(yes=False, no_pypi=True)
 
     assert rc == 0, f"a no-TTY sync run must complete, got rc={rc}"
 
+    # #1820: the refresh is performed in-process. It used to be `atdd sync`
+    # followed by `atdd init --force`; the second is forbidden by #793 and, per
+    # #1600, returns 1 without bootstrapping anything on an initialised repo.
     joined = [" ".join(c) for c in calls]
-    assert any("sync" in c for c in joined), f"atdd sync was not run; calls={joined}"
-    assert any("init" in c and "--force" in c for c in joined), (
-        f"atdd init --force was not run; calls={joined}"
-    )
-    sync_at = next(i for i, c in enumerate(joined) if "sync" in c)
-    init_at = next(i for i, c in enumerate(joined) if "init" in c)
-    assert sync_at < init_at, f"sync must precede init --force; calls={joined}"
+    assert any("refresh" in c for c in joined), f"the refresh did not run; calls={joined}"

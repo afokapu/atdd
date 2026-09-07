@@ -6,6 +6,7 @@ Classification of `# Phase: SMOKE` acceptance tests against real-infrastructure 
 |---|---|---|---|---|
 | acc:govern-providers:E004-SMOKE-001-real-lock-narrows-to-one-selected-rule | real (the toolkit's own committed .atdd/binding.lock.yaml) | rule selection narrows the bound set to exactly the named convention | single direction | #1674 (enforce rule selection; no synthetic substrate — asserts against the real lock) |
 | acc:author-atdd-substrate:E009-SMOKE-001-real-repo-declares-no-review-rules | real (the toolkit's own committed .atdd/config.yaml) | the repo declares no author_review rules, so authoring stays unguarded | single direction | #1674 (pre-write review seam; guards the agnosticism claim — red here means the toolkit opted itself in) |
+| acc:coach-ops:C001-SMOKE-001-the-real-verdict-comes-from-the-pull-request | real (a pull request this repository actually merged, read through gh) | the probe reports it merged, and does not report an open PR as merged | gh pr view -> merge_pr classification | #1816 (a successful merge was reported as a conflict and halted the wave, 4 of 4 merges) |
 | acc:govern-lifecycle:C019-SMOKE-001-the-real-read-verb-mutates-nothing | real (a real checkout; git branch and worktree listings captured before and after) | both listings are byte-identical after `atdd coach issues <N>` | shell -> atdd coach issues -> issue_read.run | #1708 (the read verb created a worktree, a local branch and a pushed remote branch) |
 | acc:govern-lifecycle:C017-SMOKE-001-the-real-repo-demands-no-token-on-smoke-to-refactor | real (the toolkit's own committed phase_machine.convention.yaml and .atdd/config.yaml, read from disk) | the approval check returns NOT_APPLICABLE on SMOKE->REFACTOR while the edge stays gated, and PLANNED->RED still demands a token | phase machine autonomy → ApprovalTokenGateCheck verdict | #1798 (the edge was gated for #1602 evidence; the operator token rode along as collateral) |
 | acc:govern-lifecycle:C018-SMOKE-001-the-live-open-pr-set-passes-the-guard | real (the repository's live open pull requests via gh pr list) | a PR whose base is another open PR's head contributes no violation | gh pr list -> evaluate_base_violations -> disposition gate | #1802 (a tracked stack failed validate-coach on every open PR in the queue) |
@@ -47,12 +48,13 @@ header. Axis 3 is whether CI runs that test under a runner that installs the dis
 since attestation is written by the `atdd_substrate` pytest11 entry point and
 `PYTHONPATH=src` loads the code but not the plugin — both invocations report passed.
 
-Recounted on `fix/ci-attestation-cannot-reach-the-gate` (#1815). Axes 1 and 2 are
-untouched, so the class counts move only with `plan/`.
+Recounted on `fix/ci-attestation-cannot-reach-the-gate` (#1815), and again after merging
+#1819, which added a SMOKE acceptance. Axes 1 and 2 are untouched, so the class counts
+move only with `plan/`.
 
 | class | count |
 |---|---|
-| should-declare | 285 |
+| should-declare | 286 |
 | (stale — no such acceptance in plan/) | 60 |
 | unresolved | 29 |
 | can-attest-today | 11 |
@@ -60,7 +62,7 @@ untouched, so the class counts move only with `plan/`.
 | ci-runner | count |
 |---|---|
 | ci-runs-with-hook | 185 |
-| not-run-by-ci | 136 |
+| not-run-by-ci | 137 |
 | ci-runs-but-test-opts-out | 4 |
 | ci-runs-without-hook | 0 |
 | — | 60 |
