@@ -103,6 +103,31 @@ def test_smoke_001_the_two_subsets_collect_the_whole_suite() -> None:
     assert parallel > 0, "the parallel subset is empty — the split bought nothing"
 
 
+
+def _job_provides_xdist(root: Path, steps: str) -> bool:
+    """Whether a job's install steps put pytest-xdist in the environment.
+
+    Two spellings satisfy `-n auto`, and pinning either one alone rots. Naming the
+    package is the obvious one. The other is installing THIS project — #1604 made
+    every pytest job run `pip install -e .` so the substrate pytest11 hook is
+    loadable, and `[project.dependencies]` declares pytest-xdist, so the job stopped
+    naming it. That is why the declaration is READ here rather than assumed: drop
+    pytest-xdist from `pyproject.toml` while the job names nothing, and this reds,
+    which is exactly the state that would break `-n auto`.
+    """
+    if "pytest-xdist" in steps:
+        return True
+    if not re.search(r"pip3?\s+install[^\n]*-e\s+\.", steps):
+        return False
+    try:
+        import tomllib
+    except ImportError:  # Python < 3.11
+        import tomli as tomllib  # type: ignore[import-not-found]
+    with open(root / "pyproject.toml", "rb") as fh:
+        declared = (tomllib.load(fh).get("project") or {}).get("dependencies") or []
+    return any(str(d).split("[")[0].split(">")[0].split("=")[0].strip() == "pytest-xdist"
+               for d in declared)
+
 def test_smoke_002_ci_runs_both_subsets_and_the_gate_fans_in_both() -> None:
     """E036-SMOKE-002: both jobs exist, select complementary halves, and reach validate-gate."""
     root = _repo_root()
@@ -124,9 +149,10 @@ def test_smoke_002_ci_runs_both_subsets_and_the_gate_fans_in_both() -> None:
     assert "-n auto" in parallel_steps, (
         f"`{PARALLEL_JOB}` does not run under xdist — the whole point of the split is unrealised"
     )
-    assert "pytest-xdist" in parallel_steps, (
-        f"`{PARALLEL_JOB}` runs `-n auto` without installing pytest-xdist; the job's pip install "
-        "is a bare list that does not read pyproject.toml, so the flag would be an unknown option"
+    assert _job_provides_xdist(root, parallel_steps), (
+        f"`{PARALLEL_JOB}` runs `-n auto` without installing pytest-xdist, so the flag would be "
+        f"an unknown option and the job would die before collecting anything. It must either "
+        f"name the package or install one that declares it."
     )
     assert f'-m "{SERIAL_MARKER}"' in serial_steps, (
         f"`{SERIAL_JOB}` does not select the mutating half with -m \"{SERIAL_MARKER}\""

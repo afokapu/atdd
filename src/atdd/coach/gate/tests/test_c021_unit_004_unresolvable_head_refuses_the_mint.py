@@ -97,6 +97,14 @@ def _headless(tmp_path: Path) -> Path:
 
 
 def _with_head(tmp_path: Path) -> Path:
+    """The discriminating control: a repo where the ISSUE's head resolves.
+
+    Was "a repo where ``HEAD`` resolves" until #1765, which is a different
+    question — and the reason two approvals were evaluated against a third
+    branch's commit. The mint reads ``refs/heads/<the branch the store binds this
+    issue to>``, so the control has to carry that branch; a checkout on ``master``
+    with a commit resolves ``HEAD`` fine and still names nothing about #999024.
+    """
     root = _config(tmp_path / "checkout")
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(
@@ -104,6 +112,7 @@ def _with_head(tmp_path: Path) -> Path:
          "-q", "--allow-empty", "-m", "root"],
         cwd=root, check=True,
     )
+    subprocess.run(["git", "checkout", "-q", "-b", _BRANCH], cwd=root, check=True)
     return root
 
 

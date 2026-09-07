@@ -1,0 +1,49 @@
+urn: "wmbt:implement-code:E002"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "convention-registry-builds-forced-by-cli-startup"
+context_clarifier: "when the CLI entrypoint is imported to dispatch any command, because a module-scope bind_rule reached through atdd.coach.commands.issue builds the whole convention registry before argparse has even chosen a subcommand, and the four git hooks pay it several times per commit"
+lens: "functional.efficiency"
+statement: "minimize quantity of convention-registry-builds-forced-by-cli-startup when the CLI entrypoint is imported to dispatch any command"
+acceptances:
+  - identity:
+      urn: "acc:implement-code:E002-UNIT-001-cli-import-pulls-no-rule-binding"
+      id: "AC-UNIT-001"
+      purpose: "Importing the CLI entrypoint must not drag the convention registry in with it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A fresh interpreter with no atdd modules imported"
+    when:
+      abstract: "atdd.cli is imported, as every CLI invocation does before dispatch"
+    then:
+      abstract:
+        - "atdd.coach.utils.artifact_claims is absent from sys.modules"
+        - "The check names any offending module, so a newly added eager import is attributable"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"
+  - identity:
+      urn: "acc:implement-code:E002-SMOKE-001-real-cli-help-does-not-build-the-registry"
+      id: "AC-SMOKE-001"
+      purpose: "The real CLI, in a real checkout, answers --help without building the registry"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the repo CLI invoked as `python -m atdd`"
+    when:
+      abstract: "`atdd --help` runs as a subprocess and reports the atdd modules it imported"
+    then:
+      abstract:
+        - "The help text is produced and the process exits zero"
+        - "No convention registry is built, so the deferred import holds through real dispatch and not only under direct import"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"

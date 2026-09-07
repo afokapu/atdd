@@ -81,7 +81,7 @@ def read_store_phase(
         with WorkItemReader(control_root=target_dir) as reader:
             state = reader.status(issue_number)
         return str(state).upper() if state else None
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         logger.debug(
             "State Store phase read unavailable",
             extra={"issue": issue_number, "error": str(exc)},

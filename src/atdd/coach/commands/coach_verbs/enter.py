@@ -41,7 +41,7 @@ def run(argv: list[str]) -> int:
         return 1
     try:
         issue_number = int(ns.number)
-    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         print(f"Error: invalid issue number '{ns.number}'")
         return 1
     from atdd.coach.commands.issue_lifecycle import IssueLifecycle

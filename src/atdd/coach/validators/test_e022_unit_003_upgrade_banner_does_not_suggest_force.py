@@ -8,13 +8,16 @@
 
 Same problem class as E022-UNIT-001 (advertising destructive paths to agents):
 the ⚠️ upgrade banner emitted by `check_upgrade_sync_needed()` previously
-read "Run: atdd sync && atdd init --force", which would teach agents to run
+read "Run: atdd sync && atdd init --force", which taught agents to run
 `atdd init --force` on every upgrade — a destructive init that overwrites
 operator-customized files.
 
 Phase GREEN: version_check.py is edited to drop '&& atdd init --force',
-leaving only 'Run: atdd sync'. This test verifies both:
-  1. The banner still contains 'atdd sync' (the correct upgrade step).
+leaving only a verb that can act. #1811 retired the agent-config
+projection, so that verb is now `atdd upgrade`: `atdd init` returns 1 on an
+already-initialised repo (#1600) and `--force` is forbidden (#793). This test
+verifies both:
+  1. The banner still names a runnable verb ('atdd upgrade').
   2. The banner does NOT contain '--force'.
 """
 from __future__ import annotations
@@ -77,19 +80,19 @@ def test_upgrade_banner_does_not_contain_force():
         "E022-UNIT-003 requires the banner to omit '--force' so agents reading\n"
         "it cannot discover the destructive 'atdd init --force' flag.\n"
         "Fix: edit check_upgrade_sync_needed() in src/atdd/version_check.py to\n"
-        "use 'Run: atdd sync' instead of 'Run: atdd sync && atdd init --force'."
+        "use 'Run: atdd upgrade' instead of a banner naming a forbidden flag."
     )
 
 
-def test_upgrade_banner_still_contains_atdd_sync():
-    """E022-UNIT-003 (guard): banner still references 'atdd sync' after the --force removal."""
+def test_upgrade_banner_still_names_a_runnable_verb():
+    """E022-UNIT-003 (guard): banner still references 'atdd upgrade' after the --force removal."""
     banner = _get_banner_string()
 
-    assert "atdd sync" in banner, (
-        f"Upgrade banner does not contain 'atdd sync':\n  {banner!r}\n\n"
-        "The --force removal must not also strip the 'atdd sync' instruction.\n"
+    assert "atdd upgrade" in banner, (
+        f"Upgrade banner does not contain 'atdd upgrade':\n  {banner!r}\n\n"
+        "The --force removal must not also strip the 'atdd upgrade' instruction.\n"
         "Fix: ensure check_upgrade_sync_needed() returns a message containing\n"
-        "'atdd sync' so operators know to run the sync command."
+        "'atdd upgrade' so operators know to run the sync command."
     )
 
 

@@ -17,6 +17,11 @@
         "properties": {
           "convention_id": { "type": "string", "minLength": 1 },
           "disposition": { "type": "string", "enum": ["bound", "legacy-fallback"] },
+          "package_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The admitted package that OWNS this rule, i.e. the substrate.lock.yaml artifact whose implementation realizes it. Without it a bound rule cannot be traced back to an installed package, and the substrate coherence invariant (no rule may be bound to a package absent from substrate.lock.yaml) is unprovable. Optional in the schema only so a lock written by an older core still parses; the binder always writes it, and `atdd substrate remove` refuses to report success without it."
+          },
           "implementation_id": { "type": "string", "minLength": 1 },
           "workspace_id": { "type": "string", "minLength": 1 },
           "contract_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }

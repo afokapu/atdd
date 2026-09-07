@@ -209,6 +209,8 @@ wagons:
       checker to answer the `## Artifacts` question for both the validator and the
       runtime gate, reporting an empty declaration and an undeclared changed file
       as violations
+    E010: minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when
+      authoring an issue body
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
@@ -1286,7 +1288,13 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 119
+    total: 120
+    C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
+      by having format_fix_hint() name the consequence of the amend it prescribes
+      and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
+      author must run before pushing, over the drifted-file set the check already
+      computed, while emitting nothing on the clean path and exempting no mirror from
+      the Artifacts requirement (#1739)
     C021: minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers
       by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose
       registry holds a substantive check — where it registers the same checks the
@@ -1305,6 +1313,22 @@ wagons:
       index over that same single source so records predating the binding are not
       newly stranded, and keeping the gate's refusal confined to a branch that matches
       no work item in a populated store (#1720)
+    C017: 'minimize quantity of operator-approval-tokens-demanded-on-an-edge-the-machine-declares-agent-submittable
+      by having ApprovalTokenGateCheck report NOT_APPLICABLE when the FROM phase declares
+      autonomy agent, so the edge stays listed in gate.transitions and the #1602 evidence
+      check still runs while the human stop it attached as collateral is lifted, with
+      any doubt — an unreadable machine, an absent or non-agent value — keeping the
+      token demanded (#1798)'
+    C018: 'minimize quantity of open-prs-failed-by-another-prs-tracked-stack by exempting
+      a base that is the head of another OPEN pull request from the orphan-merge guard
+      — tracked, not phantom, and retargeted by GitHub when the base PR merges — while
+      a base belonging to no open PR still violates, so the #477 guard is narrowed
+      rather than weakened (#1802)'
+    C019: minimize quantity of filesystem-mutations-performed-by-a-read-verb by stopping
+      `atdd coach issues` delegating its show path to the entering path, and by resolving
+      the worktree-identity check through the registered branch-to-worktree binding
+      instead of a `{prefix}-{slug}` name derived from the issue body, so a worktree
+      carrying any other prefix is seen rather than duplicated beside (#1708)
     C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
       by observing the acting agent session at the mint through the shipped resolve_session()
       instead of defaulting to $USER, recording that session as its own token field
@@ -1412,10 +1436,6 @@ wagons:
       an issue by validating the body against issue.schema.json before any GitHub
       call and publishing store-first via a single create (#792; the mint-path create+edit
       acceptances retired with the mint path in #1477)'
-    E020: minimize codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md
-      by renaming the persona template to CONDUCTOR.md.tmpl, updating AgentConfigSync.AGENT_FILES['codex']
-      to 'CONDUCTOR.md', and emitting a migration notice when a stale AGENTS.md with
-      managed block is detected (#794)
     E021: minimize registry-mirror-drift-accumulates-on-main-because-no-push-or-ci-gate-enforces-atdd-registry-update-before-landing
       by applying a one-shot atdd registry update --yes chore commit, wiring atdd
       registry update --check into the pre-push hook, and adding a required atdd-registry-drift
@@ -1659,19 +1679,14 @@ wagons:
       by widening the signed scope to bind the branch and an expiry, so verification
       rejects a token presented on a branch it was not signed for and a token presented
       after its expiry
-    E065: 'minimize likelihood of the-claude-md-agent-context-file-exceeding-the-operator-line-budget-or-losing-its-atdd-lifecycle-and-command-pointers
-      (rehomed from spawn-agents #1483)'
     E066: 'minimize likelihood of the-operator-emergency-bypass-doc-being-absent-or-documenting-an-env-var-escape-hatch-instead-of-the-cli
       (rehomed from spawn-agents #1483)'
     E067: 'minimize likelihood of the-deployed-freedom-layer-allow-list-pre-authorizing-a-forbidden-command-or-an-unscoped-bash-prefix
       (rehomed from spawn-agents #1483; policy/freedom_layer_bash_scope variant is
       still live)'
-    E068: 'minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-or-a-destructive-force-flag-to-agents
-      (rehomed from spawn-agents #1483; renumbered from E064 which origin/main claimed)'
-    R007: 'minimize likelihood of the-claude-md-size-budget-rule-being-absent-from-the-atdd-validate-coach-surface
-      (rehomed from spawn-agents #1483)'
-    R008: 'minimize likelihood of the-no-bypass-advertising-rule-being-absent-from-the-atdd-validate-coach-surface
-      (rehomed from spawn-agents #1483)'
+    E068: minimize likelihood of an-upgrade-banner-teaching-agents-to-run-a-forbidden-flag
+      by keeping the banner free of `--force` and naming a verb that can act (#1811
+      retired this WMBT's three CLAUDE.md acceptances with the projection itself)
     E069: 'minimize likelihood of a-smoke-execution-gate-that-no-run-can-ever-satisfy-because-the-repo-declares-zero-live-smoke-acceptances-so-smoke-to-refactor-is-reachable-only-by-force
       by declaring the repo''s first execution_kind: live_smoke acceptance and anchoring
       it to a test that drives the whole #1602 chain against real infrastructure through
@@ -1702,6 +1717,21 @@ wagons:
       — unless the issue is standing on FROM and the machine declares FROM->TO, with
       the refusal naming the phase the issue is actually on so the operator can act
       on it (#1735)
+    C022: minimize likelihood of the-conditional-mint-evaluating-an-edges-gates-at-the-head-of-whatever-directory-the-operator-was-standing-in-rather-than-at-the-head-of-the-branch-the-state-store-binds-the-issue-to
+      by resolving the commit the same way the branch already is — reusing approval_binding.resolve_issue_branch
+      and reading refs/heads/<that branch>, which every worktree of the repository
+      shares — by refusing rather than falling back to the invoking directory's HEAD
+      when it cannot be resolved, by naming the issue and the branch in that refusal,
+      and by printing the branch beside the commit so a token naming one branch while
+      attesting another's commit is legible (#1765)
+    E071: 'minimize quantity of smoke-acceptances-unclassified-by-whether-they-can-produce-a-live-smoke-attestation
+      by adding a live-smoke-attestability axis to E027''s existing docs/smoke-audit.md
+      census — can-attest-today / should-declare / never-attestable-by-construction
+      — and closing that census gate''s open direction so no row survives its acceptance
+      URN, giving the planner-side obligation smoke_obligation.py deliberately defers
+      an empirical target list before it is made mandatory against 299 SMOKE acceptances
+      of which exactly one declares execution_kind: live_smoke (#1664, after #1602
+      and E069)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1946,6 +1976,8 @@ wagons:
     D006: minimize undetected frontend composition root drift via source scan
     D007: minimize unverified wagon trains.ts export contracts via source scan
     D008: minimize unstructured train YAML render metadata via JSON Schema
+    E002: minimize quantity of convention-registry-builds-forced-by-cli-startup when
+      the CLI entrypoint is imported to dispatch any command
   total: 0
   manifest: plan/implement_code/_implement_code.yaml
   path: plan/implement_code/
@@ -2570,7 +2602,10 @@ wagons:
     Y001: 'minimize likelihood of a slug-rename mutating object identity: renaming
       slug or title must leave uid and the .atdd/state/projection/<uid>.yaml filename
       unchanged'
-    total: 7
+    Y002: 'minimize likelihood of a rename-addressability failure: atdd state object
+      rename must address every work item the store holds, never refusing one because
+      its uid is not wi_<ULID>-shaped'
+    total: 8
   total: 0
   manifest: plan/project_shared_state/_project_shared_state.yaml
   path: plan/project_shared_state/
@@ -2817,8 +2852,6 @@ wagons:
     P001: Define validate lifecycle train
     R001: Wire URN traceability across plan, test, code
     K001: Both atdd validate and local pytest pass on the toolkit itself
-    Y001: atdd sync preserves user content outside managed block and warns on within-block
-      deletions
   total: 0
   manifest: plan/self_compliance_migration/_self_compliance_migration.yaml
   path: plan/self_compliance_migration/

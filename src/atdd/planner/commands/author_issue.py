@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
@@ -194,7 +195,7 @@ def create_issue_body(spec: dict | None = None) -> str:
         "## Issue Metadata\n\n"
         "| Field | Value |\n"
         "|-------|-------|\n"
-        "| Date | `2026-06-29` |\n"
+        f"| Date | `{date.today().isoformat()}` |\n"
         f"| Status | `{status}` |\n"
         f"| Type | `{issue_type}` |\n"
         f"| Branch | `{branch}` |\n"
@@ -281,7 +282,7 @@ def create_issue_body(spec: dict | None = None) -> str:
 
     parts.append(
         "## Activity Log\n\n"
-        "### Entry 1 (2026-06-29)\n\n"
+        f"### Entry 1 ({date.today().isoformat()})\n\n"
         "**Completed:**\n"
         "- Authored from `issue.schema.json` via `atdd author issue`.\n\n"
         "**Next:**\n"

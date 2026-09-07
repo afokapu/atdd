@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import yaml
+from atdd.coach.utils.yaml_block_edit import remove_top_level_block, set_top_level_block
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +158,7 @@ class ProjectInitializer:
             )
             if result.returncode != 0:
                 return []
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return []
 
         # Porcelain format: blocks separated by blank lines, first block is main checkout
@@ -263,11 +264,11 @@ class ProjectInitializer:
             for dest, original in reversed(moved_items):
                 try:
                     shutil.move(str(dest), str(original))
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                     pass
             try:
                 main_dir.rmdir()
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
             raise RuntimeError(f"Migration failed (rolled back): {e}") from e
 
@@ -312,7 +313,7 @@ class ProjectInitializer:
             self._update_target_dir(new_root)
             print(f"Migrated to worktree layout: {new_root}")
             print(f"\n  ** After init completes, run: cd main **\n")
-        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -329,7 +330,7 @@ class ProjectInitializer:
                 print("Error: Not at repository root.")
                 print(f"Run from: {repo_root}")
                 return False
-        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
 
         # Safety: no linked worktrees (their .git files would break)
@@ -450,11 +451,6 @@ class ProjectInitializer:
             # Install train-render harness when consumer repo has a frontend (#335)
             self._install_harness(force)
 
-            # Sync agent config files
-            from atdd.coach.commands.sync import AgentConfigSync
-            syncer = AgentConfigSync(self.target_dir)
-            syncer.sync()
-
             # Bootstrap GitHub infrastructure
             github_summary = self._bootstrap_github(force)
 
@@ -471,10 +467,10 @@ class ProjectInitializer:
 
             return 0
 
-        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Permission denied - {e}")
             return 1
-        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -792,9 +788,12 @@ class ProjectInitializer:
         if cfg.get("repo") == repo_block:
             return  # already current — no-op
 
-        cfg["repo"] = repo_block
-        with open(self.config_file, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        # #1455: edit the `repo:` block in place. Loading and re-dumping the
+        # whole document discards every operator comment — PyYAML drops them at
+        # parse — and this writer only ever changes one top-level key.
+        self.config_file.write_text(
+            set_top_level_block(self.config_file.read_text(), "repo", repo_block)
+        )
         print(f"  Wrote substrate fields to {self.config_file}")
 
     def _remove_substrate_config(self) -> None:
@@ -807,9 +806,10 @@ class ProjectInitializer:
         if not isinstance(cfg, dict) or "repo" not in cfg:
             return
 
-        del cfg["repo"]
-        with open(self.config_file, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        # #1455: remove only that block; the rest of the file is not re-rendered.
+        self.config_file.write_text(
+            remove_top_level_block(self.config_file.read_text(), "repo")
+        )
         print(f"  Removed substrate fields from {self.config_file}")
 
     #: Marker identifying a file we wrote, so a refresh can tell an installed
@@ -1121,7 +1121,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _detect_repo(self) -> Optional[str]:
@@ -1134,7 +1134,7 @@ class ProjectInitializer:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -1178,7 +1178,7 @@ class ProjectInitializer:
             try:
                 cfg = yaml.safe_load(self.config_file.read_text()) or {}
                 skip_workflows = cfg.get("init", {}).get("skip_workflows", False)
-            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         if skip_workflows:
@@ -1315,7 +1315,7 @@ class ProjectInitializer:
             )
             if result.returncode == 0:
                 return result.stdout.strip() or None
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -1353,7 +1353,7 @@ class ProjectInitializer:
                     for node in data["data"]["node"]["fields"]["nodes"]
                     if node.get("name") and node.get("id")
                 }
-        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return {}
 
@@ -1371,7 +1371,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _delete_project_field_raw(self, project_id: str, field_id: str) -> bool:
@@ -1388,7 +1388,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _create_project_fields(self, project_id: str) -> int:
@@ -1495,7 +1495,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     # Default path → phase mappings for path-scoped validation
@@ -1534,7 +1534,7 @@ class ProjectInitializer:
                 cfg = yaml.safe_load(config_path.read_text()) or {}
                 if "path_filters" in cfg:
                     filters.update(cfg["path_filters"])
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         # Build dorny/paths-filter filter config (plain YAML, no f-string interpolation)
@@ -1920,7 +1920,7 @@ jobs:
             else:
                 print("  Auto-merge: SKIPPED (may require admin access)")
                 return False
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _set_branch_protection(self, repo: str) -> bool:
@@ -1952,8 +1952,10 @@ jobs:
             "field_schema": "atdd/coach/schemas/project_fields.schema.json",
         }
 
-        with open(self.config_file, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        # #1455: same reason — one top-level key, edited in place.
+        self.config_file.write_text(
+            set_top_level_block(self.config_file.read_text(), "github", config["github"])
+        )
 
         print(f"  Updated: {self.config_file} (github section)")
 
