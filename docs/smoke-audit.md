@@ -48,49 +48,50 @@ since attestation is written by the `atdd_substrate` pytest11 entry point and
 `PYTHONPATH=src` loads the code but not the plugin — both invocations report passed.
 
 Recounted on `fix/attestability-counts-tests-that-cannot-run` (#1814), which corrected two
-readers on axis 3. Axis 1 and axis 2 are untouched, so the class counts move only with
-`plan/`.
+readers on axis 3, and again after merging #1812, which retired five SMOKE acceptances and
+replaced a sixth. Axes 1 and 2 are untouched, so the class counts move only with `plan/`.
 
 | class | count |
 |---|---|
-| should-declare | 290 |
-| (stale — no such acceptance in plan/) | 56 |
+| should-declare | 285 |
+| (stale — no such acceptance in plan/) | 60 |
 | unresolved | 29 |
-| can-attest-today | 10 |
+| can-attest-today | 11 |
 
 | ci-runner | count |
 |---|---|
-| ci-can-record | 184 |
-| not-run-by-ci | 137 |
-| ci-runs-but-test-opts-out | 8 |
+| ci-can-record | 185 |
+| not-run-by-ci | 136 |
+| ci-runs-but-test-opts-out | 4 |
 | ci-runs-cannot-record | 0 |
-| — | 56 |
+| — | 60 |
 
-**Nine of the ten `can-attest-today` acceptances can now be attested by CI**, against zero
+**Ten of the eleven `can-attest-today` acceptances can now be attested by CI**, against zero
 before #1604 made every CI pytest step install the distribution. `ci-runs-cannot-record` is
 empty by construction: no job runs a test without the metadata any more.
 
 `ci-runs-but-test-opts-out` is new here and is the honest half of what #1604's first recount
-claimed. Eight acceptances sit on an installed CI path and are anchored by tests that
+claimed. These acceptances sit on an installed CI path and are anchored by tests that
 deselect themselves: their module gates on `ATDD_RUN_SMOKE`, which no workflow sets. The job
 is green, the hook is loaded, and no evidence exists — the same shape as a gate that
 certifies without checking. They were counted as `ci-can-record`, which was wrong about the
-only thing the column is for. Sixteen acceptances carry that gate in total; the other eight
-are `not-run-by-ci` anyway. Whether CI should set the variable, or those tests should stop
-self-skipping, is a convention question (#1151), not a census one.
+only thing the column is for. Whether CI should set the variable, or those tests should stop
+self-skipping, is a convention question (#1151), not a census one. The count fell from 8 to 4
+when #1812 retired E065, R007 and R008 — the gate went with the code, which is the only way
+this number should ever drop.
 
-The tenth `can-attest-today` is `Y004-SMOKE-001`, and it is `not-run-by-ci` deliberately: it
-carries the same `ATDD_RUN_SMOKE` gate, so adding it to a job would buy a green check that
-runs nothing. Its three siblings — C016-SMOKE-001, E008-SMOKE-001 and E071-SMOKE-001 — were
-added to `regression-suite-test` by path in #1814, which is what moved them to
-`ci-can-record`. The rest of their directories stay out; #1701 owns retiring the 45 failures
-in `src/atdd/coach/commands/tests` and the 11 in `src/atdd/tester/substrate` first.
+The one `can-attest-today` that CI cannot attest is `Y004-SMOKE-001`, `not-run-by-ci`
+deliberately: it carries the same `ATDD_RUN_SMOKE` gate, so adding it to a job would buy a
+green check that runs nothing. Its siblings C016-SMOKE-001, E008-SMOKE-001 and
+E071-SMOKE-001 were added to `regression-suite-test` by path in #1814, which is what moved
+them to `ci-can-record`. The rest of their directories stay out; #1701 owns retiring the 45
+failures in `src/atdd/coach/commands/tests` and the 11 in `src/atdd/tester/substrate` first.
 
 Two limits on reading `ci-can-record` as more than it says. It is a property of the
 INVOCATION — the hook can load — and **not** a promise that a record reaches anything: the
 writer keys attestations into a State Store resolved from the checkout, and a CI runner's is
 destroyed with the workspace, so no CI-written attestation has ever reached the
-`SMOKE->REFACTOR` gate. That gap is #1815. And 184 is not 184 live-smoke tests; it is every
+`SMOKE->REFACTOR` gate. That gap is #1815. And 185 is not 185 live-smoke tests; it is every
 acceptance on an installed CI path, of which exactly one
 (`acc:project-shared-state:Y002-SMOKE-001`) declares `execution_kind: live_smoke` and is what
 the writer records for today.
@@ -295,7 +296,7 @@ of bypass patterns.
 | acc:govern-lifecycle:E018-SMOKE-001-scoped-check-exits-zero-on-this-branch | real (atdd validate --scope changed-files) | exit code | N/A (single component) | — | should-declare | not-run-by-ci |
 | acc:govern-lifecycle:E019-INTEGRATION-001-published-issue-passes-body-validators | real (atdd validate coach) | body validation | N/A (single component) | — | (stale — no such acceptance in plan/) | — |
 | acc:govern-lifecycle:E019-SMOKE-001-live-create-zero-edit-calls | real (atdd issue) | gh API calls | N/A (single component) | — | (stale — no such acceptance in plan/) | — |
-| acc:govern-lifecycle:E020-SMOKE-001-live-sync-codex-produces-conductor-md | real (atdd sync codex) | file output | N/A (single component) | — | should-declare | not-run-by-ci |
+| acc:govern-lifecycle:E020-SMOKE-001-live-sync-codex-produces-conductor-md | real (atdd sync codex) | file output | N/A (single component) | — | (stale — no such acceptance in plan/) | — |
 | acc:govern-lifecycle:E021-INTEGRATION-001-ci-check-fails-on-drifted-pr | real (CI check) | check result | N/A (single component) | — | (stale — no such acceptance in plan/) | — |
 | acc:govern-lifecycle:E021-SMOKE-001-registry-check-passes-on-main-after-chore-pr | real (atdd validate) | exit code on main | N/A (single component) | — | should-declare | not-run-by-ci |
 | acc:govern-lifecycle:E022-SMOKE-001-post-commit-leaves-core-bare-unchanged | real (git commit) | core.bare value | N/A (single component) | — | should-declare | not-run-by-ci |
@@ -652,11 +653,11 @@ tighten the coverage.
 | acc:reconcile-local-store:R001-SMOKE-001-overlay-replay | planned — train:object-conflict-resolution:project-state (M2), RED (not yet implemented) | overlay-replay is observed to hold end-to-end against real infrastructure, with no mocks or manual patching | planned (authored by #1400; real-infrastructure classification filled at GREEN) | #1400 | should-declare | ci-can-record |
 | acc:reconcile-local-store:R002-SMOKE-001-conflict-report | planned — train:object-conflict-resolution:project-state (M2), RED (not yet implemented) | conflict-report is observed to hold end-to-end against real infrastructure, with no mocks or manual patching | planned (authored by #1400; real-infrastructure classification filled at GREEN) | #1400 | should-declare | ci-can-record |
 | acc:reconcile-local-store:Y001-SMOKE-001-overlay-event-replayed-twice | planned — train:object-conflict-resolution:project-state (M2), RED (not yet implemented) | overlay-event-replayed-twice is observed to hold end-to-end against real infrastructure, with no mocks or manual patching | planned (authored by #1400; real-infrastructure classification filled at GREEN) | #1400 | should-declare | ci-can-record |
-| acc:govern-lifecycle:E068-SMOKE-001-live-claude-md-contains-no-atdd-skip-references | real (grep -E 'ATDD_SKIP_[A-Z_]+' over the deployed repo-root CLAUDE.md) | zero ATDD_SKIP_* bypass tokens present in the agent-context file | filesystem read of CLAUDE.md | #1483 (rehomed from spawn-agents; operator-safety invariant survives the sub-worker-orchestration prune) | should-declare | ci-runs-but-test-opts-out |
-| acc:govern-lifecycle:E065-SMOKE-001-live-claude-md-line-count-within-budget | real (line count of the deployed repo-root CLAUDE.md) | CLAUDE.md within the operator line budget while retaining lifecycle/command pointers | filesystem read of CLAUDE.md | #1483 (rehomed from spawn-agents) | should-declare | ci-runs-but-test-opts-out |
+| acc:govern-lifecycle:E068-SMOKE-001-live-upgrade-banner-names-a-runnable-verb | real (the toolkit's own committed src/atdd/version_check.py) | every upgrade banner names 'atdd upgrade', contains no '--force', and does not name the retired 'atdd sync && atdd init' two-step | version_check.py banner source -> regex over the shipped lines | #1811 (agent-config projection retired; the banner must still name a verb that can act on an initialised repo, per #1600/#793) | can-attest-today | ci-can-record |
+| acc:govern-lifecycle:E065-SMOKE-001-live-claude-md-line-count-within-budget | real (line count of the deployed repo-root CLAUDE.md) | CLAUDE.md within the operator line budget while retaining lifecycle/command pointers | filesystem read of CLAUDE.md | #1483 (rehomed from spawn-agents) | (stale — no such acceptance in plan/) | — |
 | acc:govern-lifecycle:E066-SMOKE-001-live-operator-emergency-bypass-doc-present-and-correct | real (reads docs/operator-emergency-bypass.md on disk) | doc present and documents the CLI, not an env-var escape hatch | filesystem read of docs/operator-emergency-bypass.md | #1483 (rehomed from spawn-agents) | should-declare | ci-runs-but-test-opts-out |
-| acc:govern-lifecycle:R007-SMOKE-001-atdd-validate-coach-includes-size-budget-rule | real (`atdd validate coach` over the live repo) | the claude_md size-budget rule fires on the coach validator surface | CLI → coach validator registry → claude_md_validators | #1483 (rehomed from spawn-agents) | should-declare | ci-runs-but-test-opts-out |
-| acc:govern-lifecycle:R008-SMOKE-001-atdd-validate-coach-includes-no-bypass-advertising-rule | real (`atdd validate coach` over the live repo) | the no-bypass-advertising rule fires on the coach validator surface | CLI → coach validator registry → claude_md_validators | #1483 (rehomed from spawn-agents) | should-declare | ci-runs-but-test-opts-out |
+| acc:govern-lifecycle:R007-SMOKE-001-atdd-validate-coach-includes-size-budget-rule | real (`atdd validate coach` over the live repo) | the claude_md size-budget rule fires on the coach validator surface | CLI → coach validator registry → claude_md_validators | #1483 (rehomed from spawn-agents) | (stale — no such acceptance in plan/) | — |
+| acc:govern-lifecycle:R008-SMOKE-001-atdd-validate-coach-includes-no-bypass-advertising-rule | real (`atdd validate coach` over the live repo) | the no-bypass-advertising rule fires on the coach validator surface | CLI → coach validator registry → claude_md_validators | #1483 (rehomed from spawn-agents) | (stale — no such acceptance in plan/) | — |
 | acc:govern-lifecycle:E067-SMOKE-001-live-freedom-layer-passes-flipped-validator | real (flipped freedom-set validator evaluated against the deployed session.convention.yaml on disk) | zero violations: no allowed_bash entry pre-authorizes a forbidden command, every entry is tightly scoped Bash(<cmd>:*) | session.convention.yaml::spawn_time.freedom_layer -> policy/freedom_layer_bash_scope variant | #1483 (rehomed from spawn-agents; the policy variant and the freedom_layer data are still live, so the fault-injection guard is preserved rather than retired) | should-declare | ci-can-record |
 | acc:govern-lifecycle:E069-SMOKE-001-live-smoke-run-attests-and-opens-the-gate | real (a genuine git repository with real history, a real pytest subprocess auto-loading the substrate plugin through materialized pytest11 `.dist-info` metadata rather than a harness `-p` flag, a real SQLite State Store and the real SmokeExecutionGateCheck; nothing between the test running and the gate deciding is stubbed, and the harness itself cannot write an attestation — it can only run pytest and then look) | the executing run writes exactly one attestation (outcome passed, non-zero measured duration, commit_sha == the fixture repo's HEAD, execution_kind live_smoke, the acceptance URN it discharges) and the gate refuses SMOKE→REFACTOR before it and passes after — so the attestation, not a typed stamp, is what opened the gate; the negative controls (a skipped live-smoke test, and one that never runs despite a green suite) record a non-passing outcome and leave the gate closed | atdd.coach.gate.live_smoke harness → real pytest subprocess (pytest11 entry point) → attestation hook write → State Store → SmokeExecutionGateCheck verdict | #1602 (the repo's first `execution_kind: live_smoke` acceptance; without it the #1602 gate is a no-op that no run can satisfy and SMOKE→REFACTOR is reachable only by --force, and E060's constant-evidence gate has no subject to police. Anchored to `src/atdd/coach/gate/tests/test_1602_smoke_execution_end_to_end.py`) | should-declare | not-run-by-ci |
 | acc:govern-lifecycle:D020-SMOKE-001-shipped-package-loads-the-declared-machine | real (two tiers, no worktree shortcut: a SEPARATE process running the real `load_conventions` and `_phase_machine_path`, PLUS a wheel built from this tree via the C008/C009 `_wheel_harness` and read back with NO source tree on sys.path, so a data file that did not ship is genuinely absent rather than shadowed by the checkout) | the built wheel CONTAINS both `phase_machine.convention.yaml` and the transition-autonomy node as package data; a consumer-shaped load off the unpacked wheel yields the pinned autonomy table on all nine phases, and the conventions snapshot hash is unmoved from `88af3062…` so installing it cannot invalidate an in-flight run | real process -> `_phase_machine_path` packaged-copy branch (in-repo copy absent from the path) -> `load_conventions` -> PhaseSpec + `_normalized_snapshot`; wheel via `python -m build` -> `wheel_members` / `extracted_wheel_root` | #1626 (Track 0 of #1627. The RED-tier narrowing is RETIRED: the shipped-artifact clause is now asserted against a real wheel. Fault-injected 2026-07-28 — stripping `autonomy` from the unpacked wheel makes the consumer probe report NONE and the assertion fire while still resolving from the wheel, so the guard is load-bearing, not a stub. Note the INSTALLED atdd 4.27.0 predates this change and carries neither file; asserting against it would assert 'my unmerged change has been released', which is unsatisfiable at SMOKE) | should-declare | ci-can-record |

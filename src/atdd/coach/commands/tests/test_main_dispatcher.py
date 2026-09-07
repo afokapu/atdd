@@ -4,7 +4,7 @@ Unit tests for the CLI bootstrap path — version_check.print_upgrade_sync_notic
 Issue: #342 — `atdd <any-cmd>` was silently writing `.atdd/config.yaml` and
 `atdd.code-workspace` on every invocation through this function. After the
 fix, `print_upgrade_sync_notice()` is *warn-only*: it prints the upgrade
-banner to stderr and returns without invoking `AgentConfigSync.sync()` or
+banner to stderr and returns without invoking `RepoRefresh.sync()` or
 the toolkit-sync writer (`record_toolkit_sync()` since #1641).
 
 These are unit-resolution tests; the subprocess-resolution sibling lives at
@@ -44,7 +44,7 @@ def test_print_upgrade_sync_notice_does_not_call_agent_sync(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """`print_upgrade_sync_notice` must not invoke `AgentConfigSync.sync`.
+    """`print_upgrade_sync_notice` must not invoke `RepoRefresh.sync`.
 
     Regression target for #342: previously the function called sync as a
     side effect of the upgrade banner, mutating CLAUDE.md / CONDUCTOR.md /
@@ -56,14 +56,14 @@ def test_print_upgrade_sync_notice_does_not_call_agent_sync(
     from atdd.coach.commands import sync as sync_module
 
     with patch.object(
-        sync_module.AgentConfigSync, "sync", autospec=True, return_value=0
+        sync_module.RepoRefresh, "sync", autospec=True, return_value=0
     ) as mock_sync:
         from atdd import version_check
 
         version_check.print_upgrade_sync_notice()
 
     assert mock_sync.call_count == 0, (
-        "print_upgrade_sync_notice() must not call AgentConfigSync.sync(); "
+        "print_upgrade_sync_notice() must not call RepoRefresh.sync(); "
         "the auto-sync side effect is the bug from issue #342."
     )
 
@@ -123,7 +123,7 @@ def test_print_upgrade_sync_notice_still_prints_warning(
     with patch.object(version_check, "record_toolkit_sync", return_value=False):
         from atdd.coach.commands import sync as sync_module
         with patch.object(
-            sync_module.AgentConfigSync, "sync", autospec=True, return_value=0
+            sync_module.RepoRefresh, "sync", autospec=True, return_value=0
         ):
             version_check.print_upgrade_sync_notice()
 
@@ -156,7 +156,7 @@ def test_print_upgrade_sync_notice_silent_when_versions_match(
     with patch.object(version_check, "record_toolkit_sync", return_value=False) as mock_update:
         from atdd.coach.commands import sync as sync_module
         with patch.object(
-            sync_module.AgentConfigSync, "sync", autospec=True, return_value=0
+            sync_module.RepoRefresh, "sync", autospec=True, return_value=0
         ) as mock_sync:
             version_check.print_upgrade_sync_notice()
 

@@ -19,11 +19,10 @@ def test_gate_silent_when_no_yaml(tmp_path):
     # No .atdd/agent-rules.yaml in tmp_path
     gate = ATDDGate(target_dir=tmp_path)
 
-    fake_files = {"claude": {"file": "CLAUDE.md", "exists": True, "has_block": True, "hash": "abc123"}}
+    # #1811: no projected agent file to stand in for any more.
     captured = StringIO()
-    with patch.object(gate, "_get_synced_files", return_value=fake_files):
-        with patch("sys.stdout", captured):
-            result = gate.verify()
+    with patch("sys.stdout", captured):
+        result = gate.verify()
 
     output = captured.getvalue()
     assert result == 0, f"expected return 0 when agent-rules.yaml absent, got {result}"
