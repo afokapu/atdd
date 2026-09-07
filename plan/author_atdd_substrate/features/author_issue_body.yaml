@@ -2,7 +2,7 @@ urn: "feature:author-atdd-substrate:author-issue-body"
 wagon: "wagon:author-atdd-substrate"
 description: "Authoring of the ATDD issue body as a schema-valid data artifact governed by a new src/atdd/planner/schemas/author/issue.schema.json (peer of convention-node/gate/relationship/scope). Adds an `atdd author issue` writer that emits a compliant-by-construction body (Graph Context + Mirror present, zero placeholders) in schema property order via the #1221 schema->argparse mapper; re-expresses the coach E019 string-grep compliance gate (issue_template.py / test_issue_validation.py) as schema validation; a tri-directional drift-guard pins generator fields == schema properties == E019 required sections; and existing compliant GitHub bodies still validate (back-compat). Child of #1221 (schema-driven authoring) applied to the issue artifact; the body's Metadata Status/Type enums reuse the single shared phase vocabulary the #1203 State-Store work-item record also carries (no fork). #1272 extends the feature from body-authoring to a real create path: `atdd author issue` publishes store-first by default — it upserts the work_item (uid=slug, state=Status, data=fields+body) into the State Store and links exactly one github external_ref (#1220), with a durable outbox fallback when the GitHub projection cannot complete, and fails loud rather than degrading to a body-only string when the store is unreachable (the gap that orphaned #1271). The store-first create logic is shared with coach `atdd issue` through the boundary-safe atdd.state.work_item_writer helper (planner never imports atdd.coach)."
 sizing:
-  wmbts: 7
+  wmbts: 8
   footprint_score: 10
   footprint_size: "M"
 wmbts:
@@ -13,6 +13,7 @@ wmbts:
   - "wmbt:author-atdd-substrate:E008"
   - "wmbt:author-atdd-substrate:C012"
   - "wmbt:author-atdd-substrate:C014"
+  - "wmbt:author-atdd-substrate:E010"
 components:
   backend:
     presentation:

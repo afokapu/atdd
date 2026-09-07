@@ -1,0 +1,27 @@
+urn: "feature:implement-code:cli-import-cost"
+wagon: "wagon:implement-code"
+description: "The CLI entrypoint's import graph, held to what dispatch actually needs. atdd.cli imported atdd.coach.commands.issue at module scope for an IssueManager used by three subcommands; that module's transitive import of atdd.coach.utils.artifact_claims runs bind_rule at import scope, which builds the entire convention registry. Every invocation paid it -- including `atdd --help`, and including each of the four git hooks, several times per commit. Deferring the import to its call sites keeps bind_rule's deliberate fail-loud-at-import contract (SPEC-COACH-RULEID-0007) exactly where it matters, at the moment a gate actually binds, and removes it from CLI startup."
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:implement-code:E002"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "atdd.cli -- the import is deferred to the three call sites that use IssueManager"
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No behaviour change; dispatch and every subcommand keep their current semantics"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Import placement only, no domain surface"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "No persistence touched"
