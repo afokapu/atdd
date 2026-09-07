@@ -73,25 +73,62 @@ _ISSUE_REF_KIND = "issue"
 _GIT_TIMEOUT_S = 10
 
 
-def _head_sha(worktree: Path) -> Optional[str]:
+def _head_sha(worktree: Path, branch: Optional[str] = None) -> Optional[str]:
     """The commit the transition would advance, or ``None`` when git is silent.
 
-    ``None`` relaxes only the staleness clause of the verdict (see
+    With *branch*, resolves ``refs/heads/<branch>`` — which every worktree of a
+    repository shares, so the answer does not depend on which directory the
+    operator was standing in. Without it, falls back to the invoking directory's
+    HEAD, which is what every caller did before #1808.
+
+    WHY THIS IS NOT THE CWD. The staleness clause asks whether the code that was
+    smoked is the code being advanced, and the code being advanced is the issue's
+    branch. Reading the cwd made an approval issued from the toolkit root refuse
+    against ``origin/main`` while the attestation named the branch head — observed
+    three times on #1664. In a flat-sibling worktree layout the two differ as the
+    normal case, not the exception. #1765 fixed the same defect in the mint's own
+    ``resolve_head`` and recorded this function as Out of Scope; that reading holds
+    for the mint's precondition and not for this clause.
+
+    A branch that does not resolve returns ``None`` rather than silently falling
+    back to the cwd HEAD: the fallback would reintroduce the defect while looking
+    fixed. ``None`` relaxes only the staleness clause (see
     :func:`~atdd.state.evidence.evaluate_smoke_execution`); the execution clauses
     still have to hold, so an unresolvable HEAD can never turn into a pass.
     """
+    rev = f"refs/heads/{branch}" if branch else "HEAD"
     try:
         proc = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+            ["git", "rev-parse", rev],
             cwd=str(worktree), capture_output=True, text=True, timeout=_GIT_TIMEOUT_S,
         )
     except (OSError, subprocess.SubprocessError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
         logger.debug(
             "smoke-execution gate: cannot resolve HEAD; staleness will not be checked",
-            extra={"worktree": str(worktree), "error": str(exc)},
+            extra={"worktree": str(worktree), "rev": rev, "error": str(exc)},
         )
         return None
     return proc.stdout.strip() or None if proc.returncode == 0 else None
+
+
+def _issue_branch(ctx) -> Optional[str]:
+    """The branch the store binds this issue to, or ``None`` if unresolvable.
+
+    Never raises: an unresolvable binding degrades to the cwd HEAD, which is the
+    pre-#1808 behaviour, rather than turning a resolution problem into a refusal.
+    """
+    try:
+        from atdd.coach.gate.approval_binding import resolve_issue_branch
+
+        binding = resolve_issue_branch(ctx.worktree, ctx.issue_number)
+    except Exception as exc:  # noqa: BLE001 - resolution is best-effort
+        logger.debug(
+            "smoke-execution gate: cannot resolve the issue branch; "
+            "falling back to the invoking directory's HEAD",
+            extra={"issue": getattr(ctx, "issue_number", None), "error": str(exc)},
+        )
+        return None
+    return getattr(binding, "branch", None)
 
 
 def resolve_work_item_uid(store, issue_number: int) -> Optional[str]:
@@ -149,7 +186,14 @@ class SmokeExecutionGateCheck:
             runs = smoke_executions(store, uid)
 
         owed = ", ".join(obligation.acceptance_urns)
-        verdict = evaluate_smoke_execution(runs, head_sha=_head_sha(ctx.worktree))
+        # #1808: judge the commit the transition would advance — the head of the
+        # branch the store binds this issue to — not the head of whatever
+        # directory the operator invoked from. Resolved through the same seam the
+        # approval check already uses (approval_check.py), so the two gates on
+        # this edge cannot disagree about which commit they are judging.
+        verdict = evaluate_smoke_execution(
+            runs, head_sha=_head_sha(ctx.worktree, branch=_issue_branch(ctx))
+        )
         if not verdict.satisfied:
             logger.warning(
                 "smoke-execution gate refused a transition",
