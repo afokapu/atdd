@@ -96,6 +96,16 @@ jobs:
 
   validate-coach:
     runs-on: ubuntu-latest
+    # The repo default is `default_workflow_permissions: read`, which grants the
+    # workflow token contents/packages/metadata only — NOT pull-requests. Several
+    # coach validators read open PRs through `gh`; without this scope the listing
+    # comes back empty and they pass vacuously rather than failing. Measured on
+    # PR #1692: coach.pr.merge-blocks-on-pre-smoke-close (disposition=strict)
+    # blocked locally and passed in CI on the same commit (#1671 investigation).
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
     if: >-
       github.event_name != 'issues' ||
       contains(github.event.issue.labels.*.name, 'atdd-issue') ||
@@ -354,6 +364,26 @@ jobs:
   # validate-gate fan-in accepts it. When set, Playwright runs the e2e smoke
   # specs against that URL and the gate fails on any failure.
   # The toolkit-self repo has no web/ — secret stays unset; job is a no-op.
+  # HONEST REPORTING (#1643, for #1670). This job's green does NOT mean smoke
+  # verification passed. In THIS repository it means nothing ran, and it has never
+  # meant anything else: `SMOKE_BASE_URL` is not among the repo's secrets, there is
+  # no `package.json`, and `find . -name '*.spec.ts'` returns zero files. Every step
+  # below is gated on the secret, so all of them skip and GitHub records the JOB as
+  # `success` — indistinguishable, in the fan-in, from a job that ran and passed.
+  #
+  # That is exactly the failure mode #1670 exists to eliminate: it makes the approval
+  # token prove that gates PASSED rather than attest that a human pressed a key, and a
+  # token is only as honest as the green it reads. It is the same family as #1632
+  # (a validator deselected by a marker expression reports green without running) —
+  # different mechanism, identical consequence: a check that certifies nothing.
+  #
+  # The opt-in contract itself is deliberate and stays: `smoke.convention.yaml`
+  # (ci_integration.trigger_rules.when_secret_unset) specifies that an unconfigured
+  # consumer repo exits success and the gate stays green. So this does NOT fail the
+  # build. What it does is stop the state being INVISIBLE — the job now publishes
+  # `status` as an output, and validate-gate prints NOT APPLICABLE for it instead of
+  # silently counting it among the passes. Changing the green-when-unset contract
+  # is a convention change and belongs to the planner, not to this workflow edit.
   validate-smoke:
     runs-on: ubuntu-latest
     if: >-
@@ -362,12 +392,22 @@ jobs:
       contains(github.event.issue.labels.*.name, 'atdd-wmbt')
     env:
       SMOKE_BASE_URL: ${{ secrets.SMOKE_BASE_URL }}
+    outputs:
+      # "not-applicable" = nothing ran. "executed" = the specs actually ran.
+      # validate-gate reads this so a receipt can tell the two apart.
+      status: ${{ steps.smoke-status.outputs.status }}
     steps:
       - name: Skip when SMOKE_BASE_URL is unset
-        if: env.SMOKE_BASE_URL == ''
+        id: smoke-status
         run: |
-          echo "SMOKE_BASE_URL not configured — skipping Playwright smoke run."
-          echo "(Set the SMOKE_BASE_URL repo secret to enable runtime smoke verification.)"
+          if [ -z "$SMOKE_BASE_URL" ]; then
+            echo "status=not-applicable" >> "$GITHUB_OUTPUT"
+            echo "::notice title=SMOKE not applicable::SMOKE_BASE_URL is not configured — no smoke specs were executed. This job's success attests NOTHING about runtime behaviour."
+            echo "SMOKE_BASE_URL not configured — skipping Playwright smoke run."
+            echo "(Set the SMOKE_BASE_URL repo secret to enable runtime smoke verification.)"
+          else
+            echo "status=executed" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/checkout@v4
         if: env.SMOKE_BASE_URL != ''
@@ -627,6 +667,134 @@ jobs:
       - name: Assert enforce gate wiring
         run: PYTHONPATH=src python3 -m pytest tests/enforce/ -v --tb=short
 
+  # Non-validator regression protection (#1643). Every other python job above runs
+  # a VALIDATOR path (or a named guard under tests/). That left the bulk of the
+  # tree — the command, state, substrate and runtime suites — outside CI entirely:
+  # 1328 `test_*.py` files exist under src/ and tests/, and before this job only
+  # 434 of them were reachable by any workflow. A regression in the other 894 could
+  # merge green and nobody would learn until someone ran the directory by hand.
+  #
+  # This is not hypothetical. #1671's fix (atdd upgrade executes pip on a pipx
+  # install) introduced EIGHT real regressions — its worker measured 44 failures
+  # before, 52 with the fix, 44 after repairing them. Every one of those eight was
+  # in a directory no job ran, so they would have merged green. That is the same
+  # family as #1632 and #1672: a gate that reports green without checking. The
+  # eight landed in `src/atdd/tests/` and `src/atdd/coach/commands/tests/`; the
+  # first is covered below as of this change, the second is red and sequenced.
+  #
+  # SCOPE — this job covers the uncovered suites that are GREEN TODAY, and only
+  # those. It is deliberately NOT the whole 894. The remaining uncovered suites
+  # are red or too slow right now and are sequenced separately:
+  #
+  #   src/atdd/coach/commands/tests        41 failed + 1 error   (#1643 follow-up)
+  #   src/atdd/coach/templates/hooks/tests 11 failed                    "
+  #   src/atdd/tester/substrate            11 failed                    "
+  #   tests/coach tests/integration        11 failed                    "
+  #   src/atdd/planner/commands/tests       9 failed                    "
+  #   src/atdd/enforce/tests                8 failed                    "
+  #   src/atdd/planner/migration            1 failed                    "
+  #   tests/integrations/github             2 COLLECTION errors          "
+  #   src/atdd/enforce_binding_plan         green but 11 min            "
+  #
+  # Adding the red ones here today would red main. They need their dead tests
+  # retired FIRST — a ratchet recorded over them would be baselining corpses, not
+  # debt. Do NOT add them to this job to "finish the coverage"; add them once they
+  # are green or once a ratchet records real debt.
+  #
+  # `enforce_binding_plan` is excluded for COST, not correctness. Measured: 15
+  # passed, 2 skipped in 659.73s. Each smoke test shells out to a full `atdd
+  # enforce` sweep over the checkout at 64-82s a call, so this one directory would
+  # more than triple the job below and become its critical path. It needs its own
+  # job or a cheaper fixture, not exclusion by silence — hence the follow-up.
+  #
+  # Do NOT green a future failure here with `-m "not platform"`. 169 of the 249
+  # files in coach/commands/tests carry a module-level `pytestmark =
+  # [pytest.mark.platform]`, so that expression deselects 751 of 1086 tests and
+  # drops the failure count from 41 to 12 while running under a third of the
+  # directory. That is the #1632 false-green mechanism, and the consumer-oracle
+  # job above already says it plainly: the filter is a consumer's real filter,
+  # NOT a device to deselect failures.
+  regression-suite-test:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issues' ||
+      contains(github.event.issue.labels.*.name, 'atdd-issue') ||
+      contains(github.event.issue.labels.*.name, 'atdd-wmbt')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      # These suites import only pytest, jsonschema and yaml beyond the stdlib —
+      # no tree-sitter, no network client. Verified by sweeping every import in
+      # the covered paths (#1643 audit).
+      - name: Install dependencies
+        run: pip3 install pytest jsonschema pyyaml
+
+      # Several of these suites drive real git over a temporary worktree, which
+      # refuses to commit without an identity — the same reason incident-defense-test
+      # configures one.
+      - name: Configure git identity (real-git worktree tests)
+        run: |
+          git config --global user.email "atdd-ci@example.com"
+          git config --global user.name "ATDD CI"
+
+      # No `-m` expression. These paths run WHOLE — that is the point of the job.
+      # The two `coach/commands/tests` FILES at the end are C014 (#1632), added by
+      # path rather than by directory. `src/atdd/coach/commands/tests` cannot go in
+      # whole: measured on merged main 2026-08-03 it has 41 pre-existing failures
+      # and 1 error out of 1059 tests, which is why #1643 left it out. Naming the
+      # two new files keeps them covered without importing that debt — and an issue
+      # about checks that never run should not add tests that never run. Retiring
+      # the rest of that directory is #1701's subject.
+      - name: Run non-validator regression suites
+        run: |
+          PYTHONPATH=src python3 -m pytest \
+            src/atdd/tests \
+            src/atdd/state/tests \
+            src/atdd/substrate \
+            src/atdd/runners \
+            src/atdd/runtime \
+            src/atdd/train \
+            src/atdd/journey \
+            src/atdd/author_atdd_substrate \
+            src/atdd/coach/utils \
+            src/atdd/coach/runtime \
+            src/atdd/coach/gate \
+            src/atdd/coach/handlers \
+            src/atdd/coach/plugins \
+            src/atdd/coach/tests \
+            src/atdd/coach/templates/bin/tests \
+            src/atdd/coder/utils \
+            src/atdd/planner/interlocking \
+            src/atdd/coach/commands/tests/test_c014_unit_003_baseline_carries_the_count.py \
+            src/atdd/coach/commands/tests/test_c014_smoke_001_real_runner_reports_deselection.py \
+            -q --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Separate invocation, NOT an exclusion. `src/atdd/coder/conventions/` has no
+      # `__init__.py`, so pytest walks up only as far as `conventions/` when naming
+      # these modules and calls them `tests.test_*`. Run alongside the paths above,
+      # that name resolves to the repo-root `tests/` package (which IS a package and
+      # is on the path) and collection dies with ModuleNotFoundError on all five
+      # files. Alone, pytest puts `conventions/` on sys.path and they import fine.
+      # Running them in their own process is the fix that touches no source; adding
+      # the missing `__init__.py` is the real repair and belongs with the follow-up.
+      - name: Run coder convention-recipe suite (own process — see comment)
+        run: PYTHONPATH=src python3 -m pytest src/atdd/coder/conventions/tests -q --tb=short
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # Note: the pre-merge `version-bump` PR check was removed in #462 phase 2.
   # Version is now bumped automatically on main by the bump-on-merge step in
   # `.github/workflows/post-merge-lifecycle.yml` (branch-prefix → semver
@@ -635,7 +803,7 @@ jobs:
   # check that no longer reports.
 
   validate-gate:
-    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-conventions-serial, validate-consumer, validate-smoke, attestation-hook-install, import-discipline-test, parity-test, incident-defense-test, enforce-extensions]
+    needs: [validate-planner, validate-tester, validate-coder, validate-coach, validate-conventions, validate-conventions-serial, validate-consumer, validate-smoke, attestation-hook-install, import-discipline-test, parity-test, incident-defense-test, enforce-extensions, regression-suite-test]
     runs-on: ubuntu-latest
     if: always()
     permissions:
@@ -643,6 +811,22 @@ jobs:
     steps:
       - name: Check results
         run: |
+          # #1643 (for #1670): a job that ran nothing must not be reported as a
+          # pass. validate-smoke exits success when SMOKE_BASE_URL is unset — the
+          # opt-in contract in smoke.convention.yaml — so its `success` below is
+          # NOT evidence of runtime verification. Name that state explicitly, so a
+          # reader (or a conditional mint) can tell "gate passed" from "gate was
+          # never configured to run". This does not change the verdict.
+          #
+          # Reported BEFORE the verdict loop, deliberately. What did and did not
+          # execute is a fact about the run, not a reward for passing; if this sat
+          # after the loop it would be unreachable on every red run — exactly when
+          # a reader most needs to know which checks were real.
+          if [ "${{ needs.validate-smoke.outputs.status }}" = "not-applicable" ]; then
+            echo "::warning title=Gate reported NOT APPLICABLE::smoke: NOT APPLICABLE — SMOKE_BASE_URL unset, no specs executed. Its green is not a pass."
+            echo "smoke: NOT APPLICABLE (no specs executed — not a pass)"
+          fi
+
           for result in "planner:${{ needs.validate-planner.result }}" \
                         "tester:${{ needs.validate-tester.result }}" \
                         "coder:${{ needs.validate-coder.result }}" \
@@ -655,7 +839,8 @@ jobs:
                         "import-discipline:${{ needs.import-discipline-test.result }}" \
                         "parity:${{ needs.parity-test.result }}" \
                         "incident-defense:${{ needs.incident-defense-test.result }}" \
-                        "enforce-extensions:${{ needs.enforce-extensions.result }}"; do
+                        "enforce-extensions:${{ needs.enforce-extensions.result }}" \
+                        "regression-suite:${{ needs.regression-suite-test.result }}"; do
             phase="${result%%:*}"
             status="${result##*:}"
             if [ "$status" != "success" ] && [ "$status" != "skipped" ]; then
@@ -663,6 +848,7 @@ jobs:
               exit 1
             fi
           done
+
           echo "All phases passed or were skipped"
 
       - name: Post comment

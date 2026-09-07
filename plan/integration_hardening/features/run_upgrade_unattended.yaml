@@ -1,0 +1,38 @@
+urn: feature:integration-hardening:run-upgrade-unattended
+wagon: wagon:integration-hardening
+description: 'Makes `atdd upgrade` runnable by a worker with no terminal, and safe
+  when sixty of them share one install: a non-interactive default plus an install-scoped
+  lock. Runnable, not automatic.'
+sizing:
+  wmbts: 2
+  footprint_score: 6
+  footprint_size: S
+wmbts:
+- wmbt:integration-hardening:Y007
+- wmbt:integration-hardening:E008
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 0
+      rationale: No new CLI surface. `--yes` already exists at cli.py:1309 and keeps
+        its meaning; the change is entirely in how the absence of that flag is resolved
+    application:
+    - type: use_cases
+      count: 2
+      rationale: "One resolver for the confirmation default (Y007), following the\
+        \ shape resolve_no_prompt already established at coach.py:255 \u2014 explicit\
+        \ flag wins, else infer from isatty; and one guarded critical section around\
+        \ the mutating part of Upgrader.run (E008)"
+    domain:
+    - type: value_objects
+      count: 0
+      rationale: "No new domain primitives \u2014 the confirmation resolves to a bool\
+        \ and the lock identity to a path"
+    integration:
+    - type: adapters
+      count: 1
+      rationale: "An install-scoped cross-process mutex. The repo has no lock primitive\
+        \ today (fcntl/flock appear zero times), and it cannot live under a worktree's\
+        \ .atdd/ \u2014 sixty worktrees have sixty of those and would serialise against\
+        \ nothing"

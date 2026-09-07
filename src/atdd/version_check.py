@@ -211,7 +211,7 @@ def print_update_notice() -> None:
         notice = check_for_updates()
         if notice:
             print(notice, file=sys.stderr)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         pass  # Never fail the main command due to version check
 
 
@@ -435,7 +435,7 @@ def print_upgrade_sync_notice() -> None:
         if notice:
             print(f"\n⚠️  {notice}", file=sys.stderr)
             print(file=sys.stderr)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         pass  # Never fail the main command
 
 
@@ -482,7 +482,7 @@ def installed_cli_version() -> Optional[str]:
             capture_output=True, text=True, timeout=10,
             env=env, cwd=tempfile.gettempdir(),
         )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return None
 
     if result.returncode != 0:
@@ -569,7 +569,7 @@ def _verify_installed_version(expected: Optional[str]) -> bool:
             extra={"phase": "verify", "outcome": "timeout", "timeout_s": 10},
         )
         return False
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return False
 
     if result.returncode != 0:
@@ -601,7 +601,7 @@ def _run_with_pep668_retry(cmd: list, *, timeout: int = 120) -> Tuple[bool, str]
     return False, result.stderr
 
 
-def _attempt_pinned_upgrade(target: str) -> bool:
+def _attempt_pinned_upgrade(target: str) -> Tuple[bool, str]:
     """Attempt 2 — explicit version pin. Forces fresh resolution past pip's
     in-process metadata cache, which can otherwise serve a stale "latest"."""
     pinned_cmd = [
@@ -612,63 +612,161 @@ def _attempt_pinned_upgrade(target: str) -> bool:
         "auto_upgrade attempt %d (pinned): cmd=%s", 2, pinned_cmd,
         extra={"phase": "pip-install", "attempt": 2, "cmd": pinned_cmd, "target": target},
     )
-    ok, _stderr = _run_with_pep668_retry(pinned_cmd)
-    if not (ok and _verify_installed_version(target)):
-        return False
+    ok, stderr = _run_with_pep668_retry(pinned_cmd)
+    if not ok:
+        return False, stderr.strip() or f"pinned install of atdd=={target} failed"
+    if not _verify_installed_version(target):
+        return False, (
+            f"pinned install of atdd=={target} reported success but the installed "
+            f"version is still not {target}"
+        )
     logger.debug(
         "upgrade verified after pin: atdd %s installed", target,
         extra={"phase": "verify", "attempt": 2, "version": target, "outcome": "match"},
     )
-    return True
+    return True, ""
 
 
-def auto_upgrade() -> bool:
-    """Run pip install --upgrade atdd. Returns True on success.
+def _upgrade_via_pip(target: Optional[str]) -> Tuple[bool, str]:
+    """Upgrade a pip-installed atdd. Returns (success, failure detail).
 
     Two-attempt strategy to handle PyPI's CDN propagation window after a
     fresh tag publish:
 
-    1. **Attempt 1** — name-only resolution: ``pip install --upgrade
-       --no-cache-dir atdd``. ``--no-cache-dir`` busts pip's local wheel
-       cache (belt-and-braces). On returncode 0, verify the installed
-       version matches what ``_fetch_latest_version`` reported.
+    1. **Attempt 1** — name-only resolution. ``--no-cache-dir`` busts pip's
+       local wheel cache (belt-and-braces). On returncode 0, verify the
+       installed version matches what ``_fetch_latest_version`` reported.
     2. **Attempt 2** — explicit version pin: if Attempt 1 succeeded but
        verify failed (pip's resolver served a stale "latest" from its
-       in-process metadata cache), retry with
-       ``pip install --upgrade --no-cache-dir atdd==<expected>``. The
+       in-process metadata cache), retry against ``atdd==<expected>``. The
        version pin forces fresh resolution and is the load-bearing fix.
 
     Each attempt retries with ``--break-system-packages`` on PEP 668
-    refusal (Homebrew/Debian-managed Pythons).
+    refusal (Homebrew/Debian-managed Pythons). Both behaviours are live for
+    pip installs and are deliberately confined to this branch — under pipx
+    they never applied, because attempt 1 died at module resolution (#1671).
     """
-    target = _fetch_latest_version()
     base_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-cache-dir", "atdd"]
+    logger.debug(
+        "auto_upgrade attempt %d: cmd=%s", 1, base_cmd,
+        extra={"phase": "pip-install", "attempt": 1, "cmd": base_cmd, "target": target},
+    )
+    ok, stderr = _run_with_pep668_retry(base_cmd)
+    if ok and _verify_installed_version(target):
+        logger.debug(
+            "upgrade verified: atdd %s installed", target,
+            extra={"phase": "verify", "attempt": 1, "version": target, "outcome": "match"},
+        )
+        return True, ""
+    if ok and target:
+        logger.debug(
+            "pip install returncode=0 but installed != expected=%s; retrying with explicit pin",
+            target,
+            extra={"phase": "verify", "attempt": 1, "expected": target, "outcome": "mismatch"},
+        )
+    # Without a known target there is nothing to pin to, whether or not
+    # attempt 1 reported success.
+    if not target:
+        return False, stderr.strip() or "pip reported failure and PyPI was unreachable"
+    return _attempt_pinned_upgrade(target)
+
+
+def _upgrade_via_pipx(target: Optional[str]) -> Tuple[bool, str]:
+    """Upgrade a pipx-installed atdd by running pipx. Returns (success, detail).
+
+    A pipx venv ships no pip, so the pip branch cannot reach this install at
+    all — it fails at module resolution with "No module named pip" (#1671).
+    The only command that upgrades a pipx install is ``pipx`` itself, which
+    is exactly what ``upgrade_command()`` already advises.
+
+    ``--pip-args=--no-cache-dir`` carries the cache-bust across the engine
+    switch. The pip branch has always passed ``--no-cache-dir`` for the reason
+    stated in ``_upgrade_via_pip``: a fresh publish can be served stale. Bare
+    ``pipx upgrade atdd`` has the same failure and it is worse, because it
+    reports success — measured on 2026-08-03, with 4.37.1 live on both the JSON
+    API and the simple index:
+
+        $ pipx upgrade atdd
+        already at latest version 4.37.0                      # false
+        $ pipx upgrade atdd --pip-args="--no-cache-dir"
+        upgraded package atdd from 4.37.0 to 4.37.1           # true
+
+    Dispatching to the right engine is only half the fix; the command dispatched
+    to must actually be able to upgrade. Note the verify below already refuses
+    to accept pipx's "already at latest" at face value — it compares against the
+    version PyPI reported — so a stale resolution surfaces as a stated failure
+    rather than a silent no-op even if this flag ever stops working.
+    """
+    pipx = shutil.which("pipx")
+    if not pipx:
+        return False, (
+            "atdd is installed with pipx, but no `pipx` executable is on PATH, "
+            "so the upgrade could not be run"
+        )
+
+    cmd = [pipx, "upgrade", "atdd", "--pip-args=--no-cache-dir"]
+    logger.debug(
+        "auto_upgrade via pipx: cmd=%s", cmd,
+        extra={"phase": "pipx-upgrade", "cmd": cmd, "target": target},
+    )
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        return False, detail or f"`pipx upgrade atdd` exited {result.returncode}"
+
+    if not _verify_installed_version(target):
+        return False, (
+            f"`pipx upgrade atdd` reported success but the installed version is "
+            f"still not {target}"
+        )
+    logger.debug(
+        "upgrade verified: atdd %s installed", target,
+        extra={"phase": "verify", "mechanism": "pipx", "version": target, "outcome": "match"},
+    )
+    return True, ""
+
+
+def auto_upgrade() -> Tuple[bool, str]:
+    """Upgrade atdd using the install method actually detected.
+
+    Returns ``(success, detail)``. On failure *detail* carries the underlying
+    reason — the stderr of the command that failed, or a statement of why no
+    command was run. It is never discarded: a bare "Upgrade failed" is what
+    made #1671 take source-reading to diagnose.
+
+    The install method is resolved exactly once, by ``detect_install_method()``,
+    and the command executed here is the same command ``upgrade_command()``
+    advises. Those two used to be independent code paths — the advice said
+    ``pipx upgrade atdd`` and the execution always shelled pip — which made the
+    upgrade structurally unreachable on the standard install (#1671).
+
+    Editable installs are reported, never performed: upgrading one means
+    pulling the operator's own source checkout, which can conflict or fast-
+    forward-fail, and nothing else in this module mutates a working tree on
+    the operator's behalf.
+    """
+    method = detect_install_method()
+    advice = upgrade_command()
 
     try:
+        target = _fetch_latest_version()
+
+        if method == "pipx":
+            return _upgrade_via_pipx(target)
+        if method == "editable":
+            return False, (
+                "atdd is an editable install; nothing was changed. "
+                f"Upgrade it yourself with: {advice}"
+            )
+        return _upgrade_via_pip(target)
+    except Exception as exc:
+        # The reason travels to the caller rather than being swallowed here —
+        # this is the whole point of the (bool, str) return (#1671).
         logger.debug(
-            "auto_upgrade attempt %d: cmd=%s", 1, base_cmd,
-            extra={"phase": "pip-install", "attempt": 1, "cmd": base_cmd, "target": target},
+            "auto_upgrade failed: %s", exc,
+            extra={"phase": "upgrade", "method": method, "outcome": "exception"},
         )
-        ok, _stderr = _run_with_pep668_retry(base_cmd)
-        if ok and _verify_installed_version(target):
-            logger.debug(
-                "upgrade verified: atdd %s installed", target,
-                extra={"phase": "verify", "attempt": 1, "version": target, "outcome": "match"},
-            )
-            return True
-        if ok and target:
-            logger.debug(
-                "pip install returncode=0 but installed != expected=%s; retrying with explicit pin",
-                target,
-                extra={"phase": "verify", "attempt": 1, "expected": target, "outcome": "mismatch"},
-            )
-        # Without a known target there is nothing to pin to, whether or not
-        # attempt 1 reported success.
-        if not target:
-            return False
-        return _attempt_pinned_upgrade(target)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return False
+        return False, f"{type(exc).__name__}: {exc}"
 
 
 def _resolve_minimum_version() -> Optional[str]:

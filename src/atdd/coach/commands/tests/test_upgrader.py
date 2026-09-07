@@ -36,7 +36,7 @@ def test_upgrade_detects_newer_pypi_release(tmp_path, monkeypatch, capsys):
          ), \
          patch(
              "atdd.coach.commands.upgrader.auto_upgrade",
-             return_value=True,
+             return_value=(True, ""),
          ) as mock_upgrade:
         rc = Upgrader(repo_root=tmp_path).run(yes=True)
 

@@ -27,14 +27,11 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import yaml
 
 logger = logging.getLogger(__name__)
-
-# Known branch prefixes for slug → branch name mapping
-_BRANCH_PREFIXES = ("feat", "fix", "refactor", "chore", "docs", "devops")
 
 
 # Domain-agnostic prompt copy for `atdd init` theme declaration (#291,
@@ -84,151 +81,6 @@ SUBSTRATE_DEFAULT_TEST_ROOT = "tests/"
 SUBSTRATE_DEFAULT_PLAN_ROOT = "plan/"
 
 
-def slug_to_branch_name(slug: str) -> str:
-    """Convert worktree directory slug to branch-style name.
-
-    Maps the first hyphen after a known prefix back to '/':
-        feat-some-feature → feat/some-feature
-        fix-typo          → fix/typo
-        main              → main  (no prefix match)
-    """
-    for prefix in _BRANCH_PREFIXES:
-        if slug.startswith(prefix + "-"):
-            return prefix + "/" + slug[len(prefix) + 1:]
-    return slug
-
-
-_DEFAULT_WORKSPACE_BG = "#FFC107"
-
-
-def _workspace_folders(parent: Path) -> List[dict]:
-    """The git-worktree siblings to show as multi-root folders, ``main`` first."""
-    folders = []
-    for child in sorted(parent.iterdir()):
-        if not child.is_dir() or child.name.startswith("."):
-            continue
-
-        git_marker = child / ".git"
-        if not (git_marker.is_file() or git_marker.is_dir()):
-            continue
-
-        folders.append({
-            "path": child.name,
-            "name": slug_to_branch_name(child.name),
-        })
-
-    # Ensure main is listed first
-    main_entry = next((f for f in folders if f["path"] == "main"), None)
-    if main_entry:
-        folders.remove(main_entry)
-        folders.insert(0, main_entry)
-
-    return folders
-
-
-def _saved_workspace_color(config_path: Path) -> Optional[str]:
-    """The workspace color persisted in .atdd/config.yaml, if any."""
-    if not config_path.exists():
-        return None
-
-    try:
-        with open(config_path) as f:
-            config = yaml.safe_load(f) or {}
-        return config.get("workspace", {}).get("color")
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return None
-
-
-def _existing_workspace_color(workspace_path: Path) -> Optional[str]:
-    """A user-set title-bar color already present in the workspace file."""
-    try:
-        existing = json.loads(workspace_path.read_text())
-        return (
-            existing.get("settings", {})
-            .get("workbench.colorCustomizations", {})
-            .get("titleBar.activeBackground")
-        )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return None
-
-
-def _persist_workspace_color(config_path: Path, bg: str) -> None:
-    """Persist a discovered color to config so future runs reuse it."""
-    if not config_path.exists():
-        return
-
-    try:
-        with open(config_path) as f:
-            cfg = yaml.safe_load(f) or {}
-        cfg.setdefault("workspace", {})["color"] = bg
-        with open(config_path, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        pass
-
-
-def _resolve_workspace_color(config_path: Path, workspace_path: Path) -> str:
-    """Background color: config → existing workspace file → default yellow."""
-    bg = _saved_workspace_color(config_path) or _DEFAULT_WORKSPACE_BG
-
-    # Still default? An existing workspace file may carry a user-set color.
-    if bg != _DEFAULT_WORKSPACE_BG or not workspace_path.exists():
-        return bg
-
-    existing_bg = _existing_workspace_color(workspace_path)
-    if existing_bg and existing_bg != _DEFAULT_WORKSPACE_BG:
-        _persist_workspace_color(config_path, existing_bg)
-        return existing_bg
-
-    return bg
-
-
-def write_workspace(target_dir: Path) -> None:
-    """Write a VS Code .code-workspace file in the parent directory.
-
-    Scans sibling directories for git worktrees and generates a multi-root
-    workspace so VS Code shows branch info per folder.
-
-    Args:
-        target_dir: The main checkout directory (e.g. .../project/main).
-    """
-    parent = target_dir.parent
-    workspace_name = parent.name
-    workspace_path = parent / f"{workspace_name}.code-workspace"
-
-    folders = _workspace_folders(parent)
-    bg = _resolve_workspace_color(target_dir / ".atdd" / "config.yaml", workspace_path)
-
-    # Compute foreground via WCAG relative luminance
-    from atdd.coach.commands.color import ColorManager
-    fg = ColorManager._foreground(bg)
-
-    workspace = {
-        "folders": folders,
-        "settings": {
-            "workbench.colorCustomizations": {
-                "titleBar.activeBackground": bg,
-                "titleBar.activeForeground": fg,
-                "statusBar.background": bg,
-                "statusBar.foreground": fg,
-            },
-            # Minimal default layout: Explorer + Terminal only
-            "workbench.panel.defaultLocation": "bottom",
-            "panel.defaultVisibility": "hidden",
-            "workbench.sideBar.location": "left",
-            "workbench.activityBar.location": "top",
-            "editor.minimap.enabled": False,
-            "breadcrumbs.enabled": False,
-            "workbench.secondarySideBar.visible": False,
-        },
-    }
-
-    workspace_path.write_text(
-        json.dumps(workspace, indent=2) + "\n"
-    )
-    print(f"Wrote: {workspace_path}")
-
-
 class ProjectInitializer:
     """Initialize ATDD structure in consumer repo."""
 
@@ -267,7 +119,7 @@ class ProjectInitializer:
             if common.returncode != 0 or git_dir.returncode != 0:
                 return False
             return common.stdout.strip() != git_dir.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return False
 
     def _ensure_worktree_config_extension(self) -> None:
@@ -305,7 +157,7 @@ class ProjectInitializer:
             )
             if result.returncode != 0:
                 return []
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return []
 
         # Porcelain format: blocks separated by blank lines, first block is main checkout
@@ -378,31 +230,6 @@ class ProjectInitializer:
             digit += 1
         return mapping
 
-    def _prompt_workspace_color(self) -> None:
-        """Prompt user to pick a workspace color if unset or default yellow."""
-        config_path = self.target_dir / ".atdd" / "config.yaml"
-        if not config_path.exists():
-            return
-
-        try:
-            with open(config_path) as f:
-                config = yaml.safe_load(f) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            return
-
-        saved = config.get("workspace", {}).get("color")
-        if saved and saved != "#FFC107":
-            return
-
-        print("\nWorkspace color customization:")
-        from atdd.coach.commands.color import ColorManager
-        manager = ColorManager(self.target_dir)
-        manager.color()
-
-    def _write_workspace(self) -> None:
-        """Write a VS Code .code-workspace file (delegates to module-level)."""
-        write_workspace(self.target_dir)
-
     def _migrate_to_worktree_layout(self) -> Path:
         """
         Move all repo contents into a main/ subdirectory.
@@ -436,11 +263,11 @@ class ProjectInitializer:
             for dest, original in reversed(moved_items):
                 try:
                     shutil.move(str(dest), str(original))
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                     pass
             try:
                 main_dir.rmdir()
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
             raise RuntimeError(f"Migration failed (rolled back): {e}") from e
 
@@ -459,7 +286,6 @@ class ProjectInitializer:
         """
         if layout == "worktree-ready":
             print("Already in worktree-ready layout (repo root is main/).")
-            self._write_workspace()
             return None
 
         if layout == "worktree":
@@ -485,9 +311,8 @@ class ProjectInitializer:
             new_root = self._migrate_to_worktree_layout()
             self._update_target_dir(new_root)
             print(f"Migrated to worktree layout: {new_root}")
-            self._write_workspace()
             print(f"\n  ** After init completes, run: cd main **\n")
-        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -504,7 +329,7 @@ class ProjectInitializer:
                 print("Error: Not at repository root.")
                 print(f"Run from: {repo_root}")
                 return False
-        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
 
         # Safety: no linked worktrees (their .git files would break)
@@ -614,9 +439,6 @@ class ProjectInitializer:
             )
             print(f"Substrate mode: {substrate_mode}")
 
-            # Prompt for workspace color if unset or default yellow
-            self._prompt_workspace_color()
-
             # Install git hooks (pre-commit worktree enforcement)
             self._install_hooks(force)
 
@@ -649,10 +471,10 @@ class ProjectInitializer:
 
             return 0
 
-        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Permission denied - {e}")
             return 1
-        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -806,8 +628,8 @@ class ProjectInitializer:
         Create or update .atdd/config.yaml.
 
         When force=True and config already exists, deep-merges defaults into
-        the existing config — preserving user-set values (workspace.color,
-        github.*, customised release/sync settings) while filling in any
+        the existing config — preserving user-set values (github.*,
+        customised release/sync settings) while filling in any
         missing default keys and always updating toolkit.last_version.
 
         Args:
@@ -1299,7 +1121,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _detect_repo(self) -> Optional[str]:
@@ -1312,7 +1134,7 @@ class ProjectInitializer:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -1356,7 +1178,7 @@ class ProjectInitializer:
             try:
                 cfg = yaml.safe_load(self.config_file.read_text()) or {}
                 skip_workflows = cfg.get("init", {}).get("skip_workflows", False)
-            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         if skip_workflows:
@@ -1493,7 +1315,7 @@ class ProjectInitializer:
             )
             if result.returncode == 0:
                 return result.stdout.strip() or None
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
@@ -1531,7 +1353,7 @@ class ProjectInitializer:
                     for node in data["data"]["node"]["fields"]["nodes"]
                     if node.get("name") and node.get("id")
                 }
-        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return {}
 
@@ -1549,7 +1371,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _delete_project_field_raw(self, project_id: str, field_id: str) -> bool:
@@ -1566,7 +1388,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _create_project_fields(self, project_id: str) -> int:
@@ -1673,7 +1495,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     # Default path → phase mappings for path-scoped validation
@@ -1712,7 +1534,7 @@ class ProjectInitializer:
                 cfg = yaml.safe_load(config_path.read_text()) or {}
                 if "path_filters" in cfg:
                     filters.update(cfg["path_filters"])
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         # Build dorny/paths-filter filter config (plain YAML, no f-string interpolation)
@@ -2098,7 +1920,7 @@ jobs:
             else:
                 print("  Auto-merge: SKIPPED (may require admin access)")
                 return False
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _set_branch_protection(self, repo: str) -> bool:

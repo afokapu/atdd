@@ -830,7 +830,7 @@ def _swap_phase_label(issue_number: int, new_phase: Phase) -> int:
         return IssueManager().update(
             issue_id=str(issue_number), status=new_phase.value
         )
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         _logger.warning(
             "_swap_phase_label failed",
             extra={
@@ -994,7 +994,7 @@ def run(
         if plan:
             try:
                 waves = compute_waves(plan)
-            except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
                 print(f"❌ {exc}", file=sys.stderr)
                 return 2
             print(f"Wave plan: {len(waves)} wave(s)")

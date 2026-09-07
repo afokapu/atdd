@@ -526,27 +526,27 @@ status:
       - OBSOLETE
     validator: "src/atdd/coach/validators/test_auto_phase_workflow_exists.py"
 
-    # Issue #384/#404: ProjectV2 sync may be unavailable when the workflow
-    # token lacks Projects: R/W (the default GITHUB_TOKEN cannot grant the
-    # account-level Projects scope at all). `IssueManager.update` catches
-    # the narrow "Resource not accessible by integration" GitHubClientError,
-    # logs a WARNING, and continues with label-only sync via the existing
-    # `atdd:<PHASE>` swap. Non-matching GitHubClientError instances still
-    # abort. Issue #404 made full sync OPT-IN via a fine-grained PAT in
-    # PROJECT_TOKEN; default consumers run on GITHUB_TOKEN and never hit
-    # preflight failure.
-    projects_access_fallback:
-      enabled: true
-      trigger: "GitHubClientError matching 'Resource not accessible by integration'"
-      behavior: "label-only sync (atdd:<PHASE> swap); ProjectV2 fields skipped"
-      log_level: "WARNING"
-      remediation: |
-        Set the optional PROJECT_TOKEN secret (fine-grained PAT, scope:
-        account → Projects R/W) to enable full ProjectV2 Status sync; default
-        falls back to label-only sync via the workflow's fallback expression
-        ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }} (issue #404).
-      template: "src/atdd/coach/templates/workflows/atdd-auto-phase.yml"
-      validator: "src/atdd/coach/commands/tests/test_issue_update_fallback.py"
+    # #1621 removed the `projects_access_fallback` block that stood here. It
+    # described #384/#404's degraded mode — catch "Resource not accessible by
+    # integration", warn, continue with label-only sync — and told operators to
+    # set a PROJECT_TOKEN PAT and write `GH_TOKEN: ${{ secrets.PROJECT_TOKEN ||
+    # <the default token> }}`. Every clause of it was false by the time it was
+    # deleted, and one was actively harmful:
+    #
+    #   * #1051 decommissioned ProjectV2, so the sync it degraded FROM is gone.
+    #   * Its `validator:` named test_issue_update_fallback.py, deleted by #1051.
+    #   * Its `template:` claimed the shipped workflow carried the `||`
+    #     expression; #1621 removed it from both the workflow and the template.
+    #   * Its `trigger:` string is now a PERMISSION REFUSAL — see
+    #     `_PERMISSION_REFUSAL_SIGNATURES` in src/atdd/coach/github.py. That
+    #     wording raises GitHubPermissionError and exits 1; it does not warn and
+    #     continue. A convention that says otherwise contradicts the code.
+    #
+    # It is called out rather than silently dropped because this block is where
+    # the defect was re-seeded from: agents read conventions as authority, and
+    # a doc that outlives its subsystem teaches the bug back. The ratchet is
+    # `test_no_shipped_doc_instructs_an_operator_to_re_seed_the_fallback`,
+    # which now scans conventions as well as docs/.
 
 # Infrastructure archetypes - what can be changed
 archetypes:
@@ -926,6 +926,99 @@ rules:
       - "Open draft PR against main"
       - "Confirm Supabase preview branch created"
       - "Run supabase db push --linked (targets preview)"
+
+# =============================================================================
+# Structured rules — the `## Artifacts` claim (issue #1726)
+# =============================================================================
+# The `rules:` mapping above is the legacy prose block: bare strings, no ids,
+# nothing `bind_rule` can resolve. Structured, bindable rules live here as a
+# `rules:` LIST, which is the shape `extract_rules` / `bind_rule` walk.
+#
+# WHY THESE EXIST (#1726). The `## Artifacts` section was enforced by two
+# independent code paths — `IssueManager._verify_artifacts` and the coach
+# validator `test_issue_gate_completion.py` — and declared by no rule at all.
+# With nothing to bind to, each implementation invented its own policy, and
+# both invented the same escape:
+#
+#     total = sum(len(v) for v in artifacts.values())
+#     if total == 0: ...                      # skip / pass
+#
+# So enforcement was monotonic in honesty: declare nothing and the gate skips
+# you entirely; declare truthfully and every entry is checked against git and
+# can fail. The check was also strictly one-directional — it confirmed that
+# DECLARED paths exist, and could never notice a CHANGED file that was never
+# declared. Measured across this program's own four PRs, #1632 would have
+# passed COMPLETE while omitting a CI workflow change and a CLI entry-point
+# change from its record.
+#
+# The two obligations below are declared separately because they carry
+# different maturity, and a rule carries exactly one disposition. Splitting
+# them lets the already-enforced obligation stay strict while the new one
+# ratchets — collapsing them into one rule would either regress the first to
+# advisory or fail CI on a backlog this issue does not own.
+artifact_claims:
+  description: |
+    What an issue's `## Artifacts` section must say, and how it is checked.
+    Both enforcers — the coach COMPLETE-gate validator and the `IssueManager`
+    runtime gate — answer from ONE shared checker
+    (`atdd.coach.utils.artifact_claims`) which binds these ids at
+    module-import time per SPEC-COACH-RULEID-0007.
+  rules:
+    - id: "coach.issue.artifact-claims-must-resolve"
+      severity: 4
+      disposition: strict
+      description: "Every bullet in an issue's `## Artifacts` section must be a repo-relative path, and every such path must resolve against git at the point in history that carries the work: a `### Created` path must exist in the landed tree, a `### Modified` path must have changed in the landed commit (or in `main...HEAD` before the merge), and a `### Deleted` path must be gone. The two halves are checked in that order and the order is load-bearing: a bullet that is prose is refused BEFORE git is asked, because asking git first hides prose under `### Deleted` entirely — absence is exactly what a deletion claim expects, so `- None.` reads as CONFIRMED GONE and passes (observed live on #1720 and #1711). Shape is a necessary check, not a sufficient one: `- n/a` is indistinguishable from a three-character path, and closing that needs a deletion claim to have EXISTED in the parent revision, which the probe does not yet ask. This rule declares the check the COMPLETE gate has always performed; before #1726 it was performed by two unbound copies."
+      introduced_in: "4.39.0"
+      aliases: ["SPEC-GATE-0002"]
+      validator: "test_issue_gate_completion::test_complete_issues_artifacts_valid"
+      fix_hint: |
+        A path declared in the issue's `## Artifacts` section does not
+        resolve against git. Repair the SECTION, not the check:
+
+          1. Read the violation — it names the issue, the subsection
+             (Created / Modified / Deleted) and the path.
+          2. Derive the real set mechanically, never by hand:
+               git diff --name-only origin/main..HEAD
+             (post-merge, against the commit the PR landed:
+               git diff --name-only <landed>^ <landed>)
+          3. Move each path to the subsection git agrees with, drop paths the
+             work never touched, and correct any that were renamed after the
+             section was written.
+          4. A bullet that reads as prose ("The artifact this issue lands.")
+             is not a claim — replace it with the repo-relative path, or with
+             the explicit-empty form `- (none yet)` if there is nothing yet.
+          5. Republish the body: atdd author issue --revise <N> --body-file <path>
+
+    - id: "coach.issue.artifacts-must-be-declared"
+      severity: 4
+      disposition: advisory
+      description: "An issue's `## Artifacts` section must be a COMPLETE record of what the work changed: it must declare at least one artifact, and every file the work changed must appear in it. An absent or bulletless section is a violation, NOT an exemption — `total == 0` is a determinable answer (the empty set), not an unobservable one, so it resolves to a failure rather than to the third `GateCheckResult` verdict #1719 introduces. The reverse direction is what closes the asymmetry: without it, declaring less protects you and declaring accurately exposes you."
+      introduced_in: "4.39.0"
+      aliases: []
+      validator: "test_issue_gate_completion::test_complete_issues_artifacts_valid"
+      promotion_plan: |
+        ADVISORY on introduction, to be flipped to STRICT once the backlog
+        migration lands. The disposition is the ONLY thing holding this at
+        advisory — the checker already reports the violation, and the flip is
+        a one-line edit here.
+
+        Measured 2026-08-03 against origin/main: all four open `atdd:COMPLETE`
+        issues (#1203, #1084, #1079, #1076) declare ZERO artifacts, so a
+        strict flip today reds `atdd validate coach` on a backlog #1726 does
+        not own (its Out of Scope reserves the ~800-body migration as a
+        follow-up). Flip to `strict` when those bodies carry real claims.
+      fix_hint: |
+        The issue's `## Artifacts` section is not a complete record of the
+        work — it declares nothing, or it omits a file the work changed.
+
+          1. Derive the real set mechanically:
+               git diff --name-only origin/main..HEAD
+          2. File every path under the subsection git agrees with —
+             Created / Modified / Deleted.
+          3. Declaring nothing is not a way out: an empty section is this
+             violation, not an exemption from it. If the work genuinely
+             changed no files, it has no COMPLETE to reach.
+          4. Republish the body: atdd author issue --revise <N> --body-file <path>
 
 # Gate Tests - Required validation gates per session
 # Each session MUST define gate_tests that reference ATDD validators

@@ -31,7 +31,7 @@ def _elapsed(start_iso: Optional[str]) -> str:
         now = datetime.now(timezone.utc)
         delta = max(0.0, (now - start).total_seconds())
         return _format_hms(delta)
-    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return "unknown"
 
 

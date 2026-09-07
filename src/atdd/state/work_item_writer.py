@@ -23,7 +23,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any, Dict, Optional
 
-from atdd.state.identity import assert_uid, assert_uid_immutable, mint_uid
+from atdd.state.body_heading import has_h1, retitle_h1
+from atdd.state.identity import assert_uid_immutable, mint_uid
 from atdd.state.manifest_import import GITHUB_PROVIDER, WORK_ITEM_KIND
 from atdd.state.projection import STATE_ACTIVE
 from atdd.state.store import Object, StateStore
@@ -111,12 +112,35 @@ def update_work_item(
     ``uid`` raises :class:`~atdd.state.identity.UidImmutableError` and the stored
     object is left exactly as it was. Restating the same uid is allowed — the
     guard stops identity from moving, not from being repeated.
+
+    **Identity is resolved by store membership, not by uid shape** (Y002, #1653).
+    This used to open with ``assert_uid(uid)``, which required ``wi_<ULID>`` and
+    therefore matched **0 of the 822** work items the store actually holds: 633
+    are ``unverified:<slug>``, 189 are bare slugs, and the authoring path mints
+    the slug *as* the uid (``author_publish.derive_slug``). That gate was never a
+    store-wide invariant — :func:`revise_work_item_issue` writes to those same
+    slug uids today by upserting directly, and does so correctly. It was one
+    stray precondition on one lookup path, and it made this function dead code.
+
+    The ``wi_<ULID>`` grammar keeps its real jobs — minting (:func:`mint_uid`),
+    the projection document, commit trailers, the provider seam — none of which
+    is a *lookup*. A uid the store does not hold raises :class:`KeyError`, which
+    is the honest error for a typo and is also correct for every future uid form.
+
+    The kind check is what the shape gate was incidentally providing: this
+    function upserts with ``WORK_ITEM_KIND``, so addressing an ``agent_session``,
+    ``release`` or ``hub_adapter`` object would have silently rewritten its kind
+    once the shape gate stopped shielding them. It mirrors the guard
+    :func:`revise_work_item_issue` already carries.
     """
-    assert_uid(uid)
     store = StateStore(conn)
     existing = store.objects.get(uid)
     if existing is None:
         raise KeyError(f"work item not found: {uid}")
+    if existing.kind != WORK_ITEM_KIND:
+        raise ValueError(
+            f"object {existing.uid!r} is kind {existing.kind!r}, not {WORK_ITEM_KIND!r}"
+        )
     assert_uid_immutable(uid, fields.get("uid"))
     merged = {**existing.data, **{k: v for k, v in fields.items() if k != "uid"}}
     phase = merged.pop("phase", existing.state)
@@ -130,18 +154,36 @@ def rename_work_item(
     slug: Optional[str] = None,
     title: Optional[str] = None,
 ) -> Object:
-    """Rename the *display* metadata of a work item (Y001).
+    """Rename the *display* metadata of a work item (Y001, Y002).
 
     Slug and title are display metadata only: the uid does not change, the
     projection filename does not move, no second file appears, and nothing is
     deleted. Only the fields inside the existing ``<uid>.yaml`` change — which is
     exactly why the projection digest moves while the filename does not.
+
+    A ``title`` rename also rewrites the body's leading H1 **when the body has
+    one**, in the same write, because the title and that heading are the same
+    fact stored twice — ``atdd author issue --title`` documents itself as "the H1
+    + Problem Statement subject". Leaving the H1 stale is precisely the
+    divergence #1654 exists to catch, so this verb must not mint it (#1652
+    orchestrator ruling).
+
+    It is equally deliberate that a body **without** an H1 is left alone rather
+    than given one: 619 of the 822 live bodies carry no leading H1, and
+    synthesising headings into them would be a corpus migration wearing a
+    rename's clothes. ``slug`` is unaffected either way — a slug is not
+    duplicated in the body. See :mod:`atdd.state.body_heading`, the single
+    fence-aware parser that #1654 shares rather than re-implements.
     """
     fields: Dict[str, Any] = {}
     if slug is not None:
         fields["slug"] = slug
     if title is not None:
         fields["title"] = title
+        existing = StateStore(conn).objects.get(uid)
+        body = (existing.data.get("body") if existing is not None else None)
+        if has_h1(body):
+            fields["body"] = retitle_h1(body, title)
     return update_work_item(conn, uid, fields)
 
 
@@ -151,6 +193,8 @@ def revise_work_item_issue(
     *,
     body: Optional[str] = None,
     issue_type: Optional[str] = None,
+    feature: Optional[str] = None,
+    title: Optional[str] = None,
 ) -> Object:
     """Revise an existing issue-backed work item through the State Store.
 
@@ -158,6 +202,22 @@ def revise_work_item_issue(
     work-item uid, merges the requested issue fields into the object's JSON data,
     and preserves the existing lifecycle state. This is the authoritative update;
     provider projection is a caller concern.
+
+    ``feature`` completes the revise chain (#1635). It was previously accepted by
+    ``atdd author issue --revise`` and dropped here: this function had no
+    parameter for it, so the value was discarded between the CLI and the store.
+    Measured across eight issues on 2026-07-28 — the body updated on all eight
+    and ``data.feature`` stayed NULL on all eight. A revision that names no
+    feature leaves an existing binding untouched (``None`` means "unchanged",
+    never "clear it").
+
+    ``title`` closes the same gap for the last flag that had it (#1661). It was
+    accepted by ``atdd author issue --revise`` and dropped here for the same
+    reason: no parameter to carry it. Measured 2026-08-02 — ``--revise --title X
+    --type bug`` exited 0 with ``data.title`` unchanged. Where a body accompanied
+    it the result was worse than a no-op: the body's H1 moved and the issue title
+    did not, so the two disagreed until an operator repaired it by hand (#1636).
+    ``None`` means "unchanged" here too.
     """
     store = StateStore(conn)
     ref = store.external_refs.resolve(
@@ -181,8 +241,12 @@ def revise_work_item_issue(
         updates["body"] = body
     if issue_type is not None:
         updates["type"] = issue_type
+    if feature is not None:
+        updates["feature"] = feature
+    if title is not None:
+        updates["title"] = title
     if not updates:
-        raise ValueError("revision requires body and/or issue_type")
+        raise ValueError("revision requires body, issue_type, feature and/or title")
 
     obj = store.objects.upsert(
         existing.uid,

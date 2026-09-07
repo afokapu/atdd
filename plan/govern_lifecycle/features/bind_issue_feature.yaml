@@ -1,0 +1,44 @@
+urn: feature:govern-lifecycle:bind-issue-feature
+wagon: wagon:govern-lifecycle
+description: 'Bind every atdd-issue to a resolvable feature URN: author issue writes
+  it on create and revise, a validator holds it to plan/, and the coach resolves WMBTs
+  through it, not a GitHub label.'
+sizing:
+  wmbts: 3
+  footprint_score: 6
+  footprint_size: M
+wmbts:
+- wmbt:govern-lifecycle:Y006
+- wmbt:govern-lifecycle:C011
+- wmbt:govern-lifecycle:L003
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 2
+      rationale: '`atdd author issue` (create + --revise) gains a derived-or-required
+        --feature that reaches the store; `atdd coach enter <N>` prints the plan-backed
+        WMBT list'
+    - type: validators
+      count: 1
+      rationale: 'Disposition-gated coach validator: an open atdd-issue''s declared
+        feature must resolve to a feature URN in plan/, and body and store must agree'
+    application:
+    - type: use_cases
+      count: 3
+      rationale: 'derive-or-require the feature at mint; carry --feature through the
+        revise write; resolve issue -> feature -> the feature YAML''s wmbts: list'
+    - type: workflows
+      count: 1
+      rationale: 'Backfill: populate the stored feature for open issues whose work_item.data.feature
+        is null, so the binding exists for issues minted before it was written'
+    domain:
+    - type: value_objects
+      count: 1
+      rationale: "FeatureBinding \u2014 the issue's declared feature URN plus its\
+        \ resolution verdict against plan/ (resolved, absent, or non-resolving)"
+    integration:
+    - type: repositories
+      count: 1
+      rationale: 'Plan-graph reader resolving a feature URN to its YAML and its wmbts:
+        list, replacing the gh issue list --label atdd-wmbt subprocess call'

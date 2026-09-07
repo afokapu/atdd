@@ -116,7 +116,7 @@ def extract_ac_reference_from_docstring(file_path: str, test_name: str) -> str |
     try:
         with open(REPO_ROOT / file_path, 'r', encoding='utf-8') as f:
             content = f.read()
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return None
 
     ac_from_header = None

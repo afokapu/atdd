@@ -37,7 +37,9 @@ from atdd.coach.utils.ff_default_branch import fast_forward_default_branch
 @dataclass
 class MergeResult:
     pr: int
-    status: str  # "merged" | "ci_failed" | "conflict" | "timeout" | "skipped"
+    # "merged" | "ci_failed" | "ci_error" | "conflict" | "timeout" | "skipped"
+    # "ci_error": the CI read itself failed terminally — see fetch_ci_status.
+    status: str
     detail: str = ""
 
 
@@ -180,7 +182,7 @@ def attempt_pyproject_resolve(pr: int) -> bool:
             _git("commit", "--no-edit")
         _git("push", "origin", head)
         return True
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         print(
             f"⚠ pyproject auto-resolve failed for PR #{pr}: "
             f"{exc.cmd!r} → {(exc.stderr or '').strip()}",
@@ -233,7 +235,7 @@ def update_branch(pr: int) -> MergeResult:
     """Run `gh pr update-branch <pr>`. Returns conflict result if git says so."""
     try:
         _run_gh(["pr", "update-branch", str(pr)])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         stderr = (exc.stderr or "").lower()
         if "conflict" in stderr or "merge conflict" in stderr:
             return MergeResult(pr=pr, status="conflict", detail=exc.stderr.strip())
@@ -241,34 +243,58 @@ def update_branch(pr: int) -> MergeResult:
     return MergeResult(pr=pr, status="merged", detail="update-branch ok")
 
 
+# The `--json` field list sent to `gh pr checks`. Every name here must be one
+# the installed gh advertises — gh exits 1 and returns nothing for any field it
+# does not know, and that refusal is indistinguishable from a pending check
+# unless it is classified as terminal (see `wait_for_ci`). `conclusion` used to
+# be on this list; gh does not serve it on `pr checks`, and `bucket` is its
+# successor. acc:coach-ops:M003-SMOKE-001 pins the list against a live gh.
+_CI_CHECK_FIELDS = "name,bucket,state"
+
+# gh reports "no required checks" as a non-zero exit. That is not a fault.
+_BENIGN_STDERR_PHRASES = ("no required", "no checks")
+
+
 def fetch_ci_status(pr: int) -> tuple[str, str]:
     """Return (overall_state, detail).
 
-    overall_state ∈ {'pass', 'fail', 'pending', 'unknown'}.
+    overall_state ∈ {'pass', 'fail', 'pending', 'error'}.
+
+    Only 'pending' is worth retrying. 'error' is TERMINAL — the read failed for
+    a reason no amount of waiting changes (a field gh refuses, a dead
+    credential, a pull request that does not exist, a payload that is not JSON).
+    It replaces the old 'unknown', which `wait_for_ci` neither passed nor failed
+    on and therefore polled to the timeout.
+
+    The verdict comes from each check's `bucket`, which is gh's own summary:
+    pass / fail / pending / skipping / cancel. Only `fail` fails and only
+    `pending` waits — a skipped or cancelled required check does not halt a
+    cascade GitHub itself treats as satisfiable. `state` rides along in the
+    detail as corroboration for whoever reads the transcript.
     """
     try:
         result = _run_gh([
-            "pr", "checks", str(pr), "--required", "--json", "state,name,conclusion",
+            "pr", "checks", str(pr), "--required", "--json", _CI_CHECK_FIELDS,
         ])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         stderr = (exc.stderr or "")
-        if "no required" in stderr.lower() or "no checks" in stderr.lower():
+        if any(phrase in stderr.lower() for phrase in _BENIGN_STDERR_PHRASES):
             return "pass", "no required checks"
-        return "unknown", stderr.strip()
+        return "error", stderr.strip()
     try:
         checks = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return "unknown", f"unparseable: {result.stdout[:100]}"
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        return "error", f"unparseable gh output: {(result.stdout or '')[:200]}"
     if not checks:
         return "pass", "no required checks"
-    states = [(c.get("state") or "").upper() for c in checks]
-    conclusions = [(c.get("conclusion") or "").upper() for c in checks]
-    if any(s in {"IN_PROGRESS", "QUEUED", "PENDING"} for s in states):
-        return "pending", f"{sum(s == 'IN_PROGRESS' for s in states)} in progress"
+    buckets = [(c.get("bucket") or "").lower() for c in checks]
+    pending = sum(bucket == "pending" for bucket in buckets)
+    if pending:
+        return "pending", f"{pending} in progress"
     failed = [
-        c["name"]
-        for c, con in zip(checks, conclusions)
-        if con in {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED"}
+        f"{c.get('name') or '?'} ({(c.get('state') or '?').upper()})"
+        for c, bucket in zip(checks, buckets)
+        if bucket == "fail"
     ]
     if failed:
         return "fail", f"failed: {', '.join(failed)}"
@@ -282,7 +308,12 @@ def wait_for_ci(
     sleep=time.sleep,
     clock=time.time,
 ) -> MergeResult:
-    """Poll CI until it passes, fails, or the timeout is reached."""
+    """Poll CI until it passes, fails, errors terminally, or the timeout is reached.
+
+    Only a genuinely in-flight check keeps the loop alive. A terminal read error
+    ends the wait on the spot carrying gh's own stderr, so a permanent fault is
+    reported as itself rather than spent as a timeout (#1612).
+    """
     start = clock()
     while True:
         state, detail = fetch_ci_status(pr)
@@ -290,6 +321,8 @@ def wait_for_ci(
             return MergeResult(pr=pr, status="merged", detail=f"CI green — {detail}")
         if state == "fail":
             return MergeResult(pr=pr, status="ci_failed", detail=detail)
+        if state == "error":
+            return MergeResult(pr=pr, status="ci_error", detail=f"CI read failed: {detail}")
         if clock() - start >= timeout:
             return MergeResult(pr=pr, status="timeout", detail=f"no CI result after {timeout}s")
         sleep(poll_interval)
@@ -298,7 +331,7 @@ def wait_for_ci(
 def merge_pr(pr: int) -> MergeResult:
     try:
         _run_gh(["pr", "merge", str(pr), "--squash", "--delete-branch"])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return MergeResult(pr=pr, status="conflict", detail=f"merge failed: {exc.stderr.strip()}")
     return MergeResult(pr=pr, status="merged", detail="squash-merged")
 
@@ -372,7 +405,7 @@ def run(
 ) -> int:
     try:
         order, files_by_pr = _resolve_order(pr_numbers)
-    except MergeCascadeCycleError as cyc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except MergeCascadeCycleError as cyc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         path_str = " → ".join(f"#{n}" for n in cyc.cycle_path)
         print(
             f"\n❌ cycle detected in merge cascade: {path_str}",
@@ -391,7 +424,7 @@ def run(
             timeout=timeout,
             auto=auto,
         )
-    except MergeHalt as halt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except MergeHalt as halt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         r = halt.result
         print(f"\n❌ halted on PR #{r.pr} ({r.status}): {r.detail}", file=sys.stderr)
         return 1

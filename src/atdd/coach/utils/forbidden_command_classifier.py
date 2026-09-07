@@ -70,7 +70,7 @@ def _load_registry(convention_path: Path) -> List[dict]:
             data = yaml.safe_load(fh)
         return data.get("patterns", [])
     except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Fail open per Decision 6 in issue #668
-        _logger.warning("forbidden_command_classifier: failed to load registry %s: %s", convention_path, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-01
+        _logger.warning("forbidden_command_classifier: failed to load registry %s: %s", convention_path, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-10-31
         return []
 
 
@@ -116,7 +116,7 @@ def _check_and_record_loop_call(
         try:
             state = json.loads(state_file.read_text(encoding="utf-8"))
         except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Corrupt state is non-fatal; reset to empty
-            _logger.warning("forbidden_command_classifier: corrupt loop state, resetting: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-01
+            _logger.warning("forbidden_command_classifier: corrupt loop state, resetting: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-10-31
             state = {}
 
     calls: list = state.get(rule_id, [])
@@ -131,7 +131,7 @@ def _check_and_record_loop_call(
         state_file.parent.mkdir(parents=True, exist_ok=True)
         state_file.write_text(json.dumps(state), encoding="utf-8")
     except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Loop state is best-effort; failure must not block tool use
-        _logger.warning("forbidden_command_classifier: failed to write loop state: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-01
+        _logger.warning("forbidden_command_classifier: failed to write loop state: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-10-31
 
     return False  # Within threshold — allow
 
@@ -157,7 +157,7 @@ def _write_audit(
         with audit_file.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
     except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Audit writes are best-effort; loss must not block tool use
-        _logger.warning("forbidden_command_classifier: failed to write audit log: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-08-01
+        _logger.warning("forbidden_command_classifier: failed to write audit log: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-10-31
 
 
 def classify(

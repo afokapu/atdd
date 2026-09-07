@@ -1,0 +1,72 @@
+schema_version: 1.1.0
+rule_id: coach.issue.feature-binding-must-resolve
+kind: rule
+status: active
+name: An issue's declared feature must resolve in plan/
+statement: >-
+  Every atdd-issue must declare a feature URN that resolves to a real feature YAML under plan/, and the
+  issue body's Feature row must agree with the stored work_item.data.feature, so an issue's decomposition
+  can always be located and drift between the two records is reported rather than invisible.
+implementation:
+  type: validator
+  ref: test_issue_feature_binding::test_feature_bindings_resolve
+content:
+  normative_text: >-
+    The chain issue -> feature -> WMBTs is only traversable if the first link exists and is correct.
+    Before #1635 nothing wrote the binding, nothing validated it, and nothing read it: the coach enter
+    surface reported "WMBTs: none found" for every issue in the repo regardless of how well decomposed
+    it was. This rule holds the binding to the plan graph so a broken link is reported at validation
+    time instead of being discovered as a silent blank.
+  fix_hint: |-
+    The named issue's feature binding is absent, malformed, or names a feature
+    that plan/ does not contain. Repair as follows:
+
+      1. Find the feature the issue actually lands:
+           atdd repo resolve feature:<wagon>:<name>
+         or list the wagon's features:
+           ls plan/<wagon_dir>/features/
+      2. Set the binding on the work item AND the body:
+           atdd author issue --revise <N> --feature feature:<wagon>:<name>
+         That writes the store; update the body's Feature row to the same URN
+         so the two records agree.
+      3. A TRAIN identity (train:<subject>:<slug>) is not a feature. If the
+         body's Feature row carries one, that is the #1626 drift: replace it
+         with the real feature URN rather than authoring a feature to match.
+      4. For a backlog of unbound issues run the backfill rather than editing
+         each by hand. It derives only from a body Feature row that resolves
+         and reports the rest instead of guessing:
+           atdd coach backfill-bindings --dry-run    # report only
+           atdd coach backfill-bindings              # write
+         Never overwrites a binding that RESOLVES, so re-running is a no-op.
+         A stored value that resolves to nothing ('TBD', a stale URN) is not
+         treated as a binding: it is repaired where the body declares a URN
+         that resolves, and counted under "broken binding" where it does not.
+
+    See #1635 for the four breaks in this chain, and #1630 for the consumer
+    that this binding lets be fixed exactly rather than heuristically.
+  exceptions:
+  - >-
+    Work items that are not issue-backed (no github/issue external_ref) are out of scope: there is no
+    issue to bind.
+  - Terminal issues (COMPLETE / OBSOLETE) are historical and are not reported.
+metadata:
+  severity: 3
+  disposition: advisory
+  introduced_in: 4.28.0
+  aliases: []
+terms:
+- term_id: feature_binding
+  text: the issue's declared feature URN, recorded in both the store and the body.
+  values:
+    store_field: work_item.data.feature
+    body_row: "| Feature | feature:<wagon>:<name> |"
+    urn_shape: "feature:<wagon>:<name>"
+- term_id: resolves
+  text: the URN names a feature YAML that exists under plan/ and whose own urn key matches.
+  values:
+    path_shape: "plan/<wagon_dir>/features/<name>.yaml"
+- term_id: disposition_rationale
+  text: advisory while the pre-existing backlog is cleared.
+  values:
+    measured_2026_07_28: "638 of 808 stored work items carry no feature"
+    escalate_when: "the backfill has run and the unresolved set is empty"

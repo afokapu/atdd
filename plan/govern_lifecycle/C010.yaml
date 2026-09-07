@@ -136,9 +136,113 @@ acceptances:
     - The subprocess reports the token verifying False on any other branch
     - The refusal comes from the shipped signing/verification path, so the replay
       property is closed in the real artifact
-    - 'Scope note: refusal at the TRANSITION gate additionally requires the gate
-      consumer to pass the current branch to verify_token; that consumer is the
-      approval-token path seam owned by #1376 and is deliberately not modified here'
+    - 'Scope note (CLOSED by #1721, 2026-08-04): this acceptance covers the pure
+      signing/verification path only. Refusal at the TRANSITION gate additionally
+      required the mint and the gate consumer to PASS branch/expires_at, which
+      neither did — the binding shipped inert. C010-INTEGRATION-003/004/005 below
+      cover the call sites; the seam is no longer unowned.'
   metadata:
     author: atdd:self-compliance
     created: '2026-07-22'
+- identity:
+    urn: acc:govern-lifecycle:C010-INTEGRATION-003-branch-binding-is-enforced-at-the-gate
+    id: AC-INTEGRATION-003
+    purpose: "The branch binding is enforced at the TRANSITION gate, not merely recorded
+      in the token: the real mint binds the branch the State Store binds the issue to,
+      and the real ApprovalTokenGateCheck refuses the same token once the issue is bound
+      to a different branch — with a message NAMING the branch change rather than
+      reporting a malformed or mis-scoped token"
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - An isolated Control Root whose State Store binds the issue to a branch, and the
+      real approve command and real ApprovalTokenGateCheck (no stubbed sign/verify)
+    - A token minted by the real mint while the issue is bound to branch A
+    - 'Two arrangements: the issue still bound to branch A, and the issue re-bound to
+      branch B (a rename or a recreated worktree)'
+  when:
+    abstract: the real gate check is evaluated for the same transition in each arrangement
+  then:
+    abstract:
+    - The minted token carries branch A, so the binding is recorded and not merely
+      passed
+    - With the issue still bound to branch A the check PASSES
+    - With the issue re-bound to branch B the check FAILS — the binding is enforced at
+      the gate, which is what #1525 shipped and neither call site connected
+    - The refusal message names BOTH branches and says the branch changed; it does not
+      report a scope/signature mismatch, because the token is intact
+    - The branch is resolved from the STORE binding at both ends, never from the current
+      directory, so the verdict does not depend on which worktree the gate ran in
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-04'
+- identity:
+    urn: acc:govern-lifecycle:C010-INTEGRATION-004-expired-token-names-expiry
+    id: AC-INTEGRATION-004
+    purpose: "An approval stops being valid: the real mint stamps an expiry, a token
+      past it is REFUSED at the gate, and the refusal NAMES EXPIRY as the cause —
+      the distinction that separates 'your approval aged out, re-approve' from 'this
+      token is malformed or forged', which the pre-#1721 message could not make"
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - An isolated Control Root whose State Store binds the issue to a branch, and the
+      real mint and real ApprovalTokenGateCheck
+    - A token minted by the real mint, carrying the expiry the mint stamps rather than
+      one the test wrote
+    - 'Two evaluation instants supplied to the check: one before the recorded expiry and
+      one after it, so no wall-clock sleep is needed'
+  when:
+    abstract: the real gate check is evaluated at the instant before the expiry and
+      again at the instant after it
+  then:
+    abstract:
+    - The minted token carries an expires_at, and it is the approved_at plus the decided
+      TTL — the duration is asserted against the mint, not restated by the test
+    - Evaluation before the expiry PASSES
+    - Evaluation after the expiry FAILS
+    - The refusal names expiry as the cause and quotes both instants; it does NOT report
+      a malformed, mis-scoped, or mis-signed token, which is what it read as before
+    - The token's signature is still intact at that point, so expiry is established by
+      elimination rather than inferred from a failed signature
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-04'
+- identity:
+    urn: acc:govern-lifecycle:C010-INTEGRATION-005-pre-binding-tokens-keep-their-regime
+    id: AC-INTEGRATION-005
+    purpose: "The 169 tokens minted before the binding existed carry neither branch nor
+      expires_at and are NOT retro-invalidated: they are read under the regime they were
+      minted in, the decision is asserted rather than left implicit, and the gate says
+      which regime a token belongs to so an unbound token cannot present as a bound one"
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A token in the pre-binding shape — the exact field set measured across all 169
+      live tokens on 2026-08-03, carrying no branch and no expires_at
+    - The real ApprovalTokenGateCheck, and an issue whose store binding is present in
+      one arrangement and absent in another
+  when:
+    abstract: the real gate check is evaluated against the pre-binding token
+  then:
+    abstract:
+    - The pre-binding token still satisfies its own transition, so versioning the scope
+      is not a silent migration (the same boundary #1718 drew for schema_version)
+    - It does so whether or not the issue has a resolvable branch binding, because a
+      token that asserts no binding cannot be refused for one it never claimed
+    - The pass message identifies it as a PRE-BINDING token, so a reader can tell the
+      two regimes apart at the gate rather than by opening the file
+    - A token carrying an expiry but no branch is NOT treated as pre-binding — it is
+      refused, and the message says it carries no branch binding
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-04'

@@ -141,7 +141,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 26
+    total: 28
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -198,9 +198,19 @@ wagons:
       (back-compat)
     E008: maximize likelihood of issue-publish-to-store when authoring via `atdd author
       issue` (store-first work_item + exactly one github external_ref, by default)
+    E009: minimize quantity of unreviewed-authored-prose by routing every authoring
+      write through a pre-write review that enforces only the repo-declared review
+      rules over a staged copy and refuses the write when any of them fires, so a
+      prose finding surfaces before the artifact exists rather than after it is committed
     C012: minimize likelihood of author-without-publish by requiring the generate
       path to reach the store-first publish and to fail loud (no body-only degrade)
       when the store is unreachable
+    C014: minimize likelihood of unverified-artifact-claim by requiring one convention-bound
+      checker to answer the `## Artifacts` question for both the validator and the
+      runtime gate, reporting an empty declaration and an undeclared changed file
+      as violations
+    E010: minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when
+      authoring an issue body
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
@@ -468,11 +478,23 @@ wagons:
     contract: contract:commons:coach:dashboard-card
     telemetry: null
     to: external
+  - name: commons:coach:check-status-read
+    contract: null
+    telemetry: null
+    to: external
   consume: []
   wmbt:
-    total: 2
+    total: 4
     M001: minimize likelihood of secondary-rate-limit-hits-during-batched-pr-polling
     M002: minimize time to assess live-coach-worker-state during a wave
+    M003: minimize likelihood of merge-cascade-ci-reads-that-ask-gh-pr-checks-for-a-json-field-the-installed-cli-does-not-expose
+      when atdd merge-cascade reads required checks via gh pr checks --json on gh
+      2.96.0, whose advertised fields carry no conclusion, so the call exits 1 and
+      reads nothing (#1612)
+    R001: minimize likelihood of gh-check-query-failures-classified-as-a-pollable-unknown-instead-of-a-terminal-error
+      when fetch_ci_status returns unknown for an unrecognised gh failure and wait_for_ci
+      — which exits only on pass or fail — sleeps on it until the 1800s per-PR timeout
+      (#1612)
   total: 0
   manifest: plan/coach_ops/_coach_ops.yaml
   path: plan/coach_ops/
@@ -602,6 +624,9 @@ wagons:
       naming is validator-backed and bound
     Y001: minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes
       through the elicit channel
+    Y002: minimize likelihood of stale-stage-vocabulary-on-the-plan-cli-surface —
+      the session gates read Intent/Attach/Compose/Ratify across the enum, CLI, guidelines
+      and README
   total: 0
   manifest: plan/define_plans/_define_plans.yaml
   path: plan/define_plans/
@@ -1263,7 +1288,44 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 106
+    total: 120
+    C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
+      by having format_fix_hint() name the consequence of the amend it prescribes
+      and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
+      author must run before pushing, over the drifted-file set the check already
+      computed, while emitting nothing on the clean path and exempting no mirror from
+      the Artifacts requirement (#1739)
+    C021: minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers
+      by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose
+      registry holds a substantive check — where it registers the same checks the
+      transition dispatch registers, excludes the approval check from its own precondition,
+      refuses on FAIL and COULD_NOT_CHECK while proceeding on NOT_APPLICABLE, refuses
+      when zero substantive checks were evaluated, and refuses when HEAD cannot be
+      resolved (#1670)
+    C015: minimize an-enqueue-that-tells-its-caller-the-write-is-a-durable-retry-and-a-drain-that-exits-0-over-a-queue-it-left-untouched-so-neither-surface-can-say-that-no-registered-provider-will-ever-send-the-row
+      (#1711)
+    C014: minimize a-validator-run-reporting-the-verdict-of-one-that-observed-its-subject-when-it-either-could-not-see-the-subject-or-silently-declined-to-look-at-half-of-it
+      (#1632)
+    C016: minimize likelihood of a-registered-branch-being-refused-by-the-commit-gate-because-its-name-is-not-its-work-items-uid
+      by resolving the branch through the populated `data.branch` binding that worktree-create
+      already writes and `atdd worktree list` already reads, rather than guessing
+      a store uid from the branch name, while retaining the uid-slug probe as a secondary
+      index over that same single source so records predating the binding are not
+      newly stranded, and keeping the gate's refusal confined to a branch that matches
+      no work item in a populated store (#1720)
+    C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
+      by observing the acting agent session at the mint through the shipped resolve_session()
+      instead of defaulting to $USER, recording that session as its own token field
+      distinct from the human account, folding the resulting actor into the signed
+      canonical scope, and stamping a token schema_version so the pre-fix corpus reads
+      as a regime that could not attribute (#1718)
+    R009: minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe
+      (#1621)
+    Y007: minimize a-revise-flag-accepted-by-the-parser-and-honoured-by-no-writer
+      (#1661)
+    Y006: minimize an-issue-feature-binding-no-command-can-write-because-create-derives-nothing-and-revise-accepts-the-feature-flag-then-drops-it
+    C011: minimize a-declared-feature-urn-that-resolves-to-nothing-in-plan-and-drifts-unseen-because-no-validator-holds-an-atdd-issue-body-or-its-stored-binding-to-the-plan-graph
+    L003: minimize wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them
     R006: minimize drifted-lifecycle-records-that-no-verb-can-repair
     R005: minimize phase-labels-written-without-the-store-transition-behind-them
     R001: minimize stale local manifest status after a successful GitHub transition
@@ -1633,6 +1695,28 @@ wagons:
       unresolvable PR to advisory-only instead of a repo-wide block, and by extending
       the same PR-under-validation scoping to the unscoped twin gate coach.pr.closes-keyword-discipline
       (#1478; renumbered from E062 which origin/main claimed)
+    C013: minimize likelihood of a-gate-check-that-could-not-perform-its-observation-returning-the-verdict-of-one-that-observed-nothing-wrong-so-the-transition-advances-on-an-observation-nobody-made
+      (#1719)
+    R010: 'minimize likelihood of the-operator-approval-token-gate-resolving-its-token-path-against-the-literal-per-worktree-cwd-instead-of-the-1346-shared-operational-control-root
+      by resolving the approval-token path through atdd.state.paths.resolve_operational_root(ctx.worktree)
+      — the same Control-Root resolution every other #1346-migrated operational .atdd/
+      reader uses — so an operator token written by `atdd coach approve` under the
+      single shared Control Root''s .atdd/runtime/ is found by the gate no matter
+      which child worktree evaluates the transition, with a worktree-local read retained
+      as a back-compat fallback (#1376)'
+    C020: minimize likelihood of atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
+      by reading the issue's phase from the State Store at mint time and validating
+      the requested edge against phase_machine.convention.yaml, refusing — never warning
+      — unless the issue is standing on FROM and the machine declares FROM->TO, with
+      the refusal naming the phase the issue is actually on so the operator can act
+      on it (#1735)
+    C022: minimize likelihood of the-conditional-mint-evaluating-an-edges-gates-at-the-head-of-whatever-directory-the-operator-was-standing-in-rather-than-at-the-head-of-the-branch-the-state-store-binds-the-issue-to
+      by resolving the commit the same way the branch already is — reusing approval_binding.resolve_issue_branch
+      and reading refs/heads/<that branch>, which every worktree of the repository
+      shares — by refusing rather than falling back to the invoking directory's HEAD
+      when it cannot be resolved, by naming the issue and the branch in that refusal,
+      and by printing the branch beside the commit so a token naming one branch while
+      attesting another's commit is legible (#1765)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1752,7 +1836,7 @@ wagons:
     to: internal
   consume: []
   wmbt:
-    total: 4
+    total: 5
     D001: minimize likelihood of provider-boundary-erosion by resolving a workspace
       provider to a subprocess CLI handle that core never imports, requiring the provider
       to declare a contract_version, and refusing resolution when no installed contract
@@ -1769,6 +1853,10 @@ wagons:
       from convention, implementation, workspace and contract fields alone and never
       emitting the extension package identity, so a package rename is a lock regeneration
       rather than a rule migration
+    E004: minimize quantity of off-target-rule-execution by letting a caller name
+      the rules enforce() runs and refusing a selection that names an unknown rule,
+      so a single-rule verdict costs one provider subprocess instead of the whole
+      bound set and a mistyped rule id fails loudly instead of reporting clean
   total: 0
   manifest: plan/govern_providers/_govern_providers.yaml
   path: plan/govern_providers/
@@ -1873,6 +1961,8 @@ wagons:
     D006: minimize undetected frontend composition root drift via source scan
     D007: minimize unverified wagon trains.ts export contracts via source scan
     D008: minimize unstructured train YAML render metadata via JSON Schema
+    E002: minimize quantity of convention-registry-builds-forced-by-cli-startup when
+      the CLI entrypoint is imported to dispatch any command
   total: 0
   manifest: plan/implement_code/_implement_code.yaml
   path: plan/implement_code/
@@ -2046,7 +2136,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 22
+    total: 24
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2085,6 +2175,15 @@ wagons:
       by detecting linked-worktree condition and writing 'git config --worktree core.hooksPath'
       instead of the unscoped form (#793, Wave 12 contamination class, core.hooksPath
       danger key)
+    Y007: 'minimize likelihood of agent-upgrade-runs-that-die-on-eoferror-because-the-command-assumes-a-terminal
+      by resolving upgrader.py''s confirmation the way coach.py:255 already resolves
+      its own — explicit flag wins, else infer from isatty — so a no-TTY run proceeds
+      under a decision it states out loud while a human sees byte-identical prompts
+      (#1628, the remedy the #1449 push gate names but no agent could run)'
+    E008: minimize likelihood of concurrent-upgrade-runs-mutating-the-one-shared-install-that-sits-beneath-every-worktree
+      by serialising the mutating section on a lock scoped to the install rather than
+      the checkout, making an already-current run a no-op, and refusing loudly rather
+      than proceeding unlocked (#1628, ~60 agents share one pipx install)
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/
@@ -2483,7 +2582,10 @@ wagons:
     Y001: 'minimize likelihood of a slug-rename mutating object identity: renaming
       slug or title must leave uid and the .atdd/state/projection/<uid>.yaml filename
       unchanged'
-    total: 7
+    Y002: 'minimize likelihood of a rename-addressability failure: atdd state object
+      rename must address every work item the store holds, never refusing one because
+      its uid is not wi_<ULID>-shaped'
+    total: 8
   total: 0
   manifest: plan/project_shared_state/_project_shared_state.yaml
   path: plan/project_shared_state/

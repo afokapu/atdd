@@ -1,0 +1,226 @@
+urn: wmbt:govern-lifecycle:L003
+step: locate
+direction: minimize
+dimension: likelihood
+object_of_control: wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them
+context_clarifier: "issue_lifecycle.py::_fetch_sub_issues shells out to gh issue list\
+  \ --label atdd-wmbt --search 'wmbt:<slug> in:title' and never reads plan/, so atdd\
+  \ coach enter <N> prints 'WMBTs: none found' for every issue however well decomposed;\
+  \ #1477 removed sync_wmbts and _discover_wmbts_from_feature with no replacement\
+  \ because they resolved plan artifacts through a wagon field the store no longer\
+  \ carries, and test_mint_path_decommissioned.py asserts they stay gone \u2014 the\
+  \ 56 atdd-wmbt issues that exist are all pre-#1477 leftovers, newest #1059"
+lens: functional.effectiveness
+statement: "minimize likelihood of wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them\
+  \ by resolving an issue's WMBTs through its feature binding \u2014 issue to feature\
+  \ URN to the feature YAML's wmbts: list in plan/ \u2014 so atdd coach enter lists\
+  \ the real decomposition without a network call, and an issue whose feature does\
+  \ not resolve is reported as a violation rather than displayed as a silent blank\
+  \ indistinguishable from a genuinely undecomposed issue"
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:L003-UNIT-001-resolver-reads-the-feature-wmbts
+    id: AC-UNIT-001
+    purpose: 'The resolver walks issue -> stored feature URN -> feature YAML -> its
+      wmbts: list, reading plan/ off disk with no provider call, so the WMBTs a coach
+      surface shows are the ones the planner actually authored'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'A plan/ fixture with a feature YAML declaring a known wmbts: list, and the
+      WMBT YAMLs it names'
+    - A work item bound to that feature URN
+    - The resolver under test called directly, with any subprocess/gh entry point
+      stubbed to fail loudly if touched
+  when:
+    abstract: the resolver is asked for the WMBTs of that issue
+  then:
+    abstract:
+    - 'It returns exactly the URNs the feature YAML''s wmbts: list declares, in that
+      order'
+    - "No subprocess and no network call is made \u2014 the stubbed gh entry point\
+      \ is asserted never to have been invoked"
+    - 'A feature YAML declaring an empty wmbts: list yields an empty result distinguishable
+      from a failure to resolve'
+    - Each returned WMBT is resolvable to its YAML path, so the caller can render
+      more than a bare URN
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:L003-UNIT-002-unresolvable-binding-is-reported-not-blank
+    id: AC-UNIT-002
+    purpose: 'The silent-blank failure mode is closed at its source: an issue with
+      no binding, or a binding naming a feature plan/ does not contain, is reported
+      as a distinct outcome and never renders as the same ''none found'' an undecomposed
+      issue produces'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The same plan/ fixture and resolver
+    - 'Three issues: one with a null stored feature, one whose feature URN is absent
+      from plan/, and one whose feature resolves but declares no WMBTs'
+  when:
+    abstract: the resolver is asked for each issue's WMBTs and the rendered coach
+      output is captured
+  then:
+    abstract:
+    - "The null binding yields an explicit unbound outcome, and the rendered text\
+      \ says the issue carries no feature binding \u2014 not 'none found'"
+    - The absent feature URN yields an explicit unresolved outcome naming the URN
+      that did not resolve
+    - 'The feature that resolves with an empty wmbts: list renders as a genuinely
+      undecomposed issue, distinct from both failures above'
+    - The three outcomes are distinguishable by the caller programmatically, not only
+      by reading the message text
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:L003-INTEGRATION-001-no-atdd-wmbt-label-dependency-remains
+    id: AC-INTEGRATION-001
+    purpose: 'The decommissioned lookup is gone rather than merely bypassed: no coach
+      code path reaches the atdd-wmbt label, and the retired mint path stays retired,
+      so the fix cannot regress into a second GitHub-label search'
+    phase: GREEN
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - The shipped coach source tree as the subject of a source-level scan
+    - test_mint_path_decommissioned.py as the standing guard that sync_wmbts and _discover_wmbts_from_feature
+      stay removed
+    - A fault injector that repoints the resolver back at a label search, and a second
+      that removes the unresolved-binding reporting branch
+  when:
+    abstract: the scan is run over the coach tree and then each fault is injected
+      in isolation and the observing suite re-run
+  then:
+    abstract:
+    - No coach code path references the atdd-wmbt label for WMBT resolution
+    - "The mint-path decommission guard still passes \u2014 nothing here revives sync_wmbts"
+    - Each injection's anchor is asserted to have matched EXACTLY ONCE and the mutated
+      source still parses
+    - Repointing at a label search turns the resolver acceptance RED; removing the
+      unresolved-binding branch turns the reporting acceptance RED
+    - With no fault injected the suite is GREEN, establishing the fault as the sole
+      cause of each failure
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'
+- identity:
+    urn: acc:govern-lifecycle:L003-UNIT-003-the-plan-tree-is-the-issues-not-the-cwds
+    id: AC-UNIT-003
+    purpose: 'The feature URN was already the issue''s; the tree it was resolved
+      against was the caller''s. Resolving the plan tree through the issue''s stored
+      branch binding makes the WMBTs and the paths the banner shows the issue''s
+      own, and makes the answer independent of which directory the command ran in'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - Two real git worktrees of one real repository, on two different branches, each
+      carrying its own plan/ tree
+    - The issue's own branch declares one WMBT; the branch the command runs from declares
+      a different one, reproducing the two directions measured on #1735
+    - A work item whose stored branch binding names the issue's branch, seeded in the
+      store both checkouts resolve
+  when:
+    abstract: the resolver and the renderer are asked for that issue's WMBTs from the
+      sibling worktree, and then again from the issue's own
+  then:
+    abstract:
+    - The tree is located through the branch binding and reports doing so, so a caller
+      can tell which tree answered without parsing prose
+    - The WMBT the issue's own branch declares is listed, and the WMBT that exists only
+      in the tree the command ran from is not
+    - Every rendered path is under the issue's own worktree, so a path printed by the
+      banner can be opened from the issue's checkout
+    - Run from inside the issue's own worktree the result is unchanged, and the two
+      vantage points return identical WMBTs and identical paths
+    - An answer resolved through the binding is rendered without qualification, so a
+      qualification elsewhere carries meaning
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-08'
+- identity:
+    urn: acc:govern-lifecycle:L003-UNIT-004-an-unseeable-tree-is-its-own-outcome
+    id: AC-UNIT-004
+    purpose: 'A lookup that cannot see the issue''s tree reports that, and reads
+      nothing — rather than answering from the cwd''s copy or attributing the miss
+      to the plan graph, which is what told #1711 five times that an intact feature
+      binding was broken'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A checkout whose own plan/ holds a feature that resolves and declares WMBTs, so
+      an answer from it would look entirely plausible
+    - An issue bound to a branch no working tree on the machine has checked out
+    - A second issue that records no branch at all, a third resolved outside any git
+      working tree, and a run in which git cannot be executed at all
+  when:
+    abstract: each issue's WMBTs are resolved and rendered from that checkout
+  then:
+    abstract:
+    - The unlocatable tree is a distinct outcome, separable programmatically from a
+      missing binding and from a binding that resolves nowhere
+    - No WMBT and no path is returned for it, so the resolvable feature sitting in the
+      cwd's plan/ is not reported as the issue's
+    - The rendered text neither says the binding is broken nor names a path under the
+      cwd's plan/ as where the artefact was expected, and it names the branch whose
+      tree could not be found so the reader can act
+    - An issue recording no branch is still answered, and the rendering states which
+      tree was read and that it may not be the issue's
+    - Outside a git working tree nothing is qualified, because with no branches there
+      is no other tree the answer could have come from
+    - git being unrunnable answers and qualifies rather than crashing or refusing,
+      because a missing tool says only that the question could not be asked, which
+      is a different claim from there being no other tree
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-08'
+- identity:
+    urn: acc:govern-lifecycle:L003-SMOKE-001-coach-enter-lists-plan-backed-wmbts
+    id: AC-SMOKE-001
+    purpose: 'Against the real installed CLI in a real checkout: `atdd coach enter
+      <N>` lists the WMBTs the plan graph declares for a bound issue, closing the
+      user-visible symptom that every issue in the repo reported ''WMBTs: none found'''
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - "A real checkout, the real atdd CLI and a real State Store, exercised in a separate\
+      \ real process \u2014 no in-process import of the module under test and no monkeypatching"
+    - A real work item bound to a feature URN whose YAML in plan/ declares a known
+      WMBT, and a second work item whose stored feature is null
+    - No GitHub token available to the subprocess, so a lookup that still depended
+      on gh would fail rather than quietly return an empty list
+  when:
+    abstract: a subprocess runs the real `atdd coach enter <N>` for each of the two
+      issues and both outputs are captured
+  then:
+    abstract:
+    - The bound issue's output lists the WMBT URN the feature YAML declares
+    - It does so with no GitHub credentials present, proving the resolution came from
+      plan/ and not from the provider
+    - The unbound issue's output reports the missing binding explicitly and does not
+      print 'none found'
+    - "Both invocations exit with a status consistent with the phase machine \u2014\
+      \ reporting a missing binding does not crash the enter path"
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-28'

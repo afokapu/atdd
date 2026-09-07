@@ -57,7 +57,7 @@ produce:
 consume: []
 
 wmbt:
-  total: 26
+  total: 28
   D001: "maximize likelihood of schema-valid substrate by defining one canonical schema and flat canonical home per artifact kind and freezing the controlled vocabularies"
   C009: "minimize likelihood of orphan-extension-convention-nodes by asserting in atdd validate package that every convention node an extension owns is an endpoint of at least one edge in the extension's relationships.yaml"
   C008: "minimize likelihood of orphan-convention-nodes by asserting every convention node appears as a source_ref or target_ref of at least one relationship-graph edge (no node outside the graph), making graph integrity bidirectional"
@@ -83,4 +83,7 @@ wmbt:
   C011: "minimize likelihood of schema-generator-gate drift by asserting issue.schema.json properties == create_issue_body fields == E019 required sections"
   K002: "minimize likelihood of existing-compliant-body validation regression by asserting today's compliant issue bodies validate against issue.schema.json (back-compat)"
   E008: "maximize likelihood of issue-publish-to-store when authoring via `atdd author issue` (store-first work_item + exactly one github external_ref, by default)"
+  E009: "minimize quantity of unreviewed-authored-prose by routing every authoring write through a pre-write review that enforces only the repo-declared review rules over a staged copy and refuses the write when any of them fires, so a prose finding surfaces before the artifact exists rather than after it is committed"
   C012: "minimize likelihood of author-without-publish by requiring the generate path to reach the store-first publish and to fail loud (no body-only degrade) when the store is unreachable"
+  C014: "minimize likelihood of unverified-artifact-claim by requiring one convention-bound checker to answer the `## Artifacts` question for both the validator and the runtime gate, reporting an empty declaration and an undeclared changed file as violations"
+  E010: "minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when authoring an issue body"

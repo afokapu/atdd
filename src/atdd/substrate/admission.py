@@ -14,6 +14,7 @@ non-executing admission path.
 """
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -182,20 +183,140 @@ def admit(
     )
 
 
+# The only two directories a package is ever installed into. Nothing outside these
+# is deletable by `remove --prune`, however a lock entry's `installed_path` reads.
+_INSTALL_HOMES = ("extensions", "workspaces")
+
+
+def _install_home(project_root: Path, entry: dict) -> Path | None:
+    """The directory a lock entry was installed to, or None if it names none.
+
+    Refuses any path that does not resolve INSIDE `.atdd/extensions/` or
+    `.atdd/workspaces/`. `remove --prune` deletes what this returns, so a blank,
+    relative-escaping, or symlinked `installed_path` must yield None rather than a
+    path — a delete is not the place to trust a lockfile.
+    """
+    rel = str(entry.get("installed_path") or "").strip()
+    if not rel:
+        return None
+    home = (project_root / rel).resolve()
+    bases = [(project_root / ".atdd" / d).resolve() for d in _INSTALL_HOMES]
+    if not any(base in home.parents for base in bases):
+        return None
+    return home
+
+
+def _uninstall(project_root: Path, entry: dict) -> str | None:
+    """Delete a package's versioned install home. Returns the path it deleted."""
+    home = _install_home(project_root, entry)
+    if home is None or not home.is_dir():
+        return None
+    shutil.rmtree(home)
+    versions = home.parent  # `.atdd/<homes>/<package-id>/` — drop it once it is empty
+    if versions.is_dir() and not any(versions.iterdir()):
+        versions.rmdir()
+    return str(home.relative_to(project_root))
+
+
+def _rebind(project_root: Path) -> list[str]:
+    """Recompose `binding.lock.yaml` from the substrate lock. Returns rules unbound.
+
+    The binding plan is a PROJECTION of the substrate lock, so recomposing it from
+    the updated lock IS the unbind: a package that is no longer locked contributes
+    no implementations, so it can contribute no bound rules. Deriving beats deleting
+    — a surgical filter could miss a rule, whereas a package that is gone cannot put
+    one back.
+
+    Only ever rewrites a plan that already exists; a project that never bound stays
+    unbound.
+    """
+    from atdd.substrate.binding import plan as plan_mod
+
+    path = project_root / ".atdd" / plan_mod.PLAN_FILE
+    if not path.exists():
+        return []
+
+    previous = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    before = {c["convention_id"] for c in (previous.get("conventions") or [])}
+    plan = plan_mod.build_binding_plan(project_root)
+    plan_mod.write_binding_plan(project_root, plan)
+    after = {c["convention_id"] for c in plan["conventions"]}
+    return sorted(before - after)
+
+
+def _orphaned_workspaces(root: Path, target: dict) -> list[tuple[str, dict]]:
+    """Workspaces of ``target`` that no remaining admitted artifact still needs."""
+    remaining = installer.list_substrate(root)
+    orphans: list[tuple[str, dict]] = []
+    for w in target.get("workspaces") or []:
+        wid = w.get("id")
+        still_needed = any(
+            any(dep.get("id") == wid for dep in (a.get("workspaces") or []))
+            for a in remaining
+        )
+        entry = next((a for a in remaining if a.get("id") == wid), None)
+        if not still_needed and entry is not None:
+            orphans.append((wid, entry))
+    return orphans
+
+
+def _prune(root: Path, target: dict) -> tuple[list[str], list[str]]:
+    """Reclaim disk for ``target`` and every workspace it alone was holding open.
+
+    Returns ``(pruned, uninstalled)`` — the workspace ids dropped from the lock,
+    and the directories actually deleted. Deleting nothing is not a failure: a
+    package installed by reference has no directory of ours to reclaim.
+    """
+    pruned: list[str] = []
+    uninstalled: list[str] = []
+    for wid, entry in _orphaned_workspaces(root, target):
+        installer.remove_lock_entry(root, wid)
+        pruned.append(wid)
+        deleted = _uninstall(root, entry)
+        if deleted:
+            uninstalled.append(deleted)
+    deleted = _uninstall(root, target)  # the package the operator actually named
+    if deleted:
+        uninstalled.append(deleted)
+    return pruned, uninstalled
+
+
 def remove(
     ref: str, *, project_root: str | Path, force: bool = False, prune: bool = False
 ) -> dict:
-    """Withdraw an artifact from the lock, refusing if others depend on it.
+    """Withdraw an artifact from the substrate — for real (#1488).
 
     Refuses (raises ``AdmissionError``) when another admitted artifact depends on
-    the target, unless ``force``. With ``prune``, also removes the target's
-    workspaces when no remaining artifact depends on them. Returns
-    ``{removed, pruned}``.
+    the target, unless ``force``. Otherwise it drops the target from
+    ``substrate.lock.yaml``, UNBINDS its rules by recomposing ``binding.lock.yaml``
+    from the updated lock, and — with ``prune`` — deletes the installed directory
+    and any workspace no remaining artifact still needs.
+
+    The unbind is unconditional: ``--prune`` governs the DISK, not coherence.
+    Leaving a rule bound to a package the substrate lock no longer carries is a
+    split brain whether or not the operator asked to reclaim the directory.
+
+    Removing something that is not installed is a truthful no-op (``removed`` is
+    ``None``), never a false success. Before returning, the postcondition is
+    VERIFIED against :func:`atdd.substrate.coherence.check_coherence`, so this
+    cannot report a removal it did not achieve.
+
+    Returns ``{removed, pruned, uninstalled, unbound}``. Raises
+    ``IncoherentSubstrateError`` if the substrate is not coherent afterwards, and
+    ``BindingError`` if the rules could not be recomposed.
     """
-    arts = installer.list_substrate(project_root)
+    from atdd.substrate import coherence
+
+    root = Path(project_root)
+    arts = installer.list_substrate(root)
     target = next((a for a in arts if a.get("id") == ref), None)
+
     if target is None:
-        raise AdmissionError(f"{ref!r} is not in the installed substrate")
+        # Idempotent. Still reconcile what a previous broken remove may have left
+        # behind, so a second run converges on coherence instead of re-reporting.
+        unbound = _rebind(root)
+        coherence.assert_coherent(root)
+        return {"removed": None, "pruned": [], "uninstalled": [], "unbound": unbound}
 
     dependents = [
         a["id"]
@@ -208,17 +329,15 @@ def remove(
             f"{target['id']} is depended on by {', '.join(dependents)}; pass --force to remove anyway"
         )
 
-    installer.remove_lock_entry(project_root, target["id"])
-    pruned: list[str] = []
-    if prune:
-        remaining = installer.list_substrate(project_root)
-        for w in target.get("workspaces") or []:
-            wid = w.get("id")
-            still_needed = any(
-                any(dep.get("id") == wid for dep in (a.get("workspaces") or []))
-                for a in remaining
-            )
-            if not still_needed and any(a.get("id") == wid for a in remaining):
-                installer.remove_lock_entry(project_root, wid)
-                pruned.append(wid)
-    return {"removed": target["id"], "pruned": pruned}
+    installer.remove_lock_entry(root, target["id"])
+
+    pruned, uninstalled = _prune(root, target) if prune else ([], [])
+
+    unbound = _rebind(root)
+    coherence.assert_coherent(root)  # verify the report before making it
+    return {
+        "removed": target["id"],
+        "pruned": pruned,
+        "uninstalled": uninstalled,
+        "unbound": unbound,
+    }

@@ -3,15 +3,25 @@
 
 The harness around the conversation: the LLM/agent runs the dialogue and calls
 these APIs; this module holds the **durable gated session state** (on disk,
-surviving long conversations / compaction) and enforces the D/L/P/C gates.
+surviving long conversations / compaction) and enforces the stage gates.
 
-Lifecycle: Define -> Locate -> Prepare -> Confirm -> (authored). Steps are
-gates, not scripts: free dialogue within a step; a step advances only when its
-exit condition holds; backtracking is allowed. keep/pivot/kill rides the
-#1096a `elicit` contract (a consumer, never AskUserQuestion directly). The
-Confirm gate is the conversational->deterministic boundary: nothing is authored
-until the operator confirms the locked decomposition
-(`planner.plan.confirm-before-author`).
+Lifecycle: Intent -> Attach -> Compose -> Ratify -> (authored). The stages name
+what the OPERATOR is deciding, not what the tool is doing: Intent declares the
+job to be done and its boundaries, Attach connects that intent to existing
+repository context, Compose arranges the proposed train, Ratify approves,
+rejects or redirects the composition and locks it, and Author materialises it
+as schema-valid artifacts.
+
+Stages are gates, not scripts: free dialogue within a stage; a stage advances
+only when its exit condition holds; backtracking is allowed. keep/pivot/kill
+rides the #1096a `elicit` contract (a consumer, never AskUserQuestion
+directly). The Ratify gate is the conversational->deterministic boundary:
+nothing is authored until the operator ratifies the locked decomposition.
+
+That boundary keeps its rule name, `planner.plan.confirm-before-author`, and
+this module keeps its `confirm()` method and its `confirm_*` collaborators. The
+rule name and the stage name are separate things: the STAGE is now Ratify, the
+RULE is still confirm-before-author (#1688). Both are true at once.
 
 Stdlib + the neutral elicit contract only.
 """
@@ -29,14 +39,27 @@ from atdd.runtime.elicit import (
 
 
 class Step(str, Enum):
-    DEFINE = "define"      # find the JTBD main job
-    LOCATE = "locate"      # gather sources + current plan/ state
-    PREPARE = "prepare"    # draft a candidate decomposition
-    CONFIRM = "confirm"    # operator keep/pivot/kill -> lock
-    AUTHORED = "authored"  # post-confirm: atdd author has written the locked units
+    INTENT = "intent"      # declare the JTBD main job and its boundaries
+    ATTACH = "attach"      # connect the intent to existing repository context
+    COMPOSE = "compose"    # arrange the proposed decomposition
+    RATIFY = "ratify"      # operator keep/pivot/kill -> lock
+    AUTHORED = "authored"  # post-ratify: atdd author has written the locked units
 
 
-_ORDER = [Step.DEFINE, Step.LOCATE, Step.PREPARE, Step.CONFIRM, Step.AUTHORED]
+_ORDER = [Step.INTENT, Step.ATTACH, Step.COMPOSE, Step.RATIFY, Step.AUTHORED]
+
+# Stage values written before the #1688 rename, mapped to what they now mean.
+# `.atdd/runtime/` is gitignored, so sessions are machine-local and disposable —
+# but they are real, and `load()` is `cls(**data)` with no validation, so a stale
+# value would survive the load and detonate on the NEXT `Step(self.step)` as a
+# bare ValueError. ValueError is not SessionGateError, so it escapes the CLI's
+# handler and reaches the operator as a traceback instead of a refusal.
+_LEGACY_STEP_VALUES = {
+    "define": Step.INTENT.value,
+    "locate": Step.ATTACH.value,
+    "prepare": Step.COMPOSE.value,
+    "confirm": Step.RATIFY.value,
+}
 
 
 class Verdict(str, Enum):
@@ -47,8 +70,8 @@ class Verdict(str, Enum):
 
 
 class SessionGateError(RuntimeError):
-    """Raised when a step transition's exit condition is not met, or when
-    authoring is attempted before the Confirm lock (confirm-before-author)."""
+    """Raised when a stage transition's exit condition is not met, or when
+    authoring is attempted before the Ratify lock (confirm-before-author)."""
 
 
 @dataclass
@@ -58,13 +81,13 @@ class Unit:
     ref: str                       # slug / urn / label
     verdict: str = Verdict.PENDING.value
     modification: str | None = None  # named modification when pivoted
-    spec: dict = field(default_factory=dict)  # the atdd author spec (filled in Prepare)
+    spec: dict = field(default_factory=dict)  # the atdd author spec (filled in Compose)
 
 
 @dataclass
 class PlanSession:
     session_id: str
-    step: str = Step.DEFINE.value
+    step: str = Step.INTENT.value
     main_job: str | None = None
     sources: list = field(default_factory=list)   # captured source descriptors
     units: list = field(default_factory=list)     # list[Unit] (as dicts when persisted)
@@ -92,9 +115,12 @@ class PlanSession:
         if not path.exists():
             raise SessionGateError(f"no plan session {session_id!r} at {path}")
         data = json.loads(path.read_text(encoding="utf-8"))
+        step = data.get("step")
+        if isinstance(step, str) and step in _LEGACY_STEP_VALUES:
+            data["step"] = _LEGACY_STEP_VALUES[step]  # pre-#1688 session
         return cls(**data)
 
-    # ---- the Confirm lock --------------------------------------------------
+    # ---- the Ratify lock ---------------------------------------------------
     def assert_mutable(self, what: str) -> None:
         """Refuse a mutation while the decomposition is locked (#1505).
 
@@ -107,22 +133,23 @@ class PlanSession:
         """
         if self.locked:
             raise SessionGateError(
-                f"the decomposition is locked — cannot {what}. What you confirmed is "
-                f"what gets authored: units added after Confirm would never be seen by "
+                f"the decomposition is locked — cannot {what}. What you ratified is "
+                f"what gets authored: units added after Ratify would never be seen by "
                 f"the interlocking, verb-object and artifact-naming validations that "
-                f"confirm() runs. To edit, withdraw the confirmation first: "
+                f"the Ratify gate runs. To edit, withdraw the ratification first: "
                 f"`atdd plan reopen --id {self.session_id}` (returns the session to "
-                f"Prepare and keeps your verdicts), then re-run confirm().")
+                f"Compose and keeps your verdicts), then re-run `atdd plan ratify`.")
 
     def reopen(self) -> None:
-        """Withdraw the operator's Confirm and return to Prepare (#1505).
+        """Withdraw the operator's ratification and return to Compose (#1505).
 
         The sanctioned escape from a locked session — sanctioned because
         ``planner.plan.session-lifecycle`` already allows a pivot to reopen an
-        earlier step. Verdicts are PRESERVED: ``confirm()`` re-runs every validation
-        against the *current* unit set regardless of verdict age, so keeping them
-        bypasses nothing, while resetting them would punish a large decomposition
-        for a one-unit edit and push operators back to hand-editing session.json.
+        earlier stage. Verdicts are PRESERVED: the Ratify gate re-runs every
+        validation against the *current* unit set regardless of verdict age, so
+        keeping them bypasses nothing, while resetting them would punish a large
+        decomposition for a one-unit edit and push operators back to hand-editing
+        session.json.
 
         Refused once ``step == AUTHORED``: the artifacts are already on disk, and
         reopening would leave them orphaned with no rollback to offer.
@@ -133,7 +160,7 @@ class PlanSession:
                 "artifacts are on disk and reopening would orphan them. Author the "
                 "change as a new plan session against the same issue instead.")
         self.locked = False
-        self.step = Step.PREPARE.value
+        self.step = Step.COMPOSE.value
 
     # ---- units -------------------------------------------------------------
     def add_unit(self, unit: Unit) -> None:
@@ -142,7 +169,7 @@ class PlanSession:
         ``ref`` identifies a unit within a session — ``_unit()`` has always
         resolved by ``ref`` alone, so two units sharing one ``ref`` made the
         session ambiguous: ``decide()`` reached only the first while ``author()``
-        wrote both. Re-stating a unit is the normal Prepare loop (draft, look,
+        wrote both. Re-stating a unit is the normal Compose loop (draft, look,
         re-draft), so it upserts rather than appending a duplicate.
 
         Changing a decided unit's ``spec`` resets its verdict to PENDING: the
@@ -210,27 +237,35 @@ class PlanSession:
 
     # ---- gated transitions -------------------------------------------------
     def _gate_ok(self, target: Step) -> tuple[bool, str]:
-        if target is Step.LOCATE:
+        """Whether ``target`` may be entered, and why not when it may not.
+
+        Note the direction of the messages: each names the stage being LEFT, not
+        the one being entered, because that is the stage whose exit condition the
+        operator has to satisfy. So the branch for ``ATTACH`` explains why
+        ``Intent`` will not release the session. Renaming a message to match its
+        own branch target would silently shift all four by one stage.
+        """
+        if target is Step.ATTACH:
             ok = any(u["kind"] == "main-job" and u["verdict"] == Verdict.KEEP.value for u in self.units) or bool(self.main_job)
-            return ok, "Define requires a kept JTBD main job"
-        if target is Step.PREPARE:
-            return bool(self.sources), "Locate requires captured sources / plan state"
-        if target is Step.CONFIRM:
+            return ok, "Intent requires a kept JTBD main job"
+        if target is Step.COMPOSE:
+            return bool(self.sources), "Attach requires captured sources / plan state"
+        if target is Step.RATIFY:
             cand = [u for u in self.units if u["kind"] not in ("main-job", "heuristic", "analog")]
-            return bool(cand), "Prepare requires at least one candidate decomposition unit"
+            return bool(cand), "Compose requires at least one candidate decomposition unit"
         if target is Step.AUTHORED:
-            return self.locked, "Confirm requires the decomposition to be locked by the operator"
+            return self.locked, "Ratify requires the decomposition to be locked by the operator"
         return False, f"unknown target {target}"
 
     def advance(self, target: Step) -> None:
         """Advance to `target` if its exit condition holds. Backtracking (to an
-        earlier step) is always allowed and does not re-check gates.
+        earlier stage) is always allowed and does not re-check gates.
 
         Backtracking CLEARS the lock (#1505). The flag asserts 'this exact unit set
         may be authored'; stepping back to edit withdraws that assertion, so leaving
         it set would let `_gate_ok(AUTHORED)` wave the session through on a stale
-        confirm() that never saw the current units. A no-op (`target is cur`) is not
-        a backtrack and leaves the lock alone.
+        ratification that never saw the current units. A no-op (`target is cur`) is
+        not a backtrack and leaves the lock alone.
         """
         cur = Step(self.step)
         if _ORDER.index(target) < _ORDER.index(cur):
@@ -247,18 +282,24 @@ class PlanSession:
         self.step = target.value
 
     def confirm(self, root: Path | str = ".") -> None:
-        """The Confirm gate: every unit must reach a TERMINAL verdict (keep or
+        """The Ratify gate: every unit must reach a TERMINAL verdict (keep or
         kill) before locking. PENDING and PIVOT are non-terminal — a pivot names
         a modification that must be re-drafted and re-decided (decide() again to
-        keep/kill) before confirm. This is the conversational->deterministic
+        keep/kill) before ratifying. This is the conversational->deterministic
         boundary.
+
+        The method keeps the name ``confirm()`` deliberately: the rule it enforces
+        is ``planner.plan.confirm-before-author`` and its collaborators are the
+        ``confirm_*`` modules, all of which are bound identities that this rename
+        does not touch (#1688). The STAGE is Ratify; the RULE is
+        confirm-before-author.
 
         Before locking, kept train units' interlocking sanity is validated via
         the #1248 Python API (``planner.plan.confirm-requires-interlocking-sanity``,
         #1249). The gate fails closed and is atomic: every failure path raises
         ``SessionGateError`` and leaves ``self.locked is False``."""
-        if Step(self.step) is not Step.CONFIRM:
-            raise SessionGateError("confirm() is only valid in the Confirm step")
+        if Step(self.step) is not Step.RATIFY:
+            raise SessionGateError("ratify is only valid in the Ratify stage")
         unresolved = [u["ref"] for u in self.units
                       if u["verdict"] in (Verdict.PENDING.value, Verdict.PIVOT.value)]
         if unresolved:
@@ -297,18 +338,19 @@ class PlanSession:
         self.locked = True
 
     def author(self, author_fn) -> list:
-        """Post-confirm: deterministically author each KEPT unit via `author_fn`
+        """Post-ratify: deterministically author each KEPT unit via `author_fn`
         (the #1144 atdd-author writers). Refuses if not locked
-        (planner.plan.confirm-before-author)."""
+        (planner.plan.confirm-before-author — the rule name is unchanged)."""
         if not self.locked:
-            raise SessionGateError("confirm-before-author: nothing may be authored before the operator confirms")
+            raise SessionGateError(
+                "confirm-before-author: nothing may be authored before the operator ratifies")
         results = [author_fn(u["kind"], u["spec"]) for u in self.kept_units()]
         self.advance(Step.AUTHORED)
         return results
 
 
 def build_author_fn(root: Path | str = "."):
-    """The on-Confirm deterministic dispatch: map a locked unit's kind to its
+    """The on-Ratify deterministic dispatch: map a locked unit's kind to its
     #1144 `atdd author` writer. atdd plan invokes this — the system, not the agent."""
     from atdd.planner.commands.author import (
         create_acceptance, create_contract, create_feature, create_interlocking,

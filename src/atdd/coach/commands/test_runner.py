@@ -19,6 +19,18 @@ from typing import List, Optional
 
 import atdd
 from atdd.coach.utils.repo import find_repo_root, is_atdd_source_repo
+from atdd.coach.utils.validation_coverage import (
+    CoverageReport,
+    coverage_reasons,
+    parse_collected_counts,
+    render_coverage_report,
+    render_unknown_coverage,
+)
+
+# The probe is a collection-only pass, so it costs roughly what collection costs
+# (~2.5s per phase on this repo). The ceiling is generous because a probe that
+# times out must report "unknown" rather than silently become a zero.
+_COVERAGE_PROBE_TIMEOUT_SECONDS = 300
 
 
 def _xdist_available() -> bool:
@@ -78,6 +90,11 @@ class TestRunner:
         # hooks-on requires a manual `PYTHONPATH=src` bridge. In a consumer
         # repo this falls back to the installed package, unchanged.
         self.atdd_pkg_dir = self._resolve_atdd_pkg_dir()
+        # C014 (#1632): the last run's coverage, so a caller that needs to record
+        # or act on how much went unevaluated can read it without re-probing.
+        # `None` means "not measured", which is not "nothing was deselected".
+        self.last_coverage_report: Optional[CoverageReport] = None
+        self._coverage_probe_detail: str = "probe not run"
 
     def _repo_is_atdd_checkout(self) -> bool:
         """True when self.repo_root is the atdd toolkit source checkout.
@@ -181,8 +198,15 @@ class TestRunner:
 
         return cmd
 
-    def _run_pytest(self, cmd: list) -> int:
-        """Run a pytest command and return exit code."""
+    def _pytest_env(self) -> dict:
+        """The environment every pytest subprocess this runner spawns must share.
+
+        Factored out of ``_run_pytest`` for C014's coverage probe (#1632): a probe
+        that collected under a different environment could report a count for a
+        selection the real run never made. In particular the PYTHONPATH bridge
+        below changes which ``atdd`` is imported, and therefore which validators
+        exist to be counted.
+        """
         import os
         env = _scrub_git_hook_env(os.environ.copy())
         env["ATDD_REPO_ROOT"] = str(self.repo_root)
@@ -194,6 +218,12 @@ class TestRunner:
             src = str(self.repo_root / "src")
             existing = env.get("PYTHONPATH", "")
             env["PYTHONPATH"] = src + (os.pathsep + existing if existing else "")
+
+        return env
+
+    def _run_pytest(self, cmd: list) -> int:
+        """Run a pytest command and return exit code."""
+        env = self._pytest_env()
 
         print(f"  Running: {' '.join(cmd)}")
         print(f"  Repo root: {self.repo_root}")
@@ -250,22 +280,132 @@ class TestRunner:
         # branch so that --skip-api (which sets split=False) does not bypass it.
         # _run_split() historically held this guard; moving it here makes it the
         # single chokepoint regardless of invocation flags.
-        if not is_atdd_source_repo():
+        consumer_mode = not is_atdd_source_repo()
+        if consumer_mode:
             markers = list(markers or []) + ["not platform"]
 
+        # C014 (#1632): `markers` is now final, and it is exactly the set of
+        # exclusions that applies to the run AS A WHOLE. The stage expressions
+        # _run_split adds are complementary — stage 1 takes `not github_api` and
+        # stage 2 takes `github_api`, so between them they cover everything and
+        # exclude nothing. Probing here therefore measures what the whole run will
+        # not evaluate, once, whichever branch is taken below.
+        coverage_report = self.probe_coverage(
+            validator_dirs,
+            markers or [],
+            phase=phase or "all",
+            consumer_mode=consumer_mode,
+        )
+        self.last_coverage_report = coverage_report
+
         if split:
-            return self._run_split(
+            rc = self._run_split(
                 validator_dirs, verbose=verbose, coverage=coverage,
                 html_report=html_report, markers=markers, parallel=parallel,
                 no_diagnostics=no_diagnostics,
             )
+        else:
+            cmd = self._build_pytest_cmd(
+                validator_dirs, verbose=verbose, coverage=coverage,
+                html_report=html_report, markers=markers, parallel=parallel,
+                no_diagnostics=no_diagnostics,
+            )
+            rc = self._run_pytest(cmd)
 
-        cmd = self._build_pytest_cmd(
-            validator_dirs, verbose=verbose, coverage=coverage,
-            html_report=html_report, markers=markers, parallel=parallel,
-            no_diagnostics=no_diagnostics,
+        # Printed after the run so it sits beside the verdict it qualifies, and
+        # printed whatever the verdict was — a failing run's coverage matters just
+        # as much as a passing one's.
+        self._print_coverage(coverage_report, phase or "all")
+        return rc
+
+    # ----------------------------------------------------------------- #
+    # C014 (#1632): what this run will not evaluate                      #
+    # ----------------------------------------------------------------- #
+
+    def coverage_exclusions(
+        self,
+        markers: Optional[List[str]] = None,
+        consumer_mode: bool = False,
+    ) -> tuple:
+        """The marker exclusions this run applies, each with the reason it applied.
+
+        ``consumer_mode`` names the cause that surprises people: ``not platform``
+        is injected when ``is_atdd_source_repo()`` is False, and that function keys
+        off where the ``atdd`` package was imported from, not off the repo under
+        validation. Invoked as the installed CLI it returns False *inside the
+        toolkit's own checkout*, so the guard built to keep dogfood tests out of
+        consumer repos fires in the toolkit repo on every invocation.
+        """
+        return coverage_reasons(
+            list(markers or []),
+            consumer_mode_reason=(
+                "atdd is not running from the toolkit source checkout "
+                "(is_atdd_source_repo() is False), so the toolkit-self "
+                "'platform' validators were excluded"
+            )
+            if consumer_mode
+            else "applied by the caller",
         )
-        return self._run_pytest(cmd)
+
+    def probe_coverage(
+        self,
+        validator_dirs: list,
+        markers: Optional[List[str]] = None,
+        phase: str = "all",
+        consumer_mode: bool = False,
+    ) -> Optional[CoverageReport]:
+        """Count what *markers* removes from *validator_dirs*, via pytest itself.
+
+        A collection-only pass. It has to be a separate pass because the real run
+        uses xdist, which collects in workers — so ``pytest_deselected`` never
+        reaches the controller that prints the summary, and the number is simply
+        not available from the run's own output.
+
+        Returns ``None`` when the probe cannot be read. That is not a zero, and
+        callers must not render it as one.
+        """
+        cmd = [sys.executable, "-m", "pytest"] + list(validator_dirs)
+        cmd.extend(["-q", "--collect-only", "-p", "no:cacheprovider"])
+        exprs = list(markers or [])
+        if exprs:
+            cmd.extend(["-m", " and ".join(f"({m})" for m in exprs)])
+
+        try:
+            proc = subprocess.run(
+                cmd,
+                env=self._pytest_env(),
+                cwd=str(self.repo_root),
+                capture_output=True,
+                text=True,
+                timeout=_COVERAGE_PROBE_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            self._coverage_probe_detail = f"probe did not run: {exc}"
+            return None
+
+        counts = parse_collected_counts(proc.stdout)
+        if counts is None:
+            self._coverage_probe_detail = (
+                f"pytest collection output could not be read (exit {proc.returncode})"
+            )
+            return None
+
+        selected, deselected = counts
+        return CoverageReport(
+            phase=phase,
+            selected=selected,
+            could_not_check=deselected,
+            exclusions=self.coverage_exclusions(exprs, consumer_mode=consumer_mode),
+        )
+
+    def _print_coverage(self, report: Optional[CoverageReport], phase: str) -> None:
+        print()
+        if report is None:
+            print(render_unknown_coverage(
+                phase, getattr(self, "_coverage_probe_detail", "probe unavailable")
+            ))
+            return
+        print(render_coverage_report(report))
 
     def _run_split(
         self,

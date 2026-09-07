@@ -53,7 +53,13 @@ from atdd.coach.commands.inventory import RepositoryInventory
 from atdd.coach.commands.test_runner import TestRunner
 from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
-from atdd.coach.commands.issue import IssueManager
+# NOT imported here (#1794): `atdd.coach.commands.issue` reaches
+# `atdd.coach.utils.artifact_claims`, whose module-scope `bind_rule` builds the
+# entire convention registry (~1.5s on the first call). At module scope that cost
+# lands on EVERY invocation — `atdd --help` included, and each of the four git
+# hooks, several times per commit. `IssueManager` is deferred to the three call
+# sites below instead. Do NOT make `bind_rule` lazy to fix this: failing loudly at
+# import is deliberate (SPEC-COACH-RULEID-0007).
 from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand
@@ -959,20 +965,6 @@ Phase descriptions:
     close_wmbt_top_parser.add_argument("wmbt_id", type=str, help="WMBT ID (e.g., D001, E003)")
     close_wmbt_top_parser.add_argument("--force", "-f", action="store_true", help="Close even if ATDD cycle checkboxes are unchecked")
 
-    # ----- atdd color [value] -----
-    color_parser = subparsers.add_parser(
-        "color",
-        help="Set workspace title/status bar color",
-        description="Set workspace color via named preset or hex value",
-    )
-    color_parser.add_argument(
-        "value",
-        nargs="?",
-        type=str,
-        default=None,
-        help="Color preset name (yellow, blue, green, red, orange, purple) or hex (#RRGGBB)",
-    )
-
     # ----- atdd hooks -----
     # The resolution seam the installed hook dispatchers call on every git
     # operation (#1492). Keep it fast and side-effect free.
@@ -1054,7 +1046,7 @@ Phase descriptions:
     # (#758) is decommissioned.
     plan_parser = subparsers.add_parser(
         "plan",
-        help="Run the atdd plan gated decomposition session (Define→Locate→Prepare→Confirm→author).",
+        help="Run the atdd plan gated decomposition session (Intent→Attach→Compose→Ratify→author).",
         add_help=False,
     )
     plan_parser.add_argument("plan_args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
@@ -2169,10 +2161,17 @@ Phase descriptions:
             from atdd.coach.commands.validation_baseline import (
                 write_validation_baseline,
             )
+            # C014 (#1632): record how much of the suite this run did NOT
+            # evaluate. `None` when the coverage probe could not read pytest's
+            # collection output — an unmeasured run must not record a zero.
+            report = getattr(
+                coach.validator_runner, "last_coverage_report", None
+            )
             write_validation_baseline(
                 phase=args.phase,
                 skipped_api=skip_api,
                 repo_root=repo_path,
+                could_not_check=report.could_not_check if report else None,
             )
 
         return rc
@@ -2227,6 +2226,8 @@ Phase descriptions:
             # DEPRECATED alias for `atdd substrate list` (#1239) — still works.
             _deprecation_warning("atdd list --substrate", "atdd substrate list", stream=sys.stderr)
             return _substrate_list(args)
+        from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
         manager = IssueManager()
         return manager.list()
 
@@ -2304,6 +2305,8 @@ Phase descriptions:
         # `atdd issue`, which #1309 removed; rather than repoint that hint at
         # another command that cannot do the job, the bare form is simply not
         # deprecated. Emitting a warning here would send operators nowhere.
+        from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
         manager = IssueManager()
         return manager.update(
             issue_id=args.session_id,
@@ -2380,12 +2383,6 @@ Phase descriptions:
             return BranchManager().remove_worktree(args.target)
         worktree_parser.print_help()
         return 1
-
-    # atdd color [value]
-    elif args.command == "color":
-        from atdd.coach.commands.color import ColorManager
-        manager = ColorManager()
-        return manager.color(value=args.value)
 
     # atdd schemas
     elif args.command == "schemas":
@@ -2691,6 +2688,8 @@ Phase descriptions:
         manifest_command = getattr(args, "manifest_command", None)
         if manifest_command == "backfill":
             repo_root = Path(args.repo) if args.repo else find_repo_root()
+            from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
             manager = IssueManager(repo_root)
             return manager.reconcile()
         manifest_parser.print_help()
