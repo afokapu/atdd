@@ -17,12 +17,15 @@ input is a document.
 from __future__ import annotations
 
 import ast
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 import yaml
+
+_logger = logging.getLogger(__name__)
 
 
 # --------------------------------------------------------------------------- #
@@ -253,7 +256,16 @@ def skip_env_gates(source: str) -> Set[str]:
     """
     try:
         tree = ast.parse(source)
-    except SyntaxError:  # a file that does not parse deselects nothing we can name
+    except SyntaxError as exc:
+        # Reported, not swallowed: a test file this reader cannot parse is a file
+        # whose gates are invisible to the census, so it would be scored as
+        # ungated — the optimistic direction. Rare enough to be a debug line and
+        # important enough not to be silent.
+        _logger.debug(
+            "ci runner: source does not parse, so no skip gate can be read from it: %s",
+            exc,
+            extra={"error_type": type(exc).__name__},
+        )
         return set()
 
     found: Set[str] = set()
