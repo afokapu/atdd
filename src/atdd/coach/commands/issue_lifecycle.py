@@ -237,6 +237,20 @@ class IssueLifecycle:
         candidates.add(f"{prefix}-{slug}")
         return name in candidates
 
+    def _report_absent_worktree(self, issue_number: int, slug: str, prefix: str) -> int:
+        """Say a worktree is missing without making one — the READ path (#1708).
+
+        Extracted rather than inlined in ``enter``: that method already sits at
+        the ``coder.refactor.complexity-length`` threshold, and adding the report
+        inline pushed the rule one over its ratchet baseline.
+        """
+        print()
+        print(f"ATDD: Issue #{issue_number} has no worktree here.")
+        print(f"  expected one for branch {prefix}/{slug}")
+        print(f"  create it with: atdd coach enter {issue_number}")
+        print()
+        return 0
+
     def _create_branch(self, issue_number: int, slug: str, prefix: str) -> Optional[Path]:
         """Create worktree branch. Returns worktree path or None on failure."""
         from atdd.coach.commands.branch import BranchManager
@@ -636,11 +650,8 @@ class IssueLifecycle:
 
         Args:
             issue_number: GitHub issue number.
-            create: whether a missing worktree may be created. ``atdd coach
-                issues`` — the READ verb — passes ``False``: showing an issue
-                must report that a worktree is absent rather than making one
-                (#1708). ``atdd coach enter`` keeps the default, because
-                creating is that verb's job.
+            create: may a missing worktree be created? The READ verb passes
+                ``False`` (#1708); ``atdd coach enter`` keeps the default.
 
         Returns:
             0 on success, 1 on error.
@@ -685,13 +696,7 @@ class IssueLifecycle:
             if existing:
                 worktree_path = existing
             elif not create:
-                # Read verb: say what is missing, make nothing (#1708).
-                print()
-                print(f"ATDD: Issue #{issue_number} has no worktree here.")
-                print(f"  expected one for branch {prefix}/{slug}")
-                print(f"  create it with: atdd coach enter {issue_number}")
-                print()
-                return 0
+                return self._report_absent_worktree(issue_number, slug, prefix)
             else:
                 worktree_path = self._create_branch(issue_number, slug, prefix)
                 if not worktree_path:
