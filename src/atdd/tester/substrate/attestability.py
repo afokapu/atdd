@@ -225,6 +225,54 @@ def _job_steps(workflow_texts: Dict[str, str]) -> "List[Tuple[str, str, List[Tup
     return out
 
 
+def _pytest_target_lines(run: str) -> List[Tuple[str, Tuple[str, ...]]]:
+    """Each pytest invocation in one ``run`` block, as ``(text before `pytest`, targets)``.
+
+    A ``run:`` block is a script, so reading workflows -> steps -> lines is three
+    nested loops in one function and lands straight on the nesting ratchet — the
+    same shape #1664 extracted ``_train_entries`` to avoid. The text BEFORE the
+    command is what comes back rather than the whole line, because the only thing
+    the caller asks of it is whether the invocation sets ``PYTHONPATH``, and an
+    environment prefix can only precede the command it applies to.
+    """
+    lines: List[Tuple[str, Tuple[str, ...]]] = []
+    for line in run.splitlines():
+        head, sep, tail = line.partition("pytest")
+        if not sep:
+            continue
+        targets = tuple(t.rstrip("/") for t in _CI_PYTEST_TARGET.findall(tail))
+        if targets:
+            lines.append((head, targets))
+    return lines
+
+
+def _job_pytest_steps(
+    workflow: str, job: str, runs: "List[Tuple[str, str]]"
+) -> List[CiPytestStep]:
+    """One job's pytest steps, with the job-level install verdict stamped on each.
+
+    ``installs`` is computed once over the whole job and shared, because the
+    install and the pytest call are different steps: deciding it per step would
+    report the one job that does install as though it did not.
+    """
+    joined = [(step, _LINE_CONTINUATION.sub(" ", run)) for step, run in runs]
+    installs = any(_CI_INSTALLS_DIST.search(run) for _, run in joined)
+    found: List[CiPytestStep] = []
+    for step, run in joined:
+        for head, targets in _pytest_target_lines(run):
+            found.append(
+                CiPytestStep(
+                    workflow=workflow,
+                    job=job,
+                    step=step,
+                    targets=targets,
+                    installs_dist=installs,
+                    sets_pythonpath=bool(_SETS_PYTHONPATH.search(head)),
+                )
+            )
+    return found
+
+
 def ci_pytest_steps(workflow_texts: Dict[str, str]) -> List[CiPytestStep]:
     """Every workflow step that runs pytest over `src/` or `tests/` paths.
 
@@ -233,26 +281,7 @@ def ci_pytest_steps(workflow_texts: Dict[str, str]) -> List[CiPytestStep]:
     """
     found: List[CiPytestStep] = []
     for workflow, job, runs in _job_steps(workflow_texts):
-        joined = [(step, _LINE_CONTINUATION.sub(" ", run)) for step, run in runs]
-        installs = any(_CI_INSTALLS_DIST.search(run) for _, run in joined)
-        for step, run in joined:
-            for line in run.splitlines():
-                head, sep, tail = line.partition("pytest")
-                if not sep:
-                    continue
-                targets = tuple(t.rstrip("/") for t in _CI_PYTEST_TARGET.findall(tail))
-                if not targets:
-                    continue
-                found.append(
-                    CiPytestStep(
-                        workflow=workflow,
-                        job=job,
-                        step=step,
-                        targets=targets,
-                        installs_dist=installs,
-                        sets_pythonpath=bool(_SETS_PYTHONPATH.search(head)),
-                    )
-                )
+        found.extend(_job_pytest_steps(workflow, job, runs))
     return found
 
 
