@@ -42,7 +42,7 @@ def test_a_base_belonging_to_no_open_pr_still_violates():
     ]
     violations = evaluate_base_violations(open_prs, default_branch="main")
 
-    assert [v.location for v in violations] == ["PR#11"], (
+    assert [v.location for v in violations] == ["PR#11:0"], (
         "a base no open PR is producing is exactly the orphan risk this guard "
         f"exists for; got {[v.location for v in violations]}"
     )
@@ -57,4 +57,4 @@ def test_a_stack_does_not_excuse_an_unrelated_orphan():
     ]
     violations = evaluate_base_violations(open_prs, default_branch="main")
 
-    assert [v.location for v in violations] == ["PR#22"]
+    assert [v.location for v in violations] == ["PR#22:0"]
