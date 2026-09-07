@@ -36,7 +36,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
+
+import yaml
 
 #: ``acc:<wagon>:<CODE>-SMOKE-NNN`` — the wagon is capture group 1.
 SMOKE_URN = re.compile(r"^acc:([a-z0-9-]+):([A-Z]\d+-SMOKE-\d+)")
@@ -152,15 +154,135 @@ def classify(
 # report passed. Every input here is static — workflow text and file paths.
 # --------------------------------------------------------------------------- #
 
-#: A CI step that runs pytest against a path under src/.
-_CI_PYTEST_TARGET = re.compile(r"pytest\s+((?:src|tests)/[A-Za-z0-9_./-]*)")
+#: A shell line continuation: a trailing backslash and the indentation after it.
+#: Joined before scanning because a multi-line `run:` block is ONE command, and a
+#: reader that scanned it line-by-line would see `pytest \` with no argument and
+#: report the job as running nothing. Measured on main at b43ec91c: that is
+#: `regression-suite-test`, whose 19 paths — `src/atdd/state/tests`,
+#: `src/atdd/coach/gate`, `src/atdd/coach/handlers` among them — were the bulk of
+#: what CI actually runs and were being censused as `not-run-by-ci` (#1604).
+_LINE_CONTINUATION = re.compile(r"\\\s*\n\s*")
 
-#: A job boundary in a workflow file: a two-space-indented key under `jobs:`.
-_JOB_HEADER = re.compile(r"\n  (?=[A-Za-z0-9_-]+:\n)")
+#: Every path argument of a pytest invocation, not just the first. `pytest a b c`
+#: is one step running three targets; a single-capture reader keeps `a` and drops
+#: the rest, which understates coverage exactly where a job covers most ground.
+_CI_PYTEST_TARGET = re.compile(r"(?<![\w./-])((?:src|tests)/[A-Za-z0-9_./-]*)")
 
 #: A CI step that installs the distribution, which is what writes the dist-info
 #: pytest's entry-point discovery reads. `PYTHONPATH=src` never does.
 _CI_INSTALLS_DIST = re.compile(r"pip3?\s+install[^\n]*(-e\s+\.|dist/\*\.whl|\.\[)")
+
+#: An invocation that hands pytest an explicit import path, i.e. the uninstalled
+#: spelling #1604 is about. Read so a step can be reported as running WITHOUT the
+#: metadata even when some other step of the same job installed the package.
+_SETS_PYTHONPATH = re.compile(r"\bPYTHONPATH\s*=")
+
+
+@dataclass(frozen=True)
+class CiPytestStep:
+    """One workflow step that runs pytest over paths inside this checkout.
+
+    ``installs_dist`` is a property of the JOB, not of this step: the install and
+    the pytest call are different steps, so a per-step reading would report the
+    one job that does install as though it did not. ``sets_pythonpath`` is a
+    property of the step itself, because that is where the defect is spelled.
+    """
+
+    workflow: str
+    job: str
+    step: str
+    targets: Tuple[str, ...]
+    installs_dist: bool
+    sets_pythonpath: bool
+
+
+def _job_steps(workflow_texts: Dict[str, str]) -> "List[Tuple[str, str, List[Tuple[str, str]]]]":
+    """``(workflow, job, [(step name, run text)])`` for every job in every file.
+
+    Parsed as YAML rather than split on indentation: `run: >-` folds its
+    continuation lines into the command, and a text split cannot fold. Still
+    static — a document is read, no test and no workflow is executed.
+    """
+    out: List[Tuple[str, str, List[Tuple[str, str]]]] = []
+    for name, text in workflow_texts.items():
+        try:
+            doc = yaml.safe_load(text) or {}
+        except yaml.YAMLError:  # a malformed workflow classifies nothing, it does not crash
+            continue
+        jobs = doc.get("jobs") if isinstance(doc, dict) else None
+        if not isinstance(jobs, dict):
+            continue
+        for job_id, job in jobs.items():
+            steps = job.get("steps") if isinstance(job, dict) else None
+            if not isinstance(steps, list):
+                continue
+            runs = [
+                (str(s.get("name") or ""), str(s.get("run") or ""))
+                for s in steps
+                if isinstance(s, dict) and s.get("run")
+            ]
+            out.append((name, str(job_id), runs))
+    return out
+
+
+def _pytest_target_lines(run: str) -> List[Tuple[str, Tuple[str, ...]]]:
+    """Each pytest invocation in one ``run`` block, as ``(text before `pytest`, targets)``.
+
+    A ``run:`` block is a script, so reading workflows -> steps -> lines is three
+    nested loops in one function and lands straight on the nesting ratchet — the
+    same shape #1664 extracted ``_train_entries`` to avoid. The text BEFORE the
+    command is what comes back rather than the whole line, because the only thing
+    the caller asks of it is whether the invocation sets ``PYTHONPATH``, and an
+    environment prefix can only precede the command it applies to.
+    """
+    lines: List[Tuple[str, Tuple[str, ...]]] = []
+    for line in run.splitlines():
+        head, sep, tail = line.partition("pytest")
+        if not sep:
+            continue
+        targets = tuple(t.rstrip("/") for t in _CI_PYTEST_TARGET.findall(tail))
+        if targets:
+            lines.append((head, targets))
+    return lines
+
+
+def _job_pytest_steps(
+    workflow: str, job: str, runs: "List[Tuple[str, str]]"
+) -> List[CiPytestStep]:
+    """One job's pytest steps, with the job-level install verdict stamped on each.
+
+    ``installs`` is computed once over the whole job and shared, because the
+    install and the pytest call are different steps: deciding it per step would
+    report the one job that does install as though it did not.
+    """
+    joined = [(step, _LINE_CONTINUATION.sub(" ", run)) for step, run in runs]
+    installs = any(_CI_INSTALLS_DIST.search(run) for _, run in joined)
+    found: List[CiPytestStep] = []
+    for step, run in joined:
+        for head, targets in _pytest_target_lines(run):
+            found.append(
+                CiPytestStep(
+                    workflow=workflow,
+                    job=job,
+                    step=step,
+                    targets=targets,
+                    installs_dist=installs,
+                    sets_pythonpath=bool(_SETS_PYTHONPATH.search(head)),
+                )
+            )
+    return found
+
+
+def ci_pytest_steps(workflow_texts: Dict[str, str]) -> List[CiPytestStep]:
+    """Every workflow step that runs pytest over `src/` or `tests/` paths.
+
+    The unit is the STEP, so a job can be reported honestly when one of its
+    pytest calls is installed and another is not.
+    """
+    found: List[CiPytestStep] = []
+    for workflow, job, runs in _job_steps(workflow_texts):
+        found.extend(_job_pytest_steps(workflow, job, runs))
+    return found
 
 
 def ci_pytest_targets(workflow_texts: Dict[str, str]) -> Dict[str, bool]:
@@ -170,15 +292,9 @@ def ci_pytest_targets(workflow_texts: Dict[str, str]) -> Dict[str, bool]:
     plugin, so a test under it produces no evidence however green it runs.
     """
     targets: Dict[str, bool] = {}
-    for text in workflow_texts.values():
-        # Split per JOB, not per step: the install and the pytest call are
-        # different steps of the same job, so a per-step split would report the
-        # one job that installs as though it did not.
-        for block in _JOB_HEADER.split(text):
-            installs = bool(_CI_INSTALLS_DIST.search(block))
-            for m in _CI_PYTEST_TARGET.finditer(block):
-                path = m.group(1).rstrip("/")
-                targets[path] = targets.get(path, False) or installs
+    for step in ci_pytest_steps(workflow_texts):
+        for path in step.targets:
+            targets[path] = targets.get(path, False) or step.installs_dist
     return targets
 
 

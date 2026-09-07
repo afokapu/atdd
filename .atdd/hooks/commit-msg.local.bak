@@ -1,0 +1,87 @@
+#!/bin/sh
+# ATDD commit-msg hook — mass-delete contamination guard (#629 Layer 2).
+#
+# Git invokes this with $1 = path to the file holding the prepared commit
+# message. Unlike pre-commit (which runs before .git/COMMIT_EDITMSG is
+# written for the current commit), commit-msg reliably has the message.
+#
+# Blocks when:
+#   - staged diff deletes > 50 files OR > 10,000 lines, AND
+#   - the commit message does not have one of the recognised
+#     decommission prefixes / explicit allow tokens.
+#
+# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
+# For genuine emergencies: atdd emergency --reason "<reason>"
+
+set -e
+
+# --- Emergency bypass check (E031) ---
+_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+if [ -n "$_REPO_ROOT" ]; then
+    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
+    if [ -f "$_BYPASS_FILE" ]; then
+        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
+            printf "ATDD: Emergency bypass active (commit-msg). Reason: %s\n" \
+                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
+            exit 0
+        else
+            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
+        fi
+    fi
+fi
+
+# --- Count staged deletions ---
+DEL_FILES=$(git diff --cached --name-only --diff-filter=D 2>/dev/null | wc -l | tr -d ' ')
+DEL_LINES=$(git diff --cached --numstat 2>/dev/null | awk '{sum+=$2} END {print sum+0}')
+
+# Fast path: not a mass delete, nothing to do.
+if [ "${DEL_FILES:-0}" -le 50 ] && [ "${DEL_LINES:-0}" -le 10000 ]; then
+    exit 0
+fi
+
+# --- Inspect the commit message ---
+MSG_FILE="${1:-}"
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+    # Fallback for direct invocation outside git's hook context.
+    MSG_FILE="$(git rev-parse --git-dir 2>/dev/null)/COMMIT_EDITMSG"
+fi
+
+MSG_CONTENT=""
+if [ -f "$MSG_FILE" ]; then
+    MSG_CONTENT=$(cat "$MSG_FILE" 2>/dev/null || true)
+fi
+
+# Strip comment lines (git-style # lines) before checking the prefix.
+MSG_BODY=$(printf '%s\n' "$MSG_CONTENT" | grep -v '^#' || true)
+FIRST_LINE=$(printf '%s\n' "$MSG_BODY" | head -1)
+
+# Allow if first line begins with a recognised decommission prefix,
+# or if the body contains the explicit allow token.
+if printf '%s' "$FIRST_LINE" | grep -qE '^(chore\(decom|refactor\(remove|chore\(archive)' \
+        || printf '%s' "$MSG_BODY" | grep -qF '[mass-delete-approved]'; then
+    exit 0
+fi
+
+cat >&2 <<MASSDELETE_MSG
+
+ATDD: Commit blocked — mass-delete signature detected.
+
+Staged diff would delete ${DEL_FILES} files / ${DEL_LINES} lines.
+This matches the Wave 12 bare-mode contamination signature
+(PRs #625 / #627: 220,000-line deletions across 1,277 files each).
+
+Recovery:
+  1. git config core.bare         # check if = true (the upstream cause)
+  2. git diff --cached --stat     # confirm what is staged
+  3. If contaminated: git config core.bare false; git reset to a safe commit
+
+If this deletion is intentional, prefix the commit message with one of:
+  chore(decom):
+  refactor(remove):
+  chore(archive):
+... or include the literal token [mass-delete-approved] anywhere in the body.
+
+For genuine emergencies: atdd emergency --reason "<reason>"
+
+MASSDELETE_MSG
+exit 1
