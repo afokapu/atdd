@@ -2,7 +2,7 @@
 ATDD upgrade orchestration.
 
 Shows what changed between installed and last_version,
-then runs sync + init --force with confirmation.
+then refreshes this checkout in-process with confirmation (#1820).
 
 #1628 — two properties beyond that:
 
@@ -36,7 +36,6 @@ from atdd import __version__
 from atdd.version_check import (
     get_upgrade_notes,
     _load_repo_config,
-    _get_last_toolkit_version,
     _read_sync_record,
     record_toolkit_sync,
     is_outdated,
@@ -146,11 +145,46 @@ def upgrade_lock(timeout: Optional[float] = None) -> Iterator[Path]:
         handle.close()
 
 
+def refresh_is_owed(repo_root, config=None) -> bool:
+    """Whether this checkout is behind the installed toolkit.
+
+    Reads ONLY the untracked per-checkout record (#1641). The git-tracked
+    ``toolkit.last_version`` fallback is deliberately not consulted: it is pinned
+    at an ancient value in every checkout that carries one — 3.106.0 against a
+    4.47.x toolkit here — so reading it reports a refresh owed forever, which is
+    what made #1628's already-current no-op (E008-UNIT-003) unreachable and sent
+    every run on to ``init --force``. A checkout with no record is genuinely owed
+    a refresh; that is the honest answer and the common one (154 of this repo's
+    157 worktrees).
+    """
+    del config  # the stale fallback is not part of the decision
+    # Read the module-level name run() uses, so a caller (or a test) that patches
+    # the installed version sees one consistent answer from both.
+    return _read_sync_record(repo_root) != __version__
+
+
+def run_repo_refresh(repo_root) -> int:
+    """Perform the refresh in-process: hooks, gitignore, schemas, stamp.
+
+    Not a subprocess. ``upgrade`` used to shell ``atdd sync`` and then
+    ``atdd init --force`` — a flag #793 forbids and which #1600 shows cannot act
+    on an initialised repo. Every job here is triggered by a toolkit version
+    change, which is the condition ``upgrade`` exists to detect, so it owns them.
+    """
+    from atdd.coach.commands.sync import RepoRefresh
+
+    return RepoRefresh(target_dir=repo_root).sync()
+
+
 class Upgrader:
     """Orchestrates atdd upgrade in a consumer repo."""
 
     def __init__(self, repo_root: Optional[Path] = None):
         self.repo_root = repo_root or Path.cwd()
+
+    def refresh_repo(self) -> int:
+        """The repo-refresh half of an upgrade, performed here rather than shelled."""
+        return run_repo_refresh(self.repo_root)
 
     def run(self, yes: bool = False, no_pypi: bool = False) -> int:
         """Run the upgrade process.
@@ -243,11 +277,12 @@ class Upgrader:
         # the sync step re-runs sync + init --force on every single invocation.
         # #1628 requires an already-current run to be a no-op (E008-UNIT-003), and
         # it cannot be one while the write and the read address different stores.
-        last_version = (
-            _read_sync_record(self.repo_root)
-            or _get_last_toolkit_version(config)
-            or "unknown"
-        )
+        # #1820: the git-tracked `toolkit.last_version` fallback is gone. It is
+        # pinned at an ancient value in every checkout that has one, so reading it
+        # reported a refresh owed forever and made #1628's already-current no-op
+        # (E008-UNIT-003) unreachable. A checkout with no untracked record is
+        # genuinely owed a refresh — the honest answer, and the common one.
+        last_version = _read_sync_record(self.repo_root) or "unknown"
 
         print(f"ATDD sync: {last_version} → {installed}")
         print()
@@ -264,21 +299,21 @@ class Upgrader:
                 print("No notable changes between these versions.")
                 print()
 
-        if last_version == installed:
-            print("Already in sync with installed version.")
+        if not refresh_is_owed(self.repo_root):
+            print("Already current with the installed version.")
             return 0
 
         # Confirm
         if unprompted:
             if self_answered:
                 print(
-                    "No terminal detected — answering the sync confirmation "
-                    "non-interactively: atdd sync, then atdd init --force"
+                    "No terminal detected — answering the refresh confirmation "
+                    "non-interactively: refreshing this checkout in-process"
                 )
         else:
-            print("This will run:")
-            print("  1. atdd sync       (update agent config files)")
-            print("  2. atdd init --force (update GitHub infrastructure)")
+            print("This will refresh this checkout:")
+            print("  hooks (#1492), .gitignore entries (#1325), exported schemas,")
+            print("  and the toolkit stamp (#1641). No other command is run.")
             print()
             answer = input("Proceed? [Y/n] ").strip().lower()
             if answer and answer != "y":
@@ -290,26 +325,17 @@ class Upgrader:
         # interleave, and refuse rather than run unserialised.
         try:
             with upgrade_lock():
-                # Run sync
+                # #1820: refresh in-process. This used to shell `atdd sync` and
+                # then `atdd init --force` — the second a flag #793 forbids, and
+                # one #1600 shows returns 1 without bootstrapping anything on an
+                # already-initialised repo, so it never did what its name implied.
+                # Every job the refresh performs is triggered by a toolkit version
+                # change, which is the condition this command exists to detect.
                 print()
-                print("Running: atdd sync")
-                rc = subprocess.run(
-                    [sys.executable, "-m", "atdd", "sync"],
-                    cwd=str(self.repo_root),
-                ).returncode
+                print("Refreshing this checkout")
+                rc = self.refresh_repo()
                 if rc != 0:
-                    print(f"atdd sync failed (exit {rc})")
-                    return 1
-
-                # Run init --force
-                print()
-                print("Running: atdd init --force")
-                rc = subprocess.run(
-                    [sys.executable, "-m", "atdd", "init", "--force"],
-                    cwd=str(self.repo_root),
-                ).returncode
-                if rc != 0:
-                    print(f"atdd init --force failed (exit {rc})")
+                    print(f"refresh failed (exit {rc})")
                     return 1
 
                 # Record the sync in this checkout's untracked runtime record
