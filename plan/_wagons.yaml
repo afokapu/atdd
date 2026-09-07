@@ -212,6 +212,8 @@ wagons:
       checker to answer the `## Artifacts` question for both the validator and the
       runtime gate, reporting an empty declaration and an undeclared changed file
       as violations
+    E010: minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when
+      authoring an issue body
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
@@ -1387,6 +1389,17 @@ wagons:
       index over that same single source so records predating the binding are not
       newly stranded, and keeping the gate's refusal confined to a branch that matches
       no work item in a populated store (#1720)
+    C017: 'minimize quantity of operator-approval-tokens-demanded-on-an-edge-the-machine-declares-agent-submittable
+      by having ApprovalTokenGateCheck report NOT_APPLICABLE when the FROM phase declares
+      autonomy agent, so the edge stays listed in gate.transitions and the #1602 evidence
+      check still runs while the human stop it attached as collateral is lifted, with
+      any doubt — an unreadable machine, an absent or non-agent value — keeping the
+      token demanded (#1798)'
+    C018: 'minimize quantity of open-prs-failed-by-another-prs-tracked-stack by exempting
+      a base that is the head of another OPEN pull request from the orphan-merge guard
+      — tracked, not phantom, and retargeted by GitHub when the base PR merges — while
+      a base belonging to no open PR still violates, so the #477 guard is narrowed
+      rather than weakened (#1802)'
     C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
       by observing the acting agent session at the mint through the shipped resolve_session()
       instead of defaulting to $USER, recording that session as its own token field
@@ -1791,6 +1804,14 @@ wagons:
       when it cannot be resolved, by naming the issue and the branch in that refusal,
       and by printing the branch beside the commit so a token naming one branch while
       attesting another's commit is legible (#1765)
+    E071: 'minimize quantity of smoke-acceptances-unclassified-by-whether-they-can-produce-a-live-smoke-attestation
+      by adding a live-smoke-attestability axis to E027''s existing docs/smoke-audit.md
+      census — can-attest-today / should-declare / never-attestable-by-construction
+      — and closing that census gate''s open direction so no row survives its acceptance
+      URN, giving the planner-side obligation smoke_obligation.py deliberately defers
+      an empirical target list before it is made mandatory against 299 SMOKE acceptances
+      of which exactly one declares execution_kind: live_smoke (#1664, after #1602
+      and E069)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -2038,6 +2059,8 @@ wagons:
     D006: minimize undetected frontend composition root drift via source scan
     D007: minimize unverified wagon trains.ts export contracts via source scan
     D008: minimize unstructured train YAML render metadata via JSON Schema
+    E002: minimize quantity of convention-registry-builds-forced-by-cli-startup when
+      the CLI entrypoint is imported to dispatch any command
   total: 0
   manifest: plan/implement_code/_implement_code.yaml
   path: plan/implement_code/

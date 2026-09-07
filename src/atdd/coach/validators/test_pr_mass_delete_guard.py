@@ -39,6 +39,10 @@ from typing import List, Optional, Tuple
 import pytest
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.validators._pr_scope import select_for_current_pr
+from atdd.coach.validators.test_pr_merge_blocks_pre_smoke_close import (
+    _current_pr_number,
+)
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
@@ -262,10 +266,12 @@ def test_no_open_pr_exceeds_mass_delete_thresholds():
             begins with a decommission prefix or any commit body carries
             the [mass-delete-approved] token.
     """
+    # #1805: see test_pr_base_branch. One PR's mass delete must not fail every
+    # other contributor's CI; the offender is still blocked on its own run.
     violations = scan_open_prs_for_mass_delete(REPO_ROOT)
     assert_disposition_satisfied(
         validator_id=_VALIDATOR_ID,
-        violations=violations,
+        violations=select_for_current_pr(violations, _current_pr_number(REPO_ROOT)),
     )
 
 
