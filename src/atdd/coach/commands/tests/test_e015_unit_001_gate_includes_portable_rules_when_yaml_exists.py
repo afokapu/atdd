@@ -32,12 +32,11 @@ def test_gate_includes_portable_rules_when_yaml_exists(tmp_path):
 
     gate = ATDDGate(target_dir=tmp_path)
 
-    # Patch _get_synced_files to avoid needing real agent config files
-    fake_files = {"claude": {"file": "CLAUDE.md", "exists": True, "has_block": True, "hash": "abc123"}}
+    # #1811: the agent-config projection is gone, so the gate no longer reads
+    # or hashes a generated file and needs no stand-in for one.
     captured = StringIO()
-    with patch.object(gate, "_get_synced_files", return_value=fake_files):
-        with patch("sys.stdout", captured):
-            result = gate.verify()
+    with patch("sys.stdout", captured):
+        result = gate.verify()
 
     output = captured.getvalue()
     assert "Agent Behavioral Rules" in output, f"expected 'Agent Behavioral Rules' header in gate output: {output!r}"

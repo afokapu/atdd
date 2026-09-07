@@ -60,7 +60,6 @@ from atdd.coach.commands.initializer import ProjectInitializer
 # hooks, several times per commit. `IssueManager` is deferred to the three call
 # sites below instead. Do NOT make `bind_rule` lazy to fix this: failing loudly at
 # import is deliberate (SPEC-COACH-RULEID-0007).
-from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand
 from atdd.coach.commands.upgrader import Upgrader
@@ -989,26 +988,19 @@ Phase descriptions:
     )
 
     # ----- atdd sync -----
-    sync_parser = subparsers.add_parser(
+    # #1811: the agent-config projection this verb was built around is gone.
+    # It survives because it is the ONLY sanctioned path that refreshes an
+    # already-initialised checkout — `atdd init` bails out on one and
+    # `atdd init --force` is forbidden (#793). No flags: the ones it had all
+    # selected which agent file to project.
+    subparsers.add_parser(
         "sync",
-        help="Sync ATDD rules to agent config files",
-        description="Sync managed ATDD blocks to agent config files (CLAUDE.md, CONDUCTOR.md, etc.)"
-    )
-    sync_parser.add_argument(
-        "--verify",
-        action="store_true",
-        help="Check if files are in sync (for CI)"
-    )
-    sync_parser.add_argument(
-        "--agent",
-        type=str,
-        choices=["claude", "codex", "gemini", "qwen", "glm", "mistral"],
-        help="Sync specific agent only"
-    )
-    sync_parser.add_argument(
-        "--status",
-        action="store_true",
-        help="Show sync status for all agents"
+        help="Refresh this checkout's hooks, gitignore entries and toolkit stamp",
+        description=(
+            "Refresh an already-initialised repo: installed git hooks (#1492), "
+            "atdd's operational .gitignore entries (#1325), exported schemas if "
+            "present, and the toolkit sync stamp (#1641)."
+        ),
     )
 
     # ----- atdd gate -----
@@ -2404,12 +2396,9 @@ Phase descriptions:
 
     # atdd sync
     elif args.command == "sync":
-        syncer = AgentConfigSync()
-        if args.status:
-            return syncer.status()
-        if args.verify:
-            return syncer.verify()
-        return syncer.sync(agents=[args.agent] if args.agent else None)
+        from atdd.coach.commands.sync import RepoRefresh
+
+        return RepoRefresh().sync()
 
     # atdd session-template <issue-number>
     elif args.command == "session-template":

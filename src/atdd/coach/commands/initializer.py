@@ -450,11 +450,6 @@ class ProjectInitializer:
             # Install train-render harness when consumer repo has a frontend (#335)
             self._install_harness(force)
 
-            # Sync agent config files
-            from atdd.coach.commands.sync import AgentConfigSync
-            syncer = AgentConfigSync(self.target_dir)
-            syncer.sync()
-
             # Bootstrap GitHub infrastructure
             github_summary = self._bootstrap_github(force)
 
