@@ -30,6 +30,10 @@ import pytest
 
 from atdd.coach.utils.default_branch import resolve_default_branch
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.validators._pr_scope import select_for_current_pr
+from atdd.coach.validators.test_pr_merge_blocks_pre_smoke_close import (
+    _current_pr_number,
+)
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 from atdd.coach.validators._violation import Violation
@@ -111,7 +115,7 @@ def evaluate_base_violations(
             Violation(
                 rule_id=_RULE.rule_id,
                 severity=_RULE.severity,
-                location=f"PR#{number}",
+                location=f"PR#{number}:0",
                 detail=(
                     f"PR #{number} (head={head!r}) targets base "
                     f"{base!r} but the repo default branch is "
@@ -150,8 +154,14 @@ def test_every_open_pr_targets_default_branch():
     Then:   No PR targets a non-default base. Mistargeted PRs surface as
             structured ``Violation`` records the disposition gate fails on.
     """
+    # #1805: scan every offender for repo-health visibility, then fail only the
+    # PR under validation. Unscoped, PR #1799's tracked stack reded every branch
+    # in the repo until #1802 narrowed the rule — cross-PR coupling, not
+    # enforcement (#1478/E070). Locations are `PR#<n>:0` so the shared prefix
+    # selector applies; they were bare `PR#<n>` before, which the selector's
+    # `PR#<n>:` prefix would never have matched even once routed.
     violations = scan_open_prs_for_base_violations(REPO_ROOT)
     assert_disposition_satisfied(
         validator_id=_VALIDATOR_ID,
-        violations=violations,
+        violations=select_for_current_pr(violations, _current_pr_number(REPO_ROOT)),
     )
