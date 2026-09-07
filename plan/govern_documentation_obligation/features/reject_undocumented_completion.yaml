@@ -12,7 +12,7 @@ sizing:
   footprint_score: 6
   footprint_size: M
   wmbts: 1
-urn: feature:govern-lifecycle:reject-undocumented-completion
-wagon: wagon:govern-lifecycle
+urn: feature:govern-documentation-obligation:reject-undocumented-completion
+wagon: wagon:govern-documentation-obligation
 wmbts:
-- wmbt:govern-lifecycle:C019
+- wmbt:govern-documentation-obligation:C002

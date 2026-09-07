@@ -84,7 +84,7 @@ messages:
   kind: control
   intent: Permit or refuse the COMPLETE transition on the verdict
   wmbt_refs:
-  - wmbt:govern-lifecycle:C019
+  - wmbt:govern-documentation-obligation:C002
   payload:
     contract: commons:documentation-verdict
 - id: msg:decide-merge
@@ -101,7 +101,7 @@ fragments:
   kind: alt
   wmbt_refs:
   - wmbt:govern-documentation-obligation:C001
-  - wmbt:govern-lifecycle:C019
+  - wmbt:govern-documentation-obligation:C002
   - wmbt:enforce-merge-authority:C005
   acceptance_refs:
   - acceptance:could-not-check-blocks
@@ -118,7 +118,7 @@ fragments:
   - id: guard:documentation-obligation-undischarged
     expression: documentation_verdict == "FAIL"
     wmbt_refs:
-    - wmbt:govern-lifecycle:C019
+    - wmbt:govern-documentation-obligation:C002
   - id: guard:documentation-obligation-unobservable
     expression: documentation_verdict == "COULD_NOT_CHECK"
     wmbt_refs:
