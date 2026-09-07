@@ -113,18 +113,20 @@ class ApprovalTokenGateCheck:
     # inventing a second injection style. ISO-8601, as ``verify_token`` takes it.
     now: Optional[str] = None
 
-    def run(self, ctx: GateContext) -> GateCheckResult:
-        # #1798: `gate.transitions` gates an EDGE, and two checks of different
-        # kinds ride on SMOKE->REFACTOR — the #1602 evidence check the edge was
-        # listed to enable, and this one, which attached as collateral. The
-        # machine already says who may submit, so read it rather than demanding a
-        # human at an edge the convention hands to the persona.
-        #
-        # Fail-closed on doubt: ONLY a positive `agent` lifts the token. An
-        # unreadable machine is logged and treated as unknown, because the one
-        # moment the convention cannot be read is the moment to keep the gate
-        # shut — the same reasoning `phase_edges` uses to refuse a hardcoded
-        # fallback phase list.
+    def _autonomy_waiver(self, ctx: GateContext) -> Optional[GateCheckResult]:
+        """NOT_APPLICABLE when the machine hands this edge to the persona (#1798).
+
+        `gate.transitions` gates an EDGE, and two checks of different kinds ride
+        on SMOKE->REFACTOR: the #1602 evidence check the edge was listed to
+        enable, and this one, which attached as collateral. The machine already
+        declares who may submit, so read it rather than demanding a human where
+        the convention does not.
+
+        Fail-closed: ONLY an exact `agent` waives the token. An unreadable
+        machine is reported and treated as unknown — the moment the convention
+        cannot be read is the moment to keep the gate shut, the same reasoning
+        `phase_edges` uses to refuse a fallback phase list.
+        """
         try:
             autonomy = _declared_autonomy(ctx.from_phase)
         except Exception as exc:  # noqa: BLE001 - reported below, never swallowed
@@ -134,14 +136,21 @@ class ApprovalTokenGateCheck:
                        "issue": ctx.issue_number, "edge": _edge(ctx),
                        "from_phase": ctx.from_phase, "error": str(exc)},
             )
-            autonomy = None
+            return None
 
-        if autonomy == _AGENT:
-            return GateCheckResult.not_applicable(
-                self.gate_id, self.rule_id,
-                f"{_edge(ctx)} declares `autonomy: {_AGENT}`, so no operator "
-                f"approval token is owed; the persona may submit it",
-            )
+        if autonomy != _AGENT:
+            return None
+
+        return GateCheckResult.not_applicable(
+            self.gate_id, self.rule_id,
+            f"{_edge(ctx)} declares `autonomy: {_AGENT}`, so no operator "
+            f"approval token is owed; the persona may submit it",
+        )
+
+    def run(self, ctx: GateContext) -> GateCheckResult:
+        waiver = self._autonomy_waiver(ctx)
+        if waiver is not None:
+            return waiver
 
         # #1376: the base is the SHARED Control Root (#1346), not ctx.worktree —
         # which _transition_gate sets to the literal cwd. Resolving here what
