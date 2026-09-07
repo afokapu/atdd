@@ -1,5 +1,5 @@
 # URN: test:govern-lifecycle:live-smoke-attestability:E071-UNIT-001-attestability-is-derived-not-declared
-# Acceptance: acc:govern-lifecycle:E071-UNIT-001-attestability-is-derived-not-declared
+# Acceptance: acc:govern-lifecycle:E071-UNIT-001-attestability-classifier-assigns-one-class-per-acceptance
 # WMBT: wmbt:govern-lifecycle:E071
 # Phase: RED
 # Layer: unit
