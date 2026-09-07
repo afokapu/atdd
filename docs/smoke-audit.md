@@ -50,12 +50,12 @@ since attestation is written by the `atdd_substrate` pytest11 entry point and
 `PYTHONPATH=src` loads the code but not the plugin — both invocations report passed.
 
 Recounted on `fix/ci-attestation-cannot-reach-the-gate` (#1815), and again after merging
-#1819, which added a SMOKE acceptance. Axes 1 and 2 are untouched, so the class counts
+#1819 and #1831, each of which added a SMOKE acceptance. Axes 1 and 2 are untouched, so the class counts
 move only with `plan/`.
 
 | class | count |
 |---|---|
-| should-declare | 286 |
+| should-declare | 287 |
 | (stale — no such acceptance in plan/) | 60 |
 | unresolved | 29 |
 | can-attest-today | 11 |
@@ -63,7 +63,7 @@ move only with `plan/`.
 | ci-runner | count |
 |---|---|
 | ci-runs-with-hook | 185 |
-| not-run-by-ci | 137 |
+| not-run-by-ci | 138 |
 | ci-runs-but-test-opts-out | 4 |
 | ci-runs-without-hook | 0 |
 | — | 60 |
