@@ -54,6 +54,7 @@ from atdd.coach.gate.approval import (
 from atdd.coach.gate.approval_binding import resolve_issue_branch
 from atdd.coach.gate.approval_paths import locate_approval_token
 from atdd.coach.gate.decision import GateCheckResult, GateContext
+from atdd.coach.gate.phase_edges import declared_autonomy
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,21 @@ def _produce(ctx: GateContext) -> str:
     )
 
 
+#: The one autonomy value that lifts the operator token. Matched EXACTLY: the
+#: vocabulary is closed and validated by D020 (#1626), so a near-miss is a
+#: malformed declaration, and a gate must not open on one.
+_AGENT = "agent"
+
+
+def _declared_autonomy(from_phase: str) -> Optional[str]:
+    """The submitting authority the machine declares for ``from_phase``.
+
+    A seam, so the fail-closed policy above can be exercised without writing a
+    malformed phase machine to disk.
+    """
+    return declared_autonomy(from_phase)
+
+
 @dataclass(frozen=True)
 class ApprovalTokenGateCheck:
     """Passes iff an operator-signed approval token exists for the transition."""
@@ -98,6 +114,34 @@ class ApprovalTokenGateCheck:
     now: Optional[str] = None
 
     def run(self, ctx: GateContext) -> GateCheckResult:
+        # #1798: `gate.transitions` gates an EDGE, and two checks of different
+        # kinds ride on SMOKE->REFACTOR — the #1602 evidence check the edge was
+        # listed to enable, and this one, which attached as collateral. The
+        # machine already says who may submit, so read it rather than demanding a
+        # human at an edge the convention hands to the persona.
+        #
+        # Fail-closed on doubt: ONLY a positive `agent` lifts the token. An
+        # unreadable machine is logged and treated as unknown, because the one
+        # moment the convention cannot be read is the moment to keep the gate
+        # shut — the same reasoning `phase_edges` uses to refuse a hardcoded
+        # fallback phase list.
+        try:
+            autonomy = _declared_autonomy(ctx.from_phase)
+        except Exception as exc:  # noqa: BLE001 - reported below, never swallowed
+            logger.warning(
+                "could not read the declared autonomy for %s (%s); keeping the "
+                "approval gate on %s",
+                ctx.from_phase, exc, _edge(ctx),
+            )
+            autonomy = None
+
+        if autonomy == _AGENT:
+            return GateCheckResult.not_applicable(
+                self.gate_id, self.rule_id,
+                f"{_edge(ctx)} declares `autonomy: {_AGENT}`, so no operator "
+                f"approval token is owed; the persona may submit it",
+            )
+
         # #1376: the base is the SHARED Control Root (#1346), not ctx.worktree —
         # which _transition_gate sets to the literal cwd. Resolving here what
         # `atdd coach approve` resolves at mint is what makes the token a receipt

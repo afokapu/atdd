@@ -1313,6 +1313,12 @@ wagons:
       index over that same single source so records predating the binding are not
       newly stranded, and keeping the gate's refusal confined to a branch that matches
       no work item in a populated store (#1720)
+    C017: 'minimize quantity of operator-approval-tokens-demanded-on-an-edge-the-machine-declares-agent-submittable
+      by having ApprovalTokenGateCheck report NOT_APPLICABLE when the FROM phase declares
+      autonomy agent, so the edge stays listed in gate.transitions and the #1602 evidence
+      check still runs while the human stop it attached as collateral is lifted, with
+      any doubt — an unreadable machine, an absent or non-agent value — keeping the
+      token demanded (#1798)'
     C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
       by observing the acting agent session at the mint through the shipped resolve_session()
       instead of defaulting to $USER, recording that session as its own token field

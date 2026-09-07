@@ -120,4 +120,4 @@ def test_scope_isolation_is_unaffected(repo: Path) -> None:
     _stand_at(repo, "PLANNED")
     assert _mint(repo, "PLANNED", "RED") == 0
 
-    assert _check(repo, "RED", "GREEN").passed is False
+    assert _check(repo, "REFACTOR", "COMPLETE").passed is False
