@@ -1,0 +1,50 @@
+urn: "wmbt:govern-lifecycle:C017"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "agent-submittable-edges-carrying-an-operator-judgement-gate"
+context_clarifier: "when the transition-gate config is read beside the phase machine that declares each edge's submitting authority, because the two are separate files that can disagree silently: phase_machine.convention.yaml declares SMOKE->REFACTOR as autonomy agent on the stated grounds that it gates machine-checkable smoke evidence rather than an operator's judgement, while .atdd/config.yaml lists that same edge in gate.transitions, which attaches an approval-token check and stops the lifecycle on a human"
+lens: "functional.effectiveness"
+statement: "minimize quantity of agent-submittable-edges-carrying-an-operator-judgement-gate when the transition-gate config is read beside the phase machine"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C017-UNIT-001-agent-edge-listed-in-gate-transitions-is-a-violation"
+      id: "AC-UNIT-001"
+      purpose: "The detector reports an edge the machine calls agent-submittable while config gates it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A phase machine declaring an edge with autonomy agent"
+        - "A gate.transitions mapping that lists that same edge as true"
+    when:
+      abstract: "The two are resolved against each other"
+    then:
+      abstract:
+        - "The edge is reported as a violation naming both the declared autonomy and the config key"
+        - "An edge whose autonomy is operator, and an agent edge absent from gate.transitions, are not reported"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"
+  - identity:
+      urn: "acc:govern-lifecycle:C017-SMOKE-001-the-committed-config-gates-no-agent-edge"
+      id: "AC-SMOKE-001"
+      purpose: "The toolkit's own committed config and convention agree in a real checkout"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The repository's committed .atdd/config.yaml and phase_machine.convention.yaml, read from disk"
+    when:
+      abstract: "Every gated edge is resolved to the autonomy its phase declares"
+    then:
+      abstract:
+        - "No gated edge declares autonomy agent, so the only operator stop is the edge the convention reserves for one"
+        - "Reading the real files, not fixtures, so config drift is caught where it actually lands"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"
