@@ -109,3 +109,53 @@ def test_census_reports_both_directions_against_the_real_table(live) -> None:
     assert isinstance(stale, list)
     for urn in stale:
         assert urn in census, "a reported stale URN must still be present in the table"
+
+def _row_urn(line: str) -> Optional[str]:
+    """The acceptance URN a census row is keyed by, if the line is a data row."""
+    if not line.startswith("|"):
+        return None
+    first = line.split("|")[1].strip()
+    return first if first.startswith("acc:") else None
+
+
+def test_every_census_table_declares_as_many_columns_as_its_rows_carry() -> None:
+    """A row wider than its header renders SHORT — the extra cells vanish (#1814).
+
+    Markdown truncates a row to the header's column count, so #1664's own output
+    was invisible where it mattered most: ``annotate_census`` appends two cells to
+    every acceptance row but updates only the FIRST header it meets, and the census
+    holds three acceptance tables. 143 rows carried the derived columns under a
+    five-column header, so anyone reading the rendered doc saw the audit's answer
+    for 33 acceptances and blank for the other 143 — while every automated reader,
+    parsing cells rather than rendering them, agreed the data was there.
+
+    Asserted over the real committed census, per table, because that mismatch is
+    invisible to every gate the doc already has: E027-SMOKE-001 asks whether a row
+    exists and M002-UNIT-001 asks whether a section exists. Neither reads a row's
+    width.
+    """
+    census = (REPO_ROOT / "docs" / "smoke-audit.md").read_text().splitlines()
+    tables: List[tuple] = []
+    header_line = columns = None
+    for number, line in enumerate(census, 1):
+        if line.startswith("| acceptance-URN"):
+            header_line, columns = number, line.count("|") - 1
+            continue
+        if header_line is None:
+            continue
+        if _row_urn(line) is None:
+            if line.strip() and not line.startswith("|"):
+                header_line = columns = None
+            continue
+        tables.append((header_line, columns, number, line.strip().strip("|").count("|") + 1))
+
+    assert tables, "no acceptance table found in the census — the reader is broken"
+    mismatched = [t for t in tables if t[1] != t[3]]
+    assert not mismatched, (
+        "these census rows carry a different number of cells than their table's header "
+        "declares, so the surplus renders as nothing:\n"
+        + "\n".join(
+            f"  table@{h} declares {c} columns; row@{r} carries {n}"
+            for h, c, r, n in mismatched[:10]
+        )
+    )
