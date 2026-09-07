@@ -495,6 +495,11 @@ wagons:
       when fetch_ci_status returns unknown for an unrecognised gh failure and wait_for_ci
       — which exits only on pass or fail — sleeps on it until the 1800s per-PR timeout
       (#1612)
+    C001: minimize quantity of successful-merges-reported-as-conflicts by classifying
+      the merge outcome from the pull request's actual state rather than from gh's
+      exit code, so a `--delete-branch` cleanup that fails while a worktree still
+      holds the branch is reported as the cleanup failure it is and the cascade continues,
+      while a merge that genuinely did not land still halts the wave (#1816)
   total: 0
   manifest: plan/coach_ops/_coach_ops.yaml
   path: plan/coach_ops/
