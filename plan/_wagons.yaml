@@ -209,6 +209,11 @@ wagons:
       checker to answer the `## Artifacts` question for both the validator and the
       runtime gate, reporting an empty declaration and an undeclared changed file
       as violations
+    C013: minimize quantity of deletion-claims-confirmed-by-absence-rather-than-by-a-deletion
+      by verifying a `### Deleted` claim against the revision's deletions rather than
+      against the tree, so a path that never existed stops resolving as CONFIRMED
+      GONE — the shape guard ahead of it passes n/a, none/none and an italic none,
+      all of which earned a green (#1824)
     E010: minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when
       authoring an issue body
   total: 0
