@@ -1,0 +1,70 @@
+urn: "wmbt:author-atdd-substrate:C013"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "deletion-claims-confirmed-by-absence-rather-than-by-a-deletion"
+context_clarifier: "when the artifact gate verifies a `### Deleted` claim, because it runs `git ls-tree <rev> -- <path>` and treats EMPTY output as proof the path was deleted, so any string that never named a file in the tree — prose, a typo, an extension id — resolves as CONFIRMED GONE, while the shape guard ahead of it only rejects prose that does not look path-shaped"
+lens: "functional.effectiveness"
+statement: "minimize quantity of deletion-claims-confirmed-by-absence-rather-than-by-a-deletion when the artifact gate verifies a Deleted claim"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C013-UNIT-001-absence-alone-does-not-confirm-a-deletion"
+      id: "AC-UNIT-001"
+      purpose: "A Deleted claim resolves only when the revision actually deleted that path"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A revision that deleted a known file"
+        - "Claims naming that file, a path that never existed, and a file the revision left in place"
+    when:
+      abstract: "The deletion probe is asked about each"
+    then:
+      abstract:
+        - "The genuinely deleted file resolves, so real deletions are still declarable"
+        - "The path that never existed does NOT resolve, closing the absence-as-proof hole"
+        - "The file left in place does NOT resolve, so the existing negative is preserved"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
+  - identity:
+      urn: "acc:author-atdd-substrate:C013-UNIT-002-path-shaped-prose-no-longer-earns-a-green"
+      id: "AC-UNIT-002"
+      purpose: "The spellings observed earning CONFIRMED GONE are rejected"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Deleted claims spelled as path-shaped prose: n/a, none/none, an italic none, an extension identifier"
+    when:
+      abstract: "The gate verifies them against a revision that deleted none of them"
+    then:
+      abstract:
+        - "Every one is reported rather than passing, because none was deleted by the revision"
+        - "The shape guard is not relied upon, since each of these passes it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
+  - identity:
+      urn: "acc:author-atdd-substrate:C013-SMOKE-001-a-real-deletion-in-this-repos-history"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real commit in this repository the probe agrees with git"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A commit in this repository's own history that deleted a tracked file"
+    when:
+      abstract: "The deletion probe is asked about the deleted file and about a path that never existed"
+    then:
+      abstract:
+        - "The deleted file resolves and the invented path does not, read from real history rather than a fixture"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
