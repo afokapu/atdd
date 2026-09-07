@@ -3,13 +3,12 @@ step: define
 direction: maximize
 dimension: likelihood
 object_of_control: documentation-declaration
-context_clarifier: when an operator ratifies a decomposition, so the documentation
-  decision is recorded where the architectural decision is made rather than reconstructed
-  later from an issue body
+context_clarifier: when an operator ratifies a decomposition, so the documentation decision is recorded
+  where the architectural decision is made rather than reconstructed later from an issue body
 lens: functional.effectiveness
-statement: maximize likelihood of a documentation-declaration recorded as first-class
-  work-item state at Ratify, so every ratified plan states whether it changes accepted
-  documentation and why when it does not
+statement: maximize likelihood of a documentation-declaration recorded as first-class work-item state
+  at Ratify, so every ratified plan states whether it changes accepted documentation and why when it does
+  not
 acceptances:
 - given:
     abstract:
@@ -40,8 +39,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: The additive landing must not invalidate the 907 stored bodies that carry
-      no documentation declaration
+    purpose: The additive landing must not invalidate the 907 stored bodies that carry no documentation
+      declaration
     urn: acc:define-plans:D002-UNIT-002-absent-declaration-is-advisory
   metadata:
     author: atdd:self-compliance
@@ -52,3 +51,24 @@ acceptances:
     - The rule names a live escalate_when measurement
   when:
     abstract: the advisory disposition is in force
+- identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: The declaration must survive the real Ratify path into the real store, not merely exist as
+      an in-memory field
+    urn: acc:define-plans:D002-SMOKE-001-real-ratify-persists-the-declaration
+  harness:
+    category: backend
+    type: e2e
+  given:
+    abstract:
+    - A real plan session at Ratify carrying a documentation declaration
+  when:
+    abstract: the session is ratified through the real `atdd plan ratify`
+  then:
+    abstract:
+    - The declaration is readable from the real State Store afterwards
+    - It is typed state, not parsed back out of a markdown heading
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-07'

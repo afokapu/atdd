@@ -3,12 +3,11 @@ step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: undocumented-merge
-context_clarifier: when a pull request reaches the merge boundary, on a gate with
-  known holes that must not be inherited silently by the documentation check
+context_clarifier: when a pull request reaches the merge boundary, on a gate with known holes that must
+  not be inherited silently by the documentation check
 lens: functional.effectiveness
-statement: minimize likelihood of an undocumented-merge, by refusing entry to main
-  when the declared documentation obligation is unresolved, and by failing closed
-  when the obligation lookup itself cannot be performed
+statement: minimize likelihood of an undocumented-merge, by refusing entry to main when the declared documentation
+  obligation is unresolved, and by failing closed when the obligation lookup itself cannot be performed
 acceptances:
 - given:
     abstract:
@@ -38,8 +37,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: A lookup failure must not degrade to advisory and report a pass, which
-      is the defect this gate already carries
+    purpose: A lookup failure must not degrade to advisory and report a pass, which is the defect this
+      gate already carries
     urn: acc:enforce-merge-authority:C005-UNIT-002-lookup-failure-fails-closed
   metadata:
     author: atdd:self-compliance
@@ -50,3 +49,24 @@ acceptances:
     - The unobservable lookup is reported as data, not as a clean result
   when:
     abstract: the merge check runs
+- identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'The merge gate is the boundary that protects main, and #1745 shows it degrading to advisory
+      on lookup failure; the refusal must be proven on the real path'
+    urn: acc:enforce-merge-authority:C005-SMOKE-001-real-merge-check-refuses-an-unresolved-obligation
+  harness:
+    category: backend
+    type: e2e
+  given:
+    abstract:
+    - A real branch whose issue carries an unresolved declared documentation obligation
+  when:
+    abstract: the real merge check runs against it
+  then:
+    abstract:
+    - Entry to main is refused and the obligation is named
+    - A lookup that cannot be performed blocks rather than reporting a pass
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-07'

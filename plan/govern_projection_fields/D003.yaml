@@ -3,12 +3,12 @@ step: define
 direction: maximize
 dimension: likelihood
 object_of_control: documentation-field-ownership
-context_clarifier: when the documentation obligation is added to the work-item projection,
-  which rejects a diff whose committing writer does not own a touched field
+context_clarifier: when the documentation obligation is added to the work-item projection, which rejects
+  a diff whose committing writer does not own a touched field
 lens: functional.effectiveness
-statement: maximize likelihood of a declared documentation-field-ownership entry naming
-  the single legal writer and merge rule of the documentation obligation field, so
-  the new field cannot corrupt the committed projection
+statement: maximize likelihood of a declared documentation-field-ownership entry naming the single legal
+  writer and merge rule of the documentation obligation field, so the new field cannot corrupt the committed
+  projection
 acceptances:
 - given:
     abstract:
@@ -20,8 +20,7 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: An unregistered projection field must fail the field-writer validator
-      rather than merge silently
+    purpose: An unregistered projection field must fail the field-writer validator rather than merge silently
     urn: acc:govern-projection-fields:D003-UNIT-001-red-unregistered-documentation-field
   metadata:
     author: atdd:self-compliance
@@ -31,3 +30,24 @@ acceptances:
     - The diff is rejected naming the unowned field
   when:
     abstract: the field-writer validator runs
+- identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: An unregistered projection field is rejected by the real field-writer validator; the registration
+      must be provable against the committed policy
+    urn: acc:govern-projection-fields:D003-SMOKE-001-real-policy-carries-the-documentation-field
+  harness:
+    category: backend
+    type: e2e
+  given:
+    abstract:
+    - The committed field-ownership policy in this repository
+  when:
+    abstract: the real policy loader resolves the documentation obligation field
+  then:
+    abstract:
+    - The field resolves to exactly one declared writer and one merge rule
+    - The real field-writer validator admits a diff touching it
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-07'
