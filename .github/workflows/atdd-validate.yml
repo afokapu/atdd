@@ -793,13 +793,24 @@ jobs:
           git config --global user.name "ATDD CI"
 
       # No `-m` expression. These paths run WHOLE — that is the point of the job.
-      # The two `coach/commands/tests` FILES at the end are C014 (#1632), added by
-      # path rather than by directory. `src/atdd/coach/commands/tests` cannot go in
-      # whole: measured on merged main 2026-08-03 it has 41 pre-existing failures
-      # and 1 error out of 1059 tests, which is why #1643 left it out. Naming the
-      # two new files keeps them covered without importing that debt — and an issue
-      # about checks that never run should not add tests that never run. Retiring
-      # the rest of that directory is #1701's subject.
+      # The five FILES at the end are named by path rather than by directory,
+      # because their directories cannot go in whole: measured 2026-09-07,
+      # `src/atdd/coach/commands/tests` has 45 pre-existing failures and 1 error out
+      # of 1129, and `src/atdd/tester/substrate` has 11. Retiring those is #1701's
+      # subject; naming a file keeps it covered without importing the debt.
+      #
+      # C014 (#1632) came first. C016, E008 and E071 joined in #1814: #1664's census
+      # classified all three `can-attest-today` — anchored by a real smoke test —
+      # while no job ran them, so the only three smoke acceptances in this repository
+      # that both CAN attest and DO pass were invisible to every PR. All three are
+      # green (1, 1 and 3 tests).
+      #
+      # Y004-SMOKE-001 was deliberately NOT added alongside them, though the same
+      # census scored it identically. It is `5 skipped, 0 passed`: its module gates
+      # on `ATDD_RUN_SMOKE`, which no workflow sets. Adding it would buy a green
+      # check that runs nothing — the #1632/#1670 shape this job exists to end.
+      # Whether that variable should be set here, or those 16 acceptances should stop
+      # self-skipping, is a convention question (#1151), not a CI-wiring one.
       - name: Run non-validator regression suites
         run: |
           python3 -m pytest \
@@ -822,6 +833,9 @@ jobs:
             src/atdd/planner/interlocking \
             src/atdd/coach/commands/tests/test_c014_unit_003_baseline_carries_the_count.py \
             src/atdd/coach/commands/tests/test_c014_smoke_001_real_runner_reports_deselection.py \
+            src/atdd/coach/commands/tests/test_c016_smoke_001_real_cli_admits_the_commit_on_a_divergent_branch.py \
+            src/atdd/coach/commands/tests/test_e008_smoke_001_registration_visible_cross_worktree.py \
+            src/atdd/tester/substrate/tests/test_e071_smoke_001_audit_classifies_both_directions.py \
             -q --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

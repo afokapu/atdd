@@ -233,8 +233,24 @@ def apply_and_verify(repo: str) -> Tuple[ProtectionStatus, List[str]]:
     Returns the verification outcome so callers can report drift or
     degraded mode even after a successful application attempt.
     """
-    applied = apply_branch_protection(repo)
-    if not applied:
-        # If we couldn't apply, still try to verify (maybe it was already set)
-        return verify_branch_protection(repo)
+    # #1599: VERIFY FIRST. This used to apply unconditionally and then verify, so
+    # every `atdd sync` — from any worktree, however routine — fired a remote PUT
+    # before knowing whether anything differed. Verification is a read and already
+    # returns the drift it found, so the ordering was the entire defect.
+    status, details = verify_branch_protection(repo)
+    if status is ProtectionStatus.ENFORCED:
+        print("  Branch protection: verified (no change needed)")
+        return status, details
+
+    if status is ProtectionStatus.DEGRADED:
+        # "could not read" is not "is wrong". Writing here would restore the
+        # unconditional PUT: a token without admin scope, or an API blip, would
+        # mutate the remote on the strength of an answer nobody got.
+        print("  Branch protection: SKIPPED (cannot verify — not writing blind)")
+        return status, details
+
+    # MISSING or DRIFTED: this is what the write exists to correct.
+    if not apply_branch_protection(repo):
+        return status, details
+    # Re-verify so the returned verdict describes the remote after the write.
     return verify_branch_protection(repo)
