@@ -30,7 +30,7 @@ pytest against an *installed wheel elsewhere* — ``validate-consumer``, which
 points pytest at the venv's site-packages — is not one of those steps and is not
 policed here; it has its own oracle.
 
-The reader is :func:`atdd.tester.substrate.attestability.ci_pytest_steps`, the
+The reader is :func:`atdd.tester.substrate.ci_runner.ci_pytest_steps`, the
 same one #1664's census classifies with. That is deliberate: if this guard had
 its own reader, the guard and the census could disagree about what CI runs, and
 the census is how anyone would check whether the fix held.
@@ -42,7 +42,7 @@ from typing import Dict, List
 
 import pytest
 
-from atdd.tester.substrate.attestability import CiPytestStep, ci_pytest_steps
+from atdd.tester.substrate.ci_runner import CiPytestStep, ci_pytest_steps
 
 #: ``tests/ci_install/<this file>`` — resolved from the file, not the cwd.
 REPO_ROOT = Path(__file__).resolve().parents[2]
