@@ -1184,7 +1184,11 @@ class IssueManager:
     _ARTIFACT_CHECKS = {
         "created": ("tree", True),
         "modified": ("diff", True),
-        "deleted": ("tree", False),
+        # #1824: NOT ("tree", False). `ls-tree` returning nothing is also what a
+        # path that never existed produces, so absence was read as proof of
+        # deletion and prose resolved as CONFIRMED GONE. Ask what the revision
+        # actually DELETED.
+        "deleted": ("diff-deleted", True),
     }
 
     @staticmethod
@@ -1192,9 +1196,13 @@ class IssueManager:
         """The git command that answers ``mode``, at the point in history that has it."""
         if mode == "tree":
             return ["git", "ls-tree", landed or "HEAD", "--"]
+        # A deletion is a fact about a CHANGE, not about the current tree, so it
+        # is read from the same revisions the modify check uses, filtered to
+        # deletions (#1824).
+        filters = ["--diff-filter=D"] if mode == "diff-deleted" else []
         if landed:
-            return ["git", "diff", f"{landed}^", landed, "--"]
-        return ["git", "diff", "main...HEAD", "--"]
+            return ["git", "diff", *filters, f"{landed}^", landed, "--"]
+        return ["git", "diff", *filters, "main...HEAD", "--"]
 
     def _artifact_resolves(self, kind: str, path: str, landed: Optional[str]) -> bool:
         """Whether git agrees with one claim — the probe the shared checker calls."""
