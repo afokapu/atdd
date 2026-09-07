@@ -1324,6 +1324,11 @@ wagons:
       — tracked, not phantom, and retargeted by GitHub when the base PR merges — while
       a base belonging to no open PR still violates, so the #477 guard is narrowed
       rather than weakened (#1802)'
+    C019: minimize quantity of filesystem-mutations-performed-by-a-read-verb by stopping
+      `atdd coach issues` delegating its show path to the entering path, and by resolving
+      the worktree-identity check through the registered branch-to-worktree binding
+      instead of a `{prefix}-{slug}` name derived from the issue body, so a worktree
+      carrying any other prefix is seen rather than duplicated beside (#1708)
     C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
       by observing the acting agent session at the mint through the shipped resolve_session()
       instead of defaulting to $USER, recording that session as its own token field
