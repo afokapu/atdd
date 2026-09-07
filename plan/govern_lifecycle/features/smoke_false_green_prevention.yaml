@@ -1,8 +1,8 @@
 urn: "feature:govern-lifecycle:smoke-false-green-prevention"
 wagon: "wagon:govern-lifecycle"
-description: "Audit every phase:SMOKE acceptance by structural false-green cause, extend smoke.convention.yaml with three anti-pattern rules, implement a planner-side synthetic-fixture-bypass validator, and retrofit the two lived-incident SMOKE tests (test_e003_smoke_001, test_e003_smoke_002) to drive the real atdd spawn entry point. Addresses the systemic pattern identified in #855 where four production bugs shipped through green-SMOKE during 2026-05-21 → 2026-05-24."
+description: "Audit every phase:SMOKE acceptance by structural false-green cause, extend smoke.convention.yaml with three anti-pattern rules, implement a planner-side synthetic-fixture-bypass validator, and retrofit the two lived-incident SMOKE tests (test_e003_smoke_001, test_e003_smoke_002) to drive the real atdd spawn entry point. Addresses the systemic pattern identified in #855 where four production bugs shipped through green-SMOKE during 2026-05-21 → 2026-05-24. E071 (#1664) adds a second classification axis over the same census: live-smoke attestability — which of those SMOKE acceptances can actually produce a #1602 live-smoke attestation — so the planner-side obligation smoke_obligation.py defers can be made mandatory against an empirical target list rather than the whole population."
 sizing:
-  wmbts: 4
+  wmbts: 5
   footprint_score: 7
   footprint_size: "M"
 wmbts:
@@ -10,6 +10,7 @@ wmbts:
   - "wmbt:govern-lifecycle:E028"
   - "wmbt:govern-lifecycle:L002"
   - "wmbt:govern-lifecycle:M002"
+  - "wmbt:govern-lifecycle:E071"
 components:
   backend:
     presentation:
@@ -26,5 +27,5 @@ components:
         rationale: "No new domain objects; scan logic is utility-level"
     integration:
       - type: "validators"
-        count: 1
-        rationale: "test_smoke_synthetic_fixture_bypass.py: scans SMOKE test files for FakeMultiplexer and stub commands"
+        count: 2
+        rationale: "test_smoke_synthetic_fixture_bypass.py: scans SMOKE test files for FakeMultiplexer and stub commands; test_smoke_audit_attestability_coverage.py (E071): reconciles docs/smoke-audit.md against plan/ in both directions and asserts a live-smoke-attestability class on every row"
