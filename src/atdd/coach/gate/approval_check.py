@@ -129,9 +129,10 @@ class ApprovalTokenGateCheck:
             autonomy = _declared_autonomy(ctx.from_phase)
         except Exception as exc:  # noqa: BLE001 - reported below, never swallowed
             logger.warning(
-                "could not read the declared autonomy for %s (%s); keeping the "
-                "approval gate on %s",
-                ctx.from_phase, exc, _edge(ctx),
+                "declared autonomy unreadable; keeping the approval gate",
+                extra={"gate_id": self.gate_id, "rule_id": self.rule_id,
+                       "issue": ctx.issue_number, "edge": _edge(ctx),
+                       "from_phase": ctx.from_phase, "error": str(exc)},
             )
             autonomy = None
 
