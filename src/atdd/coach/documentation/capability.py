@@ -30,6 +30,7 @@ and reports core's own omission as the extension's blindness.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Sequence
@@ -41,6 +42,8 @@ ENTRY_POINT_GROUP = "atdd.documentation"
 
 #: Findings core raises itself, as opposed to relaying from the capability.
 SEAM_RULE_ID = "coach.documentation.seam"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -75,13 +78,23 @@ def resolve_documentation_capability() -> Optional[Any]:
     between two documentation policies, and silently picking the first would make the
     answer depend on entry-point ordering.
     """
-    try:
-        from importlib.metadata import entry_points
+    from importlib.metadata import entry_points
 
-        found = list(entry_points(group=ENTRY_POINT_GROUP))
-    except Exception:  # pragma: no cover - importlib shape varies by runtime
-        return None
+    # NOT caught. A discovery failure is "I could not look", and returning None
+    # here would spell it exactly like "there is nothing to look at" — the
+    # NOT_APPLICABLE/COULD_NOT_CHECK collapse this module exists to refuse
+    # (#1745, #1774, #1716). The caller turns the raise into FAIL, which blocks.
+    found = list(entry_points(group=ENTRY_POINT_GROUP))
+
     if len(found) != 1:
+        # Zero is a genuine absence and permits. More than one is ambiguity, not
+        # a majority vote: core cannot choose between two documentation policies,
+        # and picking the first would make the answer depend on entry-point order.
+        if len(found) > 1:
+            raise RuntimeError(
+                f"{len(found)} documentation capabilities are installed on "
+                f"{ENTRY_POINT_GROUP!r}; core cannot choose between them"
+            )
         return None
     try:
         return found[0].load()()
@@ -110,6 +123,11 @@ def judge_documentation(
         try:
             capability = resolve_documentation_capability()
         except Exception as exc:  # a capability that fails to load is not an absent one
+            logger.warning(
+                "documentation capability failed to load; treating as FAIL, not absence",
+                exc_info=exc,
+                extra={"entry_point_group": ENTRY_POINT_GROUP, "verdict": _verdict.FAIL},
+            )
             return DocumentationCheck(
                 verdict=_verdict.FAIL,
                 findings=[Finding(SEAM_RULE_ID, ENTRY_POINT_GROUP,
@@ -129,6 +147,11 @@ def judge_documentation(
             Path(repo_root),
         )
     except Exception as exc:  # noqa: BLE001 — a raising capability is a FAIL, never a pass
+        logger.warning(
+            "documentation capability raised during check; verdict is FAIL",
+            exc_info=exc,
+            extra={"entry_point_group": ENTRY_POINT_GROUP, "verdict": _verdict.FAIL},
+        )
         return DocumentationCheck(
             verdict=_verdict.FAIL,
             findings=[Finding(SEAM_RULE_ID, ENTRY_POINT_GROUP,

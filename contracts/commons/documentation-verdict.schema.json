@@ -53,12 +53,38 @@
   ],
   "additionalProperties": false,
   "x-artifact-metadata": {
-    "producers": [
-      "wagon:govern-documentation-obligation"
-    ],
+    "domain": "commons",
+    "resource": "documentation_verdict",
+    "api": {
+      "version": "v1",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/contracts/commons/documentation-verdict.schema.json",
+          "description": "Read the Documentation obligation verdict payload contract.",
+          "responses": {
+            "200": {
+              "description": "The payload contract schema.",
+              "schema": "$ref: #"
+            }
+          }
+        }
+      ]
+    },
+    "producer": "wagon:govern-documentation-obligation",
     "consumers": [
       "wagon:govern-lifecycle",
       "wagon:enforce-merge-authority"
-    ]
+    ],
+    "dependencies": [],
+    "traceability": {
+      "wagon_ref": "plan/govern_documentation_obligation/_govern_documentation_obligation.yaml",
+      "feature_refs": [
+        "feature:govern-documentation-obligation:delegate-content-judgement"
+      ]
+    },
+    "governance": {
+      "status": "draft"
+    }
   }
 }

@@ -1331,7 +1331,10 @@ wagons:
       decides a documentation declaration is well-formed and its named artifacts are
       present in the change set, so core proves the obligation without reading a single
       documentation file
-    total: 2
+    total: 3
+    C002: minimize likelihood of an undocumented-completion, by refusing the COMPLETE
+      transition when the declared documentation obligation is unresolved or could
+      not be observed
   total: 0
   manifest: plan/govern_documentation_obligation/_govern_documentation_obligation.yaml
   path: plan/govern_documentation_obligation/
@@ -1361,10 +1364,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 121
-    C019: minimize likelihood of an undocumented-completion, by refusing the COMPLETE
-      transition when the declared documentation obligation is unresolved or could
-      not be observed
+    total: 120
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
