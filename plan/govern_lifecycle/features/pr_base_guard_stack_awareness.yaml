@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:pr-base-guard-stack-awareness"
+wagon: "wagon:govern-lifecycle"
+description: "The orphan-merge guard (#477/#475) refuses any open PR whose base is not the default branch, because a PR based on a sibling branch orphans onto a phantom ref once that branch is deleted. A base that is the head of another OPEN pull request is not that case: it is tracked, its deletion is not silent, and GitHub retargets the stack when the base PR merges. The guard already fetches headRefName for every open PR and uses it only in the message, so recognising a tracked stack needs no new data. Because the check scans the whole repo, one stacked PR fails validate-coach on every open PR, which is the same unrelated-violation absorption #582 removed from the registry drift gate by scoping it to the PR under test."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:C018"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No CLI surface; the guard runs under atdd validate coach"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "evaluate_base_violations gains the tracked-stack exemption"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Pure evaluation over the open-PR listing"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reads the existing gh pr list projection, unchanged"

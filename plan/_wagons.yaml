@@ -1313,6 +1313,11 @@ wagons:
       index over that same single source so records predating the binding are not
       newly stranded, and keeping the gate's refusal confined to a branch that matches
       no work item in a populated store (#1720)
+    C018: 'minimize quantity of open-prs-failed-by-another-prs-tracked-stack by exempting
+      a base that is the head of another OPEN pull request from the orphan-merge guard
+      — tracked, not phantom, and retargeted by GitHub when the base PR merges — while
+      a base belonging to no open PR still violates, so the #477 guard is narrowed
+      rather than weakened (#1802)'
     C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
       by observing the acting agent session at the mint through the shipped resolve_session()
       instead of defaulting to $USER, recording that session as its own token field

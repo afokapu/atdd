@@ -1,0 +1,51 @@
+urn: "wmbt:govern-lifecycle:C018"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "open-prs-failed-by-another-prs-tracked-stack"
+context_clarifier: "when the base-branch orphan guard evaluates the open-PR listing, because it refuses every base that is not the default branch without asking whether that base is the head of another open pull request, and it scans the whole repo, so one deliberate stack fails validate-coach on every unrelated PR in the queue"
+lens: "functional.effectiveness"
+statement: "minimize quantity of open-prs-failed-by-another-prs-tracked-stack when the base-branch orphan guard evaluates the open-PR listing"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C018-UNIT-001-a-base-that-is-an-open-pr-head-is-not-a-violation"
+      id: "AC-UNIT-001"
+      purpose: "A tracked stack is exempt while a genuinely orphaned base still violates"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An open-PR listing in which one PR's base is the head of another open PR"
+        - "An open-PR listing in which a PR's base is neither the default branch nor any open PR's head"
+    when:
+      abstract: "evaluate_base_violations runs over each listing"
+    then:
+      abstract:
+        - "The stacked PR produces no violation, because its base is tracked rather than phantom"
+        - "The orphaned PR still produces a violation, so the guard #477 added is not weakened"
+        - "A PR targeting the default branch produces no violation, unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
+  - identity:
+      urn: "acc:govern-lifecycle:C018-SMOKE-001-the-live-open-pr-set-passes-the-guard"
+      id: "AC-SMOKE-001"
+      purpose: "Against the repository's real open PRs the guard reports no violation for a tracked stack"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The repository's live open pull requests, as gh pr list returns them"
+    when:
+      abstract: "The end-to-end scanner runs against that listing"
+    then:
+      abstract:
+        - "A PR whose base is another open PR's head contributes no violation"
+        - "Read from the live listing rather than a fixture, because the queue-wide failure only appears against real stacked PRs"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
