@@ -1,0 +1,51 @@
+urn: "wmbt:coach-ops:C001"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "successful-merges-reported-as-conflicts"
+context_clarifier: "when merge-cascade merges a pull request, because `gh pr merge --squash --delete-branch` merges and then deletes the branch, the deletion fails while a worktree still holds it, and merge_pr classifies every non-zero exit as a conflict without asking whether the merge itself landed"
+lens: "functional.effectiveness"
+statement: "minimize quantity of successful-merges-reported-as-conflicts when merge-cascade merges a pull request"
+acceptances:
+  - identity:
+      urn: "acc:coach-ops:C001-UNIT-001-a-cleanup-failure-after-a-real-merge-is-not-a-conflict"
+      id: "AC-UNIT-001"
+      purpose: "A non-zero exit is classified from the PR's actual state, not from the exit code alone"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "gh pr merge exits non-zero after the pull request has in fact merged"
+        - "gh pr merge exits non-zero and the pull request has NOT merged"
+    when:
+      abstract: "merge_pr classifies the outcome"
+    then:
+      abstract:
+        - "The first is reported as merged, so the cascade continues to the next pull request"
+        - "The first still surfaces the cleanup failure, so a branch left behind is not silently lost"
+        - "The second is still a conflict, so a genuine merge failure keeps halting the wave"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
+  - identity:
+      urn: "acc:coach-ops:C001-SMOKE-001-the-real-verdict-comes-from-the-pull-request"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real merged pull request the classifier agrees with GitHub"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A pull request this repository has actually merged, read through gh"
+    when:
+      abstract: "The state probe merge_pr relies on is asked about it"
+    then:
+      abstract:
+        - "It reports the pull request as merged, so the classifier's evidence is real rather than assumed"
+        - "An open pull request is not reported as merged, so the probe distinguishes the two"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
