@@ -87,6 +87,15 @@ def evaluate_base_violations(
     Pure function — no GitHub access — so the helper-tests file can drive
     it from synthetic fixtures without hitting the network.
     """
+    # #1802: a base that is the head of another OPEN pull request is a TRACKED
+    # stack, not the phantom ref #477 guards against — its deletion is not
+    # silent, and GitHub retargets the stack when the base PR merges. The data
+    # was already fetched; only this set membership was missing. A base no open
+    # PR is producing still violates, so the guard narrows rather than weakens.
+    open_heads = {
+        pr.get("headRefName") for pr in open_prs if pr.get("headRefName")
+    }
+
     violations: List[Violation] = []
     for pr in open_prs:
         number = pr.get("number")
@@ -95,6 +104,8 @@ def evaluate_base_violations(
         if not number or not base:
             continue
         if base == default_branch:
+            continue
+        if base in open_heads:
             continue
         violations.append(
             Violation(
