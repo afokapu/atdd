@@ -3,27 +3,24 @@ step: define
 direction: maximize
 dimension: likelihood
 object_of_control: declaration-integrity-check
-context_clarifier: when a ratified plan declares documentation impact and the lifecycle
-  must decide whether that declaration is honoured, in a core that may never read
-  a documentation file
+context_clarifier: when a ratified plan declares documentation impact and the lifecycle must decide whether
+  that declaration is honoured, in a core that may never read a documentation file
 lens: functional.effectiveness
-statement: maximize likelihood of a format-agnostic declaration-integrity-check that
-  decides a documentation declaration is well-formed and its named artifacts are present
-  in the change set, so core proves the obligation without reading a single documentation
-  file
+statement: maximize likelihood of a format-agnostic declaration-integrity-check that decides a documentation
+  declaration is well-formed and its named artifacts are present in the change set, so core proves the
+  obligation without reading a single documentation file
 acceptances:
 - given:
     abstract:
-    - A ratified plan whose documentation declaration is impact none with an empty
-      reason
+    - A ratified plan whose documentation declaration is impact none with an empty reason
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: An impact:none declaration with no reason is structurally incomplete
-      and must be refused rather than treated as a discharged obligation
+    purpose: An impact:none declaration with no reason is structurally incomplete and must be refused
+      rather than treated as a discharged obligation
     urn: acc:govern-documentation-obligation:D001-UNIT-001-red-impact-none-without-reason
   metadata:
     author: atdd:self-compliance
@@ -44,8 +41,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: GREEN
-    purpose: A declared artifact path absent from the change set is the deterministic,
-      format-free proof that the obligation was not discharged
+    purpose: A declared artifact path absent from the change set is the deterministic, format-free proof
+      that the obligation was not discharged
     urn: acc:govern-documentation-obligation:D001-UNIT-002-declared-path-absent-from-change-set
   metadata:
     author: atdd:self-compliance
@@ -56,3 +53,25 @@ acceptances:
     - The check reads no file content and interprets no path segment
   when:
     abstract: the declaration-integrity check is invoked
+- identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: The change set core compares declared paths against is a real git diff, not a literal; a
+      check that only ever sees hand-written lists has never met the shape it must judge
+    urn: acc:govern-documentation-obligation:D001-SMOKE-001-real-branch-diff-drives-the-integrity-check
+  harness:
+    category: backend
+    type: e2e
+  given:
+    abstract:
+    - A real worktree on a real branch with commits past origin/main
+  when:
+    abstract: the declaration-integrity check is run against the change set from `git diff --name-only
+      origin/main..HEAD`
+  then:
+    abstract:
+    - A declaration naming a path in that real diff is discharged
+    - A declaration naming a path absent from it is not, and the finding names the path
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-07'

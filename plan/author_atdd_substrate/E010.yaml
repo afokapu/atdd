@@ -3,26 +3,24 @@ step: execute
 direction: minimize
 dimension: likelihood
 object_of_control: body-store-divergence
-context_clarifier: when the stored documentation obligation is rendered into the issue
-  body, in a repository where two writable copies of the same fact are an active defect
-  class
+context_clarifier: when the stored documentation obligation is rendered into the issue body, in a repository
+  where two writable copies of the same fact are an active defect class
 lens: functional.effectiveness
-statement: minimize likelihood of a body-store-divergence for the documentation obligation,
-  by projecting the stored declaration into the issue body in one direction only and
-  never parsing the rendered row back
+statement: minimize likelihood of a body-store-divergence for the documentation obligation, by projecting
+  the stored declaration into the issue body in one direction only and never parsing the rendered row
+  back
 acceptances:
 - given:
     abstract:
-    - An issue body whose documentation row has been hand-edited to disagree with
-      the store
+    - An issue body whose documentation row has been hand-edited to disagree with the store
   harness:
     category: backend
     type: unit
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: The body row is a rendering; reading it back re-creates the divergence
-      class this feature exists to avoid
+    purpose: The body row is a rendering; reading it back re-creates the divergence class this feature
+      exists to avoid
     urn: acc:author-atdd-substrate:E010-UNIT-001-red-body-is-never-read-back
   metadata:
     author: atdd:self-compliance
@@ -33,3 +31,24 @@ acceptances:
     - The edited body row does not influence the decision
   when:
     abstract: the obligation is resolved for a gate decision
+- identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: Store-to-body projection is the property that keeps this out of the live body/store divergence
+      class, and it only holds against the real writer
+    urn: acc:author-atdd-substrate:E010-SMOKE-001-real-revise-projects-the-declaration-one-way
+  harness:
+    category: backend
+    type: e2e
+  given:
+    abstract:
+    - A real store-registered issue whose documentation declaration has changed
+  when:
+    abstract: the real `atdd author issue --revise` runs
+  then:
+    abstract:
+    - The rendered body carries the stored declaration
+    - Editing the body row does not change the stored value on a subsequent read
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-07'
