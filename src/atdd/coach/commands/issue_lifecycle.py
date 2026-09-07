@@ -219,9 +219,23 @@ class IssueLifecycle:
         return None
 
     def _is_in_worktree(self, slug: str, prefix: str) -> bool:
-        """Check if we're currently in the correct worktree."""
-        expected_dir_name = f"{prefix}-{slug}"
-        return self.target_dir.name == expected_dir_name
+        """Whether the caller is standing in THIS issue's worktree (#1708).
+
+        The identity of a worktree is its issue, not the prefix it happens to
+        carry. Comparing against a single derived ``{prefix}-{slug}`` made a
+        worktree created with ``--prefix fix`` invisible whenever the issue body
+        derived ``feat`` — so the caller standing inside it was told otherwise
+        and a duplicate was created beside it (the #1802 incident).
+
+        Any SANCTIONED prefix counts, and nothing else does: matching on the slug
+        alone would make an unrelated directory that merely ends in it answer yes.
+        """
+        from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES
+
+        name = self.target_dir.name
+        candidates = {f"{p}-{slug}" for p in ALLOWED_BRANCH_PREFIXES}
+        candidates.add(f"{prefix}-{slug}")
+        return name in candidates
 
     def _create_branch(self, issue_number: int, slug: str, prefix: str) -> Optional[Path]:
         """Create worktree branch. Returns worktree path or None on failure."""
@@ -617,11 +631,16 @@ class IssueLifecycle:
         # Re-enter to show updated state
         return self.enter(issue_number)
 
-    def enter(self, issue_number: int) -> int:
+    def enter(self, issue_number: int, *, create: bool = True) -> int:
         """Enter an existing issue with state-driven behavior.
 
         Args:
             issue_number: GitHub issue number.
+            create: whether a missing worktree may be created. ``atdd coach
+                issues`` — the READ verb — passes ``False``: showing an issue
+                must report that a worktree is absent rather than making one
+                (#1708). ``atdd coach enter`` keeps the default, because
+                creating is that verb's job.
 
         Returns:
             0 on success, 1 on error.
@@ -665,6 +684,14 @@ class IssueLifecycle:
             existing = self._find_worktree_for_issue(slug, prefix)
             if existing:
                 worktree_path = existing
+            elif not create:
+                # Read verb: say what is missing, make nothing (#1708).
+                print()
+                print(f"ATDD: Issue #{issue_number} has no worktree here.")
+                print(f"  expected one for branch {prefix}/{slug}")
+                print(f"  create it with: atdd coach enter {issue_number}")
+                print()
+                return 0
             else:
                 worktree_path = self._create_branch(issue_number, slug, prefix)
                 if not worktree_path:
