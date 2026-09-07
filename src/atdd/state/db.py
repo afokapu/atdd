@@ -83,13 +83,16 @@ def apply_migrations(
         except sqlite3.Error:
             _log.error(
                 "state store migration failed",
-                extra={"version": migration.version, "name": migration.name},
+                # `migration_name`, never `name`: `name` is a reserved LogRecord
+                # attribute and logging raises KeyError rather than overwrite it,
+                # so this handler would fail while reporting a failure (#1815).
+                extra={"version": migration.version, "migration_name": migration.name},
             )
             raise
         newly.append(migration.version)
         _log.info(
             "state store migration applied",
-            extra={"version": migration.version, "name": migration.name},
+            extra={"version": migration.version, "migration_name": migration.name},
         )
     return newly
 
