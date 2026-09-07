@@ -1,4 +1,4 @@
-urn: wmbt:author-atdd-substrate:E010
+urn: wmbt:author-atdd-substrate:E011
 step: execute
 direction: minimize
 dimension: likelihood
@@ -21,7 +21,7 @@ acceptances:
     phase: RED
     purpose: The body row is a rendering; reading it back re-creates the divergence class this feature
       exists to avoid
-    urn: acc:author-atdd-substrate:E010-UNIT-001-red-body-is-never-read-back
+    urn: acc:author-atdd-substrate:E011-UNIT-001-red-body-is-never-read-back
   metadata:
     author: atdd:self-compliance
     created: '2026-09-06'
@@ -36,7 +36,7 @@ acceptances:
     phase: SMOKE
     purpose: Store-to-body projection is the property that keeps this out of the live body/store divergence
       class, and it only holds against the real writer
-    urn: acc:author-atdd-substrate:E010-SMOKE-001-real-revise-projects-the-declaration-one-way
+    urn: acc:author-atdd-substrate:E011-SMOKE-001-real-revise-projects-the-declaration-one-way
   harness:
     category: backend
     type: e2e

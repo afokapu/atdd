@@ -15,4 +15,4 @@ sizing:
 urn: feature:govern-lifecycle:reject-undocumented-completion
 wagon: wagon:govern-lifecycle
 wmbts:
-- wmbt:govern-lifecycle:C012
+- wmbt:govern-lifecycle:C019

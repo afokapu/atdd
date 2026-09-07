@@ -19,4 +19,4 @@ sizing:
 urn: feature:author-atdd-substrate:project-documentation-obligation
 wagon: wagon:author-atdd-substrate
 wmbts:
-- wmbt:author-atdd-substrate:E009
+- wmbt:author-atdd-substrate:E011

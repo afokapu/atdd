@@ -1,4 +1,4 @@
-urn: wmbt:govern-lifecycle:C017
+urn: wmbt:govern-lifecycle:C019
 step: confirm
 direction: minimize
 dimension: likelihood
@@ -22,7 +22,7 @@ acceptances:
     id: AC-UNIT-001
     phase: RED
     purpose: A declared obligation that did not occur must block COMPLETE
-    urn: acc:govern-lifecycle:C017-UNIT-001-red-declared-change-absent-blocks-complete
+    urn: acc:govern-lifecycle:C019-UNIT-001-red-declared-change-absent-blocks-complete
   metadata:
     author: atdd:self-compliance
     created: '2026-09-06'
@@ -42,7 +42,7 @@ acceptances:
     phase: SMOKE
     purpose: The gate must hold over the real transition path, not only in a unit
       harness
-    urn: acc:govern-lifecycle:C017-SMOKE-001-live-complete-refuses-unresolved-obligation
+    urn: acc:govern-lifecycle:C019-SMOKE-001-live-complete-refuses-unresolved-obligation
   metadata:
     author: atdd:self-compliance
     created: '2026-09-06'
