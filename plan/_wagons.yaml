@@ -1387,7 +1387,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 121
+    total: 122
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1455,6 +1455,11 @@ wagons:
       baseline bumps
     R004: minimize branch-creation-gate rejections of repos already in flat-sibling
       worktree layout
+    C025: minimize likelihood of a generated CI workflow that cannot read the pull
+      request it was triggered by, by declaring the least-privilege permissions the
+      generated jobs actually need, so a freshly initialised consumer repo gets real
+      validate verdicts on its first pull request rather than a failed filter and
+      a row of skips
     D001: minimize issues created without orchestrate-ready template body
     D002: minimize parent issues without GitHub WMBT sub-issues when plan artifacts
       exist
