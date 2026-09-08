@@ -284,6 +284,36 @@ class PRManager:
             return int(match.group(1))
         return None
 
+    def read_linked_issue(self, pr_number: int) -> "Reading":
+        """Resolve a PR to its linked issue, saying WHICH kind of nothing (#1640).
+
+        `resolve_linked_issue` returns None both when the PR could not be read
+        and when it declares no closing reference. `_observation` (#1747/#1748)
+        exists precisely because those are different, and names this method in
+        its own docstring as the place the two collapse. This is that split,
+        returned rather than described.
+
+        UNREADABLE carries the reason: a refusal an operator cannot act on is
+        only marginally better than the vacuous pass it replaces.
+        """
+        from atdd.coach.validators._observation import Reading
+
+        pr_data = self._fetch_pr(pr_number)
+        if not pr_data:
+            return Reading.unreadable(
+                f"could not read PR #{pr_number} (see `gh pr view {pr_number}`); "
+                "the link was never inspected, so nothing is known about it",
+                subject=pr_number,
+            )
+
+        resolution = self._resolve_from(pr_data, pr_number)
+        if resolution is None:
+            return Reading.no_obligation(
+                f"PR #{pr_number} declares no closing reference",
+                subject=pr_number,
+            )
+        return Reading.observed(resolution, subject=pr_number)
+
     def resolve_linked_issue(self, pr_number: int) -> Optional[dict]:
         """Resolve a PR to its linked ATDD issue via 4-strategy cascade.
 
@@ -301,7 +331,15 @@ class PRManager:
         if not pr_data:
             logger.warning("Could not fetch PR #%d", pr_number, extra={"pr": pr_number})
             return None
+        return self._resolve_from(pr_data, pr_number)
 
+    def _resolve_from(self, pr_data: dict, pr_number: int) -> Optional[dict]:
+        """The 4-strategy cascade over an ALREADY-FETCHED PR (#1640).
+
+        Split out so `read_linked_issue` and `resolve_linked_issue` cannot drift:
+        the only difference between them is how they describe getting nothing,
+        which is the whole point of the split.
+        """
         strategies = [
             ("api", self._resolve_via_api),
             ("body", self._resolve_via_body),
