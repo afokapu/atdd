@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "#1837 — type checking for a RATCHET, not a cleanup.",
+    "74% of non-test source files already carry annotations and nothing verified one",
+    "of them. `coder.types.pyright-ratchet` freezes today's errors into",
+    ".atdd/baselines/types_toolkit.yaml and fails only on NEW ones. Do not raise",
+    "typeCheckingMode to strict here to 'improve' things: it would invalidate the",
+    "frozen baseline wholesale, and a baseline that no longer describes the tree is",
+    "worse than no gate at all. Tighten by shrinking the baseline instead.",
+    "Fixture trees are excluded because they are DATA — deliberately broken sources",
+    "that validators parse, not code that is meant to type-check."
+  ],
+  "include": ["src"],
+  "exclude": [
+    "**/validators/fixtures",
+    "**/__pycache__",
+    "**/node_modules"
+  ],
+  "typeCheckingMode": "basic",
+  "pythonVersion": "3.10",
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none"
+}

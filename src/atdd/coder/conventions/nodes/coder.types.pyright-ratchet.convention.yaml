@@ -1,0 +1,32 @@
+schema_version: 1.0.0
+rule_id: coder.types.pyright-ratchet
+kind: rule
+status: active
+name: Type errors are ratcheted
+statement: A commit must not introduce a type error absent from the frozen type baseline
+terms:
+- term_id: type error
+  text: One pyright diagnostic of severity error, identified by rule name and
+    repo-relative file path — never by line number, so that an unrelated edit moving
+    a frozen error down a file does not re-report it.
+- term_id: frozen type baseline
+  text: The set of error identities recorded in .atdd/baselines/types_toolkit.yaml
+    at the time the gate was introduced. Entries may be removed as debt is paid; an
+    entry added to silence a new error defeats the gate.
+implementation:
+  type: validator
+  ref: test_type_ratchet::test_no_new_type_errors
+content:
+  fix_hint: Correct the annotation or the call pyright names, or narrow the value it
+    cannot prove. Do NOT append the identity to the baseline — the baseline freezes
+    debt that predates the gate.
+  rationale: |
+    74 percent of non-test source files already carry type annotations and nothing
+    verified one of them: 528 errors, 129 of them latent None dereferences. The
+    workload here is rename-heavy — 100 of the last 500 commits are refactors, with
+    384 file moves — and a type checker proves call-site consistency exhaustively in
+    seconds, which is exactly what 5,726 tests can only approximate.
+metadata:
+  severity: 2
+  disposition: strict
+  introduced_in: 4.45.0

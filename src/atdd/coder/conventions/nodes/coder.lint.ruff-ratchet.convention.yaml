@@ -1,0 +1,33 @@
+schema_version: 1.0.0
+rule_id: coder.lint.ruff-ratchet
+kind: rule
+status: active
+name: Lint findings are ratcheted
+statement: A commit must not introduce a lint finding absent from the frozen lint baseline
+terms:
+- term_id: lint finding
+  text: One ruff diagnostic under the selected rule set, identified by rule code and
+    repo-relative file path — never by line number, so that an unrelated edit moving
+    a frozen finding down a file does not re-report it.
+- term_id: frozen lint baseline
+  text: The set of finding identities recorded in .atdd/baselines/lint_toolkit.yaml
+    at the time the gate was introduced. Entries may be removed as debt is paid; an
+    entry added to silence a new finding defeats the gate.
+implementation:
+  type: validator
+  ref: test_lint_ratchet::test_no_new_lint_findings
+content:
+  fix_hint: |
+    Fix the finding ruff names, or add a scoped noqa comment naming the code where
+    the shape is deliberate. Do NOT append the identity to the baseline — the
+    baseline freezes debt that predates the gate, and growing it to green a red
+    build is the one move that makes the gate meaningless.
+  rationale: |
+    The repository configured no linter at all, so 401 unused imports and 211 empty
+    f-strings sat unguarded. Fixing them before gating is a plan nobody executes;
+    freezing them and failing on new ones is the strangler-fig shape #958 already
+    proved here for the four-tier debt.
+metadata:
+  severity: 2
+  disposition: strict
+  introduced_in: 4.45.0
