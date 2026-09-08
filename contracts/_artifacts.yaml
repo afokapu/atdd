@@ -81,7 +81,7 @@ artifacts:
     verdict, findings, checked. Collapsing NOT_APPLICABLE into COULD_NOT_CHECK is
     the defect class recorded in #1745, #1774 and #1716.'
   path: contracts/commons/documentation-verdict.schema.json
-  producer: ''
+  producer: wagon:govern-documentation-obligation
   consumers:
   - wagon:govern-lifecycle
   - wagon:enforce-merge-authority
