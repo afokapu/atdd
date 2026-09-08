@@ -425,6 +425,16 @@
         "worktrees",
         "."
       ]
+    },
+    "worktree_placement_enforcement": {
+      "type": "string",
+      "enum": [
+        "off",
+        "warn",
+        "block"
+      ],
+      "default": "warn",
+      "description": "How hard to enforce `worktree_root` (#1524, Decision 4). `warn` (the default) reports a misplaced worktree from post-checkout and refuses nothing. `block` additionally refuses a push from one \u2014 set it only once the repo's worktrees have drained via `atdd worktree relocate`. `off` says nothing. Staged by config rather than by version so enforcement cannot turn itself on in a repo that is still migrating."
     }
   },
   "required": [

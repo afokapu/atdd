@@ -895,10 +895,29 @@ Phase descriptions:
         help="Perform the move (default: report only)",
     )
     worktree_relocate_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Say nothing when there is nothing to relocate (for hooks)",
+    )
+    worktree_relocate_parser.add_argument(
         "path",
         nargs="?",
         default=None,
         help="Worktree to relocate (default: the current directory)",
+    )
+
+    worktree_subparsers.add_parser(
+        "check-placement",
+        help="Print why a push should be blocked for misplacement, or nothing",
+        description=(
+            "The pre-push placement gate (#1524, Decision 4). Prints a reason and\n"
+            "exits 0 when `worktree_placement_enforcement: block` is configured AND\n"
+            "this worktree is bound, misplaced, and relocatable. Prints nothing in\n"
+            "every other case, including the default `warn` stage.\n\n"
+            "The HOOK decides to refuse, on empty-or-not output; this command only\n"
+            "reports, so running it by hand can never fail a shell.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     worktree_remove_parser = worktree_subparsers.add_parser(
@@ -2420,7 +2439,16 @@ Phase descriptions:
             return run_relocate(
                 target=getattr(args, "path", None),
                 apply=getattr(args, "apply", False),
+                quiet=getattr(args, "quiet", False),
             )
+        if worktree_cmd == "check-placement":
+            from atdd.coach.commands.worktree_placement_enforcement import (
+                placement_block_reason,
+            )
+            reason = placement_block_reason()
+            if reason:
+                print(reason)
+            return 0
         if worktree_cmd == "remove":
             from atdd.coach.commands.branch import BranchManager
             return BranchManager().remove_worktree(args.target)

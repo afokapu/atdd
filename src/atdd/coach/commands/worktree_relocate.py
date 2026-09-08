@@ -36,8 +36,16 @@ _DECLINED: dict = {
 }
 
 
-def run_relocate(target: Optional[str] = None, apply: bool = False) -> int:
-    """Report, and optionally perform, this worktree's relocation."""
+def run_relocate(
+    target: Optional[str] = None, apply: bool = False, quiet: bool = False
+) -> int:
+    """Report, and optionally perform, this worktree's relocation.
+
+    ``quiet`` suppresses the DECLINE messages only. It exists for the
+    post-checkout hook, which fires on every branch switch: an operator who is
+    told "already where it belongs" on every checkout stops reading the hook's
+    output, and then does not read the one message that mattered.
+    """
     from atdd.coach.commands.worktree_placement import (
         relocate_worktree,
         relocation_offer,
@@ -47,17 +55,23 @@ def run_relocate(target: Optional[str] = None, apply: bool = False) -> int:
 
     worktree = Path(target).expanduser().resolve() if target else Path.cwd().resolve()
     if not worktree.is_dir():
+        if quiet:
+            return 0
         print(f"Error: {worktree} is not a directory.")
         return 1
 
     try:
         repo_root = find_worktree_root(worktree)
     except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        if quiet:
+            return 0
         print(f"Error: {exc}")
         return 1
 
     offer = relocation_offer(repo_root, worktree)
     if not offer.offered:
+        if quiet:
+            return 0
         print(f"Not relocating {offer.source}:")
         print(f"  {_DECLINED.get(offer.reason, offer.reason)}")
         # Declining is a correct outcome, not an error. Exiting non-zero here
