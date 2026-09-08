@@ -8,3 +8,7 @@ interlockings:
   path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
   theme: commons
   status: draft
+- interlocking_id: interlocking:govern-documentation-obligation
+  path: plan/_trains/_interlockings/govern-documentation-obligation.yaml
+  theme: commons
+  status: draft
