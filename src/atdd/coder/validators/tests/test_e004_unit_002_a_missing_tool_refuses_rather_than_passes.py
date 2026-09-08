@@ -50,19 +50,28 @@ def test_the_type_ratchet_shares_the_lint_semantics():
     assert new_findings([known, fresh], {finding_identity(known)}) == [fresh]
 
 
-def test_the_type_checker_is_pinned_to_the_running_interpreter():
+def test_the_type_checker_is_pinned_to_the_running_interpreter(monkeypatch):
     """A baseline is only frozen if the analysis environment is.
 
     Measured on this tree: pyright reports 575 errors against the environment
     carrying the project's dependencies and 647 against a bare one — same source,
     different interpreter found on PATH. Without the pin, a baseline frozen under
     one environment fails under the other for a reason no commit caused.
+
+    Only the PATH LOOKUP is faked, not the argv construction under test: this is a
+    unit acceptance about the shape of the invocation, and it must hold on a
+    machine that has not installed pyright — which is exactly where an unpinned
+    invocation does its damage.
     """
+    import shutil
     import sys
 
-    from atdd.coder.validators._static_ratchet import pyright_argv
+    from atdd.coder.validators import _static_ratchet
 
-    argv = pyright_argv()
+    monkeypatch.setattr(shutil, "which", lambda name: f"/fake/bin/{name}")
+    argv = _static_ratchet.pyright_argv()
+
+    assert argv[0] == "/fake/bin/pyright", "the resolved binary must lead the invocation"
     assert "--pythonpath" in argv, (
         "pyright must be pinned to an interpreter; left to itself it picks one off "
         "PATH and the frozen baseline stops describing the tree"
