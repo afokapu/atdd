@@ -2,13 +2,14 @@ urn: feature:enforce-conventions-ci:enforce-conventions-ci
 wagon: wagon:enforce-conventions-ci
 description: The enforce-conventions-ci lane of train 0007-enforce-extension-conventions.
 sizing:
-  wmbts: 3
+  wmbts: 4
   footprint_score: 6
   footprint_size: S
 wmbts:
 - wmbt:enforce-conventions-ci:E001
 - wmbt:enforce-conventions-ci:E002
 - wmbt:enforce-conventions-ci:E003
+- wmbt:enforce-conventions-ci:E004
 components:
   backend:
     application:
