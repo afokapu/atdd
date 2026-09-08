@@ -50,3 +50,25 @@ acceptances:
     abstract:
     - that job can read pull requests, whether the grant is declared on it or inherited
     - the jobs it gates are reachable, so a filtered run yields verdicts rather than skips
+- identity:
+    urn: acc:govern-lifecycle:C025-SMOKE-001-a-real-init-writes-a-workflow-github-accepts
+    id: AC-SMOKE-001
+    purpose: the defect shipped because the generated file was never read back as GitHub reads
+      it — valid YAML that silently grants the wrong scope looks like success
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real git repository initialised on disk by the real initializer, with no hand editing
+      of the workflow it writes
+  when:
+    abstract: the written workflow file is read back off disk and its permissions are resolved
+      per job, the way the runner resolves them
+  then:
+    abstract:
+    - the file is well-formed YAML declaring the workflow-level read scopes
+    - the job that invokes the change filter effectively holds pull-requests read
+    - the inherited default grants no write scope, so a job that writes must say so itself rather
+      than inheriting the power silently
