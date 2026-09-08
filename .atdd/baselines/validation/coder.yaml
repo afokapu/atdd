@@ -1,6 +1,6 @@
 phase: coder
-passed_at: '2026-09-07T04:44:36.357340+00:00'
-source_hash: e4b79abdf884d6cb37493614e55dbb57357436b0ee58e86c6df765e2bcbbf9b7
-atdd_version: 4.42.1
+passed_at: '2026-09-08T12:10:15.567485+00:00'
+source_hash: 0355f03b3ec1a8d9663629d8d00cc57536104f5a7baf408a89731bada07aac15
+atdd_version: 4.52.0
 skipped_api: true
-could_not_check: 25
+could_not_check: 27
