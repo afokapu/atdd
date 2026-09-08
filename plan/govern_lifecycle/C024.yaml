@@ -69,7 +69,8 @@ acceptances:
       abstract: "each recorded train is put to the real membership test"
     then:
       abstract:
-        - "Every train the store records for a work item resolves against the registry, so no live work item is wedged by a spelling"
+        - "Every train the registry declares resolves under both spellings, iterated over the real registry because it genuinely mixes the two shapes and a one-way strip would pass for half of it"
+        - "No work item records a train the registry declares and the gate rejects anyway — the wedge condition stated precisely; NOT every recorded train resolving, since 41 live items record trains RETIRED from the registry and normalizing nothing can fix that"
         - "The legacy numbered trains resolve specifically, since they are the seven this WMBT exists for"
         - "Read from the real registry rather than a fixture, because the defect is a disagreement between two readers of one directory and a fixture would have to reproduce that disagreement to find it"
     metadata:
