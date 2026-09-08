@@ -16,7 +16,7 @@ terms:
     on disagreement the document wins and the registry entry is the defect
 implementation:
   type: validator
-  ref: test_interlocking_registry_coherence::test_registry_entries_mirror_their_documents
+  ref: test_interlocking_registry_coherence::test_live_registry_agrees_with_every_document_it_indexes
 metadata:
   severity: 3
   disposition: strict

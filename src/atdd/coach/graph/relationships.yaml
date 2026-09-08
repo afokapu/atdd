@@ -2522,6 +2522,26 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: the registry can only be checked against its documents once both live
+    at the declared interlocking home
+  source_ref: planner.interlocking.registry-mirrors-document
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the registry mirrors entrypoint.surfaces, so the mirror is meaningful only
+    where the entrypoint shape is enforced
+  source_ref: planner.interlocking.registry-mirrors-document
+  strength: important
+  target_ref: planner.train.interlocking-entrypoint-shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: entrypoint shape is declared on an interlocking in the canonical home
   source_ref: planner.train.interlocking-entrypoint-shape
   strength: important

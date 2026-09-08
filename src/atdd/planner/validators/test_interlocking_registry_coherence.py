@@ -33,6 +33,13 @@ import yaml
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 
+#: This module reads atdd's OWN convention node to check the evidence contract,
+#: and asserts against atdd's OWN registry. Both are toolkit-source facts, absent
+#: when atdd is an installed package in a consumer repo — the consumer sweep
+#: proved it, with FileNotFoundError on the nodes directory. Marked platform for
+#: the same reason its sibling test_route_space_admission is.
+pytestmark = [pytest.mark.platform]
+
 _RULE_ID = "planner.interlocking.registry-mirrors-document"
 _RULE = bind_rule(_RULE_ID)
 _NODES_DIR = "src/atdd/planner/conventions/nodes"
