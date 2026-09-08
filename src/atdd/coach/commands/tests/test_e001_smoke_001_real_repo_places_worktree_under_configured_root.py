@@ -62,7 +62,7 @@ def test_e001_smoke_001_real_repo_places_worktree_under_configured_root(tmp_path
     root = _real_repo(tmp_path)
 
     resolved = resolve_worktree_path(root, PREFIX, SLUG)
-    assert resolved == (root / WORKTREE_ROOT / f"{PREFIX}-{SLUG}").resolve()
+    assert resolved == (root.parent / WORKTREE_ROOT / f"{PREFIX}-{SLUG}").resolve()
 
     # Create a REAL worktree there and let git report where it lives.
     resolved.parent.mkdir(parents=True, exist_ok=True)

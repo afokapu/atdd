@@ -125,11 +125,11 @@ def test_place_worktrees_journey_smoke(tmp_path, monkeypatch):
     assert resolve_worktree_root(root) == Path(WORKTREE_ROOT)
 
     resolved = resolve_worktree_path(root, PREFIX, SLUG)
-    assert resolved == (root / WORKTREE_ROOT / f"{PREFIX}-{SLUG}").resolve()
+    assert resolved == (root.parent / WORKTREE_ROOT / f"{PREFIX}-{SLUG}").resolve()
 
     # The unconfigured repo still gets the flat sibling — forward-only.
     plain = _repo(tmp_path / "plain", worktree_root=None)
-    assert resolve_worktree_root(plain) == Path("..")
+    assert resolve_worktree_root(plain) == Path(".")
     assert resolve_worktree_path(plain, PREFIX, SLUG) == (
         plain.parent / f"{PREFIX}-{SLUG}"
     ).resolve()
@@ -166,7 +166,7 @@ def test_place_worktrees_journey_smoke(tmp_path, monkeypatch):
     legacy_orphan.mkdir(parents=True)
     (legacy_orphan / ".launch_prompt.txt").write_text("stale\n")
 
-    configured_orphan = root / WORKTREE_ROOT / "feat-configured-orphan"
+    configured_orphan = root.parent / WORKTREE_ROOT / "feat-configured-orphan"
     configured_orphan.mkdir(parents=True)
     (configured_orphan / ".launch_prompt.txt").write_text("stale\n")
 
@@ -176,7 +176,7 @@ def test_place_worktrees_journey_smoke(tmp_path, monkeypatch):
         "gc did not scan the configured root while legacy worktrees drain"
     )
     assert resolved not in orphans, "gc classified a live worktree as an orphan"
-    assert (root / WORKTREE_ROOT).resolve() not in orphans, (
+    assert (root.parent / WORKTREE_ROOT).resolve() not in orphans, (
         "gc classified the configured root itself as an orphan — apply=True "
         "would remove every worktree beneath it"
     )

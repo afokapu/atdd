@@ -83,7 +83,7 @@ def _repo(tmp_path: Path) -> Path:
 
 def _expected(root: Path) -> Path:
     """Where the configured root says this branch's worktree belongs."""
-    return root / WORKTREE_ROOT / f"{PREFIX}-{SLUG}"
+    return root.parent / WORKTREE_ROOT / f"{PREFIX}-{SLUG}"
 
 
 def _legacy(root: Path) -> Path:

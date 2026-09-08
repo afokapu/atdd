@@ -68,7 +68,7 @@ def _orphan(path: Path) -> Path:
 
 def test_e002_smoke_001_real_gc_finds_orphans_in_both_roots_and_spares_the_root(tmp_path):
     root = _real_repo(tmp_path)
-    configured_root = root / WORKTREE_ROOT
+    configured_root = root.parent / WORKTREE_ROOT
 
     legacy_orphan = _orphan(root.parent / "feat-legacy-orphan")
     configured_orphan = _orphan(configured_root / "feat-configured-orphan")

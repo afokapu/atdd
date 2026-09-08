@@ -116,4 +116,4 @@ def test_y001_unit_002_unbound_worktree_declines_rather_than_guessing(tmp_path):
         "the bound worktree was also declined — declining everything is not "
         "the same as declining what cannot be identified"
     )
-    assert bound_offer.destination == root / "worktrees" / f"feat-{BOUND_SLUG}"
+    assert bound_offer.destination == root.parent / "worktrees" / f"feat-{BOUND_SLUG}"

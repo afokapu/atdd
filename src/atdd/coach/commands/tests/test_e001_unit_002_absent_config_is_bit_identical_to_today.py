@@ -19,8 +19,14 @@ satisfies only the first could still break every existing repo.
 Phase RED: fails on the import — `atdd.coach.commands.worktree_placement` does
 not exist. The default-placement half of this test passes today by construction
 (that IS today's behaviour), so the resolver's own contract is what is pinned.
-Phase GREEN: the resolver returns `..` for an absent key and derives the
-identical flat-sibling path.
+Phase GREEN: the resolver returns the project root for an absent key and
+derives the identical flat-sibling path.
+
+The default is expressed as `.` against the PROJECT ROOT (`main/`'s parent),
+not as `..` against the checkout. Those name the same directory, but only the
+first names it from a worktree too: a worktree sits one level deeper than
+`main/`, so a checkout-relative default resolves somewhere else depending on
+who is asking.
 """
 
 from __future__ import annotations
@@ -55,8 +61,9 @@ def test_e001_unit_002_absent_config_is_bit_identical_to_today(tmp_path):
     root = _repo(tmp_path, worktree_root=None)
 
     # The missing key must resolve to the documented default, not raise.
-    assert resolve_worktree_root(root) == Path(".."), (
-        "an absent worktree_root must default to '..' (today's flat sibling)"
+    assert resolve_worktree_root(root) == Path("."), (
+        "an absent worktree_root must default to the project root itself, "
+        "which IS today's flat sibling of the checkout"
     )
 
     # And the derived path must be exactly what the pre-change code produced:
@@ -71,5 +78,15 @@ def test_e001_unit_002_absent_config_is_bit_identical_to_today(tmp_path):
     # it is a hardcode wearing a config key's name.
     configured_root = _repo(tmp_path / "other", worktree_root="worktrees")
     assert resolve_worktree_path(configured_root, PREFIX, SLUG) == (
-        configured_root / "worktrees" / f"{PREFIX}-{SLUG}"
+        configured_root.parent / "worktrees" / f"{PREFIX}-{SLUG}"
+    ), (
+        "a configured root is anchored on the project root, so `worktrees` "
+        "means <project>/worktrees/ — BESIDE the checkout, not inside it"
     )
+
+    # The layout Decision 1 chose is `main/` + `worktrees/` side by side. A
+    # root resolved against the checkout would put worktrees INSIDE main/,
+    # where they would show up in main's own git status.
+    assert not str(resolve_worktree_path(configured_root, PREFIX, SLUG)).startswith(
+        str(configured_root) + "/"
+    ), "worktrees must never be placed inside the checkout"

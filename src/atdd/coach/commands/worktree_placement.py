@@ -22,9 +22,14 @@ to `cd` into.
 The contract here is deliberately small:
 
 * ``resolve_worktree_root`` reads ``worktree_root`` from ``.atdd/config.yaml``
-  and defaults to ``..`` — today's flat sibling. An upgraded consumer that
-  configures nothing sees placement bit-identical to what it had (Decision 2,
-  forward-only migration).
+  and defaults to ``.`` — the project root, which IS today's flat sibling of
+  the checkout. An upgraded consumer that configures nothing sees placement
+  bit-identical to what it had (Decision 2, forward-only migration).
+* A relative ``worktree_root`` is anchored on the PROJECT ROOT, never on the
+  calling checkout. ``worktrees`` therefore means ``<project>/worktrees/`` —
+  beside ``main/``, which is the layout Decision 1 chose — and it means the
+  same directory whether the command runs from ``main/`` or from inside
+  another worktree.
 * ``resolve_worktree_path`` is what every call site uses. Given a prefix and
   slug it returns one absolute path, so agreement between call sites is
   structural rather than a thing to remember.
@@ -49,43 +54,109 @@ __all__ = [
     "relocate_worktree",
     "relocation_offer",
     "resolve_worktree_dir_name",
+    "resolve_project_root",
     "resolve_worktree_path",
     "resolve_worktree_root",
     "write_worktree_binding",
 ]
 
-# Today's layout: a flat sibling of the checkout. Keeping this as the default
-# is what makes the migration forward-only — see Decision 2 on #1524.
-DEFAULT_WORKTREE_ROOT = Path("..")
+# Today's layout: worktrees are flat siblings of the checkout, i.e. they sit
+# directly in the PROJECT ROOT. Expressed against that anchor the default is
+# ".", and keeping it is what makes the migration forward-only (Decision 2).
+DEFAULT_WORKTREE_ROOT = Path(".")
+
+# What the key used to be documented as, back when placement was resolved
+# against the checkout rather than the project root. Read as a synonym for the
+# default so a config written against the draft semantics still lands at the
+# flat-sibling location instead of one level ABOVE the project.
+_LEGACY_CHECKOUT_RELATIVE_DEFAULT = Path("..")
 
 
 def _config(repo_root: Path) -> dict:
-    """`.atdd/config.yaml` for a checkout, or an empty dict when unreadable.
+    """`.atdd/config.yaml` governing placement, or an empty dict when unreadable.
+
+    Read from the PRIMARY checkout when there is one, not from the calling
+    worktree. `.atdd/config.yaml` is a tracked file, so every worktree carries
+    whatever revision of it its branch is on — and a branch cut before
+    `worktree_root` was set would place its worktrees somewhere else. Layout is
+    a property of the repository, so it is read from the one checkout every
+    worktree shares. Falls back to the caller's own config when the primary
+    checkout has none (a standalone clone, or a `main/` on an older revision).
 
     Placement must not become a new way for a command to fail: a missing or
     malformed config falls back to the default layout rather than raising.
     """
     from atdd.coach.utils.config import load_atdd_config
 
-    try:
-        return load_atdd_config(Path(repo_root)) or {}
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
-        # An unreadable config yields the default placement, which is today's
-        # behaviour. Raising here would break `worktree create` on repos that
-        # never opted into configuring placement at all.
-        return {}
+    for candidate in _config_candidates(Path(repo_root)):
+        try:
+            config = load_atdd_config(candidate) or {}
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            # An unreadable config yields the default placement, which is
+            # today's behaviour. Raising here would break `worktree create` on
+            # repos that never opted into configuring placement at all.
+            continue
+        if "worktree_root" in config:
+            return config
+    return {}
+
+
+def _config_candidates(repo_root: Path) -> list:
+    """The primary checkout first, then the caller — deduplicated, in order."""
+    from atdd.coach.utils.repo import _git_common_dir
+
+    candidates = []
+    common = _git_common_dir(repo_root)
+    if common is not None and common.name == ".git":
+        candidates.append(common.parent)
+    if repo_root not in candidates:
+        candidates.append(repo_root)
+    return candidates
+
+
+def resolve_project_root(repo_root: Path) -> Path:
+    """The directory that HOLDS the checkouts — ``main/``'s parent.
+
+    Placement has to be anchored here rather than on the calling checkout,
+    because the two are not at the same depth. ``main/`` sits one level under
+    the project root; a worktree under a configured root sits two. Anchoring on
+    the caller made ``worktree_root: worktrees`` mean ``main/worktrees/`` when
+    resolved from the checkout — inside the checkout, not beside it — and
+    ``worktrees/feat-x/worktrees/`` when resolved from a worktree, so a
+    worktree created from within a worktree nested one level deeper each time.
+    The project root is the same directory for every caller, so every caller
+    agrees.
+
+    The git COMMON dir is what identifies it: every linked worktree shares
+    ``<project>/main/.git``, so its parent is the primary checkout and its
+    grandparent is the project root. Falls back to ``repo_root.parent`` when
+    git cannot answer, which is the pre-#1524 derivation and therefore keeps
+    an unresolvable repo on today's behaviour rather than failing.
+    """
+    from atdd.coach.utils.repo import _git_common_dir
+
+    repo_root = Path(repo_root).resolve()
+    common = _git_common_dir(repo_root)
+    if common is not None and common.name == ".git":
+        return common.parent.parent
+    return repo_root.parent
 
 
 def resolve_worktree_root(repo_root: Path) -> Path:
     """The configured worktree root, as written — relative or absolute.
 
-    Returns ``Path("..")`` when ``worktree_root`` is absent, which is the
-    flat-sibling layout every existing repo already has.
+    A relative value is interpreted against the PROJECT ROOT, which is what
+    the conceptual model on #1524 says it is. Returns ``Path(".")`` when
+    ``worktree_root`` is absent — the flat-sibling layout every existing repo
+    already has.
     """
     value = _config(repo_root).get("worktree_root")
     if value in (None, ""):
         return DEFAULT_WORKTREE_ROOT
-    return Path(str(value))
+    root = Path(str(value))
+    if root == _LEGACY_CHECKOUT_RELATIVE_DEFAULT:
+        return DEFAULT_WORKTREE_ROOT
+    return root
 
 
 def resolve_worktree_dir_name(prefix: str, slug: str) -> str:
@@ -100,10 +171,9 @@ def resolve_worktree_path(repo_root: Path, prefix: str, slug: str) -> Path:
     ``atdd worktree create``, ``atdd coach enter``, and the launch prompt handed
     to a spawned agent cannot disagree.
     """
-    repo_root = Path(repo_root)
-    root = resolve_worktree_root(repo_root)
-    base = root if root.is_absolute() else repo_root / root
-    return (base / resolve_worktree_dir_name(prefix, slug)).resolve()
+    return (
+        resolve_worktree_root_dir(repo_root) / resolve_worktree_dir_name(prefix, slug)
+    ).resolve()
 
 
 def resolve_worktree_root_dir(repo_root: Path) -> Path:
@@ -115,7 +185,7 @@ def resolve_worktree_root_dir(repo_root: Path) -> Path:
     """
     repo_root = Path(repo_root)
     root = resolve_worktree_root(repo_root)
-    base = root if root.is_absolute() else repo_root / root
+    base = root if root.is_absolute() else resolve_project_root(repo_root) / root
     return base.resolve()
 
 

@@ -81,7 +81,7 @@ def test_e002_unit_001_launch_prompt_names_the_created_path(repo):
     # something, otherwise the assertions below prove nothing.
     assert emitted, "build_context emitted no worktree_path at all"
 
-    expected = repo / WORKTREE_ROOT / f"feat-{SLUG}"
+    expected = repo.parent / WORKTREE_ROOT / f"feat-{SLUG}"
 
     # The string-manipulation form is the defect: a relative `../` path that
     # encodes the flat-sibling layout as an assumption.

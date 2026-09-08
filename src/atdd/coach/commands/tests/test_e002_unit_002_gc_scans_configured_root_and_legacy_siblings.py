@@ -66,7 +66,7 @@ def test_e002_unit_002_gc_scans_configured_root_and_legacy_siblings(tmp_path):
 
     # One orphan in each location, while old worktrees drain.
     legacy_orphan = _orphan(root.parent / "feat-legacy-orphan")
-    configured_orphan = _orphan(root / "worktrees" / "feat-configured-orphan")
+    configured_orphan = _orphan(root.parent / "worktrees" / "feat-configured-orphan")
 
     with patch("atdd.coach.commands.worktree_gc._real_worktree_paths", return_value=set()):
         found = {p.resolve() for p in gc(root)}
@@ -86,7 +86,7 @@ def test_e002_unit_002_hyphenated_root_is_scanned_into_but_never_eaten(tmp_path)
 
     The destructive half of this hazard is CREATED by the fix for the silent
     half. Today `gc` scans only `repo_root.parent`, so a root at
-    `main/atdd-worktrees` is unreachable and cannot be eaten — the second
+    `<project>/atdd-worktrees` is unreachable and cannot be eaten — the second
     assertion below would pass vacuously on its own. It is paired with the
     first, which is red today, so the test cannot go green until gc scans the
     root AND the exclusion is real. `_is_orphan` counts non-directory files
@@ -94,7 +94,7 @@ def test_e002_unit_002_hyphenated_root_is_scanned_into_but_never_eaten(tmp_path)
     matches its heuristic exactly.
     """
     root = _repo(tmp_path, "atdd-worktrees")
-    worktree_root = root / "atdd-worktrees"
+    worktree_root = root.parent / "atdd-worktrees"
 
     # One orphan inside a HYPHENATED root — the name shape that makes the root
     # itself a candidate once gc learns to look there.
