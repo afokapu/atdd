@@ -52,7 +52,7 @@ def test_every_public_method_can_be_invoked_without_raising(tmp_path):
             continue  # needs arguments; not a zero-arg entry point
         try:
             method()
-        except Exception as exc:  # noqa: BLE001 — the assertion is that none escape
+        except Exception as exc:  # the assertion below is that none escape
             raised[name] = f"{type(exc).__name__}: {exc}"
 
     assert not raised, f"public entry points raised: {raised}"
