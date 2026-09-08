@@ -21,7 +21,7 @@
     "schema_version": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "description": "Semantic version of the interlocking schema this document targets."
+      "description": "Semantic version of the interlocking schema this document targets. 1.1.0 added the required `entrypoint.surfaces` discriminator (#1818)."
     },
     "interlocking_id": {
       "type": "string",
@@ -61,7 +61,7 @@
     "entrypoint": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["exposed", "actions", "reason"],
+      "required": ["exposed", "actions", "reason", "surfaces"],
       "description": "Declared reachability surface so extension validators never infer reachability from filenames. Core validates shape only; Station Master reachability is enforced in atdd-extensions#27.",
       "properties": {
         "exposed": {
@@ -85,6 +85,13 @@
             "planned-not-exposed"
           ],
           "description": "Required when exposed is false; must be null when exposed is true."
+        },
+        "surfaces": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["backend", "frontend"] },
+          "description": "Which consumer surfaces read this route space. Declared, never inferred from the file's path \u2014 selecting documents by path is what corrupted a route registry in atdd-extensions. List-valued because one route space can legitimately serve both sides: a full-stack repo reads the same document from a backend and a frontend consumer, and a scalar would force a false choice. A consumer MUST skip a document whose surfaces omit its own side, which is what lets the backend and frontend paths be unified (#1818)."
         }
       },
       "allOf": [
