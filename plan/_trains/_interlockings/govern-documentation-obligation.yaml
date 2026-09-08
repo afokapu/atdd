@@ -10,6 +10,8 @@ entrypoint:
   actions: []
   exposed: false
   reason: planned-not-exposed
+  surfaces:
+    - backend
 route_resolution:
   strategy: fail_on_multiple_match
 lifelines:

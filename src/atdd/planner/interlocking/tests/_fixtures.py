@@ -58,6 +58,7 @@ def interlocking_doc() -> Dict[str, Any]:
             "exposed": True,
             "actions": ["resolve_match"],
             "reason": None,
+            "surfaces": ["backend"],
         },
         "route_resolution": {"strategy": "fail_on_multiple_match"},
         "lifelines": [

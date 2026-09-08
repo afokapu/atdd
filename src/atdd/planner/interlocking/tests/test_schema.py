@@ -37,14 +37,16 @@ def test_unknown_top_level_field_rejected():
 
 def test_exposed_true_requires_an_action():
     doc = interlocking_doc()
-    doc["entrypoint"] = {"exposed": True, "actions": [], "reason": None}
+    doc["entrypoint"] = {"exposed": True, "actions": [], "reason": None,
+                         "surfaces": ["backend"]}
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(doc, _schema())
 
 
 def test_exposed_false_requires_reason():
     doc = interlocking_doc()
-    doc["entrypoint"] = {"exposed": False, "actions": [], "reason": None}
+    doc["entrypoint"] = {"exposed": False, "actions": [], "reason": None,
+                         "surfaces": ["backend"]}
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(doc, _schema())
 
@@ -55,6 +57,7 @@ def test_exposed_false_with_reason_passes():
         "exposed": False,
         "actions": [],
         "reason": "internal-transition-only",
+        "surfaces": ["backend"],
     }
     jsonschema.validate(doc, _schema())
 
@@ -140,5 +143,72 @@ def test_duplicate_wmbt_refs_on_a_surface_are_rejected():
         "wmbt:pressure-collapse:C001",
         "wmbt:pressure-collapse:C001",
     ]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, _schema())
+
+
+# --- entrypoint.surfaces: the frontend/backend discriminator (#1818) ----------
+#
+# The route space is stack-neutral planner data that backend and frontend
+# consumers both read. Before this field they read it from two different paths,
+# so a consumer with both either maintained it twice or one side silently saw
+# nothing — a Vite consumer declaring uncovered routes passed both interlocking
+# rules vacuously. Unifying the path is only safe once a consumer can tell which
+# documents are its own, which is what these tests hold.
+
+
+def test_surfaces_is_required_so_an_undeclared_document_is_invalid_not_ambiguous():
+    """Absence must FAIL, not default.
+
+    The whole point is that a consumer never infers its side from the file's
+    path — inferring by path is what corrupted a route registry in
+    atdd-extensions. If a document without `surfaces` were merely ambiguous,
+    every consumer would go back to guessing and the field would buy nothing.
+    """
+    doc = interlocking_doc()
+    del doc["entrypoint"]["surfaces"]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, _schema())
+
+
+def test_surfaces_accepts_both_sides_because_one_route_space_can_serve_both():
+    """List-valued, not a scalar.
+
+    A full-stack repo reads the same document from a backend and a frontend
+    consumer. A scalar would force a false choice between them.
+    """
+    doc = interlocking_doc()
+    doc["entrypoint"]["surfaces"] = ["backend", "frontend"]
+    jsonschema.validate(doc, _schema())
+
+
+def test_empty_surfaces_is_rejected():
+    """`[]` would read as "no consumer reads this", which no document means."""
+    doc = interlocking_doc()
+    doc["entrypoint"]["surfaces"] = []
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, _schema())
+
+
+def test_duplicate_surfaces_are_rejected():
+    doc = interlocking_doc()
+    doc["entrypoint"]["surfaces"] = ["backend", "backend"]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, _schema())
+
+
+@pytest.mark.parametrize("value", ["Backend", "vite", "python", "server", ""])
+def test_unknown_surface_values_are_rejected(value):
+    """A closed enum: a consumer matches its own side by equality, so a typo
+    must fail loudly rather than silently excluding that consumer."""
+    doc = interlocking_doc()
+    doc["entrypoint"]["surfaces"] = [value]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, _schema())
+
+
+def test_surfaces_must_be_a_list_not_a_bare_string():
+    doc = interlocking_doc()
+    doc["entrypoint"]["surfaces"] = "backend"
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(doc, _schema())
