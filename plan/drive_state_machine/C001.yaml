@@ -1,0 +1,71 @@
+urn: "wmbt:drive-state-machine:C001"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "post-merge-advances-that-report-a-no-op-after-failing-to-look"
+context_clarifier: "when auto-phase resolves a merged pull request to its issue, because _fetch_pr returns None for every failure mode and logs the cause at debug, so resolve_linked_issue reports no-linked-issue for a pull request whose link is present and the job still exits success"
+lens: "functional.effectiveness"
+statement: "minimize quantity of post-merge-advances-that-report-a-no-op-after-failing-to-look when auto-phase resolves a merged pull request to its issue"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:C001-UNIT-001-a-failed-fetch-is-not-an-absent-link"
+      id: "AC-UNIT-001"
+      purpose: "The two states are reported differently and the reason is carried"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pull request whose fetch fails, and a pull request that genuinely links no issue"
+    when:
+      abstract: "The linked issue is resolved for each"
+    then:
+      abstract:
+        - "The failed fetch is reported as an unobservable link, not as an absent one"
+        - "The genuinely unlinked pull request is still reported as having no link"
+        - "The reason the fetch failed is carried, not left at a log level a runner does not show"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:drive-state-machine:C001-UNIT-002-an-unobservable-link-fails-the-run"
+      id: "AC-UNIT-002"
+      purpose: "A post-merge advance that could not be attempted does not exit success"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A post-merge run whose pull-request fetch fails"
+        - "A post-merge run for a pull request that genuinely links no issue"
+    when:
+      abstract: "auto-phase runs"
+    then:
+      abstract:
+        - "The first exits non-zero, because an advance that could not be attempted is a failure of the run"
+        - "The second still exits zero, because nothing was owed"
+        - "The distinction is visible in the printed line, not only in the exit code"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:drive-state-machine:C001-SMOKE-001-a-real-merged-pr-resolves-its-issue"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real merged pull request the resolver finds the issue GitHub links"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A merged pull request in this repository whose closingIssuesReferences names an issue"
+    when:
+      abstract: "The linked issue is resolved for it"
+    then:
+      abstract:
+        - "The issue GitHub reports is the issue resolved, read from the live projection rather than a fixture"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
