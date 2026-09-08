@@ -7,6 +7,25 @@ train:
     auto_resume_on_start: false
   conventions:
     snapshot_on_run_start: true
+# Worktree placement (#1524). Where `atdd worktree create` / `atdd coach enter`
+# put a new worktree. Relative values are anchored on the PROJECT ROOT — the
+# directory holding `main/` — never on the checkout the command runs from, so
+# the answer is the same whether it is invoked from `main/` or from inside
+# another worktree.
+#
+#   unset (or `.`)  every worktree is a flat sibling of `main/` — the layout
+#                   this repo had before the key existed, and still the default,
+#                   so an upgraded consumer that configures nothing sees no
+#                   change at all (Decision 2, forward-only).
+#   worktrees       `<project>/main/` + `<project>/worktrees/<prefix>-<slug>`
+#
+# Set here because the flat layout had grown to 113 sibling directories beside
+# `main/`, which is the legibility problem the issue opens on. Changing this
+# moves NOTHING that already exists: existing worktrees drain one at a time via
+# `atdd worktree relocate`, which moves the directory and rewrites its State
+# Store binding as one transaction. A fleet migration is explicitly out of scope.
+worktree_root: worktrees
+
 release:
   version_file: pyproject.toml
   tag_prefix: v

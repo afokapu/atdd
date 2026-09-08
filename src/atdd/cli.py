@@ -874,6 +874,52 @@ Phase descriptions:
         description="List every registered git worktree with its branch and bound work item.",
     )
 
+    worktree_relocate_parser = worktree_subparsers.add_parser(
+        "relocate",
+        help="Move this worktree under the configured worktree_root",
+        description=(
+            "Move a worktree from where it is to where `worktree_root` says it\n"
+            "belongs, rewriting its State Store binding in the same step (#1524).\n\n"
+            "Placement is forward-only: changing `worktree_root` moves nothing on\n"
+            "its own, so existing worktrees drain one at a time, when someone asks.\n\n"
+            "  atdd worktree relocate            Show what would move (dry-run)\n"
+            "  atdd worktree relocate --apply    Move it\n\n"
+            "Declines for a worktree the store has no binding for, rather than\n"
+            "guessing which work item it belongs to.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_relocate_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Perform the move (default: report only)",
+    )
+    worktree_relocate_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Say nothing when there is nothing to relocate (for hooks)",
+    )
+    worktree_relocate_parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Worktree to relocate (default: the current directory)",
+    )
+
+    worktree_subparsers.add_parser(
+        "check-placement",
+        help="Print why a push should be blocked for misplacement, or nothing",
+        description=(
+            "The pre-push placement gate (#1524, Decision 4). Prints a reason and\n"
+            "exits 0 when `worktree_placement_enforcement: block` is configured AND\n"
+            "this worktree is bound, misplaced, and relocatable. Prints nothing in\n"
+            "every other case, including the default `warn` stage.\n\n"
+            "The HOOK decides to refuse, on empty-or-not output; this command only\n"
+            "reports, so running it by hand can never fail a shell.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
     worktree_remove_parser = worktree_subparsers.add_parser(
         "remove",
         help="Remove a worktree by issue number or path",
@@ -2388,6 +2434,21 @@ Phase descriptions:
         if worktree_cmd == "list":
             from atdd.coach.commands.branch import BranchManager
             return BranchManager().list_worktrees()
+        if worktree_cmd == "relocate":
+            from atdd.coach.commands.worktree_relocate import run_relocate
+            return run_relocate(
+                target=getattr(args, "path", None),
+                apply=getattr(args, "apply", False),
+                quiet=getattr(args, "quiet", False),
+            )
+        if worktree_cmd == "check-placement":
+            from atdd.coach.commands.worktree_placement_enforcement import (
+                placement_block_reason,
+            )
+            reason = placement_block_reason()
+            if reason:
+                print(reason)
+            return 0
         if worktree_cmd == "remove":
             from atdd.coach.commands.branch import BranchManager
             return BranchManager().remove_worktree(args.target)

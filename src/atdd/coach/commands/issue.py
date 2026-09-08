@@ -25,6 +25,7 @@ from typing import Dict, List, Optional, Any, Set, Tuple
 import yaml
 
 from atdd.coach.utils.artifact_claims import ArtifactClaimReport, check_artifact_claims
+from atdd.coach.utils.train_identity import normalize_train_id, normalize_train_ids
 
 logger = logging.getLogger(__name__)
 
@@ -1440,7 +1441,14 @@ class IssueManager:
             # No trains defined — skip cross-ref
             return True, []
 
-        if train_value in valid_ids:
+        # Compare NORMALIZED identities (#1850). The registry and the State Store
+        # read the same `plan/_trains/` directory in two different vocabularies —
+        # the graph mints `train:<stem>`, the registry reader returns `<stem>` —
+        # so a raw `in` made a train's registration depend on which reader
+        # produced the string. Both sides are normalized because both mix the two
+        # shapes; normalizing only the candidate would leave the mirror-image
+        # defect for a typed registry entry named without its prefix.
+        if normalize_train_id(train_value) in normalize_train_ids(valid_ids):
             return True, [f"  Train: {train_value} — VALID (in _trains.yaml)"]
 
         return False, [f"  Train: {train_value} — NOT FOUND in _trains.yaml"]

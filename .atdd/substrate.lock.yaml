@@ -12,6 +12,14 @@ artifacts:
   - id: atdd.workspace.dart-flutter
   - id: atdd.workspace.supabase
   - id: atdd.workspace.fastapi
+- id: atdd.extension.coder.train-interlocking
+  kind: extension
+  version: 0.2.0
+  digest: sha256:81e8571753e63a335eeee041800401f0fe859a748a0408c5fabc32b85660a654
+  installed_path: .atdd/extensions/atdd.extension.coder.train-interlocking/0.2.0
+  enabled: true
+  workspaces:
+  - id: atdd.workspace.python-pytest
 - id: atdd.extension.tester.base
   kind: extension
   version: 0.1.0
@@ -23,11 +31,11 @@ artifacts:
   - id: atdd.workspace.typescript
   - id: atdd.workspace.supabase
   - id: atdd.workspace.fastapi
-- id: atdd.extension.train-interlocking-enforcement
+- id: atdd.extension.tester.train-interlocking
   kind: extension
-  version: 0.1.0
-  digest: sha256:2cdb09b290f21b233a083c308836684d2f45e9eb347a36e9145c954095f7ddde
-  installed_path: .atdd/extensions/atdd.extension.train-interlocking-enforcement/0.1.0
+  version: 0.2.0
+  digest: sha256:d81090c8487596dc8d5e2fbfd821ba12a3dcfb531a2b59c42bb3e890890fa9e1
+  installed_path: .atdd/extensions/atdd.extension.tester.train-interlocking/0.2.0
   enabled: true
   workspaces:
   - id: atdd.workspace.python-pytest

@@ -10,6 +10,8 @@ entrypoint:
   exposed: false
   actions: []
   reason: planned-not-exposed
+  surfaces:
+    - backend
 route_resolution:
   strategy: first_priority
 lifelines:

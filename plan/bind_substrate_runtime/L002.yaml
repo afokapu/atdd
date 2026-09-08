@@ -1,0 +1,75 @@
+urn: wmbt:bind-substrate-runtime:L002
+step: locate
+direction: minimize
+dimension: likelihood
+object_of_control: the-binding-lock-being-unreachable-from-the-directory-work-happens-in
+context_clarifier: the lock is written to the shared Control Root, which in the flat-sibling
+  layout is the project root and is therefore not any checkout; resolving it against the caller's
+  checkout finds nothing from main/ and nothing from a worktree, and the miss is absorbed by
+  a fallback to the toolkit's own substrate rather than reported
+lens: functional.effectiveness
+statement: minimize likelihood of the-binding-lock-being-unreachable-from-the-directory-work-happens-in
+  by resolving the substrate home through the Control Root resolver rather than the caller's
+  checkout, and by naming the substrate home a run actually used instead of silently substituting
+  the toolkit's
+acceptances:
+- identity:
+    urn: acc:bind-substrate-runtime:L002-UNIT-001-substrate-home-resolves-through-the-control-root
+    id: AC-UNIT-001
+    purpose: the flat-sibling layout puts the Control Root at the project root, which is no
+      checkout — so resolving against the caller finds the lock from nowhere anyone stands
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a flat-sibling project whose binding lock sits in the shared Control Root at the project
+      root, with no lock in any checkout
+  when:
+    abstract: the substrate home is resolved from the primary checkout and again from a linked
+      worktree
+  then:
+    abstract:
+    - both resolve to the shared Control Root, and the same bound rule set loads from each
+    - neither falls back to the toolkit's own substrate
+- identity:
+    urn: acc:bind-substrate-runtime:L002-UNIT-002-a-run-names-the-substrate-it-enforced
+    id: AC-UNIT-002
+    purpose: the fallback does not merely enforce nothing — it enforces ANOTHER repository's
+      rule set over this repo's code and reports PASS, which is a false pass no operator can
+      see
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo with no binding lock in its checkout and none in its Control Root
+  when:
+    abstract: enforcement runs and the substrate home resolves to somewhere other than this
+      repo
+  then:
+    abstract:
+    - the report names the substrate home the rules were read from
+    - a substrate belonging to a different repository is called out as such, whether it yields
+      rules or none
+- identity:
+    urn: acc:bind-substrate-runtime:L002-SMOKE-001-real-flat-sibling-project-enforces-from-every-checkout
+    id: AC-SMOKE-001
+    purpose: over a real project with a real admitted provider, the verdict must not depend
+      on which directory the operator happened to be standing in
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real flat-sibling project with a real vendored provider admitted and bound, its lock
+      in the shared Control Root
+  when:
+    abstract: enforcement runs from the primary checkout and from a linked worktree
+  then:
+    abstract:
+    - both runs enforce the identical rule set and reach the identical verdict
+    - neither reports zero bound conventions

@@ -104,22 +104,14 @@ class EnforceResult:
 # --------------------------------------------------------------------------- #
 # Substrate / config access (the single accessor — D-3)
 # --------------------------------------------------------------------------- #
-def _toolkit_root() -> Path:
-    """Repo root of the ATDD package shipping this runner (fallback substrate)."""
-    # src/atdd/enforce/runner.py -> parents: [0]=enforce [1]=atdd [2]=src [3]=repo
-    return Path(__file__).resolve().parents[3]
-
-
-def resolve_substrate_home(repo_root: Path) -> Path:
-    """Where ``.atdd/binding.lock.yaml`` + vendored providers live for this run.
-
-    A consumer-local substrate wins; otherwise fall back to the toolkit install
-    so an un-bound consumer still gets the toolkit's bound rules enforced over
-    its code.
-    """
-    if (repo_root / ".atdd" / "binding.lock.yaml").is_file():
-        return repo_root
-    return _toolkit_root()
+# Re-exported under their historical private names: the substrate-home question
+# moved to its own module (#1848) but this is the name callers and tests bind to.
+from atdd.enforce.substrate_home import (  # noqa: E402
+    no_bound_report as _no_bound_report,
+    resolve_substrate_home,
+    substrate_provenance as _substrate_provenance,
+    toolkit_root as _toolkit_root,
+)
 
 
 def load_config(repo_root: Path) -> dict:
@@ -317,7 +309,7 @@ def enforce(
     bound = _bound_conventions(substrate_home, rules)
 
     if not bound:
-        return EnforceResult(verdicts=[], report="enforce: no bound conventions — clean no-op.")
+        return EnforceResult(verdicts=[], report=_no_bound_report(repo_root, substrate_home))
 
     candidate_roots = _candidate_roots(substrate_home)
     provider_cache: dict[str, ResolvedProvider] = {}
@@ -404,7 +396,10 @@ def enforce(
             )
         )
 
-    return EnforceResult(verdicts=verdicts, report=_render(verdicts))
+    return EnforceResult(
+        verdicts=verdicts,
+        report=_render(verdicts) + "\n" + _substrate_provenance(repo_root, substrate_home),
+    )
 
 
 def conformance(repo_root: Path) -> tuple[bool, str]:
