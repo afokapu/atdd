@@ -1,0 +1,69 @@
+urn: "wmbt:govern-lifecycle:C019"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "filesystem-mutations-performed-by-a-read-verb"
+context_clarifier: "when atdd coach issues shows an issue, because it delegates the show path to IssueLifecycle.enter, whose worktree-identity check derives the expected directory name from the issue body's prefix instead of the branch-to-worktree binding the store already holds, so a worktree created under a different prefix is unseen and a second one is created beside it"
+lens: "functional.effectiveness"
+statement: "minimize quantity of filesystem-mutations-performed-by-a-read-verb when atdd coach issues shows an issue"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C019-UNIT-001-showing-an-issue-creates-nothing"
+      id: "AC-UNIT-001"
+      purpose: "The show path never reaches the branch or worktree creation call"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue whose worktree does not exist under the derived name"
+    when:
+      abstract: "atdd coach issues <N> runs"
+    then:
+      abstract:
+        - "No branch and no worktree are created, and the creation entry point is never called"
+        - "The command still reports the issue and exits zero, so reading stays useful"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
+  - identity:
+      urn: "acc:govern-lifecycle:C019-UNIT-002-the-callers-own-worktree-is-recognised"
+      id: "AC-UNIT-002"
+      purpose: "The identity check resolves through the registered binding, not a derived name"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue whose registered worktree uses a prefix other than the one derived from its body"
+    when:
+      abstract: "The identity check asks whether the caller is standing in that issue's worktree"
+    then:
+      abstract:
+        - "The registered worktree is recognised whatever prefix it carries"
+        - "A caller standing somewhere else is still reported as elsewhere, so the check does not answer yes to everything"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"
+  - identity:
+      urn: "acc:govern-lifecycle:C019-SMOKE-001-the-real-read-verb-mutates-nothing"
+      id: "AC-SMOKE-001"
+      purpose: "In a real checkout the read verb leaves the worktree and branch listings unchanged"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repository whose git branch and worktree listings are captured beforehand"
+    when:
+      abstract: "The real CLI runs atdd coach issues <N> for an issue with no worktree under the derived name"
+    then:
+      abstract:
+        - "Both listings are byte-identical afterwards, so the read verb created nothing"
+        - "Compared against the real listings rather than a mock, because the defect was a real branch pushed to a real remote"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-07"

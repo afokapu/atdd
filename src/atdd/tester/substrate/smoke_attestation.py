@@ -34,6 +34,37 @@ fails closed: a swallowed write means no attestation, and no attestation means
 the ``SMOKE->REFACTOR`` gate blocks. Silence here can only ever be stricter,
 never laxer.
 
+CI IS NOT A PRODUCER, AND THAT IS A BOUNDARY RATHER THAN A BUG (#1815).
+
+An attestation is keyed by work-item uid. Work items are written into a Control
+Root by ``atdd worktree create`` on a developer's machine, so a CI checkout has
+no identity to key one to and this hook records nothing there. Measured, not
+reasoned, on a CI-shaped checkout — a single-repo clone with the distribution
+installed and the plugin loaded, running this repository's only
+``execution_kind: live_smoke`` acceptance::
+
+    control root : <inside the checkout>   LayoutMode.SINGLE_REPO
+    store        : .atdd/state/state.sqlite   (created by this run)
+    work items   : 0
+    events       : 0
+    tests        : 2 passed
+
+with this module's own warning: "this branch resolves to no registered work item;
+2 live-smoke run(s) go unrecorded".
+
+Note which fact does the work. The store IS also ephemeral there — a runner's
+workspace is deleted with the job — but the run never gets that far: identity
+fails first, so making the store durable would change nothing on its own.
+
+The consequence worth stating plainly, because #1604 made it easy to believe
+otherwise: installing the distribution in CI made the HOOK LOADABLE, and that is
+all it made. It did not make CI able to discharge the SMOKE obligation, and the
+``ci-runner`` axis in ``docs/smoke-audit.md`` was renamed for exactly this reason
+— ``ci-can-record`` claimed something no measurement supports. A live-smoke
+acceptance is discharged by a run in the worktree the issue is bound to, which is
+what the gate's own message has always said: "run the live-smoke suite for
+#<N> in this worktree — the run itself records the attestation".
+
 REGISTRATION. Attached by :mod:`atdd.tester.substrate.plugin`'s
 ``pytest_configure`` rather than by its own ``pytest11`` entry point, so it needs
 no reinstall to take effect — and, unlike the plugin's own collection hook,
@@ -84,7 +115,7 @@ def _git(repo_root: Path, *args: str) -> Optional[str]:
     except (OSError, subprocess.SubprocessError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
         _logger.debug(
             "smoke attestation: git %s failed: %s", args, exc,
-            extra={"args": list(args), "error_type": type(exc).__name__},
+            extra={"git_args": list(args), "error_type": type(exc).__name__},
         )
         return None
     if proc.returncode != 0:

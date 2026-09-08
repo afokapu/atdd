@@ -19,6 +19,7 @@ spec handed to GREEN:
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -28,6 +29,17 @@ def write_config(repo: Path, last_version: str) -> Path:
     (repo / ".atdd").mkdir(parents=True, exist_ok=True)
     cfg = repo / ".atdd" / "config.yaml"
     cfg.write_text(f"toolkit:\n  last_version: {last_version}\n")
+
+    # #1820: the baseline is the UNTRACKED per-checkout record (#1641), not the
+    # git-tracked `toolkit.last_version`. That field is pinned at an ancient value
+    # in every checkout that carries one, so reading it reported a refresh owed
+    # forever. Seeding both keeps these fixtures describing a checkout that really
+    # is at `last_version`, which is what each test means by it.
+    runtime = repo / ".atdd" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "toolkit-sync.json").write_text(
+        json.dumps({"last_synced_version": last_version, "synced_at": "2026-01-01T00:00:00Z"})
+    )
     return cfg
 
 

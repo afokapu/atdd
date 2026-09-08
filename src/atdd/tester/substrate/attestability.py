@@ -142,61 +142,6 @@ def classify(
 
 
 # --------------------------------------------------------------------------- #
-# Axis 3: is the anchored test on a path CI actually runs, under a runner that
-# loads the plugin? (#1664 team finding, 2026-09-07)
-#
-# THIS CLASSIFIER NEVER RUNS A TEST. Attestation is written by a pytest11 entry
-# point, so a classifier that executed tests to decide capability would classify
-# its own runner rather than the acceptance: the same test writes an attestation
-# under the installed dist and writes none under `PYTHONPATH=src`, and BOTH
-# report passed. Every input here is static — workflow text and file paths.
-# --------------------------------------------------------------------------- #
-
-#: A CI step that runs pytest against a path under src/.
-_CI_PYTEST_TARGET = re.compile(r"pytest\s+((?:src|tests)/[A-Za-z0-9_./-]*)")
-
-#: A job boundary in a workflow file: a two-space-indented key under `jobs:`.
-_JOB_HEADER = re.compile(r"\n  (?=[A-Za-z0-9_-]+:\n)")
-
-#: A CI step that installs the distribution, which is what writes the dist-info
-#: pytest's entry-point discovery reads. `PYTHONPATH=src` never does.
-_CI_INSTALLS_DIST = re.compile(r"pip3?\s+install[^\n]*(-e\s+\.|dist/\*\.whl|\.\[)")
-
-
-def ci_pytest_targets(workflow_texts: Dict[str, str]) -> Dict[str, bool]:
-    """Map each CI pytest target path to whether its job installs the dist.
-
-    A target whose job never installs the package cannot load the attestation
-    plugin, so a test under it produces no evidence however green it runs.
-    """
-    targets: Dict[str, bool] = {}
-    for text in workflow_texts.values():
-        # Split per JOB, not per step: the install and the pytest call are
-        # different steps of the same job, so a per-step split would report the
-        # one job that installs as though it did not.
-        for block in _JOB_HEADER.split(text):
-            installs = bool(_CI_INSTALLS_DIST.search(block))
-            for m in _CI_PYTEST_TARGET.finditer(block):
-                path = m.group(1).rstrip("/")
-                targets[path] = targets.get(path, False) or installs
-    return targets
-
-
-def attesting_ci_path(test_file: Path, targets: Dict[str, bool]) -> Optional[bool]:
-    """True if *test_file* sits under a CI target whose job installs the dist.
-
-    ``False`` means CI runs it but cannot record; ``None`` means CI does not run
-    it at all — the case that is invisible in a green build and the reason
-    ``src/atdd/substrate/tests/`` produces nothing despite passing locally.
-    """
-    posix = test_file.as_posix()
-    covered = [(t, ins) for t, ins in targets.items() if posix.startswith(t.rstrip("/") + "/")]
-    if not covered:
-        return None
-    return any(ins for _, ins in covered)
-
-
-# --------------------------------------------------------------------------- #
 # Census annotation (#1664): add the derived columns to docs/smoke-audit.md and
 # close the gate's open direction.
 #

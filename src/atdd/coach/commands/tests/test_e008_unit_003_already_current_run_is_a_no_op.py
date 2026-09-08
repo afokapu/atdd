@@ -52,7 +52,7 @@ def test_e008_unit_003_no_mutation_when_already_current(tmp_path, monkeypatch, c
     assert rc == 0, f"an already-current run must succeed, got {rc}"
     mock_upgrade.assert_not_called()
     mock_run.assert_not_called()
-    assert "already in sync" in capsys.readouterr().out.lower()
+    assert "already current" in capsys.readouterr().out.lower()
 
 
 @pytest.mark.platform
