@@ -1,0 +1,44 @@
+# BINDING BREAK (parallel_reachability_field / schema drift): this interlocking declares reachability
+# via FORKED fields (`runtime_exposure` + `station_actions`) instead of core afokapu/atdd#1248's
+# canonical `entrypoint` (exposed/actions/reason). The extension must reject the parallel field, not
+# read it. The route's train artifact exists so declaration_to_runtime stays clean — only the
+# schema-drift signal fires.
+schema_version: 1.0.0
+interlocking_id: interlocking:match-resolution
+title: Match resolution route interlocking
+theme: match
+status: checked
+
+# Forked reachability metadata — NOT core #1248's entrypoint field.
+runtime_exposure: true
+station_actions:
+  - resolve_match
+
+route_resolution:
+  strategy: fail_on_multiple_match
+
+routes:
+  - route_id: nominal-all-voted
+    priority: 1
+    projection:
+      expected_sequence_digest: "d285d26427cb21fedb4c5b56edc673743f6d63c85686bdeb37f5e8c5ed4736d8"
+    category: nominal
+    guard_ref: guard:all-voted
+    train_id: 3007-match-resolution-standard
+    train_path: plan/_trains/3007-match-resolution-standard.yaml
+
+lifelines:
+  - ref: user:actor
+  - ref: wagon:match-resolution
+messages:
+  - id: msg:match-resolution-request
+    kind: boundary
+    from: user:actor
+    to: wagon:match-resolution
+    intent: The actor requests Match Resolution
+    payload:
+      contract: match-resolution:request-v1
+
+source:
+  path: official/atdd.extension.coder.train-interlocking/implementations/interlocking-binding/fixtures/fail/parallel_reachability_field_used/plan/_trains/_interlockings/match-resolution.yaml
+  content_digest: "e209f8871a4f9218d69871c2fc680ff41425b4b3671295895b695e88639533be"
