@@ -1,0 +1,45 @@
+# Interlocking route space (core afokapu/atdd#1248). CLEAN bilateral-binding fixture:
+# the declared route resolves to an existing train, the exposed entrypoint.action is
+# wired into the Station Master, the runtime resolves only this declared route, and the
+# e2e trace binds it back here. Reachability is declared via the CORE `entrypoint` field
+# (exposed/actions/reason) — no parallel reachability field.
+schema_version: 1.0.0
+interlocking_id: interlocking:match-resolution
+title: Match resolution route interlocking
+theme: match
+status: checked
+
+entrypoint:
+  exposed: true
+  actions:
+    - resolve_match
+  reason: null
+
+route_resolution:
+  strategy: fail_on_multiple_match
+
+routes:
+  - route_id: nominal-all-voted
+    priority: 1
+    projection:
+      expected_sequence_digest: "d285d26427cb21fedb4c5b56edc673743f6d63c85686bdeb37f5e8c5ed4736d8"
+    category: nominal
+    guard_ref: guard:all-voted
+    train_id: 3007-match-resolution-standard
+    train_path: plan/_trains/3007-match-resolution-standard.yaml
+
+lifelines:
+  - ref: user:actor
+  - ref: wagon:match-resolution
+messages:
+  - id: msg:match-resolution-request
+    kind: boundary
+    from: user:actor
+    to: wagon:match-resolution
+    intent: The actor requests Match Resolution
+    payload:
+      contract: match-resolution:request-v1
+
+source:
+  path: official/atdd.extension.coder.train-interlocking/implementations/interlocking-binding/fixtures/pass/bilateral_binding_complete/plan/_trains/_interlockings/match-resolution.yaml
+  content_digest: "ae9b33548444f0b9500e27c59226c904c3b755150d41f2323099f8fe6c31a1ef"
