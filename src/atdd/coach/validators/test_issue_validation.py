@@ -34,6 +34,7 @@ import pytest
 import yaml
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.train_identity import normalize_train_id, normalize_train_ids
 
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
@@ -167,7 +168,12 @@ def test_issue_train_references_valid_train_id(github_issues, github_project_fie
         if not train_value or train_value.upper() == "TBD":
             continue
 
-        if train_value not in valid_train_ids:
+        # Normalized, for the reason in atdd.coach.utils.train_identity (#1850):
+        # the same train is spelled `train:<stem>` by the graph and `<stem>` by
+        # the registry reader, so a raw membership test reports a REGISTERED
+        # train as missing. Same defect as the transition gate carried; fixing
+        # only one site would leave the other reporting the same false negative.
+        if normalize_train_id(train_value) not in normalize_train_ids(valid_train_ids):
             invalid.append(
                 f"#{num}: Train='{train_value}' not found in _trains.yaml"
             )
