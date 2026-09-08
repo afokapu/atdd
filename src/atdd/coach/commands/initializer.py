@@ -1724,6 +1724,18 @@ class ProjectInitializer:
             "  issues:\n"
             "    types: [opened, edited, closed, labeled, unlabeled]\n"
             "\n"
+            # Least privilege, and load-bearing (#1856). `dorny/paths-filter` in
+            # detect-changes calls the pull-request FILES API to decide which
+            # validate jobs run. With no permissions block the workflow inherits
+            # the repository default, and a read-contents-only default refuses
+            # that call: detect-changes fails and every validate job reports
+            # `skipping` — CI green because nothing ran. Declared at workflow
+            # level so every generated job inherits it; note a job that declares
+            # its own block REPLACES this one rather than merging with it.
+            "permissions:\n"
+            "  contents: read\n"
+            "  pull-requests: read\n"
+            "\n"
             f"jobs:{detect_changes_job}{phase_jobs}{smoke_job}{gate_job}"
         )
 
