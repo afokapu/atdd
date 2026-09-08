@@ -54,7 +54,14 @@ Changelog = "https://github.com/afokapu/atdd/releases"
 # `platform`-marked, so a consumer's `atdd validate <phase>` deselects them and never
 # builds anything. Putting `build` in `dependencies` would make every consumer install
 # a build backend for a test they never run.
-dev = ["build>=1.0", "setuptools>=61.0", "wheel"]
+#
+# #1837 adds `ruff` and `pyright`. They are TEST-TIME dependencies of two
+# `platform`-marked toolkit-self gates (coder.lint.ruff-ratchet,
+# coder.types.pyright-ratchet), which a consumer's `atdd validate coder`
+# deselects — so they must not be runtime dependencies either. Both gates FAIL
+# rather than skip when their tool is absent, deliberately: a gate that skips
+# when it cannot run reports green over an observation nobody made.
+dev = ["build>=1.0", "setuptools>=61.0", "wheel", "ruff>=0.16", "pyright>=1.1.400"]
 viz = ["streamlit", "st-link-analysis"]
 
 [project.scripts]
@@ -151,4 +158,41 @@ markers = [
     "convention_readonly: convention test that only reads the repo or the clean graph — safe under -n auto",
     "convention_inmemory_fault: convention test that injects its fault into a cloned graph — writes nothing, safe under -n auto",
     "convention_filesystem_mutation: convention test that writes the checkout (or spawns a subprocess over it) — MUST run serially",
+]
+
+# #1837 — LINT CONFIG FOR A RATCHET, NOT A REFORMAT.
+#
+# The repository configured no linter at all, so 409 unused imports and 211 empty
+# f-strings sat unguarded. `coder.lint.ruff-ratchet` freezes today's findings and
+# fails only on NEW ones; nothing here reformats a single file (`ruff format`
+# would rewrite 1,717 of them, and this repo's validators read source TEXT).
+[tool.ruff]
+# Sized against the code rather than taken from the default. Of 268,865 lines,
+# 9,589 (3.57%) exceed 88 — ruff's default — and 2,271 (0.84%) exceed 100. p99 is
+# 99 characters: 100 describes how this code is already written.
+line-length = 100
+src = ["src"]
+extend-exclude = ["**/validators/fixtures/**"]
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "B", "SIM", "TID", "RUF"]
+ignore = [
+    # DUPLICATES AN EXISTING VALIDATOR — deliberately not selected. Two gates on
+    # one concern disagree eventually, and the bespoke one is the more precise:
+    #   C901  → coder.refactor.complexity-length measures with radon, against a
+    #           per-repo baseline, and is what the ratchet in #958 already tracks.
+    #   BLE001→ test_no_silent_exception_swallowing_python exempts reraise-with-
+    #           context and log-then-return-None; ruff flags all 290 blind excepts
+    #           flat, so selecting it would CONTRADICT a shipped rule.
+    "C901",
+    # FORMATTING, NOT CORRECTNESS — and it fights this repo's own contract. Every
+    # ATDD test file opens with mandated `# URN:` / `# Acceptance:` headers whose
+    # value is a full acceptance URN; those lines cannot be wrapped without
+    # corrupting the URN the planner parses back out. Selecting E501 would block a
+    # correctly-authored new test on a line the convention requires. Line length is
+    # a `ruff format` concern, and this change is deliberately gates-only.
+    "E501",
+    # Prose, not code. RUF001/2/3 flag "ambiguous" Unicode — which here is the
+    # em-dash and the arrow used throughout this repo's docstrings on purpose.
+    "RUF001", "RUF002", "RUF003",
 ]

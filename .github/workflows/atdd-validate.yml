@@ -127,7 +127,7 @@ jobs:
 
       # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
       - name: Install the package and dependencies
-        run: pip3 install -e . tree-sitter tree-sitter-typescript
+        run: pip3 install -e . tree-sitter tree-sitter-typescript ruff pyright
 
       - name: Run coder validators
         run: python3 -m pytest src/atdd/coder/validators/ -v --tb=short
