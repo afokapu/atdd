@@ -1,0 +1,101 @@
+schema_version: 1.1.0
+rule_id: coder.train.runtime-executes-the-declaration
+kind: rule
+# DRAFT, and the word is load-bearing. The obligation is authored and its validator
+# exists and is tested, but it is realized by `scan_execution()` which the gated
+# `scan_root()` deliberately does not call. Shipping it `active` would claim an
+# enforcement that never runs — a rule that says it checks and does not. It becomes
+# `active` in the same change that wires the check into the gate.
+status: active
+name: The runtime executes the declared route space rather than transcribing it
+statement: >-
+  A consumer that declares guarded interlocking routes MUST have a runtime that READS the
+  declaration it is given. An `InterlockingRunner` constructed with an interlocking YAML path MUST
+  load that path and resolve from what it read; a `TrainRunner` MUST take the wagon order from the
+  train definition. A runtime that stores the path and returns hardcoded values satisfies every
+  text-level rule in this package and is not executing the plan — it is transcribing it.
+terms:
+- term_id: loads_the_declaration
+  text: >-
+    some module under the runtime selector reads a file — `yaml.safe_load`, `json.load`,
+    `open(...)`, `.read_text(...)`. Checked across the whole runtime surface rather than per
+    module, because a correct implementation may delegate loading to a sibling loader.
+- term_id: transcription
+  text: >-
+    a runtime whose resolution fields and wagon order are literals that happen to match the
+    declaration. It agrees with the plan at the moment it is written and cannot disagree
+    detectably afterwards, because nothing compares them at runtime.
+- term_id: unreachable_route
+  text: >-
+    a declared `route_id` that appears nowhere in a runtime which does not load the declaration.
+    A data-driven runtime serves every declared route by construction and mentions none of them as
+    literals, so this is only ever evaluated against a transcribing runtime.
+- term_id: disposition_rationale
+  text: >-
+    advisory because NO consumer satisfies it today, including this package's own fixtures until
+    the commit that introduced this node. The measurement below was TAKEN, not recalled.
+  values:
+    measured_2026_09_07: >-
+      A purpose-built consumer implementing runners, train, interlocking and cargo passed all ten
+      interlocking rules while never opening the plan. Deleting the entire plan/ directory left it
+      still dispatching. This package's own clean bilateral fixture had the same shape.
+    measurement_target: a consumer repo built for the experiment, plus fixtures/pass/bilateral_binding_complete
+    escalate_when: >-
+      Consumer runtimes load their declarations and the check has been wired into
+      gates/interlocking-binding.gate.yaml. Enabling it is a GATE change; the detector is staged
+      (`scan_execution`) and deliberately not called from `scan_root`.
+content:
+  summary: >-
+    The obligation that makes "the train YAML is the source of truth" true of the RUNTIME and not
+    merely of the text. Every other rule in this package closes a correspondence between literals
+    in the code and literals in the plan; none asks whether the code ever reads it.
+  normative_text: |
+    FOUND BY RUNNING THIS PACKAGE AGAINST A REAL CONSUMER, which is the only way it could have been
+    found. A consumer whose InterlockingRunner stored `interlocking_yaml_path` and returned a
+    hardcoded InterlockingResolution, and whose TrainRunner kept a literal train_id -> wagons map,
+    was fully compliant. Three divergences between plan and runtime were then introduced:
+
+      a declared route the runtime cannot resolve   -> nothing fired
+      a wagon sequence contradicting the runtime    -> nothing fired
+      the entire plan/ directory deleted            -> only bilateral binding, because the
+                                                       runtime's literals became undeclared
+
+    The application kept dispatching in all three cases. That is the definition of a plan that is
+    not executable.
+
+    WHY A TRANSCRIBING RUNTIME IS WORSE THAN AN ABSENT ONE. An absent runtime fails loudly the
+    first time anything runs. A transcribing one agrees with the declaration on the day it is
+    written and diverges silently ever after — the plan is edited, the runtime is not, and every
+    check still passes because each still contains the same literals it always did.
+  fix_hint: |
+    Load the declaration and resolve from it:
+
+      def _declaration(self):
+          return yaml.safe_load(Path(self._path).read_text(encoding="utf-8")) or {}
+
+      def route_by_id(self, route_id):
+          for route in self._declaration().get("routes") or []:
+              if route.get("route_id") == route_id:
+                  return _Route(route)
+
+    Resolve through a `route_by_id`-style accessor rather than filtering inline: bilateral
+    binding's provenance scan traces a resolution kwarg back through such an accessor to the
+    loaded route space, and cannot trace an inline filter — which it reports as undecidable
+    rather than passing silently.
+  exceptions:
+  - A consumer that declares no interlocking route space carries no obligation.
+  - A runtime that loads the declaration is never checked for route literals; it serves every
+    declared route by construction, and flagging the absent literal would punish the correct
+    implementation for being correct.
+metadata:
+  aliases:
+  - TRAIN-RUNTIME-EXECUTES-001
+  severity: 2
+  disposition: advisory
+  introduced_in: 0.1.0
+  core_design_refs:
+  - afokapu/atdd#1248
+  - afokapu/atdd#1251
+implementation:
+  type: validator
+  ref: coder.train.runtime-executes-the-declaration
