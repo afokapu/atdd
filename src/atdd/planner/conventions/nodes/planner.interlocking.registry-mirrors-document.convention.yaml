@@ -1,0 +1,38 @@
+schema_version: 1.0.0
+rule_id: planner.interlocking.registry-mirrors-document
+kind: rule
+status: active
+name: The interlocking registry agrees with the documents it indexes
+statement: Every entry in plan/_trains/_interlockings.yaml must agree with the document
+  it points at on every field it mirrors — theme, status and surfaces. The document
+  is authoritative; the registry is discovery metadata, so a disagreement is always
+  the registry being wrong.
+terms:
+- term_id: mirrored_field
+  text: a field the registry denormalises from the document it indexes — theme, status,
+    surfaces
+- term_id: authoritative_document
+  text: plan/_trains/_interlockings/<id>.yaml, which the registry entry's path names;
+    on disagreement the document wins and the registry entry is the defect
+implementation:
+  type: validator
+  ref: test_interlocking_registry_coherence::test_registry_entries_mirror_their_documents
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 1855
+  core_design_refs:
+  - afokapu/atdd#1818
+  - afokapu/atdd#1846
+validation:
+  family: coherence
+  template: cross_artifact_field_agreement
+  variant: planner_interlocking_registry_mirror
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: interlocking
+  failure_evidence:
+  - interlocking_id
+  - field
+  - registry_value
+  - document_value
