@@ -51,6 +51,7 @@ from typing import Optional
 __all__ = [
     "DEFAULT_WORKTREE_ROOT",
     "RelocationOffer",
+    "placement_drift_notice",
     "relocate_worktree",
     "relocation_offer",
     "resolve_worktree_dir_name",
@@ -368,3 +369,45 @@ def _git_worktree_move(
     raise RuntimeError(
         f"git worktree move failed: {result.stderr.strip() or result.stdout.strip()}"
     )
+
+
+def placement_drift_notice(cwd: Optional[Path] = None) -> Optional[str]:
+    """A one-line notice when THIS worktree is not where the config says, else None.
+
+    The issue asks for a relocation offer "on the first `atdd` command after a
+    version change". This is that offer, and it is deliberately a NOTICE rather
+    than a prompt: its caller, ``print_upgrade_sync_notice``, runs on every CLI
+    invocation under a hard read-only contract (#342 — a banner that also
+    mutated the working tree was the bug that contract exists to prevent).
+    Blocking `atdd --help` on an interactive question would be a worse version
+    of the same mistake, and Decision 4's staging rationale — never wall an
+    agent off mid-flow — says the same thing.
+
+    Returns None, silently, for every case that is not an actionable drift:
+    no config, no drift, an unbound worktree (which cannot be relocated without
+    guessing), or any error at all. A placement notice must never be the reason
+    a command fails or gets noisier than it was.
+    """
+    try:
+        from atdd.coach.utils.repo import find_worktree_root
+
+        worktree = Path(cwd) if cwd else Path.cwd()
+        repo_root = find_worktree_root(worktree)
+
+        # Only a LINKED worktree is relocatable. The primary checkout has a
+        # `.git` directory rather than a gitfile, and its location is what the
+        # project root is derived from — moving it would move the anchor.
+        if not (repo_root / ".git").is_file():
+            return None
+
+        offer = relocation_offer(repo_root, repo_root)
+        if not offer.offered:
+            return None
+        return (
+            f"This worktree sits outside the configured worktree_root.\n"
+            f"     here: {offer.source}\n"
+            f"   config: {offer.destination}\n"
+            f"   Move it with: atdd worktree relocate --apply"
+        )
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        return None

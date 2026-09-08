@@ -38,6 +38,7 @@ from pathlib import Path
 import pytest
 
 from atdd.coach.commands.session_template import build_context
+from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.commands.worktree_gc import gc
 from atdd.coach.commands.worktree_placement import (
     relocate_worktree,
@@ -119,7 +120,7 @@ def _binding(root: Path, slug: str) -> str | None:
         conn.close()
 
 
-def test_place_worktrees_journey_smoke(tmp_path, monkeypatch):
+def test_place_worktrees_journey_smoke(tmp_path, monkeypatch, request):
     # -- 1. resolve ------------------------------------------------------
     root = _repo(tmp_path / "configured", worktree_root=WORKTREE_ROOT)
     assert resolve_worktree_root(root) == Path(WORKTREE_ROOT)
@@ -148,6 +149,15 @@ def test_place_worktrees_journey_smoke(tmp_path, monkeypatch):
     # substituting it. A SMOKE test that stubbed the collaborator here would
     # prove nothing about what a spawned agent is actually told.
     monkeypatch.setenv("ATDD_REPO_ROOT", str(root))
+    # `find_repo_root` is @lru_cache(maxsize=1), so it answers with whatever
+    # repo the FIRST caller in this process asked about — including a repo an
+    # earlier test in the same session resolved. Clearing the cache is what
+    # makes the env var above take effect, and what makes this test give the
+    # same answer run alone and run after the rest of the suite.
+    # Cleared again on teardown: leaving the temp repo cached would hand the
+    # NEXT test in the session this test's throwaway directory.
+    find_repo_root.cache_clear()
+    request.addfinalizer(find_repo_root.cache_clear)
     body = (
         "# T\n\n## Issue Metadata\n\n| Field | Value |\n|-------|-------|\n"
         f"| Branch | `{BRANCH}` |\n"
