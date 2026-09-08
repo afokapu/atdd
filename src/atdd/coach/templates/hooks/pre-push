@@ -258,6 +258,32 @@ if [ "${CI:-}" != "true" ]; then
     fi
 fi
 
+# --- Worktree placement gate (#1524, Decision 4 — the BLOCK stage) ---
+# OPT-IN: silent unless `.atdd/config.yaml` sets
+# `worktree_placement_enforcement: block`. The default (`warn`) reports from
+# post-checkout and refuses nothing, which is the whole of the first release.
+#
+# pre-push is the only placement-relevant hook whose refusal costs no work: the
+# commits exist, the worktree exists, and `atdd worktree relocate --apply`
+# clears the block. Gating the COMMIT instead would strand work an agent had
+# just finished — the failure Decision 4 exists to avoid.
+if command -v atdd >/dev/null 2>&1; then
+    PLACEMENT_BLOCK=$(atdd worktree check-placement 2>/dev/null) || PLACEMENT_BLOCK=''
+    if [ -n "$PLACEMENT_BLOCK" ]; then
+        cat >&2 <<PLACEMENT
+
+ATDD BLOCK: this worktree is not under the configured worktree_root.
+
+$PLACEMENT_BLOCK
+
+  Fix it without losing anything:
+    atdd worktree relocate --apply
+
+PLACEMENT
+        exit 1
+    fi
+fi
+
 # --- Uncommitted delta warning (advisory only — never blocks) ---
 UNCOMMITTED=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
 UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')

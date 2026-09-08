@@ -1,0 +1,18 @@
+urn: feature:place-worktrees:place-worktrees
+wagon: wagon:place-worktrees
+description: 'The worktree-placement lane: one config-backed resolver replacing seven
+  inlined derivations, plus the transactional relocation offer.'
+sizing:
+  wmbts: 3
+  footprint_score: 5
+  footprint_size: M
+wmbts:
+- wmbt:place-worktrees:E001
+- wmbt:place-worktrees:E002
+- wmbt:place-worktrees:Y001
+components:
+  backend:
+    application:
+    - type: use_cases
+      count: 2
+      rationale: one use case resolving the worktree root, one performing the relocation

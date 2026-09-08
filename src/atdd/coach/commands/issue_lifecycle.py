@@ -20,6 +20,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from atdd.coach.commands.worktree_placement import (
+    resolve_worktree_dir_name,
+    resolve_worktree_path,
+)
+
 logger = logging.getLogger(__name__)
 
 # Statuses where branch + gate are triggered
@@ -212,8 +217,7 @@ class IssueLifecycle:
 
     def _find_worktree_for_issue(self, slug: str, prefix: str) -> Optional[Path]:
         """Check if a worktree already exists for this issue's branch."""
-        worktree_dir_name = f"{prefix}-{slug}"
-        worktree_path = self.target_dir.parent / worktree_dir_name
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         if worktree_path.exists():
             return worktree_path
         return None
@@ -229,12 +233,19 @@ class IssueLifecycle:
 
         Any SANCTIONED prefix counts, and nothing else does: matching on the slug
         alone would make an unrelated directory that merely ends in it answer yes.
+
+        Placement-agnostic by construction: the check is on the directory's
+        NAME, so it answers the same whether the worktree sits at the legacy
+        flat sibling or under a configured ``worktree_root`` (#1524). The name
+        itself still comes from the one resolver, so a future change to the
+        naming scheme cannot make this predicate disagree with the creation
+        paths.
         """
         from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES
 
         name = self.target_dir.name
-        candidates = {f"{p}-{slug}" for p in ALLOWED_BRANCH_PREFIXES}
-        candidates.add(f"{prefix}-{slug}")
+        candidates = {resolve_worktree_dir_name(p, slug) for p in ALLOWED_BRANCH_PREFIXES}
+        candidates.add(resolve_worktree_dir_name(prefix, slug))
         return name in candidates
 
     def _report_absent_worktree(self, issue_number: int, slug: str, prefix: str) -> int:
@@ -259,11 +270,11 @@ class IssueLifecycle:
         if entry:
             rc = manager.branch(issue_number)
             if rc == 0:
-                return self.target_dir.parent / f"{prefix}-{slug}"
+                return resolve_worktree_path(self.target_dir, prefix, slug)
             return None
         # If not in manifest, create worktree directly
         branch_name = f"{prefix}/{slug}"
-        worktree_path = self.target_dir.parent / f"{prefix}-{slug}"
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         if worktree_path.exists():
             return worktree_path
 
