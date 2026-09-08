@@ -435,8 +435,34 @@ def print_upgrade_sync_notice() -> None:
         if notice:
             print(f"\n⚠️  {notice}", file=sys.stderr)
             print(file=sys.stderr)
+            _print_placement_drift_notice()
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         pass  # Never fail the main command
+
+
+def _print_placement_drift_notice() -> None:
+    """Offer relocation when a version change reveals this worktree is misplaced.
+
+    #1524 asks for the relocation offer to surface "on the first `atdd` command
+    after a version change", and this is the only place that knows a version
+    change happened. Deliberately nested inside the upgrade branch rather than
+    called on its own: this does real work (a git subprocess and a store read),
+    and `print_upgrade_sync_notice` runs on EVERY CLI invocation. Hanging it off
+    the already-rare upgrade path keeps the hot path exactly as cheap as it was.
+
+    Like its caller, it only ever prints. The relocation itself is opt-in
+    through `atdd worktree relocate`, because a move that happened because
+    someone ran `atdd --help` would be indefensible.
+    """
+    try:
+        from atdd.coach.commands.worktree_placement import placement_drift_notice
+
+        drift = placement_drift_notice()
+        if drift:
+            print(f"ℹ️  {drift}", file=sys.stderr)
+            print(file=sys.stderr)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        pass  # A placement hint must never break a command
 
 
 # --- Version gate (git hook enforcement) ---

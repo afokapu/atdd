@@ -184,6 +184,30 @@ def fetch_issue(issue_number: int) -> dict:
         return {}
 
 
+def _derive_worktree_path(branch: str) -> str:
+    """Where a spawned agent should `cd` for this branch.
+
+    Formerly `f"../{branch.replace('/', '-')}"` — a third derivation algorithm,
+    emitting a relative path that hardcoded the flat-sibling layout. It now
+    routes through the same resolver as the two creation paths, so the launch
+    prompt names the directory that was actually created (#1524 E002).
+    """
+    if not branch:
+        return ""
+    from atdd.coach.commands.worktree_placement import resolve_worktree_path
+    from atdd.coach.utils.repo import find_repo_root
+
+    prefix, _, slug = branch.partition("/")
+    if not slug:
+        prefix, slug = "feat", branch
+    try:
+        return str(resolve_worktree_path(find_repo_root(), prefix, slug))
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Prompt rendering must not fail because a repo root is unresolvable;
+        # fall back to the legacy relative form rather than emitting nothing.
+        return f"../{branch.replace('/', '-')}"
+
+
 def build_context(
     issue_number: int,
     body: str,
@@ -222,7 +246,7 @@ def build_context(
         dependencies=deps,
         typed_dependencies=typed_deps,
         grep_gates=gates,
-        worktree_path=worktree_path or f"../{meta.get('Branch', '').replace('/', '-')}",
+        worktree_path=worktree_path or _derive_worktree_path(meta.get("Branch", "")),
         canonical_session_name=canonical_name,
     )
 

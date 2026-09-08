@@ -1,0 +1,129 @@
+urn: wmbt:place-worktrees:Y001
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: a-half-applied-relocation-leaving-git-and-the-store-disagreeing
+context_clarifier: relocation must move the worktree with git and rewrite the absolute
+  data.worktree_path in the State Store blob; if git moves and the store write fails
+  the store points at a directory that no longer exists, which is exactly the stale-binding
+  class this repo already carries 31 of
+lens: functional.sustainability
+statement: minimize likelihood of a-half-applied-relocation-leaving-git-and-the-store-disagreeing
+  by applying the git worktree move and the store path rewrite as one transaction
+  that rolls back together
+acceptances:
+- identity:
+    urn: acc:place-worktrees:Y001-UNIT-001-failed-store-write-rolls-back-the-move
+    id: AC-UNIT-001
+    purpose: the one genuinely painful failure state named in the issue notes
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a bound worktree and a State Store write that fails after the git move succeeds
+  when:
+    abstract: relocation is attempted
+  then:
+    abstract:
+    - the worktree is left at its original path
+    - the store binding still names the original path
+    - the failure is reported rather than swallowed
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'
+- identity:
+    urn: acc:place-worktrees:Y001-UNIT-003-relocation-is-reachable-from-the-cli
+    id: AC-UNIT-003
+    purpose: relocation that no command can invoke discharges nothing — the machinery
+      shipped complete and unreachable, called only by its own tests
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo whose configured worktree_root disagrees with a bound worktree's actual
+      location
+  when:
+    abstract: the operator-facing relocate command is invoked for that worktree, first
+      without and then with its apply flag
+  then:
+    abstract:
+    - the dry run reports the source and destination and moves nothing
+    - the apply run performs the move and rewrites the store binding
+    - a worktree the store has no binding for is declined by reason, and declining
+      is not reported as a failure
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-08'
+- identity:
+    urn: acc:place-worktrees:Y001-UNIT-002-unbound-worktree-declines-rather-than-guessing
+    id: AC-UNIT-002
+    purpose: '77 of 113 worktrees have no store binding; the offer must decline for
+      them rather than guess, which is why #1529 does not gate this issue'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a live worktree with no work_item carrying its worktree_path
+  when:
+    abstract: the relocation offer is evaluated for it
+  then:
+    abstract:
+    - no offer is made and nothing is moved
+    - the reason given is that the worktree is unbound, not that relocation failed
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'
+- identity:
+    urn: acc:place-worktrees:Y001-UNIT-004-version-change-surfaces-the-relocation-offer
+    id: AC-UNIT-004
+    purpose: an offer nobody is ever shown is not an offer; and a placement hint
+      that prompts, writes, or raises would be worse than none
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a bound worktree sitting outside the configured worktree_root
+  when:
+    abstract: the layout-drift check that runs on the first command after a version
+      change is evaluated for it, and for a correctly-placed worktree, an unbound
+      worktree, the primary checkout, and a repo with no worktree_root configured
+  then:
+    abstract:
+    - the drifted worktree yields a notice naming both its current and configured
+      path and the command that moves it
+    - every other case yields nothing at all, silently
+    - nothing is moved, written, or prompted for — the notice only reports
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-08'
+- identity:
+    urn: acc:place-worktrees:Y001-SMOKE-001-real-relocation-moves-git-and-store-together
+    id: AC-SMOKE-001
+    purpose: over a real git worktree, relocation moves the directory and rewrites
+      the store binding as one step
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real git worktree bound to a work item in a real State Store, carrying uncommitted
+      work
+  when:
+    abstract: the worktree is relocated under the configured root
+  then:
+    abstract:
+    - the directory moves, the uncommitted work survives, and git worktree list reports
+      the new path
+    - the store binding names the new path, so no stale binding is manufactured
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-19'
