@@ -20,9 +20,11 @@ consume: []
 
 features:
   - urn: "feature:define-plans:atdd-plan-session"
+  - urn: "feature:define-plans:record-documentation-obligation"
 
 wmbt:
-  total: 13
+  total: 14
+  D002: "maximize likelihood of a documentation-declaration recorded as first-class work-item state at Ratify, so every ratified plan states whether it changes accepted documentation and why when it does not"
   D001: "minimize likelihood of session-without-main-job — Define gate requires a JTBD main-job before Locate opens"
   L001: "minimize likelihood of unbound-source-capture — Locate binds captured sources to persisted session state"
   P001: "minimize likelihood of unit-without-author-spec — Prepare unit carries kind, ref, and a valid atdd author spec"

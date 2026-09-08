@@ -34,8 +34,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from atdd.tester.substrate.ci_runner import (
-    CI_CAN_RECORD,
-    CI_CANNOT_RECORD,
+    CI_RUNS_WITH_HOOK,
+    CI_RUNS_WITHOUT_HOOK,
     CI_TEST_OPTS_OUT,
     NOT_RUN_BY_CI,
     ci_env_names,
@@ -130,17 +130,17 @@ _UNINSTALLED = {"tests/covered": False}
 _FILE = Path("tests/covered/test_named.py")
 
 
-def test_an_installed_path_with_no_gate_can_record() -> None:
-    assert ci_runner_verdict([_FILE], _DIR_TARGET, set(), set()) == CI_CAN_RECORD
+def test_an_installed_path_with_no_gate_runs_with_the_hook() -> None:
+    assert ci_runner_verdict([_FILE], _DIR_TARGET, set(), set()) == CI_RUNS_WITH_HOOK
 
 
 def test_a_target_named_as_a_file_is_credited() -> None:
     """#1643's by-path coverage was invisible to the census before #1814."""
-    assert ci_runner_verdict([_FILE], _FILE_TARGET, set(), set()) == CI_CAN_RECORD
+    assert ci_runner_verdict([_FILE], _FILE_TARGET, set(), set()) == CI_RUNS_WITH_HOOK
 
 
 def test_a_gate_ci_does_not_satisfy_beats_the_install() -> None:
-    """Green job, loaded hook, no evidence — that must not read as `can record`."""
+    """Green job, loaded hook, test never ran — that must not read as a run."""
     assert (
         ci_runner_verdict([_FILE], _DIR_TARGET, {"ATDD_RUN_SMOKE"}, set())
         == CI_TEST_OPTS_OUT
@@ -151,12 +151,12 @@ def test_a_gate_ci_does_satisfy_does_not_count_against_it() -> None:
     """Set the variable in a job and the verdict flips with no edit to the reader."""
     assert (
         ci_runner_verdict([_FILE], _DIR_TARGET, {"ATDD_RUN_SMOKE"}, {"ATDD_RUN_SMOKE"})
-        == CI_CAN_RECORD
+        == CI_RUNS_WITH_HOOK
     )
 
 
-def test_an_uninstalled_path_still_reports_that_it_cannot_record() -> None:
-    assert ci_runner_verdict([_FILE], _UNINSTALLED, set(), set()) == CI_CANNOT_RECORD
+def test_an_uninstalled_path_still_reports_that_the_hook_is_absent() -> None:
+    assert ci_runner_verdict([_FILE], _UNINSTALLED, set(), set()) == CI_RUNS_WITHOUT_HOOK
 
 
 def test_a_path_no_job_runs_outranks_its_gate() -> None:

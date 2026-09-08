@@ -1,0 +1,27 @@
+urn: "feature:coach-ops:merge-outcome-classification"
+wagon: "wagon:coach-ops"
+description: "merge-cascade's merge step runs `gh pr merge --squash --delete-branch`, which does two things: it merges the pull request, then deletes the branch. The deletion fails whenever a local worktree still holds that branch — the state this repository mandates, since every branch is created as a worktree. `merge_pr` catches the non-zero exit and returns status 'conflict' for ANY CalledProcessError, so a merge that succeeded on GitHub is reported as `halted on PR #N (conflict): merge failed` and the wave stops, leaving every later PR unmerged. The remedy is to ask GitHub whether the pull request actually merged before classifying the failure, so a post-merge cleanup failure is reported as what it is and the cascade continues."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:coach-ops:C001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No CLI surface change; the verb and its output shape are unchanged"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "merge_pr classifies the outcome from the PR's actual state"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "MergeResult already carries the vocabulary; only the verdict changes"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reads the existing gh projection, adds no store surface"

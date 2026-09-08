@@ -1,0 +1,40 @@
+train_id: train:documentation-obligation:remediate-undischarged-obligation
+title: Remediate An Undischarged Documentation Obligation
+description: "Exception-path train (category: exception): the obligation was declared\
+  \ and the capability observed that it was not discharged \u2014 a declared artifact\
+  \ is missing from the change set, or the authored documentation violates the installed\
+  \ policy. The verdict is FAIL. The transition is refused and the work returns to\
+  \ the implementation worktree, which is where documentation is authored; COMPLETE\
+  \ verifies, it does not author."
+category: exception
+themes:
+- commons
+family: behavior
+primary_wagon: govern-documentation-obligation
+sequence:
+- step: 1
+  intent: Observe that a declared documentation artifact is absent or non-conforming
+  from: wagon:govern-documentation-obligation
+  to: system:atdd-cli
+  artifact: commons:documentation-verdict
+- step: 2
+  intent: Refuse the COMPLETE transition, naming the undischarged artifact in the
+    report
+  from: wagon:govern-lifecycle
+  to: system:atdd-cli
+  artifact: commons:documentation-complete-decision
+- step: 3
+  intent: Refuse entry to main so accepted software cannot arrive without its documentation
+  from: wagon:enforce-merge-authority
+  to: system:git
+  artifact: commons:documentation-merge-decision
+participants:
+- wagon:govern-documentation-obligation
+- wagon:govern-lifecycle
+- wagon:enforce-merge-authority
+- system:atdd-cli
+- system:git
+status: planned
+source_interlocking:
+  interlocking_id: interlocking:govern-documentation-obligation
+  route_id: remediate-undischarged-obligation

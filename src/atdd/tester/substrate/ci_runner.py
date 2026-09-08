@@ -183,11 +183,23 @@ def ci_pytest_targets(workflow_texts: Dict[str, str]) -> Dict[str, bool]:
     return targets
 
 
-#: Runner verdicts. ``CI_CAN_RECORD`` is the only one that means evidence could
-#: actually be produced; the rest are the distinct ways it cannot, kept apart
-#: because they are repaired by different people.
-CI_CAN_RECORD = "ci-can-record"
-CI_CANNOT_RECORD = "ci-runs-cannot-record"
+#: Runner verdicts — all four describe the INVOCATION, and none claims evidence.
+#:
+#: These were named ``ci-can-record`` / ``ci-runs-cannot-record`` until #1815
+#: measured what a CI run actually produces: nothing. A CI-shaped checkout
+#: resolves its Control Root inside the workspace, creates a store there, and
+#: records zero events against zero work items — the attestation is keyed by
+#: work-item uid and work items are written by ``atdd worktree create`` into a
+#: DEVELOPER's Control Root, so a CI checkout has no identity to key one to. The
+#: writer says so itself: "this branch resolves to no registered work item".
+#:
+#: So "can record" was never true of any value here, and naming one of them that
+#: is how a reader concludes CI could discharge the SMOKE obligation. What this
+#: axis really knows is whether the hook LOADS — whether the invocation installs
+#: the distribution and whether the test deselects itself — and the names now say
+#: only that.
+CI_RUNS_WITH_HOOK = "ci-runs-with-hook"
+CI_RUNS_WITHOUT_HOOK = "ci-runs-without-hook"
 CI_TEST_OPTS_OUT = "ci-runs-but-test-opts-out"
 NOT_RUN_BY_CI = "not-run-by-ci"
 
@@ -360,12 +372,14 @@ def ci_runner_verdict(
     only copy of this rule lived in the throwaway script that generated the
     table, and nothing could disagree with it because nothing else computed it.
 
-    ``CI_TEST_OPTS_OUT`` outranks ``CI_CAN_RECORD``: a job that installs the
-    distribution and then runs a test which deselects itself records a skip, not
-    a run, and ``evaluate_smoke_execution`` rejects skips. Reporting that as
-    "can record" would be the same shape as the green-because-nothing-ran gates
-    this census exists to find — the job is green, the hook is loaded, and no
-    evidence exists.
+    ``CI_TEST_OPTS_OUT`` outranks ``CI_RUNS_WITH_HOOK``: a job that installs the
+    distribution and then runs a test which deselects itself has not run it, and
+    reporting that alongside the jobs that did would be the same shape as the
+    green-because-nothing-ran gates this census exists to find.
+
+    None of the four verdicts asserts that evidence was produced. #1815 measured
+    that a CI run produces none at all, so this axis reports only what it can
+    see: whether the invocation loads the hook and whether the test executes.
     """
     unsatisfied = gated_env - ci_env
     verdicts = [attesting_ci_path(path, targets) for path in test_files]
@@ -373,4 +387,4 @@ def ci_runner_verdict(
         return NOT_RUN_BY_CI
     if unsatisfied:
         return CI_TEST_OPTS_OUT
-    return CI_CAN_RECORD if any(v is True for v in verdicts) else CI_CANNOT_RECORD
+    return CI_RUNS_WITH_HOOK if any(v is True for v in verdicts) else CI_RUNS_WITHOUT_HOOK
