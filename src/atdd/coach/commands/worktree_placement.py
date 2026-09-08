@@ -207,6 +207,11 @@ class RelocationOffer:
     reason: str
     source: Path
     destination: Optional[Path] = None
+    #: uid of the work item bound to this worktree, when there is one. The
+    #: offer has to resolve it to know where the worktree belongs, and
+    #: `relocate_worktree` needs the same value — returning it means the
+    #: caller cannot pair an offer with a different work item's slug.
+    slug: Optional[str] = None
 
 
 def _bound_work_item(repo_root: Path, worktree: Path) -> Optional[tuple]:
@@ -278,11 +283,19 @@ def relocation_offer(repo_root: Path, worktree: Path) -> RelocationOffer:
 
     if destination == worktree.resolve():
         return RelocationOffer(
-            offered=False, reason="already-placed", source=worktree, destination=destination
+            offered=False,
+            reason="already-placed",
+            source=worktree,
+            destination=destination,
+            slug=slug,
         )
 
     return RelocationOffer(
-        offered=True, reason="relocatable", source=worktree, destination=destination
+        offered=True,
+        reason="relocatable",
+        source=worktree,
+        destination=destination,
+        slug=slug,
     )
 
 

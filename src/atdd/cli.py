@@ -874,6 +874,33 @@ Phase descriptions:
         description="List every registered git worktree with its branch and bound work item.",
     )
 
+    worktree_relocate_parser = worktree_subparsers.add_parser(
+        "relocate",
+        help="Move this worktree under the configured worktree_root",
+        description=(
+            "Move a worktree from where it is to where `worktree_root` says it\n"
+            "belongs, rewriting its State Store binding in the same step (#1524).\n\n"
+            "Placement is forward-only: changing `worktree_root` moves nothing on\n"
+            "its own, so existing worktrees drain one at a time, when someone asks.\n\n"
+            "  atdd worktree relocate            Show what would move (dry-run)\n"
+            "  atdd worktree relocate --apply    Move it\n\n"
+            "Declines for a worktree the store has no binding for, rather than\n"
+            "guessing which work item it belongs to.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_relocate_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Perform the move (default: report only)",
+    )
+    worktree_relocate_parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Worktree to relocate (default: the current directory)",
+    )
+
     worktree_remove_parser = worktree_subparsers.add_parser(
         "remove",
         help="Remove a worktree by issue number or path",
@@ -2388,6 +2415,12 @@ Phase descriptions:
         if worktree_cmd == "list":
             from atdd.coach.commands.branch import BranchManager
             return BranchManager().list_worktrees()
+        if worktree_cmd == "relocate":
+            from atdd.coach.commands.worktree_relocate import run_relocate
+            return run_relocate(
+                target=getattr(args, "path", None),
+                apply=getattr(args, "apply", False),
+            )
         if worktree_cmd == "remove":
             from atdd.coach.commands.branch import BranchManager
             return BranchManager().remove_worktree(args.target)
