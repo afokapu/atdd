@@ -23,6 +23,7 @@ frozen:
 - reportArgumentType::src/atdd/coach/commands/tests/test_y004_unit_003_merge_wait_loop_excludes_sibling_deps.py
 - reportArgumentType::src/atdd/coach/commands/traceability.py
 - reportArgumentType::src/atdd/coach/commands/viz_app.py
+- reportArgumentType::src/atdd/coach/commands/worktree_relocate.py
 - reportArgumentType::src/atdd/coach/core/__init__.py
 - reportArgumentType::src/atdd/coach/gate/approval_check.py
 - reportArgumentType::src/atdd/coach/gate/approve_command.py
@@ -158,6 +159,7 @@ frozen:
 - reportOptionalMemberAccess::src/atdd/coach/commands/registry.py
 - reportOptionalMemberAccess::src/atdd/coach/commands/tests/test_e008_unit_005_a_dead_holder_does_not_wedge_the_install.py
 - reportOptionalMemberAccess::src/atdd/coach/commands/tests/test_store_authoritative_writes.py
+- reportOptionalMemberAccess::src/atdd/coach/commands/tests/test_y001_unit_003_relocation_is_reachable_from_the_cli.py
 - reportOptionalMemberAccess::src/atdd/coach/commands/upgrader.py
 - reportOptionalMemberAccess::src/atdd/coach/gate/tests/test_c010_integration_002_guards_are_not_stubs.py
 - reportOptionalMemberAccess::src/atdd/coach/gate/tests/test_c021_unit_001_a_refusing_check_refuses_the_mint.py
@@ -213,6 +215,7 @@ frozen:
 - reportOptionalSubscript::src/atdd/state/tests/test_version.py
 - reportReturnType::src/atdd/coach/commands/coach_verbs/__init__.py
 - reportReturnType::src/atdd/coach/commands/initializer.py
+- reportReturnType::src/atdd/coach/commands/tests/test_y001_unit_003_relocation_is_reachable_from_the_cli.py
 - reportReturnType::src/atdd/coach/commands/tests/test_y006_unit_init_hookspath_worktree_isolation.py
 - reportReturnType::src/atdd/coach/validators/shared_fixtures.py
 - reportReturnType::src/atdd/coach/validators/tests/test_y007_unit_001_revise_writes_the_title.py

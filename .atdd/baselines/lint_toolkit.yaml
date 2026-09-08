@@ -131,6 +131,7 @@ frozen:
 - F401::src/atdd/coach/commands/tests/test_c019_unit_001_showing_an_issue_creates_nothing.py
 - F401::src/atdd/coach/commands/tests/test_e001_coach_transition_extraction.py
 - F401::src/atdd/coach/commands/tests/test_e001_integration_001_coach_cli_uses_resolve_multiplexer_mode.py
+- F401::src/atdd/coach/commands/tests/test_e001_unit_001_both_creation_paths_agree_under_configured_root.py
 - F401::src/atdd/coach/commands/tests/test_e004_integration_003_status_surfaces_resume_hint.py
 - F401::src/atdd/coach/commands/tests/test_e005_unit_001_parse_cli_defaults_review_phases_to_refactor.py
 - F401::src/atdd/coach/commands/tests/test_e005_unit_003_explicit_review_phases_override.py
@@ -448,6 +449,7 @@ frozen:
 - F821::src/atdd/coach/validators/test_init_substrate_mode.py
 - F822::src/atdd/tester/validators/tests/test_hermetic_integration_fixtures.py
 - F822::src/atdd/train/persistence.py
+- F841::src/atdd/coach/commands/branch.py
 - F841::src/atdd/coach/commands/coach.py
 - F841::src/atdd/coach/commands/initializer.py
 - F841::src/atdd/coach/commands/interface.py
@@ -545,6 +547,8 @@ frozen:
 - RUF022::src/atdd/coach/commands/spawn_harness_blocks.py
 - RUF022::src/atdd/coach/commands/suppress.py
 - RUF022::src/atdd/coach/commands/watchers.py
+- RUF022::src/atdd/coach/commands/worktree_placement.py
+- RUF022::src/atdd/coach/commands/worktree_placement_enforcement.py
 - RUF022::src/atdd/coach/core/__init__.py
 - RUF022::src/atdd/coach/core/types.py
 - RUF022::src/atdd/coach/documentation/__init__.py
@@ -563,6 +567,7 @@ frozen:
 - RUF022::src/atdd/coach/validators/test_transport_realizes_mediation.py
 - RUF022::src/atdd/coder/validators/presentation_ratchet.py
 - RUF022::src/atdd/doctor.py
+- RUF022::src/atdd/enforce/substrate_home.py
 - RUF022::src/atdd/integrations/github/__init__.py
 - RUF022::src/atdd/integrations/github/issue_state.py
 - RUF022::src/atdd/integrations/github/pr.py
