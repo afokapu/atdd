@@ -1024,7 +1024,7 @@ _IL_FIELD_ORDER: tuple[str, ...] = (
 
 
 def _insert_interlocking_registry(
-    registry_path: Path, iid: str, rel_path: str, theme, status
+    registry_path: Path, iid: str, rel_path: str, theme, status, surfaces=None
 ) -> None:
     """Dedup-insert (or update) the interlocking's thin registry entry, sorted by
     interlocking_id (shape per train-interlocking-registry.schema.json)."""
@@ -1038,6 +1038,12 @@ def _insert_interlocking_registry(
         entry["theme"] = theme
     if status in ("draft", "checked", "stale"):
         entry["status"] = status
+    # Mirrored from the document's entrypoint.surfaces so a consumer can filter
+    # from this index without opening every document. The document stays
+    # authoritative — planner.interlocking.registry-mirrors-document fails when
+    # the two disagree, so writing it here is not a second source of truth.
+    if surfaces:
+        entry["surfaces"] = list(surfaces)
     existing = next(
         (e for e in entries if isinstance(e, dict) and e.get("interlocking_id") == iid),
         None,
@@ -1089,7 +1095,11 @@ def create_interlocking(spec: dict, *, root: Path | str | None = None) -> Path:
 
     _write_yaml(il_path, stamped)
     _insert_interlocking_registry(
-        registry_path, iid, rel_path, spec.get("theme"), spec.get("status")
+        registry_path, iid, rel_path, spec.get("theme"), spec.get("status"),
+        # Read off the STAMPED document, not the spec: the registry must mirror
+        # what was actually written, or the coherence rule would police the
+        # author's input against the author's output rather than the artifact.
+        (stamped.get("entrypoint") or {}).get("surfaces"),
     )
     return il_path
 
