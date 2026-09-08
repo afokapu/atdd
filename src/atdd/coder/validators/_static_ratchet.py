@@ -101,23 +101,18 @@ def load_baseline(path: Path) -> Set[str]:
 
 def write_baseline(path: Path, findings: Sequence[Finding], tool: str) -> Path:
     """Snapshot *findings* as a frozen, deterministically ordered register."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        yaml.safe_dump(
-            {
-                "tool": tool,
-                "note": (
-                    f"Frozen {tool} debt (#1837). The gate fails only on findings "
-                    "NOT listed here. Shrink this list; never grow it to make a "
-                    "red build green — that is what the gate is for."
-                ),
-                "frozen": sorted({finding_identity(f) for f in findings}),
-            },
-            sort_keys=False,
-            default_flow_style=False,
+    document = {
+        "tool": tool,
+        "note": (
+            f"Frozen {tool} debt (#1837). The gate fails only on findings NOT "
+            "listed here. Shrink this list; never grow it to make a red build "
+            "green — that is what the gate is for."
         ),
-        encoding="utf-8",
-    )
+        "frozen": sorted({finding_identity(f) for f in findings}),
+    }
+    rendered = yaml.safe_dump(document, sort_keys=False, default_flow_style=False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(rendered, encoding="utf-8")
     return path
 
 
