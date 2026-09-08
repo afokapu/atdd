@@ -1,0 +1,77 @@
+urn: "wmbt:govern-lifecycle:C024"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-registered-train-being-rejected-by-the-gate-that-confirms-train-assignment-because-the-two-sides-of-the-comparison-spell-the-same-train-differently"
+context_clarifier: "IssueManager._validate_train_against_trains_yaml (issue.py:1443) decides membership with `train_value in valid_ids` — exact string equality. The two sides are built from different vocabularies over the same directory. The State Store records what the traceability graph minted, and graph_builder.py:1033 mints a train file sitting loose under plan/_trains/ (no subject directory) as f\"train:{train_file.stem}\" — a two-part URN; the line above gives subject-scoped trains the three-part train:{subject}:{slug}. _registered_train_ids (issue.py:1449) builds the other side from that same directory with `f.stem`, the bare id without the prefix the graph added. Measured on this checkout: 22 registered ids, 13 typed URNs and 9 bare stems, while the store holds 'train:0007-enforce-extension-conventions' for issue #1837 — the same train, reported NOT FOUND. Seven real trains are affected, all of them the numbered enforcement family that predates the #1421 URN migration; the 13 typed-URN trains match by accident of shape, which is why this has stayed invisible. There is no way around it once hit: --force is deliberately excluded (issue.py:1812, 'Train cross-reference applies regardless of --force (identity enforcement)'), and the value is derived rather than supplied. The normalization already exists in-tree — train_urn_migration.py:134 strips exactly this prefix — the gate simply does not use it."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-registered-train-being-rejected-by-the-gate-that-confirms-train-assignment-because-the-two-sides-of-the-comparison-spell-the-same-train-differently by normalizing train identity on both sides of the membership test, so that a train's registration decides the verdict and the vocabulary that spells it does not"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C024-UNIT-001-a-registered-train-resolves-in-either-vocabulary"
+      id: "AC-UNIT-001"
+      purpose: "The same train is accepted whether the value carries the graph's train: prefix or the registry's bare stem, in both directions — because either side may be spelled either way and the gate cannot know which"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A registry holding one bare stem and one typed three-part URN"
+        - "Candidate values spelling each of those trains both with and without the train: prefix"
+    when:
+      abstract: "the membership test is asked about each candidate"
+    then:
+      abstract:
+        - "A bare-registered train is accepted when the value carries the prefix, which is the shape the store actually records"
+        - "A URN-registered train is accepted when the value carries the prefix, so the 13 trains that work today keep working"
+        - "A URN-registered train is accepted when the value omits the prefix, so normalization is symmetric rather than a one-way strip"
+        - "The accepting message still names the train, so an operator reading a passing gate sees which train satisfied it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:govern-lifecycle:C024-UNIT-002-an-unregistered-train-is-still-rejected"
+      id: "AC-UNIT-002"
+      purpose: "Normalizing identity must not become accepting anything — the gate exists to refuse a train the registry never declared, and a fix that widens it into a pass would be worse than the defect"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A registry holding a known set of trains"
+        - "Values naming a train absent from it, spelled with and without the prefix, and a value that is only a prefix"
+    when:
+      abstract: "the membership test is asked about each"
+    then:
+      abstract:
+        - "Each unregistered value is rejected, so the identity-enforcement teeth are intact"
+        - "A bare prefix with no train after it is rejected rather than matching an empty stem"
+        - "An empty registry still short-circuits to accept, so a consumer repo with no trains declared is unaffected"
+        - "The rejecting message names the value that was not found, so the operator can see what the gate looked for"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:govern-lifecycle:C024-SMOKE-001-the-repository-own-store-and-registry-agree"
+      id: "AC-SMOKE-001"
+      purpose: "Against this repository's real registry and real State Store rather than a constructed pair: every train a work item actually carries resolves, which is the property the constructed cases only approximate"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The repository's own plan/_trains.yaml and plan/_trains/ directory, read through the real registry reader"
+        - "The train values the real State Store records for its work items, read through the real store"
+    when:
+      abstract: "each recorded train is put to the real membership test"
+    then:
+      abstract:
+        - "Every train the store records for a work item resolves against the registry, so no live work item is wedged by a spelling"
+        - "The legacy numbered trains resolve specifically, since they are the seven this WMBT exists for"
+        - "Read from the real registry rather than a fixture, because the defect is a disagreement between two readers of one directory and a fixture would have to reproduce that disagreement to find it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"

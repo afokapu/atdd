@@ -81,6 +81,7 @@ features:
   - urn: "feature:govern-lifecycle:fix-auto-phase-label-write-credential"
   - urn: "feature:govern-lifecycle:honest-outbox-deferral"
   - urn: "feature:govern-lifecycle:enforcing-artifact-declaration"
+  - urn: "feature:govern-lifecycle:train-identity-resolves-across-vocabularies"
 
 wmbt:
   total: 120
