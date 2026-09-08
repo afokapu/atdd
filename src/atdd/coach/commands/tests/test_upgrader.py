@@ -19,19 +19,16 @@ pytestmark = [pytest.mark.platform]
 
 
 def _write_config(repo: Path, last_version: str) -> Path:
-    (repo / ".atdd").mkdir(parents=True, exist_ok=True)
-    cfg = repo / ".atdd" / "config.yaml"
-    cfg.write_text(f"toolkit:\n  last_version: {last_version}\n")
-    # #1820: the baseline is the untracked per-checkout record (#1641). The
-    # git-tracked field above is no longer consulted -- it is pinned at an ancient
-    # value in every checkout that has one, which reported a refresh owed forever.
-    runtime = repo / ".atdd" / "runtime"
-    runtime.mkdir(parents=True, exist_ok=True)
-    (runtime / "toolkit-sync.json").write_text(
-        json.dumps({"last_synced_version": last_version, "synced_at": "2026-01-01T00:00:00Z"})
-    )
-    return cfg
+    """Seed a repo at *last_version*.
 
+    #1762: delegates to the shared helper rather than repeating the seeding
+    block. Both files wrote the same `.atdd/runtime/toolkit-sync.json` after
+    #1820 moved the baseline off the git-tracked field, which is exactly the
+    duplication `coder.refactor.quality-duplication` exists to catch.
+    """
+    from atdd.coach.commands.tests._upgrade_unattended_helpers import write_config
+
+    return write_config(repo, last_version)
 
 def test_upgrade_detects_newer_pypi_release(tmp_path, monkeypatch, capsys):
     """When PyPI reports a newer version, upgrade should offer pip install."""

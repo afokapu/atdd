@@ -100,7 +100,11 @@ def test_m001_unit_001_head_moving_hooks_invoke_reconcile(tmp_path, operation) -
     failing = _spy(tmp_path, exit_code=1)
     failed = _run_hook(hook, argv, tmp_path)
     assert failed.returncode == 0, f"{hook} blocked git on a reconcile failure"
-    assert len(_invocations(failing)) == 1
+    # #1762 added a self-upgrade call to the head-moving hooks, so the log now
+    # carries more than reconcile. Count reconciles, which is what this assertion
+    # has always meant -- the sibling assertion above already filters this way.
+    failed_reconciles = [c for c in _invocations(failing) if c.startswith("state reconcile")]
+    assert len(failed_reconciles) == 1, _invocations(failing)
 
 
 def test_m001_unit_001_post_checkout_ignores_file_checkouts(tmp_path) -> None:

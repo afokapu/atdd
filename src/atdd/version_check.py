@@ -505,21 +505,46 @@ def _gate_version() -> Optional[str]:
     return current
 
 
-def is_outdated() -> Tuple[bool, str, str]:
-    """Check if the INSTALLED atdd CLI is outdated vs PyPI (no cache).
+def is_outdated(*, cached: bool = False) -> Tuple[bool, str, str]:
+    """Check whether the INSTALLED atdd CLI is behind the latest published version.
 
     Judges the ``atdd`` executable on PATH, never the working tree (#1449).
+
+    Args:
+        cached: Resolve "latest" through :func:`_resolve_latest_version` and its
+            24 h cache instead of fetching PyPI. The push gate passes True; the
+            operator-invoked ``atdd upgrade`` does not.
 
     Returns:
         Tuple of (outdated, current_version, latest_version).
         If the installed version is unknowable, returns (False, "", "") — open.
-        If PyPI is unreachable, returns (False, current, "").
+        If no latest version can be resolved, returns (False, current, "").
+
+    Two callers, two correct answers (#1762). ``atdd upgrade`` is a command an
+    operator ran *on purpose*: it must see PyPI as it is this second, so it goes
+    uncached. ``_gate_against_pypi`` runs on **every** ``git push``, and until
+    #1762 it also went uncached — up to two seconds of network on the critical
+    path of every push, for a question already answered by a cache this module
+    writes and ``print_update_notice`` already reads. The gate now reads that
+    cache, which bounds it to one fetch per :data:`CHECK_INTERVAL` rather than
+    one per push.
+
+    The relaxation this buys is deliberate and bounded: a release published
+    minutes ago no longer refuses the push of the operator who authored it. The
+    gate is not weakened — an install behind the resolved latest is still
+    refused, still fail-closed, still with no bypass (wmbt:...:Y004). It is the
+    *backstop* now; the post-merge / post-checkout self-upgrade is what actually
+    keeps a checkout current, and it warms this very cache on its way through.
     """
     current = _gate_version()
     if current is None:
         return False, "", ""
 
-    latest = _fetch_latest_version()
+    latest = (
+        _resolve_latest_version(_load_cache(), time.time())
+        if cached
+        else _fetch_latest_version()
+    )
     if latest is None:
         return False, current, ""
 
@@ -801,8 +826,15 @@ def _gate_against_minimum(minimum_version: str) -> None:
 
 
 def _gate_against_pypi() -> None:
-    """Gate the installed version against PyPI latest. Exits 1 when outdated."""
-    outdated, current, latest = is_outdated()
+    """Gate the installed version against the latest published version. Exits 1
+    when outdated.
+
+    ``cached=True`` is the whole of #1762's push-path change: the comparison is
+    made against the 24 h cache rather than a fresh PyPI fetch, so a push costs
+    no network on the overwhelming majority of invocations. Nothing else about
+    this function's posture moves — see :func:`is_outdated`.
+    """
+    outdated, current, latest = is_outdated(cached=True)
 
     if not outdated:
         if not current:
