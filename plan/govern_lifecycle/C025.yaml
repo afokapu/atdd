@@ -1,0 +1,52 @@
+urn: wmbt:govern-lifecycle:C025
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: a-generated-ci-workflow-that-cannot-read-the-pull-request-it-was-triggered-by
+context_clarifier: the generated detect-changes job calls the pull-request files API to decide
+  which validate jobs run, but the workflow declares no permissions, so a repository whose default
+  token is read-contents-only refuses the call, detect-changes fails, and every validate job
+  downstream reports skipping rather than a verdict
+lens: functional.effectiveness
+statement: minimize likelihood of a-generated-ci-workflow-that-cannot-read-the-pull-request-it-was-triggered-by
+  by declaring the least-privilege permissions the generated jobs actually need, so a freshly
+  initialised consumer repo gets real validate verdicts on its first pull request rather than
+  a failed filter and a row of skips
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C025-UNIT-001-generated-workflow-declares-the-permissions-its-jobs-need
+    id: AC-UNIT-001
+    purpose: the generated workflow is the only CI a consumer repo has, and it fails on the
+      first pull request it is asked to judge
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repository initialised by atdd, with its validate workflow generated
+  when:
+    abstract: the generated workflow is parsed
+  then:
+    abstract:
+    - it declares pull-requests read, because the change filter calls the pull-request files
+      API
+    - it declares contents read, and grants no write scope it does not use
+- identity:
+    urn: acc:govern-lifecycle:C025-UNIT-002-the-change-filter-job-can-read-pull-request-files
+    id: AC-UNIT-002
+    purpose: the permission has to reach the job that makes the call; declaring it somewhere
+      the filter cannot see leaves the failure exactly where it was
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a generated validate workflow containing the change-filter job
+  when:
+    abstract: the effective permissions of the job that invokes the paths filter are resolved
+  then:
+    abstract:
+    - that job can read pull requests, whether the grant is declared on it or inherited
+    - the jobs it gates are reachable, so a filtered run yields verdicts rather than skips
