@@ -1,0 +1,73 @@
+urn: "wmbt:enforce-conventions-ci:E004"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "unratcheted-static-analysis-findings-reaching-main"
+context_clarifier: "when a commit touches Python, because the repository configures no linter and no type checker at all — 74 percent of non-test source files carry type annotations that nothing verifies — so 528 pyright errors and 401 unused imports sit unguarded and a rename across 269k lines is proved only by whatever tests happen to cover the call sites"
+lens: "functional.effectiveness"
+statement: "minimize quantity of unratcheted-static-analysis-findings-reaching-main when a commit touches Python"
+acceptances:
+  - identity:
+      urn: "acc:enforce-conventions-ci:E004-UNIT-001-a-new-lint-finding-fails-while-baselined-debt-does-not"
+      id: "AC-UNIT-001"
+      purpose: "The lint gate fails on a finding absent from the baseline and stays quiet on one present in it"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A frozen baseline of today's lint findings"
+        - "A seeded finding that is not in that baseline, and one that is"
+    when:
+      abstract: "The lint ratchet evaluates them"
+    then:
+      abstract:
+        - "The unbaselined finding is reported, naming its file and rule"
+        - "The baselined finding is not reported, so existing debt does not block work"
+        - "A shrinking baseline is accepted, so debt paid down never re-enters"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E004-UNIT-002-a-new-type-error-fails-while-baselined-debt-does-not"
+      id: "AC-UNIT-002"
+      purpose: "The same ratchet semantics hold for the type checker"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A frozen baseline of today's type errors"
+        - "A seeded type error that is not in that baseline, and one that is"
+    when:
+      abstract: "The type ratchet evaluates them"
+    then:
+      abstract:
+        - "The unbaselined error is reported, naming its file and rule"
+        - "The baselined error is not reported"
+        - "A missing tool is reported as a refusal, never as a pass — an unmade observation must not read as a made one"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E004-SMOKE-001-the-committed-baselines-hold-both-gates"
+      id: "AC-SMOKE-001"
+      purpose: "Against the repository's real source both gates are green on the committed baselines"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The repository's own src tree and its committed lint and type baselines"
+    when:
+      abstract: "Both ratchets run over the real tree"
+    then:
+      abstract:
+        - "Neither reports a new finding, so the baselines describe the tree as it actually is"
+        - "Read from the real source rather than fixtures, because a baseline that does not match the tree it froze is worse than none"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"

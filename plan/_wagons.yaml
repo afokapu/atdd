@@ -1110,6 +1110,10 @@ wagons:
       violations flat, so turning the enforce job blocking does not red the first
       build, while any rule whose violation count climbs above its baseline — or any
       rule that was clean and starts failing — still fails the gate
+    E004: minimize quantity of unratcheted-static-analysis-findings-reaching-main
+      by ratcheting ruff and pyright against frozen baselines, so today's 528 type
+      errors and 401 unused imports are held flat while a NEW finding fails the gate,
+      and a missing tool refuses rather than passes (#1837)
   total: 0
   manifest: plan/enforce_conventions_ci/_enforce_conventions_ci.yaml
   path: plan/enforce_conventions_ci/
