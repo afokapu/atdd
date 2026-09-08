@@ -1,5 +1,5 @@
 schema_version: 1.0.0
-substrate_lock_digest: sha256:2ae62340b84936eb7a31fa06be0eee65fd5394ad368929034b253bf2150eb7fa
+substrate_lock_digest: sha256:3f4c0c0f64a5c0f90e2e04246d8330ed3e32fdffdc01f960c2f7085de6519982
 conventions:
 - convention_id: coder.boundaries.http-client
   disposition: bound
@@ -9,6 +9,7 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.boundaries.xlang-contract
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.boundaries.xlang-entity
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -20,11 +21,13 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.boundaries.xlang-enum
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.boundaries.xlang-entity
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.boundaries.xlang-naming
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.boundaries.xlang-entity
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -42,21 +45,25 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.design.foundations
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.design.primitives
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.design.hierarchy-import
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.design.primitives
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.design.orphan-export
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.design.primitives
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.design.orphan-ui
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.design.primitives
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -68,11 +75,13 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.design.token-color
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.design.primitives
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.design.token-hardcoded
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.design.primitives
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -96,6 +105,7 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.error-response.code-format
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.error-response.bare-string
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -119,6 +129,7 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.presentation.gsap-commons
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.presentation.gsap-layer
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -136,6 +147,7 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.presentation.i18n-switcher
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.presentation.i18n-config
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -147,6 +159,7 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.refactor.complexity-cognitive
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.complexity-cyclomatic
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -164,26 +177,31 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.refactor.complexity-length
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.complexity-cyclomatic
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.complexity-length-typescript
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.complexity-cyclomatic-typescript
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.complexity-nesting
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.complexity-cyclomatic
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.complexity-nesting-typescript
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.complexity-cyclomatic-typescript
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.complexity-params
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.complexity-cyclomatic
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -195,6 +213,7 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.refactor.composition-root
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.composition-consumer
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -206,21 +225,25 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.refactor.quality-comments
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.quality-mi
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.quality-comments-typescript
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.quality-mi-typescript
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.quality-duplication
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.quality-mi
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.refactor.quality-file-length
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.quality-mi
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -238,16 +261,19 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.refactor.quality-naming
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.refactor.quality-mi
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.security.hardcoded-secret
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.security.sql-injection
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.security.missing-auth
   disposition: bound
+  package_id: atdd.workspace.python-pytest
   implementation_id: coder.security.sql-injection
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -259,37 +285,43 @@ conventions:
   contract_version: 1.1.0
 - convention_id: coder.train.interlocking-bilateral-binding
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.coder.train-interlocking
   implementation_id: coder.train.interlocking-bilateral-binding.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.train.interlocking-delegates-to-trainrunner
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.coder.train-interlocking
   implementation_id: coder.interlocking.runner-infrastructure.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.train.interlocking-does-not-carry-cargo
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.coder.train-interlocking
   implementation_id: coder.interlocking.runner-infrastructure.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.train.interlocking-resolution-model-exists
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.coder.train-interlocking
   implementation_id: coder.interlocking.runner-infrastructure.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.train.interlocking-runner-exists
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.coder.train-interlocking
   implementation_id: coder.interlocking.runner-infrastructure.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: coder.train.runtime-executes-the-declaration
+  disposition: bound
+  package_id: atdd.extension.coder.train-interlocking
+  implementation_id: coder.train.interlocking-bilateral-binding.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: coder.train.station-master-interlocking-routing
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.coder.train-interlocking
   implementation_id: coder.interlocking.runner-infrastructure.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
@@ -313,25 +345,31 @@ conventions:
   contract_version: 1.1.0
 - convention_id: tester.interlocking.production-runner-used
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.tester.train-interlocking
   implementation_id: tester.interlocking.route-coverage.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: tester.interlocking.route-coverage
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.tester.train-interlocking
   implementation_id: tester.interlocking.route-coverage.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: tester.interlocking.smoke-coverage-for-station-master
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.tester.train-interlocking
   implementation_id: tester.interlocking.route-coverage.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
 - convention_id: tester.interlocking.trace-binds-declared-route
   disposition: bound
-  package_id: atdd.extension.train-interlocking-enforcement
+  package_id: atdd.extension.tester.train-interlocking
+  implementation_id: tester.interlocking.route-coverage.impl
+  workspace_id: atdd.workspace.python-pytest
+  contract_version: 1.1.0
+- convention_id: tester.interlocking.train-sequence-is-exercised
+  disposition: bound
+  package_id: atdd.extension.tester.train-interlocking
   implementation_id: tester.interlocking.route-coverage.impl
   workspace_id: atdd.workspace.python-pytest
   contract_version: 1.1.0
