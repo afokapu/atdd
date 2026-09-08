@@ -32,5 +32,5 @@ terms:
     train-composing: sequences multiple linear trains into a branching journey-of-journeys.
   note: Enforcers for the runtime realization (route-control runner exists / delegates
     execution / carries no cargo / bilateral binding) live in the coder+tester layer
-    (atdd.extension.train-interlocking-enforcement) and are related to this domain anchor
+    (atdd.extension.coder.train-interlocking and atdd.extension.tester.train-interlocking) and are related to this domain anchor
     by cross-persona traceability, tracked as a separate follow-up, not authored here.
