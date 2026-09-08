@@ -1,0 +1,123 @@
+schema_version: "1.0.0"
+
+# Extension-LOCAL relationship graph for atdd.extension.tester.train-interlocking.
+#
+# PERSONA SPLIT (afokapu/atdd#1531): this graph is the tester-lane half of the
+# former `atdd.extension.train-interlocking-enforcement` graph. The coder
+# runtime-infrastructure / bilateral-binding / definition-anchor nodes and their
+# edges stayed in the sibling `atdd.extension.coder.train-interlocking` graph.
+#
+# IMPORTANT (boundary spec §6.2): core<->extension edges are NOT authored here.
+# The core train-interlocking design nodes these conventions realize
+# (afokapu/atdd#1246/#1248/#1251) are declared NARRATIVELY — in
+# atdd.extension.yaml's header + depends_on, in this package's README mapping
+# table, and in each convention node's body — never as relationship-graph edges.
+# Likewise implementation -> workspace-provider-contract is declared in
+# implementations/interlocking-coverage/atdd.implementation.yaml (targets_workspace
+# + contract_version), not as a graph edge. Only extension-INTERNAL edges live here.
+#
+# CROSS-PERSONA RELATIONSHIP DEMOTED TO NARRATIVE (§6.2, afokapu/atdd#1531):
+# `trace-binds-declared-route` relates to the coder package's
+# `coder.train.interlocking-bilateral-binding` (bilateral-binding's
+# trace_to_declaration direction). That node now lives in a SEPARATE extension,
+# and cross-extension edges are forbidden. The relationship is preserved as prose
+# in README ("Cross-persona relationship").
+graph_id: atdd.extension.tester.train-interlocking.relationships
+
+# Coverage matrix (afokapu/atdd-extensions#24) — every convention is linked,
+# machine-readably, to: convention -> implementation (realized-by), convention ->
+# scope (scoped-by), convention -> gate (gated-by). implementation -> workspace
+# contract and convention -> core design reference are NARRATIVE per §6.2.
+nodes:
+  - tester.interlocking.production-runner-used
+  - tester.interlocking.route-coverage
+  - tester.interlocking.smoke-coverage-for-station-master
+  - tester.interlocking.trace-binds-declared-route
+  - tester.interlocking.train-sequence-is-exercised
+
+
+edges:
+  - source_ref: tester.interlocking.route-coverage
+    target_ref: implementations/interlocking-coverage
+    type: realized-by
+    reason: 'The python-pytest detector (implementation_id tester.interlocking.route-coverage.impl) scans the interlocking route space against e2e tests and emits RAW v1.1 violations for uncovered admissible routes. The impl manifest carries the reciprocal realizes_convention + targets_workspace/contract_version.'
+  - source_ref: tester.interlocking.route-coverage
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: 'Bound to the interlocking_yaml selector (the guarded route space, core afokapu/atdd#1248) and the e2e_tests selector (the e2e/**/*.py tests that must exercise each admissible route).'
+  - source_ref: tester.interlocking.route-coverage
+    target_ref: gates/interlocking-coverage.gate.yaml
+    type: gated-by
+    reason: 'Runs at mode: strict on CI; an admissible route with no e2e test is a blocking silent-green route-control gap.'
+  - source_ref: tester.interlocking.production-runner-used
+    target_ref: implementations/interlocking-coverage
+    type: realized-by
+    reason: 'Same detector; emits the production-runner-used rule_id when an interlocking e2e test mocks/patches/monkeypatches a runner, builds a hand resolver, or omits the InterlockingRunner/TrainRunner production symbols.'
+  - source_ref: tester.interlocking.production-runner-used
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: 'Bound to the e2e_tests selector — the interlocking-related e2e/**/*.py tests whose runner usage is inspected.'
+  - source_ref: tester.interlocking.production-runner-used
+    target_ref: gates/interlocking-coverage.gate.yaml
+    type: gated-by
+    reason: 'Runs at mode: strict on CI; a mocked route-control path is a descriptive green that proves nothing about production (core #1251).'
+  - source_ref: tester.interlocking.smoke-coverage-for-station-master
+    target_ref: implementations/interlocking-coverage
+    type: realized-by
+    reason: 'Same detector; emits the smoke rule_id when an exposed Station Master action (entrypoint.exposed:true) has no smoke test reaching the Station Master and driving both runners.'
+  - source_ref: tester.interlocking.smoke-coverage-for-station-master
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: 'Bound to the interlocking_yaml selector (entrypoint.actions, core #1248) and the e2e_tests selector (the smoke tests under e2e/**/*.py).'
+  - source_ref: tester.interlocking.smoke-coverage-for-station-master
+    target_ref: gates/interlocking-coverage.gate.yaml
+    type: gated-by
+    reason: 'Runs at mode: strict for exposed (critical user-facing) actions; internal exposed:false interlockings are out of scope per the node''s explicit policy.'
+  - source_ref: tester.interlocking.trace-binds-declared-route
+    target_ref: implementations/interlocking-coverage
+    type: realized-by
+    reason: 'Same detector; emits the trace rule_id when an interlocking trace assertion omits a required binding field (core #1251 trace contract).'
+  - source_ref: tester.interlocking.trace-binds-declared-route
+    target_ref: scopes/interlocking-targets.scope.yaml
+    type: scoped-by
+    reason: 'Bound to the e2e_tests selector — the interlocking trace tests under e2e/**/*.py whose trace assertions are inspected.'
+  - source_ref: tester.interlocking.trace-binds-declared-route
+    target_ref: gates/interlocking-coverage.gate.yaml
+    type: gated-by
+    reason: 'Runs at mode: strict on CI; a trace that does not bind the declared route lets declaration/runtime drift go undetected.'
+  - source_ref: tester.interlocking.production-runner-used
+    target_ref: tester.interlocking.route-coverage
+    type: runs_alongside
+    foundation: start_to_start
+    constraint: discretionary
+    control: internal
+    strength: minor
+    confidence: 1.0
+    reason: 'Co-equal facets of interlocking test integrity emitted by one detector run: route-coverage proves every route is exercised; production-runner-used proves the exercise drives the real runners, not a mock. Neither narrows the other.'
+  - source_ref: tester.interlocking.smoke-coverage-for-station-master
+    target_ref: tester.interlocking.route-coverage
+    type: runs_alongside
+    foundation: start_to_start
+    constraint: discretionary
+    control: internal
+    strength: minor
+    confidence: 1.0
+    reason: 'Smoke coverage proves the exposed Station Master action reaches the route space end to end; route-coverage proves each admissible route within it is exercised. Same detector, complementary surfaces.'
+  - source_ref: tester.interlocking.trace-binds-declared-route
+    target_ref: tester.interlocking.smoke-coverage-for-station-master
+    type: runs_alongside
+    foundation: start_to_start
+    constraint: discretionary
+    control: internal
+    strength: minor
+    confidence: 1.0
+    reason: 'The smoke test captures the trace; trace-binds-declared-route governs that the captured trace asserts every field binding it back to the declared route. Co-emitted; the smoke chain''s final step is exactly the trace this rule checks.'
+  - source_ref: tester.interlocking.train-sequence-is-exercised
+    target_ref: tester.interlocking.route-coverage
+    type: requires
+    foundation: finish_to_start
+    constraint: mandatory
+    control: internal
+    strength: critical
+    confidence: 1.0
+    reason: 'Route coverage proves WHICH train was selected; this proves WHAT it ran. A train whose wagon sequence is wrong is selected correctly and executes the wrong thing, so selection coverage must hold before execution coverage means anything.'

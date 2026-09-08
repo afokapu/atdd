@@ -1,0 +1,64 @@
+schema_version: 1.1.0
+rule_id: coder.train.interlocking-resolution-model-exists
+kind: rule
+status: active
+name: Interlocking route resolution returns structured metadata, not a bare train_id
+statement: >-
+  An `InterlockingRunner.resolve_train(...)` MUST resolve a structured `InterlockingResolution` model
+  carrying the route metadata — not a bare `train_id` string. The model MUST define the fields
+  `interlocking_id`, `route_id`, `train_id`, `train_path`, `category`, `guard_id`,
+  `resolution_strategy` and `reason` — the field set core's own `InterlockingResolution` carries
+  (`src/atdd/runtime/interlocking/runner.py`). There is deliberately NO `category_digit`: core
+  retired the interlocking category digit in #1421 / #1440, its schema rejects the key outright,
+  and a typed `train:<subject>:<slug>` has no digit to carry. `guard_id` stays — only the PLAN key
+  changed (`guard_id` -> `guard_ref`); the runtime model keeps the field, populated from
+  `route.guard_ref`. This is the agnostic obligation; the python-pytest AST detector that enforces
+  it is the implementation referenced below.
+implementation:
+  type: validator
+  ref: coder.train.interlocking-resolution-model-exists
+content:
+  summary: >-
+    An agnostic "structured route resolution" obligation. The python realization parses
+    `python/trains/**/*.py` with `ast`: when an `InterlockingRunner` exposes `resolve_train`, an
+    `InterlockingResolution` class (dataclass) defining the eight required fields MUST exist; otherwise
+    the route is resolved as a bare train_id. Maps to validator check
+    `test_interlocking_resolution_model_exists`.
+  normative_text: |
+    Core runtime spec afokapu/atdd#1251 suggests the resolution model:
+
+        @dataclass(frozen=True)
+        class InterlockingResolution:
+            interlocking_id: str; route_id: str; train_id: str; train_path: str
+            category: str; guard_id: str; resolution_strategy: str; reason: str
+
+    A bare train_id string loses the route_id, guard_id, category, train_path, resolution_strategy and
+    the human-readable reason needed for trace and projection equivalence. Category agreement is
+    judged against the target train's `category` FIELD (never a digit parsed out of the identity). WHICH runtime files are inspected and HOW the model fields are recognized is delegated
+    to the per-stack detector (python: an `ast` walk collecting the InterlockingResolution annotations).
+  fix_hint: |
+    Define the structured model and return it from resolve_train:
+
+      return InterlockingResolution(
+          interlocking_id=..., route_id=..., train_id=..., train_path=...,
+          category=..., guard_id=..., resolution_strategy=..., reason=...,
+      )
+
+    This rule is `strict`: a resolve_train backed only by a bare train_id is not suppressible and fails CI.
+  exceptions:
+    - Applies only when an `InterlockingRunner` with a `resolve_train` method is present (a missing
+      runner/method is the separate `coder.train.interlocking-runner-exists` concern).
+metadata:
+  aliases:
+    - INTERLOCKING-RESOLUTION-MODEL-001
+  severity: 4
+  disposition: strict
+  introduced_in: 0.1.0
+  core_design_refs:
+    - afokapu/atdd#1246
+    - afokapu/atdd#1251
+terms:
+  - term_id: interlocking_resolution_model
+    text: >-
+      the `InterlockingResolution` structure returned by resolve_train, carrying interlocking_id,
+      route_id, train_id, train_path, category, guard_id, resolution_strategy, reason.
