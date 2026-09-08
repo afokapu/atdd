@@ -11,37 +11,71 @@ convention_id: "coach.phase-machine"
 name: "Phase Machine Convention"
 description: |
   The ATDD per-issue lifecycle as data. Each phase declares the persona that
-  drives it (agent), the phases it may transition to (transitions_to), and an
-  optional pre_commit_gate CLI command run before committing the produced
-  artifact. Adding a new phase is a YAML edit here plus (optionally) new rules —
-  no Coach-core code change (§4.3 property 4).
+  drives it (agent), the phases it may transition to (transitions_to), who may
+  SUBMIT the transition out of it (autonomy), and an optional pre_commit_gate
+  CLI command run before committing the produced artifact. Adding a new phase is
+  a YAML edit here plus (optionally) new rules — no Coach-core code change
+  (§4.3 property 4).
+
+  `autonomy` (#1626) is the submitting-authority axis: `operator` reserves the
+  forward transition for a human sign-off, `agent` lets the phase's own persona
+  submit it unattended, and null means the phase has no forward transition. It
+  governs the FORWARD edge only — entering an escape (BLOCKED, OBSOLETE) is
+  never autonomous, an invariant carried by the convention node
+  coach.lifecycle.transition-autonomy, which pairs with
+  coach.execution.freedom-with-a-leash on the tool axis.
+
+  DECLARATIVE ONLY. Nothing reads this key yet: PhaseSpec does not carry it, so
+  the conventions snapshot hash is unaffected and no in-flight run is
+  invalidated. ATDD retains sole authority over transition LEGALITY
+  (transitions_to) and over the gates in atdd.coach.gate, so a permissive
+  declaration can at worst submit a command ATDD then rejects.
 
 phases:
   INIT:
     agent: planner
     transitions_to: [PLANNED, BLOCKED, OBSOLETE]
     pre_commit_gate: "atdd validate planner --local --skip-api"
+    # Creating the plan is an operator sign-off: the decomposition is the one
+    # artifact no downstream gate can re-derive.
+    autonomy: operator
   PLANNED:
     agent: tester
     transitions_to: [RED, BLOCKED, OBSOLETE]
+    # The sole member of gate.decision.DEFAULT_GATED_TRANSITIONS — already
+    # approval-token gated by default (#1017/E050). Declaring `agent` here would
+    # contradict shipped behaviour.
+    autonomy: operator
   RED:
     agent: coder
     transitions_to: [GREEN, BLOCKED, OBSOLETE]
+    autonomy: agent
   GREEN:
     agent: tester
     transitions_to: [SMOKE, BLOCKED, OBSOLETE]
+    autonomy: agent
   SMOKE:
     agent: coder
     transitions_to: [REFACTOR, BLOCKED, OBSOLETE]
+    # Gated on machine-checkable smoke-execution evidence (#1602), not on an
+    # operator's judgement — so the persona may submit it.
+    autonomy: agent
   REFACTOR:
     agent: coder
     transitions_to: [COMPLETE, BLOCKED, OBSOLETE]
+    # Terminal hop and merge authority: auto-phase cannot verify a modified
+    # artifact post-merge (#1611).
+    autonomy: operator
   COMPLETE:
     agent: null
     transitions_to: []
+    autonomy: null
   BLOCKED:
     agent: null
     transitions_to: [INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, OBSOLETE]
+    # An escape is symmetric: entered by operator decision, left by one.
+    autonomy: operator
   OBSOLETE:
     agent: null
     transitions_to: []
+    autonomy: null

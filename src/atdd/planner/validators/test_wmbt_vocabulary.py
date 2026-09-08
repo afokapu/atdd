@@ -2,7 +2,7 @@
 Test WMBT files use authorized vocabulary from convention.
 
 Validates that WMBT YAML files use only authorized terms defined in:
-- .claude/conventions/planner/wmbt.convention.yaml
+- planner.wmbt.* convention nodes
 - .claude/schemas/planner/wmbt.schema.json
 
 Enforces:
@@ -33,7 +33,6 @@ PLAN_DIR = REPO_ROOT / "plan"
 
 # Package resources (conventions, schemas)
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
-WMBT_CONVENTION = ATDD_PKG_DIR / "planner" / "conventions" / "wmbt.convention.yaml"
 
 
 # Authorized vocabulary from convention

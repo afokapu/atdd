@@ -1,0 +1,120 @@
+urn: "wmbt:govern-lifecycle:C014"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-validator-run-reporting-the-verdict-of-one-that-observed-its-subject-when-it-either-could-not-see-the-subject-or-silently-declined-to-look-at-half-of-it"
+context_clarifier: "Two measured instances of one shape, both inside atdd validate, both producing a green nobody earned. (1) test_pr_phase_alignment._CODE_PATH_PREFIXES lists python/, web/src/, supabase/functions/, packages/ and supabase/migrations/ — prefixes from the downstream consumer repo named in the module docstring. This toolkit's code lives under src/atdd/, which matches no prefix, so _classify_changed_files files every source file under other and evaluate_phase_violations returns early on 'if not classified.get(\"code\")'. Measured 2026-08-03 against the live PRManager across all 18 open PRs and 196 changed files: code=0 on every single PR, with 46 src/ files sitting in other. So neither SPEC-COACH-PRGATE-0002 (INIT/PLANNED warn) nor COACH-PRGATE-0003 (GREEN fail, severity 4, disposition documentation-only which _LEGAL_DISPOSITIONS resolves to strict) has ever fired in this repo — the validator is bound, wired and blind, which is worse than absent because it produces a pass. (2) The same run says nothing about what it declined to evaluate. run_tests injects 'not platform' when is_atdd_source_repo() is False — which it is under the installed CLI, because repo.py compares Path(atdd.__file__).parent (the pipx venv) to the repo root. Measured on the same tree: 'atdd validate planner --local --skip-api' collects 237 of 445 and prints '237 passed', while the identical selection run serially prints '237 passed, 208 deselected'. pytest-xdist's controller never sees pytest_deselected because deselection happens during worker collection, so the gate's own default parallelism erases the only notice pytest would have given. Across all four phases 812 of 1898 validators are deselected and no output mentions it. This is #1670's premise inside the validator suite that #1670 would mint a receipt against: a run that evaluated 0 of N must not return the verdict of one that evaluated N and found nothing. Vocabulary is deliberately aligned with C013's GateVerdict.COULD_NOT_CHECK — same fact, different surface — and NOT with 'skipped', which pytest already uses for a different thing it does report."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-validator-run-reporting-the-verdict-of-one-that-observed-its-subject-when-it-either-could-not-see-the-subject-or-silently-declined-to-look-at-half-of-it by classifying this repo's own src/ tree as code so the already-bound PR phase-alignment rules can reach it, and by having every atdd validate run count the validators its marker expression removed and report that count as could-not-check alongside its result, so that the number of checks a run did not make is never absent from the record it leaves"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C014-UNIT-001-the-classifier-sees-this-repos-own-code"
+      id: "AC-UNIT-001"
+      purpose: "The one line that converts a validator which has never fired into one that fires — and the quiet cases stay quiet, so the change is a classification correction and not a policy change"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Changed-file lists naming paths under this repo's own source tree, classified through the validator's own classifier rather than a restatement of it"
+        - "The pure evaluator, called directly with synthetic classifications — no GitHub access"
+    when:
+      abstract: "files under the toolkit's source tree are classified, and the evaluator is called for each phase the rules gate"
+    then:
+      abstract:
+        - "A source file under the toolkit's own tree classifies as code rather than as other, so evaluate_phase_violations no longer returns early on every PR in this repo"
+        - "That file at GREEN produces a structured Violation carrying the GREEN rule id and its severity, so the fail path is reachable"
+        - "That file at INIT and at PLANNED produces a warn item and no structured Violation, so the warn path is reachable and its severity is unchanged"
+        - "A test file under the toolkit's own tree still classifies as test, not as code, because the test patterns are matched before the code prefixes — a RED-phase PR is not retroactively made a violation"
+        - "Plan, contract and telemetry artifacts still classify as plan, so the artifact-only phases stay quiet"
+        - "SMOKE, REFACTOR and COMPLETE with code, and a phase that resolved to nothing, all still produce no items"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C014-UNIT-002-a-run-counts-and-reports-what-it-did-not-check"
+      id: "AC-UNIT-002"
+      purpose: "The count is the deliverable: a run that evaluated part of its suite must say how much it did not evaluate, and must name why, so the number is actionable rather than merely present"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A coverage record built from a selected count, a deselected count and the marker exclusions a run applied, each carrying the reason the runner applied it"
+        - "The rendering and parsing functions called directly — pure, no subprocess, no pytest session"
+    when:
+      abstract: "a run's coverage is rendered for the operator, and pytest's own collection output is parsed for the counts"
+    then:
+      abstract:
+        - "The rendered report states the could-not-check count, the selected count and the total, so a reader can see the fraction rather than infer it"
+        - "The report names each applied exclusion and the reason for it, so the operator knows which population went unobserved and why"
+        - "A run with no exclusions renders a report whose could-not-check count is zero and which says so rather than staying silent, so the absence of a warning is itself evidence"
+        - "The counts are parsed from pytest's collection output in both the deselecting and the non-deselecting form, and unparseable output yields no counts rather than a fabricated zero"
+        - "The vocabulary the report emits is could-not-check, matching the gate verdict of the same name, and is not spelled skipped — which pytest already uses for a different outcome that it does report"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C014-UNIT-003-the-durable-record-carries-the-count"
+      id: "AC-UNIT-003"
+      purpose: "stdout is not a record. The proof-of-execution baseline already states that the API population was skipped; it must state the deselected population too, or the artifact a later reader trusts still asserts an unqualified pass"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A temporary repo root with no prior baseline"
+        - "The real baseline writer, called with a could-not-check count"
+    when:
+      abstract: "a baseline is written for a run that deselected validators, and for a run that deselected none"
+    then:
+      abstract:
+        - "The written baseline records the could-not-check count as data, so a reader of the artifact alone can tell a partial run from a complete one"
+        - "A run that deselected nothing records zero rather than omitting the field, so a missing count is never ambiguous with a complete run"
+        - "The fields the baseline already carried are unchanged in name and meaning, so existing readers and the source-hash comparison are unaffected"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C014-SMOKE-001-the-real-runner-reports-a-real-deselection"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real runner and the real validator tree rather than a fake: the deselection this WMBT was raised for is actually counted and actually printed, including under the parallelism that erases pytest's own notice"
+      phase: "SMOKE"
+    # Real TestRunner, real pytest subprocesses, real validator tree, no fakes and
+    # no monkeypatching — but the filesystem is the only infrastructure involved.
+    # planner.acceptance.execution-kind reserves `live_smoke` for "real live
+    # infrastructure (HTTP, DB, auth, deployment)"; this is squarely the
+    # hermetic_integration tier: "real subject, real boundary shape, real
+    # integration sequence — NO live external infrastructure".
+    #
+    # It was drafted as `live_smoke` AND nested one level too deep, inside
+    # `identity`, where the acceptance walker does not read it. Both are corrected
+    # here. Declaring it live_smoke at the level that IS read would have been worse
+    # than the mis-nesting: this file's `_repo_root()` helper calls `pytest.skip`,
+    # and tester.acceptance-violation.live-smoke-acceptance-must-execute forbids a
+    # self-skip in a live_smoke test precisely because a skip records no passing
+    # outcome and so attests vacuously (#1076) — C014's own defect, manufactured.
+    execution_kind: "hermetic_integration"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The real TestRunner pointed at this repo's real validator directories, with no monkeypatching of the marker injection or the counting"
+        - "A run configured the way the declared INIT gate command configures it, so the exclusion under measurement is the one that occurs in practice"
+    when:
+      abstract: "the runner executes a phase whose suite contains validators the applied marker expression removes"
+    then:
+      abstract:
+        - "The run's reported could-not-check count is greater than zero and equals the count pytest reports for the same selection when run without parallelism, so the number is pytest's own and not an estimate"
+        - "The count appears in the run's output, which it does not today, because the parallel controller never observes the deselection its workers performed"
+        - "The run's exit code is unchanged by the reporting, so surfacing the count does not itself alter any verdict"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"

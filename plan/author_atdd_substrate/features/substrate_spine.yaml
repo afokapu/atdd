@@ -2,7 +2,7 @@ urn: "feature:author-atdd-substrate:substrate-spine"
 wagon: "wagon:author-atdd-substrate"
 description: "The shared authoring substrate: one canonical schema and flat canonical home per artifact kind (convention-node, relationship, scope, gate), the four frozen controlled vocabularies the features consume (never redefine), the `atdd author` CLI validation spine that refuses an invalid role/id/path before any write, and the `atdd author {extension,workspace} init` package scaffolders that create a new extension or workspace-provider boundary by construction. (The re-sort/dedup git merge driver reused by the registry-class writers lives in its own feature:author-atdd-substrate:author-merge-driver.) Guarantees authored artifacts pass normal ATDD validation unmodified."
 sizing:
-  wmbts: 6
+  wmbts: 7
   footprint_score: 10
   footprint_size: "S"
 frozen_vocabularies:
@@ -38,6 +38,7 @@ wmbts:
   - "wmbt:author-atdd-substrate:P001"
   - "wmbt:author-atdd-substrate:P002"
   - "wmbt:author-atdd-substrate:C006"
+  - "wmbt:author-atdd-substrate:E009"
 components:
   backend:
     presentation:

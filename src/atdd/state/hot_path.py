@@ -84,6 +84,7 @@ HOT_PATH_LAW = (
 DECISION_MODULES: Tuple[str, ...] = (
     "state.projection", "state.identity", "state.overlay", "state.reconcile",
     "state.metadata", "state.authoring", "state.trailers", "state.evidence",
+    "state.smoke_evidence",
     "state.crosscheck", "state.secrets", "state.merge_authority", "state.policy",
     "state.ownership", "state.merge_driver", "state.merge_matrix", "state.tombstone",
     "state.import_boundary", "state.manifest_migration", "state.manifest_fallback",

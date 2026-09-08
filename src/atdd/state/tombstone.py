@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 from atdd.state.projection import (
     DIGEST_PREFIX,
     PROJECTION_SUFFIX,
+    REQUIRED_TOMBSTONE_FIELDS,
     STATE_TOMBSTONED,
     read_projection,
 )
@@ -47,12 +48,40 @@ def reason_digest(reason: str) -> str:
     return DIGEST_PREFIX + hashlib.sha256(reason.encode("utf-8")).hexdigest()
 
 
-def tombstone_record(reason: str, *, actor: Optional[str] = None) -> Dict[str, Any]:
-    """The ``tombstone`` metadata a retirement writes onto the object."""
+def tombstone_record(
+    reason: str,
+    *,
+    actor: Optional[str] = None,
+    source_generation: Optional[str] = None,
+    prior_digest: Optional[str] = None,
+) -> Dict[str, Any]:
+    """The ``tombstone`` metadata a retirement writes onto the object.
+
+    The optional signature is kept because the *local* authoring path legitimately does not
+    know some of this yet: an overlay tombstone is authored before it has a generation to
+    belong to. What must carry the full provenance is a tombstone that has reached the
+    **committed projection**, and that is enforced where it is read
+    (:func:`atdd.state.projection.validate_document`), not here.
+    """
     record: Dict[str, Any] = {"reason": reason, "reason_digest": reason_digest(reason)}
     if actor:
         record["actor"] = actor
+    if source_generation:
+        record["source_generation"] = source_generation
+    if prior_digest:
+        record["prior_digest"] = prior_digest
     return record
+
+
+def missing_provenance(record: Optional[Mapping[str, Any]]) -> List[str]:
+    """The provenance fields a committed tombstone record lacks, in declaration order.
+
+    The field list lives in :mod:`atdd.state.projection` with the rest of the document
+    shape — the schema layer owns what a committed document must look like, and this
+    module is one of its callers.
+    """
+    present = record or {}
+    return [name for name in REQUIRED_TOMBSTONE_FIELDS if not present.get(name)]
 
 
 def is_tombstoned(document: Optional[Mapping[str, Any]]) -> bool:

@@ -1,7 +1,0 @@
-feature: extract-workflow-wave-runner-and-atdd-resume-cli
-wagon: govern-lifecycle
-urn: "feature:govern-lifecycle:extract-workflow-wave-runner-and-atdd-resume-cli"
-wmbts:
-  - "wmbt:govern-lifecycle:E042"
-references:
-  - "docs/coach-decomposition.md"

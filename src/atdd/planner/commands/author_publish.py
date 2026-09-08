@@ -17,8 +17,16 @@ Ordering (store-first, #1203/#1272):
    never degrade to a body-only string (the exact gap that orphaned #1271).
 2. GitHub is a projection: create the issue synchronously and link its number as
    the single external_ref. If the projection cannot complete, enqueue the
-   outbox (durable retry) and warn — the store work_item still stands (no
-   orphan, no store-unaware issue).
+   outbox and warn — the store work_item still stands (no orphan, no
+   store-unaware issue).
+
+The enqueue is a retry only if something will read the queue (#1711/C015). Whether
+anything will is a live property of the provider registry, not a property of this
+module, so the result carries ``deferral_deliverable`` and the caller renders the
+sentence that fact supports. With no provider registered the honest sentence is
+that the write did not reach GitHub and nothing as things stand will send it —
+which is what 30 rows enqueued between 2026-07-09 and 2026-07-30 were owed and
+did not get.
 """
 from __future__ import annotations
 
@@ -34,6 +42,29 @@ _GITHUB_PROVIDER = "github"
 _CREATE_ISSUE_OP = "create_issue"
 _UPDATE_ISSUE_OP = "update_issue"
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _deferral_is_deliverable() -> bool:
+    """Whether the row just enqueued for GitHub has anywhere to go (#1711/C015).
+
+    Asked at the moment of deferral, from the live provider registry, because the
+    sentence the caller is about to read is a claim about the future and the
+    registry is the only thing that can back it. Wrapped: a registry that cannot
+    be consulted must not fail a publish whose store write already stands — but
+    it also must not be reported as a provider, so the unknown answer is the
+    conservative one.
+    """
+    try:
+        from atdd.state.providers import can_deliver
+
+        return can_deliver(_GITHUB_PROVIDER)
+    except Exception as exc:  # noqa: BLE001 - the claim degrades; the publish does not
+        logger.warning(
+            "could not read the sync provider registry; reporting the deferral "
+            "as undeliverable rather than promising a retry",
+            extra={"provider": _GITHUB_PROVIDER, "error": str(exc)},
+        )
+        return False
 
 
 class PublishError(Exception):
@@ -54,6 +85,10 @@ class PublishResult:
     state: Optional[str]
     github_number: Optional[int]      # set when the sync projection succeeded
     projection_deferred: bool         # True when enqueued to the outbox instead
+    #: Whether a registered provider exists that could ever send the deferred row
+    #: (#1711/C015). ``None`` when nothing was deferred — a deliverability answer
+    #: for a row that does not exist would be a claim about nothing.
+    deferral_deliverable: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +99,8 @@ class RevisionResult:
     slug: str
     state: Optional[str]
     projection_deferred: bool
+    #: See :attr:`PublishResult.deferral_deliverable`.
+    deferral_deliverable: Optional[bool] = None
 
 
 def derive_slug(title: str) -> str:
@@ -74,6 +111,41 @@ def derive_slug(title: str) -> str:
 def _github_labels(status: str) -> List[str]:
     """The labels the projected GitHub issue carries (parity with `atdd issue`)."""
     return ["atdd-issue", f"atdd:{status}"]
+
+
+def _require_resolvable_feature(
+    feature: Optional[str], control_root: Optional[Path]
+) -> None:
+    """Refuse a feature URN that does not resolve against ``plan/`` (#1635).
+
+    Skipped when there is no ``plan/`` tree to resolve against: a hermetic caller
+    minting into a bare temp directory has no graph to check, and failing it for
+    the absence of one it never had would be a guard misfiring rather than
+    working. Where a plan tree exists, the binding must be real.
+    """
+    from atdd.planner.commands.feature_binding import plan_is_available, resolve_feature
+
+    if not plan_is_available(control_root):
+        return
+    verdict = resolve_feature(feature, control_root)
+    if not verdict.resolved:
+        raise PublishError(f"invalid --feature: {verdict.detail}")
+
+
+def _derive_feature(body: str, control_root: Optional[Path]) -> Optional[str]:
+    """The feature URN implied by the body's Metadata table, when it resolves.
+
+    Derivation is deliberately narrow: the body's ``Feature`` row is the only
+    declaration an author has already made, so it is the only thing there is to
+    derive FROM. Anything that does not resolve is not silently accepted — the
+    caller refuses instead, which is what makes the null binding unreachable.
+    """
+    from atdd.planner.commands.feature_binding import feature_in_body, resolve_feature
+
+    declared = feature_in_body(body)
+    if declared is None:
+        return None
+    return declared if resolve_feature(declared, control_root).resolved else None
 
 
 def publish_issue(
@@ -100,6 +172,19 @@ def publish_issue(
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
     from atdd.state.work_item_writer import create_work_item
+    from atdd.planner.commands.feature_binding import plan_is_available
+
+    # DERIVE-OR-REQUIRE (#1635). Validated BEFORE the store connection is opened,
+    # so a refused binding mints nothing at all — no half-published record.
+    if plan_is_available(control_root):
+        if feature is None:
+            feature = _derive_feature(body, control_root)
+        if feature is None:
+            raise PublishError(
+                "no --feature: an issue must declare a feature URN that resolves "
+                "in plan/, and none could be derived from the body's Feature row"
+            )
+        _require_resolvable_feature(feature, control_root)
 
     data: Dict[str, Any] = {
         "title": title, "type": issue_type, "branch": branch,
@@ -118,6 +203,7 @@ def publish_issue(
 
     github_number: Optional[int] = None
     projection_deferred = False
+    deferral_deliverable: Optional[bool] = None
     try:
         try:
             create_work_item(conn, slug, state=status, data=data)
@@ -195,6 +281,7 @@ def publish_issue(
             )
         except Exception as exc:  # the GitHub issue was NOT created — retry it
             projection_deferred = True
+            deferral_deliverable = _deferral_is_deliverable()
             store.sync.enqueue_outbox(
                 _GITHUB_PROVIDER, _CREATE_ISSUE_OP,
                 {"slug": slug, "title": title, "body": body,
@@ -226,6 +313,7 @@ def publish_issue(
     return PublishResult(
         slug=slug, state=status, github_number=github_number,
         projection_deferred=projection_deferred,
+        deferral_deliverable=deferral_deliverable,
     )
 
 
@@ -234,17 +322,34 @@ def revise_issue(
     *,
     body: Optional[str] = None,
     issue_type: Optional[str] = None,
+    feature: Optional[str] = None,
+    title: Optional[str] = None,
     control_root: Optional[Path] = None,
 ) -> RevisionResult:
     """Revise an issue-backed work item store-first, then project to GitHub.
 
     The State Store is authoritative. A store lookup/write failure raises
     :class:`PublishError` and no provider mutation is attempted. The GitHub body
-    update is best-effort projection: on failure it is recorded in the outbox so
-    a retry path can replay it later.
+    and title updates are best-effort projection: on failure each is recorded in
+    the outbox so a retry path can replay it later.
+
+    ``feature`` is the hop Break 4 was missing (#1635): the CLI accepted the flag
+    and this function had no parameter to carry it. A feature that does not
+    resolve against ``plan/`` is refused BEFORE the store write, so a refused
+    revision never mutates the binding.
+
+    ``title`` is the last flag with that same gap (#1661). It needs a projection
+    of its own because the issue title is not derived from the body: revising the
+    body moves its H1 and leaves the title stale, which is how #1636 came to
+    disagree with itself.
     """
-    if body is None and issue_type is None:
-        raise PublishError("revision requires --body-file and/or explicit --type")
+    if body is None and issue_type is None and feature is None and title is None:
+        raise PublishError(
+            "revision requires --body-file, --feature, --title and/or explicit --type"
+        )
+
+    if feature is not None:
+        _require_resolvable_feature(feature, control_root)
 
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
@@ -260,10 +365,12 @@ def revise_issue(
         ) from exc
 
     projection_deferred = False
+    deferral_deliverable: Optional[bool] = None
     try:
         try:
             obj = revise_work_item_issue(
                 conn, issue_number, body=body, issue_type=issue_type,
+                feature=feature, title=title,
             )
         except Exception as exc:
             raise PublishError(
@@ -278,6 +385,7 @@ def revise_issue(
                 update_body(issue_number, body)
             except Exception as exc:
                 projection_deferred = True
+                deferral_deliverable = _deferral_is_deliverable()
                 store.sync.enqueue_outbox(
                     _GITHUB_PROVIDER,
                     _UPDATE_ISSUE_OP,
@@ -292,6 +400,32 @@ def revise_issue(
                     "github issue body update deferred to outbox; store revision stands",
                     extra={"issue_number": issue_number, "slug": obj.uid, "error": str(exc)},
                 )
+
+        # The title is projected separately because GitHub stores it separately:
+        # editing the body never moves the title, so a title-only revision has
+        # no body call to ride along with (#1661).
+        if title is not None:
+            store = StateStore(conn)
+            try:
+                from atdd.integrations.github.issue_state import update_title
+
+                update_title(issue_number, title)
+            except Exception as exc:
+                projection_deferred = True
+                deferral_deliverable = _deferral_is_deliverable()
+                store.sync.enqueue_outbox(
+                    _GITHUB_PROVIDER,
+                    _UPDATE_ISSUE_OP,
+                    {
+                        "issue_number": issue_number,
+                        "slug": obj.uid,
+                        "title": title,
+                    },
+                )
+                logger.warning(
+                    "github issue title update deferred to outbox; store revision stands",
+                    extra={"issue_number": issue_number, "slug": obj.uid, "error": str(exc)},
+                )
     finally:
         conn.close()
 
@@ -300,4 +434,5 @@ def revise_issue(
         slug=obj.uid,
         state=obj.state,
         projection_deferred=projection_deferred,
+        deferral_deliverable=deferral_deliverable,
     )

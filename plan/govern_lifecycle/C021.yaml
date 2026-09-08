@@ -1,0 +1,139 @@
+urn: "wmbt:govern-lifecycle:C021"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers-so-the-receipt-attests-that-a-key-was-pressed-and-not-that-anything-was-observed"
+context_clarifier: "approve_command.run() parses FROM->TO, resolves a signing key, builds a token and writes it. It consults GATE_REGISTRY at no point, so the artifact the enforcing gate later accepts as authorisation was produced without evaluating a single check that gate will run. Measured 2026-08-03 on #1726: PLANNED, RED, GREEN, SMOKE and REFACTOR were all REFUSED by the template-compliance gate while both `atdd coach approve` calls SUCCEEDED, leaving tokens on the shared Control Root for an issue at INIT. #1718 fixed WHAT the token says produced it and #1376 fixed WHERE it lives; neither touches what it asserts about the work. This WMBT is #1670's slice C and is scoped to SMOKE->REFACTOR ALONE, because that is the only edge whose registry holds a substantive check: registrations.py binds ApprovalTokenGateCheck to all five forward edges and SmokeExecutionGateCheck to SMOKE->REFACTOR only, so on the other four the mint would have nothing to consult but the approval check itself — deciding whether to write an approval by asking whether an approval exists, which is the defect this program is named for wearing the fix's clothes. The full-width alternative reporting NOT_APPLICABLE on the four bare edges was considered and rejected: a mint that appears to certify five transitions while certifying one is the 'green that means nothing' failure the program exists to remove. SmokeExecutionGateCheck is the check to consume rather than reimplement — the pytest run writes its own attestation into the State Store keyed to HEAD and no CLI verb can write one, which is #1670's condition 1 already satisfied in tree. Its NOT_APPLICABLE branch (#1719/C013) MUST proceed: the check is opt-in per issue via smoke_obligation and reports not-applicable for every issue whose plan declares no execution_kind: live_smoke acceptance, which was 787 of 787 work items when the edge was enabled, so refusing on it would strand the entire repo at SMOKE behind --force. Two known live defects bound the design: #1619 populates GATE_REGISTRY at exactly one call site (issue_transition.py:155), so a process that is not `atdd coach transition` — approve_command among them — sees an EMPTY registry, and an empty registry evaluating zero checks must read as COULD_NOT_CHECK rather than as a clean run, which is the #1632/C014 skip-count rule applied to the gate's own coverage; and evaluate_transition_gate proceeds on an empty registry by design (WMBT D019 migration safety), so the mint must compose run_checks and evaluate_gate directly rather than inherit a decision built for a different question."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers-so-the-receipt-attests-that-a-key-was-pressed-and-not-that-anything-was-observed by making the mint CONDITIONAL on SMOKE->REFACTOR alone: it registers the same checks the transition dispatch registers so it certifies the set that will actually run, excludes the approval check from its own precondition so nothing signs a receipt for its own existence, refuses to write the token when any remaining check returns FAIL or COULD_NOT_CHECK while proceeding on NOT_APPLICABLE so no issue owing no live smoke is stranded, refuses when zero substantive checks were evaluated so an unpopulated registry cannot read as a clean gate, refuses when HEAD cannot be resolved so the attestation's staleness clause is never silently disabled under a mint, and reports how many checks it evaluated and how many verified an obligation rather than announcing that the gates passed, so that no signed approval can be produced over an observation nobody made"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C021-UNIT-001-a-refusing-check-refuses-the-mint-and-leaves-no-token"
+      id: "AC-UNIT-001"
+      purpose: "The two blocking verdicts #1719 gave the transition gate must block the mint identically, and must do so before anything is written — a token refused after the file exists is not a refusal, and the enforcing gate would accept the artifact regardless of what the mint printed"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A registry holding one substantive check for SMOKE->REFACTOR whose verdict is controlled by the test, alongside the approval check the edge really carries"
+        - "An isolated Control Root with no approval token on disk for the transition under test"
+    when:
+      abstract: "the conditional mint decides SMOKE->REFACTOR with that check returning FAIL, and again with it returning COULD_NOT_CHECK"
+    then:
+      abstract:
+        - "A FAIL verdict refuses the mint and the command exits non-zero"
+        - "A COULD_NOT_CHECK verdict refuses the mint and the command exits non-zero, so 'I could not look' cannot buy an authorisation that 'I looked and it was fine' would have bought"
+        - "No token file exists at the Control Root path after either refusal, so the refusal is the absence of an artifact and not a message about one"
+        - "The refusal is reported with FAIL and COULD_NOT_CHECK in separate buckets naming the responsible gate_id, because 'your smoke did not pass' and 'I could not read the store' need different operator actions"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-04"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C021-UNIT-002-not-applicable-mints-and-the-report-does-not-call-it-a-pass"
+      id: "AC-UNIT-002"
+      purpose: "The single easiest way to break this repo is refusing NOT_APPLICABLE, which would strand every issue declaring no live_smoke acceptance — 787 of 787 when the edge was enabled — behind --force. The second easiest is proceeding but reporting it as a verified pass, which reinstates the vacuous green one layer up"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A registry whose only substantive check for SMOKE->REFACTOR returns NOT_APPLICABLE, the verdict SmokeExecutionGateCheck returns for an issue owing no live smoke"
+        - "The same registry with that check returning PASS, as the discriminating control"
+    when:
+      abstract: "the conditional mint decides SMOKE->REFACTOR under each"
+    then:
+      abstract:
+        - "NOT_APPLICABLE proceeds and the token is written, so an issue that owes no live smoke is not stranded at SMOKE"
+        - "The report distinguishes checks that verified an obligation from checks that established none was owed, and states zero verified in the NOT_APPLICABLE case rather than announcing that the gates passed"
+        - "The PASS control produces a report naming one verified obligation, so the two outcomes are distinguishable in the text an operator reads and not only in the exit code"
+        - "The token written under NOT_APPLICABLE is byte-comparable to the token the unconditional mint wrote for the same transition, so proceeding here changes no downstream consumer"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-04"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C021-UNIT-003-zero-substantive-checks-is-could-not-check-and-the-approval-check-is-excluded"
+      id: "AC-UNIT-003"
+      purpose: "The #1632 skip-count rule applied to the gate's own coverage: a mint that evaluated 0 of N must not produce the receipt of one that evaluated N and found nothing. And the exclusion that makes the count honest — a mint consulting the approval check would decide whether to write an approval by asking whether one exists"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An empty registry, the state every process that is not `atdd coach transition` sees today (#1619)"
+        - "A registry holding ONLY the approval check for SMOKE->REFACTOR, which is what the four other forward edges hold"
+    when:
+      abstract: "the conditional mint decides SMOKE->REFACTOR under each"
+    then:
+      abstract:
+        - "An empty registry yields COULD_NOT_CHECK and refuses, so an unpopulated registry cannot be read as a gate that ran and found nothing wrong"
+        - "A registry holding only the approval check also yields COULD_NOT_CHECK and refuses, because excluding it leaves zero substantive checks — the mint never consults the check whose artifact it is producing"
+        - "The refusal names the count it evaluated and the check it excluded, so the operator can tell an unpopulated registry from a gate that genuinely passed nothing"
+        - "The registrars the transition dispatch calls are invoked by the mint itself, so the set it certifies is the set `atdd coach transition` will run rather than a coincidentally-populated one"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-04"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C021-UNIT-004-an-unresolvable-head-refuses-the-mint"
+      id: "AC-UNIT-004"
+      purpose: "evaluate_smoke_execution disables its staleness clause entirely when head_sha is None — deliberate for a gate, because an unresolvable HEAD is an environment fault and making it unfixable would be worse. Under a mint it means the attestation's binding to the tree is silently switched off and a token is written anyway, which is condition 3 in the one place it is easiest to miss"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A directory from which HEAD cannot be resolved, with a substantive check registered for SMOKE->REFACTOR that would otherwise pass"
+        - "The same registry evaluated from a directory where HEAD resolves, as the discriminating control"
+    when:
+      abstract: "the conditional mint decides SMOKE->REFACTOR under each"
+    then:
+      abstract:
+        - "An unresolvable HEAD yields COULD_NOT_CHECK and refuses, and the message says the staleness of the evidence could not be established"
+        - "The control resolves HEAD and mints, so the refusal is the unresolvable tree and not the precondition refusing unconditionally"
+        - "SmokeExecutionGateCheck is not modified to obtain this, so the transition gate keeps the deliberate permissiveness its own docstring argues for and only the mint is strict"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-04"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C021-SMOKE-001-real-mint-refuses-a-real-unsatisfied-obligation"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real command, the real registrars and a real migrated State Store rather than fakes: the exact invocation that produced two orphan tokens for #1726 stops producing one when the edge's own evidence does not exist, and still produces one when the issue owes nothing"
+      phase: "SMOKE"
+    # Real `approve_command.run`, real registrars, real SmokeExecutionGateCheck,
+    # real migrated SQLite State Store, nothing monkeypatched — but a tmp_path
+    # Control Root and SQLite are the only infrastructure involved.
+    # planner.acceptance.execution-kind reserves `live_smoke` for real LIVE
+    # infrastructure (HTTP, DB service, auth, deployment); this is the
+    # hermetic_integration tier, exactly as C014-SMOKE-001 was corrected to be.
+    #
+    # Declaring it live_smoke would also be self-referentially wrong: it would give
+    # THIS issue a live_smoke obligation, so `SmokeExecutionGateCheck` would demand
+    # an attestation from the very issue building the mint that consumes it.
+    execution_kind: "hermetic_integration"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real migrated State Store under an isolated Control Root, with a work item registered and projected from a GitHub issue number the way the live path registers one"
+        - "The real `atdd coach approve <N> --transition SMOKE->REFACTOR` entry point with no monkeypatching of the registry, the check, the store or the token writer"
+        - "A work item whose plan scope declares an execution_kind: live_smoke acceptance and for which no smoke-execution attestation has been recorded"
+    when:
+      abstract: "the command is run against that store, and again for a work item declaring no live_smoke acceptance"
+    then:
+      abstract:
+        - "The declaring work item's mint exits non-zero and no token file exists anywhere under the Control Root for that transition, so the artifact the enforcing gate accepts was never created"
+        - "The output names the clause the smoke verdict refused on, so the refusal is actionable without reading the events table"
+        - "The work item owing no live smoke mints and exits 0, so the refusal is the unmet obligation and not the command becoming unusable"
+        - "A PLANNED->RED mint on the same store is unaffected in both cases, so the conditional behaviour is confined to the one edge that has something to consult"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-04"

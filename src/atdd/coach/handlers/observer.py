@@ -36,7 +36,7 @@ def _find_phase_agent_id(issue_number: int, runtime_root: Path) -> Optional[str]
             continue
         try:
             data = json.loads(manifest_path.read_text())
-        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             continue
         if data.get("issue") == issue_number and data.get("persona") != "reviewer":
             candidates.append((entry.stat().st_mtime, entry.name))

@@ -5,14 +5,11 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/collaborate-through-projection.yaml
-  content_digest: e0e59a68c91d083fd4c5e8eefb3b9a40e5a9a81a728ca5d90357326073194f9a
+  content_digest: 8c755868fb662cb6a9ceb033381797d23921b8a020916416d6eca47c4bedcd60
 entrypoint:
-  actions:
-  - project_store
-  - reconcile_store
-  - validate_projection
-  exposed: true
-  reason: null
+  actions: []
+  exposed: false
+  reason: planned-not-exposed
 route_resolution:
   strategy: fail_on_multiple_match
 lifelines:

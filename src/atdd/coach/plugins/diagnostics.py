@@ -28,6 +28,7 @@ Disabled when:
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import sys
@@ -50,6 +51,8 @@ from atdd.coach.utils.diagnostics import (
 )
 from atdd.coach.utils.repo import find_repo_root
 
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 
@@ -118,10 +121,26 @@ def _is_toolkit_packaging_issue(filename: Optional[str]) -> bool:
         return False
     try:
         target = Path(filename).resolve()
-    except (OSError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-06
+    except (OSError, ValueError) as exc:
         # Bogus path (NUL byte, symlink loop, etc.) — not a toolkit
         # resource by definition. Returning False is the only sensible
         # answer; raising would mask the actual test failure.
+        #
+        # But "the answer is False" is not the same as "nothing happened":
+        # a path this classifier could not resolve is the one case where its
+        # verdict is a fallback rather than a measurement, and nothing else in
+        # this plugin records that. `return False` alone leaves no trace, which
+        # is precisely what coder.logging.coach-silent-swallow asks about — so
+        # this logs instead of carrying an inline suppression past its deadline
+        # (#1756; the same fix #1735 applied to approve_command.py).
+        # `candidate_path`, not `filename`: `filename` is a reserved LogRecord
+        # attribute and `extra` may not overwrite one — logging raises KeyError,
+        # which would turn this returns-False path into a crash.
+        logger.warning(
+            "toolkit-packaging classification fell back to False: the path "
+            "could not be resolved",
+            extra={"candidate_path": filename, "error": str(exc)},
+        )
         return False
     pkg = _atdd_pkg_dir()
     return target.is_relative_to(pkg)

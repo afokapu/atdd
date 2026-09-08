@@ -4,8 +4,9 @@ The real worker spawns a persona cmux-native, does the phase's work, and calls
 ``atdd agent done``. The parity test only needs the *signal*: a per-issue queue
 of "the current phase's work is finished" markers. ``LocalDryRunRunner`` consumes
 one marker per phase advance, so the test drives the lifecycle deterministically
-without any subprocess. The real ``CmuxAgentController`` lives in
-``atdd.runtime.agent_control``.
+without any subprocess. The real controller it once stood in for
+(``atdd.runtime.agent_control``) was pruned from core by #1480; this fixture
+survives because the lifecycle parity test needs the done *signal*, not a worker.
 """
 from __future__ import annotations
 

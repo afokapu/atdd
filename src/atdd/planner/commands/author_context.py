@@ -23,9 +23,37 @@ _WS_DIR = "workspaces"
 # scope ∈ {core, extension, workspace}: ``core`` is the ATDD protocol, ``extension``
 # is a use-case package, ``workspace`` is a first-class reusable runtime provider
 # (e.g. ``atdd.workspace.python-pytest``) that many extensions may target.
+#
+# MIGRATION #1343 (audit #1345): **extension** IDs are persona-aware —
+# ``<publisher>.extension.<persona>.<artifact-name>`` with persona ∈
+# {planner,tester,coder,coach} — so every extension declares which persona
+# contract it extends. ``_EXT_PKG_ID_RE`` below encodes that four-segment form.
+#
+# ADDITIVE / non-breaking: this change *accepts* the four-segment form; it does
+# NOT yet reject the legacy three-segment ``<publisher>.extension.<name>``. The
+# installed official extensions stay three-segment until **#1344** renames them,
+# so ``validate_extension_id`` falls back to the three-segment ``_PKG_ID_RE``
+# spine. Reject-three (and the removal of that fallback) is gated on #1344.
+#
+# ``_PKG_ID_RE`` remains the *single* three-segment grammar regex — the spine
+# for **workspace** IDs (which stay three-segment) and the additive extension
+# fallback. No duplicate pattern exists in validators, enforcement, substrate,
+# or schemas; every other path carries the ID as an opaque string. See
+# docs/1345-extension-id-grammar-audit.md and the boundary tests in
+# test_p001_unit_003_extension_id_namespace.py.
 _PKG_ID_RE = re.compile(
     r"^(?P<publisher>[a-z][a-z0-9-]*)\.(?P<scope>core|extension|workspace)\.(?P<name>[a-z][a-z0-9-]*)$"
 )
+# Persona-aware four-segment extension grammar (#1343). The persona segment is
+# matched structurally here and validated against ``_PERSONAS`` in
+# ``validate_extension_id`` so the error distinguishes "malformed" from
+# "unknown persona".
+_EXT_PKG_ID_RE = re.compile(
+    r"^(?P<publisher>[a-z][a-z0-9-]*)\.extension"
+    r"\.(?P<persona>[a-z][a-z0-9-]*)\.(?P<name>[a-z][a-z0-9-]*)$"
+)
+# Core persona vocabulary — the protocol lanes an extension may extend.
+_PERSONAS = frozenset({"planner", "tester", "coder", "coach"})
 _RESERVED_PUBLISHER = "atdd"  # only official ATDD packages may use it
 
 
@@ -63,13 +91,43 @@ def _validate_package_id(
 
 
 def validate_extension_id(extension_id: str, *, allow_reserved: bool = False) -> None:
-    """Validate an ``--extension`` id against ``<publisher>.extension.<name>``.
+    """Validate an ``--extension`` id.
 
-    Per the locked package-namespace rule: the second segment must be
-    ``extension`` (``--core`` owns ``.core.``), and ``atdd`` is a reserved
-    publisher for official packages (``allow_reserved=True`` to accept official
-    ids during structural validation). Raises ``AuthorInputError(field="extension")``.
+    Persona-aware grammar (#1343): the canonical form is four-segment
+    ``<publisher>.extension.<persona>.<artifact-name>`` with persona ∈
+    ``_PERSONAS`` ({planner,tester,coder,coach}) — every extension declares
+    which persona contract it extends. The second segment must be ``extension``
+    (``--core`` owns ``.core.``) and ``atdd`` is a reserved publisher for
+    official packages (``allow_reserved=True`` to accept official ids during
+    structural validation).
+
+    ADDITIVE / non-breaking (#1343): the legacy three-segment
+    ``<publisher>.extension.<name>`` form is still accepted via the shared
+    ``_PKG_ID_RE`` spine, because the installed official extensions stay
+    three-segment until #1344 renames them. A four-segment id whose persona is
+    not in ``_PERSONAS`` is refused (it is well-formed but names an unknown
+    lane). Raises ``AuthorInputError(field="extension")``.
     """
+    m = _EXT_PKG_ID_RE.match(extension_id or "")
+    if m:  # four-segment persona-aware form (#1343 canonical)
+        persona = m.group("persona")
+        if persona not in _PERSONAS:
+            raise AuthorInputError(
+                "extension",
+                f"unknown persona {persona!r} in extension id {extension_id!r}; "
+                f"expected one of {sorted(_PERSONAS)}",
+            )
+        if not allow_reserved and m.group("publisher") == _RESERVED_PUBLISHER:
+            raise AuthorInputError(
+                "extension",
+                f"the '{_RESERVED_PUBLISHER}' publisher is reserved for official ATDD "
+                f"packages; use your own publisher namespace",
+            )
+        return
+    # Additive fallback: legacy three-segment <publisher>.extension.<name>
+    # (accepted until #1344 renames the installed extensions). This also yields
+    # the cross-scope guard (a workspace-scoped id passed here is refused) and
+    # the malformed-id error for anything that matches neither form.
     _validate_package_id(extension_id, expected_scope="extension", field="extension",
                          allow_reserved=allow_reserved)
 

@@ -1,0 +1,51 @@
+urn: "wmbt:govern-lifecycle:E067"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "the-deployed-freedom-layer-allow-list-pre-authorizing-a-forbidden-command-or-an-unscoped-bash-prefix"
+context_clarifier: >
+  `session.convention.yaml::spawn_time.freedom_layer.allowed_bash` is the allow-list that
+  bounds what Bash an agent may run without asking. Two shapes make it unsafe: an entry whose
+  inner command also appears in `forbidden_bash` (pre-authorizing the very thing the leash
+  forbids), and a loosely-scoped entry (`Bash`, `Bash(*)`, `Bash(:*)`) that can be chained —
+  the prefix-injection hole, e.g. `pytest && rm -rf`. Only `Bash(<cmd>:*)` is safe.
+
+  Rehomed from the pruned `spawn-agents` wagon (#1483). The sub-worker orchestration that
+  consumed this allow-list left core, but the guard did NOT become vacuous: the
+  `policy/freedom_layer_bash_scope` convention variant is still registered in the policy
+  archetype's scanner registry, `spawn_time.freedom_layer` is still declared in the deployed
+  session convention, and `tests/test_e035_root_reader_fault_in_staged_root.py` still
+  evaluates that variant. The subject is live, so the acceptance is rehomed rather than
+  retired — deleting it would have dropped the only fault-injection proof that the guard
+  actually catches a forbidden entry.
+lens: "functional.effectiveness"
+statement: >
+  minimize likelihood of the-deployed-freedom-layer-allow-list-pre-authorizing-a-forbidden-command-or-an-unscoped-bash-prefix
+  by keeping the flipped freedom-set validator bound to the live
+  `session.convention.yaml::spawn_time.freedom_layer`, so the deployed allow-list is proven to
+  carry no forbidden command and no loosely-scoped Bash entry
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E067-SMOKE-001-live-freedom-layer-passes-flipped-validator"
+      id: "AC-SMOKE-001"
+      purpose: >-
+        The deployed session.convention.yaml::spawn_time.freedom_layer passes the flipped
+        freedom-set validator with zero violations: no forbidden command in allowed_bash,
+        every Bash entry tightly scoped.
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "The deployed session.convention.yaml loaded from the installed codebase"
+        - "The flipped freedom-set allow-list validator"
+    when:
+      abstract: "The validator runs against the live freedom_layer"
+    then:
+      abstract:
+        - "Zero violations are returned"
+        - "Every entry in the live allowed_bash matches the Bash(<cmd>:*) scoped form"
+    metadata:
+      author: "atdd:planner"
+      created: "2026-06-11"

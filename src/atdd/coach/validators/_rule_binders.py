@@ -20,7 +20,6 @@ The behavioural coverage those legacy files also carried did NOT move here — i
 
   * ``tests/test_no_hardcoded_rule_severity.py`` — the severity AST scan
   * ``tests/test_commit_trailers_emit.py``      — the GitWatcher emit assertion
-  * ``tests/test_spawn_cli_surface.py``         — the spawn surface asserts
 """
 from __future__ import annotations
 
@@ -39,9 +38,6 @@ RULE_FOR_TRAILER = {
     "Issue": ISSUE_RULE,
 }
 
-# --- coach.spawn.atdd-spawn-cli ---------------------------------------------
-SPAWN_CLI_RULE = bind_rule("coach.spawn.atdd-spawn-cli")
-
 # --- coach.rule-id.no-hardcoded-rule-severity -------------------------------
 NO_HARDCODED_RULE_SEVERITY_RULE = bind_rule("coach.rule-id.no-hardcoded-rule-severity")
 
@@ -49,11 +45,6 @@ NO_HARDCODED_RULE_SEVERITY_RULE = bind_rule("coach.rule-id.no-hardcoded-rule-sev
 def commit_trailers_rules() -> dict:
     """The bound ``coach.commit-trailers.*`` family, keyed by trailer name."""
     return RULE_FOR_TRAILER
-
-
-def spawn_cli_rule():
-    """The bound ``coach.spawn.atdd-spawn-cli`` rule."""
-    return SPAWN_CLI_RULE
 
 
 def no_hardcoded_rule_severity_rule():

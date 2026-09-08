@@ -6,7 +6,10 @@ had drifted apart:
 * ``urn_grammar.yaml`` families.acc — the executable grammar (single source).
 * ``acceptance.schema.json`` identity.urn — a static copy, because JSON Schema
   cannot reference the grammar.
-* ``train.convention.yaml`` acceptances.example — the shape humans copy.
+* ``planner.train.acceptances`` node, term ``authorable_example`` — the shape
+  humans copy. (#1639: was ``train.convention.yaml`` acceptances.example until
+  the legacy monoliths were deleted; the exemplar moved onto the node that
+  states the rule it exemplifies.)
 
 The convention's example used the identity scheme retired by #1421, and the
 schema's pattern admitted only the wagon-parented shape, so the documented
@@ -30,7 +33,10 @@ from atdd.planner.commands.author import AuthorInputError, create_acceptance, cr
 _PLANNER = Path(__file__).resolve().parents[2]
 _ACCEPTANCE_SCHEMA = _PLANNER / "schemas" / "acceptance.schema.json"
 _TRAIN_SCHEMA = _PLANNER / "schemas" / "train.schema.json"
-_TRAIN_CONVENTION = _PLANNER / "conventions" / "train.convention.yaml"
+_TRAIN_ACCEPTANCES_NODE = (
+    _PLANNER / "conventions" / "nodes"
+    / "planner.train.acceptances.convention.yaml"
+)
 
 TYPED_TRAIN_ACC = "acc:train:self-compliance:validate-lifecycle:idempotent-on-retry"
 
@@ -82,8 +88,11 @@ def test_schema_pattern_and_grammar_agree_on_every_probe(urn):
 
 
 def _convention_example() -> dict:
-    doc = yaml.safe_load(_TRAIN_CONVENTION.read_text(encoding="utf-8"))
-    return yaml.safe_load(doc["acceptances"]["example"])["acceptances"][0]
+    """The copy-paste exemplar, read from the ``authorable_example`` term of the
+    ``planner.train.acceptances`` node."""
+    doc = yaml.safe_load(_TRAIN_ACCEPTANCES_NODE.read_text(encoding="utf-8"))
+    terms = {t["term_id"]: t for t in doc["terms"]}
+    return terms["authorable_example"]["values"]["acceptance"]
 
 
 def test_convention_example_urn_is_grammar_valid():

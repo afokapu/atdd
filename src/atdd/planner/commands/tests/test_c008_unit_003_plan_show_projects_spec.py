@@ -28,9 +28,9 @@ _SPEC = {"wagon": "play-audio", "description": "play audio on the commute"}
 
 def _to_prepare(root: Path, sid: str) -> None:
     assert run(["--root", str(root), "start", "--id", sid, "--main-job", "job", "--issue", "iss"]) == 0
-    assert run(["--root", str(root), "advance", "--id", sid, "--step", "locate"]) == 0
+    assert run(["--root", str(root), "advance", "--id", sid, "--step", "attach"]) == 0
     assert run(["--root", str(root), "source", "--id", sid, "a source"]) == 0
-    assert run(["--root", str(root), "advance", "--id", sid, "--step", "prepare"]) == 0
+    assert run(["--root", str(root), "advance", "--id", sid, "--step", "compose"]) == 0
 
 
 def test_show_projects_the_spec_each_unit_carries(tmp_path, capsys):

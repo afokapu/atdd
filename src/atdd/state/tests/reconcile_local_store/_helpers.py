@@ -25,6 +25,7 @@ from atdd.state.projection import PROJECTION_RELATIVE
 
 from .._fixtures import checkout as _checkout
 from .._fixtures import (  # re-exported: the acceptances import these from this module
+    attributed_tombstone,
     commit_all,
     git,
     head,

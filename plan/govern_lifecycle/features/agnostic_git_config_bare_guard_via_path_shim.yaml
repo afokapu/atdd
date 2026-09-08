@@ -15,8 +15,8 @@ components:
         rationale: "atdd init (initializer) install_path_shim_enforcement gains a git-shim install step writing .atdd/bin/git idempotently (E036-UNIT-002); atdd gate (ATDDGate.verify) gains a session-bootstrap self-heal step that scopes core.bare=false via --worktree when a worktree is poisoned (E036-UNIT-004)"
     application:
       - type: "use_cases"
-        count: 1
-        rationale: "coach validator use case: detect a poisoned core.bare=true baseline via the effective `git config --get core.bare` and fail atdd validate with a repair pointer (E036-UNIT-003)"
+        count: 0
+        rationale: "No application use case: the CI-validator defense-in-depth layer (the _core_bare_baseline coach-validator check for E036-UNIT-003) was removed as production-unreachable dead code. The prevention layer (git PATH shim) and the atdd gate self-heal remain and fully carry this feature."
     domain:
       - type: "value_objects"
         count: 0

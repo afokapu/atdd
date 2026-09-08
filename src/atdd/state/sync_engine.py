@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Mapping, Optional, Protocol
 
 from atdd.state.store import StateStore
@@ -61,6 +62,44 @@ class SyncProvider(Protocol):
         """Perform one local→remote operation; return an external ref to record (or None)."""
 
 
+class OutboxVerdict(str, Enum):
+    """What a drain run has to say, in four states rather than an exit code (#1711/C015).
+
+    ``PushResult`` carried counts only, and its one caller returned non-zero on
+    ``failed`` alone. So the two outcomes an operator most needs to tell apart —
+    "the queue is empty" and "there is nowhere to send it" — produced the same
+    answer: ``0 pushed, 0 failed``, exit 0. Measured 2026-08-03, that answer had
+    been correct-looking and wrong for 25 days over 30 undeliverable rows.
+
+    ==================  =========================================  ===============
+    verdict             means                                      at the CLI
+    ==================  =========================================  ===============
+    ``PASS``            every pending row reached the provider     exits 0
+    ``FAIL``            a provider rejected a row                  exits non-zero
+    ``COULD_NOT_CHECK`` rows remain pending; nothing sent them     exits non-zero
+    ``NOT_APPLICABLE``  there was nothing to drain                 exits 0
+    ==================  =========================================  ===============
+
+    NOT A SECOND VOCABULARY. These are the four names #1719/C013 gave the
+    enforcing transition gate, for the same distinction one layer down: there a
+    check that could not observe had only ``True`` available, here a drain that
+    could not deliver had only exit 0. Core cannot import that module (it lives
+    in ``atdd.coach``, and this layer is foundational), so the alignment is by
+    name and is asserted by C015-UNIT-001 rather than left to this paragraph.
+
+    ``COULD_NOT_CHECK`` is deliberately NOT ``FAIL``. Nothing was rejected and
+    nothing is broken — the rows are intact and the remedy is to register a
+    provider, not to debug one. Both refuse, because a drain that reports success
+    over a queue it did not move is the defect; reporting them apart is what lets
+    an operator tell "your provider is erroring" from "you have no provider".
+    """
+
+    PASS = "pass"
+    FAIL = "fail"
+    COULD_NOT_CHECK = "could_not_check"
+    NOT_APPLICABLE = "not_applicable"
+
+
 @dataclass
 class PushResult:
     pending: int
@@ -68,6 +107,29 @@ class PushResult:
     failed: int
     skipped_no_provider: int
     errors: List[str] = field(default_factory=list)
+    #: Provider names the outbox holds rows for and the registry does not know.
+    #: Sorted and de-duplicated so the refusal is attributable without re-querying.
+    unregistered_providers: List[str] = field(default_factory=list)
+
+    @property
+    def verdict(self) -> OutboxVerdict:
+        """What this run can honestly claim about the queue it was given.
+
+        Derived from what the run moved rather than from why it did not, so a
+        row left behind for a reason nobody has thought of yet still refuses.
+        """
+        if self.pending == 0:
+            return OutboxVerdict.NOT_APPLICABLE
+        if self.failed:
+            return OutboxVerdict.FAIL
+        if self.pushed == self.pending:
+            return OutboxVerdict.PASS
+        return OutboxVerdict.COULD_NOT_CHECK
+
+    @property
+    def drained(self) -> bool:
+        """True only when the queue is now empty for a reason this run produced."""
+        return self.verdict in (OutboxVerdict.PASS, OutboxVerdict.NOT_APPLICABLE)
 
 
 @dataclass
@@ -97,16 +159,24 @@ def push_outbox(
     A message whose ``provider`` has no registered provider is left **pending**
     (counted as ``skipped_no_provider``) — core never assumes a provider exists.
     A provider error also leaves its message pending (isolated per message).
+
+    The result carries a :class:`OutboxVerdict` (#1711/C015): counts alone could
+    not distinguish a drained queue from one nothing was able to move, and the
+    single caller read only ``failed``. Resolving the provider happens even under
+    ``dry_run`` — it is a registry lookup with no side effect, and reporting
+    "nothing here is deliverable" is the whole value of a dry run.
     """
     pending = store.sync.pending_outbox()
     pushed = failed = skipped = 0
     errors: List[str] = []
+    unregistered: set = set()
     for msg in pending:
-        if dry_run:
-            continue
         provider = providers.get(msg.provider)
         if provider is None:
             skipped += 1
+            unregistered.add(msg.provider)
+            continue
+        if dry_run:
             continue
         try:
             outcome = provider.push(msg.operation, msg.payload)
@@ -128,6 +198,7 @@ def push_outbox(
     return PushResult(
         pending=len(pending), pushed=pushed, failed=failed,
         skipped_no_provider=skipped, errors=errors,
+        unregistered_providers=sorted(unregistered),
     )
 
 

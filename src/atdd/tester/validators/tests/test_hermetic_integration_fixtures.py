@@ -17,7 +17,8 @@ These tests convert the seven GREEN-phase acceptances of
 ``wmbt:govern-lifecycle:E006`` into failing RED tests. They prove the
 substrate that issue #690 ships:
 
-  - ``acceptance.convention.yaml`` declares the orthogonal ``execution_kinds:``
+  - the ``planner.acceptance.execution-kind`` / ``.boundary-kind-vocabulary`` nodes
+    declare the orthogonal ``execution_kinds:``
     and ``boundary_kinds:`` vocabularies (UNIT-001).
   - The two new strict rules resolve via ``atdd rules show`` / ``atdd rules
     grep`` and point at recipe files that exist on disk (UNIT-001, UNIT-002).
@@ -62,9 +63,6 @@ pytestmark = [pytest.mark.platform]
 
 _REPO_ROOT = find_repo_root()
 
-_ACCEPTANCE_CONVENTION = (
-    _REPO_ROOT / "src" / "atdd" / "planner" / "conventions" / "acceptance.convention.yaml"
-)
 _VIOLATION_CONVENTION = (
     _REPO_ROOT
     / "src" / "atdd" / "tester" / "conventions" / "acceptance-violation.convention.yaml"
@@ -166,65 +164,6 @@ def _wmbt(urn: str, acceptances: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {"urn": urn, "acceptances": acceptances}
 
 
-# ===========================================================================
-# E006-UNIT-001 — convention declares the hermetic vocabularies
-# ===========================================================================
-def test_e006_unit_001_convention_declares_hermetic_vocabularies() -> None:
-    """acceptance.convention.yaml declares execution_kinds:/boundary_kinds: and
-    rules grep surfaces both new rule_ids; existing enums stay intact."""
-    data = yaml.safe_load(_ACCEPTANCE_CONVENTION.read_text(encoding="utf-8"))
-    assert isinstance(data, dict)
-
-    # New orthogonal execution_kinds: vocabulary (>= hermetic_integration, live_smoke).
-    assert "execution_kinds" in data, (
-        "acceptance.convention.yaml must declare an 'execution_kinds:' vocabulary"
-    )
-    execution_kinds = _flatten_vocab(data["execution_kinds"])
-    assert _EXPECTED_EXECUTION_KINDS <= execution_kinds, (
-        f"execution_kinds missing {_EXPECTED_EXECUTION_KINDS - execution_kinds}"
-    )
-
-    # New controlled boundary_kinds: vocabulary (all 10 values, Decision #3).
-    assert "boundary_kinds" in data, (
-        "acceptance.convention.yaml must declare a 'boundary_kinds:' vocabulary"
-    )
-    boundary_kinds = _flatten_vocab(data["boundary_kinds"])
-    assert _EXPECTED_BOUNDARY_KINDS <= boundary_kinds, (
-        f"boundary_kinds missing {_EXPECTED_BOUNDARY_KINDS - boundary_kinds}"
-    )
-    # Decision #7: golden_output is NOT a boundary_kind (golden is a harness_code).
-    assert "golden_output" not in boundary_kinds
-
-    # Existing orthogonal axes remain untouched (Decision #10).
-    assert "harness_codes" in data and "golden" in data["harness_codes"]
-    assert "harness_types" in data
-    for legacy in ("unit", "integration", "e2e"):
-        assert legacy in data["harness_types"], f"harness_types lost {legacy!r}"
-
-    # Both new rules are declared under the acceptance-violation convention.
-    # Post-#1225 the rules were atomized into single-node files under nodes/;
-    # accept either the decomposed node form (new home) or a legacy inline
-    # rules: block (backward-compat) as the declaration site.
-    _nodes_dir = _VIOLATION_CONVENTION.parent / "nodes"
-    declared_rule_ids = {
-        (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("rule_id")
-        for p in _nodes_dir.glob("tester.acceptance-violation.*.convention.yaml")
-    }
-    violation_data = yaml.safe_load(_VIOLATION_CONVENTION.read_text(encoding="utf-8")) or {}
-    declared_rule_ids |= {r.get("id") for r in violation_data.get("rules", [])}
-    assert _RULE_FIDELITY in declared_rule_ids
-    assert _RULE_PAIRING in declared_rule_ids
-
-    # The substrate is discoverable: `atdd rules grep hermetic` lists both.
-    result = _run_atdd("rules", "grep", "hermetic")
-    assert result.returncode == 0, result.stderr
-    assert _RULE_FIDELITY in result.stdout
-    assert _RULE_PAIRING in result.stdout
-
-
-# ===========================================================================
-# E006-UNIT-002 — atdd rules show resolves each new rule
-# ===========================================================================
 @pytest.mark.parametrize(
     ("rule_id", "recipe_file"),
     [

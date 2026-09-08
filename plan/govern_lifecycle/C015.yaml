@@ -1,0 +1,106 @@
+urn: "wmbt:govern-lifecycle:C015"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "an-enqueue-that-tells-its-caller-the-write-is-a-durable-retry-and-a-drain-that-exits-0-over-a-queue-it-left-untouched-so-neither-surface-can-say-that-no-registered-provider-will-ever-send-the-row"
+context_clarifier: "atdd.state.sync_engine.push_outbox leaves a message pending when providers.get(msg.provider) is None, counts it skipped_no_provider, and sync_cli returns 1 only if pushed.failed — so a run with no provider registered reports 0 failures and exits 0, which is the exit code of a run that drained everything. At the other end atdd.planner.commands.author prints 'github projection deferred to the outbox (durable retry)' unconditionally, deciding nothing and consulting no registry. Measured 2026-08-03 against the live State Store: 30 pending rows, oldest enqueued 2026-07-09, exactly 2 rows ever sent (both sent_at 2026-07-09 00:52:25), and discover_providers() returns {} — so the queue has never had anywhere to go and kept accepting work into that state for 25 days, most recently 4 days ago. The queue is NOT safely drainable, which is why the fix is the claim and not a schedule: 7 of the 10 pending update_issue payloads are older than the live body and would revert up to 7145B (the newest rows are the most destructive, so age does not predict divergence and an age bound would admit exactly the worst ones); 4 of the 9 pending create_issue rows are byte-identical requests for one slug and would file four duplicate issues, the #1271 defect the idempotent re-author path exists to prevent; and 7 of those 9 name a slug with no work_item in the store at all, so the store-first invariant that the local write stands does not hold for them. Same family as #1719/C013 one layer down: there the gate had only True available for 'I could not look', here the drain has only exit 0 and the enqueue has only 'durable retry'. Aligns with that vocabulary rather than forking one."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of an-enqueue-that-tells-its-caller-the-write-is-a-durable-retry-and-a-drain-that-exits-0-over-a-queue-it-left-untouched-so-neither-surface-can-say-that-no-registered-provider-will-ever-send-the-row by deciding the deferral's claim from the registered providers at the moment of enqueue instead of asserting it, by giving the outbox drain the same four-verdict outcome #1719 gave the transition gate — PASS (the queue drained), FAIL (a provider rejected a row), COULD_NOT_CHECK (rows are still pending because nothing could send them) and NOT_APPLICABLE (there was nothing to drain) — with an exit code that separates the last two, and by reporting the pending backlog with the age of its oldest row so accumulation is surfaced rather than held silently, so that no caller of the deferral path can read an unsent write as a retried one"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:C015-UNIT-001-an-undrained-outbox-is-not-a-successful-drain"
+      id: "AC-UNIT-001"
+      purpose: "The drain's outcome carries a verdict rather than a count an operator has to interpret, so 'there was nothing to drain' and 'there was nowhere to drain to' stop producing the same answer — the #1671 shape this WMBT was found through"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An in-memory State Store, driven through push_outbox directly — no CLI, no subprocess, no live store"
+        - "Four outbox states: empty; every row's provider registered; rows whose provider name is registered nowhere; a registered provider whose push raises"
+    when:
+      abstract: "push_outbox is run over each state and the verdict on its result is inspected"
+    then:
+      abstract:
+        - "An empty outbox yields NOT_APPLICABLE — there was no obligation to drain, which is not the same answer as having drained one"
+        - "A run that sent every pending row yields PASS"
+        - "Rows left pending because no provider is registered for them yield COULD_NOT_CHECK and never PASS, so a queue with nowhere to go cannot report the verdict of a drained one"
+        - "A provider that raises yields FAIL, reported apart from COULD_NOT_CHECK, because 'the provider rejected this row' and 'no provider exists' need different operator actions"
+        - "The verdict names are exactly the four #1719 gave the transition gate, so the repo carries one vocabulary for this distinction and not two"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C015-UNIT-002-the-deferral-claims-only-what-the-registry-can-back"
+      id: "AC-UNIT-002"
+      purpose: "The sentence an operator reads on deferral is derived from the registered providers at the moment of enqueue instead of asserted, because 'durable retry' printed over an empty registry is the promise that let 30 rows sit for 25 days"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The authoring publish and revise paths with their provider projection raising, so the deferral branch is the one taken"
+        - "The same failure run twice: once with no provider registered for that name, once with one registered"
+    when:
+      abstract: "the outcome is rendered for the operator"
+    then:
+      abstract:
+        - "With no provider registered the rendered line does not claim a durable retry, and says the write did not reach the provider and that nothing will send it as things stand"
+        - "With a provider registered the line names the command that makes the write land rather than leaving the operator to know it"
+        - "The store write stands and the exit code is unchanged in both cases, so this corrects the claim and not the behaviour behind it"
+        - "The claim is read from the provider registry rather than from a constant, so registering a provider changes the sentence with no edit to the message"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C015-UNIT-003-the-backlog-is-reported-with-the-age-of-its-oldest-row"
+      id: "AC-UNIT-003"
+      purpose: "Since when matters more than how many: a count alone cannot distinguish a queue that is moving from one that has not moved since July, and it was the age — not the size — that made this defect visible"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An outbox holding pending rows enqueued at several distinct times, for more than one provider name"
+        - "An outbox holding no pending rows"
+    when:
+      abstract: "the backlog summary is computed over each"
+    then:
+      abstract:
+        - "The summary carries the pending count and the enqueue time of the oldest pending row, so accumulation is legible without querying SQLite by hand"
+        - "The summary is broken down by provider name, so a single unregistered provider is attributable rather than averaged into a total"
+        - "An empty outbox reports zero explicitly rather than omitting the line, so a silent report cannot be read as a clean one"
+        - "Rows already sent or failed are excluded from the pending figures, so a terminal row never inflates the backlog"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"
+
+  - identity:
+      urn: "acc:govern-lifecycle:C015-SMOKE-001-real-cli-refuses-to-report-a-stalled-queue-as-drained"
+      id: "AC-SMOKE-001"
+      purpose: "Against a real migrated State Store and the real CLI entry point rather than fakes: the exact invocation an operator would run to check whether sync is healthy stops answering 0 over a queue it could not move"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real migrated State Store under an isolated Control Root, carrying real pending outbox rows enqueued through the store's own writer"
+        - "The real `atdd state sync --push` entry point, run with no monkeypatching of the store, the engine or the registry"
+        - "The provider registry empty, as it is in this repository today"
+    when:
+      abstract: "the command is run against that store"
+    then:
+      abstract:
+        - "It exits non-zero, so the invocation an operator uses to check sync health can no longer answer success over a queue nothing moved"
+        - "Its output names the verdict and the provider name that has no registration, so the refusal is actionable without reading the table"
+        - "No outbox row is marked sent and no provider call is attempted, so the refusal costs nothing and destroys nothing"
+        - "With a provider registered that accepts the operation, the same command drains the same store and exits 0, so the non-zero exit is the stalled state and not the flag"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-03"

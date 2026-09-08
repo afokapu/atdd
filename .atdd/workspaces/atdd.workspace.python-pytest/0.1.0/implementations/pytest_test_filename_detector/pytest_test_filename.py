@@ -2,7 +2,7 @@
 
 REALIZES the stack-bound EXTENSION obligation ``tester.filename.urn`` (disposition
 ``documentation-only``, severity 2) for the Python stack. The obligation node is
-authored in the tester EXTENSION (``official/atdd.extension.tester/conventions/
+authored in the tester EXTENSION (``official/atdd.extension.tester.base/conventions/
 tester.filename.urn.convention.yaml``); this module is the python-pytest DETECTOR
 that realizes it — it is NOT a new node and it does not re-author the obligation.
 

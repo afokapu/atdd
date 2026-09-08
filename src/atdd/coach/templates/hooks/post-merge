@@ -27,6 +27,20 @@ if ! atdd state reconcile >&2; then
     echo "  backup is retained. Run 'atdd state reconcile' to see the report." >&2
 fi
 
+# --- Self-upgrade (#1762, wmbt:integration-hardening:E009) ---
+# A pull has just synced this checkout with the world; bring the toolkit it runs on
+# along with it, so the next push is not refused to tell a human to run a command a
+# machine could run here. The trigger is the design, not the mechanism: git ignores
+# the exit code of every post-* hook, so an upgrade placed here cannot refuse anyone's
+# operation. wmbt:integration-hardening:Y004 still forbids the *blocking* pre-push
+# gate from upgrading, and this does not touch it — the gate becomes rarely reached,
+# not less strict.
+#
+# LAST, deliberately. Replacing the `atdd` console script mid-hook must not strand a
+# reconcile that had to run first. Output is advisory and goes to stderr only; the
+# command always exits 0, and `|| true` says so even if that ever stops being true.
+atdd self-upgrade >&2 || true
+
 # Always 0 — a hook failure must never leave the operator with a merged tree and a
 # git error they cannot act on.
 exit 0

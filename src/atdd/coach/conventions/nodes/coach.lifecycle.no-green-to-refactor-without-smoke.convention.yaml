@@ -5,6 +5,9 @@ status: active
 name: No GREEN→REFACTOR without SMOKE
 statement: A phase transition from GREEN to REFACTOR without an intervening SMOKE is a phase-ordering
   violation; real-infrastructure SMOKE must run before REFACTOR.
+implementation:
+  type: validator
+  ref: test_smoke_execution_gate_binding::test_no_green_to_refactor_without_smoke_has_a_live_mechanism
 source:
   legacy_path: src/atdd/coach/conventions/observer.convention.yaml
   legacy_section: drift_classifier_observer_rules
@@ -17,8 +20,23 @@ content:
     See atdd-coach-spec-v9.md §6.4 (phase-ordering contract).'
 metadata:
   severity: 4
-  disposition: documentation-only
+  disposition: strict
   introduced_in: 3.21.0
+  enforcement: >-
+    Two mechanisms, deliberately distinct. ORDERING is enforced by
+    phase_machine.convention.yaml (GREEN.transitions_to omits REFACTOR), and always was.
+    EXECUTION — "real-infrastructure SMOKE must run" — was enforced by nothing until #1602
+    and is now enforced by SmokeExecutionGateCheck, a #1020 GateCheck registered for
+    SMOKE->REFACTOR that reads a smoke-execution attestation only a live-smoke pytest run
+    can write. The named validator guards that the mechanism stays WIRED; the mechanism's
+    own correctness is proven in
+    src/atdd/coach/gate/tests/test_1602_smoke_execution_end_to_end.py.
+  not_in_binding_lock: >-
+    Deliberate. .atdd/binding.lock.yaml marries a convention node to a WORKSPACE PROVIDER
+    implementation (workspace_id / implementation_id), and enforce.gating obligates only
+    EXTENSION nodes to appear there. This is a core node whose mechanism is a core phase
+    gate with no workspace detector, so a lock entry would assert a provider realizes it —
+    which is false. Same shape as ApprovalTokenGateCheck (#1017), also absent from the lock.
 parity:
   source_fragments_preserved: true
   examples_preserved: false

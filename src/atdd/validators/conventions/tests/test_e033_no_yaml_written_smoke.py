@@ -31,7 +31,13 @@ import pytest
 
 CONVENTION_GLOB = "src/atdd/**/*.convention.yaml"
 FAULT_SELECTOR = "convention_fault"
-MIN_FAULT_TESTS = 4
+# Lowered 4 -> 3 by #1483. `binding/test_spawn_cli_rule_binding.py` was retired with its
+# SUBJECT, not to speed the suite up: the `coach.spawn.atdd-spawn-cli` rule, its
+# `spawn.convention.yaml` declaration, the `SPAWN_CLI_RULE` binder in
+# `coach/validators/_rule_binders.py`, and the `spawn_cli_rule_binding` variant are all
+# gone, so there is no declaration left to fault-inject. The floor may only move down
+# when the thing it measured genuinely went away.
+MIN_FAULT_TESTS = 3
 
 
 def _repo_root() -> Path:

@@ -16,8 +16,9 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import logging
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from atdd.coach.commands.worktree_placement import (
     resolve_worktree_dir_name,
@@ -33,6 +34,74 @@ _TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE"}
 
 # Statuses from PLANNED onward require a template-compliant issue body.
 _COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
+
+
+@dataclass(frozen=True)
+class _NextAction:
+    """One phase's next-step hint: the prose, and the edge it advances across.
+
+    ``to_phase`` is the EDGE, not a command string. The command is composed at
+    print time by :meth:`IssueLifecycle._transition_command_lines`, which asks
+    the gate whether that edge needs an approval first. Storing the rendered
+    command here is what let the hint name a blocked command: the string could
+    not know what ``.atdd/config.yaml`` had gated (#1750).
+    """
+
+    lines: Tuple[str, ...]
+    to_phase: Optional[str] = None
+
+
+# The per-phase "Next:" hint, as DATA. `{number}` is the issue number.
+#
+# REFACTOR is the one advance an operator normally does NOT type:
+# .github/workflows/atdd-auto-phase.yml (#355) drives REFACTOR->COMPLETE from
+# `pull_request: closed` + merged == true, through `atdd coach transition` ->
+# IssueManager.update, so the store is written first and the atdd:<PHASE> label
+# is projected from it. Printing only the manual command reads as an instruction
+# and invites a hand-typed transition that races the workflow — the desync #1452
+# removed the raw label-write from post-merge-lifecycle.yml to stop. Name the
+# automatic path first, and keep the manual one for the cases that genuinely
+# need it (no PR, or auto-phase did not run — e.g. #1621).
+_NEXT_ACTION_HINTS = {
+    "INIT": _NextAction(
+        lines=("  Next: Fill issue scope, then transition:",),
+        to_phase="PLANNED",
+    ),
+    "PLANNED": _NextAction(
+        lines=("  Next: Write failing tests (RED phase), then transition:",),
+        to_phase="RED",
+    ),
+    "RED": _NextAction(
+        lines=("  Next: Implement to make tests pass (GREEN), then transition:",),
+        to_phase="GREEN",
+    ),
+    "GREEN": _NextAction(
+        lines=("  Next: Run tester SMOKE verification, then transition:",),
+        to_phase="SMOKE",
+    ),
+    "SMOKE": _NextAction(
+        lines=("  Next: Refactor to clean architecture, then transition:",),
+        to_phase="REFACTOR",
+    ),
+    "REFACTOR": _NextAction(
+        lines=(
+            "  Next: Merge the PR — REFACTOR → COMPLETE is automatic:",
+            "         .github/workflows/atdd-auto-phase.yml advances the",
+            "         phase on merge and projects the label from the store.",
+            "  Manual (only if there is no PR, or auto-phase did not run):",
+        ),
+        to_phase="COMPLETE",
+    ),
+    "COMPLETE": _NextAction(
+        lines=("  This issue is COMPLETE. No further action needed.",)
+    ),
+    "OBSOLETE": _NextAction(
+        lines=("  This issue is OBSOLETE. No further action needed.",)
+    ),
+    "BLOCKED": _NextAction(
+        lines=("  This issue is BLOCKED. Resolve blockers, then transition back.",)
+    ),
+}
 
 
 
@@ -65,34 +134,25 @@ class IssueLifecycle:
                 return None
             import json
             return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return None
 
-    def _fetch_sub_issues(self, issue_number: int, slug: str) -> list:
-        """Fetch WMBT sub-issues for this parent issue.
+    def _resolve_wmbts(self, issue_number: int):
+        """Resolve this issue's WMBTs through its feature binding (#1635).
 
-        Matches by slug in WMBT title (wmbt:<slug>:<ID>) or by #N reference.
+        Replaces the provider-label lookup entirely. The previous implementation
+        shelled out to ``gh issue list --label atdd-wmbt`` and never read
+        ``plan/``; #1477 removed the command that minted those labels with no
+        replacement, so it reported nothing for every issue in the repo. It also
+        swallowed subprocess failure and returned ``[]``, which is
+        indistinguishable from a correct empty answer.
+
+        Returns a ``WmbtResolution`` — three distinct outcomes (unbound,
+        unresolved, resolved) rather than one possibly-empty list.
         """
-        repo = self._get_repo()
-        if not repo:
-            return []
-        try:
-            # Search for WMBTs mentioning this slug in title
-            result = subprocess.run(
-                ["gh", "issue", "list", "--repo", repo,
-                 "--label", "atdd-wmbt", "--state", "all",
-                 "--search", f"wmbt:{slug} in:title",
-                 "--json", "number,title,state",
-                 "--limit", "50"],
-                capture_output=True, text=True, timeout=15,
-                cwd=self.target_dir,
-            )
-            if result.returncode != 0:
-                return []
-            import json
-            return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            return []
+        from atdd.coach.commands.issue_feature_binding import resolve_wmbts_for_issue
+
+        return resolve_wmbts_for_issue(issue_number, control_root=self.target_dir)
 
     def _get_status_from_labels(self, labels: list) -> str:
         """Extract ATDD status from issue labels."""
@@ -163,9 +223,44 @@ class IssueLifecycle:
         return None
 
     def _is_in_worktree(self, slug: str, prefix: str) -> bool:
-        """Check if we're currently in the correct worktree."""
-        expected_dir_name = resolve_worktree_dir_name(prefix, slug)
-        return self.target_dir.name == expected_dir_name
+        """Whether the caller is standing in THIS issue's worktree (#1708).
+
+        The identity of a worktree is its issue, not the prefix it happens to
+        carry. Comparing against a single derived ``{prefix}-{slug}`` made a
+        worktree created with ``--prefix fix`` invisible whenever the issue body
+        derived ``feat`` — so the caller standing inside it was told otherwise
+        and a duplicate was created beside it (the #1802 incident).
+
+        Any SANCTIONED prefix counts, and nothing else does: matching on the slug
+        alone would make an unrelated directory that merely ends in it answer yes.
+
+        Placement-agnostic by construction: the check is on the directory's
+        NAME, so it answers the same whether the worktree sits at the legacy
+        flat sibling or under a configured ``worktree_root`` (#1524). The name
+        itself still comes from the one resolver, so a future change to the
+        naming scheme cannot make this predicate disagree with the creation
+        paths.
+        """
+        from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES
+
+        name = self.target_dir.name
+        candidates = {resolve_worktree_dir_name(p, slug) for p in ALLOWED_BRANCH_PREFIXES}
+        candidates.add(resolve_worktree_dir_name(prefix, slug))
+        return name in candidates
+
+    def _report_absent_worktree(self, issue_number: int, slug: str, prefix: str) -> int:
+        """Say a worktree is missing without making one — the READ path (#1708).
+
+        Extracted rather than inlined in ``enter``: that method already sits at
+        the ``coder.refactor.complexity-length`` threshold, and adding the report
+        inline pushed the rule one over its ratchet baseline.
+        """
+        print()
+        print(f"ATDD: Issue #{issue_number} has no worktree here.")
+        print(f"  expected one for branch {prefix}/{slug}")
+        print(f"  create it with: atdd coach enter {issue_number}")
+        print()
+        return 0
 
     def _create_branch(self, issue_number: int, slug: str, prefix: str) -> Optional[Path]:
         """Create worktree branch. Returns worktree path or None on failure."""
@@ -226,13 +321,6 @@ class IssueLifecycle:
         # (#1051); the Projects v2 "ATDD Branch" field is decommissioned, so no
         # board write happens here.
 
-        # Refresh workspace
-        try:
-            from atdd.coach.commands.initializer import write_workspace
-            write_workspace(self.target_dir)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-            pass
-
         return worktree_path
 
     def _run_gate(self, worktree_path: Path) -> int:
@@ -259,7 +347,7 @@ class IssueLifecycle:
             if result.stdout:
                 print(result.stdout.rstrip())
             return result.returncode
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print("Warning: Could not run atdd gate")
             return 0
 
@@ -281,43 +369,85 @@ class IssueLifecycle:
         if worktree_path:
             print(f"  Worktree: {worktree_path}")
 
-        # WMBTs
-        if sub_issues:
-            open_wmbts = [w for w in sub_issues if w.get("state") == "OPEN"]
-            closed_wmbts = [w for w in sub_issues if w.get("state") == "CLOSED"]
-            print(f"\n  WMBTs: {len(open_wmbts)} open, {len(closed_wmbts)} closed")
-            for w in sorted(sub_issues, key=lambda x: x["number"]):
-                marker = "[ ]" if w.get("state") == "OPEN" else "[x]"
-                print(f"    {marker} #{w['number']} {w['title'][:60]}")
-        else:
-            print("\n  WMBTs: none found")
+        # WMBTs — resolved from plan/ through the issue's feature binding.
+        # `sub_issues` is a WmbtResolution (#1635), not a list of GitHub issues:
+        # an unbound issue and a broken binding now read differently from a
+        # genuinely undecomposed one instead of collapsing into "none found".
+        from atdd.coach.commands.issue_feature_binding import render_wmbt_section
+
+        print()
+        print(render_wmbt_section(sub_issues))
 
         # Next action
         print()
-        if status == "INIT":
-            print("  Next: Fill issue scope, then transition:")
-            print(f"         atdd coach transition {number} PLANNED")
-        elif status == "PLANNED":
-            print("  Next: Write failing tests (RED phase), then transition:")
-            print(f"         atdd coach transition {number} RED")
-        elif status == "RED":
-            print("  Next: Implement to make tests pass (GREEN), then transition:")
-            print(f"         atdd coach transition {number} GREEN")
-        elif status == "GREEN":
-            print("  Next: Run tester SMOKE verification, then transition:")
-            print(f"         atdd coach transition {number} SMOKE")
-        elif status == "SMOKE":
-            print("  Next: Refactor to clean architecture, then transition:")
-            print(f"         atdd coach transition {number} REFACTOR")
-        elif status == "REFACTOR":
-            print("  Next: Complete and close:")
-            print(f"         atdd coach transition {number} COMPLETE")
-        elif status in _TERMINAL_STATUSES:
-            print(f"  This issue is {status}. No further action needed.")
-        elif status == "BLOCKED":
-            print("  This issue is BLOCKED. Resolve blockers, then transition back.")
+        self._print_next_action(status, number)
         print("=" * 70)
         print()
+
+    def _transition_command_lines(
+        self, from_phase: str, to_phase: str, number: int
+    ) -> List[str]:
+        """The command(s) that actually cross ``from_phase -> to_phase``.
+
+        DERIVED from the gate that will judge the command, never restated
+        (#1750). ``atdd coach approve`` is named for exactly the edges
+        :func:`~atdd.coach.gate.registrations.approval_required_for` reports as
+        approval-gated — which is ``.atdd/config.yaml``'s ``gate.transitions``
+        intersected with the edges the approval check is registered for. This
+        repo gates ``PLANNED->RED`` and ``SMOKE->REFACTOR``; a repo that gates
+        neither, or gates a third edge, gets the right sentence with no code
+        change, because the sentence is not in the code.
+
+        Nothing here changes the POLICY — the same call the gate makes, asked one
+        step earlier so the operator is told about the refusal instead of
+        discovering it.
+        """
+        transition = f"         atdd coach transition {number} {to_phase}"
+        try:
+            from atdd.coach.gate.registrations import approval_required_for
+
+            gated = approval_required_for(self._load_config(), from_phase, to_phase)
+        except Exception as exc:
+            # A hint that cannot consult the gate must not take the command down,
+            # and must not silently claim the edge is ungated either — say which
+            # question went unanswered.
+            logger.warning(
+                "could not derive whether the next transition is gated",
+                extra={"issue": number, "edge": f"{from_phase}->{to_phase}",
+                       "error": str(exc)},
+            )
+            return [
+                transition,
+                f"  (could not check whether {from_phase}->{to_phase} is gated: "
+                f"{exc})",
+            ]
+
+        if not gated:
+            return [transition]
+        return [
+            f"  {from_phase}->{to_phase} is a gated edge — the transition alone is",
+            "  refused. Approve it first:",
+            f"         atdd coach approve {number} --transition '{from_phase}->{to_phase}'",
+            transition,
+        ]
+
+    def _print_next_action(self, status: str, number: int) -> None:
+        """Print the operator's next step for *status*.
+
+        Table-driven rather than an if/elif chain (#1626): the hints are DATA,
+        one entry per phase, so adding a phase is an entry here and the branch
+        count does not grow with the phase machine. The COMMAND is not part of
+        that data — it is composed against the gate (#1750).
+        """
+        hint = _NEXT_ACTION_HINTS.get(status)
+        if hint is None:
+            return
+        for line in hint.lines:
+            print(line.format(number=number))
+        if hint.to_phase is None:
+            return
+        for line in self._transition_command_lines(status, hint.to_phase, number):
+            print(line)
 
     def check(self, issue_number: int) -> int:
         """Run template compliance check against an issue body.
@@ -373,7 +503,7 @@ class IssueLifecycle:
             return {}
         try:
             return yaml.safe_load(self.config_file.read_text()) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-09-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return {}
 
     def _transition_gate(self, issue_number: int, target_status: str,
@@ -414,20 +544,33 @@ class IssueLifecycle:
         if outcome.proceed:
             return 0
 
+        # Count and iterate the FULL blocking set, not just `failures` (#1719).
+        # Two verdicts refuse, and the gate reports them apart: a check that
+        # could not perform its observation blocks without ever landing in
+        # `failures`. Rendering only that bucket tells the operator a transition
+        # is "blocked by 0 failing gate check(s)" and then lists nothing — a
+        # refusal that names no reason, which is the same defect class as the
+        # vacuous pass this verdict was added to remove.
         if force:
             print(
                 f"::warning::Transition gate bypassed (--force) for "
                 f"{from_phase} -> {target_status.upper()}; "
-                f"{len(outcome.failures)} check(s) failed."
+                f"{len(outcome.blockers)} check(s) blocked "
+                f"({len(outcome.failures)} failed, "
+                f"{len(outcome.unobservable)} could not be checked)."
             )
             return 0
 
         print(
             f"\nError: Transition {from_phase} -> {target_status.upper()} blocked "
-            f"by {len(outcome.failures)} failing gate check(s):"
+            f"by {len(outcome.blockers)} gate check(s):"
         )
         for f in outcome.failures:
             print(f"  ✗ [{f.gate_id} / {f.rule_id}] {f.message}")
+        # Marked distinctly because the remedy is different: a failure means fix
+        # the work, an unobservable check means make the check able to look.
+        for u in outcome.unobservable:
+            print(f"  ? [{u.gate_id} / {u.rule_id}] COULD NOT CHECK: {u.message}")
         print(f"  Bypass: atdd coach transition {issue_number} {target_status.upper()} --force")
         return 1
 
@@ -479,7 +622,7 @@ class IssueLifecycle:
         labels = issue.get("labels", [])
         status = self._get_status_from_labels(labels)
         slug, prefix = self._get_slug_and_prefix(issue)
-        sub_issues = self._fetch_sub_issues(issue_number, slug)
+        sub_issues = self._resolve_wmbts(issue_number)
 
         self._print_context(issue, status, sub_issues, slug, prefix, None)
         return 0
@@ -513,11 +656,13 @@ class IssueLifecycle:
         # Re-enter to show updated state
         return self.enter(issue_number)
 
-    def enter(self, issue_number: int) -> int:
+    def enter(self, issue_number: int, *, create: bool = True) -> int:
         """Enter an existing issue with state-driven behavior.
 
         Args:
             issue_number: GitHub issue number.
+            create: may a missing worktree be created? The READ verb passes
+                ``False`` (#1708); ``atdd coach enter`` keeps the default.
 
         Returns:
             0 on success, 1 on error.
@@ -535,7 +680,7 @@ class IssueLifecycle:
         slug, prefix = self._get_slug_and_prefix(issue)
 
         # Fetch sub-issues (WMBTs)
-        sub_issues = self._fetch_sub_issues(issue_number, slug)
+        sub_issues = self._resolve_wmbts(issue_number)
 
         worktree_path = None
 
@@ -561,6 +706,8 @@ class IssueLifecycle:
             existing = self._find_worktree_for_issue(slug, prefix)
             if existing:
                 worktree_path = existing
+            elif not create:
+                return self._report_absent_worktree(issue_number, slug, prefix)
             else:
                 worktree_path = self._create_branch(issue_number, slug, prefix)
                 if not worktree_path:

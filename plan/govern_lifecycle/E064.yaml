@@ -1,0 +1,53 @@
+urn: wmbt:govern-lifecycle:E064
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: a-javascript-or-typescript-file-shipping-in-the-core-wheel-and-reaching-a-pure-python-consumer-who-can-never-satisfy-the-stack-it-encodes
+context_clarifier: 'Core is the stack-agnostic engine; the stack belongs to a workspace provider (`atdd.workspace.typescript`,
+  `frontend.extension.vite-coder`). #1518 measured 35 `.ts/.tsx/.mjs` files under `src/atdd/`, 24 TypeScript-only
+  validators, 12+ TS and `coder.frontend.*` rule_ids, a TSX AST parser, and — sharpest — `tree-sitter-typescript`
+  as a RUNTIME dependency, so every consumer including pure-Python ones installed a TypeScript grammar.
+  Nothing structural prevents a regression: `[tool.setuptools.package-data]` is a broad `"atdd" = ["**/*"]`
+  ship-it-all glob (#1474/E062), so a stray `.ts` anywhere under `src/atdd/` reaches consumers automatically
+  — nothing has to opt it in. The measurement itself is also a trap: the original count found 13 validators
+  by matching "typescript" in the FILENAME and missed 11 more that are equally TS-only but not named that
+  way, so a filename-based guard would under-report by roughly half. The honest oracle is the built wheel''s
+  member list, not a source-tree grep and not the packaging config text.'
+lens: functional.sustainability
+statement: minimize likelihood of a-javascript-or-typescript-file-shipping-in-the-core-wheel-and-reaching-a-pure-python-consumer-who-can-never-satisfy-the-stack-it-encodes
+  by asserting against the member list of a REAL built wheel that no `.ts/.tsx/.js/.jsx/.mjs/.cjs` file
+  ships, with any deliberate exemption held as an exact-path allowlist plus a subset assertion so the
+  carve-out can shrink to empty but never silently widen
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:E064-SMOKE-001-built-wheel-ships-no-javascript
+    id: AC-SMOKE-001
+    purpose: A wheel built from the real repo by the real build backend carries NO JavaScript or TypeScript
+      file - the empirical proof that core is stack-agnostic, asserted against the artifact consumers
+      actually install rather than against a source-tree grep or the packaging config text, both of which
+      were wrong before
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - The repo checkout, built with `python -m build --wheel` through the real PEP-517 path from a PRISTINE
+      copy that excludes `build/` - setuptools never cleans `build/lib` and bdist packs it wholesale,
+      so a stale artifact there would resurrect a deleted file and make the prune look complete when it
+      is not
+    - The exact-path allowlist of files deliberately still exempt, each with a live in-core consumer and
+      no extension home yet
+  when:
+    abstract: The built wheel is opened and every member path is tested for a JS/TS suffix
+  then:
+    abstract:
+    - No member ends in `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` or `.cjs`, except the exact paths on the
+      allowlist - where today 35 such files shipped, including 33 validator fixtures and the two `coach/templates/harness/*.mjs`
+    - The set of JS/TS members actually shipped is a SUBSET of the declared allowlist, so the carve-out
+      can shrink to empty but never silently widen into a parking spot for newly added JavaScript
+    - The guard can FAIL - proven by fault injection. Re-adding a single `.ts` file under `src/atdd/`
+      turns it red, and removing it turns it green again
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-18'

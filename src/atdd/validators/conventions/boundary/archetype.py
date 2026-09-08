@@ -51,7 +51,7 @@ TEMPLATE_IDS = [t.template_id for t in TEMPLATES]
 # #1212). Delete entries here as #951 re-themes each wagon — same as legacy.
 # ---------------------------------------------------------------------------
 DEFERRED_RETHEME_WAGONS: frozenset = frozenset(
-    {"mediate-worker-decisions", "consolidate-coach-workspace"}
+    {"consolidate-coach-workspace"}
 )
 
 

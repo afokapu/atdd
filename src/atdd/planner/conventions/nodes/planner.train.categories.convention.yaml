@@ -12,17 +12,23 @@ source:
   legacy_sha: 825602729f11a3a4
   extraction_mode: high_fidelity
 parity:
-  source_fragments_preserved: true
+  source_fragments_preserved: false
   examples_preserved: true
   implementation_preserved: false
   fix_hint_preserved: false
-  reviewed_at: '2026-06-16'
+  reviewed_at: '2026-07-28'
+  divergence_note: >-
+    The four glosses are deliberately reworded away from the extraction (#1634).
+    The legacy numbering.categories section no longer exists in
+    train.convention.yaml, so this node is the sole definition and fidelity to
+    the retired source is no longer checkable. Value keys and the closed set are
+    unchanged.
 terms:
 - term_id: category
   label: Test categories
   text: name -> description. The four values of the train's `category` field.
   values:
-    nominal: Happy path - perfect conditions, standard flows
-    error: Unexpected system failures - crashes, unavailability, infrastructure issues
-    alternate: Valid alternative flows - different inputs, modes, configurations
-    exception: Expected failures handled gracefully - validation errors, business rule violations
+    nominal: The intended journey - the domain runs to completion and returns the outcome the job exists to produce
+    error: Failure originating outside the modelled domain - the domain never ran, so no verdict exists and no domain postcondition holds; the identical request may succeed once the fault clears (crashes, collaborator unavailability, infrastructure faults)
+    alternate: A different in-domain route to a successful outcome - another input mode, channel, configuration or persona; still a success, not a failure
+    exception: An in-domain refusal - the domain ran, evaluated the request and rendered a negative verdict, so the refusal is the business rule working; the identical request is refused identically on retry (validation failures, business rule violations, policy denials)

@@ -74,6 +74,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "baseline, then exit 0. Use to pay debt down, NEVER to green a red build."
         ),
     )
+    parser.add_argument(
+        "--rule", action="append", default=None, metavar="RULE_ID", dest="rules",
+        help=(
+            "Enforce only this convention (repeatable). One provider subprocess per "
+            "selected rule instead of one per bound rule. Omitted, every bound "
+            "convention runs. A rule id that is not bound is an error, not an empty "
+            "run — an empty run spawns no detector and would report clean."
+        ),
+    )
     return parser
 
 
@@ -110,6 +119,16 @@ def _apply_ratchet(result, repo_root: Path, ratchet_arg: str):
     return apply_ratchet(result, baseline)
 
 
+def _rule_selection(args) -> Optional[set]:
+    """The ``--rule`` selection as a set, or ``None`` when the caller named no rules.
+
+    Kept out of ``run`` so the entry point carries no extra branch: ``None`` and the
+    empty set mean different things downstream (enforce everything vs. a selection
+    that resolves to nothing), and only ``None`` is the no-selection signal.
+    """
+    return set(args.rules) if args.rules else None
+
+
 def run(argv: Optional[Sequence[str]] = None) -> int:
     """Entry point invoked by ``atdd.cli`` for ``atdd enforce ...``."""
     args = _build_parser().parse_args(list(argv or []))
@@ -138,7 +157,7 @@ def run(argv: Optional[Sequence[str]] = None) -> int:
         return 0 if ok else 1
 
     try:
-        result = enforce(repo_root, path_override=args.paths)
+        result = enforce(repo_root, path_override=args.paths, rules=_rule_selection(args))
     except EnforceUsageError as exc:
         _log.warning("enforce usage error", extra={"error": str(exc)})
         print(f"atdd enforce: {exc}")

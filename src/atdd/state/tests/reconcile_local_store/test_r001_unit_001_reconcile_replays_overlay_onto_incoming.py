@@ -93,7 +93,8 @@ def test_r001_unit_001_reconcile_replays_overlay_onto_incoming(tmp_path) -> None
     finally:
         conn.close()
 
-    # The peer advances UID_A again, and drops UID_B from the projection entirely.
+    # The peer advances UID_A again, and UID_B goes missing from the projection with no
+    # tombstone and no explanation.
     (projection_dir(repo) / f"{UID_B}.yaml").unlink()
     write_projection(repo, [document(UID_A, phase="SMOKE", owner="dev-a")])
     plain_head = commit_all(repo, "another peer commit")
@@ -110,11 +111,13 @@ def test_r001_unit_001_reconcile_replays_overlay_onto_incoming(tmp_path) -> None
             row["uid"]: row["state"]
             for row in conn.execute("SELECT uid, state FROM objects WHERE kind='work_item'")
         }
-        # Plain hydrate == the projection exactly — it REPLACES the public half rather
-        # than merging into it, so the dropped UID_B leaves the store. The local object
-        # stays only because the earlier replay gave it a projection file of its own;
-        # it is still uncommitted, which is exactly the private work that must survive.
-        assert rows == {UID_A: "SMOKE", local_uid: "PLANNED"}
-        assert UID_B not in rows
+        # Plain hydrate takes the projection's word for every object the projection
+        # MENTIONS — UID_A moves to SMOKE. It does not take silence for a word: UID_B
+        # vanished without a tombstone, which asserts nothing about UID_B, so UID_B stays
+        # exactly as it was (#1580 — this used to delete it, and that is what emptied the
+        # store on 2026-07-20). Retiring it requires saying so; see C002-UNIT-004.
+        # The local object stays for the separate reason that it is private work with a
+        # projection file of its own, still uncommitted.
+        assert rows == {UID_A: "SMOKE", UID_B: "RED", local_uid: "PLANNED"}
     finally:
         conn.close()

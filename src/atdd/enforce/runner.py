@@ -44,8 +44,17 @@ from typing import List, Optional
 
 import yaml
 
-from atdd.enforce.conventions import RuleMetadata, compute_scan_policy, rule_metadata
+from atdd.enforce.conventions import (
+    RuleMetadata,
+    compute_scan_policy,
+    is_interlocking_rule,
+    load_bound,
+    resolve_interlocking_layout,
+    rule_metadata,
+    select_rules,
+)
 from atdd.enforce.dispositions import fails_on_violation
+from atdd.enforce.provider_env import provider_env
 from atdd.enforce.resolution import (
     ProviderResolutionError,
     ResolvedProvider,
@@ -129,17 +138,14 @@ def load_config(repo_root: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def _bound_conventions(substrate_home: Path) -> list[dict]:
-    lock_path = substrate_home / ".atdd" / "binding.lock.yaml"
-    if not lock_path.is_file():
-        return []
-    try:
-        lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError as exc:
-        raise EnforceUsageError(f"malformed binding.lock.yaml: {exc}") from exc
-    conventions = lock.get("conventions") if isinstance(lock, dict) else None
-    conventions = conventions if isinstance(conventions, list) else []
-    return [c for c in conventions if isinstance(c, dict) and c.get("disposition") == "bound"]
+def _bound_conventions(substrate_home: Path, rules: Optional[set] = None) -> list[dict]:
+    """The ``bound`` convention entries, optionally narrowed to ``rules``.
+
+    Thin seam over the resolution helpers in :mod:`atdd.enforce.conventions`; kept
+    here because it is the name callers and tests already bind to.
+    """
+    bound = load_bound(substrate_home, EnforceUsageError)
+    return select_rules(bound, rules, EnforceUsageError)
 
 
 def _candidate_roots(substrate_home: Path) -> list[Path]:
@@ -197,6 +203,7 @@ def _invoke_provider(
     scan_excludes: list[str],
     graph_roots: Optional[list[str]] = None,
     impls_root: Optional[Path] = None,
+    interlocking_layout: Optional[dict] = None,
 ) -> list[dict]:
     """Subprocess the provider CLI over ``scan_roots``; parse RAW v1.1 JSON.
 
@@ -204,25 +211,18 @@ def _invoke_provider(
     v1.1 JSON array off stdout". A non-zero provider exit is a run/usage failure
     of the provider itself (stdout empty), raised rather than mis-read as clean.
 
-    ``graph_roots`` (the consumer's resolved CLI entry-point module files) are
-    forwarded as ``ATDD_GRAPH_ROOTS`` for reachability detectors that consume
-    explicit extra roots. KNOWN GAP (#1238 / docs/PARITY-AUDIT-26.md REGRESSION
-    #3): the enforce layer supplies them, but the vendored python-pytest
-    dead-code detector does not yet READ ``ATDD_GRAPH_ROOTS`` — that detector-side
-    consumption awaits the extension re-vendor. Forwarding it now means parity
-    closes the moment the fixed detector is re-vendored, with no further core
-    change. (We cannot patch the vendored detector here: it is digest-locked by
-    ``.atdd/substrate.lock.yaml`` and re-vendoring is the convergence step.)
+    What the subprocess is told — the scan surface, ``graph_roots``, the
+    ``interlocking_layout`` and the cache suppression — is
+    :func:`atdd.enforce.provider_env.provider_env`; this function only runs it and
+    reads the result.
     """
-    env = {
-        **os.environ,
-        "ATDD_SCAN_ROOTS": json.dumps([str(r) for r in scan_roots]),
-        "ATDD_IMPL_ID": implementation_id,
-    }
-    if scan_excludes:
-        env["ATDD_SCAN_EXCLUDES"] = json.dumps([str(e) for e in scan_excludes])
-    if graph_roots:
-        env["ATDD_GRAPH_ROOTS"] = json.dumps([str(r) for r in graph_roots])
+    env = provider_env(
+        implementation_id,
+        scan_roots,
+        scan_excludes,
+        graph_roots=graph_roots,
+        interlocking_layout=interlocking_layout,
+    )
     argv = [sys.executable, str(provider.provider_cli_path)]
     if impls_root is not None:
         # Without this the provider CLI defaults to its OWN implementations/ dir and
@@ -299,8 +299,14 @@ def enforce(
     repo_root: Path,
     *,
     path_override: Optional[list[str]] = None,
+    rules: Optional[set] = None,
 ) -> EnforceResult:
     """Enforce every ``bound`` convention against ``repo_root``.
+
+    ``rules`` narrows the run to the named conventions — one provider subprocess per
+    selected rule instead of one per bound rule. Omitted, every bound convention runs,
+    so existing callers (`atdd enforce`, the post-commit hook, CI) are unaffected. A
+    selection naming an unbound or unknown rule raises rather than running nothing.
 
     Raises :class:`EnforceUsageError` (exit 2) on a wiring failure (malformed
     config/lock, unresolvable provider, provider crash).
@@ -308,7 +314,7 @@ def enforce(
     repo_root = repo_root.resolve()
     substrate_home = resolve_substrate_home(repo_root)
     config = load_config(repo_root)  # may raise EnforceUsageError (exit 2)
-    bound = _bound_conventions(substrate_home)
+    bound = _bound_conventions(substrate_home, rules)
 
     if not bound:
         return EnforceResult(verdicts=[], report="enforce: no bound conventions — clean no-op.")
@@ -363,6 +369,16 @@ def enforce(
                 ) from exc
         provider = provider_cache[cache_key]
 
+        # Scope the per-repo interlocking layout to the interlocking rules only —
+        # resolve the declared block once and forward it via env ONLY for a
+        # coder.train.interlocking-* subprocess, never leaking it onto unrelated
+        # rule subprocesses (#1595).
+        layout = (
+            resolve_interlocking_layout(config)
+            if is_interlocking_rule(rule_id)
+            else None
+        )
+
         raw = _invoke_provider(
             provider,
             impl_id,
@@ -370,6 +386,7 @@ def enforce(
             policy.scan_excludes,
             policy.graph_roots,
             impls_root=impls_root,
+            interlocking_layout=layout,
         )
         # A multi-rule detector emits several rule_ids in one run; judge this
         # bound convention only on its own rule_id's records.

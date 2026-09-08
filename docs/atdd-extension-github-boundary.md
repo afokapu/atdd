@@ -56,7 +56,7 @@ From the Slice-1 plan rows classified `extension → atdd.extension.github`:
 | Source (legacy) | Planned extension artifact kind |
 |-----------------|---------------------------------|
 | `issue.convention.yaml::github_issue_tracking` (labels, Projects, sub-issues, templates, gh deps) | conventions + templates |
-| `issue.convention.yaml::status.auto_transition_on_merge.{workflow,projects_access_fallback}` | gate + workflow asset |
+| `issue.convention.yaml::status.auto_transition_on_merge.workflow` | gate + workflow asset |
 | `pr.convention.yaml` rules + `phase_labels` + `auto_close_keywords` | conventions + gate (PR merge) |
 | `rule-id.convention.yaml` → `coach.pr.base-must-be-default-branch`, `coach.pr.mass-delete-guard` | conventions + implementations (validators) |
 | `path_shim_gh.convention.yaml` patterns | implementations (PATH shim + pre-commit) |

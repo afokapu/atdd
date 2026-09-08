@@ -48,13 +48,19 @@ def _pr(issue_number: int, *, store: str | None, label: str | None):
         "issue_data": {"number": issue_number},
     }
     with patch(
-        "atdd.coach.commands.auto_phase.PRManager.resolve_linked_issue",
-        return_value=resolution,
+        "atdd.coach.commands.auto_phase.PRManager.read_linked_issue",
+        return_value=_reading(resolution),
     ), patch(
         "atdd.coach.commands.auto_phase.read_store_phase",
         return_value=store,
     ):
         yield
+
+
+def _reading(resolution):
+    """Wrap a resolved link in the #1640 observation vocabulary."""
+    from atdd.coach.validators._observation import Reading
+    return Reading.observed(resolution)
 
 
 def test_divergence_reports_both_readings():

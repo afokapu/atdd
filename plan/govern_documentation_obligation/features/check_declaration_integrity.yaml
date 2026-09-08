@@ -1,0 +1,31 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: check_declaration_integrity() composing the well-formedness and change-set-presence
+        checks into one reportable result
+      type: use_cases
+    domain:
+    - count: 2
+      rationale: DocumentationDeclaration (impact, artifacts, reason); DeclaredArtifact (action, path,
+        from) as opaque path values
+      type: value_objects
+    - count: 1
+      rationale: DeclarationIntegrityPolicy answering is_well_formed(declaration) and declared_paths_present(declaration,
+        change_set)
+      type: policies
+    - count: 1
+      rationale: 'DelegationGate: integrity runs first; do not delegate while the declaration is absent.
+        The capability answers a missing declaration COULD_NOT_CHECK, which blocks, and no work item
+        carries one yet.'
+      type: policies
+description: 'Format-agnostic obligation check, and the gate on delegation: the declaration is well-formed
+  and every declared path is in the change set. Declared paths are opaque; core reads no file.'
+sizing:
+  footprint_score: 5
+  footprint_size: S
+  wmbts: 1
+urn: feature:govern-documentation-obligation:check-declaration-integrity
+wagon: wagon:govern-documentation-obligation
+wmbts:
+- wmbt:govern-documentation-obligation:D001

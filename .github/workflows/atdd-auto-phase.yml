@@ -7,20 +7,34 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  # Issue #1611: re-drive a PR that already merged. Re-running the original run
+  # replays it at the commit it ran on, so a fix to the gate can never be
+  # exercised on the PRs it was written for; this entry runs the same command at
+  # current main. The gate resolves what a PR landed from GitHub, not from the
+  # checkout, so it answers the same question from any commit.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Number of an already-merged PR to re-run auto-phase for"
+        required: true
+        type: string
 
 jobs:
   auto-phase:
-    if: github.event.pull_request.merged == true
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
+      # issues: write is what the atdd:<phase> label swap needs, and it is granted
+      # to GITHUB_TOKEN — so GITHUB_TOKEN is the token this job must use. Issue
+      # #404 once routed around a 'projects: write' preflight rejection with a PAT;
+      # #1051 decommissioned ProjectV2 and #1621 removed the PAT from this job,
+      # because a credential named here that permissions: cannot describe is a
+      # write that fails at run time (see GH_TOKEN below).
       issues: write
       contents: read
       pull-requests: read
-      # Issue #404: 'projects: write' removed — GITHUB_TOKEN cannot grant the
-      # account-level Projects scope, and declaring it caused preflight to
-      # reject the workflow on every run. Full ProjectV2 Status sync is now
-      # opt-in via the PROJECT_TOKEN PAT (see GH_TOKEN below); without it,
-      # IssueManager.update falls back to label-only sync.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,7 +49,7 @@ jobs:
 
       - name: Run atdd auto-phase
         env:
-          GH_TOKEN: ${{ secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number || github.event.pull_request.number }}
         run: |
           PYTHONPATH=src python3 -m atdd.cli auto-phase "$PR_NUMBER"

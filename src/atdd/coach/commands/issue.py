@@ -24,6 +24,8 @@ from typing import Dict, List, Optional, Any, Set, Tuple
 
 import yaml
 
+from atdd.coach.utils.artifact_claims import ArtifactClaimReport, check_artifact_claims
+
 logger = logging.getLogger(__name__)
 
 # Literal placeholder splice point in PARENT-ISSUE-TEMPLATE.md (Phase 2 of #682)
@@ -58,10 +60,12 @@ ARCHETYPE_GATES = {
         ("GT-010", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_python_architecture.py"),
         ("GT-011", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_import_boundaries.py"),
     ],
-    "fe": [
-        ("GT-020", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_typescript_architecture.py"),
-        ("GT-021", "implementation", "atdd validate coder", "src/atdd/coder/validators/test_design_system_compliance.py"),
-    ],
+    # No "fe" rows. GT-020/GT-021 named `test_typescript_architecture.py` and
+    # `test_design_system_compliance.py`, both pruned in #1518 — core is
+    # stack-agnostic and those obligations belong to `frontend.extension.vite-coder`.
+    # A frontend gate row is the workspace provider's to contribute, not core's to
+    # hard-code; an entry naming a validator core no longer ships would render a
+    # Validation table pointing at nothing.
     "contracts": [
         ("GT-030", "tester", "atdd validate tester", "src/atdd/tester/validators/test_contract_schema_compliance.py"),
     ],
@@ -90,6 +94,37 @@ ARCHETYPE_GATES = {
 }
 
 
+def _resolve_branch_in_store(store, branch: str) -> Optional[bool]:
+    """Resolve *branch* to a work item through the State Store's two indexes (#1720).
+
+    Returns True when the branch resolves, False when the store holds work items
+    but the branch resolves by neither index, and None when the store holds
+    nothing to check against — the caller turns that last case into "do not
+    block" so a barely-initialised repo is never falsely refused.
+
+    Primary index: ``data.branch``, the binding
+    ``BranchManager._record_binding_in_store`` (#1347) writes at worktree-create
+    time and ``atdd worktree list`` already reads. Matched on the FULL branch
+    name, which is what the binding holds.
+
+    Secondary index: the branch-derived slug as a uid. Retained for records
+    predating the binding — 572 of 876 live work items carry no ``data.branch``
+    at all, so dropping it would newly strand every one of those whose branch
+    name does equal its uid. Both indexes read the ONE store, so unlike the
+    ``.atdd/manifest.yaml`` fallback #1400 CORE-034 retired they cannot disagree
+    about what is registered.
+    """
+    from atdd.state.manifest_import import WORK_ITEM_KIND
+
+    work_items = store.objects.list(kind=WORK_ITEM_KIND)
+    if not work_items:
+        return None
+    if any((obj.data or {}).get("branch") == branch for obj in work_items):
+        return True
+    slug = branch.split("/", 1)[-1] if "/" in branch else branch
+    return store.objects.get(slug) is not None
+
+
 class IssueManager:
     """Manage ATDD issues via GitHub Issues and Projects v2."""
 
@@ -104,6 +139,10 @@ class IssueManager:
         self.atdd_config_dir = self.target_dir / ".atdd"
         self.manifest_file = self.atdd_config_dir / "manifest.yaml"
         self.config_file = self.atdd_config_dir / "config.yaml"
+
+        # issue number -> the commit its PR landed (or None). Resolved lazily and
+        # remembered, so a gate sweep over many issues does not re-ask GitHub (#1611).
+        self._landed_commit_cache: Dict[int, Optional[str]] = {}
 
         # Package template location
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
@@ -177,7 +216,7 @@ class IssueManager:
                 repo_root=self.target_dir,
                 allow_main=allow_main,
             )
-        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             if strict:
                 # Issue registration must never report a silent success.
                 raise
@@ -217,7 +256,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store status write unavailable; manifest mirror still applies",
                 extra={"issue": issue_number, "status": status, "error": str(exc)},
@@ -254,7 +293,7 @@ class IssueManager:
             with WorkItemReader(control_root=self.target_dir) as reader:
                 value = getattr(reader, field)(issue_number)
             return str(value) if value else None
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store read unavailable; the issue resolves to nothing",
                 extra={"issue": issue_number, "field": field, "error": str(exc)},
@@ -269,7 +308,7 @@ class IssueManager:
             with WorkItemReader(control_root=self.target_dir) as reader:
                 entry = reader.session_entry(issue_number)
             return str(entry["slug"]) if entry and entry.get("slug") else None
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store read unavailable; the issue resolves to no slug",
                 extra={"issue": issue_number, "error": str(exc)},
@@ -298,45 +337,55 @@ class IssueManager:
         """Return True if *branch*'s work item is registered — from the store alone.
 
         #1270 slice C: the store-backed replacement for the pre-commit hook's
-        ``grep "slug:" .atdd/manifest.yaml``. Resolves the branch → slug (strips
-        the ``prefix/`` segment; a work item is keyed in the store by its slug
-        uid) and asks the State Store.
+        ``grep "slug:" .atdd/manifest.yaml``.
 
         #1400 CORE-034 (Y002): the manifest fallback that followed is retired. It made this
         gate answer from whichever source happened to be populated — and the two could disagree,
         which meant a branch could be "registered" to the hook and unknown to every command that
         reads the store. One source, one answer.
 
-        Returns True when the slug is registered, OR when the store holds nothing to check
-        against — mirroring the hook's historical "nothing to check ⇒ don't block" behaviour so
-        a barely-initialised repo is never falsely blocked. Returns False only when the repo IS
-        atdd-managed (the store holds work items) yet the slug is absent. Never raises; makes no
-        GitHub calls.
+        #1720: resolution is by BRANCH BINDING first. The original lookup derived a slug from
+        the branch name and asked for it as a uid, but a work item's uid is its TITLE slug
+        (#1272) while its branch name is chosen separately — nothing constrains the two to be
+        equal. When they differ the lookup missed and the gate refused fully registered work,
+        blocking every commit on the branch. Measured on the live Control Root 2026-08-03: of
+        304 work items carrying a branch, 206 — the majority — had a branch slug that was not
+        their uid. ``data.branch`` is written by ``BranchManager._record_binding_in_store``
+        (#1347) at worktree-create time and already read by ``atdd worktree list``; this was
+        the one consumer that never looked.
+
+        The uid-slug probe is RETAINED as a secondary index, not replaced: 572 of those 876
+        live work items carry no ``data.branch`` at all, and replacing the probe would newly
+        strand every one of them whose branch name does equal its uid. Two indexes over the
+        ONE State Store source — not the two disagreeing sources CORE-034 retired, since both
+        legs read the same store.
+
+        Returns True when the branch resolves by either index, OR when the store holds nothing
+        to check against — mirroring the hook's historical "nothing to check ⇒ don't block"
+        behaviour so a barely-initialised repo is never falsely blocked. Returns False only
+        when the repo IS atdd-managed (the store holds work items) yet the branch resolves by
+        neither. Never raises; makes no GitHub calls.
         """
-        slug = branch.split("/", 1)[-1] if "/" in branch else branch
-        store_has_items = False
+        verdict = None
         try:
             from atdd.state.db import connect, init_state_store
-            from atdd.state.manifest_import import WORK_ITEM_KIND
             from atdd.state.store import StateStore
 
             conn = connect(init_state_store(start=self.target_dir))
             try:
-                store = StateStore(conn)
-                if store.objects.get(slug) is not None:
-                    return True
-                store_has_items = bool(store.objects.list(kind=WORK_ITEM_KIND))
+                verdict = _resolve_branch_in_store(StateStore(conn), branch)
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "branch-registration store read unavailable; nothing to check against",
                 extra={"branch": branch, "error": str(exc)},
             )
 
-        # Absent from a populated store → not registered; empty store → nothing to
-        # check → do not block.
-        return not store_has_items
+        # Resolved by neither index in a populated store → not registered. An
+        # empty store, or one that could not be read, has nothing to check
+        # against → do not block.
+        return verdict is not False
 
     def _store_update_fields(self, issue_number: int, fields: Dict[str, Any]) -> bool:
         """Merge work-item metadata (branch/train/...) into the State Store.
@@ -365,7 +414,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store field write unavailable; manifest mirror still applies",
                 extra={"issue": issue_number, "fields": sorted(fields), "error": str(exc)},
@@ -763,7 +812,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             logger.debug(
                 "State Store work-item create unavailable; manifest registration still applies",
                 extra={"issue": issue_number, "slug": slug, "error": str(exc)},
@@ -788,7 +837,7 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issues = client.list_issues_by_label("atdd-issue")
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -860,7 +909,7 @@ class IssueManager:
             issues = client.list_open_issues(
                 label=label, limit=limit, assignee=assignee,
             )
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -904,14 +953,14 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -970,106 +1019,6 @@ class IssueManager:
     # -------------------------------------------------------------------------
 
     @staticmethod
-    def _parse_gate_tests(body: str) -> List[Dict[str, str]]:
-        """Parse gate test table rows from issue body markdown.
-
-        Expected table format (under ## Validation → ### Gate Tests):
-        | ID | Phase | Command | Expected | ATDD Validator | Status |
-
-        Returns list of dicts with keys: id, phase, command, expected, validator, status
-        """
-        gates = []
-        # Find the Gate Tests table — look for header row with ID|Phase|Command
-        in_table = False
-        for line in body.splitlines():
-            stripped = line.strip()
-            if not stripped.startswith("|"):
-                if in_table:
-                    break  # End of table
-                continue
-
-            cells = [c.strip() for c in stripped.split("|")[1:-1]]  # strip empty first/last
-            if len(cells) < 6:
-                continue
-
-            # Skip header and separator rows
-            if cells[0] in ("ID", "") or cells[0].startswith("-"):
-                if cells[0] == "ID":
-                    in_table = True
-                continue
-
-            if not in_table:
-                continue
-
-            gate = IssueManager._gate_row(cells)
-            if gate:
-                gates.append(gate)
-
-        return gates
-
-    @staticmethod
-    def _gate_row(cells: List[str]) -> Optional[Dict[str, str]]:
-        """One gate-test table row; None when it declares no command."""
-        # Extract command — strip backticks
-        command = cells[2].strip("`").strip()
-        if not command:
-            return None
-
-        return {
-            "id": cells[0].strip(),
-            "phase": cells[1].strip(),
-            "command": command,
-            "expected": cells[3].strip(),
-            "validator": cells[4].strip("`").strip(),
-            "status": cells[5].strip(),
-        }
-
-    def _run_gate_tests(
-        self, gates: List[Dict[str, str]], force: bool = False,
-    ) -> Tuple[bool, List[str]]:
-        """Run gate test commands and return (all_passed, messages).
-
-        Each gate command is executed via subprocess. Exit code 0 = PASS.
-        If force=True, logs warnings but does not block.
-        """
-        messages = []
-        all_passed = True
-
-        for gate in gates:
-            gate_id = gate["id"]
-            command = gate["command"]
-
-            if force:
-                messages.append(f"  {gate_id}: SKIPPED (--force) — {command}")
-                continue
-
-            print(f"  Running {gate_id}: {command} ...", end=" ", flush=True)
-
-            result = subprocess.run(
-                command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                cwd=str(self.target_dir),
-                timeout=300,  # 5 min max per gate
-            )
-
-            if result.returncode == 0:
-                print("PASS")
-                messages.append(f"  {gate_id}: PASS — {command}")
-            else:
-                print("FAIL")
-                all_passed = False
-                stderr_snippet = result.stderr.strip().splitlines()[-3:] if result.stderr else []
-                messages.append(
-                    f"  {gate_id}: FAIL (exit {result.returncode}) — {command}"
-                )
-                for line in stderr_snippet:
-                    messages.append(f"    {line}")
-
-        return all_passed, messages
-
-    @staticmethod
     def _parse_artifacts(body: str) -> Dict[str, List[str]]:
         """Parse Artifacts section from issue body markdown.
 
@@ -1118,81 +1067,172 @@ class IssueManager:
     @staticmethod
     def _artifact_path(bullet: str) -> Optional[str]:
         """The path an artifact bullet names; None for a template placeholder."""
-        path = bullet[2:].strip().strip("`")
+        path = bullet[2:].strip()
         if path.startswith("(") or not path:
             return None
 
-        # Strip trailing descriptions after ' — ' or ' - '
+        # Strip trailing descriptions after ' — ' or ' - ' BEFORE the backticks: the
+        # template invites ``- `path` (why)``, and taking the backticks off first left
+        # the closing one stranded on the path (#1611 / observed on #1601).
         for sep in (" — ", " - ", " ("):
             if sep in path:
                 path = path[:path.index(sep)].strip()
-        return path
+        return path.strip("`").strip() or None
+
+    def _landed_commit(self, issue_number: Optional[int]) -> Optional[str]:
+        """The commit that carried this issue's work into main, if it already has.
+
+        ``atdd auto-phase`` runs on ``pull_request: closed``, so by the time the
+        COMPLETE gate is evaluated the work is *already* in main and the branch it
+        came from is gone. Asking git "what does this branch add on top of main?" then
+        has no honest answer — the answer is "nothing", for every path, always. What
+        the gate actually wants to know is what the PR **landed**, and GitHub can name
+        the commit that did it.
+
+        Returns ``None`` whenever that commit cannot be established or is not present
+        in this checkout — no merged PR yet, no GitHub access, a shallow clone — and
+        the caller falls back to the pre-merge branch-vs-main comparison.
+        """
+        if not issue_number:
+            return None
+        if issue_number not in self._landed_commit_cache:
+            sha = self._closing_merge_sha(issue_number)
+            # It is only useful if this checkout can see it *and* its parent — the
+            # diff the merge landed is `<sha>^..<sha>`.
+            self._landed_commit_cache[issue_number] = (
+                sha if sha and self._has_commit_and_parent(sha) else None
+            )
+        return self._landed_commit_cache[issue_number]
+
+    def _closing_merge_sha(self, issue_number: int) -> Optional[str]:
+        """The commit GitHub says merged the PR that closed this issue."""
+        client = self._get_github_client()
+        if client is None:
+            return None
+        try:
+            return client.get_closing_merge_commit(issue_number)
+        except Exception as exc:  # noqa: BLE001 — a gate must not die on a lookup
+            logger.debug(
+                "closing merge commit lookup failed",
+                extra={"issue": issue_number, "error": str(exc)},
+            )
+            return None
+
+    def _has_commit_and_parent(self, sha: str) -> bool:
+        """Whether this checkout can resolve both ends of ``<sha>^..<sha>``."""
+        return all(
+            subprocess.run(
+                ["git", "rev-parse", "--verify", "--quiet", rev],
+                capture_output=True, text=True, cwd=str(self.target_dir),
+            ).returncode == 0
+            for rev in (f"{sha}^{{commit}}", f"{sha}^^{{commit}}")
+        )
+
+    def check_artifacts(
+        self,
+        artifacts: Dict[str, List[str]],
+        force: bool = False,
+        issue_number: Optional[int] = None,
+    ) -> ArtifactClaimReport:
+        """Check artifact claims against git. The policy is not decided here.
+
+        This method owns only the git arithmetic — WHICH revision answers each
+        question. Before the merge the claims are read against the branch:
+        Created/Deleted in ``HEAD``, Modified as ``main...HEAD``. After it —
+        which is when auto-phase runs — they are read against the commit the PR
+        landed, because ``main...HEAD`` is empty by construction once the branch
+        is main (#1611).
+
+        WHAT the answers mean is ``atdd.coach.utils.artifact_claims``, the one
+        implementation the CI validator also calls. It used to be duplicated
+        here, escape and all: an empty declaration returned a free pass, and
+        nothing ever asked the reverse question (#1726).
+        """
+        landed = self._landed_commit(issue_number)
+        report = check_artifact_claims(
+            artifacts,
+            resolves=lambda kind, path: self._artifact_resolves(kind, path, landed),
+            # --force waives verification against git, which is what the reverse
+            # pass is; the declaration itself is still required.
+            changed_files=None if force else self._changed_files(landed),
+            issue_number=issue_number,
+            against=f"in {landed[:8]}" if landed else "vs main",
+            force=force,
+        )
+        if landed:
+            report = ArtifactClaimReport(
+                report.violations,
+                (f"  Verifying against the commit PR landed: {landed[:8]}", *report.messages),
+            )
+        return report
 
     def _verify_artifacts(
-        self, artifacts: Dict[str, List[str]], force: bool = False,
+        self,
+        artifacts: Dict[str, List[str]],
+        force: bool = False,
+        issue_number: Optional[int] = None,
     ) -> Tuple[bool, List[str]]:
-        """Verify artifact claims against git state.
+        """``check_artifacts`` as the ``(valid, messages)`` pair callers expect."""
+        report = self.check_artifacts(artifacts, force=force, issue_number=issue_number)
+        return report.satisfied, list(report.messages)
 
-        - Created: file must exist in HEAD
-        - Modified: file must have changes vs main
-        - Deleted: file must NOT exist in HEAD
-        """
-        total = sum(len(v) for v in artifacts.values())
-        if total == 0:
-            return True, ["  No artifacts declared"]
-
-        all_valid = True
-        messages: List[str] = []
-        for kind in ("created", "modified", "deleted"):
-            valid, group_messages = self._verify_artifact_group(
-                kind, artifacts[kind], force
-            )
-            all_valid = all_valid and valid
-            messages.extend(group_messages)
-
-        return all_valid, messages
-
-    # kind -> (message prefix, git argv, git prints output when satisfied,
-    #          satisfied word, unsatisfied word)
+    # kind -> (check mode, git prints output when the claim is satisfied)
+    #
+    # "tree" asks whether the path is in a revision's tree, "diff" whether a
+    # revision changed it; the revisions themselves depend on whether the work has
+    # landed yet, so they are resolved per run rather than baked in here (#1611).
     _ARTIFACT_CHECKS = {
-        "created": (
-            "  Created:  ", ["git", "ls-tree", "HEAD", "--"],
-            True, "EXISTS", "MISSING",
-        ),
-        "modified": (
-            "  Modified: ", ["git", "diff", "main...HEAD", "--"],
-            True, "CHANGED", "NO CHANGES vs main",
-        ),
-        "deleted": (
-            "  Deleted:  ", ["git", "ls-tree", "HEAD", "--"],
-            False, "CONFIRMED GONE", "STILL EXISTS",
-        ),
+        "created": ("tree", True),
+        "modified": ("diff", True),
+        # #1824: NOT ("tree", False). `ls-tree` returning nothing is also what a
+        # path that never existed produces, so absence was read as proof of
+        # deletion and prose resolved as CONFIRMED GONE. Ask what the revision
+        # actually DELETED.
+        "deleted": ("diff-deleted", True),
     }
 
-    def _verify_artifact_group(
-        self, kind: str, paths: List[str], force: bool
-    ) -> Tuple[bool, List[str]]:
-        """Verify one artifact group (created / modified / deleted) against git."""
-        prefix, argv, expect_output, satisfied, unsatisfied = self._ARTIFACT_CHECKS[kind]
+    @staticmethod
+    def _artifact_check_argv(mode: str, landed: Optional[str]) -> List[str]:
+        """The git command that answers ``mode``, at the point in history that has it."""
+        if mode == "tree":
+            return ["git", "ls-tree", landed or "HEAD", "--"]
+        # A deletion is a fact about a CHANGE, not about the current tree, so it
+        # is read from the same revisions the modify check uses, filtered to
+        # deletions (#1824).
+        filters = ["--diff-filter=D"] if mode == "diff-deleted" else []
+        if landed:
+            return ["git", "diff", *filters, f"{landed}^", landed, "--"]
+        return ["git", "diff", *filters, "main...HEAD", "--"]
 
-        all_valid = True
-        messages: List[str] = []
-        for path in paths:
-            if force:
-                messages.append(f"{prefix}{path} — SKIPPED (--force)")
-                continue
+    def _artifact_resolves(self, kind: str, path: str, landed: Optional[str]) -> bool:
+        """Whether git agrees with one claim — the probe the shared checker calls."""
+        mode, expect_output = self._ARTIFACT_CHECKS[kind]
+        result = subprocess.run(
+            self._artifact_check_argv(mode, landed) + [path],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        return bool(result.stdout.strip()) == expect_output
 
-            result = subprocess.run(
-                argv + [path],
-                capture_output=True, text=True, cwd=str(self.target_dir),
-            )
-            if bool(result.stdout.strip()) == expect_output:
-                messages.append(f"{prefix}{path} — {satisfied}")
-            else:
-                messages.append(f"{prefix}{path} — {unsatisfied}")
-                all_valid = False
+    def _changed_files(self, landed: Optional[str]) -> List[str]:
+        """Every path the work touched, for the reverse pass (changed → declared).
 
-        return all_valid, messages
+        Deliberately asks the SAME revision the forward pass probes, so the two
+        directions can never disagree about which commit "this work" means.
+
+        That inherits the forward pass's known imprecision before the merge:
+        ``main...HEAD`` reads the LOCAL ``main``, so on a branch whose local main
+        is stale the merge-base is old and the set includes paths other PRs
+        merged. Post-merge — the state ``atdd auto-phase`` evaluates in, and the
+        one the COMPLETE gate actually runs in — the question is asked of the
+        commit the PR landed (#1611) and the imprecision does not arise.
+        Narrowing the pre-merge revision to ``origin/main`` would change the
+        forward check too, so it is left to whoever owns that question.
+        """
+        result = subprocess.run(
+            self._artifact_check_argv("diff", landed)[:-1] + ["--name-only", "--"],
+            capture_output=True, text=True, cwd=str(self.target_dir),
+        )
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
     @staticmethod
     def _parse_issue_type(body: str) -> Optional[str]:
@@ -1207,10 +1247,24 @@ class IssueManager:
     TRAIN_REQUIRED_TYPES = {"implementation", "migration", "refactor"}
 
     def _check_rebased_on_main(self) -> Tuple[bool, str]:
-        """Check that current branch is rebased on origin/main.
+        """Check that the work is not sitting on a stale base.
+
+        Two states satisfy that, and the gate used to recognise only the first:
+
+        - ``origin/main`` is an ancestor of ``HEAD`` — the branch already carries
+          everything main has, which is what "rebased" means before the merge;
+        - ``HEAD`` is an ancestor of ``origin/main`` — the work has *landed*, so
+          there is nothing to rebase onto. This is the state ``atdd auto-phase``
+          runs in, on PR close, and demanding the first condition there is a race
+          nobody can win: every PR that merges after this one puts main ahead of
+          the commit under test, and the gate reports "behind main" for work that
+          is already in main (#1611).
+
+        Genuine divergence — unmerged commits on a stale base, so neither is an
+        ancestor of the other — still fails.
 
         Returns:
-            (passed, message) — passed is True if origin/main is an ancestor of HEAD.
+            (passed, message)
         """
         # Fetch latest main
         fetch = subprocess.run(
@@ -1227,8 +1281,15 @@ class IssueManager:
         )
         if result.returncode == 0:
             return True, "  Rebase check: PASS (branch includes origin/main)"
-        else:
-            return False, "  Rebase check: FAIL (branch is behind origin/main)"
+
+        landed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", "HEAD", "origin/main"],
+            capture_output=True, text=True, cwd=str(self.target_dir), timeout=10,
+        )
+        if landed.returncode == 0:
+            return True, "  Rebase check: PASS (work is already contained in origin/main)"
+
+        return False, "  Rebase check: FAIL (branch is behind origin/main)"
 
     def _check_smoke_evidence_gate(
         self,
@@ -1257,10 +1318,10 @@ class IssueManager:
                 base_ref="origin/main",
                 head_ref="HEAD",
             )
-        except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             messages.append("  Smoke gate: SKIPPED (origin/main unreachable)")
             return True, messages
-        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             messages.append(f"  Smoke gate: SKIPPED ({exc})")
             return True, messages
 
@@ -1518,7 +1579,10 @@ class IssueManager:
             # Project the store's new state onto GitHub. This is the sole
             # authoritative `atdd:*` label write in the codebase — enforced by
             # coach.issue.phase-label-projection-only.
-            self._write_phase_label(client, issue_number, current_labels, status)
+            if not self._write_phase_label(client, issue_number, current_labels, status):
+                # Exit red. Reporting success here is how a half-applied transition
+                # becomes an invisible one: CI reads 0 and moves on (#1621).
+                return 1
             updated.append(f"status: {status}")
 
         # Validate branch prefix (every branch = a worktree)
@@ -1546,7 +1610,7 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Invalid issue number '{issue_id}'")
             return None
 
@@ -1556,7 +1620,7 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return None
 
@@ -1565,14 +1629,60 @@ class IssueManager:
     @staticmethod
     def _write_phase_label(
         client: Any, issue_number: int, current_labels: List[str], status: str
-    ) -> None:
-        """Swap the atdd:<phase> label — the sole authoritative phase write (#1051)."""
+    ) -> bool:
+        """Swap the atdd:<phase> label — the sole authoritative phase write (#1051).
+
+        Returns False, having explained itself, when the credential is refused. The
+        store has already moved by the time this runs — that ordering is deliberate
+        (#1452) — so a refusal leaves ``objects.state`` ahead of the label, and the
+        operator needs to be told exactly that.
+
+        #1621: this used to let the refusal escape as an unhandled
+        ``GitHubClientError``. Every auto-phase label write was failing that way,
+        and twice the traceback was read as GitHub flakiness, because nothing in it
+        said "your token cannot do this".
+        """
+        from atdd.coach.github import GitHubPermissionError
+
         phase_labels = [
             l for l in current_labels if l.startswith("atdd:") and l != "atdd-issue"
         ]
-        if phase_labels:
-            client.remove_label(issue_number, phase_labels)
-        client.add_label(issue_number, [f"atdd:{status}"])
+        # The swap is two calls, so a refusal can land between them. Which one
+        # was refused changes what the label now reads, and this diagnosis must
+        # not assert the wrong one: an error that overstates what it knows is
+        # the failure mode #1621 is about, and reporting "the label still reads
+        # atdd:REFACTOR" over a label that was just removed would be one.
+        removed: List[str] = []
+        try:
+            if phase_labels:
+                client.remove_label(issue_number, phase_labels)
+                removed = phase_labels
+            client.add_label(issue_number, [f"atdd:{status}"])
+        except GitHubPermissionError as exc:
+            if removed:
+                label_now = (
+                    f"no atdd:<phase> label at all — {', '.join(removed)} came off "
+                    f"before the write of atdd:{status} was refused"
+                )
+            else:
+                label_now = ", ".join(phase_labels) or "(none)"
+            logger.error(
+                "phase label write refused for lack of permission",
+                extra={"issue": issue_number, "status": status, "error": str(exc)},
+            )
+            print(
+                f"\nError: refused writing atdd:{status} to #{issue_number} — the "
+                f"credential lacks permission to change labels.\n"
+                f"  {exc}\n"
+                f"  This is NOT an API glitch and retrying will not clear it.\n"
+                f"  The store moved first (#1452), so objects.state is now {status} "
+                f"while the label reads {label_now} "
+                f"— they disagree until the label is written.\n"
+                f"  In CI: the job's `permissions:` block grants issues:write to "
+                f"GITHUB_TOKEN only; check GH_TOKEN names that token (#1621)."
+            )
+            return False
+        return True
 
     @staticmethod
     def _branch_prefix_allowed(branch: str) -> bool:
@@ -1640,6 +1750,10 @@ class IssueManager:
 
         store_phase = read_store_phase(issue_number, self.target_dir)
         if not store_phase:
+            print(
+                f"Error: #{issue_number} has no phase in the store, so there is "
+                f"nothing to project the label from."
+            )
             return None
 
         resolved = self._resolve_issue(str(issue_number))
@@ -1651,7 +1765,12 @@ class IssueManager:
         if current_phase == store_phase:
             return store_phase
 
-        self._write_phase_label(client, issue_number, current_labels, store_phase)
+        if not self._write_phase_label(client, issue_number, current_labels, store_phase):
+            # The writer has already said why. Returning store_phase here would
+            # report a re-projection that did not happen — the repair verb
+            # claiming to have closed the very drift it was called to close
+            # (#1621).
+            return None
         return store_phase
 
     # -------------------------------------------------------------------------
@@ -1852,9 +1971,19 @@ class IssueManager:
         self, issue_number: int, issue_id: str, issue_body: str, force: bool
     ) -> bool:
         """Everything COMPLETE requires: rebase, gate tests, artifacts, release."""
+        # No gate-test execution here by design (#1683). This gate used to parse a
+        # markdown table out of ``issue_body`` and run each cell through ``sh``, which
+        # made an ordinary cell like `cmd` (note) an unbalanced backquote and killed
+        # the shell before it ran anything. Worse, a body with no table passed the gate
+        # for free — so documenting validation made an issue HARDER to complete.
+        #
+        # Nothing reaches main without the required ``validate-gate`` status check
+        # passing (branch protection, strict), so by the time this runs the code has
+        # already been validated by the repository's own gate. Re-running a hand-copied
+        # approximation of those commands, transcribed into prose and never itself
+        # verified, added no safety — only a way to fail.
         return (
             self._gate_rebased(issue_id, force)
-            and self._gate_tests(issue_number, issue_id, issue_body, force)
             and self._gate_artifacts(issue_number, issue_id, issue_body, force)
             and self._gate_release(issue_number, issue_id, force)
         )
@@ -1875,58 +2004,35 @@ class IssueManager:
             return False
         return True
 
-    def _gate_tests(
-        self, issue_number: int, issue_id: str, issue_body: str, force: bool
-    ) -> bool:
-        """The gate tests the issue body declares all pass."""
-        gates = self._parse_gate_tests(issue_body)
-        if not gates:
-            if not force:
-                print(f"\n  Warning: No gate tests found in issue body")
-            return True
-
-        if force:
-            print(f"\n  Bypassing {len(gates)} gate tests (--force)")
-        else:
-            print(f"\nRunning {len(gates)} gate tests for #{issue_number}:")
-
-        all_passed, gate_messages = self._run_gate_tests(gates, force=force)
-        for msg in gate_messages:
-            print(msg)
-
-        if not all_passed:
-            print(f"\nError: Gate tests failed — cannot transition to COMPLETE")
-            print(f"  Fix: Resolve failing gates, then retry")
-            print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
-            return False
-
-        if not force:
-            print()  # blank line after gate results
-        return True
-
     def _gate_artifacts(
         self, issue_number: int, issue_id: str, issue_body: str, force: bool
     ) -> bool:
-        """The artifacts the issue body declares all exist."""
+        """The issue's ``## Artifacts`` section is a record git agrees with.
+
+        There is no ``artifact_count == 0`` branch here any more. Declaring
+        nothing used to print a warning and pass, which made deleting the
+        section the cheapest route to COMPLETE — the record the gate exists to
+        produce was the one thing it did not require (#1726).
+        """
         artifacts = self._parse_artifacts(issue_body)
-        artifact_count = sum(len(v) for v in artifacts.values())
-        if artifact_count == 0:
-            if not force:
-                print(f"  Warning: No artifacts declared in issue body")
-            return True
+        declared = sum(len(v) for v in artifacts.values())
 
         if force:
             print(f"  Bypassing artifact verification (--force)")
         else:
-            print(f"Verifying {artifact_count} artifacts for #{issue_number}:")
+            print(f"Verifying {declared} artifacts for #{issue_number}:")
 
-        artifacts_valid, artifact_messages = self._verify_artifacts(
-            artifacts, force=force,
-        )
-        for msg in artifact_messages:
+        report = self.check_artifacts(artifacts, force=force, issue_number=issue_number)
+        for msg in report.messages:
             print(msg)
 
-        if not artifacts_valid:
+        # Reported either way; whether it BLOCKS is the rule's disposition, not
+        # this call site's opinion.
+        for violation in report.violations:
+            if violation not in report.blocking:
+                print(f"  [advisory] {violation.rule_id}: {violation.detail}")
+
+        if not report.satisfied:
             print(f"\nError: Artifact verification failed — cannot transition to COMPLETE")
             print(f"  Fix: Update ## Artifacts section with correct paths")
             print(f"  Bypass: atdd update {issue_id} --status COMPLETE --force")
@@ -1970,14 +2076,14 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             subs = client.get_sub_issues(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 

@@ -1,0 +1,18 @@
+components:
+  backend:
+    application:
+    - count: 1
+      rationale: the merge check asserting the obligation verdict, failing closed
+        when the lookup itself cannot be performed
+      type: use_cases
+description: Merge preserves the COMPLETE invariant at the repository boundary, and
+  fails closed when the obligation lookup itself cannot be performed rather than degrading
+  to advisory.
+sizing:
+  footprint_score: 6
+  footprint_size: M
+  wmbts: 1
+urn: feature:enforce-merge-authority:reject-undocumented-merge
+wagon: wagon:enforce-merge-authority
+wmbts:
+- wmbt:enforce-merge-authority:C005

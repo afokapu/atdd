@@ -17,7 +17,7 @@ Public surface:
     ValidationResult          dataclass: .errors, .warnings
 
 Conventions: src/atdd/coach/conventions/naming.convention.yaml
-             src/atdd/planner/conventions/artifact-naming.convention.yaml
+             src/atdd/planner/conventions/nodes/planner.artifact-naming.theme-taxonomy.convention.yaml
 """
 from __future__ import annotations
 

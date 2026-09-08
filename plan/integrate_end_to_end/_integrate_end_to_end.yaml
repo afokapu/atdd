@@ -56,8 +56,6 @@ consume:
     from: wagon:freeze-runtime-contracts
   - name: commons:coach:state-machine-and-agent-cli
     from: wagon:drive-state-machine
-  - name: commons:coach:spawn-and-harness
-    from: wagon:spawn-agents
   - name: commons:coach:observer-and-corrections
     from: wagon:observe-and-correct
   - name: commons:coach:tier-1-validator-dispatch

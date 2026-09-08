@@ -119,27 +119,6 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-31"
   - identity:
-      urn: "acc:govern-lifecycle:E036-UNIT-003-validate-fails-on-poisoned-baseline"
-      id: "AC-UNIT-003"
-      purpose: "A coach validator (run by atdd validate) fails when the effective git core.bare is true — catching a poisoned shared baseline regardless of which agent wrote it, while a worktree-scoped core.bare=false override (effective false) passes"
-      phase: "GREEN"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A helper that reads the effective `git config --get core.bare` for a given repo dir"
-        - "A tmp repo whose shared .git/config has core.bare=true (poisoned), and a second tmp repo with core.bare=false"
-    when:
-      abstract: "the validator's check is run against each repo"
-    then:
-      abstract:
-        - "the poisoned repo (effective core.bare=true) fails the check with a message pointing at `git config --worktree core.bare false`"
-        - "the clean repo (effective core.bare=false) passes the check"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-31"
-  - identity:
       urn: "acc:govern-lifecycle:E036-UNIT-004-gate-self-heals-poisoned-worktree"
       id: "AC-UNIT-004"
       purpose: "atdd gate self-heals a poisoned worktree at session bootstrap: when effective core.bare is true it scopes core.bare=false back via git config --worktree (enabling extensions.worktreeConfig as needed), best-effort and never raising"

@@ -1,10 +1,10 @@
 urn: feature:define-plans:atdd-plan-session
 wagon: wagon:define-plans
-description: "The atdd plan gated decomposition session (#1139): Define\u2192Locate\u2192\
-  Prepare\u2192Confirm\u2192author lifecycle, the confirm-before-author boundary,\
-  \ and post-confirm dispatch to atdd author per locked unit."
+description: "The atdd plan gated decomposition session (#1139): Intent\u2192Attach\u2192\
+  Compose\u2192Ratify\u2192author lifecycle, the ratify-before-author boundary,\
+  \ and post-ratify dispatch to atdd author per locked unit."
 sizing:
-  wmbts: 13
+  wmbts: 14
   footprint_score: 5
   footprint_size: S
 wmbts:
@@ -21,6 +21,7 @@ wmbts:
 - wmbt:define-plans:E002
 - wmbt:define-plans:E003
 - wmbt:define-plans:Y001
+- wmbt:define-plans:Y002
 components:
   backend:
     presentation:
@@ -30,7 +31,8 @@ components:
     application:
     - type: use_cases
       count: 1
-      rationale: PlanSession D/L/P/C state machine + author() in plan_session.py
+      rationale: PlanSession Intent/Attach/Compose/Ratify state machine + author()
+        in plan_session.py
     domain:
     - type: value_objects
       count: 2

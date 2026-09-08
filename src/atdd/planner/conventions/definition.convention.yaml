@@ -1,3 +1,0 @@
-version: "1.0"
-name: "Artifact Definition Anchor Convention"
-description: "Requires every core planner domain artifact to carry a `.definition` advisory semantic anchor (kind: family) that is graph-connected. The enforceable rule lives in decomposed node form at conventions/nodes/planner.definition.anchor-required.convention.yaml (the node file carries the metadata + implementation binding; this file is its legacy home, mirroring planner.relationship.no-orphan-nodes / relationship.convention.yaml)."

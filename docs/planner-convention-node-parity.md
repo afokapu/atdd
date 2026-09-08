@@ -1,5 +1,20 @@
 # Planner Convention → Node Parity Ledger
 
+> **STATUS: CLOSED (#1111), and the legacy side no longer exists (#1639).**
+>
+> This is a **historical record of a completed re-atomisation**, not a current-state report. The
+> Summary table below is the *pre-#1111 snapshot* that motivated the work; the outcome is recorded
+> under [Status — RESOLVED](#status--resolved). Read the two together or not at all.
+>
+> Two rows of that snapshot (`component`, `interface`) were left reading "zero nodes — total parity
+> failure" long after #1111 closed them at 11 and 8 nodes. #1639 was filed off those stale rows and
+> had to be re-scoped after audit. They are corrected in place below.
+>
+> As of #1639 the legacy `src/atdd/planner/conventions/*.convention.yaml` monoliths are **deleted**.
+> The convention-node corpus under `…/conventions/nodes/` is the sole source of truth, so there is no
+> longer a "legacy side" for this ledger to compare against. Nothing here should be read as
+> describing a file that still exists.
+
 > Purpose: double-check that the **legacy convention YAML** (`src/atdd/planner/conventions/*.convention.yaml`)
 > and the **convention-node corpus** (`…/conventions/nodes/*.convention.yaml`) **+ the relationship
 > graph** (`src/atdd/coach/graph/relationships.yaml`) carry the *same content*. Where they do not,
@@ -22,6 +37,10 @@ graph system:
 
 ## Summary
 
+> **Historical snapshot — pre-#1111.** Every 🟡/❌ row below was closed by the re-atomisation; see
+> [Status — RESOLVED](#status--resolved) for the final node counts. Do not cite this table as
+> current state.
+
 | Legacy convention | Lines | Nodes | Node parity | Notes |
 | --- | ---: | ---: | --- | --- |
 | theme | 155 | 5 | ✅ high | taxonomy + boundary + retired-digits + exceptions recovered |
@@ -35,13 +54,18 @@ graph system:
 | steps | 153 | 1 | 🟡 partial | 9-step taxonomy + per-step examples recovered; full key_terms / linguistic_patterns / architecture per step not |
 | appendix | 199 | 1 | 🟡 partial | types + naming + storage recovered; `llm_guidelines` workflow not |
 | artifact-naming | 864 | 1 | 🟡 partial | grammar + separators + anti-patterns + cardinality + sample examples recovered; full ~40-example set, pluralization guide, migration guide, logical/physical JSON-Schema bodies not |
-| **component** | 675 | **0** | ❌ **none** | **zero nodes — total parity failure** |
-| **interface** | 382 | **0** | ❌ **none** | **zero nodes — total parity failure** |
+| component | 675 | **11** | ✅ covered | was ❌ "zero nodes" pre-#1111; atomised into 11 split nodes (type-catalog, urn, count-limit, method-limit, layer-assignment, layer-consistency, io-alignment, business-focus, derivation, artifact-derivation, structure). Corrected in #1639 — this row was stale for the whole interval and is what #1639 was mis-filed from. |
+| interface | 382 | **8** | ✅ covered | was ❌ "zero nodes" pre-#1111; atomised into 8 split nodes (contract-urn, api-mapping, naming-patterns, artifact-transformation, structure-rules, ownership-rules, orphan-detection, tests-subdirectory). Corrected in #1639. |
 | train | 605 | 38 | ✅ covered | atomised independently on `main` (post-#1421, typed `train:<subject>:<slug>` grammar); this audit's `numbering` / `registry` / `dependencies` findings are superseded by main's nodes |
 
 ## Flagged discrepancies
 
 ### A. Zero-node conventions (highest priority) — ~1,662 legacy lines with no graph representation
+
+> **CLOSED by #1111.** The inventory below is the *finding*, not the current state: `component`,
+> `interface` and `train` were atomised into 11 / 8 / 7 split nodes and every item listed here now
+> has a node home. #1639 re-verified this section-by-section against the corpus and found **no
+> normative content left unatomised** in any of the three. Retained for provenance only.
 
 The prior atomiser only read each file's structured `rules:` block; `component`, `interface`, and
 `train` have **no `rules:` block**, so nothing was extracted. Their normative content — much of it
@@ -150,5 +174,11 @@ acceptance 13, wmbt 12, steps 4, appendix 5, artifact-naming 10, component 11, i
 All fourteen legacy conventions are fully atomised into split section-nodes, including `steps`
 (+jtbd-taxonomy, linguistic-patterns, architecture-routing), `appendix` (+types, naming-pattern,
 storage, llm-guidelines) and `coverage` (+traceability-graph, rollout). Enforcement metadata is now
-carried on each node via `implementation` + `metadata` (no longer "out of nodes"); the legacy
-`*.convention.yaml` files remain the source of truth and are linked by `source` provenance.
+carried on each node via `implementation` + `metadata` (no longer "out of nodes").
+
+**Source-of-truth update (#1639).** The sentence this paragraph used to end with — "the legacy
+`*.convention.yaml` files remain the source of truth" — is retired. #1639 measured those files as
+carrying **0 live rules** (no `rules:` block, no top-level `rule_id`, no glob consumer keying on
+anything they hold) and deleted all 17. The nodes are the source of truth. Each node's
+`source.legacy_path` is now a **provenance record of a deleted file**, not a live pointer; it is
+retained deliberately so the extraction can still be audited against git history.

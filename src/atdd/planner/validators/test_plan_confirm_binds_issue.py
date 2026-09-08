@@ -35,7 +35,7 @@ _LOC = "src/atdd/planner/commands/plan_session.py:PlanSession.confirm"
 def _scan() -> List[Violation]:
     """A resolved-but-issue-less session must be refused at confirm()."""
     violations: List[Violation] = []
-    session = PlanSession("confirm-binds-issue-probe", step=Step.CONFIRM.value)
+    session = PlanSession("confirm-binds-issue-probe", step=Step.RATIFY.value)
     # name must be verb-object (planner.wagon.name-is-verb-object, #1276); the
     # positive control below locks only if the kept name also passes that gate.
     session.add_unit(Unit(kind="wagon", ref="manage-probe", spec={"wagon": "manage-probe"}))

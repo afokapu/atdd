@@ -13,6 +13,14 @@ contracts:
   - wagon:reconcile-dispositions
   consumers:
   - wagon:enforce-conventions-ci
+- identity: commons:documentation-verdict
+  path: contracts/commons/documentation-verdict.schema.json
+  theme: commons
+  producers:
+  - wagon:govern-documentation-obligation
+  consumers:
+  - wagon:govern-lifecycle
+  - wagon:enforce-merge-authority
 - identity: commons:enforce-verdict
   path: contracts/commons/enforce-verdict.schema.json
   theme: commons

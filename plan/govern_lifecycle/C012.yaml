@@ -1,0 +1,131 @@
+urn: wmbt:govern-lifecycle:C012
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
+context_clarifier: 'approve_command.py:71 reads approved_by = ns.by or os.environ.get("USER")
+  or "operator", and an agent running inside the operator''s shell IS $USER, so identity
+  is a caller-supplied parameter with an environment fallback rather than an observation;
+  measured 2026-08-03, all 169 approval tokens on this machine carry exactly [approved_at,
+  approved_by, from_phase, issue, signature, to_phase] with 162 of them naming a human
+  account, and rewriting approved_by in a freshly minted token leaves verify_token
+  returning True because canonical_scope signs only <issue>:<FROM>:<TO>'
+lens: functional.effectiveness
+statement: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
+  by observing the acting agent session at the mint through the shipped resolve_session()
+  instead of defaulting to $USER, recording that session as its own token field distinct
+  from the human account, folding the resulting actor into the signed canonical scope
+  so the recorded attribution cannot be rewritten in place while the token still verifies,
+  and stamping a token schema_version so the pre-fix corpus reads as a regime that
+  could not attribute rather than as a set of operator approvals
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C012-UNIT-001-actor-is-observed-not-defaulted
+    id: AC-UNIT-001
+    purpose: "The mint OBSERVES who is acting rather than defaulting to $USER —\
+      \ an observed agent session is recorded as its own field and is not filed under\
+      \ the operator's account, an unobserved caller is recorded as the human account\
+      \ with no agent session, and --by cannot overwrite what the process can see\
+      \ for itself"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The approve command's mint path, driven with an explicit environment mapping
+      so no test depends on the ambient session of whoever runs it
+    - An environment carrying a mapped agent-session variable, and a second environment
+      carrying only a human account and no mapped session variable
+    - A third invocation passing --by with the agent-session environment present
+  when:
+    abstract: the token is minted once under each environment and the written token
+      body is read back
+  then:
+    abstract:
+    - With a session observed, the token records the provider and the session id as
+      their own field, so the token names WHICH session produced it
+    - With a session observed, the approver field does not carry the operator's account,
+      so an agent action is not filed under the human
+    - With no session observed, the token records the human account and carries no
+      agent-session field, so absence of observation is recorded as absence rather
+      than invented
+    - With a session observed, --by does not become the recorded actor, and the caller
+      is told its value was not used
+    - Every token the new path mints carries a schema_version, so a reader can tell
+      the regime a token was minted under without inspecting its other fields
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C012-UNIT-002-actor-is-bound-into-the-signature
+    id: AC-UNIT-002
+    purpose: "The recorded attribution is covered by the signature, so editing it\
+      \ in place invalidates the token instead of silently relabelling who approved\
+      \ — the rewrite reproduced on 2026-08-03 (approved_by edited to someone-else-entirely,\
+      \ verify_token still True) no longer verifies, while every pre-fix token verifies\
+      \ exactly as before"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The pure canonical_scope / sign_approval / verify_token functions (stdlib-only,
+      no I/O)
+    - A schema-versioned token carrying a human approver, and a second carrying an
+      observed agent session
+    - A pre-fix token shaped exactly like the measured corpus (no schema_version,
+      no agent session), signed under the pre-fix scope
+  when:
+    abstract: each token is verified unmodified, then verified again after its recorded
+      attribution is edited in place
+  then:
+    abstract:
+    - Each schema-versioned token verifies unmodified, so the guard discriminates
+      rather than refusing everything
+    - Editing the approver on a schema-versioned token makes verification return False
+    - Editing or removing the recorded agent session on a schema-versioned token makes
+      verification return False
+    - A pre-fix token still verifies unchanged, so the 169 tokens already on disk are
+      not invalidated by the new field
+    - A pre-fix token is reported as unattributed rather than as an operator approval,
+      and a schema-versioned token is reported with what was actually observed
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'
+- identity:
+    urn: acc:govern-lifecycle:C012-SMOKE-001-real-mint-records-the-acting-session
+    id: AC-SMOKE-001
+    purpose: 'Against the real installed package in a real checkout: the real `atdd
+      coach approve` mint, run as a real process under a real agent-session environment,
+      writes a token naming that session, and the real gate consumer reads it back
+      and reports it as session-attributed rather than as an operator approval'
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - A real checkout and the real atdd package, exercised in a separate real process
+      (no in-process import of the module under test, no monkeypatching)
+    - A real agent-session environment variable set on that subprocess, matching a
+      row of the shipped provider table
+    - A temporary worktree root the real mint writes its token file into, so the real
+      repository's token corpus is never touched
+  when:
+    abstract: a subprocess runs the real approve mint under that environment and then
+      the real gate check reads the token file back off disk
+  then:
+    abstract:
+    - The subprocess exits zero and a real token file exists at the real approval path
+    - The token on disk records the observed provider and session id, so the shipped
+      artifact traces to the transcript that produced it
+    - The token on disk does not record the shell account as its approver
+    - The real gate check passes for that transition and its message reports the token
+      as session-attributed
+    - The same real gate check, given a pre-fix token body, reports it as unattributed,
+      so the two regimes are distinguishable through the shipped read path
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-03'

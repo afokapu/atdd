@@ -1,0 +1,29 @@
+urn: feature:coach-ops:read-check-status
+wagon: wagon:coach-ops
+description: 'merge-cascade''s CI read: ask gh pr checks only for fields the installed
+  CLI advertises, derive the verdict from bucket, and end the wait on a refused query
+  instead of polling it as unknown.'
+sizing:
+  wmbts: 2
+  footprint_score: 4
+  footprint_size: S
+wmbts:
+- wmbt:coach-ops:M003
+- wmbt:coach-ops:R001
+components:
+  backend:
+    application:
+    - type: use_cases
+      count: 2
+      rationale: fetch_ci_status (read the checks and derive a verdict) and wait_for_ci
+        (retry only what retrying can change)
+    domain:
+    - type: value_objects
+      count: 1
+      rationale: "the CI verdict \u2014 state plus operator-facing detail plus whether\
+        \ the outcome is terminal or pollable"
+    integration:
+    - type: adapters
+      count: 1
+      rationale: "gh CLI adapter \u2014 the pr checks --json field set the installed\
+        \ gh advertises, and its failure classification"

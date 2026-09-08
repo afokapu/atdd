@@ -98,6 +98,34 @@ _RULE_DEFAULT_EXCLUDES: dict[str, tuple[str, ...]] = {
 # pyproject itself). See docs/PARITY-AUDIT-26.md row 1 / REGRESSION #3.
 _ENTRY_POINT_ROOT_RULES = frozenset({"coder.dead-code.reachability"})
 
+# The train-interlocking detector resolves its scan surfaces with precedence:
+# (1) the env var this layer emits, (2) the extension's own scope selectors,
+# (3) its hardcoded defaults. A repo whose layout differs from those defaults
+# DECLARES it once, under the OPTIONAL top-level ``interlocking_layout:`` key of
+# the per-repo ``.atdd/config.yaml`` that ``runner.load_config`` already reads
+# (#1595):
+#
+#   interlocking_layout:
+#     interlocking_yaml: ["plan/_trains/_interlockings/*.yaml"]
+#     e2e_tests:         ["e2e/**/*.py"]
+#
+# Core's surface ENDS at forwarding that declaration to the provider subprocess
+# for the rules that consume it — it never interprets the globs, and it never
+# supplies a default (absent block -> no env var -> detector falls back).
+_INTERLOCKING_LAYOUT_CONFIG_KEY = "interlocking_layout"
+_INTERLOCKING_LAYOUT_RULE_PREFIX = "coder.train.interlocking-"
+# The selector ids of the contract, exactly. An unrecognized id is dropped with a
+# warning rather than forwarded: the detector would silently ignore it, and a
+# typo'd surface that looks declared but never scans is the failure mode this
+# whole key exists to remove.
+_INTERLOCKING_LAYOUT_SELECTOR_IDS: tuple[str, ...] = (
+    "interlocking_yaml",
+    "train_yaml",
+    "python_runtime",
+    "station_master",
+    "e2e_tests",
+)
+
 
 @dataclass(frozen=True)
 class RuleMetadata:
@@ -341,6 +369,68 @@ def compute_scan_policy(
     )
 
 
+def is_interlocking_rule(rule_id: str) -> bool:
+    """True iff ``rule_id`` is one of the ``coder.train.interlocking-*`` rules the
+    train-interlocking detector realizes (the only rules the layout env is scoped to)."""
+    return rule_id.startswith(_INTERLOCKING_LAYOUT_RULE_PREFIX)
+
+
+def _layout_globs_for(selector_id: object, globs: object) -> Optional[list[str]]:
+    """Normalized globs for one declared selector, or ``None`` (with a warning).
+
+    The per-entry half of :func:`resolve_interlocking_layout`, split out so the
+    caller's loop body stays flat. Both rejections are warn-and-drop for the same
+    reason the caller documents: a layout hint must never sink an enforce run.
+    """
+    if selector_id not in _INTERLOCKING_LAYOUT_SELECTOR_IDS:
+        _log.warning(
+            "ignoring unknown interlocking_layout selector id",
+            extra={"selector_id": str(selector_id),
+                   "known": list(_INTERLOCKING_LAYOUT_SELECTOR_IDS)},
+        )
+        return None
+    as_list = _as_str_list(globs)
+    if not as_list:
+        _log.warning(
+            "ignoring empty/malformed interlocking_layout globs for selector",
+            extra={"selector_id": str(selector_id)},
+        )
+        return None
+    return as_list
+
+
+def resolve_interlocking_layout(config: dict) -> Optional[dict[str, list[str]]]:
+    """Read the OPTIONAL per-repo ``interlocking_layout`` declaration, or ``None``.
+
+    Reused surface (#1595): the block lives under the top-level
+    ``interlocking_layout:`` key of the ``.atdd/config.yaml`` the runner already
+    loads — no new file, no new schema object. Returns a normalized
+    ``{selector_id: [globs]}`` mapping restricted to the contract's selector ids,
+    or ``None`` when the key is absent/empty so the caller emits no env var and the
+    detector falls back to its own selectors (contract step 2/3).
+
+    Malformed shapes are tolerated defensively (this is a scan-surface HINT, not a
+    verdict input): a non-mapping block, an unknown selector id, or a non-list
+    value is dropped with a warning rather than raised — a bad layout hint must
+    not sink an enforce run.
+    """
+    block = config.get(_INTERLOCKING_LAYOUT_CONFIG_KEY) if isinstance(config, dict) else None
+    if block is None:
+        return None
+    if not isinstance(block, dict):
+        _log.warning(
+            "ignoring non-mapping interlocking_layout block",
+            extra={"type": type(block).__name__},
+        )
+        return None
+    layout: dict[str, list[str]] = {}
+    for selector_id, globs in block.items():
+        as_list = _layout_globs_for(selector_id, globs)
+        if as_list is not None:
+            layout[str(selector_id)] = as_list
+    return layout or None
+
+
 def _dedupe(items: list[str]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
@@ -349,3 +439,49 @@ def _dedupe(items: list[str]) -> list[str]:
             seen.add(item)
             out.append(item)
     return out
+
+
+# ─── which bound conventions a run enforces ─────────────────────────────────
+def load_bound(substrate_home: Path, error_cls) -> list:
+    """Every convention entry in the binding lock whose disposition is ``bound``.
+
+    A missing lock is an empty substrate, not a fault — the caller reports the clean
+    no-op. A malformed lock IS a fault: it cannot be told apart from an empty one by
+    inspection, and guessing would silently enforce nothing.
+    """
+    lock_path = substrate_home / ".atdd" / "binding.lock.yaml"
+    lock: dict = {}
+    if lock_path.is_file():
+        try:
+            lock = yaml.safe_load(lock_path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            raise error_cls(f"malformed binding.lock.yaml: {exc}") from exc
+
+    conventions = lock.get("conventions") if isinstance(lock, dict) else None
+    conventions = conventions if isinstance(conventions, list) else []
+    return [c for c in conventions if isinstance(c, dict) and c.get("disposition") == "bound"]
+
+
+def select_rules(bound: list, rules: Optional[set], error_cls) -> list:
+    """Narrow ``bound`` to ``rules``, refusing a selection that names an unknown rule.
+
+    ``rules`` is a SELECTION, not a filter: every named rule must resolve or this
+    raises. Silently dropping an unknown id would leave the caller running fewer
+    detectors than it asked for — and a selection resolving to nothing spawns no
+    provider at all, which reports CLEAN. A mistyped rule id would then turn a gate
+    into a rubber stamp, so an unresolvable selection is a usage error (the same
+    fail-closed stance the runner takes on a crashed provider).
+    """
+    if rules is None:
+        return bound
+
+    known = {str(c.get("convention_id")) for c in bound}
+    unknown = sorted(set(rules) - known)
+    if unknown:
+        # Name ONLY the unresolvable ids — listing the resolvable ones back would bury
+        # the typo in noise on a repo with dozens of bound rules.
+        raise error_cls("rule selection names no bound convention: " + ", ".join(unknown))
+
+    # Lock order, not selection order: the run is reproducible regardless of how the
+    # caller spelled the set.
+    return [c for c in bound if str(c.get("convention_id")) in rules]

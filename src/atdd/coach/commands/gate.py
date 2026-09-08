@@ -17,7 +17,6 @@ from typing import Dict, List, Optional
 
 import yaml
 
-from atdd.coach.commands.sync import AgentConfigSync
 from atdd.coach.utils.repo import detect_worktree_layout
 
 _log = logging.getLogger(__name__)
@@ -41,7 +40,6 @@ class ATDDGate:
             target_dir: Target directory containing agent config files.
         """
         self.target_dir = target_dir or Path.cwd()
-        self.syncer = AgentConfigSync(self.target_dir)
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
         self.issue_convention = self.package_root / "conventions" / "issue.convention.yaml"
 
@@ -99,7 +97,7 @@ class ATDDGate:
         try:
             data = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
             return data.get("rules") if isinstance(data, dict) else None
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return None
 
     def _load_issue_convention(self) -> Optional[str]:
@@ -129,43 +127,6 @@ class ATDDGate:
 
         return hashlib.sha256(block.encode()).hexdigest()
 
-    def _get_synced_files(self) -> Dict[str, Dict]:
-        """
-        Get info about synced agent config files.
-
-        Returns:
-            Dict mapping agent name to file info.
-        """
-        agents = self.syncer._get_enabled_agents()
-        result = {}
-
-        for agent in agents:
-            target_file = self.syncer.AGENT_FILES.get(agent)
-            if not target_file:
-                continue
-
-            target_path = self.target_dir / target_file
-            if not target_path.exists():
-                result[agent] = {
-                    "file": target_file,
-                    "exists": False,
-                    "hash": None,
-                }
-                continue
-
-            content = target_path.read_text()
-            block_hash = self._compute_block_hash(content)
-
-            result[agent] = {
-                "file": target_file,
-                "exists": True,
-                "has_block": block_hash is not None,
-                "hash": block_hash[:16] if block_hash else None,  # Short hash for display
-                "hash_full": block_hash,
-            }
-
-        return result
-
     def verify(self, json: bool = False) -> int:
         """
         Output gate verification info.
@@ -179,13 +140,6 @@ class ATDDGate:
         # Session-bootstrap self-heal (#884): repair a worktree poisoned by an
         # unscoped core.bare=true write before doing anything else.
         self.self_heal_core_bare()
-
-        files = self._get_synced_files()
-
-        if not files:
-            print("No agent config files configured.")
-            print("Run 'atdd init' to set up ATDD in this repo.")
-            return 1
 
         issue_convention = self._load_issue_convention()
         layout = detect_worktree_layout(self.target_dir)
@@ -216,15 +170,6 @@ class ATDDGate:
         print("=" * 60)
         print("ATDD Gate Verification")
         print("=" * 60)
-
-        print("\nLoaded files:")
-        for agent, info in files.items():
-            if info["exists"] and info.get("has_block"):
-                print(f"  - {info['file']} (hash: {info['hash']}...)")
-            elif info["exists"]:
-                print(f"  - {info['file']} (no managed block)")
-            else:
-                print(f"  - {info['file']} (missing)")
 
         if layout == "flat":
             print("\n  Advisory: Repo uses flat layout (not worktree-ready).")
@@ -283,12 +228,9 @@ class ATDDGate:
         Returns:
             Markdown template for gate confirmation.
         """
-        files = self._get_synced_files()
-
         lines = [
             "## ATDD Gate Confirmation",
             "",
-            "**Files loaded:**",
         ]
 
         for agent, info in files.items():

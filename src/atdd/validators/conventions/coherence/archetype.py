@@ -36,7 +36,6 @@ _ARCHETYPE_FOR_THEME = {"plan": "planner", "test": "tester", "code": "coder"}
 # (legacy _theme_taxonomy.DEFERRED_RETHEME_WAGONS). The convention evaluator mirrors
 # legacy's production filter so the divergence set matches the legacy check exactly.
 _DEFERRED_RETHEME_WAGONS = frozenset({
-    "mediate-worker-decisions",
     "consolidate-coach-workspace",
 })
 

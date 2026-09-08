@@ -70,7 +70,12 @@ _LEGAL_DISPOSITIONS = frozenset(
 )
 
 # Source files the file-backed variants read through ``graph.root``.
-_THEME_CONVENTION = "src/atdd/planner/conventions/theme.convention.yaml"
+# #1639: the planner legacy monoliths were deleted; the theme taxonomy is carried
+# by its convention node, which is where this variant now reads it.
+_THEME_CONVENTION = (
+    "src/atdd/planner/conventions/nodes/"
+    "planner.theme.canonical-taxonomy.convention.yaml"
+)
 _RULE_ID_CONVENTION = "src/atdd/coach/conventions/rule-id.convention.yaml"
 _PHASE_MACHINE_CONVENTION = "src/atdd/coach/conventions/phase_machine.convention.yaml"
 _PHASE_MACHINE_GATE_COMMAND = "atdd validate planner"
@@ -126,23 +131,28 @@ def _check_theme_zero_mandatory(graph) -> list:
     asserts equality against that same constant, so it is tautological and cannot
     be faulted by repo data (proven by its own
     ``test_override_cannot_remove_commons_floor``). This convention variant adds
-    the real, data-level gate over ``theme.convention.yaml`` that legacy lacks.
+    the real, data-level gate that legacy lacks.
+
+    SOURCE (#1639): reads the ``planner.theme.canonical-taxonomy`` convention
+    node, not the deleted ``theme.convention.yaml`` monolith. The node carries
+    the same three facts under ``terms``: ``theme_zero.values.{token,mandatory}``
+    and ``canonical_theme.values['0']``, whose name is the segment before the
+    em-dash gloss. The gate is unchanged in strength — all three must hold.
     """
-    tax = _read_yaml(graph, _THEME_CONVENTION).get("taxonomy") or {}
-    token = tax.get("theme_zero_token")
-    mandatory = tax.get("theme_zero_mandatory")
-    digit0 = next(
-        (t for t in (tax.get("themes") or [])
-         if isinstance(t, dict) and str(t.get("digit")) == "0"),
-        None,
-    )
+    terms = {
+        t.get("term_id"): (t.get("values") or {})
+        for t in (_read_yaml(graph, _THEME_CONVENTION).get("terms") or [])
+        if isinstance(t, dict) and t.get("term_id")
+    }
+    theme_zero = terms.get("theme_zero") or {}
+    token = theme_zero.get("token")
+    mandatory = theme_zero.get("mandatory")
+
+    # ``canonical_theme`` maps digit -> "<name> — <gloss>"; the name is the head.
+    digit0 = (terms.get("canonical_theme") or {}).get("0")
     resolved0 = None
-    if isinstance(digit0, dict):
-        name = digit0.get("name")
-        if isinstance(name, str) and "${theme_zero_token}" in name and token:
-            resolved0 = token
-        else:
-            resolved0 = name
+    if isinstance(digit0, str):
+        resolved0 = digit0.split("—", 1)[0].strip() or None
 
     floor_present = (
         token == "commons" and bool(mandatory) and resolved0 == "commons"

@@ -49,4 +49,7 @@ wmbt:
     reused, and is the sole identity driving the projection filename
   Y001: 'minimize likelihood of a slug-rename mutating object identity: renaming slug
     or title must leave uid and the .atdd/state/projection/<uid>.yaml filename unchanged'
-  total: 7
+  Y002: 'minimize likelihood of a rename-addressability failure: atdd state object
+    rename must address every work item the store holds, never refusing one because
+    its uid is not wi_<ULID>-shaped'
+  total: 8

@@ -22,13 +22,14 @@ import pytest
 
 _VALIDATOR_DIR = Path(__file__).resolve().parent
 
+# The TypeScript members (`test_typescript_test_naming`, `test_typescript_test_structure`,
+# `test_train_frontend_e2e`) were pruned in #1518 — core is stack-agnostic and their
+# obligations belong to `atdd.extension.tester` / `frontend.extension.vite-tester`.
+# What remains is the Python surface.
 _SUPERSEDED = [
     "test_urn_spec_v3",
-    "test_typescript_test_naming",
-    "test_typescript_test_structure",
     "test_train_backend_e2e",
     "test_train_frontend_python",
-    "test_train_frontend_e2e",
 ]
 
 
@@ -52,18 +53,12 @@ def test_spec_v3_train_header_delegates_to_engine() -> None:
     assert fn("train:BadCaps") is False
 
 
-@pytest.mark.parametrize("mod_name", ["test_typescript_test_naming", "test_typescript_test_structure"])
-def test_typescript_urn_check_delegates_to_engine(mod_name: str) -> None:
-    mod = importlib.import_module(f"atdd.tester.validators.{mod_name}")
-    fn = getattr(mod, "_is_valid_test_urn", None)
-    assert callable(fn), f"{mod_name} must expose _is_valid_test_urn (engine-delegating)"
-    assert fn("test:train:0001-self-compliance-validate:E2E-001-lifecycle") is True
-    assert fn("test:auth:session:M002-UNIT-003-trace-created") is True
-    assert fn("acc:auth:E001-UNIT-001") is True
-    assert fn("total garbage") is False
+# `test_typescript_urn_check_delegates_to_engine` was removed with its two subjects
+# (#1518). URN-grammar delegation itself is still covered — `URNGrammar` is the single
+# source either way, and the Python validators below exercise the same engine path.
 
 
-@pytest.mark.parametrize("mod_name", ["test_train_backend_e2e", "test_train_frontend_python", "test_train_frontend_e2e"])
+@pytest.mark.parametrize("mod_name", ["test_train_backend_e2e", "test_train_frontend_python"])
 def test_train_id_recognition_delegates_to_engine(mod_name: str) -> None:
     mod = importlib.import_module(f"atdd.tester.validators.{mod_name}")
     fn = getattr(mod, "_is_train_id", None)

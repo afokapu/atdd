@@ -368,7 +368,7 @@ fix_hint_exemplars:
 migration:
   worked_example:
     convention: "src/atdd/coder/conventions/green.convention.yaml"
-    validator: "src/atdd/coder/validators/test_frontend_security_patterns.py"
+    validator: "src/atdd/coder/validators/test_security_patterns.py"
     summary: |
       green.convention.yaml is the proof migration for issue #340. It declares
       rule IDs under `green_phase.urn_naming.rules` and

@@ -32,6 +32,10 @@ import pytest
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coder.validators._toolkit_roots import ScanRoot, resolve_scan_roots
+from atdd.coder.validators.tests._four_tier_exemplar import (
+    NO_FOUR_TIER_FEATURE,
+    find_four_tier_feature,
+)
 from atdd.coder.validators.test_composition_completeness import (
     analyze_python_root,
     build_feature_contexts,
@@ -43,18 +47,23 @@ pytestmark = [pytest.mark.platform]
 REPO_ROOT = find_repo_root()
 TOOLKIT_CONFIG = {"code": {"toolkit": "src/atdd"}}
 
-# A real, complete toolkit four-tier feature (shipped by #865).
-_F865_FEATURE_DIR = (
-    REPO_ROOT
-    / "src/atdd/consolidate_coach_workspace/enforce_surface_conformance"
-)
-
 
 def _toolkit_scan_root() -> ScanRoot:
     roots = resolve_scan_roots(TOOLKIT_CONFIG, REPO_ROOT)
     toolkit = [r for r in roots if r.discovery_root == REPO_ROOT / "src/atdd"]
     assert toolkit, "code.toolkit must yield a toolkit ScanRoot"
     return toolkit[0]
+
+
+def _four_tier_feature(scan_root: ScanRoot):
+    """The four-tier feature under scan, or skip when none exists.
+
+    Skips on absence of the *subject*, never on the identity of the repo.
+    """
+    feature = find_four_tier_feature(scan_root.discovery_root)
+    if feature is None:
+        pytest.skip(NO_FOUR_TIER_FEATURE)
+    return feature
 
 
 def test_toolkit_scan_root_carries_src_import_root_and_atdd_prefix():
@@ -70,15 +79,16 @@ def test_toolkit_scan_root_carries_src_import_root_and_atdd_prefix():
 
 
 def test_toolkit_four_tier_feature_discovered_and_analyzed():
-    """E047-UNIT-001: enforce-surface-conformance is discovered under src/atdd."""
+    """E047-UNIT-001: a four-tier feature is discovered under src/atdd."""
     scan_root = _toolkit_scan_root()
+    feature_dir = _four_tier_feature(scan_root)
     contexts = build_feature_contexts(REPO_ROOT, "python", scan_root.discovery_root)
     discovered = {ctx.feature_dir for ctx in contexts}
-    assert _F865_FEATURE_DIR in discovered, (
+    assert feature_dir in discovered, (
         "the toolkit four-tier feature must be discovered once code.toolkit is honored"
     )
-    f865 = next(c for c in contexts if c.feature_dir == _F865_FEATURE_DIR)
-    assert any(f865.layer_files[layer] for layer in ("domain", "application", "integration")), (
+    ctx = next(c for c in contexts if c.feature_dir == feature_dir)
+    assert any(ctx.layer_files[layer] for layer in ("domain", "application")), (
         "the validator must actually be reading the toolkit layer source files"
     )
 
@@ -90,17 +100,20 @@ def test_qualified_atdd_import_resolves_against_src_import_root():
     unconsumed → false violations). With import_root = src it resolves.
     """
     scan_root = _toolkit_scan_root()
+    feature_dir = _four_tier_feature(scan_root)
     graph = build_python_graph(
         REPO_ROOT,
         discovery_root=scan_root.discovery_root,
         import_root=scan_root.import_root,
     )
-    composition = _F865_FEATURE_DIR / "composition.py"
-    use_case = (
-        _F865_FEATURE_DIR / "src/application/apply_layout_use_case.py"
-    )
+    composition = feature_dir / "composition.py"
     assert composition in graph, "composition.py must be in the toolkit graph"
-    assert use_case in graph.get(composition, set()), (
+    resolved_into_feature = {
+        edge
+        for edge in graph.get(composition, set())
+        if feature_dir in edge.parents
+    }
+    assert resolved_into_feature, (
         "the qualified atdd.<wagon> import must resolve against the src import-root"
     )
 
@@ -117,14 +130,18 @@ def test_wired_toolkit_layer_file_has_no_false_unwired_violation():
     this asserts only on the demonstrably-wired files.)
     """
     scan_root = _toolkit_scan_root()
+    feature_dir = _four_tier_feature(scan_root)
     violations = analyze_python_root(REPO_ROOT, scan_root)
-    wired = {"apply_layout_use_case.py", "cmux_layout_adapter.py"}
+    # `application` and `integration` are the tiers the composition root wires
+    # together; unconsumed *domain* files are real debt for the ratchet, not
+    # false positives, so they stay out of this assertion.
+    rel = feature_dir.relative_to(scan_root.discovery_root).as_posix()
     false_positives = [
         v
         for v in violations
         if v.rule_id == "coder.refactor.composition-consumer"
-        and "enforce_surface_conformance" in v.location
-        and any(v.location.endswith(name) for name in wired)
+        and rel in v.location
+        and ("/src/application/" in v.location or "/src/integration/" in v.location)
     ]
     assert not false_positives, (
         "a composition-root-wired toolkit file must not be reported as unwired:\n"

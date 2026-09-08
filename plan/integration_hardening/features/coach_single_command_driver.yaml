@@ -2,7 +2,7 @@ urn: "feature:integration-hardening:coach-single-command-driver"
 wagon: "wagon:integration-hardening"
 description: "Wires all eight integration gaps into atdd coach <N>: K1 spawn-agents at each of the 5 persona transitions (#K001), durable decisions.jsonl write-before-action at every transition (#D001), J5-watcher-driven reactive state advancement (#E001), M3 validator dispatch at phase-exit gates with disposition-gated blocking (#M001), L1 observer co-spawned alongside each phase agent (#L001 full correcton loop; #L002 cold-start co-spawn wiring), N5 reviewer spawned at each enabled phase boundary with verdict routing (#R001), J4 two-phase commit at COMPLETE with --auto-merge flag (#P001), and production LLM clients self-registering at import time (#C001)."
 sizing:
-  wmbts: 9
+  wmbts: 7
   footprint_score: 17
   footprint_size: "L"
 wmbts:
@@ -12,7 +12,6 @@ wmbts:
   - "wmbt:integration-hardening:M001"
   - "wmbt:integration-hardening:L001"
   - "wmbt:integration-hardening:R001"
-  - "wmbt:integration-hardening:P001"
   - "wmbt:integration-hardening:C001"
 components:
   backend:

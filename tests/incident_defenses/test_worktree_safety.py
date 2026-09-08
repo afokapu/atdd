@@ -19,7 +19,7 @@ named in §9:
   (``test_sets_per_worktree_core_bare``) — the canonical fix for the recurring
   ``core.bare=true`` shared-config bleed.
 
-RED until ``src/atdd/runtime/worktree.py`` exists and the coach call sites
+RED until ``src/atdd/runtime/worktree.py`` exists and the runtime call sites
 delegate to it.
 """
 from __future__ import annotations
@@ -196,7 +196,7 @@ def test_blocks_main_commit(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# AC-UNIT-003 — import discipline + call-site routing
+# AC-UNIT-003 — import discipline (coach call-site retired with #1483)
 # --------------------------------------------------------------------------- #
 def test_runtime_worktree_has_no_forbidden_imports():
     """§3.3: atdd.runtime.worktree imports no orchestration/integration layer."""
@@ -211,7 +211,6 @@ def test_runtime_worktree_has_no_forbidden_imports():
 
     forbidden = {
         "atdd.coach", "atdd.train", "atdd.integrations",
-        "atdd.runtime.agent_control", "atdd.runtime.multiplexer",
     }
     leaked = {
         imp for imp in imports
@@ -219,43 +218,6 @@ def test_runtime_worktree_has_no_forbidden_imports():
         if imp == fb or imp.startswith(fb + ".")
     }
     assert not leaked, f"runtime.worktree leaked forbidden imports: {leaked}"
-
-
-def test_coach_ensure_issue_worktree_delegates_to_runtime(tmp_path, monkeypatch):
-    """The coach cold-start shim routes creation through atdd.runtime.worktree."""
-    from atdd.coach.commands import coach as coach_mod
-    from atdd.coach.commands import session_template
-    from atdd.runtime import worktree as wt
-    from atdd.coach.handlers.state_machine import CoachContext
-
-    repo = _make_repo(tmp_path)
-    monkeypatch.chdir(repo)
-    body = (
-        "## Issue Metadata\n\n| Field | Value |\n|-------|-------|\n"
-        "| Branch | `feat/delegated` |\n\n## Summary\nx\n"
-    )
-    monkeypatch.setattr(
-        session_template, "fetch_issue",
-        lambda n: {"number": n, "title": "t", "body": body},
-    )
-
-    calls: list[tuple] = []
-    real = wt.ensure_issue_worktree
-
-    def _spy(worktree_path, branch, repo_root, **kw):
-        calls.append((Path(worktree_path), branch))
-        return real(worktree_path, branch, repo_root, **kw)
-
-    monkeypatch.setattr(wt, "ensure_issue_worktree", _spy)
-
-    ctx = CoachContext(issue_number=4242)
-    result = coach_mod._ensure_issue_worktree(ctx)
-
-    assert calls, "coach._ensure_issue_worktree must call runtime.worktree.ensure_issue_worktree"
-    assert result is not None and (result / ".git").exists()
-    assert calls[0][1] == "feat/delegated"
-
-
 # --------------------------------------------------------------------------- #
 # remove_worktree
 # --------------------------------------------------------------------------- #

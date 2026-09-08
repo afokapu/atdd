@@ -98,8 +98,8 @@ def test_guidelines_cli_emits_context():
 def test_worked_example_authors_wagon_feature_and_wmbt(tmp_path):
     (tmp_path / "plan").mkdir()
     s = PlanSession("worked", main_job="Listen to music while commuting", issue_ref="my-plan")
-    s.advance(Step.LOCATE); s.sources.append({"type": "text", "value": "music app spec"})
-    s.advance(Step.PREPARE)
+    s.advance(Step.ATTACH); s.sources.append({"type": "text", "value": "music app spec"})
+    s.advance(Step.COMPOSE)
     s.add_unit(Unit(kind="wagon", ref="stream-audio", spec={
         "wagon": "stream-audio", "description": "stream audio to the commuter",
         "subject": "agent:planner", "context": "commute", "action": "streams audio",
@@ -116,7 +116,7 @@ def test_worked_example_authors_wagon_feature_and_wmbt(tmp_path):
         "context_clarifier": "when a track is selected it plays without buffering stalls",
         "lens": "functional.effectiveness",
         "statement": "maximize likelihood of track-playback when a commuter selects a track"}))
-    s.advance(Step.CONFIRM)
+    s.advance(Step.RATIFY)
     for ref in ("stream-audio", "play-track", "E001"):
         s.units[[u["ref"] for u in s.units].index(ref)]["verdict"] = Verdict.KEEP.value
     s.confirm()
@@ -135,8 +135,8 @@ def test_full_decomposition_all_five_kinds_with_keep_pivot_kill(tmp_path):
     (tmp_path / "plan" / "_trains").mkdir(parents=True)
     (tmp_path / "plan" / "_trains.yaml").write_text("trains: {}\n", encoding="utf-8")
     s = PlanSession("full", main_job="Listen to music while commuting", issue_ref="my-plan")
-    s.advance(Step.LOCATE); s.sources.append({"type": "text", "value": "spec"})
-    s.advance(Step.PREPARE)
+    s.advance(Step.ATTACH); s.sources.append({"type": "text", "value": "spec"})
+    s.advance(Step.COMPOSE)
     s.add_unit(Unit(kind="wagon", ref="full-demo", spec={
         "wagon": "full-demo", "description": "the full demo wagon for all-kinds coverage",
         "subject": "agent:planner", "context": "commute", "action": "does it",
@@ -163,7 +163,7 @@ def test_full_decomposition_all_five_kinds_with_keep_pivot_kill(tmp_path):
                   "given": {"abstract": ["a"]}, "when": {"abstract": "b"}, "then": {"abstract": ["c"]}}}))
     s.add_unit(Unit(kind="wagon", ref="kill-me", spec={"wagon": "kill-me"}))
     s.add_unit(Unit(kind="wagon", ref="pivot-me", spec={"wagon": "pivot-me"}))
-    s.advance(Step.CONFIRM)
+    s.advance(Step.RATIFY)
 
     keep = _op_resolver("keep")
     for ref in ("full-demo", "do-it", "E001", "0009-full-demo", "extra-acc"):

@@ -8,7 +8,7 @@ Preconditions:
 - plan/ directory must exist (consumer repo, created by planner phase)
 - jsonschema package must be installed
 
-Convention: src/atdd/planner/conventions/wagon.convention.yaml
+Convention: src/atdd/planner/conventions/nodes/planner.wagon.urn-naming.convention.yaml
 Fix: Run `atdd validate planner` after creating plan/ artifacts
 """
 import pytest

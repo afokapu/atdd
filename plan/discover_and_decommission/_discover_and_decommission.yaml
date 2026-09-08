@@ -78,10 +78,6 @@ consume:
     from: wagon:freeze-runtime-contracts
   - name: commons:coach:risk-score-schema
     from: wagon:freeze-runtime-contracts
-  - name: spawn:per-llm-convention-templates
-    from: wagon:spawn-agents
-  - name: spawn:orchestrate-parity-suite
-    from: wagon:spawn-agents
   - name: observer:babysit-parity-suite
     from: wagon:observe-and-correct
 

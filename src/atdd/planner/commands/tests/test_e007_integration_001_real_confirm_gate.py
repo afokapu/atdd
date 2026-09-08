@@ -40,7 +40,7 @@ from atdd.planner.interlocking import (
 )
 
 
-def _session_with(units, *, step=Step.CONFIRM.value, issue_ref="local:1265"):
+def _session_with(units, *, step=Step.RATIFY.value, issue_ref="local:1265"):
     s = PlanSession(session_id="anchor-sess")
     s.step = step
     s.issue_ref = issue_ref

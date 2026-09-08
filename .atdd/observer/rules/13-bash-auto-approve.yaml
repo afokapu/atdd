@@ -1,8 +1,0 @@
-# Observer rule 13 — coach.observer.bash-auto-approve
-# Spec: atdd-coach-spec-v9.md §8.3 (default observer rule table).
-# Implemented by detectors.classify_prompt (observer_rules/detectors.py).
-# Patterns source-of-truth: observer.convention.yaml::bash_classifier.
-
-trigger:
-  type: python
-  builder: "atdd.coach.observer_rules.bash_auto_approve:build_rule"

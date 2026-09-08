@@ -25,7 +25,7 @@ acceptances:
         - "when the clean PR A is current, no blocking violation is selected (innocent passes) even though PR B is offending"
         - "when the offending PR B is current, exactly its violation is selected (offender still blocked)"
         - "the current-PR resolver returns the PR number from GITHUB_REF and from PR_NUMBER"
-        - "when no current PR is resolvable, all offenders' violations are selected (repo-wide back-compat)"
+        - "when no current PR is resolvable, no violation is selected as blocking and every offender is logged as an advisory (superseded by wmbt:govern-lifecycle:E070 — the original repo-wide back-compat fallback was itself the cross-PR coupling this WMBT set out to remove)"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-20"

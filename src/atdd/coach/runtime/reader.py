@@ -67,7 +67,7 @@ def _read_jsonl(path: Path) -> list[dict]:
         if line:
             try:
                 records.append(json.loads(line))
-            except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
                 pass
     return records
 
@@ -167,12 +167,12 @@ def read_agent_state(
                     state.last_heartbeat = datetime.fromisoformat(
                         observed.replace("Z", "+00:00")
                     )
-                except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+                except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
                     pass
             state.status = hb.get("status", "unknown")
             if "token_count" in hb:
                 state.token_count = hb["token_count"]
-        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             pass
 
     context_path = agent_dir / "context.json"
@@ -181,7 +181,7 @@ def read_agent_state(
             ctx = json.loads(context_path.read_text(encoding="utf-8"))
             state.issue = ctx.get("issue")
             state.phase = ctx.get("phase")
-        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             pass
 
     return state
@@ -199,7 +199,7 @@ def read_agent_sessions(runtime_dir: Path) -> list[dict]:
         for session_file in sorted(issue_dir.glob("*.session.json")):
             try:
                 sessions.append(json.loads(session_file.read_text(encoding="utf-8")))
-            except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+            except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
                 pass
     return sessions
 

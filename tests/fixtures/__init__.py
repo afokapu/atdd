@@ -7,7 +7,7 @@ layers shipped by later children:
 | Export                    | Stands in for                         | Real impl ships in |
 |---------------------------|---------------------------------------|--------------------|
 | ``FakeGitHub``            | ``atdd.integrations.github``          | Child 4            |
-| ``FakeAgent``             | ``atdd.runtime.agent_control``        | Child 6            |
+| ``FakeAgent``             | (agent-control layer, pruned #1480)   | Child 6            |
 | ``FakeObserver``          | ``atdd.observer``                     | Child 10           |
 | ``InMemoryPersistenceStore`` | ``atdd.train.persistence`` store   | Child 7            |
 | ``LocalDryRunRunner``     | ``atdd.train.runners.jsonl``          | Child 8            |

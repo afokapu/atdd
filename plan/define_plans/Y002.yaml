@@ -1,0 +1,248 @@
+urn: wmbt:define-plans:Y002
+step: modify
+direction: minimize
+dimension: likelihood
+object_of_control: stale-stage-vocabulary-on-the-plan-cli-surface
+context_clarifier: the atdd plan session gates are renamed Define/Locate/Prepare/Confirm
+  -> Intent/Attach/Compose/Ratify (Author unchanged), and every surface an operator
+  or agent can observe must move with them, while the WMBT step vocabulary and the
+  three planner.plan.confirm-* rule IDs that share the word confirm stay frozen
+lens: functional.effectiveness
+statement: minimize likelihood of stale-stage-vocabulary-on-the-plan-cli-surface by
+  moving the CLI help, the gate refusal messages, the session-lifecycle convention
+  node and the README onto Intent/Attach/Compose/Ratify, keeping `atdd plan confirm`
+  working as an alias and pre-rename sessions loadable
+acceptances:
+- identity:
+    urn: acc:define-plans:Y002-UNIT-001-advance-step-choices-are-the-new-names
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the advance --step choices offer only the new stage names
+  harness:
+    type: unit
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - the atdd plan argument parser built by plan_session_cli.build_parser
+  when:
+    abstract: the choices offered for `advance --step` are read off the parser
+  then:
+    abstract:
+    - the choices are exactly intent, attach, compose, ratify, authored
+    - none of define, locate, prepare or confirm is offered as a --step value
+- identity:
+    urn: acc:define-plans:Y002-UNIT-002-gate-refusals-name-the-new-stages
+    id: AC-UNIT-002
+    phase: RED
+    purpose: each of the four gate refusals names the stage whose exit condition failed
+  harness:
+    type: unit
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - a plan session held at each stage in turn with its exit condition unmet
+  when:
+    abstract: an advance to the next stage is attempted and the SessionGateError message
+      is read
+  then:
+    abstract:
+    - the refusal blocking the move off the first stage names Intent, not Define
+    - the refusal blocking the move off the second stage names Attach, not Locate
+    - the refusal blocking the move off the third stage names Compose, not Prepare
+    - the refusal blocking authoring names Ratify, not Confirm
+    - no refusal message emitted by the session carries Define, Locate, Prepare or
+      Confirm as a stage name
+- identity:
+    urn: acc:define-plans:Y002-UNIT-003-reopen-returns-to-compose
+    id: AC-UNIT-003
+    phase: RED
+    purpose: reopen lands a locked session on Compose and says so
+  harness:
+    type: unit
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - a plan session locked by the operator
+  when:
+    abstract: reopen() is called, and separately a mutation is attempted while still
+      locked
+  then:
+    abstract:
+    - the session's stage is compose and the lock is cleared
+    - the refusal raised by the locked mutation names Ratify as the lock and Compose
+      as the stage reopen returns to
+    - reopen is still refused outright once the session has authored
+- identity:
+    urn: acc:define-plans:Y002-UNIT-004-pre-rename-session-loads-and-advances
+    id: AC-UNIT-004
+    phase: RED
+    purpose: a session.json written before the rename loads and then advances rather
+      than raising a bare ValueError at the operator
+  harness:
+    type: unit
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - four session.json files on disk carrying the pre-rename stage values define,
+      locate, prepare and confirm
+  when:
+    abstract: each is loaded through PlanSession.load and then advanced
+  then:
+    abstract:
+    - each loads and reports its stage under the new name (intent, attach, compose,
+      ratify)
+    - the subsequent advance completes without raising ValueError
+    - a session carrying authored still loads unchanged, since that value did not
+      move
+- identity:
+    urn: acc:define-plans:Y002-UNIT-005-wmbt-step-vocabulary-is-untouched
+    id: AC-UNIT-005
+    phase: RED
+    purpose: the tripwire proving the rename did not bleed into the WMBT step vocabulary
+  harness:
+    type: unit
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - the authorized WMBT step vocabulary and its mirror in wmbt.schema.json
+  when:
+    abstract: the step-to-letter mapping is read back after the rename
+  then:
+    abstract:
+    - define still maps to D, locate to L, prepare to P and confirm to C
+    - the nine authorized steps are unchanged in name and count
+    - none of intent, attach, compose or ratify has been introduced as a WMBT step
+- identity:
+    urn: acc:define-plans:Y002-UNIT-006-frozen-artifacts-and-rule-ids-still-resolve
+    id: AC-UNIT-006
+    phase: RED
+    purpose: every WMBT artifact filename and every confirm-named rule ID survives
+      the rename
+  harness:
+    type: unit
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - the WMBT artifacts under plan/ whose filename is a step letter plus three digits
+    - the three rule IDs planner.plan.confirm-before-author, planner.plan.confirm-binds-an-issue
+      and planner.plan.confirm-requires-interlocking-sanity
+  when:
+    abstract: each filename is resolved on disk and each rule ID is resolved through
+      bind_rule
+  then:
+    abstract:
+    - every step-lettered WMBT filename under plan/ still resolves to a readable artifact
+    - all three confirm-named rule IDs still bind, keeping the rule name confirm-before-author
+      while the stage it guards is called Ratify
+- identity:
+    urn: acc:define-plans:Y002-INTEGRATION-001-confirm-and-ratify-are-one-operation
+    id: AC-INTEGRATION-001
+    phase: RED
+    purpose: the confirm alias is the deprecation window and does the same work as
+      ratify, rather than silently doing nothing
+  harness:
+    type: integration
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - two identical plan sessions driven through the CLI to the ratify stage with
+      every unit decided
+  when:
+    abstract: one is locked with `atdd plan ratify --id <x>` and the other with `atdd
+      plan confirm --id <x>`
+  then:
+    abstract:
+    - both exit zero and both sessions end locked
+    - the emitted state JSON is identical between the two runs apart from the session
+      id
+    - a gate refusal reaches the same non-zero exit through either spelling, so the
+      alias cannot report success without acting
+- identity:
+    urn: acc:define-plans:Y002-INTEGRATION-002-guidelines-render-the-new-vocabulary
+    id: AC-INTEGRATION-002
+    phase: RED
+    purpose: the command that orients agents hands them the new stage names
+  harness:
+    type: integration
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - the working context assembled by `atdd plan guidelines`
+  when:
+    abstract: the planner.plan.session-lifecycle node is read out of the rendered
+      context
+  then:
+    abstract:
+    - its statement and its gate-listing term name Intent, Attach, Compose and Ratify
+    - the node no longer describes the session gates as Define, Locate, Prepare or
+      Confirm
+    - the separately owned WMBT job-step vocabulary rendered alongside it is unchanged
+- identity:
+    urn: acc:define-plans:Y002-SMOKE-001-real-session-runs-start-to-author
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: a real session runs end to end under the new names against the installed
+      CLI, which a unit test over the enum could not prove
+  harness:
+    type: integration
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - a real repo checkout and the installed atdd CLI
+  when:
+    abstract: a plan session is driven start -> intent -> attach -> compose -> ratify
+      -> author using only the new stage names
+  then:
+    abstract:
+    - every step exits zero and the session reaches authored with its kept units written
+    - no output emitted along the way names Define, Locate, Prepare or Confirm as
+      a stage
+- identity:
+    urn: acc:define-plans:Y002-SMOKE-002-help-surfaces-name-the-new-stages
+    id: AC-SMOKE-002
+    phase: SMOKE
+    purpose: the operator-visible help text moved with the enum
+  harness:
+    type: integration
+    category: backend
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-02'
+  given:
+    abstract:
+    - the installed atdd CLI
+  when:
+    abstract: the top-level plan help and each atdd plan subcommand help are rendered
+  then:
+    abstract:
+    - the top-level gloss reads Intent -> Attach -> Compose -> Ratify -> author
+    - the main-job, source and unit subcommands are glossed Intent, Attach and Compose
+    - the reopen subcommand help says it returns the session to Compose
+    - the README documents the same stage names and the same advance --step values

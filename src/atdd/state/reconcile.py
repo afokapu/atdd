@@ -2,10 +2,27 @@
 
 The problem this solves: Dev A merges work to main; Dev B pulls, and B's local
 store must pick up A's work **without losing B's uncommitted private authoring**.
-The store is not the truth and the projection is not a backup of it — the relation
-between them is exact (I3):
+The store is not the truth and the projection is not a backup of it. The relation
+between them (I3) is:
 
     store == hydrate(projection @ store_base_commit) + replay(local_overlay)
+
+**over the objects the projection mentions.** That qualifier is not a footnote; it
+was added at the cost of ~588 work_items (#1580). I3 used to be read as an exact
+equality in both directions, which made a *gap* in the projection into an
+instruction: an object the projection did not carry was deleted, because otherwise
+the left half would stop being true. But the projection at HEAD is only known to be
+complete when something establishes that, and nothing ever did — a gitignored
+projection, a shallow clone, an older branch, or a Control Root resolved one
+directory off each omits objects while asserting nothing whatever about them. On
+2026-07-20 that inference emptied the store in a single silent operation.
+
+So absence means **no information**, and I3 holds in the only form it was ever
+entitled to: the projection is authoritative for what it says, and silent about
+what it does not. Retirement must be stated — a committed tombstone carrying actor,
+reason, source generation and prior-object digest — and even then it is a record
+rather than a removal; physical deletion belongs to ``tombstone.compact_archive``
+alone. See :func:`_replace_public_state`.
 
 So reconcile is not "overwrite the store from the new projection". It is:
 
@@ -21,6 +38,21 @@ So reconcile is not "overwrite the store from the new projection". It is:
 uncommitted overlay is *dirty*, and every path that would replace a dirty store
 with a plain hydrate raises before touching sqlite (C001). Nothing is destroyed to
 make room for incoming work.
+
+I5 guarded the *dirty* store and only the dirty store, which is why it stayed
+silent through the incident: the store that lost 588 objects was clean, and "a
+clean store hydrates with no backup and no fuss" was true and catastrophic at the
+same time. The guards added in #1580 judge the incoming projection instead of the
+local overlay, so they fire on exactly the case I5 was never watching:
+
+- an **absent** projection is refused, and refused loudly when a populated store is
+  at stake — it is the absence of an assertion, not an assertion of absence;
+- an **empty** projection never empties a populated store;
+- a projection retiring an implausible share of the store in one reconcile is
+  refused past a blast radius, with an operator override that asserts the expected
+  count rather than forcing past the check (:func:`guard_deletions`);
+- a store whose Control Root is not the checkout it follows will not follow any
+  HEAD at all (:func:`assert_reconcilable`).
 
 The mechanism that makes non-destructiveness structural rather than careful: the
 whole replay happens on a **copy** of the store, and the live ``state.sqlite`` is
@@ -66,6 +98,22 @@ _log = logging.getLogger(__name__)
 #: it is the operator's undo, so reconcile never deletes one it wrote.
 BACKUP_SUFFIX = ".bak"
 
+#: Deletions at or below this count are routine and never refused, whatever proportion
+#: of the store they represent (#1580). Retiring 2 objects from a store of 6 is a third
+#: of it and is also an ordinary Tuesday; a guard that refuses Tuesdays is one operators
+#: learn to route around, and a routed-around guard protects nothing.
+SAFE_DELETIONS = 5
+
+#: Above :data:`SAFE_DELETIONS`, the largest share of the work_items one reconcile may
+#: remove. Catches the small store, where a catastrophe is not a large *number*: half of
+#: a 20-object store is 10 objects and the whole of somebody's month.
+MAX_DELETION_FRACTION = 0.25
+
+#: …and the largest absolute count, however small the share. Catches the large store,
+#: where 60 objects out of 5000 is a rounding error proportionally and still 60 things
+#: somebody has to get back.
+MAX_ABSOLUTE_DELETIONS = 50
+
 
 class DirtyStoreError(RuntimeError):
     """An overwrite path was taken against a store carrying uncommitted overlay (C001).
@@ -77,6 +125,84 @@ class DirtyStoreError(RuntimeError):
     def __init__(self, message: str, *, events: Optional[List[OverlayEvent]] = None) -> None:
         self.events = events or []
         super().__init__(message)
+
+
+class MassDeletionRefused(RuntimeError):
+    """A reconcile would have removed more store state than any guard will allow (#1580).
+
+    Same posture as :class:`DirtyStoreError` and for the same reason: raised **before** any
+    sqlite mutation, so the store is exactly as it was when this surfaces. It carries the
+    arithmetic — how many objects exist, how many were doomed, which rule tripped — because
+    the number is what tells an operator whether they are looking at a misconfiguration or
+    at a genuine mass retirement, and those need opposite responses.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        doomed: Optional[List[str]] = None,
+        existing: int = 0,
+        allowed: Optional[int] = None,
+    ) -> None:
+        #: The uids that would have been removed.
+        self.doomed = list(doomed or [])
+        #: How many work_items the store held when the guard ran.
+        self.existing = existing
+        #: The count the operator asserted via ``allow_deletions``, if any.
+        self.allowed = allowed
+        super().__init__(message)
+
+
+class SharedStoreReconcileRefused(RuntimeError):
+    """The store's Control Root is not the checkout whose HEAD it was asked to follow (#1580).
+
+    In the flat-sibling layout the Control Root resolves to the *project root* — the parent
+    of the primary ``main/`` checkout — and every worktree shares the one store beneath it
+    (``paths.resolve_control_root`` rule 1.5). That directory is not a git repository: no
+    HEAD, no branch, no commits. The worktrees around it have their own, one each.
+
+    Reconcile is defined against a commit. For a store whose Control Root is not a checkout
+    there is no such commit, so it was resolving one from whichever worktree happened to
+    invoke it — which makes the shared store's contents a function of which arbitrary HEAD
+    moved last, and lets an older feature branch roll every other worktree's view backward.
+
+    Whether ownership should be per-worktree or a single daemon is still open; a store
+    answering to a HEAD that does not describe it is wrong under either answer, so it is
+    refused now.
+    """
+
+    def __init__(self, control_root: Path) -> None:
+        self.control_root = Path(control_root)
+        super().__init__(
+            f"refusing to reconcile the store at {self.control_root}: its Control Root is "
+            "not a git checkout, so no HEAD describes it.\n"
+            "  This is the shared project-root store of a flat-sibling worktree layout. It "
+            "is shared by every worktree, and reconciling it against any one worktree's "
+            "HEAD makes its contents depend on which checkout moved last — an older branch "
+            "would roll back work that every other worktree can see.\n"
+            "  Reconcile from a Control Root that is itself the checkout it follows, or set "
+            "ATDD_CONTROL_ROOT to one. Nothing has been changed."
+        )
+
+
+def assert_reconcilable(control_root: Path) -> None:
+    """Refuse a Control Root that is not itself the git checkout it would follow (#1580).
+
+    Deliberately narrow, and shaped as the *positive* case rather than a layout sniff: the
+    Control Root must carry its own ``.git``. That is precisely the single-repo layout that
+    ships to consumers and the one every hermetic fixture builds, so nothing legitimate is
+    refused; and it is precisely what the shared project-root store is not.
+    """
+    control_root = Path(control_root)
+    git_entry = control_root / ".git"
+    if git_entry.is_dir() or git_entry.is_file():
+        return
+    _log.warning(
+        "reconcile refused: control root is not a git checkout",
+        extra={"control_root": str(control_root)},
+    )
+    raise SharedStoreReconcileRefused(control_root)
 
 
 class ColdStartError(StoreBaseCommitError):
@@ -296,6 +422,7 @@ def hydrate_store(
     *,
     commit: Optional[str] = None,
     projection_dir: Optional[Path] = None,
+    allow_deletions: Optional[int] = None,
 ) -> Tuple[int, Optional[str]]:
     """Hydrate the store from the committed projection and stamp its base commit.
 
@@ -311,6 +438,8 @@ def hydrate_store(
     """
     control_root = Path(control_root)
     repo = control_root
+    # Before anything else: is this store even entitled to follow this HEAD? (#1580)
+    assert_reconcilable(control_root)
     resolved = resolve_head(repo) if commit is None else commit
     projection_dir = projection_path(control_root) if projection_dir is None else Path(projection_dir)
 
@@ -334,7 +463,7 @@ def hydrate_store(
                 events=events,
             )
         store = StateStore(conn)
-        _replace_public_state(store, projection_dir)
+        _replace_public_state(store, projection_dir, allow_deletions=allow_deletions)
         result = hydrate(projection_dir, store)
         if resolved is None:
             # Nothing to anchor to yet. Record the shape of the store, but do not
@@ -348,22 +477,168 @@ def hydrate_store(
         conn.close()
 
 
-def _replace_public_state(store: StateStore, projection_dir: Path) -> None:
-    """Drop every work item the incoming projection does not carry.
+def guard_deletions(
+    doomed: List[str], *, existing: int, allow_deletions: Optional[int] = None
+) -> None:
+    """Refuse a deletion set that is too large to be believable (#1580).
 
-    Hydrate *replaces* the public half; it does not merge into it. If it merged, an
-    object the projection had dropped would linger in the store forever, and
-    ``store == hydrate(projection)`` — the left half of I3 — would quietly stop being
-    true. Safe to do unconditionally here: this path only ever runs against a clean
-    store, and a purely local object is either in the overlay (so the store is dirty
-    and we are not on this path) or already has a projection file of its own.
+    This is the guard that does not care *why* the deletion set was computed. C002-UNIT-004
+    removes the specific path that emptied the store — absence stops meaning deletion — but
+    that is not the same as removing the class: a mass tombstone, an over-eager compaction,
+    a badly resolved merge, or a Control Root pointed at the wrong project all arrive at the
+    same raw ``DELETE`` loop by a different road. So the count itself is judged, wherever it
+    came from.
+
+    Three rules, in the order they are applied:
+
+    1. At or below :data:`SAFE_DELETIONS`, nothing is refused (see the constant for why).
+    2. Above it, more than :data:`MAX_DELETION_FRACTION` of the work_items is refused.
+    3. And more than :data:`MAX_ABSOLUTE_DELETIONS` is refused however small the share.
+
+    ``allow_deletions`` is the way through, and it is an **assertion, not a force flag**:
+    the operator states how many deletions they expect, and a number that does not match
+    reality is refused as firmly as no number at all. ``--force`` answers "do it anyway",
+    which is the question nobody was asked on 2026-07-20; this asks "how many?", and a wrong
+    answer is proof the operator does not yet know what they are about to do.
     """
-    from atdd.state.projection import read_projection  # local: keeps the surface small
+    count = len(doomed)
+    if count == 0:
+        return
 
-    incoming = read_projection(projection_dir)
-    for obj in store.objects.list(kind=WORK_ITEM_KIND):
-        if obj.uid not in incoming:
-            store.objects.delete(obj.uid)
+    if allow_deletions is not None and allow_deletions != count:
+        raise MassDeletionRefused(
+            f"refusing to retire {count} work_item(s): you asserted --allow-deletions "
+            f"{allow_deletions}, but this reconcile would retire {count}. The numbers must "
+            "match — if they do not, the reconcile is not the one you think it is.\n"
+            f"  Objects at stake: {_render_uids(doomed)}",
+            doomed=doomed, existing=existing, allowed=allow_deletions,
+        )
+
+    if count <= SAFE_DELETIONS:
+        return  # routine retirement; the proportional rule must not make tiny stores unusable
+
+    if allow_deletions == count:
+        _log.warning(
+            "mass deletion allowed by explicit operator assertion",
+            extra={"deletions": count, "existing": existing},
+        )
+        return
+
+    share = (count / existing) if existing else 1.0
+    tripped = None
+    if count > MAX_ABSOLUTE_DELETIONS:
+        tripped = (
+            f"{count} exceeds the absolute limit of {MAX_ABSOLUTE_DELETIONS} retirements "
+            "in one reconcile"
+        )
+    elif share > MAX_DELETION_FRACTION:
+        tripped = (
+            f"{count} of {existing} work_item(s) is {share:.0%} of the store, over the "
+            f"{MAX_DELETION_FRACTION:.0%} limit for a single reconcile"
+        )
+    if tripped is None:
+        return
+
+    _log.warning(
+        "reconcile refused: deletion blast radius",
+        extra={"deletions": count, "existing": existing, "share": share},
+    )
+    raise MassDeletionRefused(
+        f"refusing a mass retirement: {tripped}.\n"
+        f"  Objects at stake: {_render_uids(doomed)}\n"
+        "  Nothing has been changed. If this is genuinely intended, re-run with "
+        f"`--allow-deletions {count}` to assert the exact count; if it is not, the store "
+        "you are reconciling is probably not anchored to the projection you think it is.",
+        doomed=doomed, existing=existing,
+    )
+
+
+def _render_uids(uids: List[str], limit: int = 10) -> str:
+    """The first ``limit`` uids, with an honest count of what was elided."""
+    shown = ", ".join(sorted(uids)[:limit])
+    remaining = len(uids) - limit
+    return f"{shown} (+{remaining} more)" if remaining > 0 else shown
+
+
+def _replace_public_state(
+    store: StateStore, projection_dir: Path, *, allow_deletions: Optional[int] = None
+) -> None:
+    """Apply the incoming projection to the public half — retaining what it does not mention.
+
+    **This no longer deletes on absence, and that is a deliberate weakening of I3.**
+
+    The old rule was "drop every work item the incoming projection does not carry", resting
+    on: hydrate replaces the public half rather than merging into it, so an object the
+    projection dropped would otherwise linger forever and ``store == hydrate(projection)``
+    would stop being true. The reasoning is sound *only while the projection at HEAD is
+    known to be complete*, and nothing anywhere established that. A gitignored projection,
+    a shallow clone, an older branch, a Control Root resolved one directory off — each
+    yields a projection that is missing objects while asserting nothing whatever about
+    them. On 2026-07-20 that inference deleted ~588 work_items in one silent operation.
+
+    So absence now means what it actually means: **no information**. The object is retained,
+    untouched. Retirement must be *said*, in a committed tombstone carrying provenance
+    (:data:`~atdd.state.projection.REQUIRED_TOMBSTONE_FIELDS`), and even then it is a
+    record rather than a removal — physical deletion belongs to
+    :func:`~atdd.state.tombstone.compact_archive` alone.
+
+    What I3's left half now holds is the weaker, true statement: the projection is
+    authoritative for every object it *mentions*. It was never authoritative about the
+    objects it does not, and the code no longer pretends otherwise.
+
+    The blast-radius guard still runs — over the set this projection *retires*, not the set
+    it omits. A projection that retires an implausible share of the store in one reconcile
+    is refused whether or not each individual tombstone is well-formed: saying it explicitly
+    is not the same as meaning it at that scale.
+    """
+    from atdd.state.projection import (  # local: keeps the surface small
+        MissingProjectionError,
+        read_projection,
+    )
+
+    existing = store.objects.list(kind=WORK_ITEM_KIND)
+
+    # Read the incoming projection *after* the store, so a refusal can name what is at
+    # stake. Which refusal an absent projection deserves depends on that: with nothing in
+    # the store it is a plain misconfiguration, and with work in it, it is the incident.
+    try:
+        incoming = read_projection(projection_dir, require=True)
+    except MissingProjectionError as absent:
+        if not existing:
+            raise
+        doomed = [obj.uid for obj in existing]
+        raise MassDeletionRefused(
+            f"refusing to empty a populated store: there is no projection directory at "
+            f"{projection_dir}, and the store holds {len(existing)} work_item(s).\n"
+            f"  Objects at stake: {_render_uids(doomed)}\n"
+            "  An absent projection is not an assertion that the store should be empty — "
+            "it is the absence of any assertion at all, and the two must never be "
+            "confused. This is the shape of the 2026-07-20 mass-deletion: a gitignored, "
+            "never-committed projection reading as empty at every HEAD.\n"
+            "  Nothing has been changed. Check that the Control Root is the one you meant "
+            "and that `.atdd/state/projection/` is committed at HEAD.",
+            doomed=doomed, existing=len(existing),
+        ) from absent
+
+    if not incoming and existing:
+        raise MassDeletionRefused(
+            f"refusing to act on an empty projection: it carries no objects at all, but "
+            f"the store holds {len(existing)} work_item(s).\n"
+            f"  Objects at stake: {_render_uids([o.uid for o in existing])}\n"
+            "  An empty projection is far more often a missing or uncommitted one than a "
+            "genuine mass retirement, and the cost of being wrong is the whole store. "
+            "Nothing has been changed.",
+            doomed=[o.uid for o in existing], existing=len(existing),
+        )
+
+    # The set this projection RETIRES — objects it explicitly tombstones that the store
+    # still holds as live. Not the set it omits: omission is not an instruction.
+    retiring = sorted(
+        obj.uid for obj in existing
+        if obj.data.get("state") != STATE_TOMBSTONED
+        and (incoming.get(obj.uid) or {}).get("state") == STATE_TOMBSTONED
+    )
+    guard_deletions(retiring, existing=len(existing), allow_deletions=allow_deletions)
 
 
 def freshness(control_root: Path, *, head: Optional[str] = None) -> StoreFreshness:
@@ -521,14 +796,19 @@ def reconcile(
     *,
     head: Optional[str] = None,
     projection_dir: Optional[Path] = None,
+    allow_deletions: Optional[int] = None,
 ) -> ReconcileResult:
     """Reconcile the local store with the projection at ``head`` (CORE-013).
 
     Raises :class:`StoreBaseCommitError` when the store is not anchored (P001),
-    :class:`ReplayConflictError` when the overlay will not replay (R002). In both
-    cases the store is left exactly as it was.
+    :class:`ReplayConflictError` when the overlay will not replay (R002),
+    :class:`MassDeletionRefused` when the incoming projection would remove more store
+    state than any guard will allow, and
+    :class:`~atdd.state.projection.MissingProjectionError` when there is no projection to
+    reconcile against at all (#1580). In every case the store is left exactly as it was.
     """
     control_root = Path(control_root)
+    assert_reconcilable(control_root)  # a store with no HEAD of its own borrows none (#1580)
     db_path = store_path(control_root)
     projection_dir = projection_path(control_root) if projection_dir is None else Path(projection_dir)
     resolved_head = gitstore.head(control_root) if head is None else head
@@ -555,6 +835,7 @@ def reconcile(
         # Clean store: reconcile reduces to plain hydrate. No backup, nothing to lose.
         hydrated, _ = hydrate_store(
             control_root, commit=resolved_head, projection_dir=projection_dir,
+            allow_deletions=allow_deletions,
         )
         _log.info(
             "reconciled by hydrate", extra={"base": base, "head": resolved_head},
@@ -575,6 +856,7 @@ def reconcile(
             events=events,
             backup=backup,
             workdir=Path(tmp),
+            allow_deletions=allow_deletions,
         )
 
 
@@ -588,6 +870,7 @@ def _replay_onto_incoming(
     events: List[OverlayEvent],
     backup: Path,
     workdir: Path,
+    allow_deletions: Optional[int] = None,
 ) -> ReconcileResult:
     """store := hydrate(incoming) + replay(overlay), on a copy, atomically (R001)."""
     incoming = _incoming_documents(projection_dir)
@@ -596,10 +879,10 @@ def _replay_onto_incoming(
     try:
         store = StateStore(conn)
 
-        # public := hydrate(incoming). Replace, do not merge: an object the incoming
-        # projection does not carry is not public state, and the overlay — not a
-        # leftover row — is what re-creates a purely local one.
-        _replace_public_state(store, projection_dir)
+        # public := hydrate(incoming), subject to the deletion guards — an incoming
+        # projection that is absent, empty, or implausibly smaller than the store is
+        # refused here rather than applied (#1580).
+        _replace_public_state(store, projection_dir, allow_deletions=allow_deletions)
         hydrated = hydrate(projection_dir, store).hydrated
 
         # ``working`` is the state each event is judged against: the incoming public

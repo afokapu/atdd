@@ -49,7 +49,7 @@ def test_bad_feature_names_fail(slug: str) -> None:
 
 def _confirm_session_with_feature(feature_urn: str) -> PlanSession:
     s = PlanSession(session_id="f1")
-    s.step = Step.CONFIRM.value
+    s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
     s.add_unit(Unit(kind="feature", ref=feature_urn,
                     verdict=Verdict.KEEP.value, spec={"urn": feature_urn}))

@@ -23,6 +23,7 @@ Reference: src/atdd/coach/specs/cli-write-audit.md
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -177,23 +178,33 @@ def test_readonly_command_leaves_tree_clean(
 def test_atdd_sync_upgrade_writes_last_version(fixture_repo: Path) -> None:
     """The explicit `atdd sync` verb is allowed (and required) to write.
 
-    Acceptance gate GT-500: `atdd sync` is the canonical writer of
-    `toolkit.last_version`. After running it, the value MUST be updated and
-    the working tree MUST reflect that change (i.e. the write actually
-    happened — the test would fail if `print_upgrade_sync_notice` were
-    silently doing it earlier and `atdd sync` were a no-op).
+    Acceptance gate GT-500: `atdd sync` is the canonical writer of this
+    checkout's last-synced toolkit version. After running it, the value MUST be
+    recorded (i.e. the write actually happened — the test would fail if
+    `print_upgrade_sync_notice` were silently doing it earlier and `atdd sync`
+    were a no-op).
+
+    Since #1641 the record lives at `.atdd/runtime/toolkit-sync.json`, not in
+    `toolkit.last_version` in the git-tracked `.atdd/config.yaml`. The tracked
+    write was correct but ephemeral — every checkout/stash/reset reverted it —
+    so the gate now asserts against the per-checkout record. `.atdd/runtime/`
+    is gitignored, which is why the write no longer dirties the working tree
+    that the rest of this module guards.
     """
-    config_path = fixture_repo / ".atdd" / "config.yaml"
-    before = config_path.read_text()
-    assert "0.0.1" in before, (
-        "Precondition: fixture should start at toolkit.last_version: 0.0.1"
+    record_path = fixture_repo / ".atdd" / "runtime" / "toolkit-sync.json"
+    assert not record_path.exists(), (
+        "Precondition: fixture should start with no toolkit-sync record"
     )
 
     cmd = [sys.executable, "-m", "atdd", "sync"]
     _run(cmd, cwd=fixture_repo)
 
-    after = config_path.read_text()
-    assert "0.0.1" not in after, (
-        "atdd sync should bump toolkit.last_version off 0.0.1, but config "
-        f"still contains it:\n{after}"
+    assert record_path.exists(), (
+        "atdd sync should write the toolkit-sync record, but "
+        f"{record_path} does not exist"
+    )
+    recorded = json.loads(record_path.read_text()).get("last_synced_version")
+    assert recorded and recorded != "0.0.1", (
+        "atdd sync should record the installed toolkit version, got: "
+        f"{recorded!r}"
     )

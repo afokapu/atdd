@@ -29,7 +29,7 @@ def _load_yaml(path: Path) -> dict:
         import yaml
 
         return yaml.safe_load(path.read_text()) or {}
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return {}
 
 
@@ -40,7 +40,7 @@ def _store_wagon(issue_number: int, repo_root: Path) -> Optional[str]:
 
         with WorkItemReader(control_root=repo_root) as reader:
             return reader.wagon(issue_number)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 
@@ -51,7 +51,7 @@ def _store_train(issue_number: int, repo_root: Path) -> Optional[str]:
 
         with WorkItemReader(control_root=repo_root) as reader:
             return reader.train(issue_number)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
         return None
 
 

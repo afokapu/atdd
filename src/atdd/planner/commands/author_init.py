@@ -37,7 +37,14 @@ _WORKSPACE_DIRS = ("runtime", "adapter", "conformance", "e2e")
 
 
 def _name_of(package_id: str) -> str:
-    """The artifact-name segment of a ``<publisher>.<scope>.<name>`` id."""
+    """The artifact-name (last) segment of a package id.
+
+    Segment-count-agnostic by design: takes the final ``.``-delimited segment,
+    so it is correct for both the three-segment workspace grammar
+    (``<publisher>.workspace.<name>``) and the persona-aware four-segment
+    extension grammar (``<publisher>.extension.<persona>.<name>``, #1343). See
+    docs/1345-extension-id-grammar-audit.md (audit #1345, disposition N/A-opaque).
+    """
     return package_id.rsplit(".", 1)[-1]
 
 
@@ -68,8 +75,10 @@ def init_extension_package(
 ) -> Path:
     """Scaffold a new extension package; return its root dir.
 
-    Validates the id (``<publisher>.extension.<name>``), then writes
-    ``<root>/extensions/<id>/atdd.extension.yaml`` + the canonical skeleton.
+    Validates the id (persona-aware ``<publisher>.extension.<persona>.<name>``,
+    #1343; the legacy three-segment form is still accepted additively until
+    #1344), then writes ``<root>/extensions/<id>/atdd.extension.yaml`` + the
+    canonical skeleton.
     """
     validate_extension_id(extension_id)
     pkg = extension_package_home(extension_id, Path(root))

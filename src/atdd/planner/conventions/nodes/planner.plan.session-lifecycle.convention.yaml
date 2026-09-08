@@ -2,15 +2,22 @@ schema_version: 1.0.0
 rule_id: planner.plan.session-lifecycle
 kind: policy
 status: active
-statement: 'atdd plan runs a gated decomposition session: Define -> Locate -> Prepare
-  -> Confirm (D/L/P/C), then author -> verify -> modify. Steps are gates not scripts
-  (free dialogue within a step; backtracking allowed); a step advances only when its
-  exit condition (proper state) holds.'
+statement: 'atdd plan runs a gated decomposition session: Intent -> Attach -> Compose
+  -> Ratify, then author -> verify -> modify. The stages name what the OPERATOR is
+  deciding, not what the tool is doing. Stages are gates not scripts (free dialogue
+  within a stage; backtracking allowed); a stage advances only when its exit condition
+  (proper state) holds. These are the SESSION stages, and they are a separate
+  vocabulary from the WMBT job steps owned by steps.convention — do not read the two
+  as one system.'
 terms:
-- term_id: dlpc
-  text: 'the four session gates: Define (main job kept), Locate (sources + plan/ state
-    captured), Prepare (candidate decomposition convention-shaped), Confirm (decomposition
+- term_id: session_stages
+  text: 'the four session gates: Intent (main job kept), Attach (sources + plan/ state
+    captured), Compose (candidate decomposition convention-shaped), Ratify (decomposition
     locked by the operator).'
 - term_id: gate_not_script
-  text: within a step the conversation is dynamic; the gate only defines the exit
-    state; a pivot may reopen an earlier step.
+  text: within a stage the conversation is dynamic; the gate only defines the exit
+    state; a pivot may reopen an earlier stage.
+- term_id: ratify_before_author
+  text: the Ratify gate is the conversational->deterministic boundary; nothing is authored
+    before it. Its rule keeps the name planner.plan.confirm-before-author — the stage
+    is Ratify, the rule is confirm-before-author.

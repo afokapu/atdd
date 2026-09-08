@@ -6,9 +6,9 @@
 """#1139 slice 4 — live end-to-end smoke of the `atdd plan session` CLI.
 
 Drives a full gated session via subprocess against the real CLI (run-or-fail,
-no skip): start -> D/L/P/C -> keep -> confirm -> author. Asserts the on-Confirm
+no skip): start -> Intent/Attach/Compose/Ratify -> keep -> ratify -> author. Asserts the on-Ratify
 boundary really invokes the #1144 writer and produces a schema-valid wagon, and
-that confirm-before-author is enforced (authoring before confirm is refused).
+that confirm-before-author is enforced (authoring before ratify is refused).
 """
 from __future__ import annotations
 
@@ -45,13 +45,13 @@ def _state(r):
 def test_full_session_authors_valid_wagon_via_cli(tmp_path):
     (tmp_path / "plan").mkdir()
     assert _state(_sess(tmp_path, "start", "--id", "s1", "--main-job", "Listen to music while commuting", "--issue", "my-plan"))["step"] == "define"
-    _sess(tmp_path, "advance", "--id", "s1", "--step", "locate")
+    _sess(tmp_path, "advance", "--id", "s1", "--step", "attach")
     _sess(tmp_path, "source", "--id", "s1", "commute spec")
-    _sess(tmp_path, "advance", "--id", "s1", "--step", "prepare")
+    _sess(tmp_path, "advance", "--id", "s1", "--step", "compose")
     _sess(tmp_path, "unit", "--id", "s1", "--kind", "wagon", "--ref", "play-audio", "--spec", json.dumps(_SPEC))
-    _sess(tmp_path, "advance", "--id", "s1", "--step", "confirm")
+    _sess(tmp_path, "advance", "--id", "s1", "--step", "ratify")
 
-    # confirm-before-author: authoring before confirm must be refused
+    # confirm-before-author: authoring before ratify must be refused
     pre = _sess(tmp_path, "author", "--id", "s1")
     assert pre.returncode != 0, "author before confirm must fail"
     assert not (tmp_path / "plan" / "play_audio").exists()
@@ -80,8 +80,8 @@ def test_full_decomposition_all_five_kinds_keep_pivot_kill_via_cli(tmp_path):
         assert _sess(tmp_path, "unit", "--id", "f", "--kind", kind, "--ref", ref, "--spec", json.dumps(spec)).returncode == 0
 
     _state(_sess(tmp_path, "start", "--id", "f", "--main-job", "Listen to music while commuting", "--issue", "my-plan"))
-    _sess(tmp_path, "advance", "--id", "f", "--step", "locate"); _sess(tmp_path, "source", "--id", "f", "spec")
-    _sess(tmp_path, "advance", "--id", "f", "--step", "prepare")
+    _sess(tmp_path, "advance", "--id", "f", "--step", "attach"); _sess(tmp_path, "source", "--id", "f", "spec")
+    _sess(tmp_path, "advance", "--id", "f", "--step", "compose")
     U("wagon", "full-demo", {"wagon": "full-demo", "description": "the full demo wagon all kinds",
         "subject": "agent:planner", "context": "commute", "action": "does it", "goal": "cover all kinds",
         "outcome": "all authored", "produce": [{"name": "commons:demo:thing"}]})
@@ -101,7 +101,7 @@ def test_full_decomposition_all_five_kinds_keep_pivot_kill_via_cli(tmp_path):
                   "given": {"abstract": ["a"]}, "when": {"abstract": "b"}, "then": {"abstract": ["c"]}}})
     U("wagon", "kill-me", {"wagon": "kill-me"})
     U("wagon", "pivot-me", {"wagon": "pivot-me"})
-    _sess(tmp_path, "advance", "--id", "f", "--step", "confirm")
+    _sess(tmp_path, "advance", "--id", "f", "--step", "ratify")
 
     for ref in ("full-demo", "do-it", "E001", "0009-full-demo", "extra-acc"):
         _sess(tmp_path, "decide", "--id", "f", "--ref", ref, "--verdict", "keep")

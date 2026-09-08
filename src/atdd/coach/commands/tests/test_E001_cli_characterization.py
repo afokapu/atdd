@@ -315,7 +315,7 @@ class TestHelpCommand:
         stdout = result.stdout
         core_commands = [
             "validate", "inventory", "status", "registry", "init",
-            "issue", "list", "branch", "color", "sync", "gate", "repo",
+            "issue", "list", "branch", "sync", "gate", "repo",
         ]
         for cmd in core_commands:
             assert cmd in stdout, f"--help must mention subcommand '{cmd}'"

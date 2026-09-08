@@ -1,0 +1,27 @@
+# FAIL-CLOSED (layout_unresolved): this repo DECLARES an interlocking route space, but its train
+# runtime and Station Master do not live where the resolved layout looks (here: nowhere — there is no
+# python/ tree at all). Under the old detector this scanned SILENTLY green: none of the runtime- or
+# station-facing binding directions could run, so the interlocking looked "clean" while never having
+# been bound to any executable runtime. The layout_unresolved tooth turns that silent no-op into ONE
+# violation. The route's train artifact exists and the interlocking is not exposed, so no other
+# direction fires — layout_unresolved is emitted alone.
+schema_version: 1.0.0
+interlocking_id: interlocking:match-resolution
+title: Match resolution route interlocking
+theme: match
+status: checked
+
+entrypoint:
+  exposed: false
+  reason: internal-only
+
+route_resolution:
+  strategy: fail_on_multiple_match
+
+routes:
+  - route_id: nominal-all-voted
+    category: nominal
+    category_digit: "0"
+    guard_ref: guard:all-voted
+    train_id: 3007-match-resolution-standard
+    train_path: plan/_trains/3007-match-resolution-standard.yaml

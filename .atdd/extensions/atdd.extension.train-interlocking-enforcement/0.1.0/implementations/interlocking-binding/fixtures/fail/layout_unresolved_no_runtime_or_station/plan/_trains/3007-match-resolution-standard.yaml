@@ -1,0 +1,7 @@
+# The route's linear train exists (declaration_to_runtime stays clean) so the ONLY signal is that the
+# runtime + Station Master surfaces resolve to nothing.
+schema_version: 1.0.0
+train_id: 3007-match-resolution-standard
+title: Match resolution standard
+sequence:
+  - match

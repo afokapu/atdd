@@ -1,0 +1,134 @@
+urn: "wmbt:govern-lifecycle:D020"
+step: "define"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "lifecycle-transitions-whose-submitting-authority-is-undeclared-so-a-worker-that-has-satisfied-its-phase-must-still-stop-on-the-operator"
+context_clarifier: "when phase_machine.convention.yaml declares agent, transitions_to and pre_commit_gate per phase but nothing anywhere declares who may SUBMIT a transition, so every one of the seven forward transitions defaults to asking"
+lens: "functional.effectiveness"
+statement: "minimize quantity of lifecycle-transitions-whose-submitting-authority-is-undeclared-so-a-worker-that-has-satisfied-its-phase-must-still-stop-on-the-operator by adding one axis to the phase machine — a per-phase `autonomy` scalar naming who may submit the transition out of that phase — and one convention node stating the principle it encodes, cross-referenced to its sibling coach.execution.freedom-with-a-leash, which governs the same question one axis over (which TOOLS run unattended, versus which TRANSITIONS may be submitted unattended); ATDD keeps sole authority over transition LEGALITY, so the worst a permissive declaration can do is submit a command ATDD then rejects, and that bounded blast radius is why the declaration ships before any mechanism reads it"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:D020-UNIT-001-every-phase-declares-a-submitter"
+      id: "AC-UNIT-001"
+      purpose: "The phase machine answers 'who may submit this transition' for every phase, from a closed two-value vocabulary, and the answers are exactly the ones the operator pinned — so the axis is total (no phase is silent) rather than sprinkled where it was convenient"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "phase_machine.convention.yaml as authored, loaded as plain YAML (no Coach-core types involved — the axis is being read as data, which is all it is at this stage)"
+        - "The pinned autonomy table: INIT operator, PLANNED operator, RED agent, GREEN agent, SMOKE agent, REFACTOR operator, BLOCKED operator; COMPLETE and OBSOLETE carry an explicit null because they have no forward transition"
+    when:
+      abstract: "Every entry under `phases:` is inspected for the `autonomy` key and its value"
+    then:
+      abstract:
+        - "Every phase declares `autonomy` — the key is present on all nine, so no phase is silent about its submitter"
+        - "Every value is drawn from the closed vocabulary {agent, operator, null}; any third value is a violation, so the axis cannot quietly grow a mode"
+        - "The declared values equal the pinned table exactly, INIT->PLANNED among them (operator-only, as decided)"
+        - "A phase whose transitions_to is empty (COMPLETE, OBSOLETE) declares autonomy null, mirroring how those same phases already declare `agent: null` — the machine's existing idiom for 'not applicable', not a new one"
+        - "No phase declares `autonomy: agent` while declaring `agent: null`, since a phase with no persona has nobody who could submit autonomously"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D020-UNIT-002-escapes-are-never-autonomous"
+      id: "AC-UNIT-002"
+      purpose: "The invariant the per-phase scalar carries implicitly is asserted explicitly: BLOCKED and OBSOLETE are never entered autonomously. The scalar governs a phase's FORWARD transition only, so without this check the escapes would be governed by nothing at all"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The loaded phase machine, and the convention node's statement of the escape invariant"
+        - "The set of escape targets {BLOCKED, OBSOLETE}, every one of which appears in the transitions_to of all seven non-terminal phases"
+    when:
+      abstract: "The escape invariant is evaluated against the machine: for every phase, its transitions into BLOCKED and OBSOLETE are classified"
+    then:
+      abstract:
+        - "No transition into BLOCKED or OBSOLETE is autonomous under any phase's declaration, including the phases that declare `autonomy: agent`"
+        - "The invariant is stated in the convention node in prose a reader can find, not left to be inferred from the scalar's definition"
+        - "Leaving BLOCKED is likewise operator-submitted (BLOCKED declares `autonomy: operator`), so an escape is symmetric: an operator decision to enter, an operator decision to leave"
+        - "The escape set is NAMED, not derived, and is tied to the one the State Store's ladder walk already uses (test_phase_ladder_matches_projection_phases.ESCAPES) so the two cannot drift apart. REFACTOR note (#1626): the original wording asked for a derivation — 'expressed against the escape SET so a tenth escape does not silently fall outside it'. No sound derivation exists: an escape is reachable from every spine rung, but BLOCKED does not appear in its OWN transitions_to, so every 'reachable from all' rule drops it. The machine names its escapes; the check names them too, and the drift-guard is the achievable form of the original intent"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D020-UNIT-003-node-is-schema-valid-and-paired-with-its-sibling"
+      id: "AC-UNIT-003"
+      purpose: "The new node is a well-formed convention node under the established pattern, and it reads as a pair with coach.execution.freedom-with-a-leash rather than as a second, unrelated vocabulary for the same idea"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The new node src/atdd/coach/conventions/nodes/coach.lifecycle.transition-autonomy.convention.yaml"
+        - "src/atdd/planner/schemas/author/convention-node.schema.json (draft-07), the schema every node under nodes/ is authored from"
+        - "The sibling node coach.execution.freedom-with-a-leash, whose terms are freedom_set and leash"
+    when:
+      abstract: "The node is validated against convention-node.schema.json and its rule_id, metadata and terms are inspected"
+    then:
+      abstract:
+        - "The node validates against convention-node.schema.json, carrying all six required keys (schema_version, rule_id, kind, status, statement, terms)"
+        - "rule_id is `coach.lifecycle.transition-autonomy`, matching the <archetype>.<convention_short_name>.<rule_name> grammar and landing in the same coach.lifecycle family as coach.lifecycle.phase-machine"
+        - "kind is `principle`, severity 3, disposition `documentation-only` — the same posture as the sibling, and the posture the declarative-first decision requires: declared, not yet mechanically enforced"
+        - "Its terms mirror the sibling's freedom_set/leash pairing on the transition axis rather than coining a parallel vocabulary, and the statement names coach.execution.freedom-with-a-leash explicitly so the two read as one model on two axes"
+        - "A `source` block records provenance in the established shape (legacy_path, legacy_section, extraction_mode, legacy_sha) pointing at phase_machine.convention.yaml, the prose this axis is promoted from — the same promotion pattern the sibling used against session.convention.yaml"
+        - "Because the disposition is documentation-only, the reverse-coherence gate (test_rule_validator_binding) is satisfied with no bound validator, so the node needs no bind_rule callsite it does not yet have"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D020-UNIT-004-the-new-key-is-inert-in-the-loader"
+      id: "AC-UNIT-004"
+      purpose: "Adding the axis cannot destabilise anything, because nothing reads it yet: the loader ignores the key and the conventions snapshot hash is unchanged. This is the property that makes 'declare first, enforce later' actually safe rather than merely sequenced"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "atdd.train.persistence._phase_machine_from_data, which builds PhaseSpec by reading named keys (agent, transitions_to, pre_commit_gate) off each phase mapping"
+        - "atdd.train.persistence._normalized_snapshot, which derives the conventions snapshot hash from the built PhaseSpec objects and not from the YAML text"
+        - "The phase-machine YAML in both shapes: without the autonomy key, and with it"
+    when:
+      abstract: "load_conventions is run against both shapes and the resulting PhaseSpec mappings and snapshot hashes are compared"
+    then:
+      abstract:
+        - "Both shapes produce identical PhaseSpec mappings — the new key reaches no field, so PhaseSpec is untouched"
+        - "Both shapes produce the identical snapshot hash, so an in-flight run resuming from a frozen conventions.snapshot.yaml is not invalidated by this issue"
+        - "No loader, type or snapshot code is modified by this issue; the acceptance holds because of code that already exists, and it is asserted precisely so a later track cannot extend PhaseSpec without noticing it changes the hash"
+        - "The seam is named for the follow-up track: projecting autonomy onto PhaseSpec is what a mechanical submitter check will need, and doing so WILL move the snapshot hash — deliberately out of scope here"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-26"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D020-SMOKE-001-shipped-package-loads-the-declared-machine"
+      id: "AC-SMOKE-001"
+      purpose: "Against the real installed atdd package in a real checkout: the phase machine carrying the new axis loads, and the transition path behaves exactly as it did before — the declaration is proven inert in the shipped artifact, not merely in the test tree"
+      phase: "SMOKE"
+    harness:
+      type: "smoke"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the real installed atdd package, exercised in a separate real process (no in-process monkeypatching of the loader, no hand-built YAML)"
+        - "The shipped phase_machine.convention.yaml resolved the way the runtime resolves it — via _phase_machine_path, which prefers the in-repo copy and falls back to the packaged one, so worktree/wheel parity is exercised rather than assumed"
+        - "The recorded snapshot hash from before the axis was added"
+    when:
+      abstract: "A subprocess calls load_conventions against the real checkout, prints the resolved phase set and the snapshot hash, and attempts one real transition through the shipped CLI path"
+    then:
+      abstract:
+        - "The subprocess exits zero and reports all nine phases loaded, so the new key breaks no parse and no phase is dropped"
+        - "The printed snapshot hash equals the pre-change hash, confirming inertness in the shipped artifact and not only under a synthetic loader"
+        - "The packaged copy carries the axis too, so a consumer installing the wheel reads the same declaration the repo does rather than an older machine — discharged at SMOKE against a wheel BUILT from the tree via the C008/C009 _wheel_harness and read back with no source tree on sys.path, since `_phase_machine_path` prefers the in-repo copy and would otherwise report the worktree; asserting against the INSTALLED copy is deliberately not the test, because that copy predates any unmerged change and would assert 'this change has been released'"
+        - "A real transition is refused or allowed exactly as it was before this issue: INIT->PLANNED still requires the operator through the existing path, and PLANNED->RED still consults the approval-token gate — no transition changed behaviour because nothing reads autonomy yet"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-26"

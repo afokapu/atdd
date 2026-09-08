@@ -111,16 +111,46 @@ def run_add(
 def run_remove(
     ref: str, *, project_root: str | Path = ".", force: bool = False, prune: bool = False
 ) -> int:
+    """Withdraw an artifact — and report only what actually happened (#1488).
+
+    The old handler printed `removed <ref>` whenever the lock edit succeeded, while
+    the package was still on disk with its rules still bound. Every exit below is
+    now tied to what is true afterwards: a removal that cannot be completed
+    coherently says so and exits non-zero, and a removal of something absent says
+    nothing was removed rather than claiming a success it did not achieve.
+    """
+    from atdd.substrate import coherence
+    from atdd.substrate.binding import BindingError
+
     try:
         out = admission.remove(ref, project_root=project_root, force=force, prune=prune)
     except admission.AdmissionError as exc:
         _log.warning("remove refused", extra={"ref": ref, "error": str(exc)})
         print(f"error: {exc}")
         return 1
+    except coherence.IncoherentSubstrateError as exc:
+        _log.error("remove left the substrate incoherent", extra={"ref": ref, "error": str(exc)})
+        print(f"error: {ref} was NOT fully removed — {exc}")
+        print("       the substrate is incoherent; re-run `atdd substrate bind` to recompose it")
+        return 1
+    except BindingError as exc:
+        _log.error("remove could not unbind", extra={"ref": ref, "error": str(exc)})
+        print(f"error: {ref} left substrate.lock.yaml but its rules could not be unbound — {exc}")
+        print("       the substrate is incoherent; re-run `atdd substrate bind` once that is fixed")
+        return 1
+
+    if out["removed"] is None:
+        print(f"{ref} is not in the installed substrate (nothing to remove)")
+        return 0
+
     msg = f"removed {out['removed']}"
     if out["pruned"]:
         msg += f" (pruned {', '.join(out['pruned'])})"
     print(msg)
+    for path in out["uninstalled"]:
+        print(f"  uninstalled  {path}")
+    if out["unbound"]:
+        print(f"  unbound      {len(out['unbound'])} rule(s) from binding.lock.yaml")
     return 0
 
 

@@ -3,7 +3,7 @@ Platform tests: Contract schema compliance validation.
 
 Validates that all contract schemas follow the meta-schema and conventions:
 - atdd/tester/conventions/contract.convention.yaml
-- atdd/planner/conventions/interface.convention.yaml
+- atdd/planner/conventions/nodes/planner.interface.api-mapping.convention.yaml
 - atdd/tester/schemas/contract.schema.json (meta-schema)
 
 Preconditions:

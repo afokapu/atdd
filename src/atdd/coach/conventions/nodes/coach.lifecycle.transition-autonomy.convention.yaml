@@ -1,0 +1,64 @@
+schema_version: 1.1.0
+rule_id: coach.lifecycle.transition-autonomy
+kind: principle
+status: active
+name: Lifecycle transition autonomy
+statement: 'Each phase declares who may SUBMIT the transition out of it: `autonomy: operator` reserves the
+  forward edge for a human sign-off, `autonomy: agent` lets the phase''s own persona submit it unattended,
+  and null marks a phase with no forward transition. Entering an escape (BLOCKED, OBSOLETE) is never autonomous,
+  and leaving BLOCKED is likewise operator-submitted. This is the transition-axis twin of coach.execution.freedom-with-a-leash,
+  which governs which TOOLS run unattended; together they describe one model on two axes — a curated freedom
+  set that proceeds without asking, and a leash of decisions that must surface. ATDD retains sole authority
+  over transition LEGALITY (transitions_to) and over the gates in atdd.coach.gate, so a permissive declaration
+  can at worst submit a command ATDD then rejects.'
+rationale: 'Before this axis the phase machine said who DRIVES a phase, which targets are LEGAL, and what
+  must pass before commit — but nothing said who may submit the transition, so every worker stopped on the
+  operator at every phase regardless of whether a human judgement was actually required. Declaring the axis
+  separates the stops an operator wants from the stops that are merely undeclared. It is deliberately declarative
+  first: nothing reads the key yet, which is what makes the bounded blast radius above true rather than aspirational.'
+notes: 'PROVENANCE: unlike its sibling, this node was authored ALONGSIDE the data it describes rather than
+  extracted from pre-existing prose — the `source` block below records where the axis lives, not a passage
+  it was lifted from. INERTNESS: train/persistence.py::_phase_machine_from_data builds PhaseSpec from named
+  keys and _normalized_snapshot derives the conventions snapshot hash from PhaseSpec, so `autonomy` reaches
+  no field and moves no hash; no in-flight run resuming from a frozen conventions.snapshot.yaml is invalidated.
+  Projecting the axis onto PhaseSpec — which any mechanical submitter check will need — WILL move that hash,
+  and is a separate concern (see #1626, #1619).'
+source:
+  legacy_path: src/atdd/coach/conventions/phase_machine.convention.yaml
+  legacy_section: phases.autonomy
+  legacy_sha: ee9571096244dbac
+  extraction_mode: high_fidelity
+  legacy_rule_id: coach.phase-machine
+metadata:
+  severity: 3
+  # documentation-only (#1626): declarative first. The axis is declared and reviewable;
+  # mechanical enforcement of who may submit is a later, separate concern, so this node
+  # has no bound validator and needs no bind_rule callsite.
+  disposition: documentation-only
+  introduced_in: 4.27.0
+parity:
+  source_fragments_preserved: true
+  examples_preserved: false
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-07-28'
+terms:
+- term_id: transition_freedom_set
+  text: 'the transitions a phase''s own persona may submit unattended — the transition-axis counterpart of
+    coach.execution.freedom-with-a-leash''s freedom_set. Declared as `autonomy: agent`; currently RED->GREEN,
+    GREEN->SMOKE and SMOKE->REFACTOR, each gated on machine-checkable evidence rather than human judgement.'
+- term_id: transition_leash
+  text: 'the transitions reserved for the operator — the counterpart of that node''s leash. Declared as `autonomy:
+    operator`; currently INIT->PLANNED (the decomposition no downstream gate can re-derive), PLANNED->RED
+    (the sole member of DEFAULT_GATED_TRANSITIONS, approval-token gated since #1017), REFACTOR->COMPLETE
+    (merge authority; auto-phase cannot verify a modified artifact post-merge, #1611), and every exit from
+    BLOCKED.'
+- term_id: escape_invariant
+  text: 'no transition INTO BLOCKED or OBSOLETE is ever autonomous, whatever the submitting phase declares.
+    The per-phase scalar governs the forward edge only, so the escapes are covered by this invariant rather
+    than by the data; BLOCKED itself declares `autonomy: operator`, making an escape symmetric — an operator
+    decision to enter, an operator decision to leave.'
+- term_id: legality_stays_with_atdd
+  text: 'autonomy governs who may SUBMIT, never what is LEGAL. transitions_to and the gate registry remain
+    the sole authority on whether a submitted transition is accepted, which bounds the risk of a permissive
+    declaration to a rejected command.'

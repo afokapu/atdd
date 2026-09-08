@@ -64,7 +64,7 @@ def test_bad_wagon_names_fail(slug: str) -> None:
 
 def _confirm_session_with_wagon(slug: str) -> PlanSession:
     s = PlanSession(session_id="w1")
-    s.step = Step.CONFIRM.value
+    s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
     s.add_unit(Unit(kind="wagon", ref=f"wagon:{slug}",
                     verdict=Verdict.KEEP.value, spec={"wagon": slug}))
@@ -96,13 +96,13 @@ def _drive_cli_to_confirm(tmp_path, slug: str) -> int:
     assert run(["--root", root, "start", "--id", "c1",
                 "--main-job", "mj", "--issue", "demo-slug"]) == 0
     assert run(["--root", root, "source", "--id", "c1", "req"]) == 0
-    assert run(["--root", root, "advance", "--id", "c1", "--step", "locate"]) == 0
-    assert run(["--root", root, "advance", "--id", "c1", "--step", "prepare"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "attach"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "compose"]) == 0
     assert run(["--root", root, "unit", "--id", "c1", "--kind", "wagon",
                 "--ref", f"wagon:{slug}", "--spec", spec]) == 0
     assert run(["--root", root, "decide", "--id", "c1",
                 "--ref", f"wagon:{slug}", "--verdict", "keep"]) == 0
-    assert run(["--root", root, "advance", "--id", "c1", "--step", "confirm"]) == 0
+    assert run(["--root", root, "advance", "--id", "c1", "--step", "ratify"]) == 0
     return run(["--root", root, "confirm", "--id", "c1"])
 
 

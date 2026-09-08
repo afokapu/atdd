@@ -585,81 +585,13 @@ frontend:
         spec_id: "SPEC-CODER-PAGE-0003"
         rule: "Hook files exceeding max_lines (default 200) not in allowlist are a hard failure"
         config: ".atdd/config.yaml → god_hook_elimination"
-      route_train_compliance:
-        spec_id: "SPEC-CODER-PAGE-0004"
-        rule: "New routes must use TrainView, not direct page component imports"
-        config: ".atdd/config.yaml → route_train_compliance"
-      route_train_wagon_coverage:
-        spec_id: "SPEC-CODER-ROUTE-0005"
-        rule: >
-          Every <TrainView trainId="..." /> in a router file must resolve
-          to a registered train in plan/_trains.yaml, and that train's
-          wagons: list must reference registered wagons in plan/_wagons.yaml.
-          Same-file `const X = "id"` declarations are resolved; dynamic
-          expressions surface as advisory-only UNKNOWN warnings.
-        config: ".atdd/config.yaml → route_train_wagon_coverage"
-        validator: "src/atdd/coder/validators/test_route_train_wagon_coverage.py"
-        analyzer: "src/atdd/coder/validators/route_train_wagon_analyzer.py"
-        baseline: ".atdd/baselines/coder.yaml → route_train_wagon_coverage"
-        rules:
-          - id: "coder.frontend.trainid-not-registered-in"
-            aliases: ["BOUNDARIES-ROUTE-COVERAGE-001"]
-            severity: 3
-            disposition: documentation-only
-            description: "trainId not registered in plan/_trains.yaml (hard fail)"
-          - id: "coder.frontend.resolved-train-lists-wagon"
-            aliases: ["BOUNDARIES-ROUTE-COVERAGE-002"]
-            severity: 3
-            disposition: documentation-only
-            description: "Resolved train lists wagon not in plan/_wagons.yaml (hard fail)"
-          - id: "coder.frontend.trainid-expression-not-statically"
-            aliases: ["BOUNDARIES-ROUTE-COVERAGE-003"]
-            severity: 1
-            disposition: documentation-only
-            description: "trainId expression not statically resolvable (advisory; never hard-fail)"
-        rationale: >
-          Closes the route → train → wagon segment of the structural-vs-
-          behavioral incident series tracked at #318. Sibling validators
-          (#334 stub presentation; #335 train renders content) close the
-          presentation-leaf and runtime-render segments.
-        example_config:
-          enabled: true
-          router_patterns:
-            - "web/src/**/router.tsx"
-            - "web/src/**/App.tsx"
-          allowlist:
-            - path: "web/src/legacy/router.tsx"
-              migration: "owner/repo#NNN"
-      frontend_composition_root:
-        spec_id: "SPEC-CODER-TRAIN-0001"
-        rule: "The configured composition root file must exist, declare the configured class, and implement every required method"
-        config: ".atdd/config.yaml → frontend_composition_root"
-        example_config:
-          enabled: true
-          path: "web/src/application/FrontendTrainRunner.ts"
-          class_name: "FrontendTrainRunner"
-          required_methods:
-            - "registerWagon"
-            - "runTrain"
-            - "resolveTemplate"
-      wagon_trains_export_shape:
-        spec_id: "SPEC-CODER-TRAIN-0002"
-        rule: "Each wagon directory matching wagon_glob must expose a trains.ts that exports every name in required_exports"
-        config: ".atdd/config.yaml → wagon_trains_export_shape"
-        example_config:
-          enabled: true
-          wagon_glob: "web/src/wagons/*"
-          required_exports:
-            - "runTrainStep"
-            - "HomeTrainView"
-      train_yaml_render_metadata:
-        spec_id: "SPEC-CODER-TRAIN-0003"
-        rule: "Every train YAML matching trains_glob must conform to the JSON Schema at schema_path (declares optional template and auth_required)"
-        config: ".atdd/config.yaml → train_yaml_render_metadata"
-        example_config:
-          enabled: true
-          schema_path: "contracts/frontend/train/render-metadata.schema.json"
-          trains_glob: "plan/_trains/**/*.yaml"
+      # SPEC-CODER-PAGE-0004 (route_train_compliance) and SPEC-CODER-ROUTE-0005
+      # (route_train_wagon_coverage) were removed in #1518. Both were TSX router
+      # analyses — `<TrainView trainId="..." />` is JSX, which core must not parse.
+      # They are owned by `coder.vite.route-trainid-not-registered`,
+      # `coder.vite.route-resolved-train-lists-wagon` and
+      # `coder.vite.route-trainid-expression-not-static`, all three backed by
+      # frontend.workspace.runtime/implementations/vite_route_train_wagon_coverage.
 
   ci_enforcement:
     checks:
@@ -700,53 +632,6 @@ frontend:
       green ATDD suite. This validator is the static-AST half of the framing
       established by parent issue #318; #356 owns the runtime/behavioral half.
     rules:
-      - id: "coder.frontend.arrow-function-with-a"
-        aliases: ["PRESENTATION-NOSTUB-001"]
-        severity: 4
-        disposition: documentation-only
-        description: >
-          Arrow function with a bare null/undefined expression body
-          (`() => null`, `() => undefined`).
-      - id: "coder.frontend.function-or-function-expression"
-        aliases: ["PRESENTATION-NOSTUB-002"]
-        severity: 4
-        disposition: documentation-only
-        description: >
-          Function or function-expression block whose only return is a null
-          literal, undefined, or a bare `return;`.
-      - id: "coder.frontend.empty-fragment-return-or"
-        aliases: ["PRESENTATION-NOSTUB-003"]
-        severity: 4
-        disposition: documentation-only
-        description: >
-          Empty fragment return (`<></>` or `<Fragment></Fragment>`) with zero
-          children and zero attributes.
-      - id: "coder.frontend.self-closing-or-empty"
-        aliases: ["PRESENTATION-NOSTUB-004"]
-        severity: 4
-        disposition: documentation-only
-        description: >
-          Self-closing or empty element with zero children, zero static
-          attributes, and zero spread expressions (e.g. `<div />`).
-      - id: "coder.frontend.conditional-whose-every-branch"
-        aliases: ["PRESENTATION-NOSTUB-005"]
-        severity: 4
-        disposition: documentation-only
-        description: >
-          Conditional whose every branch resolves to a stub literal
-          (e.g. `flag ? null : null`).
-      # NOTE: coder.frontend.allowlist-entry-must-include (PRESENTATION-NOSTUB-010)
-      # atomized to nodes/coder.frontend.allowlist-entry-must-include.convention.yaml
-      # (Phase A). The remaining PRESENTATION-NOSTUB JSX/React rules stay here
-      # pending Phase B.
-      - id: "coder.frontend.negative-rule-a-guarded"
-        aliases: ["PRESENTATION-NOSTUB-020"]
-        severity: 4
-        disposition: documentation-only
-        description: >
-          Negative rule. A guarded null return paired with a sibling JSX
-          return path (e.g. `if (loading) return null; return <Foo/>;`) is
-          NOT a stub and MUST NOT be flagged.
 
 
 # =============================================================================

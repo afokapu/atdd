@@ -72,6 +72,7 @@ from atdd.state.store import (
     ExternalRefStore,
     Object,
     ObjectStore,
+    OutboxBacklog,
     Relationship,
     RelationshipStore,
     StateStore,
@@ -80,6 +81,7 @@ from atdd.state.store import (
 )
 from atdd.state.sync_engine import (
     ApplyResult,
+    OutboxVerdict,
     PushOutcome,
     PushResult,
     SyncProvider,
@@ -89,6 +91,8 @@ from atdd.state.sync_engine import (
 
 __all__ = [
     "ApplyResult",
+    "OutboxBacklog",
+    "OutboxVerdict",
     "PushOutcome",
     "PushResult",
     "SyncProvider",

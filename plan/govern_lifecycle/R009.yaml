@@ -1,0 +1,103 @@
+urn: "wmbt:govern-lifecycle:R009"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe"
+context_clarifier: "when a GitHub Actions job declares `permissions: issues: write` — which binds to GITHUB_TOKEN and to nothing else — and then hands the write to a different credential named in GH_TOKEN, so the declared permission and the credential actually used are two different things; and when the resulting refusal escapes as an undifferentiated client error carrying only a gh command line, which reads as a transport blip and sends the reader looking for an outage instead of a scope"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of lifecycle-label-writes-issued-on-a-credential-the-jobs-permissions-block-cannot-describe by making atdd-auto-phase.yml and its shipped template name only GITHUB_TOKEN, retiring the vestigial PROJECT_TOKEN rationale that #1051 left behind in the workflow and in docs/operator-projects-v2-token.md, classifying GitHub's authenticated-but-not-authorised refusal as its own error type that names the credential in play, and making a refused phase-label write report the store/label divergence and exit non-zero rather than raise"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R009-UNIT-001-workflow-names-only-the-token-its-permissions-describe"
+      id: "AC-UNIT-001"
+      purpose: "The auto-phase workflow, its shipped template, and the operator docs name GITHUB_TOKEN and carry no live PROJECT_TOKEN rationale"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - ".github/workflows/atdd-auto-phase.yml and src/atdd/coach/templates/workflows/atdd-auto-phase.yml"
+        - "The shipped operator documentation under docs/"
+    when:
+      abstract: "The job's GH_TOKEN expression and the surrounding rationale are read"
+    then:
+      abstract:
+        - "GH_TOKEN is exactly `${{ secrets.GITHUB_TOKEN }}` in both the workflow and the template"
+        - "Neither file mentions PROJECT_TOKEN, so `||` cannot short-circuit past the token the permissions block describes"
+        - "Neither file describes ProjectV2 Status sync as a live reason for a PAT — that path was decommissioned in #1051"
+        - "No shipped doc instructs an operator to write `secrets.PROJECT_TOKEN || secrets.GITHUB_TOKEN`, which is how the expression would be re-seeded after removal"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-29"
+  - identity:
+      urn: "acc:govern-lifecycle:R009-UNIT-002-a-refusal-is-classified-and-a-transient-fault-is-not"
+      id: "AC-UNIT-002"
+      purpose: "A permission refusal is a distinct error type naming the credential; a transient fault — including the 403s GitHub uses for rate limiting — is never reclassified as one"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A GitHubClient whose gh invocation fails with a given stderr"
+        - "The refusal wording GitHub uses for a PAT and the wording it uses for an integration / GitHub App"
+        - "The stderr GitHub returns for a secondary rate limit, which also carries HTTP 403"
+    when:
+      abstract: "A label write is attempted and the failure is classified"
+    then:
+      abstract:
+        - "An authenticated-but-not-authorised refusal raises GitHubPermissionError, a GitHubClientError subclass so existing handlers keep catching it"
+        - "The message names the credential in play (the GH_TOKEN / GITHUB_TOKEN environment variable, or gh's own auth) and says retrying cannot help"
+        - "Both the personal-access-token and the integration phrasings are recognised"
+        - "A transport error is NOT raised as GitHubPermissionError"
+        - "A secondary-rate-limit 403 is NOT raised as GitHubPermissionError — it is transient and retrying is exactly the remedy, so telling the operator otherwise reproduces the misdiagnosis this WMBT exists to remove"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-29"
+  - identity:
+      urn: "acc:govern-lifecycle:R009-UNIT-003-a-refused-phase-label-write-reports-the-divergence"
+      id: "AC-UNIT-003"
+      purpose: "Every path that projects the store onto the atdd:<phase> label reports a refusal instead of raising, and never reports success it did not earn"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A client whose label writes are refused for lack of permission"
+        - "The two callers of the authoritative label writer: the transition path and the repair path"
+    when:
+      abstract: "A phase label write is attempted through each caller"
+    then:
+      abstract:
+        - "The writer returns False after printing a diagnosis that names the permission cause, the issue, and the target phase"
+        - "The diagnosis states that the store moved first (#1452), so objects.state is ahead of the label until the label is written"
+        - "IssueManager.update returns exit code 1, so CI cannot read a half-applied transition as done"
+        - "The repair path does not report a phase as re-projected when the projection was refused"
+        - "A non-permission failure still propagates, so the guard cannot swallow an unexpected error into a quiet false success"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-29"
+  - identity:
+      urn: "acc:govern-lifecycle:R009-SMOKE-001-a-refused-transition-exits-red-with-a-diagnosis"
+      id: "AC-SMOKE-001"
+      purpose: "In a real process, a refused label write ends the transition red with a readable diagnosis rather than a traceback"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repository with a real .atdd store and a gh executable on PATH that refuses label writes with GitHub's not-authorised wording"
+    when:
+      abstract: "A real `atdd coach transition <N> <PHASE>` is executed as a subprocess"
+    then:
+      abstract:
+        - "The process exits non-zero"
+        - "Its output names the credential and the missing permission, and states that retrying cannot help"
+        - "Its output does not contain a Python traceback"
+        - "The store shows the new phase and the diagnosis says so, so the divergence is recorded rather than hidden"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-29"

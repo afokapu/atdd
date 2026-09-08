@@ -8,16 +8,14 @@ make. Layers that have not been extracted yet (their directory does not exist)
 contribute zero files and therefore pass trivially — the gate tightens
 automatically as Children 4–10 land each layer.
 
-This is the verbatim Appendix A test with two deliberate, spec-aligned guards:
+This is the Appendix A test with one deliberate, spec-aligned guard:
 
-* ``test_multiplexer_protocol_has_no_control_methods`` is skipped until
-  ``atdd.runtime.multiplexer`` exists (it ships in Child 6, §4.9). Once present,
-  the assertion activates with no edit here.
 * ``test_coach_core_has_no_io_at_import_time`` is kept verbatim — coach.core
   ships in Child 1, so it runs (and passes) from this PR onward.
 
-Adapting the Appendix to skip a not-yet-existent import is the §19.5 "the example
-is illustrative" latitude; the asserted contract is unchanged.
+``test_multiplexer_protocol_has_no_control_methods`` was retired by #1480 along
+with ``atdd.runtime.multiplexer`` itself: with the Protocol pruned from core
+there is no surface left to assert a control-method ban against.
 """
 import ast
 import subprocess
@@ -33,23 +31,17 @@ FORBIDDEN_BY_LAYER = {
     "atdd.coach.core": {
         "subprocess", "os.system", "requests", "urllib.request", "urllib3",
         "git", "gh", "cmux", "threading", "multiprocessing", "asyncio",
-        "atdd.runtime", "atdd.integrations", "atdd.train", "atdd.observer",
+        "atdd.runtime", "atdd.integrations", "atdd.train",
     },
     "atdd.train": {
-        "atdd.cli", "atdd.observer",
+        "atdd.cli",
     },
     "atdd.runtime.worktree": {
         "atdd.coach", "atdd.train", "atdd.integrations",
-        "atdd.runtime.agent_control", "atdd.runtime.multiplexer",
     },
-    "atdd.runtime.multiplexer": {
-        "atdd.coach", "atdd.train", "atdd.integrations",
-        "atdd.runtime.agent_control",
-    },
-    "atdd.runtime.agent_control": {
-        "atdd.coach", "atdd.train", "atdd.integrations",
-        "atdd.runtime.multiplexer",
-    },
+    # #1480 pruned atdd.runtime.agent_control and atdd.runtime.multiplexer from
+    # core (worker management is not lifecycle governance), so their layer
+    # entries — and the sibling-import ban between them — are retired with them.
     "atdd.integrations.github": {
         "atdd.coach", "atdd.train", "atdd.runtime",
     },
@@ -123,19 +115,3 @@ def test_coach_core_has_no_io_at_import_time():
         "atdd.coach.core leaked subprocess (or failed to import) in a fresh interpreter:\n"
         f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
     )
-
-
-def test_multiplexer_protocol_has_no_control_methods():
-    # Multiplexer ships in Child 6 (§4.9). Until then there is no Protocol to
-    # inspect; skip so the gate is green now and activates automatically once
-    # the module lands. The asserted contract (no control methods) is unchanged.
-    pytest.importorskip(
-        "atdd.runtime.multiplexer",
-        reason="atdd.runtime.multiplexer ships in Child 6; control-method ban asserted once it exists",
-    )
-    from atdd.runtime.multiplexer import Multiplexer
-
-    forbidden = {"paste_text", "send_key", "capture_pane_text"}
-    methods = {name for name in dir(Multiplexer) if not name.startswith("_")}
-    leaked = forbidden & methods
-    assert not leaked, f"Multiplexer Protocol leaked control methods: {leaked}"

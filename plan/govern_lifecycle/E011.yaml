@@ -98,29 +98,6 @@ acceptances:
       created: "2026-05-19"
 
   - identity:
-      urn: "acc:govern-lifecycle:E011-UNIT-005-run-refuses-second-coach-with-clear-message"
-      id: "AC-UNIT-005"
-      purpose: "_drive_single_issue returns 1 and writes a clear stderr message when a live lockfile already exists for the issue"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "_drive_single_issue is imported from atdd.coach.commands.coach"
-        - "A lockfile exists at runtime_dir/coach/<N>/coach.lock with pid=os.getpid() (live PID)"
-        - "A Config and StateMachine are constructed for the issue"
-    when:
-      abstract: "_drive_single_issue(cfg, sm, runtime_dir, _max_loop_events=0) is called"
-    then:
-      abstract:
-        - "The return value is 1"
-        - "A message containing 'already running' or 'pid' is written to stderr (via capsys or the escalation channel)"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-19"
-
-  - identity:
       urn: "acc:govern-lifecycle:E011-UNIT-006-no-progress-ttl-escalates-and-exits"
       id: "AC-UNIT-006"
       purpose: "When the no-progress TTL elapses without a phase advance, the watcher event loop escalates and returns rather than blocking indefinitely"

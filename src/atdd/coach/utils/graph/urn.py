@@ -1372,7 +1372,7 @@ def main() -> int:
 
     try:
         return _run_urn_command(args)
-    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

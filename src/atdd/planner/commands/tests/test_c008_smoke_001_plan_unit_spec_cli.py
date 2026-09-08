@@ -32,9 +32,9 @@ def _sess(root: Path, *args: str) -> subprocess.CompletedProcess:
 def _to_prepare(root: Path, sid: str) -> None:
     (root / "plan").mkdir(exist_ok=True)
     assert _sess(root, "start", "--id", sid, "--main-job", "job", "--issue", "iss").returncode == 0
-    assert _sess(root, "advance", "--id", sid, "--step", "locate").returncode == 0
+    assert _sess(root, "advance", "--id", sid, "--step", "attach").returncode == 0
     assert _sess(root, "source", "--id", sid, "a source").returncode == 0
-    assert _sess(root, "advance", "--id", sid, "--step", "prepare").returncode == 0
+    assert _sess(root, "advance", "--id", sid, "--step", "compose").returncode == 0
 
 
 def _units(root: Path, sid: str) -> list:

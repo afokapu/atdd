@@ -4,7 +4,7 @@ ONLY detector tester.filename.urn (severity 2), emits RAW structured violations
 disposition stand-in — applied AFTER the run — produces the correct verdict.
 
 This detector REALIZES the EXTENSION obligation node tester.filename.urn (authored
-in atdd.extension.tester). Drives the REAL provider adapter (../adapter/discover.py
+in atdd.extension.tester.base). Drives the REAL provider adapter (../adapter/discover.py
 + run.py) — no stubs — and the REAL consumer stand-in (_consumer_disposition.py).
 The adapter and the stand-in never import each other; only the RAW violation list
 crosses between.

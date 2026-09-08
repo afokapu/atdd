@@ -43,7 +43,14 @@ PHASE_3A_FILES = [
     "coder/conventions/backend.convention.yaml",
     "coder/conventions/commons.convention.yaml",
     "coder/conventions/design.convention.yaml",
-    "coder/conventions/presentation.convention.yaml",
+    # presentation.convention.yaml: the rules it retained after the nodes/ atomization
+    # were the four gsap-*/i18n-* ones, flagged in-file as "stack/extension-bound,
+    # migrate in Phase B". #1518 made that migration — they are TSX-only and now live
+    # in frontend.extension.vite-coder as coder.vite.presentation-gsap-{commons,layer}
+    # and coder.vite.presentation-i18n-{config,switcher}, each backed by a real
+    # detect.mjs. The monolith keeps its stack-agnostic prose (http_rest_api,
+    # cli_pattern, architecture) but no longer declares any rule, so like technology
+    # and train below it drops out of this retrofit list rather than being deleted.
     # technology.convention.yaml: its governance rules were atomized into single-node
     # nodes/coder.technology.*.convention.yaml (Phase A decomposition); the monolith
     # now carries only the (extension-bound) stack tree. The rules-array requirement

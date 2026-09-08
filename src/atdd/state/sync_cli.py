@@ -78,15 +78,54 @@ def run_sync_cli(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  - {n}")
 
         if args.push:
-            pushed = push_outbox(store, providers, dry_run=args.dry_run)
-            print(f"outbox: {pushed.pushed} pushed, {pushed.failed} failed, "
-                  f"{pushed.skipped_no_provider} skipped-no-provider (of {pushed.pending} pending)")
-            for e in pushed.errors:
-                print(f"  - {e}")
-            return 1 if pushed.failed else 0
+            return _drain_and_report(store, providers, dry_run=args.dry_run)
 
-        pending = len(store.sync.pending_outbox())
-        print(f"outbox: {pending} pending (pass --push to send via registered providers)")
+        _print_backlog(store, hint=True)
         return 0
     finally:
         conn.close()
+
+
+def _drain_and_report(
+    store: StateStore, providers, *, dry_run: bool,
+) -> int:
+    """Drain the outbox and render the verdict, the refusal reason and the backlog.
+
+    Carved out of :func:`run_sync_cli` rather than inlined: the verdict added a
+    branch that took the caller past the nesting the coder ratchet allows, and a
+    reporting block that owns its own exit code is a unit worth naming anyway.
+    """
+    pushed = push_outbox(store, providers, dry_run=dry_run)
+    print(f"outbox: {pushed.verdict.value.upper()} — "
+          f"{pushed.pushed} pushed, {pushed.failed} failed, "
+          f"{pushed.skipped_no_provider} skipped-no-provider (of {pushed.pending} pending)")
+    if pushed.unregistered_providers:
+        print("  - no sync provider is registered for: "
+              f"{', '.join(pushed.unregistered_providers)}; "
+              "those rows were left pending and nothing will send them")
+    for e in pushed.errors:
+        print(f"  - {e}")
+    _print_backlog(store)
+    # A dry run reports; it never claims to have drained, so its exit code stays
+    # informational. A real --push that left rows behind must not answer with the
+    # exit code of one that emptied the queue (#1711).
+    return 0 if (dry_run or pushed.drained) else 1
+
+
+def _print_backlog(store: StateStore, *, hint: bool = False) -> None:
+    """Report the pending queue with the age of its oldest row (#1711/C015).
+
+    Printed on every path, including the empty one: a line that disappears when
+    there is nothing to say cannot be distinguished from a run that had nothing
+    to report, which is the shape this whole issue is an instance of.
+    """
+    backlog = store.sync.outbox_backlog()
+    if backlog.pending == 0:
+        print("outbox backlog: 0 pending")
+        return
+    by_provider = ", ".join(
+        f"{name} {count}" for name, count in sorted(backlog.by_provider.items())
+    )
+    tail = " (pass --push to send via registered providers)" if hint else ""
+    print(f"outbox backlog: {backlog.pending} pending, "
+          f"oldest enqueued {backlog.oldest_enqueued_at} [{by_provider}]{tail}")

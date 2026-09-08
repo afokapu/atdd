@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E024-UNIT-001-operator-emergency-bypass-doc-exists
-# Acceptance: acc:spawn-agents:E024-UNIT-001-operator-emergency-bypass-doc-exists
-# WMBT: wmbt:spawn-agents:E024
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E066-UNIT-001-operator-emergency-bypass-doc-exists
+# Acceptance: acc:govern-lifecycle:E066-UNIT-001-operator-emergency-bypass-doc-exists
+# WMBT: wmbt:govern-lifecycle:E066
 # Phase: RED
 # Layer: backend.unit
 # Assertion: structural

@@ -3,19 +3,8 @@ rule_id: planner.feature.verb-selection-by-artifact-type
 kind: family
 status: active
 name: Verb selection by artifact type
-statement: The artifact type (event, state, data, config) determines the appropriate verbs for the feature
-  name.
-source:
-  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
-  legacy_section: artifact_seeds.verb_selection.by_artifact_type
-  legacy_sha: 4a95544261fb9541
-  extraction_mode: high_fidelity
-parity:
-  source_fragments_preserved: true
-  examples_preserved: true
-  implementation_preserved: false
-  fix_hint_preserved: false
-  reviewed_at: '2026-06-16'
+statement: The artifact type (event, state, data, config) determines the appropriate
+  verbs for the feature name.
 terms:
 - term_id: verbs_by_type
   label: Verbs by artifact type
@@ -53,3 +42,221 @@ terms:
     - session:active -> maintain-session
     - player:profile -> manage-profile
     - match:config -> configure-match
+- term_id: additional_verbs
+  label: Verb-object enforcement allowlist
+  text: "The explicit allowlist of leading verbs a planner artifact slug may use,\
+    \ beyond the by_artifact_type suggestion verbs. planner.feature.name-is-verb-object\
+    \ and planner.wagon.name-is-verb-object accept a slug iff its leading token is\
+    \ in the union of this allowlist and verbs_by_type. The suggestion table alone\
+    \ is insufficient as an enforcement basis \u2014 it rejects even the convention's\
+    \ own examples (#1276)."
+  values:
+    additional_verbs:
+    - admit
+    - aggregate
+    - allocate
+    - annotate
+    - apply
+    - archive
+    - assign
+    - attach
+    - authenticate
+    - author
+    - bind
+    - bootstrap
+    - bridge
+    - broadcast
+    - build
+    - calculate
+    - cancel
+    - capture
+    - check
+    - classify
+    - collect
+    - commit
+    - compare
+    - compose
+    - compute
+    - connect
+    - consolidate
+    - convert
+    - copy
+    - correct
+    - count
+    - credit
+    - decode
+    - decommission
+    - delegate
+    - deliver
+    - deploy
+    - derive
+    - describe
+    - detach
+    - detect
+    - disable
+    - discover
+    - dispatch
+    - download
+    - drive
+    - elicit
+    - enable
+    - encode
+    - enforce
+    - enrich
+    - ensure
+    - escalate
+    - estimate
+    - evaluate
+    - expire
+    - export
+    - expose
+    - extract
+    - fetch
+    - filter
+    - finalize
+    - fix
+    - flush
+    - forward
+    - freeze
+    - gather
+    - govern
+    - guard
+    - hydrate
+    - implement
+    - import
+    - index
+    - inject
+    - inspect
+    - integrate
+    - invoke
+    - isolate
+    - judge
+    - launch
+    - link
+    - lint
+    - list
+    - load
+    - lock
+    - log
+    - map
+    - mark
+    - match
+    - measure
+    - mediate
+    - merge
+    - migrate
+    - mint
+    - normalize
+    - observe
+    - open
+    - orchestrate
+    - parse
+    - partition
+    - pause
+    - persist
+    - ping
+    - plan
+    - poll
+    - populate
+    - post
+    - prepare
+    - preview
+    - prioritize
+    - produce
+    - project
+    - promote
+    - prompt
+    - propagate
+    - provision
+    - prune
+    - pull
+    - purge
+    - push
+    - queue
+    - rank
+    - read
+    - rebuild
+    - reconcile
+    - record
+    - redirect
+    - refine
+    - refresh
+    - register
+    - reject
+    - release
+    - reload
+    - remove
+    - rename
+    - render
+    - replay
+    - replicate
+    - report
+    - request
+    - resolve
+    - respond
+    - restore
+    - resume
+    - retrieve
+    - retry
+    - revoke
+    - rollback
+    - route
+    - run
+    - sample
+    - save
+    - scaffold
+    - scan
+    - schedule
+    - score
+    - search
+    - seed
+    - select
+    - send
+    - serve
+    - show
+    - sign
+    - simulate
+    - snapshot
+    - spawn
+    - split
+    - stop
+    - store
+    - stream
+    - submit
+    - subscribe
+    - summarize
+    - surface
+    - suspend
+    - swap
+    - sync
+    - tag
+    - teardown
+    - throttle
+    - toggle
+    - trace
+    - transform
+    - translate
+    - trim
+    - tune
+    - unlock
+    - unsubscribe
+    - upgrade
+    - upload
+    - validate
+    - verify
+    - visualize
+    - warn
+    - watch
+    - wire
+    - wrap
+source:
+  legacy_path: src/atdd/planner/conventions/feature.convention.yaml
+  legacy_section: artifact_seeds.verb_selection.by_artifact_type
+  legacy_sha: 4a95544261fb9541
+  extraction_mode: high_fidelity
+parity:
+  source_fragments_preserved: true
+  examples_preserved: true
+  implementation_preserved: false
+  fix_hint_preserved: false
+  reviewed_at: '2026-06-16'

@@ -734,7 +734,6 @@ file_patterns:
       platform_tests:
         - "test_acceptance_urn_filename_mapping.py"
         - "test_dart_test_naming.py"
-        - "test_typescript_test_naming.py"
 
       convention_tests:
         - "conventions/tester/tests/filename/test_convention_completeness.py"

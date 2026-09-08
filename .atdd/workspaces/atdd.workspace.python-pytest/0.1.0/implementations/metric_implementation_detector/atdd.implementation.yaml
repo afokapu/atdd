@@ -9,7 +9,7 @@ contract_version: "1.1.0"
 # the OBLIGATION stays in CORE as an agnostic ATDD methodology node
 # (tester.acceptance-violation.metric-implementation-must-exist, disposition
 # strict, severity 4). This detector is the python-pytest REALIZATION of that core
-# node — it is NOT a new node and does NOT live in atdd.extension.tester. The
+# node — it is NOT a new node and does NOT live in atdd.extension.tester.base. The
 # package validator reports it as "realizes core node(s)".
 realizes_convention: tester.acceptance-violation.metric-implementation-must-exist
 

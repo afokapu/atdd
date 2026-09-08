@@ -50,6 +50,15 @@ produce:
     contract: null
     telemetry: null
     to: external
+  # Rehomed from wagon:consolidate-coach-workspace, which was pruned with the
+  # coach's sub-worker orchestration. The schema outlives that wagon: it is the
+  # declared shape behind the surviving `coach.session.canonical-role-name` gate
+  # (recogniser: src/atdd/coach/utils/canonical_role_naming.py). This wagon owns
+  # the centralized runtime schemas, so the contract belongs here.
+  - name: commons:coach:canonical-surface-name
+    contract: "contract:commons:coach:canonical-surface-name"
+    telemetry: null
+    to: external
 
 consume: []
 

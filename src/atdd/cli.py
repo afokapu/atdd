@@ -53,8 +53,13 @@ from atdd.coach.commands.inventory import RepositoryInventory
 from atdd.coach.commands.test_runner import TestRunner
 from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
-from atdd.coach.commands.issue import IssueManager
-from atdd.coach.commands.sync import AgentConfigSync
+# NOT imported here (#1794): `atdd.coach.commands.issue` reaches
+# `atdd.coach.utils.artifact_claims`, whose module-scope `bind_rule` builds the
+# entire convention registry (~1.5s on the first call). At module scope that cost
+# lands on EVERY invocation — `atdd --help` included, and each of the four git
+# hooks, several times per commit. `IssueManager` is deferred to the three call
+# sites below instead. Do NOT make `bind_rule` lazy to fix this: failing loudly at
+# import is deliberate (SPEC-COACH-RULEID-0007).
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand
 from atdd.coach.commands.upgrader import Upgrader
@@ -160,18 +165,30 @@ def _removed_command_guard(argv, *, stream=None) -> int | None:
 
 
 def _substrate_root(args) -> str:
-    """Resolve the operational Control Root for substrate installs/reads (#1346).
+    """Resolve the operational Control Root for substrate installs/reads (#1346, #1601).
 
-    Extension/workspace installs are git-ignored operational ``.atdd/`` data and
-    must land in the single Control Root ``.atdd/`` — never a per-worktree copy.
-    Route ``--repo``/cwd through the #1177 control-root resolver so any worktree
-    resolves to the shared ``.atdd/``; a consumer repo with no resolvable Control
-    Root falls back to the given root unchanged.
+    Extension/workspace installs are operational ``.atdd/`` data and must land in
+    the single Control Root ``.atdd/`` — never a per-worktree copy. So the
+    *implicit* target (cwd, the bare command) still goes through the #1177
+    control-root resolver: from any worktree of a flat-sibling project that
+    resolves to the shared ``.atdd/``, and a consumer repo with no resolvable
+    Control Root falls back to the given root unchanged.
+
+    An *explicit* ``--repo PATH`` is honored verbatim (#1601). ``--repo`` is
+    documented as "target repository root": silently retargeting the one path the
+    operator named is not consolidation, it is discarding an instruction — and it
+    left no way at all to reach a worktree's own ``.atdd/``, which is where this
+    repo's *tracked* vendored extensions live (``.atdd/extensions/`` is committed
+    content here, not git-ignored data as #1346 assumed). Bare commands are
+    unchanged, so the consolidation #1346 bought is intact; only an operator who
+    names a root gets that root.
     """
     from pathlib import Path
     from atdd.state.paths import resolve_operational_root
-    start = Path(args.repo or ".").resolve()
-    return str(resolve_operational_root(start))
+    explicit = getattr(args, "repo", None)
+    if explicit:
+        return str(Path(explicit).resolve())
+    return str(resolve_operational_root(Path(".").resolve()))
 
 
 def _substrate_add(args) -> int:
@@ -947,20 +964,6 @@ Phase descriptions:
     close_wmbt_top_parser.add_argument("wmbt_id", type=str, help="WMBT ID (e.g., D001, E003)")
     close_wmbt_top_parser.add_argument("--force", "-f", action="store_true", help="Close even if ATDD cycle checkboxes are unchecked")
 
-    # ----- atdd color [value] -----
-    color_parser = subparsers.add_parser(
-        "color",
-        help="Set workspace title/status bar color",
-        description="Set workspace color via named preset or hex value",
-    )
-    color_parser.add_argument(
-        "value",
-        nargs="?",
-        type=str,
-        default=None,
-        help="Color preset name (yellow, blue, green, red, orange, purple) or hex (#RRGGBB)",
-    )
-
     # ----- atdd hooks -----
     # The resolution seam the installed hook dispatchers call on every git
     # operation (#1492). Keep it fast and side-effect free.
@@ -985,26 +988,19 @@ Phase descriptions:
     )
 
     # ----- atdd sync -----
-    sync_parser = subparsers.add_parser(
+    # #1811: the agent-config projection this verb was built around is gone.
+    # It survives because it is the ONLY sanctioned path that refreshes an
+    # already-initialised checkout — `atdd init` bails out on one and
+    # `atdd init --force` is forbidden (#793). No flags: the ones it had all
+    # selected which agent file to project.
+    subparsers.add_parser(
         "sync",
-        help="Sync ATDD rules to agent config files",
-        description="Sync managed ATDD blocks to agent config files (CLAUDE.md, CONDUCTOR.md, etc.)"
-    )
-    sync_parser.add_argument(
-        "--verify",
-        action="store_true",
-        help="Check if files are in sync (for CI)"
-    )
-    sync_parser.add_argument(
-        "--agent",
-        type=str,
-        choices=["claude", "codex", "gemini", "qwen", "glm", "mistral"],
-        help="Sync specific agent only"
-    )
-    sync_parser.add_argument(
-        "--status",
-        action="store_true",
-        help="Show sync status for all agents"
+        help="Refresh this checkout's hooks, gitignore entries and toolkit stamp",
+        description=(
+            "Refresh an already-initialised repo: installed git hooks (#1492), "
+            "atdd's operational .gitignore entries (#1325), exported schemas if "
+            "present, and the toolkit sync stamp (#1641)."
+        ),
     )
 
     # ----- atdd gate -----
@@ -1042,7 +1038,7 @@ Phase descriptions:
     # (#758) is decommissioned.
     plan_parser = subparsers.add_parser(
         "plan",
-        help="Run the atdd plan gated decomposition session (Define→Locate→Prepare→Confirm→author).",
+        help="Run the atdd plan gated decomposition session (Intent→Attach→Compose→Ratify→author).",
         add_help=False,
     )
     plan_parser.add_argument("plan_args", nargs=argparse.REMAINDER, help=argparse.SUPPRESS)
@@ -1105,39 +1101,16 @@ Phase descriptions:
         help="Forwarded to atdd.coach.commands.coach",
     )
 
-    # ----- atdd resume <run_id> (Child 9 — #896) -----
-    # New public CLI surface (docs/coach-decomposition.md §3.4, §7.4): replay a
-    # crashed train run from its durable event log (§6.3). The args are declared
-    # here (so `atdd resume --help` renders via the top-level parser); the dispatch
-    # forwards them to `atdd.train.resume_cli.run_args` — the train layer owns the
-    # logic, the dependency points inward (train MUST NOT import atdd.cli, §3.3).
-    resume_parser = subparsers.add_parser(
-        "resume",
-        help="Replay a crashed train run and continue from where it stopped.",
-        description=(
-            "Replay a crashed train run from its durable event log and continue "
-            "from where it stopped. Deterministic crash-recovery: given the same "
-            "frozen conventions snapshot, event log, and external state, resume "
-            "reproduces identical decisions with no double-execution "
-            "(docs/coach-decomposition.md §6.3)."
-        ),
-    )
-    resume_parser.add_argument(
-        "run_id",
-        metavar="RUN_ID",
-        help="The run id to resume (e.g. run-816-20260530-a81b0d90).",
-    )
-    resume_parser.add_argument(
-        "--repo-root",
-        type=Path,
-        default=None,
-        dest="resume_repo_root",
-        help="Repo root holding .atdd/runtime/runs/ (defaults to the cwd).",
-    )
-
     # NOTE (#1486): `atdd agent`, `atdd observer` and `atdd spawn` were the coach's
     # sub-worker orchestration verbs (spawn/observe a persona agent). Orchestration
     # left core, so those verbs and their backing modules are gone.
+    #
+    # NOTE (#1483): `atdd resume` joins them. It replayed a crashed *train run* —
+    # the durable per-issue drive that spawned personas — so it managed sub-workers
+    # by construction and left core with the rest of the runner chain
+    # (`train.issue_runner`, `train.wave_runner`, `train.resume_cli`). The durable
+    # record itself is unaffected: `train.persistence` and the events.jsonl schema
+    # stay, so a provider that owns orchestration can still read the run log.
 
     # ----- atdd author ... (author-atdd-substrate wagon, #1097) -----
     # Author schema-valid substrate artifacts by construction. The sub-arg
@@ -1326,6 +1299,24 @@ Phase descriptions:
         "--no-pypi",
         action="store_true",
         help="Skip the live PyPI check (use local stamp only)",
+    )
+
+    # ----- atdd self-upgrade -----
+    # The seam the packaged post-merge / post-checkout hooks call (#1762). NOT a
+    # flag on `upgrade`: that command finishes with sync + init --force, and
+    # init --force writes to GitHub (#1703) — nothing a hook firing on every
+    # branch switch should be able to reach. This one only installs.
+    subparsers.add_parser(
+        "self-upgrade",
+        help="Bring the install current, quietly and without blocking (used by post-* git hooks)",
+        description=(
+            "Upgrade atdd if a newer version is already known from the local version "
+            "cache, serialised on the install-scoped upgrade lock and declining rather "
+            "than waiting when another upgrade holds it. Always exits 0 and writes only "
+            "to stderr: it is called from git hooks whose exit codes git discards, and "
+            "it must never make a completed git operation look like a failure. The "
+            "pre-push version gate is unaffected — it still only gates."
+        ),
     )
 
     # ----- atdd repo {graph,orphans,broken,validate,resolve,declarations,viz} -----
@@ -2180,10 +2171,17 @@ Phase descriptions:
             from atdd.coach.commands.validation_baseline import (
                 write_validation_baseline,
             )
+            # C014 (#1632): record how much of the suite this run did NOT
+            # evaluate. `None` when the coverage probe could not read pytest's
+            # collection output — an unmeasured run must not record a zero.
+            report = getattr(
+                coach.validator_runner, "last_coverage_report", None
+            )
             write_validation_baseline(
                 phase=args.phase,
                 skipped_api=skip_api,
                 repo_root=repo_path,
+                could_not_check=report.could_not_check if report else None,
             )
 
         return rc
@@ -2238,6 +2236,8 @@ Phase descriptions:
             # DEPRECATED alias for `atdd substrate list` (#1239) — still works.
             _deprecation_warning("atdd list --substrate", "atdd substrate list", stream=sys.stderr)
             return _substrate_list(args)
+        from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
         manager = IssueManager()
         return manager.list()
 
@@ -2315,6 +2315,8 @@ Phase descriptions:
         # `atdd issue`, which #1309 removed; rather than repoint that hint at
         # another command that cannot do the job, the bare form is simply not
         # deprecated. Emitting a warning here would send operators nowhere.
+        from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
         manager = IssueManager()
         return manager.update(
             issue_id=args.session_id,
@@ -2392,12 +2394,6 @@ Phase descriptions:
         worktree_parser.print_help()
         return 1
 
-    # atdd color [value]
-    elif args.command == "color":
-        from atdd.coach.commands.color import ColorManager
-        manager = ColorManager()
-        return manager.color(value=args.value)
-
     # atdd schemas
     elif args.command == "schemas":
         if args.check:
@@ -2418,12 +2414,9 @@ Phase descriptions:
 
     # atdd sync
     elif args.command == "sync":
-        syncer = AgentConfigSync()
-        if args.status:
-            return syncer.status()
-        if args.verify:
-            return syncer.verify()
-        return syncer.sync(agents=[args.agent] if args.agent else None)
+        from atdd.coach.commands.sync import RepoRefresh
+
+        return RepoRefresh().sync()
 
     # atdd session-template <issue-number>
     elif args.command == "session-template":
@@ -2440,14 +2433,6 @@ Phase descriptions:
     elif args.command == "coach":
         from atdd.coach.commands.coach import run_cli as run_coach_cli
         return run_coach_cli(list(getattr(args, "coach_argv", []) or []))
-
-    # atdd resume <run_id> (Child 9 — #896)
-    elif args.command == "resume":
-        from atdd.train.resume_cli import run_args as run_resume
-        return run_resume(
-            run_id=args.run_id,
-            repo_root=getattr(args, "resume_repo_root", None),
-        )
 
     # atdd author ... (author-atdd-substrate wagon — #1097)
     elif args.command == "author":
@@ -2534,6 +2519,10 @@ Phase descriptions:
             yes=args.yes,
             no_pypi=getattr(args, "no_pypi", False),
         )
+
+    elif args.command == "self-upgrade":
+        from atdd.coach.commands.upgrader import run_self_upgrade
+        return run_self_upgrade()
 
     # atdd repo {graph,orphans,broken,validate,resolve,declarations,families,viz,
     #            rules,wmbt-rules,train-rules,security-rules}
@@ -2710,6 +2699,8 @@ Phase descriptions:
         manifest_command = getattr(args, "manifest_command", None)
         if manifest_command == "backfill":
             repo_root = Path(args.repo) if args.repo else find_repo_root()
+            from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
             manager = IssueManager(repo_root)
             return manager.reconcile()
         manifest_parser.print_help()
@@ -2768,15 +2759,25 @@ def cli() -> int:
         pass
 
     # Check if repo needs sync after ATDD upgrade (at startup)
-    # Skip if running 'atdd upgrade' — it handles its own messaging
-    if not (len(sys.argv) > 1 and sys.argv[1] == "upgrade"):
+    # Skip if running 'atdd upgrade' — it handles its own messaging — or
+    # 'atdd self-upgrade', which is a git hook nobody invoked and whose whole
+    # discipline is to say nothing when it has nothing to report (#1762). A pull
+    # that was already current must not grow two banners.
+    if not (len(sys.argv) > 1 and sys.argv[1] in ("upgrade", "self-upgrade")):
         print_upgrade_sync_notice()
 
     try:
         result = main()
     finally:
-        # Check for newer versions on PyPI (at end)
-        print_update_notice()
+        # Check for newer versions on PyPI (at end).
+        #
+        # Not after `atdd self-upgrade` (#1762). __version__ was resolved at
+        # import time, so a run that just succeeded would end by advising the
+        # operator to upgrade to the version it had that moment installed —
+        # a self-upgrade that reads as a failure, which is exactly what E009's
+        # output discipline forbids.
+        if not (len(sys.argv) > 1 and sys.argv[1] == "self-upgrade"):
+            print_update_notice()
     return result
 
 

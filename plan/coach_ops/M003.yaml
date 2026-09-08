@@ -1,0 +1,74 @@
+urn: wmbt:coach-ops:M003
+step: monitor
+direction: minimize
+dimension: likelihood
+object_of_control: merge-cascade-ci-reads-that-ask-gh-pr-checks-for-a-json-field-the-installed-cli-does-not-expose
+context_clarifier: when atdd merge-cascade reads required checks via gh pr checks
+  --json on gh 2.96.0, whose advertised fields (bucket, completedAt, description,
+  event, link, name, startedAt, state, workflow) carry no conclusion, so the call
+  exits 1 and reads nothing
+lens: functional.availability
+statement: minimize likelihood of merge-cascade-ci-reads-that-ask-gh-pr-checks-for-a-json-field-the-installed-cli-does-not-expose
+  by deriving the required-check verdict only from fields the installed gh actually
+  advertises — the per-check bucket (pass/fail/pending/skipping/cancel) with state
+  as the corroborating detail — so the query the tool sends is one the CLI accepts
+  and every check reaches a pass, fail or pending verdict from data gh returned rather
+  than from a field that never arrives
+acceptances:
+- identity:
+    urn: acc:coach-ops:M003-UNIT-001-verdict-derives-from-advertised-fields
+    id: AC-UNIT-001
+    purpose: The required-check verdict is computed from gh's advertised per-check
+      fields, and the query the tool sends names no field outside that advertised
+      set
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'A recorded gh pr checks --json payload per verdict class: every check bucket
+      pass; one check bucket fail; one check bucket pending; and the empty list'
+    - 'The field set gh 2.96.0 advertises for pr checks: bucket, completedAt, description,
+      event, link, name, startedAt, state, workflow'
+  when:
+    abstract: fetch_ci_status runs against each recorded payload and the gh argument
+      vector it issued is captured
+  then:
+    abstract:
+    - The all-pass payload yields pass, the fail payload yields fail and names the
+      failing check, the pending payload yields pending, and the empty list still
+      yields pass with 'no required checks'
+    - Every field named in the captured --json argument is a member of the advertised
+      field set, so conclusion — or any other unadvertised field — cannot be requested
+    - A check whose bucket is skipping or cancel does not read as a failure, so a
+      skipped required check cannot halt a cascade that GitHub itself treats as satisfiable
+- identity:
+    urn: acc:coach-ops:M003-SMOKE-001-installed-gh-accepts-the-query
+    id: AC-SMOKE-001
+    purpose: The real installed gh binary accepts the exact query the shipped code
+      sends and returns a verdict, so the field list cannot silently drift out of
+      the CLI again
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real checkout with an authenticated gh on PATH and a real pull request in
+      the repository, discovered at run time rather than pinned to a number
+    - The shipped fetch_ci_status, invoked with nothing substituted — no monkeypatch,
+      no recorded payload, no wrapper over subprocess, because tester.smoke.no-collaborator-substitution
+      forbids standing in for a production collaborator in a SMOKE test
+  when:
+    abstract: fetch_ci_status is called against that pull request through the real
+      gh binary, and gh is asked separately to name its own advertised field set
+  then:
+    abstract:
+    - The returned detail carries no 'Unknown JSON field' refusal, so the installed
+      gh accepted the query the shipped code sends
+    - The state is a real verdict — pass, fail or pending — never the pollable unknown
+      that wait_for_ci spends as polling
+    - The field set gh advertises still matches the set the unit sibling records,
+      so a gh that adds or drops a field fails this acceptance rather than the operator's
+      cascade

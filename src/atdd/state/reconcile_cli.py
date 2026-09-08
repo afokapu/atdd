@@ -30,7 +30,13 @@ from atdd.state import authoring, overlay, reconcile as rec
 from atdd.state.cli_support import START_DIR_HELP, add_verb, opt
 from atdd.state.db import connect, init_state_store
 from atdd.state.metadata import StoreBaseCommitError
-from atdd.state.reconcile import DirtyStoreError, ReplayConflictError
+from atdd.state.projection import MissingProjectionError
+from atdd.state.reconcile import (
+    DirtyStoreError,
+    MassDeletionRefused,
+    ReplayConflictError,
+    SharedStoreReconcileRefused,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -46,6 +52,10 @@ def add_parsers(sub) -> None:
         opt("--head", default=None, help="Target commit (default: the repo's HEAD)."),
         opt("--check-dirty", action="store_true",
             help="Report whether the store carries uncommitted overlay; change nothing."),
+        opt("--allow-deletions", type=int, default=None, metavar="N",
+            help="Assert that this reconcile is expected to retire exactly N object(s). "
+                 "Required past the blast-radius limits. This is an assertion, not a "
+                 "force flag: a value that does not match reality is refused."),
         root=START_DIR_HELP,
     )
 
@@ -125,7 +135,16 @@ def _cmd_reconcile(args) -> int:
         return 0
 
     try:
-        result = rec.reconcile(control_root, head=args.head)
+        result = rec.reconcile(
+            control_root, head=args.head, allow_deletions=args.allow_deletions,
+        )
+    except (MassDeletionRefused, SharedStoreReconcileRefused, MissingProjectionError) as exc:
+        # The refusals that stand between a misconfigured checkout and an emptied store
+        # (#1580). Each is raised before any sqlite mutation, so there is nothing to undo
+        # and nothing to report beyond what the refusal already says.
+        _log.warning("reconcile refused", extra={"error": type(exc).__name__})
+        print(f"ERROR: {exc}")
+        return 1
     except StoreBaseCommitError as exc:
         _log.warning("reconcile refused: store not anchored", extra={"error": str(exc)})
         print(f"ERROR: {exc}")

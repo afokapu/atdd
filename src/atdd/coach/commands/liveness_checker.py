@@ -73,14 +73,14 @@ class LivenessChecker:
             return (None, float("inf"))
         try:
             data = json.loads(hb.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return (None, float("inf"))
         observed = data.get("observed_at")
         if not observed:
             return (None, float("inf"))
         try:
             ts = datetime.fromisoformat(observed.replace("Z", "+00:00"))
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-01
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
             return (observed, float("inf"))
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)

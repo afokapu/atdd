@@ -112,6 +112,17 @@ def update_body(issue: int, body: str) -> None:
     )
 
 
+def update_title(issue: int, title: str) -> None:
+    """Replace the issue title with *title* (#1661).
+
+    The peer of :func:`update_body`, and its absence is what let the issue
+    title and the body's H1 diverge: `atdd author issue --revise --title`
+    revised the body and had no way to move the title, so #1636 needed an
+    operator to run `gh issue edit --title` by hand.
+    """
+    _gh.run_gh(["issue", "edit", str(issue), "--title", title])
+
+
 def create_issue(
     title: str,
     body: str,

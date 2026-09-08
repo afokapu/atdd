@@ -213,18 +213,6 @@
         {"1": "qualification", "2": "security", "3": "operations"}
       ]
     },
-    "workspace": {
-      "type": "object",
-      "description": "Workspace appearance settings",
-      "properties": {
-        "color": {
-          "type": "string",
-          "pattern": "^#[0-9A-Fa-f]{6}$",
-          "description": "Workspace title/status bar background color (hex)"
-        }
-      },
-      "additionalProperties": false
-    },
     "path_filters": {
       "type": "object",
       "description": "Custom path → phase mappings for path-scoped validation",

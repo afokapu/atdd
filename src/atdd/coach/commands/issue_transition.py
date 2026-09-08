@@ -147,7 +147,16 @@ def run(argv: list[str]) -> int:
     # Called EXPLICITLY here at the verb dispatch (not an import-time side
     # effect) so importing the module stays pure and #1020's empty-registry
     # migration-safety tests stay green.
-    from atdd.coach.gate.registrations import register_approval_checks
+    from atdd.coach.gate.registrations import (
+        register_approval_checks,
+        register_smoke_execution_check,
+    )
 
     register_approval_checks()
+    # #1602 — same seam, same reason: make the smoke-execution check AVAILABLE to
+    # SMOKE->REFACTOR. Registering does not enforce; `is_transition_gated` still
+    # decides, and `SMOKE->REFACTOR` is absent from DEFAULT_GATED_TRANSITIONS, so
+    # this is inert until a repo opts in via `.atdd/config.yaml`. Without the call
+    # the check could never run at all, opt-in or not.
+    register_smoke_execution_check()
     return apply_transition(ns.issue_number, ns.status, force=ns.force)

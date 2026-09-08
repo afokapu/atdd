@@ -1,0 +1,155 @@
+urn: wmbt:reconcile-local-store:C002
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: silent-mass-deletion
+context_clarifier: when reconcile applies an incoming projection, an absent or empty projection is refused
+  rather than applied, absence of an object is treated as no information rather than as an instruction to
+  delete, retirement requires an explicit committed tombstone carrying actor, reason, source generation and
+  prior-object digest, a retirement set past the blast radius is refused unless the operator asserts its
+  exact size, and a store whose Control Root is not the checkout it follows reconciles against no HEAD at all
+lens: functional.sustainability
+statement: minimize likelihood of a silent-mass-deletion by refusing empty and absent projections, treating
+  absence as no information, requiring an attributable tombstone to retire, and bounding the blast radius of
+  any one reconcile
+acceptances:
+- given:
+    abstract:
+    - A populated local store and a projection directory that is gitignored and therefore absent at HEAD
+    - A HEAD-moving git operation of the kind the post-merge and post-checkout hooks answer to
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: RED
+    purpose: 'End-to-end reproduction of the 2026-07-20 incident: a gitignored projection plus a HEAD move
+      must not delete a populated store'
+    urn: acc:reconcile-local-store:C002-SMOKE-001-gitignored-projection-does-not-wipe-a-populated-store
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-21'
+  then:
+    abstract:
+    - Reconcile refuses and the refusal names the number of work_items at stake
+    - state.sqlite is byte-identical to its pre-call content
+    - Every work_item survives, and the audit trail survives with it
+  when:
+    abstract: reconcile runs from a HEAD-moving hook against the absent projection
+- given:
+    abstract:
+    - A hydrated store whose projection directory has been removed entirely
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: an absent projection directory is a refusal rather than an empty set, and is distinguished from
+      a directory that exists and legitimately carries nothing
+    urn: acc:reconcile-local-store:C002-UNIT-001-missing-projection-refuses-before-deleting
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-21'
+  then:
+    abstract:
+    - A required read of an absent directory raises MissingProjectionError naming the directory
+    - The permissive default still returns an empty mapping for the callers that only read
+    - With work in the store the refusal names both the absent projection and the objects at stake
+    - state.sqlite is byte-identical and every object is retained
+  when:
+    abstract: the hydrate path is invoked against the removed projection directory
+- given:
+    abstract:
+    - A populated store and a projection directory that exists but carries no documents
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: RED
+    purpose: an empty incoming projection never empties a populated store, while an empty projection against
+      an empty store remains a legitimate cold-start no-op
+    urn: acc:reconcile-local-store:C002-UNIT-002-empty-projection-never-empties-a-populated-store
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-21'
+  then:
+    abstract:
+    - A MassDeletionRefused is raised naming the count of work_items at stake
+    - state.sqlite is byte-identical and every object is retained
+    - The empty-projection-against-empty-store case still hydrates zero objects without refusing
+  when:
+    abstract: the hydrate path is invoked against the empty projection
+- given:
+    abstract:
+    - A deletion set computed against a store of known size
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: the blast-radius guard refuses a retirement set past the proportional or absolute limit, permits
+      a routine one under the safe floor, and treats the operator override as an assertion of the expected
+      count rather than as a force flag
+    urn: acc:reconcile-local-store:C002-UNIT-003-blast-radius-refuses-and-the-override-is-not-a-bypass
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-21'
+  then:
+    abstract:
+    - A set at or below the safe floor is permitted whatever proportion of the store it represents
+    - A set over the proportional limit is refused and the refusal shows its arithmetic
+    - A set over the absolute limit is refused however small its proportion
+    - An override asserting the wrong count is refused and both numbers are quoted back
+    - An override asserting the true count is permitted
+  when:
+    abstract: the deletion guard is evaluated ahead of any store mutation
+- given:
+    abstract:
+    - A hydrated store and an incoming projection that omits one object and explicitly retires another
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-004
+    phase: RED
+    purpose: reconcile retains an object absent from the incoming projection and retires one only on an
+      explicit committed tombstone carrying full provenance
+    urn: acc:reconcile-local-store:C002-UNIT-004-absence-is-no-information-only-a-tombstone-retires
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-21'
+  then:
+    abstract:
+    - An object absent from the incoming projection is retained untouched and keeps its prior phase
+    - An object carrying an attributed tombstone is retired as a record rather than removed
+    - A tombstone lacking actor, reason, source generation or prior digest is refused and nothing is applied
+    - A mass tombstone still trips the blast radius unless the operator asserts its exact size
+  when:
+    abstract: the hydrate path applies the incoming projection
+- given:
+    abstract:
+    - A shared project-root Control Root of a flat-sibling worktree layout, which is not itself a git checkout
+    - A single-repo Control Root, which is
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-005
+    phase: RED
+    purpose: a store whose Control Root is not the checkout it would follow refuses to reconcile against any
+      worktree HEAD, while the single-repo layout that ships to consumers is unaffected
+    urn: acc:reconcile-local-store:C002-UNIT-005-a-shared-store-refuses-to-hydrate-from-a-worktree-head
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-21'
+  then:
+    abstract:
+    - The shared store raises SharedStoreReconcileRefused naming the Control Root it refused for
+    - state.sqlite is byte-identical and every object is retained
+    - The overwrite path is refused at the same point as the reconcile path
+    - A single-repo Control Root reconciles unchanged
+  when:
+    abstract: reconcile or hydrate is invoked against each Control Root in turn

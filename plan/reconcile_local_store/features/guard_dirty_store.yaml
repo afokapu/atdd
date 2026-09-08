@@ -19,8 +19,9 @@ description: 'CORE-012. Reconcile is not overwrite (I5). A store with non-empty 
 sizing:
   footprint_score: 5
   footprint_size: S
-  wmbts: 1
+  wmbts: 2
 urn: feature:reconcile-local-store:guard-dirty-store
 wagon: wagon:reconcile-local-store
 wmbts:
 - wmbt:reconcile-local-store:C001
+- wmbt:reconcile-local-store:C002

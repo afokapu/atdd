@@ -67,6 +67,12 @@ produce:
     contract: null
     telemetry: null
     to: external
+  # Rehomed from the retired mediate-worker-decisions wagon (#1520): the
+  # observer/ledger was its only surviving consumer, so it now owns the record.
+  - name: commons:decision:record
+    contract: "contract:commons:decision:record"
+    telemetry: null
+    to: internal
 
 consume:
   - name: commons:coach:correction-schema

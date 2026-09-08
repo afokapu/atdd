@@ -1,6 +1,6 @@
-# URN: test:spawn-agents:claude-md-slim-and-debanner:E024-UNIT-002-operator-emergency-bypass-doc-documents-cli-not-env-var
-# Acceptance: acc:spawn-agents:E024-UNIT-002-operator-emergency-bypass-doc-documents-cli-not-env-var
-# WMBT: wmbt:spawn-agents:E024
+# URN: test:govern-lifecycle:coach-operator-safety-invariants:E066-UNIT-002-operator-emergency-bypass-doc-documents-cli-not-env-var
+# Acceptance: acc:govern-lifecycle:E066-UNIT-002-operator-emergency-bypass-doc-documents-cli-not-env-var
+# WMBT: wmbt:govern-lifecycle:E066
 # Phase: RED
 # Layer: backend.unit
 # Assertion: structural
