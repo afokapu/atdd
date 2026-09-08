@@ -34,23 +34,26 @@ acceptances:
     - both resolve to the shared Control Root, and the same bound rule set loads from each
     - neither falls back to the toolkit's own substrate
 - identity:
-    urn: acc:bind-substrate-runtime:L002-UNIT-002-a-run-that-finds-no-substrate-says-where-it-looked
+    urn: acc:bind-substrate-runtime:L002-UNIT-002-a-run-names-the-substrate-it-enforced
     id: AC-UNIT-002
-    purpose: the miss was absorbed by a fallback, so a consumer whose lock was unreachable was
-      told "clean no-op" and exit 0 — a false pass, not a diagnosis
+    purpose: the fallback does not merely enforce nothing — it enforces ANOTHER repository's
+      rule set over this repo's code and reports PASS, which is a false pass no operator can
+      see
     phase: GREEN
   harness:
     type: unit
     category: backend
   given:
     abstract:
-    - a repo with no reachable binding lock in its checkout or its Control Root
+    - a repo with no binding lock in its checkout and none in its Control Root
   when:
-    abstract: enforcement runs and resolves zero bound conventions
+    abstract: enforcement runs and the substrate home resolves to somewhere other than this
+      repo
   then:
     abstract:
-    - the report names the substrate home that was searched
-    - a fallback to the toolkit's own substrate is stated rather than silent
+    - the report names the substrate home the rules were read from
+    - a substrate belonging to a different repository is called out as such, whether it yields
+      rules or none
 - identity:
     urn: acc:bind-substrate-runtime:L002-SMOKE-001-real-flat-sibling-project-enforces-from-every-checkout
     id: AC-SMOKE-001
