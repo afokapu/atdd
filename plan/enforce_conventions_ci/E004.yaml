@@ -52,22 +52,42 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-09-08"
   - identity:
-      urn: "acc:enforce-conventions-ci:E004-SMOKE-001-the-committed-baselines-hold-both-gates"
+      urn: "acc:enforce-conventions-ci:E004-SMOKE-001-the-committed-lint-baseline-holds"
       id: "AC-SMOKE-001"
-      purpose: "Against the repository's real source both gates are green on the committed baselines"
+      purpose: "Against the repository's real source the lint gate is green on its committed baseline"
       phase: "SMOKE"
     harness:
       type: "integration"
       category: "backend"
     given:
       abstract:
-        - "The repository's own src tree and its committed lint and type baselines"
+        - "The repository's own src tree and its committed lint baseline"
     when:
-      abstract: "Both ratchets run over the real tree"
+      abstract: "ruff runs over the real tree under the committed configuration"
     then:
       abstract:
-        - "Neither reports a new finding, so the baselines describe the tree as it actually is"
+        - "No finding is reported that the baseline does not already carry"
         - "Read from the real source rather than fixtures, because a baseline that does not match the tree it froze is worse than none"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:enforce-conventions-ci:E004-SMOKE-002-the-committed-type-baseline-holds"
+      id: "AC-SMOKE-002"
+      purpose: "Against the repository's real source the type gate is green on its committed baseline"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The repository's own src tree and its committed type baseline"
+    when:
+      abstract: "pyright runs over the real tree, pinned to the interpreter running the gate"
+    then:
+      abstract:
+        - "No error is reported that the baseline does not already carry"
+        - "The interpreter is pinned, because the same source yields a different error count against a different environment and an unpinned baseline stops describing the tree"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-09-08"
