@@ -423,7 +423,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 7
+    total: 8
     D001: maximize likelihood of a schema-valid binding plan by defining one canonical
       JSON schema for `.atdd/binding.lock.yaml` (which conventions are bound-owned
       vs legacy-fallback, keyed by the substrate-lock digest) and validating it before
@@ -446,6 +446,10 @@ wagons:
       disposition gate with deterministic precedence, so a bound implementation shadows
       the matching legacy validator for the same convention and gates a lifecycle
       transition exactly like a legacy validator
+    L002: minimize likelihood of the binding lock being unreachable from the directory
+      work happens in by resolving the substrate home through the Control Root resolver
+      rather than the caller's checkout, and by naming the substrate home a run actually
+      used instead of silently substituting the toolkit's
     M001: minimize likelihood of a silent bind failure by detecting a bound implementation
       that crashes, times out, or emits malformed output and falling back to legacy
       gating, surfaced loudly — never silently passing the gate (fail-safe, not fail-open)
