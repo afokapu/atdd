@@ -23,14 +23,16 @@ from pathlib import Path
 import pytest
 import yaml
 
-from atdd.enforce.conventions import (
-    is_interlocking_rule,
-    package_declares_interlocking_surfaces,
-)
+from atdd.enforce.conventions import is_interlocking_rule
+from atdd.enforce.interlocking_layout import package_declares_interlocking_surfaces
 
 pytestmark = [pytest.mark.platform]
 
-_SUBSTRATE = Path(".atdd")
+#: The REPO ROOT — the value `runner` actually passes as ``substrate_home``; it
+#: joins ``.atdd`` itself. Passing the already-joined path here is what let a
+#: missing-segment bug pass every unit test while starving every rule in the real
+#: run: the tests agreed with the code because both were given the same wrong shape.
+_SUBSTRATE = Path(".")
 _INTERLOCKING_PKGS = (
     "atdd.extension.coder.train-interlocking",
     "atdd.extension.tester.train-interlocking",
@@ -38,7 +40,7 @@ _INTERLOCKING_PKGS = (
 
 
 def _scope_selector_surfaces(pkg: str) -> set[str]:
-    root = _SUBSTRATE / "extensions" / pkg
+    root = _SUBSTRATE / ".atdd" / "extensions" / pkg
     out: set[str] = set()
     for scope in root.glob("*/scopes/*.yaml"):
         doc = yaml.safe_load(scope.read_text(encoding="utf-8")) or {}
@@ -68,13 +70,17 @@ def test_an_absent_package_is_false_rather_than_raising():
     assert not package_declares_interlocking_surfaces(_SUBSTRATE, "no.such.package")
 
 
-def test_every_bound_rule_of_a_declaring_package_receives_the_layout():
-    """The regression this exists for.
+def test_the_fix_feeds_rules_the_old_prefix_starved():
+    """The regression this exists for, stated as a DELTA.
 
-    Reads the live binding lock: for every bound rule whose package declares the
-    surfaces, the scoping predicate must say yes. Under the old name prefix seven
-    rules said no — the two coder rules not named `interlocking-*`, and all five
-    `tester.interlocking.*` rules, which that prefix can never match.
+    A previous version of this test filtered the lock to the interlocking packages
+    and then asked the package-level predicate about those same packages — which is
+    true by construction and could never fail. It asserted nothing.
+
+    The real claim is a difference between two predicates over the SAME bound rules:
+    every rule these packages realize must be fed, and the retired name prefix fed
+    only some. If the two ever agree, the fix has been reverted or the rule names
+    have changed, and either way this must fail loudly rather than pass quietly.
     """
     lock = yaml.safe_load(Path(".atdd/binding.lock.yaml").read_text(encoding="utf-8"))
 
@@ -88,15 +94,36 @@ def test_every_bound_rule_of_a_declaring_package_receives_the_layout():
             for value in node:
                 yield from walk(value)
 
-    starved = [
-        entry["convention_id"]
-        for entry in walk(lock)
-        if str(entry.get("package_id") or "") in _INTERLOCKING_PKGS
-        and not package_declares_interlocking_surfaces(
-            _SUBSTRATE, str(entry.get("package_id") or "")
-        )
+    bound = [
+        (str(e["convention_id"]), str(e.get("package_id") or ""))
+        for e in walk(lock)
+        if str(e.get("package_id") or "") in _INTERLOCKING_PKGS
     ]
-    assert starved == [], f"bound rules starved of the declared layout: {starved}"
+    assert bound, "no interlocking rules bound — this test has nothing to police"
+
+    fed_now = {r for r, pkg in bound if package_declares_interlocking_surfaces(_SUBSTRATE, pkg)}
+    fed_before = {r for r, _ in bound if is_interlocking_rule(r)}
+
+    # 1. every bound rule of a declaring package is fed
+    assert fed_now == {r for r, _ in bound}, (
+        f"still starved: {sorted({r for r, _ in bound} - fed_now)}"
+    )
+    # 2. and the retired predicate genuinely fed fewer — the delta is the point
+    gained = fed_now - fed_before
+    assert gained, (
+        "the retired prefix already fed every bound rule; this fix is a no-op "
+        "and the test's premise is stale"
+    )
+    # 3. name them, so a silent change in WHICH rules gain is visible in the diff
+    assert gained == {
+        "coder.train.runtime-executes-the-declaration",
+        "coder.train.station-master-interlocking-routing",
+        "tester.interlocking.production-runner-used",
+        "tester.interlocking.route-coverage",
+        "tester.interlocking.smoke-coverage-for-station-master",
+        "tester.interlocking.trace-binds-declared-route",
+        "tester.interlocking.train-sequence-is-exercised",
+    }, f"the set of newly-fed rules changed: {sorted(gained)}"
 
 
 def test_the_retired_name_prefix_would_still_starve_those_rules():

@@ -47,13 +47,12 @@ import yaml
 from atdd.enforce.conventions import (
     RuleMetadata,
     compute_scan_policy,
-    is_interlocking_rule,
     load_bound,
-    package_declares_interlocking_surfaces,
     resolve_interlocking_layout,
     rule_metadata,
     select_rules,
 )
+from atdd.enforce.interlocking_layout import package_declares_interlocking_surfaces  # noqa: E402
 from atdd.enforce.dispositions import fails_on_violation
 from atdd.enforce.provider_env import provider_env
 from atdd.enforce.resolution import (
