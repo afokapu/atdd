@@ -1,0 +1,57 @@
+urn: wmbt:govern-lifecycle:C026
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: a-toolkit-self-validator-being-collected-in-a-repo-that-is-not-the-toolkit
+context_clarifier: validators ship inside the installed package and run against whatever repo
+  invokes them; this one guards itself by testing whether the repo has a src/ and a .github/
+  directory, which is a description of most modern projects rather than of the toolkit, so it
+  fails open for any consumer that has both — copies that consumer's src/ tree into a scratch
+  dir and then fails on the toolkit path it expected to find inside it
+lens: functional.effectiveness
+statement: minimize likelihood of a-toolkit-self-validator-being-collected-in-a-repo-that-is-not-the-toolkit
+  by identifying the toolkit through is_atdd_source_repo rather than by the presence of directory
+  names any project may have, so a consumer's validate run reports on the consumer's code and
+  nothing else
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C026-UNIT-001-a-toolkit-self-validator-declines-to-run-elsewhere
+    id: AC-UNIT-001
+    purpose: the validator does guard itself, but on `src/` and `.github/` existing — a description
+      of most repositories, not of the toolkit — so the guard passes exactly where it needed
+      to fire
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - the projection-only validator, which guards on directory names any project may have
+  when:
+    abstract: it is collected somewhere that is not the toolkit source checkout
+  then:
+    abstract:
+    - it declines to run rather than failing on a path the repo does not have
+    - it is marked as a toolkit-self validator, so the phase runs that exclude those exclude
+      it
+- identity:
+    urn: acc:govern-lifecycle:C026-SMOKE-001-a-real-consumer-validate-run-is-clean
+    id: AC-SMOKE-001
+    purpose: the outcome that matters is a consumer repo reaching a green coach phase; the validator
+      that kept it red must be observed declining, in a real subprocess, from a real repo that
+      is not the toolkit
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repository that is not the toolkit but does have a src/ directory and a CI workflow,
+      which is the shape that defeats a name-based guard
+  when:
+    abstract: the validator that reached for the toolkit's source tree is run against it as
+      a subprocess, the way the consumer's coach job runs it
+  then:
+    abstract:
+    - it is reported as skipped, not failed, and the run exits zero
+    - the reason names it as toolkit-self rather than looking like a passing test

@@ -81,6 +81,15 @@ def compute_digest(package_dir: str | Path) -> str:
     return "sha256:" + h.hexdigest()
 
 
+class SelfReferentialInstall(ValueError):
+    """``package_dir`` IS the install home this call would write to.
+
+    Raised BEFORE anything is removed. The old ordering deleted the destination and
+    only then discovered the source was gone, so the package was destroyed and the
+    lock never written (#1840).
+    """
+
+
 def install(
     package_dir: str | Path,
     project_root: str | Path,
@@ -91,10 +100,30 @@ def install(
 ) -> Path:
     """Copy the package into its versioned home (idempotent). Returns the path."""
     dest = install_path(project_root, kind, package_id, version)
+
+    # Refuse a self-referential admit BEFORE the rmtree below, never after.
+    #
+    # `--path <a package's own install home>` is not an exotic mistake: it is the
+    # intuitive repair after an accidental `substrate remove`, which unregisters the
+    # package but leaves the files on disk. Pointing --path at those files then
+    # deleted them and raised FileNotFoundError from copytree's scandir — the
+    # operator lost the package while trying to put it back.
+    #
+    # Compared RESOLVED, so a symlinked or relative path naming the same directory
+    # is caught too; a string compare would miss exactly the aliases an operator
+    # types by hand.
+    src = Path(package_dir).resolve()
+    if dest.exists() and src == dest.resolve():
+        raise SelfReferentialInstall(
+            f"refusing to admit {src} into itself: that path is already the install "
+            f"home for {package_id} {version}. Nothing was changed. To re-admit from "
+            f"a copy, point --path at a source outside .atdd/."
+        )
+
     if dest.exists():
         shutil.rmtree(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(package_dir, dest)
+    shutil.copytree(src, dest)
     return dest
 
 

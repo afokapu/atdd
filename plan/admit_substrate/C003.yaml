@@ -31,6 +31,29 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-06-18"
   - identity:
+      urn: "acc:admit-substrate:C003-UNIT-002-self-referential-admit-refused"
+      id: "AC-UNIT-002"
+      purpose: "admitting a package from its own install home is refused BEFORE the destination is removed, so the package survives; the refusal names the path and states that nothing changed"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A package already installed at its versioned home, and `--path` pointing at that same home — directly, via a relative path, and via a symlink"
+    when:
+      abstract: "admission installs the package"
+    then:
+      abstract:
+        - "the admit is refused before anything is deleted"
+        - "the install home and every file in it survive unchanged"
+        - "the refusal names the offending path and states that nothing was changed"
+        - "a relative path or symlink naming the same home is refused identically"
+        - "admission from a source outside the install home is unaffected, and re-installing from a different source still replaces"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-09"
+  - identity:
       urn: "acc:admit-substrate:C003-SMOKE-001-add-validates-cli"
       id: "AC-SMOKE-001"
       purpose: "`atdd add --path <invalid-package>` as a subprocess exits non-zero and installs nothing; `atdd validate package` still works unchanged"

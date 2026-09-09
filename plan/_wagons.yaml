@@ -1460,6 +1460,10 @@ wagons:
       generated jobs actually need, so a freshly initialised consumer repo gets real
       validate verdicts on its first pull request rather than a failed filter and
       a row of skips
+    C026: minimize likelihood of a toolkit-self validator being collected in a repo
+      that is not the toolkit, by having every validator that reads the toolkit's
+      own source tree declare itself toolkit-self and decline to run elsewhere, so
+      a consumer's validate run reports on the consumer's code and nothing else
     D001: minimize issues created without orchestrate-ready template body
     D002: minimize parent issues without GitHub WMBT sub-issues when plan artifacts
       exist
