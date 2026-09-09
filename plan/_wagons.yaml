@@ -1825,6 +1825,11 @@ wagons:
       single shared Control Root''s .atdd/runtime/ is found by the gate no matter
       which child worktree evaluates the transition, with a worktree-local read retained
       as a back-compat fallback (#1376)'
+    R011: minimize likelihood of a-command-surface-left-reading-a-local-whose-producer-was-deliberately-deleted-so-the-bootstrap-command-agents-are-told-to-run-first-raises-rather-than-reports
+      by removing the residue rather than reviving the retired projection — the two
+      dangling reads in verify(json=True) and get_confirmation_template, the orphaned
+      hash helper still calling a syncer attribute no longer constructed, and the
+      return contract nothing can satisfy (#1861)
     C020: minimize likelihood of atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
       by reading the issue's phase from the State Store at mint time and validating
       the requested edge against phase_machine.convention.yaml, refusing — never warning

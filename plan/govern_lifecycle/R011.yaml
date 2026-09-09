@@ -1,0 +1,73 @@
+urn: "wmbt:govern-lifecycle:R011"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-command-surface-left-reading-a-local-whose-producer-was-deliberately-deleted-so-the-bootstrap-command-agents-are-told-to-run-first-raises-rather-than-reports"
+context_clarifier: "e1c8a399 (#1811/#1812) retired the agent-config projection — CLAUDE.md and its siblings were generated, tracked, and enforced nothing — and that retirement was correct. It removed AgentConfigSync, the self.syncer attribute and ATDDGate._get_synced_files(), and it removed the two READERS of the `files` local in the human-readable path. Two other references were left standing: gate.py:148 `output = {\"files\": files, ...}` in verify(json=True), and gate.py:236 `for agent, info in files.items()` in get_confirmation_template(). Both name a local whose producer the same commit deleted, so `atdd gate --json` raises NameError from cli.py:2505 and has never worked since. Two further pieces of the same residue remain: _hash_managed_block still calls self.syncer._extract_managed_block (an AttributeError with no caller, since its only caller was the deleted method), and verify's docstring still promises '1 if no synced files found' when nothing can return 1. It stayed invisible because the human-readable path never touches `files` and is what agents actually run, so the command looked healthy; it was found by coder.lint.ruff-ratchet (#1837) reporting F821 on its first pass over the tree."
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-command-surface-left-reading-a-local-whose-producer-was-deliberately-deleted-so-the-bootstrap-command-agents-are-told-to-run-first-raises-rather-than-reports by removing the residue rather than reviving the retired projection — dropping the two dangling reads, the orphaned hash helper that calls an attribute no longer constructed, and the return contract nothing can satisfy"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R011-UNIT-001-both-entry-points-return-rather-than-raise"
+      id: "AC-UNIT-001"
+      purpose: "The two surfaces that read the deleted local must answer, and answer with the shape their callers expect — a raising bootstrap command is worse than a missing field"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A real ATDDGate over a temporary directory, constructed the way cli.py constructs it"
+    when:
+      abstract: "the JSON verification and the confirmation template are invoked"
+    then:
+      abstract:
+        - "The JSON form returns its exit code instead of raising, and emits parseable JSON"
+        - "The confirmation template returns a string instead of raising"
+        - "Neither output carries a `files` key or a per-agent file listing, because the projection that produced them was retired on purpose and must not be revived here"
+        - "The human-readable form still returns 0, so the path agents actually run is untouched"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:govern-lifecycle:R011-UNIT-002-no-surface-still-reaches-the-retired-collaborator"
+      id: "AC-UNIT-002"
+      purpose: "The residue is removed, not merely stepped around — a helper that calls an attribute nothing constructs is an AttributeError waiting for its first caller"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The gate module's own source, and the public surface of its class"
+    when:
+      abstract: "it is inspected for references to the retired projection"
+    then:
+      abstract:
+        - "No method reaches a `syncer` collaborator, since the attribute is no longer constructed"
+        - "Every public method of the class can be invoked without raising, so no second dangling surface is left behind for the next reader to find"
+        - "The documented return contract matches what the code can actually produce"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
+  - identity:
+      urn: "acc:govern-lifecycle:R011-SMOKE-001-the-real-cli-answers-in-both-forms"
+      id: "AC-SMOKE-001"
+      purpose: "Through the real CLI entry point rather than the class, because cli.py:2505 is where the NameError actually reached an operator"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The atdd CLI executed as a subprocess from the branch's own source, over a real repository checkout"
+    when:
+      abstract: "`atdd gate` and `atdd gate --json` are both run"
+    then:
+      abstract:
+        - "Both exit 0 rather than tracing back"
+        - "The JSON form's stdout parses as JSON and carries the diagnostic keys a consumer reads"
+        - "Driven as a subprocess through the real argument parser, because the defect lives in a branch the class-level call can reach but only the CLI actually selects"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-08"
