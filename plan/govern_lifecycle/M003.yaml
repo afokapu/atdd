@@ -54,7 +54,7 @@ acceptances:
     - none of them is reported
     - the suppression is honoured on the assigning line, so a triaged case stays quiet
 - identity:
-    urn: acc:govern-lifecycle:M003-SMOKE-001-the-live-tree-reports-nothing-unexplained
+    urn: acc:govern-lifecycle:M003-SMOKE-001-the-live-tree-is-quiet-and-the-scan-still-bites
     id: AC-SMOKE-001
     purpose: a report that is noisy on the day it ships will be ignored by the time it matters;
       the live tree must start quiet and speak only for something new

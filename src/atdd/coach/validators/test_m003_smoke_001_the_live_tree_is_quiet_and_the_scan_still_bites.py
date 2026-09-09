@@ -1,5 +1,5 @@
 # URN: test:govern-lifecycle:govern-lifecycle:M003-SMOKE-001
-# Acceptance: acc:govern-lifecycle:M003-SMOKE-001-the-live-tree-reports-nothing-unexplained
+# Acceptance: acc:govern-lifecycle:M003-SMOKE-001-the-live-tree-is-quiet-and-the-scan-still-bites
 # WMBT: wmbt:govern-lifecycle:M003
 # Phase: SMOKE
 # Layer: integration
@@ -37,7 +37,7 @@ import pytest
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 
-def test_m003_smoke_001_the_live_tree_reports_nothing_unexplained():
+def test_m003_smoke_001_the_live_tree_is_quiet_and_the_scan_still_bites():
     from atdd.coach.validators.test_platform_marker_on_toolkit_selftests import (
         _iter_validator_test_files,
         scan_toolkit_path_strings,
