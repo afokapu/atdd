@@ -8,12 +8,11 @@ Usage:
     atdd gate                    # Show gate verification info
     atdd gate --json             # Output as JSON for programmatic use
 """
-import hashlib
 import json as json_module
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 import yaml
 
@@ -111,22 +110,6 @@ class ATDDGate:
             return None
         return self.issue_convention.read_text()
 
-    def _compute_block_hash(self, content: str) -> Optional[str]:
-        """
-        Compute SHA256 hash of the managed block in content.
-
-        Args:
-            content: File content.
-
-        Returns:
-            SHA256 hash or None if no managed block found.
-        """
-        block, _, _ = self.syncer._extract_managed_block(content)
-        if block is None:
-            return None
-
-        return hashlib.sha256(block.encode()).hexdigest()
-
     def verify(self, json: bool = False) -> int:
         """
         Output gate verification info.
@@ -135,7 +118,7 @@ class ATDDGate:
             json: If True, output as JSON.
 
         Returns:
-            0 on success, 1 if no synced files found.
+            0 — the gate reports; it does not adjudicate.
         """
         # Session-bootstrap self-heal (#884): repair a worktree poisoned by an
         # unscoped core.bare=true write before doing anything else.
@@ -146,7 +129,6 @@ class ATDDGate:
 
         if json:
             output = {
-                "files": files,
                 "constraints": self.KEY_CONSTRAINTS,
                 "issue_convention": issue_convention,
                 "worktree_layout": layout,
@@ -233,12 +215,7 @@ class ATDDGate:
             "",
         ]
 
-        for agent, info in files.items():
-            if info["exists"] and info.get("has_block"):
-                lines.append(f"- {info['file']} (hash: `{info['hash']}...`)")
-
         lines.extend([
-            "",
             "**Key constraints acknowledged:**",
         ])
 
