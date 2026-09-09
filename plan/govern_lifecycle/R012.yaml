@@ -29,22 +29,23 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-09-09"
   - identity:
-      urn: "acc:govern-lifecycle:R012-UNIT-002-the-publish-job-keeps-the-scope-the-token-needs"
-      id: "AC-UNIT-002"
-      purpose: "Supplying a token is worthless if the job's permissions do not carry the scope the call requires — the pair is what makes the call possible, and a future permissions trim would silently re-break it"
-      phase: "GREEN"
+      urn: "acc:govern-lifecycle:R012-SMOKE-001-the-real-publish-workflow-can-authenticate"
+      id: "AC-SMOKE-001"
+      purpose: "Against the repository's own committed publish workflow rather than a fixture: the step that actually failed carries both halves of what the call needs — the credential and the scope — because either alone still fails"
+      phase: "SMOKE"
     harness:
-      type: "unit"
+      type: "integration"
       category: "backend"
     given:
       abstract:
-        - "The publish workflow's release job, read from the committed definition"
+        - "The repository's own committed publish workflow, parsed as it will be executed"
     when:
-      abstract: "its declared permissions are inspected alongside the credential its steps receive"
+      abstract: "the step that runs the release drain is examined together with the job enclosing it"
     then:
       abstract:
-        - "The job declares write access to repository contents, which is what creating a release requires"
-        - "The declared permissions are read from the job rather than assumed from the repository default, since the default grants read only"
+        - "The step has the credential the gh CLI reads in scope, since the call it makes is the one that has failed on every merge"
+        - "The enclosing job declares write access to repository contents, read from the job rather than assumed from the repository default which grants read only"
+        - "Read from the real committed workflow rather than a constructed one, because a fixture would assert only that the check works and not that this repository can publish"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-09-09"
