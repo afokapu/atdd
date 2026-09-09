@@ -82,11 +82,16 @@ def test_c026_unit_001_declares_itself_toolkit_self(tmp_path):
     src = _module_source()
     tree = ast.parse(src)
 
-    marks: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Attribute):
-            if getattr(node.value.value, "id", None) == "pytest" and node.value.attr == "mark":
-                marks.append(node.attr)
+    # Collect every `pytest.mark.<name>` in the module, however it is applied —
+    # module pytestmark, decorator, or nested inside a list.
+    marks = [
+        node.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "mark"
+        and getattr(node.value.value, "id", None) == "pytest"
+    ]
 
     assert "platform" in marks, (
         f"{TARGET.name} reads the toolkit's own source tree but is not marked "
