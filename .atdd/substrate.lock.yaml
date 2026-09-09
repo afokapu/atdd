@@ -14,9 +14,9 @@ artifacts:
   - id: atdd.workspace.fastapi
 - id: atdd.extension.coder.train-interlocking
   kind: extension
-  version: 0.3.0
-  digest: sha256:1ee1ab702c015e6d6c0fbcdd772845dbee77acf9cdb199844752427792dfb616
-  installed_path: .atdd/extensions/atdd.extension.coder.train-interlocking/0.3.0
+  version: 0.4.0
+  digest: sha256:06f27c424ba950940cab26f61fcb21d0070317890c43a38a9a494cb9238bab78
+  installed_path: .atdd/extensions/atdd.extension.coder.train-interlocking/0.4.0
   enabled: true
   workspaces:
   - id: atdd.workspace.python-pytest
