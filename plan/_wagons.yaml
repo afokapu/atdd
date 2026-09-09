@@ -1830,6 +1830,9 @@ wagons:
       dangling reads in verify(json=True) and get_confirmation_template, the orphaned
       hash helper still calling a syncer attribute no longer constructed, and the
       return contract nothing can satisfy (#1861)
+    R012: minimize likelihood of a-release-step-invoking-a-tool-whose-credential-the-step-never-supplies-so-the-workflow-fails-on-every-merge-until-its-red-is-the-expected-state
+      by supplying the workflow token to the step that shells out to gh, so the publish
+      path either completes or fails for a reason a reader can act on (#1869)
     C020: minimize likelihood of atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
       by reading the issue's phase from the State Store at mint time and validating
       the requested edge against phase_machine.convention.yaml, refusing — never warning
