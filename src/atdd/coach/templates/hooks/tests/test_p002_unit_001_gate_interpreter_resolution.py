@@ -45,25 +45,49 @@ import pytest
 pytestmark = [pytest.mark.coach]
 
 HOOKS = Path(__file__).resolve().parents[1]
+BRIDGE = "# --- Source-checkout live-source bridge"
 BEGIN = "# --- BEGIN atdd-gate-interpreter ---"
 END = "# --- END atdd-gate-interpreter ---"
 CARRIERS = ("pre-push", "pre-merge-commit")
 
 
+def _preamble(hook: str) -> str:
+    """Bridge + resolution together — they are one unit and share a flag.
+
+    Extracting only the delimited block would miss the flag reset that guards it,
+    and a test that set that internal flag by hand would be asserting on the
+    implementation's private state instead of the condition it stands for.
+    """
+    src = (HOOKS / hook).read_text(encoding="utf-8")
+    for marker in (BRIDGE, BEGIN, END):
+        assert marker in src, f"{hook} is missing {marker!r}"
+    return src[src.index(BRIDGE) : src.index(END) + len(END)]
+
+
 def _block(hook: str) -> str:
     src = (HOOKS / hook).read_text(encoding="utf-8")
-    assert BEGIN in src and END in src, (
-        f"{hook} carries no delimited interpreter-resolution block; the gates in it "
-        f"run under whatever `python3` happens to be on PATH"
-    )
     return src[src.index(BEGIN) : src.index(END) + len(END)]
 
 
-def _resolve(block: str, *, bridge: bool, path_dir: Path | None, tmp_path: Path) -> str:
-    """Run the block under a real sh and report the interpreter it chose."""
+def _toolkit_checkout(tmp_path: Path) -> Path:
+    """A tree the bridge will recognise: src/atdd plus an atdd pyproject."""
+    root = tmp_path / "toolkit"
+    (root / "src" / "atdd").mkdir(parents=True)
+    (root / "pyproject.toml").write_text('name = "atdd"\n', encoding="utf-8")
+    return root
+
+
+def _resolve(hook: str, *, repo_root: Path | None, path_dir: Path | None,
+             tmp_path: Path, inherited: str = "", want_stderr: bool = False):
+    """Run the real preamble under a real sh and report the interpreter chosen."""
     script = tmp_path / "probe.sh"
-    prelude = "_ATDD_SOURCE_BRIDGE=1\n" if bridge else ""
-    script.write_text(f"#!/bin/sh\nset -u\n{prelude}{block}\nprintf '%s' \"$ATDD_PYTHON\"\n")
+    prelude = f'_REPO_ROOT="{repo_root or ""}"\n'
+    if inherited:
+        prelude = f'export _ATDD_SOURCE_BRIDGE="{inherited}"\n' + prelude
+    script.write_text(
+        f"#!/bin/sh\nset -u\n{prelude}{_preamble(hook)}\n"
+        'printf "%s" "$ATDD_PYTHON"\n'
+    )
     script.chmod(0o755)
 
     # A MINIMAL PATH, always: inheriting the caller's would leave the developer's
@@ -72,9 +96,10 @@ def _resolve(block: str, *, bridge: bool, path_dir: Path | None, tmp_path: Path)
     # rather than by exercising the fallback.
     env = dict(os.environ)
     env["PATH"] = f"{path_dir}:/usr/bin:/bin" if path_dir else "/usr/bin:/bin"
-    return subprocess.run(
+    proc = subprocess.run(
         ["sh", str(script)], capture_output=True, text=True, env=env, check=True
-    ).stdout.strip()
+    )
+    return (proc.stdout.strip(), proc.stderr.strip()) if want_stderr else proc.stdout.strip()
 
 
 def _fake_atdd(tmp_path: Path, interpreter: str) -> Path:
@@ -96,7 +121,8 @@ def test_p002_unit_001_the_source_bridge_still_wins(hook, tmp_path):
     (decoy / "python-decoy").chmod(0o755)
     path_dir = _fake_atdd(tmp_path, str(decoy / "python-decoy"))
 
-    chosen = _resolve(_block(hook), bridge=True, path_dir=path_dir, tmp_path=tmp_path)
+    chosen = _resolve(hook, repo_root=_toolkit_checkout(tmp_path),
+                      path_dir=path_dir, tmp_path=tmp_path)
 
     assert chosen == "python3", (
         f"{hook} resolved {chosen!r} while the source bridge was active. The bridge "
@@ -114,7 +140,7 @@ def test_p002_unit_002_outside_the_bridge_the_console_script_decides(hook, tmp_p
     ).stdout.strip()
     path_dir = _fake_atdd(tmp_path, real_python)
 
-    chosen = _resolve(_block(hook), bridge=False, path_dir=path_dir, tmp_path=tmp_path)
+    chosen = _resolve(hook, repo_root=None, path_dir=path_dir, tmp_path=tmp_path)
 
     assert chosen == real_python, (
         f"{hook} resolved {chosen!r} rather than the interpreter behind the atdd "
@@ -129,7 +155,7 @@ def test_p002_unit_002_no_console_script_falls_back_to_ambient(hook, tmp_path):
     empty = tmp_path / "empty"
     empty.mkdir()
 
-    chosen = _resolve(_block(hook), bridge=False, path_dir=empty, tmp_path=tmp_path)
+    chosen = _resolve(hook, repo_root=None, path_dir=empty, tmp_path=tmp_path)
 
     assert chosen == "python3", (
         f"{hook} resolved {chosen!r} with no atdd on PATH; it must fall back to the "
@@ -143,12 +169,61 @@ def test_p002_unit_002_a_non_python_shebang_is_refused(hook, tmp_path):
     """A shell-wrapper `atdd` must not be mistaken for an interpreter."""
     path_dir = _fake_atdd(tmp_path, "/bin/sh")
 
-    chosen = _resolve(_block(hook), bridge=False, path_dir=path_dir, tmp_path=tmp_path)
+    chosen = _resolve(hook, repo_root=None, path_dir=path_dir, tmp_path=tmp_path)
 
     assert chosen == "python3", (
         f"{hook} resolved {chosen!r} from a non-python shebang; some installers ship "
         "`atdd` as a shell wrapper, and running `-c 'import atdd'` under /bin/sh "
         "fails in a way that looks like a broken gate rather than a bad resolution"
+    )
+
+
+@pytest.mark.parametrize("hook", CARRIERS)
+def test_p002_unit_002_an_inherited_bridge_flag_cannot_suppress_resolution(hook, tmp_path):
+    """The bridge flag is internal state; the caller's environment must not set it.
+
+    Found in review of this change, not before it. `_ATDD_SOURCE_BRIDGE` is read
+    with `${_ATDD_SOURCE_BRIDGE:-}`, so a same-named variable exported by the
+    caller satisfied the guard and skipped resolution entirely — silently
+    restoring the very bug this block exists to fix, in the one shape nobody
+    would think to look for. The hook now clears it before the bridge can set it.
+    """
+    real_python = subprocess.run(
+        ["sh", "-c", "command -v python3"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    path_dir = _fake_atdd(tmp_path, real_python)
+
+    chosen = _resolve(hook, repo_root=None, path_dir=path_dir,
+                      tmp_path=tmp_path, inherited="leaked")
+
+    assert chosen == real_python, (
+        f"{hook} resolved {chosen!r}: an inherited _ATDD_SOURCE_BRIDGE suppressed "
+        "the resolution, so the gates fall back to an interpreter that cannot "
+        "import an isolated atdd — the original defect, restored invisibly"
+    )
+
+
+@pytest.mark.parametrize("hook", CARRIERS)
+def test_p002_unit_002_a_binary_console_script_is_read_boundedly(hook, tmp_path):
+    """Some installers ship `atdd` as a binary launcher, not a text script."""
+    d = tmp_path / "bin"
+    d.mkdir(exist_ok=True)
+    binary = d / "atdd"
+    # No newline anywhere: an unbounded reader would scan the whole file.
+    binary.write_bytes(b"\x7fELF" + b"\x00" * 200_000)
+    binary.chmod(0o755)
+
+    chosen, stderr = _resolve(hook, repo_root=None, path_dir=d, tmp_path=tmp_path,
+                              want_stderr=True)
+
+    assert chosen == "python3", (
+        f"{hook} resolved {chosen!r} from a binary launcher; it must fall back "
+        "rather than treat arbitrary bytes as an interpreter path"
+    )
+    assert stderr == "", (
+        f"{hook} wrote to stderr while resolving ({stderr!r}). A binary launcher "
+        "makes `sed` complain about an illegal byte sequence, and an unmuted "
+        "complaint prints before every commit and push on such an install"
     )
 
 

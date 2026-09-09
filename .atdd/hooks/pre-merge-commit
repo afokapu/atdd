@@ -11,6 +11,10 @@ set -e
 _REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
 
 # --- Source-checkout live-source bridge (#928 Gap 4 Item 3) ---
+# Cleared first: this is an internal flag read by the interpreter resolution
+# below, and a same-named variable inherited from the caller's environment would
+# otherwise suppress that resolution and silently restore the bug it fixes.
+_ATDD_SOURCE_BRIDGE=
 # Inside the atdd toolkit source checkout, prepend src/ so the bare `python3`
 # version gate AND `atdd validate` import atdd from the WORKING TREE, not the
 # installed wheel. Removes the manual `PYTHONPATH=src` bridge; no-op elsewhere.
@@ -41,7 +45,12 @@ ATDD_PYTHON=python3
 if [ -z "${_ATDD_SOURCE_BRIDGE:-}" ]; then
     _ATDD_BIN=$(command -v atdd 2>/dev/null || true)
     if [ -n "$_ATDD_BIN" ]; then
-        _ATDD_SHEBANG=$(sed -n '1s|^#!\([^[:space:]]*\).*|\1|p' "$_ATDD_BIN" 2>/dev/null || true)
+        # Bounded read: `atdd` is a text console script, but some installers ship
+        # a binary launcher, and an unbounded `sed` would scan it to the first
+        # newline. 256 bytes is far more than any shebang.
+        # Both halves muted: a binary launcher makes `sed` complain about an
+        # illegal byte sequence, and that would print before every commit and push.
+        _ATDD_SHEBANG=$(head -c 256 "$_ATDD_BIN" 2>/dev/null | sed -n '1s|^#!\([^[:space:]]*\).*|\1|p' 2>/dev/null || true)
         # Some installers ship `atdd` as a shell wrapper; only take a python.
         case "$_ATDD_SHEBANG" in
             */python*)
