@@ -44,9 +44,14 @@ from typing import List, Optional
 import pytest
 
 import atdd
+from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
 
 _RULE = bind_rule("coach.source-layout.platform-marker-on-toolkit-selftest")
+_ADVISORY_RULE = bind_rule(
+    "coach.source-layout.toolkit-path-string-in-unmarked-selftest"
+)
 
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 ARCHETYPES = ("planner", "tester", "coder", "coach")
@@ -325,3 +330,109 @@ def test_no_unmarked_toolkit_selftests() -> None:
         "Do NOT move the file out of validators/: validators are collected by "
         "directory, so relocating one silently disables it as a live gate."
     )
+
+
+# --------------------------------------------------------------------------- #
+# Advisory companion (#1865): the shapes the strict scan above cannot see.
+#
+# The strict scan reads literal `Path / "src" / "atdd"` division chains.
+# R005-SMOKE-001 held its toolkit path as a plain string constant handed to a
+# subprocess, matched no chain, and shipped — red in every consumer repo until
+# #1863. Extending the strict gate to that shape was prototyped and rejected on
+# measurement: against this tree it scores ONE true positive in FOUR, and every
+# error falls on the side of marking a working validator `platform`, which
+# silently disables a live gate in every consumer. So the shape is REPORTED.
+# --------------------------------------------------------------------------- #
+
+#: Excludes `path.py:Symbol.method` — a citation naming a location for a human
+#: rather than a file for the filesystem. Two of the three shapes on this tree
+#: are that, and both pass in a real non-toolkit repo.
+_CITATION = ":"
+
+
+def _is_toolkit_path_string(node: ast.AST) -> Optional[str]:
+    """The string, if ``node`` is a literal naming a toolkit-only directory."""
+    if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        return None
+    raw = node.value.strip()
+    if _CITATION in raw:
+        return None
+    candidate = raw.lstrip("./").rstrip("/")
+    if any(candidate == p or candidate.startswith(p + "/") for p in TOOLKIT_ONLY_PREFIXES):
+        return raw
+    return None
+
+
+def scan_toolkit_path_strings(paths, repo_root: Optional[Path] = None) -> List[Violation]:
+    """Report assignments of toolkit-only path strings in unmarked validators.
+
+    Reads ASSIGNMENTS, never text: the substring rule this replaces matched ~42
+    modules, almost all of them prose in docstrings. A file already carrying
+    `pytest.mark.platform` is excluded — it is already out of consumer sweeps —
+    and an inline `atdd:suppress` marker ON THE ASSIGNING LINE records a triaged
+    case, which is what lets the live tree start quiet and speak only for
+    something new.
+    """
+    from atdd.coach.utils.suppression_scanner import is_suppressed
+
+    # Package-relative by default, like `_iter_validator_test_files` above:
+    # this validator ships inside the wheel and must not assume a repo root.
+    root = Path(repo_root) if repo_root is not None else ATDD_PKG_DIR
+    out: List[Violation] = []
+    for path in paths:
+        path = Path(path)
+        try:
+            text = path.read_text(encoding="utf-8")
+            tree = ast.parse(text)
+        except (OSError, SyntaxError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+            continue
+        if _module_has_platform_marker(tree):
+            continue
+        lines = text.splitlines()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign):
+                continue
+            found = _is_toolkit_path_string(node.value)
+            if found is None:
+                continue
+            lineno = getattr(node.value, "lineno", node.lineno)
+            line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+            if is_suppressed(line, _ADVISORY_RULE.rule_id):
+                continue
+            try:
+                loc = str(path.relative_to(root))
+            except ValueError:
+                loc = str(path)
+            out.append(
+                Violation(
+                    rule_id=_ADVISORY_RULE.rule_id,
+                    severity=_ADVISORY_RULE.severity,
+                    location=f"{loc}:{lineno}",
+                    detail=(
+                        f"assigns the toolkit-only path string {found!r}. If anything "
+                        "opens it, this test cannot run in a consumer repo and needs "
+                        "pytest.mark.platform; if it is only data, suppress this line "
+                        "with a reason."
+                    ),
+                    fix_hint_ref=getattr(_ADVISORY_RULE, "fix_hint_ref", None),
+                )
+            )
+    return out
+
+
+def report_toolkit_path_strings(paths, repo_root: Optional[Path] = None) -> None:
+    """Hand the findings to the disposition gate, which warns and passes."""
+    assert_disposition_satisfied(
+        validator_id="platform_marker_on_toolkit_selftests::toolkit_path_strings",
+        violations=scan_toolkit_path_strings(paths, repo_root=repo_root),
+    )
+
+
+@pytest.mark.coach
+def test_toolkit_path_strings_are_reported() -> None:
+    """Advisory: surface the blind spot, never gate on it.
+
+    What a class validator cannot see is otherwise indistinguishable from there
+    being nothing to see — that indistinguishability is the defect #1865 records.
+    """
+    report_toolkit_path_strings(_iter_validator_test_files())
