@@ -22,8 +22,6 @@ consumer's push."""
 
 from __future__ import annotations
 
-import subprocess
-
 import pytest
 
 from atdd.coach.templates.hooks.tests._p002_interpreter_harness import (

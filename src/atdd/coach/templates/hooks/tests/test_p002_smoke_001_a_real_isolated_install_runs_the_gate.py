@@ -72,7 +72,7 @@ def _isolated_atdd_venv(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def test_p002_smoke_001_a_real_isolated_install_runs_the_gate(tmp_path):
-    venv, bindir = _isolated_atdd_venv(tmp_path)
+    _venv, bindir = _isolated_atdd_venv(tmp_path)
 
     # Precondition: the ambient interpreter must NOT be able to import atdd, or
     # this environment cannot demonstrate the thing under test.

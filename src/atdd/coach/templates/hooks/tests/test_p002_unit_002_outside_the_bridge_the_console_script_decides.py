@@ -26,10 +26,8 @@ import pytest
 
 from atdd.coach.templates.hooks.tests._p002_interpreter_harness import (
     CARRIERS,
-    _block,
     _fake_atdd,
     _resolve,
-    _toolkit_checkout,
 )
 
 pytestmark = [pytest.mark.coach]
