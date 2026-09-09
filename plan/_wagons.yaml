@@ -1834,6 +1834,9 @@ wagons:
       dangling reads in verify(json=True) and get_confirmation_template, the orphaned
       hash helper still calling a syncer attribute no longer constructed, and the
       return contract nothing can satisfy (#1861)
+    E007: minimize quantity of tests-that-cannot-be-executed-because-the-repositorys-own-configured-entry-point-aborts-collection-before-running-anything
+      by giving each colliding tests package a parent package, so every test module
+      is named under atdd and the two trees no longer contend for one name (#1868)
     C020: minimize likelihood of atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
       by reading the issue's phase from the State Store at mint time and validating
       the requested edge against phase_machine.convention.yaml, refusing — never warning
