@@ -1,0 +1,5 @@
+train_id: 3207-match-resolution-timeout
+sequence:
+  - wagon: collect-votes
+  - wagon: expire-window
+  - wagon: publish-result

@@ -1,0 +1,55 @@
+# Interlocking route space (core afokapu/atdd#1248). Authoritative for the guarded
+# routes. Two admissible routes; the detector requires each to have a covering
+# e2e test. This DIRTY fixture's e2e suite exercises only nominal-all-voted, so
+# alternate-timeout is an uncovered (silent-green) route -> 1 RAW violation.
+schema_version: 1.0.0
+interlocking_id: interlocking:match-resolution
+title: Match resolution route interlocking
+theme: match
+status: checked
+
+# exposed:false isolates this fixture to the route-coverage rule: an internal
+# interlocking has no Station Master action, so the smoke rule is out of scope.
+entrypoint:
+  surfaces: [backend]
+  exposed: false
+  actions: []
+  reason: internal-transition-only
+
+route_resolution:
+  strategy: fail_on_multiple_match
+
+routes:
+  - route_id: nominal-all-voted
+    projection:
+      expected_sequence_digest: "d285d26427cb21fedb4c5b56edc673743f6d63c85686bdeb37f5e8c5ed4736d8"
+    category: nominal
+    priority: 10
+    guard_ref: guard:all-voted
+    train_id: 3007-match-resolution-standard
+    train_path: plan/_trains/3007-match-resolution-standard.yaml
+
+  - route_id: alternate-timeout
+    projection:
+      expected_sequence_digest: "417c29734ac10c6a6c9a59dc3c568011aa9bdf4bc46e753f351657679d791672"
+    category: alternate
+    priority: 20
+    guard_ref: guard:timer-expires
+    train_id: 3207-match-resolution-timeout
+    train_path: plan/_trains/3207-match-resolution-timeout.yaml
+
+lifelines:
+  - ref: user:actor
+  - ref: wagon:match-resolution
+messages:
+  - id: msg:match-resolution-request
+    kind: boundary
+    from: user:actor
+    to: wagon:match-resolution
+    intent: The actor requests Match Resolution
+    payload:
+      contract: match-resolution:request-v1
+
+source:
+  path: official/atdd.extension.tester.train-interlocking/implementations/interlocking-coverage/fixtures/dirty/plan/_trains/_interlockings/match-resolution.yaml
+  content_digest: "2bf30f35c438b0f2afe16ed09612449d151464634eba1ffd5ff1dbb531bb0acf"

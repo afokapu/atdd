@@ -122,7 +122,7 @@ def test_atdd_repo_without_any_version_asks_for_sync_without_inventing_a_from(re
 
     msg = check_upgrade_sync_needed()
 
-    assert msg == "ATDD upgraded to 2.0.0. Run: atdd sync && atdd init"
+    assert msg == "ATDD upgraded to 2.0.0. Run: atdd upgrade"
     assert "→" not in msg
 
 

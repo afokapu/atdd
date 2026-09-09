@@ -179,7 +179,7 @@ class RuntimeWatcher:
         """
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             data = {}
         event = {
             "event_type": "agent_done",

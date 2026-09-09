@@ -2,7 +2,7 @@
 ATDD upgrade orchestration.
 
 Shows what changed between installed and last_version,
-then runs sync + init --force with confirmation.
+then refreshes this checkout in-process with confirmation (#1820).
 
 #1628 — two properties beyond that:
 
@@ -25,22 +25,26 @@ import contextlib
 import errno
 import hashlib
 import logging
+import os
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator, Optional, TextIO, Tuple
 
 from atdd import __version__
 from atdd.version_check import (
     get_upgrade_notes,
     _load_repo_config,
-    _get_last_toolkit_version,
     _read_sync_record,
     record_toolkit_sync,
     is_outdated,
     auto_upgrade,
+    _gate_version,
+    _is_newer,
+    _load_cache,
+    _resolve_latest_version,
     upgrade_command,
 )
 
@@ -146,11 +150,46 @@ def upgrade_lock(timeout: Optional[float] = None) -> Iterator[Path]:
         handle.close()
 
 
+def refresh_is_owed(repo_root, config=None) -> bool:
+    """Whether this checkout is behind the installed toolkit.
+
+    Reads ONLY the untracked per-checkout record (#1641). The git-tracked
+    ``toolkit.last_version`` fallback is deliberately not consulted: it is pinned
+    at an ancient value in every checkout that carries one — 3.106.0 against a
+    4.47.x toolkit here — so reading it reports a refresh owed forever, which is
+    what made #1628's already-current no-op (E008-UNIT-003) unreachable and sent
+    every run on to ``init --force``. A checkout with no record is genuinely owed
+    a refresh; that is the honest answer and the common one (154 of this repo's
+    157 worktrees).
+    """
+    del config  # the stale fallback is not part of the decision
+    # Read the module-level name run() uses, so a caller (or a test) that patches
+    # the installed version sees one consistent answer from both.
+    return _read_sync_record(repo_root) != __version__
+
+
+def run_repo_refresh(repo_root) -> int:
+    """Perform the refresh in-process: hooks, gitignore, schemas, stamp.
+
+    Not a subprocess. ``upgrade`` used to shell ``atdd sync`` and then
+    ``atdd init --force`` — a flag #793 forbids and which #1600 shows cannot act
+    on an initialised repo. Every job here is triggered by a toolkit version
+    change, which is the condition ``upgrade`` exists to detect, so it owns them.
+    """
+    from atdd.coach.commands.sync import RepoRefresh
+
+    return RepoRefresh(target_dir=repo_root).sync()
+
+
 class Upgrader:
     """Orchestrates atdd upgrade in a consumer repo."""
 
     def __init__(self, repo_root: Optional[Path] = None):
         self.repo_root = repo_root or Path.cwd()
+
+    def refresh_repo(self) -> int:
+        """The repo-refresh half of an upgrade, performed here rather than shelled."""
+        return run_repo_refresh(self.repo_root)
 
     def run(self, yes: bool = False, no_pypi: bool = False) -> int:
         """Run the upgrade process.
@@ -243,11 +282,12 @@ class Upgrader:
         # the sync step re-runs sync + init --force on every single invocation.
         # #1628 requires an already-current run to be a no-op (E008-UNIT-003), and
         # it cannot be one while the write and the read address different stores.
-        last_version = (
-            _read_sync_record(self.repo_root)
-            or _get_last_toolkit_version(config)
-            or "unknown"
-        )
+        # #1820: the git-tracked `toolkit.last_version` fallback is gone. It is
+        # pinned at an ancient value in every checkout that has one, so reading it
+        # reported a refresh owed forever and made #1628's already-current no-op
+        # (E008-UNIT-003) unreachable. A checkout with no untracked record is
+        # genuinely owed a refresh — the honest answer, and the common one.
+        last_version = _read_sync_record(self.repo_root) or "unknown"
 
         print(f"ATDD sync: {last_version} → {installed}")
         print()
@@ -264,21 +304,21 @@ class Upgrader:
                 print("No notable changes between these versions.")
                 print()
 
-        if last_version == installed:
-            print("Already in sync with installed version.")
+        if not refresh_is_owed(self.repo_root):
+            print("Already current with the installed version.")
             return 0
 
         # Confirm
         if unprompted:
             if self_answered:
                 print(
-                    "No terminal detected — answering the sync confirmation "
-                    "non-interactively: atdd sync, then atdd init --force"
+                    "No terminal detected — answering the refresh confirmation "
+                    "non-interactively: refreshing this checkout in-process"
                 )
         else:
-            print("This will run:")
-            print("  1. atdd sync       (update agent config files)")
-            print("  2. atdd init --force (update GitHub infrastructure)")
+            print("This will refresh this checkout:")
+            print("  hooks (#1492), .gitignore entries (#1325), exported schemas,")
+            print("  and the toolkit stamp (#1641). No other command is run.")
             print()
             answer = input("Proceed? [Y/n] ").strip().lower()
             if answer and answer != "y":
@@ -290,26 +330,17 @@ class Upgrader:
         # interleave, and refuse rather than run unserialised.
         try:
             with upgrade_lock():
-                # Run sync
+                # #1820: refresh in-process. This used to shell `atdd sync` and
+                # then `atdd init --force` — the second a flag #793 forbids, and
+                # one #1600 shows returns 1 without bootstrapping anything on an
+                # already-initialised repo, so it never did what its name implied.
+                # Every job the refresh performs is triggered by a toolkit version
+                # change, which is the condition this command exists to detect.
                 print()
-                print("Running: atdd sync")
-                rc = subprocess.run(
-                    [sys.executable, "-m", "atdd", "sync"],
-                    cwd=str(self.repo_root),
-                ).returncode
+                print("Refreshing this checkout")
+                rc = self.refresh_repo()
                 if rc != 0:
-                    print(f"atdd sync failed (exit {rc})")
-                    return 1
-
-                # Run init --force
-                print()
-                print("Running: atdd init --force")
-                rc = subprocess.run(
-                    [sys.executable, "-m", "atdd", "init", "--force"],
-                    cwd=str(self.repo_root),
-                ).returncode
-                if rc != 0:
-                    print(f"atdd init --force failed (exit {rc})")
+                    print(f"refresh failed (exit {rc})")
                     return 1
 
                 # Record the sync in this checkout's untracked runtime record
@@ -330,3 +361,186 @@ class Upgrader:
 
         print(f"\nSync complete: {last_version} → {installed}")
         return 0
+
+
+#: The closed outcome vocabulary of :func:`self_upgrade`. Bound in one statement
+#: rather than five because they are one vocabulary, not five decisions — and
+#: because five consecutive `NAME = "literal"` lines normalise to the same
+#: 5-statement window as any other constant block, which the duplication detector
+#: cannot tell from real copy-paste (it matched `provider_seam`'s RULE_* run).
+(
+    SELF_UPGRADE_DECLINED,
+    SELF_UPGRADE_UPGRADED,
+    SELF_UPGRADE_CONTENDED,
+    SELF_UPGRADE_FAILED,
+    SELF_UPGRADE_DISABLED,
+) = ("declined", "upgraded", "contended", "failed", "disabled")
+
+
+def _say(stream: Optional[TextIO], message: str) -> None:
+    """Write one advisory line, always to stderr.
+
+    A post-* hook's stdout belongs to whatever is reading git's output. Porcelain
+    parsers, `git pull | tee`, and the agents that drive this repo all read it;
+    a self-upgrade notice landing there would be a data corruption, not a
+    cosmetic one. Everything this path emits is advisory, so everything goes to
+    stderr — which is also where the hooks already send `atdd state reconcile`.
+    """
+    print(message, file=stream if stream is not None else sys.stderr)
+
+
+def _self_upgrade_pending() -> Tuple[Optional[str], Optional[str]]:
+    """``(installed, latest)`` when an upgrade looks worth attempting, else ``(None, None)``.
+
+    Ordered cheapest-first, because this runs on every ``git pull`` and every
+    branch switch:
+
+    1. The **cached** latest version — one small file read while the cache is
+       fresh. This is the same 24 h cache #1762 put the push gate on, so the
+       trigger and the gate cannot disagree about what "current" means: the hook
+       upgrades to exactly the version the next push will be judged against.
+    2. A comparison against ``__version__``, which costs nothing. This can only
+       ever *skip* work, and only when the package we are executing already
+       claims to be at or past the latest. Inside the packaged post-* hooks that
+       is exactly right: they invoke the console script and export no
+       ``PYTHONPATH``, so ``__version__`` is the installed version.
+    3. Only then :func:`_gate_version`, which spawns ``atdd --version`` (~1.5 s)
+       to get the authoritative answer the push gate itself uses — immune to the
+       ``src/atdd.egg-info/PKG-INFO`` ghost a source checkout can carry (#1449).
+       ``None`` means dev/editable/unknowable, and declining is correct: an
+       editable install must not be silently pip-upgraded out from under its
+       owner, which is also why ``auto_upgrade()`` refuses one outright.
+    """
+    latest = _resolve_latest_version(_load_cache(), time.time())
+    if not latest:
+        return None, None
+
+    if __version__ != "0.0.0" and not _is_newer(latest, __version__):
+        return None, None
+
+    installed = _gate_version()
+    if installed is None or not _is_newer(latest, installed):
+        return None, None
+
+    return installed, latest
+
+
+def self_upgrade(stream: Optional[TextIO] = None) -> str:
+    """Bring this install current, at a trigger where nothing can be refused.
+
+    Called by the packaged ``post-merge`` and ``post-checkout`` hooks, which is
+    the entire design (#1762). **Git ignores the exit code of every ``post-*``
+    hook** — that is git's own contract, not a convention this repo hopes holds
+    — so an upgrade placed here cannot refuse anyone's operation. The merge has
+    already landed; the branch has already switched. There is nothing left to
+    block, which is precisely what makes upgrading safe here and unsafe in the
+    pre-push gate that wmbt:integration-hardening:Y004 correctly locked down.
+
+    Consequences of that, each load-bearing:
+
+    - **Nothing raises.** A caller that cannot fail must not be handed an
+      exception. Every failure — a broken cache, an unreachable PyPI, a pip that
+      dies, a lock that will not open — resolves to a returned outcome and at
+      most one line on stderr. The bare ``except`` at the end is the backstop
+      for the ones not enumerated.
+    - **:func:`auto_upgrade` directly, never :meth:`Upgrader.run`.** ``run()``
+      finishes with ``atdd sync`` and ``atdd init --force``, and ``init --force``
+      writes to GitHub (#1703). None of that belongs in a hook that fires on
+      every branch switch. ``version_check`` imports neither ``ProjectInitializer``
+      nor ``AgentConfigSync``, so calling into it cannot inherit that reach.
+    - **The lock is tried, not waited on.** :data:`UPGRADE_LOCK_TIMEOUT` is 300 s,
+      which is right for a command an operator is watching and wrong here: a
+      contended lock means a sibling worktree is *already doing this upgrade on
+      our behalf*, so waiting would stall a human's terminal after a pull to
+      duplicate work that is being done. Decline and let the winner finish —
+      E008's guarantee that neither observes a partial install is unchanged,
+      because it comes from the lock, not from the wait.
+    - **Silence when there is nothing to say.** ``current`` and ``unknowable``
+      print nothing at all. A pull that was already up to date must not grow a
+      banner; the repo has enough of those.
+
+    Returns:
+        One of the ``SELF_UPGRADE_*`` constants. The hook discards it — git
+        would discard the exit status anyway — but it is what the E009 gate
+        tests assert against.
+    """
+    if os.environ.get("CI") == "true":
+        # The same no-op the hooks already take at their top. Restated here so
+        # the CLI verb is not a way around it. Not a bypass: CI installs a
+        # pinned toolkit on purpose, and an agent that rewrote its own
+        # dependency mid-job would make every build irreproducible.
+        return SELF_UPGRADE_DISABLED
+
+    try:
+        installed, latest = _self_upgrade_pending()
+        if installed is None or latest is None:
+            return SELF_UPGRADE_DECLINED
+
+        try:
+            with upgrade_lock(timeout=0):
+                # Re-read inside the lock. Between the check above and this
+                # line a sibling worktree may have finished the very upgrade we
+                # queued for, and a second pip run over an install that is
+                # already current is exactly the "partial install" hazard E008
+                # exists to prevent.
+                if not _is_newer(latest, _gate_version() or latest):
+                    return SELF_UPGRADE_DECLINED
+
+                upgraded, detail = auto_upgrade()
+        except UpgradeLockUnavailable:
+            logger.debug(
+                "self-upgrade declined, install lock contended",
+                extra={"phase": "upgrade-lock", "step": "self-upgrade",
+                       "outcome": "contended"},
+            )
+            _say(stream, (
+                "ATDD self-upgrade: another upgrade holds the install lock, so this "
+                "one stood down. Your git operation is unaffected."
+            ))
+            return SELF_UPGRADE_CONTENDED
+
+        if not upgraded:
+            _say(stream, (
+                f"ATDD self-upgrade: still at {installed} — {detail or 'no reason given'}. "
+                f"Nothing was changed and your git operation is unaffected. "
+                f"Upgrade when convenient: {upgrade_command()}"
+            ))
+            return SELF_UPGRADE_FAILED
+
+        _say(stream, f"ATDD self-upgraded: {installed} → {latest}")
+        return SELF_UPGRADE_UPGRADED
+
+    except Exception as exc:
+        # Not swallowed — reported, on the stream the hook already writes to and
+        # with the reason attached. What must not happen is the exception
+        # escaping into a hook whose whole guarantee is that it cannot affect
+        # the operation it follows.
+        logger.debug(
+            "self-upgrade failed: %s", exc,
+            extra={"phase": "self-upgrade", "outcome": "exception"},
+        )
+        _say(stream, (
+            f"ATDD self-upgrade: skipped — {type(exc).__name__}: {exc}. "
+            f"Nothing was changed and your git operation is unaffected."
+        ))
+        return SELF_UPGRADE_FAILED
+
+
+def run_self_upgrade() -> int:
+    """``atdd self-upgrade`` — the CLI seam the packaged post-* hooks call.
+
+    Always 0. There is no failure a caller of this command could act on: git has
+    already discarded the exit status by the time it would see one, and the hook
+    that shells it must never turn an upgrade into a reason a pull looked
+    broken. The outcome travels in the text on stderr, not in the exit code.
+
+    It is a CLI verb rather than a ``python3 -c 'from atdd...'`` block — which
+    is what the pre-push gate does — because that block cannot reach a
+    pipx-isolated install at all: the system ``python3`` has no ``atdd`` on its
+    path, and the pre-push hook only gets away with it by exporting
+    ``PYTHONPATH=<repo>/src`` inside the toolkit's own checkout. The post-*
+    hooks already guard on ``command -v atdd``, which resolves the console
+    script that always works.
+    """
+    self_upgrade()
+    return 0

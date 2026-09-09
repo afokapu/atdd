@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:read-verbs-are-side-effect-free"
+wagon: "wagon:govern-lifecycle"
+description: "`atdd coach issues <N>` is the coach archetype's READ verb, but it delegates show/enter to IssueLifecycle.enter, which creates a branch and a worktree when it cannot find one. Its worktree-identity check derives the expected directory as `{prefix}-{slug}` from the issue body rather than consulting the branch-to-worktree binding the State Store already holds, so a worktree created under any prefix other than the derived one is invisible to it: the caller standing inside the issue's own worktree is told it is not there, and a second worktree is created beside it under the derived name. The consequences compound — the store rebinds the issue to the invented branch, the coach can then no longer read that issue's plan/ tree, and an approval token minted afterwards is signed for a branch that may not exist."
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:C019"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "issue_read.run stops delegating the show path to the entering path"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "the worktree-identity check resolves through the registered binding"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No domain surface; this is dispatch and resolution"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reads the existing worktree binding, adds no store surface"

@@ -1,0 +1,99 @@
+urn: wmbt:govern-lifecycle:E071
+step: execute
+direction: minimize
+dimension: quantity
+object_of_control: smoke-acceptances-unclassified-by-whether-they-can-produce-a-live-smoke-attestation
+context_clarifier: "when the #1602 SmokeExecutionGateCheck is registered and fail-closed\
+  \ on SMOKE->REFACTOR but still OPT-IN per issue, and the planner-side question it\
+  \ defers \u2014 WHICH issues are REQUIRED to declare an execution_kind: live_smoke\
+  \ acceptance \u2014 comes up for a mandate. src/atdd/coach/gate/smoke_obligation.py\
+  \ names that gap deliberately (\"Deciding which issues are REQUIRED to declare one\
+  \ \u2014 a planner-side obligation, not a coach-side one \u2014 is a separate concern\
+  \ and is not built here\"), and plan/ today answers it badly: 299 phase:SMOKE acceptances,\
+  \ of which exactly ONE \u2014 acc:govern-lifecycle:E069-SMOKE-001 \u2014 declares\
+  \ execution_kind: live_smoke, while the other 298 declare no execution_kind at all.\
+  \ Making the obligation mandatory against that population would demand an attestation\
+  \ from 298 acceptances that have no declared way to produce one, whose only exit\
+  \ is --force \u2014 the rubber-stamp failure #1602 and E069 exist to remove, restored\
+  \ at 298x scale. E027 already built the census this needs (docs/smoke-audit.md,\
+  \ one row per phase:SMOKE acceptance, held in sync by acc:govern-lifecycle:E027-SMOKE-001),\
+  \ so the classification is a second axis over an existing table rather than a new\
+  \ artifact \u2014 and the mandate that follows gets an empirical target list instead\
+  \ of a population-wide sweep.\n"
+lens: functional.effectiveness
+statement: "minimize quantity of smoke-acceptances-unclassified-by-whether-they-can-produce-a-live-smoke-attestation\
+  \ by (1) reusing E027's census walk over every phase:SMOKE acceptance in plan/;\
+  \ (2) adding a live-smoke-attestability column to the existing docs/smoke-audit.md\
+  \ table that classifies each acceptance as can-attest-today (declares execution_kind:\
+  \ live_smoke) / should-declare (drives real infrastructure and could attest but\
+  \ declares nothing) / never-attestable-by-construction (a plan-time or doc-time\
+  \ assertion no runtime attestation can cover); (3) recording the per-class histogram\
+  \ beside E027's per-cause one; and (4) closing the census gate's open direction\
+  \ \u2014 it checks that every plan acceptance has a row but not that every row still\
+  \ resolves, leaving 54 rows for URNs plan/ no longer declares \u2014 so the mandate\
+  \ that follows E071 targets the should-declare class alone and can never be aimed\
+  \ at a stale URN\n"
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:E071-UNIT-001-attestability-classifier-assigns-one-class-per-acceptance
+    id: AC-UNIT-001
+    purpose: The attestability classifier resolves each phase:SMOKE acceptance to
+      exactly one of the three classes, keying can-attest-today off the declared execution_kind
+      rather than off prose
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - 'A synthetic acceptance set containing one acceptance declaring execution_kind:
+      live_smoke, one declaring no execution_kind whose anchored test drives a real
+      subprocess, and one declaring no execution_kind whose anchored test asserts
+      over plan/ at plan time'
+    - The classifier reuses _acceptance_walker.iter_repo_acceptances and scan_test_acceptance_headers,
+      the same seams E027's census and E055/E060's validators walk
+  when:
+    abstract: the classifier is asked for the live-smoke-attestability class of each
+      acceptance
+  then:
+    abstract:
+    - 'The execution_kind: live_smoke acceptance classifies as can-attest-today'
+    - The real-subprocess acceptance classifies as should-declare
+    - The plan-time acceptance classifies as never-attestable-by-construction
+    - "Every acceptance receives exactly one class \u2014 the classes are total and\
+      \ disjoint, so no acceptance can be silently omitted from the mandate's target\
+      \ list"
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-30'
+- identity:
+    urn: acc:govern-lifecycle:E071-SMOKE-001-audit-classifies-every-live-smoke-acceptance-both-directions
+    id: AC-SMOKE-001
+    purpose: 'SMOKE: docs/smoke-audit.md carries a live-smoke-attestability class
+      for every phase:SMOKE acceptance plan/ declares AND declares no row for a URN
+      plan/ no longer carries, so the audit is a faithful projection of the live population
+      in both directions'
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - docs/smoke-audit.md is committed to HEAD with the live-smoke-attestability column
+      populated
+    - plan/ is walked for phase:SMOKE acceptances through the same seam E027-SMOKE-001
+      uses
+  when:
+    abstract: the audit table and the live plan population are reconciled against
+      each other in both directions
+  then:
+    abstract:
+    - Every phase:SMOKE acceptance in plan/ has a row whose live-smoke-attestability
+      cell is non-empty and names one of the three classes
+    - "No row names an acceptance URN plan/ no longer declares \u2014 the converse\
+      \ E027-SMOKE-001 never checked, which had accumulated 54 stale rows"
+    - The per-class histogram totals equal the count of phase:SMOKE acceptances in
+      plan/, so the mandate's target list is sized from the audit rather than re-derived
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-07-30'

@@ -1,0 +1,57 @@
+schema_version: "1.0.0"
+
+# Consumer-repo target selectors for the atdd.extension.tester.train-interlocking
+# extension. Shared verbatim with the coder sibling
+# (atdd.extension.coder.train-interlocking) — the full selector set is a closure
+# over every interlocking surface, and both packages' validators draw from it.
+#
+# A scope binds a convention's enforcement to the consumer files it inspects. The
+# coverage validator reads the interlocking route space + the e2e tests that must
+# cover it. Selector globs match the canonical homes locked by core
+# afokapu/atdd#1248 (interlocking artifact) and afokapu/atdd#1251 (runtime).
+# SELECTOR IDS ARE NAMESPACED, AND THE SURFACE NAME IS THE LAST SEGMENT.
+# core's scope.schema.json requires `selector_id` to be dotted
+# (^[a-z][a-z0-9_-]*(?:\.[a-z0-9_-]+)+$), which a bare `interlocking_yaml` is not.
+# But the five surface names ARE a contract: they are the keys of the per-repo
+# ATDD_INTERLOCKING_LAYOUT override JSON that core sets, and the brief that fixed
+# them said "exact names, do not rename". Namespacing the id and keeping the surface
+# as the final segment satisfies the schema without touching the contract — the
+# detector reads the last segment back out.
+scope_id: atdd.extension.tester.train-interlocking.targets
+
+selectors:
+  # --- interlocking route space (authoritative for guarded routes; #1248) ---
+  - selector_id: tester.interlocking.interlocking_yaml
+    type: path_glob
+    description: Interlocking artifacts + their per-interlocking directories (incl. generated coverage/sequence projections).
+    include:
+      - "plan/_trains/_interlockings/**/*.yaml"
+      - "plan/_trains/_interlockings.yaml"
+
+  # --- linear train definitions (authoritative for executable steps; #1248) ---
+  - selector_id: tester.interlocking.train_yaml
+    type: path_glob
+    description: Train registry + concrete linear train definitions each route projects onto.
+    include:
+      - "plan/_trains/**/*.yaml"
+
+  # --- consumer runtime code: TrainRunner + InterlockingRunner (#1251) ---
+  - selector_id: tester.interlocking.python_runtime
+    type: path_glob
+    description: Train runtime modules the InterlockingRunner route-control layer lives in / is wired through.
+    include:
+      - "python/trains/**/*.py"
+
+  # --- Station Master entrypoint: the primary InterlockingRunner caller (#1251) ---
+  - selector_id: tester.interlocking.station_master
+    type: path_glob
+    description: Station Master entrypoint that calls InterlockingRunner.resolve_train(...) before delegating to TrainRunner.execute(...).
+    include:
+      - "python/app.py"
+
+  # --- production / e2e route coverage (#26) ---
+  - selector_id: tester.interlocking.e2e_tests
+    type: path_glob
+    description: End-to-end tests that must exercise each admissible interlocking route.
+    include:
+      - "e2e/**/*.py"

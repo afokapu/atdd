@@ -58,6 +58,7 @@ def interlocking_doc() -> Dict[str, Any]:
             "exposed": True,
             "actions": ["resolve_match"],
             "reason": None,
+            "surfaces": ["backend"],
         },
         "route_resolution": {"strategy": "fail_on_multiple_match"},
         "lifelines": [
@@ -188,6 +189,10 @@ def write_tree(root: Path, doc: Dict[str, Any] | None = None) -> Path:
                         "path": doc["source"]["path"],
                         "theme": doc["theme"],
                         "status": doc["status"],
+                        # mirrored from the document, like theme/status above —
+                        # planner.interlocking.registry-mirrors-document fails
+                        # if this fixture ever disagrees with what it wrote
+                        "surfaces": doc["entrypoint"]["surfaces"],
                     }
                 ],
             },

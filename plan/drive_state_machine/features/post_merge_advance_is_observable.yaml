@@ -1,0 +1,27 @@
+urn: "feature:drive-state-machine:post-merge-advance-is-observable"
+wagon: "wagon:drive-state-machine"
+description: "auto-phase resolves a merged PR to its issue through PRManager.resolve_linked_issue, whose first act is _fetch_pr. That method returns None on a non-zero gh exit and on TimeoutExpired, FileNotFoundError or ValueError alike, logging the real reason at logger.debug where a runner never shows it. The caller cannot tell a failed observation from an absent link, and reports the second: `no-op — no linked issue`, on a pull request whose closingIssuesReferences GitHub resolves perfectly well. The run then exits success, so nothing says the advance did not happen. The repository already separates these two states in atdd.coach.gate.decision.GateVerdict — COULD_NOT_CHECK refuses, NOT_APPLICABLE proceeds — and warns in that docstring that collapsing them renames the defect rather than fixing it. This feature applies that same distinction to the post-merge advance."
+sizing:
+  wmbts: 1
+  footprint_score: 3
+  footprint_size: "S"
+wmbts:
+  - "wmbt:drive-state-machine:C001"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "auto_phase reports and exits on an unobservable link instead of calling it a no-op"
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "resolve_linked_issue distinguishes could-not-observe from no-link"
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No domain surface; a verdict distinction the codebase already models"
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reads the same gh projection, reports its failure instead of swallowing it"

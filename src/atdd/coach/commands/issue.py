@@ -25,6 +25,7 @@ from typing import Dict, List, Optional, Any, Set, Tuple
 import yaml
 
 from atdd.coach.utils.artifact_claims import ArtifactClaimReport, check_artifact_claims
+from atdd.coach.utils.train_identity import normalize_train_id, normalize_train_ids
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +217,7 @@ class IssueManager:
                 repo_root=self.target_dir,
                 allow_main=allow_main,
             )
-        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             if strict:
                 # Issue registration must never report a silent success.
                 raise
@@ -834,7 +835,7 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issues = client.list_issues_by_label("atdd-issue")
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -906,7 +907,7 @@ class IssueManager:
             issues = client.list_open_issues(
                 label=label, limit=limit, assignee=assignee,
             )
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -950,14 +951,14 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -1181,7 +1182,11 @@ class IssueManager:
     _ARTIFACT_CHECKS = {
         "created": ("tree", True),
         "modified": ("diff", True),
-        "deleted": ("tree", False),
+        # #1824: NOT ("tree", False). `ls-tree` returning nothing is also what a
+        # path that never existed produces, so absence was read as proof of
+        # deletion and prose resolved as CONFIRMED GONE. Ask what the revision
+        # actually DELETED.
+        "deleted": ("diff-deleted", True),
     }
 
     @staticmethod
@@ -1189,9 +1194,13 @@ class IssueManager:
         """The git command that answers ``mode``, at the point in history that has it."""
         if mode == "tree":
             return ["git", "ls-tree", landed or "HEAD", "--"]
+        # A deletion is a fact about a CHANGE, not about the current tree, so it
+        # is read from the same revisions the modify check uses, filtered to
+        # deletions (#1824).
+        filters = ["--diff-filter=D"] if mode == "diff-deleted" else []
         if landed:
-            return ["git", "diff", f"{landed}^", landed, "--"]
-        return ["git", "diff", "main...HEAD", "--"]
+            return ["git", "diff", *filters, f"{landed}^", landed, "--"]
+        return ["git", "diff", *filters, "main...HEAD", "--"]
 
     def _artifact_resolves(self, kind: str, path: str, landed: Optional[str]) -> bool:
         """Whether git agrees with one claim — the probe the shared checker calls."""
@@ -1307,10 +1316,10 @@ class IssueManager:
                 base_ref="origin/main",
                 head_ref="HEAD",
             )
-        except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             messages.append("  Smoke gate: SKIPPED (origin/main unreachable)")
             return True, messages
-        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             messages.append(f"  Smoke gate: SKIPPED ({exc})")
             return True, messages
 
@@ -1429,7 +1438,14 @@ class IssueManager:
             # No trains defined — skip cross-ref
             return True, []
 
-        if train_value in valid_ids:
+        # Compare NORMALIZED identities (#1850). The registry and the State Store
+        # read the same `plan/_trains/` directory in two different vocabularies —
+        # the graph mints `train:<stem>`, the registry reader returns `<stem>` —
+        # so a raw `in` made a train's registration depend on which reader
+        # produced the string. Both sides are normalized because both mix the two
+        # shapes; normalizing only the candidate would leave the mirror-image
+        # defect for a typed registry entry named without its prefix.
+        if normalize_train_id(train_value) in normalize_train_ids(valid_ids):
             return True, [f"  Train: {train_value} — VALID (in _trains.yaml)"]
 
         return False, [f"  Train: {train_value} — NOT FOUND in _trains.yaml"]
@@ -1599,7 +1615,7 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Invalid issue number '{issue_id}'")
             return None
 
@@ -1609,7 +1625,7 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return None
 
@@ -2065,14 +2081,14 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             subs = client.get_sub_issues(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 

@@ -2522,6 +2522,26 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: the registry can only be checked against its documents once both live
+    at the declared interlocking home
+  source_ref: planner.interlocking.registry-mirrors-document
+  strength: important
+  target_ref: planner.train.interlocking-home
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the registry mirrors entrypoint.surfaces, so the mirror is meaningful only
+    where the entrypoint shape is enforced
+  source_ref: planner.interlocking.registry-mirrors-document
+  strength: important
+  target_ref: planner.train.interlocking-entrypoint-shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: entrypoint shape is declared on an interlocking in the canonical home
   source_ref: planner.train.interlocking-entrypoint-shape
   strength: important
@@ -3606,6 +3626,27 @@ edges:
   source_ref: tester.smoke.no-collaborator-substitution
   strength: minor
   target_ref: tester.smoke.operator-observable-assertion
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: peer coder GREEN-phase static-analysis quality gate — the ruff ratchet runs alongside
+    dead-code reachability over the same source, and deliberately excludes the codes those
+    bespoke validators already own (C901, BLE001)
+  source_ref: coder.dead-code.reachability
+  strength: minor
+  target_ref: coder.lint.ruff-ratchet
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
+  reason: the two halves of one external-analysis ratchet — same frozen-baseline shape, same
+    refusal-when-the-tool-is-absent contract, different finding source
+  source_ref: coder.lint.ruff-ratchet
+  strength: minor
+  target_ref: coder.types.pyright-ratchet
   type: runs_alongside
 graph_id: atdd.convention.relationships
 kind: relationship_graph

@@ -58,6 +58,34 @@ def _is_orphan(path: Path, worktree_paths: Set[Path]) -> bool:
     return True
 
 
+def _orphans_under(
+    scan_root: Path,
+    worktree_paths: Set[Path],
+    excluded: Set[Path],
+    seen: Set[Path],
+) -> List[Path]:
+    """Orphan dirs directly under one scan root, skipping excluded/already-seen.
+
+    Extracted from ``gc`` so the dual-root scan (#1524) does not push a single
+    function's branching past the cyclomatic ratchet. ``seen`` is mutated so the
+    same directory reached via two roots is reported once.
+    """
+    if not scan_root.is_dir():
+        return []
+
+    found: List[Path] = []
+    for candidate in sorted(scan_root.iterdir()):
+        resolved = candidate.resolve()
+        if resolved in excluded or resolved in seen:
+            continue
+        if not candidate.is_dir() or "-" not in candidate.name:
+            continue
+        if _is_orphan(candidate, worktree_paths):
+            seen.add(resolved)
+            found.append(candidate)
+    return found
+
+
 def gc(repo_root: Optional[Path] = None, apply: bool = False) -> List[Path]:
     """Detect (and optionally remove) orphan worktree dirs at the project parent.
 
@@ -77,19 +105,27 @@ def gc(repo_root: Optional[Path] = None, apply: bool = False) -> List[Path]:
         repo_root = Path.cwd()
     repo_root = Path(repo_root).resolve()
 
-    parent = repo_root.parent
+    from atdd.coach.commands.worktree_placement import resolve_worktree_root_dir
+
     worktree_paths = _real_worktree_paths(repo_root)
 
+    # Scan BOTH the configured root and the legacy sibling location while old
+    # worktrees drain. Scanning only the parent meant a configured root named
+    # `worktrees` was skipped by the `"-" not in name` filter and gc silently
+    # reported zero orphans after migration (#1524 E002).
+    configured_root = resolve_worktree_root_dir(repo_root)
+    scan_roots = {repo_root.parent, configured_root}
+
+    # The configured root is excluded from the candidate set BY IDENTITY. The
+    # naming filter below is not a safeguard: name a root `atdd-worktrees` and
+    # it becomes a candidate, whereupon `_is_orphan` rglobs the whole subtree
+    # and `apply=True` would rmtree every worktree under it.
+    excluded = {repo_root.resolve(), configured_root}
+
     orphans: List[Path] = []
-    for candidate in sorted(parent.iterdir()):
-        if candidate == repo_root:
-            continue
-        if not candidate.is_dir():
-            continue
-        if "-" not in candidate.name:
-            continue
-        if _is_orphan(candidate, worktree_paths):
-            orphans.append(candidate)
+    seen: set = set()
+    for scan_root in sorted(scan_roots):
+        orphans.extend(_orphans_under(scan_root, worktree_paths, excluded, seen))
 
     if apply:
         for orphan in orphans:

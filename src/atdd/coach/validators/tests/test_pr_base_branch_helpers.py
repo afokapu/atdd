@@ -60,8 +60,8 @@ def test_evaluate_emits_one_violation_per_offending_pr():
 
     assert len(violations) == 2
     locations = {v.location for v in violations}
-    assert "PR#11" in locations
-    assert "PR#12" in locations
+    assert "PR#11:0" in locations
+    assert "PR#12:0" in locations
 
 
 def test_evaluate_skips_records_missing_required_fields():
@@ -83,4 +83,4 @@ def test_evaluate_respects_arbitrary_default_branch_name():
     ]
     violations = evaluate_base_violations(open_prs, default_branch="master")
     assert len(violations) == 1
-    assert violations[0].location == "PR#2"
+    assert violations[0].location == "PR#2:0"

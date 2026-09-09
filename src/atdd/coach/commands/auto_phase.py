@@ -50,7 +50,7 @@ class AutoPhaseResult:
     issue_number: Optional[int]
     current_phase: Optional[str]
     next_phase: Optional[str]
-    action: str  # "transition" | "noop" | "divergence"
+    action: str  # "transition" | "noop" | "divergence" | "unreadable"
     reason: Optional[str] = None
     # #1452: the two readings of "what phase is this issue?", kept side by side
     # so a divergence can be reported with both values rather than silently
@@ -81,7 +81,7 @@ def read_store_phase(
         with WorkItemReader(control_root=target_dir) as reader:
             state = reader.status(issue_number)
         return str(state).upper() if state else None
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         logger.debug(
             "State Store phase read unavailable",
             extra={"issue": issue_number, "error": str(exc)},
@@ -110,7 +110,20 @@ def resolve_pr_to_transition(
     No side effects — safe to call from tests and dry-run.
     """
     manager = PRManager(target_dir=target_dir)
-    resolution = manager.resolve_linked_issue(pr_number)
+    # #1640: ask WHICH kind of nothing. `resolve_linked_issue` returns None both
+    # when the PR could not be read and when it links nothing, and reporting the
+    # second for the first states a fact never observed.
+    reading = manager.read_linked_issue(pr_number)
+    if reading.blocks:
+        return AutoPhaseResult(
+            pr_number=pr_number,
+            issue_number=None,
+            current_phase=None,
+            next_phase=None,
+            action="unreadable",
+            reason=reading.reason,
+        )
+    resolution = reading.payload
     if resolution is None:
         return AutoPhaseResult(
             pr_number=pr_number,
@@ -192,6 +205,22 @@ def run(
         print(
             "Repair the projection from the store (the store is the survivor) — "
             "see #1338 for the repair verb. Do NOT hand-write objects.state.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # #1640: an advance that could not be ATTEMPTED is a failure of the run, not
+    # a no-op. Same reasoning #1452 applied to divergence one step later: silence
+    # is what let the store stand still while every merged PR reported green.
+    if result.action == "unreadable":
+        print(
+            f"Error: PR #{result.pr_number}: could not determine the linked "
+            f"issue — {result.reason}",
+            file=sys.stderr,
+        )
+        print(
+            "The advance was not attempted. This is NOT 'no linked issue': "
+            "nothing was observed either way.",
             file=sys.stderr,
         )
         return 1

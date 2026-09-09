@@ -53,8 +53,13 @@ from atdd.coach.commands.inventory import RepositoryInventory
 from atdd.coach.commands.test_runner import TestRunner
 from atdd.coach.commands.registry import RegistryUpdater
 from atdd.coach.commands.initializer import ProjectInitializer
-from atdd.coach.commands.issue import IssueManager
-from atdd.coach.commands.sync import AgentConfigSync
+# NOT imported here (#1794): `atdd.coach.commands.issue` reaches
+# `atdd.coach.utils.artifact_claims`, whose module-scope `bind_rule` builds the
+# entire convention registry (~1.5s on the first call). At module scope that cost
+# lands on EVERY invocation — `atdd --help` included, and each of the four git
+# hooks, several times per commit. `IssueManager` is deferred to the three call
+# sites below instead. Do NOT make `bind_rule` lazy to fix this: failing loudly at
+# import is deliberate (SPEC-COACH-RULEID-0007).
 from atdd.coach.commands.gate import ATDDGate
 from atdd.coach.commands.urn import URNCommand
 from atdd.coach.commands.upgrader import Upgrader
@@ -869,6 +874,52 @@ Phase descriptions:
         description="List every registered git worktree with its branch and bound work item.",
     )
 
+    worktree_relocate_parser = worktree_subparsers.add_parser(
+        "relocate",
+        help="Move this worktree under the configured worktree_root",
+        description=(
+            "Move a worktree from where it is to where `worktree_root` says it\n"
+            "belongs, rewriting its State Store binding in the same step (#1524).\n\n"
+            "Placement is forward-only: changing `worktree_root` moves nothing on\n"
+            "its own, so existing worktrees drain one at a time, when someone asks.\n\n"
+            "  atdd worktree relocate            Show what would move (dry-run)\n"
+            "  atdd worktree relocate --apply    Move it\n\n"
+            "Declines for a worktree the store has no binding for, rather than\n"
+            "guessing which work item it belongs to.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_relocate_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Perform the move (default: report only)",
+    )
+    worktree_relocate_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Say nothing when there is nothing to relocate (for hooks)",
+    )
+    worktree_relocate_parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Worktree to relocate (default: the current directory)",
+    )
+
+    worktree_subparsers.add_parser(
+        "check-placement",
+        help="Print why a push should be blocked for misplacement, or nothing",
+        description=(
+            "The pre-push placement gate (#1524, Decision 4). Prints a reason and\n"
+            "exits 0 when `worktree_placement_enforcement: block` is configured AND\n"
+            "this worktree is bound, misplaced, and relocatable. Prints nothing in\n"
+            "every other case, including the default `warn` stage.\n\n"
+            "The HOOK decides to refuse, on empty-or-not output; this command only\n"
+            "reports, so running it by hand can never fail a shell.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
     worktree_remove_parser = worktree_subparsers.add_parser(
         "remove",
         help="Remove a worktree by issue number or path",
@@ -983,26 +1034,19 @@ Phase descriptions:
     )
 
     # ----- atdd sync -----
-    sync_parser = subparsers.add_parser(
+    # #1811: the agent-config projection this verb was built around is gone.
+    # It survives because it is the ONLY sanctioned path that refreshes an
+    # already-initialised checkout — `atdd init` bails out on one and
+    # `atdd init --force` is forbidden (#793). No flags: the ones it had all
+    # selected which agent file to project.
+    subparsers.add_parser(
         "sync",
-        help="Sync ATDD rules to agent config files",
-        description="Sync managed ATDD blocks to agent config files (CLAUDE.md, CONDUCTOR.md, etc.)"
-    )
-    sync_parser.add_argument(
-        "--verify",
-        action="store_true",
-        help="Check if files are in sync (for CI)"
-    )
-    sync_parser.add_argument(
-        "--agent",
-        type=str,
-        choices=["claude", "codex", "gemini", "qwen", "glm", "mistral"],
-        help="Sync specific agent only"
-    )
-    sync_parser.add_argument(
-        "--status",
-        action="store_true",
-        help="Show sync status for all agents"
+        help="Refresh this checkout's hooks, gitignore entries and toolkit stamp",
+        description=(
+            "Refresh an already-initialised repo: installed git hooks (#1492), "
+            "atdd's operational .gitignore entries (#1325), exported schemas if "
+            "present, and the toolkit sync stamp (#1641)."
+        ),
     )
 
     # ----- atdd gate -----
@@ -1301,6 +1345,24 @@ Phase descriptions:
         "--no-pypi",
         action="store_true",
         help="Skip the live PyPI check (use local stamp only)",
+    )
+
+    # ----- atdd self-upgrade -----
+    # The seam the packaged post-merge / post-checkout hooks call (#1762). NOT a
+    # flag on `upgrade`: that command finishes with sync + init --force, and
+    # init --force writes to GitHub (#1703) — nothing a hook firing on every
+    # branch switch should be able to reach. This one only installs.
+    subparsers.add_parser(
+        "self-upgrade",
+        help="Bring the install current, quietly and without blocking (used by post-* git hooks)",
+        description=(
+            "Upgrade atdd if a newer version is already known from the local version "
+            "cache, serialised on the install-scoped upgrade lock and declining rather "
+            "than waiting when another upgrade holds it. Always exits 0 and writes only "
+            "to stderr: it is called from git hooks whose exit codes git discards, and "
+            "it must never make a completed git operation look like a failure. The "
+            "pre-push version gate is unaffected — it still only gates."
+        ),
     )
 
     # ----- atdd repo {graph,orphans,broken,validate,resolve,declarations,viz} -----
@@ -2220,6 +2282,8 @@ Phase descriptions:
             # DEPRECATED alias for `atdd substrate list` (#1239) — still works.
             _deprecation_warning("atdd list --substrate", "atdd substrate list", stream=sys.stderr)
             return _substrate_list(args)
+        from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
         manager = IssueManager()
         return manager.list()
 
@@ -2297,6 +2361,8 @@ Phase descriptions:
         # `atdd issue`, which #1309 removed; rather than repoint that hint at
         # another command that cannot do the job, the bare form is simply not
         # deprecated. Emitting a warning here would send operators nowhere.
+        from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
         manager = IssueManager()
         return manager.update(
             issue_id=args.session_id,
@@ -2368,6 +2434,21 @@ Phase descriptions:
         if worktree_cmd == "list":
             from atdd.coach.commands.branch import BranchManager
             return BranchManager().list_worktrees()
+        if worktree_cmd == "relocate":
+            from atdd.coach.commands.worktree_relocate import run_relocate
+            return run_relocate(
+                target=getattr(args, "path", None),
+                apply=getattr(args, "apply", False),
+                quiet=getattr(args, "quiet", False),
+            )
+        if worktree_cmd == "check-placement":
+            from atdd.coach.commands.worktree_placement_enforcement import (
+                placement_block_reason,
+            )
+            reason = placement_block_reason()
+            if reason:
+                print(reason)
+            return 0
         if worktree_cmd == "remove":
             from atdd.coach.commands.branch import BranchManager
             return BranchManager().remove_worktree(args.target)
@@ -2394,12 +2475,9 @@ Phase descriptions:
 
     # atdd sync
     elif args.command == "sync":
-        syncer = AgentConfigSync()
-        if args.status:
-            return syncer.status()
-        if args.verify:
-            return syncer.verify()
-        return syncer.sync(agents=[args.agent] if args.agent else None)
+        from atdd.coach.commands.sync import RepoRefresh
+
+        return RepoRefresh().sync()
 
     # atdd session-template <issue-number>
     elif args.command == "session-template":
@@ -2502,6 +2580,10 @@ Phase descriptions:
             yes=args.yes,
             no_pypi=getattr(args, "no_pypi", False),
         )
+
+    elif args.command == "self-upgrade":
+        from atdd.coach.commands.upgrader import run_self_upgrade
+        return run_self_upgrade()
 
     # atdd repo {graph,orphans,broken,validate,resolve,declarations,families,viz,
     #            rules,wmbt-rules,train-rules,security-rules}
@@ -2678,6 +2760,8 @@ Phase descriptions:
         manifest_command = getattr(args, "manifest_command", None)
         if manifest_command == "backfill":
             repo_root = Path(args.repo) if args.repo else find_repo_root()
+            from atdd.coach.commands.issue import IssueManager  # deferred: see #1794
+
             manager = IssueManager(repo_root)
             return manager.reconcile()
         manifest_parser.print_help()
@@ -2736,15 +2820,25 @@ def cli() -> int:
         pass
 
     # Check if repo needs sync after ATDD upgrade (at startup)
-    # Skip if running 'atdd upgrade' — it handles its own messaging
-    if not (len(sys.argv) > 1 and sys.argv[1] == "upgrade"):
+    # Skip if running 'atdd upgrade' — it handles its own messaging — or
+    # 'atdd self-upgrade', which is a git hook nobody invoked and whose whole
+    # discipline is to say nothing when it has nothing to report (#1762). A pull
+    # that was already current must not grow two banners.
+    if not (len(sys.argv) > 1 and sys.argv[1] in ("upgrade", "self-upgrade")):
         print_upgrade_sync_notice()
 
     try:
         result = main()
     finally:
-        # Check for newer versions on PyPI (at end)
-        print_update_notice()
+        # Check for newer versions on PyPI (at end).
+        #
+        # Not after `atdd self-upgrade` (#1762). __version__ was resolved at
+        # import time, so a run that just succeeded would end by advising the
+        # operator to upgrade to the version it had that moment installed —
+        # a self-upgrade that reads as a failure, which is exactly what E009's
+        # output discipline forbids.
+        if not (len(sys.argv) > 1 and sys.argv[1] == "self-upgrade"):
+            print_update_notice()
     return result
 
 

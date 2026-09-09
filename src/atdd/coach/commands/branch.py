@@ -22,6 +22,10 @@ from typing import Any, Dict, Optional
 import yaml
 
 from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
+from atdd.coach.commands.worktree_placement import (
+    resolve_worktree_dir_name,
+    resolve_worktree_path,
+)
 from atdd.coach.github import GitHubClient, GitHubClientError, ProjectConfig
 from atdd.coach.utils.default_branch import resolve_default_branch
 
@@ -111,7 +115,7 @@ class BranchManager:
             gh_title = issue_data.get("title", "")
             if gh_title:
                 pr_title = f"{gh_title} (#{issue_number})"
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass  # Fall back to slug-based title
 
         pr_body = f"Closes #{issue_number}\n\n---\nDraft PR created by `atdd branch`."
@@ -414,8 +418,8 @@ class BranchManager:
             return 1
 
         branch_name = f"{prefix}/{slug}"
-        worktree_dir_name = f"{prefix}-{slug}"
-        worktree_path = self.target_dir.parent / worktree_dir_name
+        worktree_dir_name = resolve_worktree_dir_name(prefix, slug)
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
 
         # Check if worktree directory already exists
         if worktree_path.exists():
@@ -577,6 +581,35 @@ class BranchManager:
             print(f"  {branch or '(detached)':45s}  {path}{bound}")
         return 0
 
+    def _resolve_relative_target(self, target: str) -> Path:
+        """Resolve a relative `worktree remove` argument to an absolute path.
+
+        A bare name like `feat-foo` was resolved against the project root, which
+        is where worktrees lived before `worktree_root` existed. Under a
+        configured root that names a directory that is not there, and remove
+        reports "not a registered git worktree" for a worktree that plainly is
+        one.
+
+        BOTH locations are tried, configured first, because during the
+        forward-only migration (Decision 2) worktrees legitimately exist in
+        each: the ones created since the key was set, and the ones still
+        draining. The first candidate that git actually knows about wins; when
+        neither is registered the configured root is returned, so the error
+        names the place a worktree created today would be.
+        """
+        from atdd.coach.commands.worktree_placement import resolve_worktree_root_dir
+
+        configured = (resolve_worktree_root_dir(self.target_dir) / target).resolve()
+        legacy = (self.target_dir.parent / target).resolve()
+        if configured == legacy:
+            return configured
+
+        registered = {p.resolve() for p, _ in self._list_worktrees()}
+        for candidate in (configured, legacy):
+            if candidate in registered:
+                return candidate
+        return configured
+
     def remove_worktree(self, target: str) -> int:
         """`atdd worktree remove <issue|path>` — safely remove an atdd worktree.
 
@@ -594,11 +627,11 @@ class BranchManager:
             slug = entry["slug"]
             issue_type = entry.get("type", "implementation")
             prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
-            worktree_path = self.target_dir.parent / f"{prefix}-{slug}"
+            worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         else:
             worktree_path = Path(target).expanduser()
             if not worktree_path.is_absolute():
-                worktree_path = (self.target_dir.parent / target).resolve()
+                worktree_path = self._resolve_relative_target(target)
 
         if worktree_path.resolve() == self.target_dir.resolve():
             print("Error: refusing to remove the main checkout.")

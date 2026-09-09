@@ -13,6 +13,7 @@ SPEC IDs: SPEC-COACH-ORCH-0006, SPEC-COACH-ORCH-0007
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 import sys
@@ -182,7 +183,7 @@ def attempt_pyproject_resolve(pr: int) -> bool:
             _git("commit", "--no-edit")
         _git("push", "origin", head)
         return True
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         print(
             f"⚠ pyproject auto-resolve failed for PR #{pr}: "
             f"{exc.cmd!r} → {(exc.stderr or '').strip()}",
@@ -235,7 +236,7 @@ def update_branch(pr: int) -> MergeResult:
     """Run `gh pr update-branch <pr>`. Returns conflict result if git says so."""
     try:
         _run_gh(["pr", "update-branch", str(pr)])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         stderr = (exc.stderr or "").lower()
         if "conflict" in stderr or "merge conflict" in stderr:
             return MergeResult(pr=pr, status="conflict", detail=exc.stderr.strip())
@@ -276,14 +277,14 @@ def fetch_ci_status(pr: int) -> tuple[str, str]:
         result = _run_gh([
             "pr", "checks", str(pr), "--required", "--json", _CI_CHECK_FIELDS,
         ])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         stderr = (exc.stderr or "")
         if any(phrase in stderr.lower() for phrase in _BENIGN_STDERR_PHRASES):
             return "pass", "no required checks"
         return "error", stderr.strip()
     try:
         checks = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return "error", f"unparseable gh output: {(result.stdout or '')[:200]}"
     if not checks:
         return "pass", "no required checks"
@@ -328,11 +329,57 @@ def wait_for_ci(
         sleep(poll_interval)
 
 
+logger = logging.getLogger(__name__)
+
+
+def _pr_is_merged(pr: int) -> bool:
+    """Whether GitHub considers PR #*pr* merged (#1816).
+
+    Asked only after ``gh pr merge`` exits non-zero, to tell a merge that failed
+    from a merge that landed and whose ``--delete-branch`` cleanup failed. The
+    latter is the routine case here: CLAUDE.md requires every branch to be
+    created as a worktree, and git refuses to delete a branch a worktree holds.
+
+    Deliberately a narrow ``--json state`` probe rather than
+    ``integrations.github.pr.read_pr_state``: that fetches checks, reviews and
+    the rollup, none of which this decision needs, and any of which can fail on
+    its own and turn a knowable answer into an unknown one.
+
+    Fail-closed: anything other than a readable ``MERGED`` returns False, so an
+    unanswerable probe keeps the old halting behaviour rather than waving a
+    genuine failure through.
+    """
+    try:
+        out = _run_gh(["pr", "view", str(pr), "--json", "state"])
+    except subprocess.CalledProcessError as exc:  # noqa: BLE001 - reported, not swallowed
+        logger.warning(
+            "could not read PR state after a failed merge; treating as unmerged",
+            extra={"pr": pr, "error": str(exc)},
+        )
+        return False
+    try:
+        return str(json.loads(out.stdout or "{}").get("state", "")).upper() == "MERGED"
+    except (ValueError, AttributeError) as exc:
+        logger.warning(
+            "unparseable PR state after a failed merge; treating as unmerged",
+            extra={"pr": pr, "error": str(exc)},
+        )
+        return False
+
+
 def merge_pr(pr: int) -> MergeResult:
     try:
         _run_gh(["pr", "merge", str(pr), "--squash", "--delete-branch"])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
-        return MergeResult(pr=pr, status="conflict", detail=f"merge failed: {exc.stderr.strip()}")
+    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        stderr = (exc.stderr or "").strip()
+        # #1816: --delete-branch runs AFTER the merge. Ask whether the pull
+        # request actually landed before calling this a conflict.
+        if _pr_is_merged(pr):
+            return MergeResult(
+                pr=pr, status="merged",
+                detail=f"squash-merged; branch cleanup failed: {stderr}",
+            )
+        return MergeResult(pr=pr, status="conflict", detail=f"merge failed: {stderr}")
     return MergeResult(pr=pr, status="merged", detail="squash-merged")
 
 
@@ -405,7 +452,7 @@ def run(
 ) -> int:
     try:
         order, files_by_pr = _resolve_order(pr_numbers)
-    except MergeCascadeCycleError as cyc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except MergeCascadeCycleError as cyc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         path_str = " → ".join(f"#{n}" for n in cyc.cycle_path)
         print(
             f"\n❌ cycle detected in merge cascade: {path_str}",
@@ -424,7 +471,7 @@ def run(
             timeout=timeout,
             auto=auto,
         )
-    except MergeHalt as halt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except MergeHalt as halt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         r = halt.result
         print(f"\n❌ halted on PR #{r.pr} ({r.status}): {r.detail}", file=sys.stderr)
         return 1

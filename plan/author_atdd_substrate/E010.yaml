@@ -1,0 +1,71 @@
+urn: "wmbt:author-atdd-substrate:E010"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "issue-bodies-stamped-with-a-non-current-mint-date"
+context_clarifier: "when authoring an issue body, the Metadata Date row must report the day the body is generated, because every other row in that table is interpolated from the spec while Date alone was frozen as a literal, so every issue ever minted reports the same day and a reader cannot tell a fresh issue from a stale one"
+lens: "functional.effectiveness"
+statement: "minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when authoring an issue body"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:E010-UNIT-001-date-row-reports-generation-day"
+      id: "AC-UNIT-001"
+      purpose: "create_issue_body stamps the Date row with the day the body is generated, not a literal"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid issue spec accepted by create_issue_body"
+        - "A known current date, injected by freezing the clock the generator reads"
+    when:
+      abstract: "create_issue_body(spec) is called"
+    then:
+      abstract:
+        - "The Metadata Date row carries the frozen current date in ISO-8601 form"
+        - "The emitted body still validates against issue.schema.json"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"
+  - identity:
+      urn: "acc:author-atdd-substrate:E010-UNIT-002-no-literal-date-survives-in-the-generator"
+      id: "AC-UNIT-002"
+      purpose: "Guard the regression shape itself: with the clock frozen, no date the generator emits may differ from the frozen day"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A valid issue spec accepted by create_issue_body"
+        - "A known current date, injected by freezing the clock the generator reads"
+    when:
+      abstract: "create_issue_body(spec) is called and every ISO-8601 date in the emitted body is collected"
+    then:
+      abstract:
+        - "Every date the body carries equals the frozen day, across the whole body and not only the Date row"
+        - "The check names the offending value when it fails, so the fix location is unambiguous"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"
+  - identity:
+      urn: "acc:author-atdd-substrate:E010-SMOKE-001-real-cli-mint-reports-today"
+      id: "AC-SMOKE-001"
+      purpose: "The real CLI in a real checkout emits a body whose dates are the day it ran"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the repo CLI invoked as `python -m atdd`"
+    when:
+      abstract: "`atdd author issue --dry-run` renders a body, writing nothing (no store, no gh)"
+    then:
+      abstract:
+        - "Every ISO-8601 date the emitted body carries is the day the command ran"
+        - "The unit guards cannot mask a regression here: this path monkeypatches nothing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-06"

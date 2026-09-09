@@ -1,10 +1,18 @@
 """Fixture-based tests for ``atdd.integrations.github.issue_state`` (no live API).
 
-``transition_phase`` swaps the ``atdd:<phase>`` label over REST and does
-nothing else. #1051 decommissioned the Projects v2 board this used to sync in
-the same call, and #1761 removed the tests that still asserted the sync — they
-imported a ``projects_v2`` module deleted from the package, so this whole file
-had been failing to import.
+Covers ``transition_phase``: swapping the ``atdd:<phase>`` label, which since
+#1051 (``35ae50c0``) is the whole of what it does — "No Projects v2 board write",
+per its own docstring.
+
+This file previously asserted the #882 guarantee that one call swapped the label
+AND synced a Projects v2 board. That collaborator was deleted with the substrate,
+and its ``PROJECT_TOKEN`` env with it, but these tests were left importing both —
+so the module raised at import and took the whole configured suite's collection
+down with it (#1868). The label assertions were still correct and are kept; the
+board-sync ones described behaviour that no longer exists and are gone.
+
+#1761 reached the same conclusion independently and additionally asserted the
+absence of any `gh api graphql` call; that assertion is kept here.
 """
 from __future__ import annotations
 
@@ -32,8 +40,8 @@ def test_read_phase_extracts_atdd_label(monkeypatch):
     assert issue_state.read_phase(ISSUE) == "GREEN"
 
 
-def test_transition_phase_swaps_the_label(monkeypatch):
-    """The stale phase label comes off and the new one goes on — REST only."""
+def test_transition_phase_swaps_the_phase_label(monkeypatch):
+    """The stale label is removed and the target added, in one call."""
     calls = []
     monkeypatch.setattr(
         _gh, "run_gh",
@@ -45,8 +53,26 @@ def test_transition_phase_swaps_the_label(monkeypatch):
     edit_calls = [c for c in calls if c[:2] == ["issue", "edit"]]
     assert ["issue", "edit", str(ISSUE), "--remove-label", "atdd:RED"] in edit_calls
     assert ["issue", "edit", str(ISSUE), "--add-label", "atdd:COMPLETE"] in edit_calls
-    # No board call rides along: every command is `gh issue …`, never `gh api graphql`.
+    # No board call rides along: every command is `gh issue ...`, never
+    # `gh api graphql`. Kept from #1763, which asserted the absence directly
+    # rather than inferring it from the presence of the label edits.
     assert all(c[0] == "issue" for c in calls), calls
+
+
+def test_transition_phase_leaves_unrelated_labels_alone(monkeypatch):
+    """Only ``atdd:<phase>`` labels are touched — ``atdd-issue`` is not a phase."""
+    calls = []
+    monkeypatch.setattr(
+        _gh, "run_gh",
+        _recording_run_gh(calls, ["atdd-issue", "atdd:RED"]),
+    )
+
+    issue_state.transition_phase(ISSUE, "COMPLETE")
+
+    removed = [c[-1] for c in calls if "--remove-label" in c]
+    assert removed == ["atdd:RED"], (
+        f"only the stale phase label may be removed, got {removed}"
+    )
 
 
 def test_transition_phase_skips_redundant_remove(monkeypatch):

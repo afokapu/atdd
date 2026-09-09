@@ -138,13 +138,13 @@ def test_sync_reseeds_gitignore_on_already_initialized_repo(tmp_path: Path) -> N
     No --force. This is the path that reaches every repo initialised before the
     fix landed.
     """
-    from atdd.coach.commands.sync import AgentConfigSync
+    from atdd.coach.commands.sync import RepoRefresh
 
     repo = _already_initialized_repo(
         tmp_path, gitignore=".atdd/cache/\n.atdd/diagnostics/\n"
     )
 
-    rc = AgentConfigSync(target_dir=repo).sync()
+    rc = RepoRefresh(target_dir=repo).sync()
 
     assert rc == 0, "sync must succeed on an already-initialized repo"
     content = (repo / ".gitignore").read_text()
@@ -163,12 +163,12 @@ def test_sync_does_not_seed_gitignore_when_repo_never_initialized(tmp_path: Path
     A repo with no `.atdd/` never ran init; sync must not create `.atdd/` there and
     must not write atdd's ignore entries into a repo that does not use atdd.
     """
-    from atdd.coach.commands.sync import AgentConfigSync
+    from atdd.coach.commands.sync import RepoRefresh
 
     repo = _init_repo(tmp_path)
     (repo / ".gitignore").write_text("node_modules/\n")
 
-    AgentConfigSync(target_dir=repo).sync()
+    RepoRefresh(target_dir=repo).sync()
 
     assert not (repo / ".atdd").exists(), "sync must not create .atdd/ (not an installer)"
     content = (repo / ".gitignore").read_text()

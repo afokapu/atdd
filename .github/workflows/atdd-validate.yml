@@ -9,6 +9,43 @@ on:
   pull_request:
     branches: [main]
 
+# =============================================================================
+# THE INSTALLED PATH (#1604) — why every pytest step below says `pip3 install -e .`
+# and none of them says `PYTHONPATH=src`.
+#
+# The substrate pytest plugin is auto-loaded from the `pytest11` entry point in
+# `pyproject.toml`, and the #1602 smoke-execution attestation attaches to that
+# plugin. pytest reads entry points ONCE, at startup, from INSTALLED distribution
+# metadata — a `*.dist-info` on `sys.path`. `PYTHONPATH=src` makes `import atdd`
+# work and declares no metadata at all, so under it the plugin never loads, no
+# attestation is ever written, and the run reports `passed` either way. A consumer
+# who ran `pip install atdd` was always fine; the toolkit was testing the one
+# configuration in which its own hook is inert.
+#
+# #1604 shipped `attestation-hook-install` first — one job that proves the hook
+# needs the install. That left the half the issue's title actually promised: the
+# jobs that run the repository's tests were still uninstalled. Measured on main at
+# 33e6aed8: 13 workflow steps ran pytest over this checkout and 12 of them set
+# `PYTHONPATH=src`, `attestation-hook-install` being the only one that did not.
+# #1664's census (docs/smoke-audit.md) put the consequence in one number —
+# `ci-can-record: 0`. Not one acceptance in this repository could be attested by
+# CI, so declaring `execution_kind: live_smoke` on any of them would have left
+# `SMOKE->REFACTOR` reachable only through `--force`: the rubber stamp E069 names
+# and #1602's opt-in design exists to prevent.
+#
+# So the invariant is now flat across the file: a job that runs this repository's
+# tests installs the distribution first. `PYTHONPATH=src` is not an equivalent
+# spelling of it and is not a tidier one — it is the defect.
+#
+# `pyproject.toml` already sets `pythonpath = ["src"]` for pytest and the install
+# is editable, so dropping the variable changes which `atdd` is imported not at
+# all: it changes only whether the metadata that loads the hook is there.
+#
+# GUARDED, not merely intended: `tests/ci_install/` reads this file back and fails
+# if any pytest step here runs uninstalled or re-adds `PYTHONPATH`. Reverting a job
+# reds the suite rather than quietly re-opening #1604.
+# =============================================================================
+
 jobs:
   validate-planner:
     runs-on: ubuntu-latest
@@ -30,11 +67,12 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      - name: Install the package and dependencies
+        run: pip3 install -e . tree-sitter tree-sitter-typescript
 
       - name: Run planner validators
-        run: PYTHONPATH=src python3 -m pytest src/atdd/planner/validators/ -v --tb=short
+        run: python3 -m pytest src/atdd/planner/validators/ -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -58,11 +96,12 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      - name: Install the package and dependencies
+        run: pip3 install -e . tree-sitter tree-sitter-typescript
 
       - name: Run tester validators
-        run: PYTHONPATH=src python3 -m pytest src/atdd/tester/validators/ -v --tb=short
+        run: python3 -m pytest src/atdd/tester/validators/ -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -86,11 +125,12 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      - name: Install the package and dependencies
+        run: pip3 install -e . tree-sitter tree-sitter-typescript ruff pyright
 
       - name: Run coder validators
-        run: PYTHONPATH=src python3 -m pytest src/atdd/coder/validators/ -v --tb=short
+        run: python3 -m pytest src/atdd/coder/validators/ -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -128,11 +168,12 @@ jobs:
       # (E062-SMOKE-001, E062-UNIT-001, C009-SMOKE-001), which live under
       # coach/validators/tests/ and build a real wheel into a real clean venv.
       # They are the executable form of what `validate-consumer` does in shell.
-      - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript build setuptools wheel
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      - name: Install the package and dependencies
+        run: pip3 install -e . tree-sitter tree-sitter-typescript build setuptools wheel
 
       - name: Run coach validators
-        run: PYTHONPATH=src python3 -m pytest src/atdd/coach/validators/ -v --tb=short
+        run: python3 -m pytest src/atdd/coach/validators/ -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -167,14 +208,15 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      # pytest-xdist is a declared dependency in pyproject.toml, but this job installs a
-      # bare list rather than the package, so `-n auto` would be an unknown option without it.
-      - name: Install dependencies
-        run: pip3 install pytest pytest-xdist jsonschema pyyaml tree-sitter tree-sitter-typescript
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      # pytest-xdist is a declared dependency in pyproject.toml, so `-n auto` below comes
+      # with the package now; it no longer needs naming separately.
+      - name: Install the package and dependencies
+        run: pip3 install -e . tree-sitter tree-sitter-typescript
 
       - name: Run convention validators (non-mutating subset, parallel)
         run: >-
-          PYTHONPATH=src python3 -m pytest src/atdd/validators/conventions/
+          python3 -m pytest src/atdd/validators/conventions/
           -m "not convention_filesystem_mutation" -n auto --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -202,21 +244,24 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      - name: Install the package and dependencies
+        run: pip3 install -e . tree-sitter tree-sitter-typescript
 
       - name: Run convention validators (filesystem-mutating subset, serial)
         run: >-
-          PYTHONPATH=src python3 -m pytest src/atdd/validators/conventions/
+          python3 -m pytest src/atdd/validators/conventions/
           -m "convention_filesystem_mutation" -v --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # The consumer oracle (#1474). Every other job runs `PYTHONPATH=src pytest
-  # src/atdd/<phase>/validators/`, which puts the working tree on the import path —
-  # so `atdd.__file__` resolves into the checkout, every data file exists by
-  # definition, and `[tool.setuptools.package-data]` is never consulted. The wheel
-  # was built only at publish time, AFTER merge. No PR could go red for a packaging
+  # The consumer oracle (#1474). Every other job runs pytest over the checkout, so
+  # `atdd.__file__` resolves into it, every data file exists by definition, and
+  # `[tool.setuptools.package-data]` is never consulted. That stayed true when
+  # #1604 made those jobs install the package: `pip install -e .` is EDITABLE, so
+  # the import still resolves to `src/atdd` and package-data is still not consulted
+  # — the install buys entry-point metadata, not packaging coverage. The wheel was
+  # built only at publish time, AFTER merge. No PR could go red for a packaging
   # defect, which is how #663 sat open from 3.47.0 until a downstream user hit it,
   # and how #952/#1369 and the packaging half of #1341 all shipped.
   #
@@ -434,29 +479,21 @@ jobs:
         if: env.SMOKE_BASE_URL != ''
         run: npx playwright test "e2e/**/*smoke*.spec.ts"
 
-  # The installed path (#1604). Every other python job here runs
-  # `PYTHONPATH=src python3 -m pytest` against an UNINSTALLED tree, and that is
-  # precisely why the substrate pytest plugin — and the #1602 smoke-execution
-  # attestation that attaches to it — never fires in this repository's own CI.
-  # pytest auto-loads that plugin from the `pytest11` entry point in
-  # `pyproject.toml`, and entry points are read from INSTALLED distribution
-  # metadata; `PYTHONPATH` makes `import atdd` work and contributes no metadata at
-  # all. A consumer who ran `pip install atdd` has always been fine. The toolkit
-  # was testing the one configuration in which its own hook is inert.
+  # The CAUSAL PROOF for #1604 (see THE INSTALLED PATH at the top of this file).
   #
-  # So this job installs the package and runs pytest against the installation.
-  # `tests/ci_install/` is where the claim is both proved (a real venv, the same
-  # source installed and then reached only by PYTHONPATH — the hook loads in the
-  # first and not the second) and guarded (this job's wiring is read back out of
-  # this file, so reverting it reds the suite).
+  # Every other python job now installs the package too, so this job is no longer
+  # the only installed path — and that is exactly why it must stay. The other jobs
+  # DEPEND ON the claim that installing is what loads the hook; this one MEASURES
+  # it, by running the same source twice through one venv (installed, then reachable
+  # only by PYTHONPATH) and showing the plugin loads in the first arm and not the
+  # second. Delete it and the invariant everywhere else becomes a habit nobody
+  # checks.
   #
-  # SCOPE — #1604 is the install-enablement, deliberately not the CI-width
-  # redesign. WHICH smoke tests run under this interpreter is the deferred
-  # operator decision (and #1602's hook is not on this branch yet). When that is
-  # settled, the smoke selection is ADDED to this job's pytest step: the
-  # installed interpreter is the thing this job exists to provide. Do NOT add
-  # `PYTHONPATH=src` here to make it look like its neighbours — that is the whole
-  # defect, and `tests/ci_install/` fails if you do.
+  # `tests/ci_install/` also reads this workflow back and asserts the wiring —
+  # here AND in every other pytest job — so reverting any of them reds the suite.
+  #
+  # Do NOT add `PYTHONPATH=src` here to make it look like its neighbours. Its
+  # neighbours no longer set it either, and the suite below fails if you do.
   attestation-hook-install:
     runs-on: ubuntu-latest
     if: >-
@@ -522,11 +559,12 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      - name: Install dependencies
-        run: pip3 install pytest pyyaml
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      - name: Install the package and dependencies
+        run: pip3 install -e .
 
       - name: Run import-discipline test (§10.2)
-        run: PYTHONPATH=src python3 -m pytest tests/architecture/test_layer_imports.py -v --tb=short
+        run: python3 -m pytest tests/architecture/test_layer_imports.py -v --tb=short
 
   parity-test:
     runs-on: ubuntu-latest
@@ -548,11 +586,12 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      - name: Install dependencies
-        run: pip3 install pytest pyyaml
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      - name: Install the package and dependencies
+        run: pip3 install -e .
 
       - name: Run lifecycle parity test (§10.1)
-        run: PYTHONPATH=src python3 -m pytest tests/lifecycle/test_full_issue_parity.py -v --tb=short
+        run: python3 -m pytest tests/lifecycle/test_full_issue_parity.py -v --tb=short
 
   # Incident-defense suite (docs/coach-decomposition.md §9, §12.1 item 7).
   # Each migration child that touches a layer adds explicit tests under
@@ -579,10 +618,12 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      - name: Install dependencies
-        # jsonschema is required by atdd.coach.commands.durability, which the
-        # I-8 decision-durability incident test imports (#897).
-        run: pip3 install pytest pyyaml jsonschema
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      # jsonschema is required by atdd.coach.commands.durability, which the
+      # I-8 decision-durability incident test imports (#897); it is a declared
+      # dependency, so the install below carries it.
+      - name: Install the package and dependencies
+        run: pip3 install -e .
 
       - name: Configure git identity (real-git worktree tests)
         run: |
@@ -590,7 +631,7 @@ jobs:
           git config --global user.name "ATDD CI"
 
       - name: Run incident-defense suite (§9)
-        run: PYTHONPATH=src python3 -m pytest tests/incident_defenses/ -v --tb=short
+        run: python3 -m pytest tests/incident_defenses/ -v --tb=short
 
   # Extension-convention enforcement (#1359 wired it; #1428 made it REQUIRED).
   # Runs `atdd enforce` over the vendored, committed substrate
@@ -634,8 +675,9 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
-      - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml tree-sitter tree-sitter-typescript
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
+      - name: Install the package and dependencies
+        run: pip3 install -e . tree-sitter tree-sitter-typescript
 
       # Blocking: the committed vendored substrate must be digest-coherent.
       # PYTHONDONTWRITEBYTECODE keeps the tree clean — compute_digest hashes .pyc,
@@ -643,7 +685,7 @@ jobs:
       - name: Verify extension substrate (blocking)
         env:
           PYTHONDONTWRITEBYTECODE: "1"
-        run: PYTHONPATH=src python3 -m atdd enforce --verify-substrate --repo-root .
+        run: python3 -m atdd enforce --verify-substrate --repo-root .
 
       # BLOCKING (#1428 E001). No `continue-on-error`, no `|| true`: a strict
       # convention FAIL exits non-zero, fails this job, and blocks the merge via the
@@ -660,12 +702,12 @@ jobs:
           # Scope to the toolkit's product code (config `code.toolkit: src/atdd`);
           # avoids scanning the vendored substrate's own intentional-dirty fixtures.
           # The baseline was recorded over this exact scope — they must not diverge.
-          PYTHONPATH=src python3 -m atdd enforce --repo-root . --paths src/atdd \
+          python3 -m atdd enforce --repo-root . --paths src/atdd \
             --ratchet .atdd/enforce-ratchet.yaml
 
       # Blocking: the gate wiring + substrate guards must hold (regression guard).
       - name: Assert enforce gate wiring
-        run: PYTHONPATH=src python3 -m pytest tests/enforce/ -v --tb=short
+        run: python3 -m pytest tests/enforce/ -v --tb=short
 
   # Non-validator regression protection (#1643). Every other python job above runs
   # a VALIDATOR path (or a named guard under tests/). That left the bulk of the
@@ -734,11 +776,13 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-atdd-toolkit
 
+      # `-e .`, never `PYTHONPATH=src` — see THE INSTALLED PATH at the top of this file (#1604).
       # These suites import only pytest, jsonschema and yaml beyond the stdlib —
-      # no tree-sitter, no network client. Verified by sweeping every import in
-      # the covered paths (#1643 audit).
-      - name: Install dependencies
-        run: pip3 install pytest jsonschema pyyaml
+      # no tree-sitter, no network client (verified by sweeping every import in
+      # the covered paths, #1643 audit) — and all three are declared dependencies,
+      # so the install below is a superset of the list it replaces.
+      - name: Install the package and dependencies
+        run: pip3 install -e .
 
       # Several of these suites drive real git over a temporary worktree, which
       # refuses to commit without an identity — the same reason incident-defense-test
@@ -749,16 +793,27 @@ jobs:
           git config --global user.name "ATDD CI"
 
       # No `-m` expression. These paths run WHOLE — that is the point of the job.
-      # The two `coach/commands/tests` FILES at the end are C014 (#1632), added by
-      # path rather than by directory. `src/atdd/coach/commands/tests` cannot go in
-      # whole: measured on merged main 2026-08-03 it has 41 pre-existing failures
-      # and 1 error out of 1059 tests, which is why #1643 left it out. Naming the
-      # two new files keeps them covered without importing that debt — and an issue
-      # about checks that never run should not add tests that never run. Retiring
-      # the rest of that directory is #1701's subject.
+      # The five FILES at the end are named by path rather than by directory,
+      # because their directories cannot go in whole: measured 2026-09-07,
+      # `src/atdd/coach/commands/tests` has 45 pre-existing failures and 1 error out
+      # of 1129, and `src/atdd/tester/substrate` has 11. Retiring those is #1701's
+      # subject; naming a file keeps it covered without importing the debt.
+      #
+      # C014 (#1632) came first. C016, E008 and E071 joined in #1814: #1664's census
+      # classified all three `can-attest-today` — anchored by a real smoke test —
+      # while no job ran them, so the only three smoke acceptances in this repository
+      # that both CAN attest and DO pass were invisible to every PR. All three are
+      # green (1, 1 and 3 tests).
+      #
+      # Y004-SMOKE-001 was deliberately NOT added alongside them, though the same
+      # census scored it identically. It is `5 skipped, 0 passed`: its module gates
+      # on `ATDD_RUN_SMOKE`, which no workflow sets. Adding it would buy a green
+      # check that runs nothing — the #1632/#1670 shape this job exists to end.
+      # Whether that variable should be set here, or those 16 acceptances should stop
+      # self-skipping, is a convention question (#1151), not a CI-wiring one.
       - name: Run non-validator regression suites
         run: |
-          PYTHONPATH=src python3 -m pytest \
+          python3 -m pytest \
             src/atdd/tests \
             src/atdd/state/tests \
             src/atdd/substrate \
@@ -778,6 +833,9 @@ jobs:
             src/atdd/planner/interlocking \
             src/atdd/coach/commands/tests/test_c014_unit_003_baseline_carries_the_count.py \
             src/atdd/coach/commands/tests/test_c014_smoke_001_real_runner_reports_deselection.py \
+            src/atdd/coach/commands/tests/test_c016_smoke_001_real_cli_admits_the_commit_on_a_divergent_branch.py \
+            src/atdd/coach/commands/tests/test_e008_smoke_001_registration_visible_cross_worktree.py \
+            src/atdd/tester/substrate/tests/test_e071_smoke_001_audit_classifies_both_directions.py \
             -q --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -791,7 +849,7 @@ jobs:
       # Running them in their own process is the fix that touches no source; adding
       # the missing `__init__.py` is the real repair and belongs with the follow-up.
       - name: Run coder convention-recipe suite (own process — see comment)
-        run: PYTHONPATH=src python3 -m pytest src/atdd/coder/conventions/tests -q --tb=short
+        run: python3 -m pytest src/atdd/coder/conventions/tests -q --tb=short
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

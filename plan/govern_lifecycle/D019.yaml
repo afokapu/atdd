@@ -52,3 +52,31 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-09"
+
+  - identity:
+      urn: "acc:govern-lifecycle:D019-UNIT-003-the-next-step-hint-names-a-runnable-command"
+      id: "AC-UNIT-003"
+      purpose: "The operator-facing half of the same declaration: the lifecycle's next-step hint is DERIVED from the gated-edge set the gate consults, so it never names a transition the gate will refuse and never invents an approval step for an edge that needs none"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The approval check's candidate edges and is_transition_gated, asked together through one derivation rather than restated as a string"
+        - "An IssueLifecycle over a .atdd/config.yaml whose gate.transitions is set per case"
+        - "The next-step hint table, enumerated from the module so an edge added later is covered by construction"
+    when:
+      abstract: "the derivation is asked about each edge, and the hint is printed for every phase that declares one"
+    then:
+      abstract:
+        - "The default gated edge reports as needing an approval and an ungated edge does not, and flipping gate.transitions flips both answers with no code change"
+        - "An edge the approval check does not cover is never claimed as approval-gated even when config gates it, so gating INIT -> PLANNED does not prescribe a mint that would authorise nothing"
+        - "Asking registers nothing into the module-level registry, so a read-only surface can consult the gate without the import-time side effect the module forbids"
+        - "For a gated edge the hint names the approve command before the transition, and still names the transition"
+        - "For an ungated edge the hint names only the transition and no approval"
+        - "For every phase the hint table declares, the presence of the approval step equals the derivation's answer for that edge, so no edge is described one way and judged another"
+        - "No hint entry stores a rendered transition command, which is what made the printed text unable to reflect config in the first place"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-08-08"

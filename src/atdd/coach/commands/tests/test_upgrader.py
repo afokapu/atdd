@@ -7,6 +7,7 @@ version against the local `toolkit.last_version` stamp and never queried PyPI.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,11 +19,16 @@ pytestmark = [pytest.mark.platform]
 
 
 def _write_config(repo: Path, last_version: str) -> Path:
-    (repo / ".atdd").mkdir(parents=True, exist_ok=True)
-    cfg = repo / ".atdd" / "config.yaml"
-    cfg.write_text(f"toolkit:\n  last_version: {last_version}\n")
-    return cfg
+    """Seed a repo at *last_version*.
 
+    #1762: delegates to the shared helper rather than repeating the seeding
+    block. Both files wrote the same `.atdd/runtime/toolkit-sync.json` after
+    #1820 moved the baseline off the git-tracked field, which is exactly the
+    duplication `coder.refactor.quality-duplication` exists to catch.
+    """
+    from atdd.coach.commands.tests._upgrade_unattended_helpers import write_config
+
+    return write_config(repo, last_version)
 
 def test_upgrade_detects_newer_pypi_release(tmp_path, monkeypatch, capsys):
     """When PyPI reports a newer version, upgrade should offer pip install."""
@@ -65,7 +71,7 @@ def test_upgrade_no_pypi_flag_skips_live_check(tmp_path, monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert rc == 0
-    assert "Already in sync with installed version." in out
+    assert "Already current with the installed version." in out
 
 
 def test_upgrade_pypi_unreachable_falls_back_to_sync(tmp_path, monkeypatch, capsys):
@@ -83,7 +89,7 @@ def test_upgrade_pypi_unreachable_falls_back_to_sync(tmp_path, monkeypatch, caps
     out = capsys.readouterr().out
     assert rc == 0
     assert "Could not reach PyPI" in out
-    assert "Already in sync with installed version." in out
+    assert "Already current with the installed version." in out
 
 
 def test_upgrade_already_latest_runs_sync_only(tmp_path, monkeypatch, capsys):
@@ -110,10 +116,13 @@ def test_upgrade_already_latest_runs_sync_only(tmp_path, monkeypatch, capsys):
              "atdd.coach.commands.upgrader.auto_upgrade",
              side_effect=AssertionError("must not pip-upgrade when already latest"),
          ), \
-         patch("atdd.coach.commands.upgrader.subprocess.run", side_effect=fake_run):
+         patch("atdd.coach.commands.upgrader.subprocess.run", side_effect=fake_run), \
+         patch("atdd.coach.commands.upgrader.run_repo_refresh",
+               side_effect=lambda *_a, **_k: ran_subprocess.append("refresh") or 0):
         rc = Upgrader(repo_root=tmp_path).run(yes=True)
 
     assert rc == 0
-    # Should have invoked sync and init --force.
-    assert any("sync" in c for c in ran_subprocess)
-    assert any("init" in c for c in ran_subprocess)
+    # #1820: the refresh runs in-process. It used to shell `atdd sync` then
+    # `atdd init --force`; the latter is forbidden (#793) and, per #1600, cannot
+    # act on an already-initialised repo.
+    assert any("refresh" in c for c in ran_subprocess), ran_subprocess

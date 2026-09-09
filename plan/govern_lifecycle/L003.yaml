@@ -116,6 +116,82 @@ acceptances:
     author: atdd:self-compliance
     created: '2026-07-28'
 - identity:
+    urn: acc:govern-lifecycle:L003-UNIT-003-the-plan-tree-is-the-issues-not-the-cwds
+    id: AC-UNIT-003
+    purpose: 'The feature URN was already the issue''s; the tree it was resolved
+      against was the caller''s. Resolving the plan tree through the issue''s stored
+      branch binding makes the WMBTs and the paths the banner shows the issue''s
+      own, and makes the answer independent of which directory the command ran in'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - Two real git worktrees of one real repository, on two different branches, each
+      carrying its own plan/ tree
+    - The issue's own branch declares one WMBT; the branch the command runs from declares
+      a different one, reproducing the two directions measured on #1735
+    - A work item whose stored branch binding names the issue's branch, seeded in the
+      store both checkouts resolve
+  when:
+    abstract: the resolver and the renderer are asked for that issue's WMBTs from the
+      sibling worktree, and then again from the issue's own
+  then:
+    abstract:
+    - The tree is located through the branch binding and reports doing so, so a caller
+      can tell which tree answered without parsing prose
+    - The WMBT the issue's own branch declares is listed, and the WMBT that exists only
+      in the tree the command ran from is not
+    - Every rendered path is under the issue's own worktree, so a path printed by the
+      banner can be opened from the issue's checkout
+    - Run from inside the issue's own worktree the result is unchanged, and the two
+      vantage points return identical WMBTs and identical paths
+    - An answer resolved through the binding is rendered without qualification, so a
+      qualification elsewhere carries meaning
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-08'
+- identity:
+    urn: acc:govern-lifecycle:L003-UNIT-004-an-unseeable-tree-is-its-own-outcome
+    id: AC-UNIT-004
+    purpose: 'A lookup that cannot see the issue''s tree reports that, and reads
+      nothing — rather than answering from the cwd''s copy or attributing the miss
+      to the plan graph, which is what told #1711 five times that an intact feature
+      binding was broken'
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A checkout whose own plan/ holds a feature that resolves and declares WMBTs, so
+      an answer from it would look entirely plausible
+    - An issue bound to a branch no working tree on the machine has checked out
+    - A second issue that records no branch at all, a third resolved outside any git
+      working tree, and a run in which git cannot be executed at all
+  when:
+    abstract: each issue's WMBTs are resolved and rendered from that checkout
+  then:
+    abstract:
+    - The unlocatable tree is a distinct outcome, separable programmatically from a
+      missing binding and from a binding that resolves nowhere
+    - No WMBT and no path is returned for it, so the resolvable feature sitting in the
+      cwd's plan/ is not reported as the issue's
+    - The rendered text neither says the binding is broken nor names a path under the
+      cwd's plan/ as where the artefact was expected, and it names the branch whose
+      tree could not be found so the reader can act
+    - An issue recording no branch is still answered, and the rendering states which
+      tree was read and that it may not be the issue's
+    - Outside a git working tree nothing is qualified, because with no branches there
+      is no other tree the answer could have come from
+    - git being unrunnable answers and qualifies rather than crashing or refusing,
+      because a missing tool says only that the question could not be asked, which
+      is a different claim from there being no other tree
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-08-08'
+- identity:
     urn: acc:govern-lifecycle:L003-SMOKE-001-coach-enter-lists-plan-backed-wmbts
     id: AC-SMOKE-001
     purpose: 'Against the real installed CLI in a real checkout: `atdd coach enter

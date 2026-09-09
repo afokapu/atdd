@@ -73,6 +73,12 @@ def build_binding_plan(project_root: str | Path, *, log=None) -> dict:
             {
                 "convention_id": convention_id,
                 "disposition": "bound",
+                # The package that OWNS the rule. Recorded so a bound rule can be
+                # traced back to a substrate-lock artifact — the coherence invariant
+                # (#1488) is unprovable without it, and `workspace_id` alone will not
+                # do: removing an EXTENSION leaves its provider workspace installed,
+                # so its orphaned rules still name a workspace that resolves.
+                "package_id": impl["_package_id"],
                 "implementation_id": binding.implementation_id,
                 "workspace_id": binding.workspace_id,
                 "contract_version": binding.contract_version,

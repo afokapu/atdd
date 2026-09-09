@@ -32,6 +32,18 @@ pytestmark = [pytest.mark.platform]
 # ---------------------------------------------------------------------------
 
 
+def _no_link():
+    """A PR that genuinely links nothing — NOT a failed lookup (#1640)."""
+    from atdd.coach.validators._observation import Reading
+    return Reading.no_obligation("no closing reference")
+
+
+def _reading(resolution):
+    """Wrap a resolved link in the #1640 observation vocabulary."""
+    from atdd.coach.validators._observation import Reading
+    return Reading.observed(resolution)
+
+
 def test_compute_next_phase_red_to_green():
     assert compute_next_phase("RED") == "GREEN"
 
@@ -104,8 +116,8 @@ def _pr_at(issue_number: int, *, store: str | None, label: str | None):
     live state.sqlite and the assertions become a function of local data.
     """
     with patch(
-        "atdd.coach.commands.auto_phase.PRManager.resolve_linked_issue",
-        return_value=_resolution(issue_number, label),
+        "atdd.coach.commands.auto_phase.PRManager.read_linked_issue",
+        return_value=_reading(_resolution(issue_number, label)),
     ), patch(
         "atdd.coach.commands.auto_phase.read_store_phase",
         return_value=store,
@@ -134,8 +146,8 @@ def test_resolve_pr_returns_noop_for_terminal_issue():
 
 def test_resolve_pr_returns_noop_when_no_linked_issue():
     with patch(
-        "atdd.coach.commands.auto_phase.PRManager.resolve_linked_issue",
-        return_value=None,
+        "atdd.coach.commands.auto_phase.PRManager.read_linked_issue",
+        return_value=_no_link(),
     ):
         result = resolve_pr_to_transition(350)
     assert result.issue_number is None

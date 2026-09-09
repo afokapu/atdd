@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:train-identity-resolves-across-vocabularies"
+wagon: "wagon:govern-lifecycle"
+description: "Makes the transition gate's train cross-reference decide on a train's REGISTRATION rather than on how the value happens to be spelled. The traceability graph mints a loose train as the two-part `train:<stem>` while the registry reader returns the bare `<stem>` from the same directory, and the gate compares the two with exact string equality — so 7 registered trains (the numbered enforcement family) are reported NOT FOUND and every issue on one is wedged at PLANNED with no --force path. Normalizes both sides of the membership test; does not touch what the graph mints, what the store records, or the gate's authority to refuse an unregistered train."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:C024"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No new CLI surface — the existing `atdd coach transition` path is unchanged; only the membership test it already calls becomes vocabulary-independent."
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "The normalized membership decision behind _validate_train_against_trains_yaml — pure, over a registry set and a candidate value."
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "A train id is a string identity, not a modeled entity; the normalization is a pure function over it."
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Both sides already have readers (_registered_train_ids over plan/, the store field read); this feature adds no new source."

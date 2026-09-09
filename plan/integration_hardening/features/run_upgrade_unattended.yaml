@@ -2,28 +2,42 @@ urn: feature:integration-hardening:run-upgrade-unattended
 wagon: wagon:integration-hardening
 description: 'Makes `atdd upgrade` runnable by a worker with no terminal, and safe
   when sixty of them share one install: a non-interactive default plus an install-scoped
-  lock. Runnable, not automatic.'
+  lock. Runnable, and automatically triggered at points where nothing can be refused
+  — the non-blocking post-merge and post-checkout hooks, whose exit codes git
+  discards by its own contract. The earlier boundary was "runnable, not automatic"
+  (Y007/E008); #1762 widened it deliberately, because leaving the remedy manual meant
+  the only path to currency was a human reacting to a blocked push, several times a
+  day, in a repo that publishes four releases a session. The boundary that did NOT
+  move is Y004''s: the pre-push gate still never upgrades, still fails closed, and
+  still honours no bypass — it is now rarely reached, not less strict.'
 sizing:
-  wmbts: 2
-  footprint_score: 6
+  wmbts: 3
+  footprint_score: 10
   footprint_size: S
 wmbts:
 - wmbt:integration-hardening:Y007
 - wmbt:integration-hardening:E008
+- wmbt:integration-hardening:E009
 components:
   backend:
     presentation:
     - type: controllers
-      count: 0
-      rationale: No new CLI surface. `--yes` already exists at cli.py:1309 and keeps
-        its meaning; the change is entirely in how the absence of that flag is resolved
+      count: 1
+      rationale: "Y007/E008 added no CLI surface \u2014 `--yes` already existed at\
+        \ cli.py:1309. E009 adds one verb, `atdd self-upgrade`, because a git hook\
+        \ can only reach the toolkit through the console script: the packaged hooks\
+        \ guard on `command -v atdd`, and a `python3 -c 'from atdd...'` block cannot\
+        \ import a pipx-isolated install at all"
     application:
     - type: use_cases
-      count: 2
+      count: 3
       rationale: "One resolver for the confirmation default (Y007), following the\
         \ shape resolve_no_prompt already established at coach.py:255 \u2014 explicit\
-        \ flag wins, else infer from isatty; and one guarded critical section around\
-        \ the mutating part of Upgrader.run (E008)"
+        \ flag wins, else infer from isatty; one guarded critical section around\
+        \ the mutating part of Upgrader.run (E008); and one post-hook self-upgrade\
+        \ that resolves currency, takes E008's lock without waiting, calls\
+        \ auto_upgrade() directly \u2014 never Upgrader.run, which would drag in\
+        \ `init --force` (#1703) \u2014 and cannot fail its caller (E009)"
     domain:
     - type: value_objects
       count: 0

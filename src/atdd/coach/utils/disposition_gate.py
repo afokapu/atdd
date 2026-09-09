@@ -509,7 +509,12 @@ def assert_disposition_satisfied(
 
 
 def _count_block_violations(block: str) -> int:
-    # Each violation is one indented "  [..." line; cheap line count
+    # Each violation is one indented "[..." line; cheap line count. The opaque
+    # (legacy, no rule_id) block now leads its lines with _OPAQUE_MARKER for
+    # exactly this reason: without a marker the header counted only the structured
+    # buckets and printed "0 unsuppressed violation(s)" directly above "1 legacy
+    # (no rule_id) violation(s)", so a reader could not tell from the output how
+    # many violations there were (issue #1748).
     return sum(1 for ln in block.splitlines() if ln.lstrip().startswith("["))
 
 
@@ -559,13 +564,21 @@ def _format_advisory_block(
     return "\n".join(lines)
 
 
+#: Line prefix for a legacy (no rule_id) violation. Structured violations are
+#: recognised by their leading ``[rule_id ...]``; opaque ones had no marker at
+#: all, so ``_count_block_violations`` could not see them and the failure header
+#: undercounted to zero (#1748). Kept as one constant so the emitter and the
+#: counter cannot drift back apart.
+_OPAQUE_MARKER = "[legacy no-rule_id]"
+
+
 def _format_opaque_block(validator_id: str, opaque: Sequence[Any]) -> str:
     lines = [
         f"\n  validator={validator_id}: "
         f"{len(opaque)} legacy (no rule_id) violation(s) — strict by default:"
     ]
     for v in opaque:
-        lines.append(f"    {v}")
+        lines.append(f"    {_OPAQUE_MARKER} {v}")
     return "\n".join(lines)
 
 

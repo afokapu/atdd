@@ -31,4 +31,3 @@ wmbt:
   P001: "Define validate lifecycle train"
   R001: "Wire URN traceability across plan, test, code"
   K001: "Both atdd validate and local pytest pass on the toolkit itself"
-  Y001: "atdd sync preserves user content outside managed block and warns on within-block deletions"

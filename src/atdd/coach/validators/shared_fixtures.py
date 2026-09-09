@@ -239,7 +239,7 @@ def train_files() -> List[Tuple[Path, Dict]]:
                         train_data = yaml.safe_load(f)
                         if train_data:
                             train_files_data.append((train_file, train_data))
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                     pass
 
     return train_files_data
@@ -513,7 +513,7 @@ def feature_files() -> List[Tuple[Path, Dict[str, Any]]]:
                             data = yaml.safe_load(f)
                             if data:
                                 features.append((feature_file, data))
-                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                         pass
     return features
 
@@ -544,7 +544,7 @@ def wmbt_files() -> List[Tuple[Path, Dict[str, Any]]]:
                             data = yaml.safe_load(f)
                             if data:
                                 wmbts.append((wmbt_file, data))
-                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                         pass
     return wmbts
 

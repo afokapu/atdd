@@ -16,8 +16,14 @@ Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import logging
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
+
+from atdd.coach.commands.worktree_placement import (
+    resolve_worktree_dir_name,
+    resolve_worktree_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +34,21 @@ _TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE"}
 
 # Statuses from PLANNED onward require a template-compliant issue body.
 _COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
+
+
+@dataclass(frozen=True)
+class _NextAction:
+    """One phase's next-step hint: the prose, and the edge it advances across.
+
+    ``to_phase`` is the EDGE, not a command string. The command is composed at
+    print time by :meth:`IssueLifecycle._transition_command_lines`, which asks
+    the gate whether that edge needs an approval first. Storing the rendered
+    command here is what let the hint name a blocked command: the string could
+    not know what ``.atdd/config.yaml`` had gated (#1750).
+    """
+
+    lines: Tuple[str, ...]
+    to_phase: Optional[str] = None
 
 
 # The per-phase "Next:" hint, as DATA. `{number}` is the issue number.
@@ -42,36 +63,44 @@ _COMPLIANCE_REQUIRED_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"}
 # automatic path first, and keep the manual one for the cases that genuinely
 # need it (no PR, or auto-phase did not run — e.g. #1621).
 _NEXT_ACTION_HINTS = {
-    "INIT": (
-        "  Next: Fill issue scope, then transition:",
-        "         atdd coach transition {number} PLANNED",
+    "INIT": _NextAction(
+        lines=("  Next: Fill issue scope, then transition:",),
+        to_phase="PLANNED",
     ),
-    "PLANNED": (
-        "  Next: Write failing tests (RED phase), then transition:",
-        "         atdd coach transition {number} RED",
+    "PLANNED": _NextAction(
+        lines=("  Next: Write failing tests (RED phase), then transition:",),
+        to_phase="RED",
     ),
-    "RED": (
-        "  Next: Implement to make tests pass (GREEN), then transition:",
-        "         atdd coach transition {number} GREEN",
+    "RED": _NextAction(
+        lines=("  Next: Implement to make tests pass (GREEN), then transition:",),
+        to_phase="GREEN",
     ),
-    "GREEN": (
-        "  Next: Run tester SMOKE verification, then transition:",
-        "         atdd coach transition {number} SMOKE",
+    "GREEN": _NextAction(
+        lines=("  Next: Run tester SMOKE verification, then transition:",),
+        to_phase="SMOKE",
     ),
-    "SMOKE": (
-        "  Next: Refactor to clean architecture, then transition:",
-        "         atdd coach transition {number} REFACTOR",
+    "SMOKE": _NextAction(
+        lines=("  Next: Refactor to clean architecture, then transition:",),
+        to_phase="REFACTOR",
     ),
-    "REFACTOR": (
-        "  Next: Merge the PR — REFACTOR → COMPLETE is automatic:",
-        "         .github/workflows/atdd-auto-phase.yml advances the",
-        "         phase on merge and projects the label from the store.",
-        "  Manual (only if there is no PR, or auto-phase did not run):",
-        "         atdd coach transition {number} COMPLETE",
+    "REFACTOR": _NextAction(
+        lines=(
+            "  Next: Merge the PR — REFACTOR → COMPLETE is automatic:",
+            "         .github/workflows/atdd-auto-phase.yml advances the",
+            "         phase on merge and projects the label from the store.",
+            "  Manual (only if there is no PR, or auto-phase did not run):",
+        ),
+        to_phase="COMPLETE",
     ),
-    "COMPLETE": ("  This issue is COMPLETE. No further action needed.",),
-    "OBSOLETE": ("  This issue is OBSOLETE. No further action needed.",),
-    "BLOCKED": ("  This issue is BLOCKED. Resolve blockers, then transition back.",),
+    "COMPLETE": _NextAction(
+        lines=("  This issue is COMPLETE. No further action needed.",)
+    ),
+    "OBSOLETE": _NextAction(
+        lines=("  This issue is OBSOLETE. No further action needed.",)
+    ),
+    "BLOCKED": _NextAction(
+        lines=("  This issue is BLOCKED. Resolve blockers, then transition back.",)
+    ),
 }
 
 
@@ -105,7 +134,7 @@ class IssueLifecycle:
                 return None
             import json
             return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return None
 
     def _resolve_wmbts(self, issue_number: int):
@@ -188,16 +217,50 @@ class IssueLifecycle:
 
     def _find_worktree_for_issue(self, slug: str, prefix: str) -> Optional[Path]:
         """Check if a worktree already exists for this issue's branch."""
-        worktree_dir_name = f"{prefix}-{slug}"
-        worktree_path = self.target_dir.parent / worktree_dir_name
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         if worktree_path.exists():
             return worktree_path
         return None
 
     def _is_in_worktree(self, slug: str, prefix: str) -> bool:
-        """Check if we're currently in the correct worktree."""
-        expected_dir_name = f"{prefix}-{slug}"
-        return self.target_dir.name == expected_dir_name
+        """Whether the caller is standing in THIS issue's worktree (#1708).
+
+        The identity of a worktree is its issue, not the prefix it happens to
+        carry. Comparing against a single derived ``{prefix}-{slug}`` made a
+        worktree created with ``--prefix fix`` invisible whenever the issue body
+        derived ``feat`` — so the caller standing inside it was told otherwise
+        and a duplicate was created beside it (the #1802 incident).
+
+        Any SANCTIONED prefix counts, and nothing else does: matching on the slug
+        alone would make an unrelated directory that merely ends in it answer yes.
+
+        Placement-agnostic by construction: the check is on the directory's
+        NAME, so it answers the same whether the worktree sits at the legacy
+        flat sibling or under a configured ``worktree_root`` (#1524). The name
+        itself still comes from the one resolver, so a future change to the
+        naming scheme cannot make this predicate disagree with the creation
+        paths.
+        """
+        from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES
+
+        name = self.target_dir.name
+        candidates = {resolve_worktree_dir_name(p, slug) for p in ALLOWED_BRANCH_PREFIXES}
+        candidates.add(resolve_worktree_dir_name(prefix, slug))
+        return name in candidates
+
+    def _report_absent_worktree(self, issue_number: int, slug: str, prefix: str) -> int:
+        """Say a worktree is missing without making one — the READ path (#1708).
+
+        Extracted rather than inlined in ``enter``: that method already sits at
+        the ``coder.refactor.complexity-length`` threshold, and adding the report
+        inline pushed the rule one over its ratchet baseline.
+        """
+        print()
+        print(f"ATDD: Issue #{issue_number} has no worktree here.")
+        print(f"  expected one for branch {prefix}/{slug}")
+        print(f"  create it with: atdd coach enter {issue_number}")
+        print()
+        return 0
 
     def _create_branch(self, issue_number: int, slug: str, prefix: str) -> Optional[Path]:
         """Create worktree branch. Returns worktree path or None on failure."""
@@ -207,11 +270,11 @@ class IssueLifecycle:
         if entry:
             rc = manager.branch(issue_number)
             if rc == 0:
-                return self.target_dir.parent / f"{prefix}-{slug}"
+                return resolve_worktree_path(self.target_dir, prefix, slug)
             return None
         # If not in manifest, create worktree directly
         branch_name = f"{prefix}/{slug}"
-        worktree_path = self.target_dir.parent / f"{prefix}-{slug}"
+        worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         if worktree_path.exists():
             return worktree_path
 
@@ -284,7 +347,7 @@ class IssueLifecycle:
             if result.stdout:
                 print(result.stdout.rstrip())
             return result.returncode
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print("Warning: Could not run atdd gate")
             return 0
 
@@ -321,15 +384,70 @@ class IssueLifecycle:
         print("=" * 70)
         print()
 
+    def _transition_command_lines(
+        self, from_phase: str, to_phase: str, number: int
+    ) -> List[str]:
+        """The command(s) that actually cross ``from_phase -> to_phase``.
+
+        DERIVED from the gate that will judge the command, never restated
+        (#1750). ``atdd coach approve`` is named for exactly the edges
+        :func:`~atdd.coach.gate.registrations.approval_required_for` reports as
+        approval-gated — which is ``.atdd/config.yaml``'s ``gate.transitions``
+        intersected with the edges the approval check is registered for. This
+        repo gates ``PLANNED->RED`` and ``SMOKE->REFACTOR``; a repo that gates
+        neither, or gates a third edge, gets the right sentence with no code
+        change, because the sentence is not in the code.
+
+        Nothing here changes the POLICY — the same call the gate makes, asked one
+        step earlier so the operator is told about the refusal instead of
+        discovering it.
+        """
+        transition = f"         atdd coach transition {number} {to_phase}"
+        try:
+            from atdd.coach.gate.registrations import approval_required_for
+
+            gated = approval_required_for(self._load_config(), from_phase, to_phase)
+        except Exception as exc:
+            # A hint that cannot consult the gate must not take the command down,
+            # and must not silently claim the edge is ungated either — say which
+            # question went unanswered.
+            logger.warning(
+                "could not derive whether the next transition is gated",
+                extra={"issue": number, "edge": f"{from_phase}->{to_phase}",
+                       "error": str(exc)},
+            )
+            return [
+                transition,
+                f"  (could not check whether {from_phase}->{to_phase} is gated: "
+                f"{exc})",
+            ]
+
+        if not gated:
+            return [transition]
+        return [
+            f"  {from_phase}->{to_phase} is a gated edge — the transition alone is",
+            "  refused. Approve it first:",
+            f"         atdd coach approve {number} --transition '{from_phase}->{to_phase}'",
+            transition,
+        ]
+
     def _print_next_action(self, status: str, number: int) -> None:
         """Print the operator's next step for *status*.
 
         Table-driven rather than an if/elif chain (#1626): the hints are DATA,
         one entry per phase, so adding a phase is an entry here and the branch
-        count does not grow with the phase machine.
+        count does not grow with the phase machine. The COMMAND is not part of
+        that data — it is composed against the gate (#1750).
         """
-        for line in _NEXT_ACTION_HINTS.get(status, ()):
+        hint = _NEXT_ACTION_HINTS.get(status)
+        if hint is None:
+            return
+        for line in hint.lines:
             print(line.format(number=number))
+        if hint.to_phase is None:
+            return
+        for line in self._transition_command_lines(status, hint.to_phase, number):
+            print(line)
 
     def check(self, issue_number: int) -> int:
         """Run template compliance check against an issue body.
@@ -385,7 +503,7 @@ class IssueLifecycle:
             return {}
         try:
             return yaml.safe_load(self.config_file.read_text()) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-09-01
+        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return {}
 
     def _transition_gate(self, issue_number: int, target_status: str,
@@ -538,11 +656,13 @@ class IssueLifecycle:
         # Re-enter to show updated state
         return self.enter(issue_number)
 
-    def enter(self, issue_number: int) -> int:
+    def enter(self, issue_number: int, *, create: bool = True) -> int:
         """Enter an existing issue with state-driven behavior.
 
         Args:
             issue_number: GitHub issue number.
+            create: may a missing worktree be created? The READ verb passes
+                ``False`` (#1708); ``atdd coach enter`` keeps the default.
 
         Returns:
             0 on success, 1 on error.
@@ -586,6 +706,8 @@ class IssueLifecycle:
             existing = self._find_worktree_for_issue(slug, prefix)
             if existing:
                 worktree_path = existing
+            elif not create:
+                return self._report_absent_worktree(issue_number, slug, prefix)
             else:
                 worktree_path = self._create_branch(issue_number, slug, prefix)
                 if not worktree_path:

@@ -18,6 +18,26 @@ or the release commit — to another issue that is momentarily at INIT/PLANNED.
 That cross-PR sweep was the #1172/#1274/#1285 whack-a-mole: it is inherently
 non-deterministic (window + live state), so it must never gate CI.
 
+STATE ONLY WHAT WAS OBSERVED (issue #1748). The blocking path called
+``_evaluate_pr(mgr, {"number": own_pr})`` — a dict carrying nothing but the
+number — and the message template then read ``pr.get("mergedAt", "unknown")``
+into a sentence whose grammar already assumed the merge. So an OPEN PR was
+reported as "PR #1743 merged (unknown)" while ``state=open merged=false
+merged_at=null``, and the check FAILED on that invented fact. Three states —
+merged, not merged, could not tell — were collapsed into a sentence that only
+knew one, which is #1719's four-verdict problem in prose. The merge state is now
+read (from the PR row, else from ``resolution["pr_data"]``), an unmerged PR owes
+this rule nothing, and an indeterminate one reports could-not-check.
+
+AND THE REMEDY COMES FROM THE PHASE MACHINE. The old ``Fix:`` line prescribed
+``atdd coach transition <N> <next-phase> (e.g. "REFACTOR" or "COMPLETE")``.
+Followed verbatim from PLANNED that drives an issue to a phase meaning
+"implemented and verified" without RED, GREEN or SMOKE ever executing — a strict
+gate whose own remedy defeats the lifecycle it polices. The next phase is now
+derived from ``coach/conventions/phase_machine.convention.yaml``, the single
+source of truth, so the remedy cannot name a phase the machine does not declare
+reachable from where the issue actually stands.
+
 Run: atdd validate coach
 """
 
@@ -30,8 +50,12 @@ from typing import List, Optional, Sequence, Tuple
 import pytest
 
 from atdd.coach.commands.pr import PRManager
+from atdd.coach.core import _NON_FORWARD_TARGETS
+from atdd.coach.gate.decision import GateVerdict
+from atdd.coach.gate.phase_edges import PhaseMachineUnavailable, phase_machine
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.validators._observation import COULD_NOT_CHECK_PREFIX
 
 pytestmark = [pytest.mark.platform, pytest.mark.github_api]
 
@@ -52,6 +76,19 @@ _TERMINAL_PHASES = frozenset({"COMPLETE", "OBSOLETE"})
 _NON_LIFECYCLE_LABELS = frozenset({"tracking", "meta", "epic", "parent"})
 
 
+#: PR ``state`` values that settle the merge question without a ``mergedAt``.
+#: ``gh pr list --state merged`` returns ``MERGED``; ``gh pr view`` on a live PR
+#: returns ``OPEN`` / ``CLOSED``. Anything else is left indeterminate rather than
+#: guessed at, which is the whole point of #1748.
+_MERGED_STATES = frozenset({"MERGED"})
+_UNMERGED_STATES = frozenset({"OPEN", "CLOSED", "DRAFT"})
+
+#: Escapes rather than forward progress. Imported from ``atdd.coach.core`` — the
+#: repo's one Python home for this distinction — so the remedy does not grow a
+#: second, drifting copy of "which targets are real advancement".
+_ESCAPE_TARGETS = frozenset(p.value for p in _NON_FORWARD_TARGETS)
+
+
 def _issue_is_non_lifecycle(issue_data: dict) -> bool:
     """True if the issue carries a label marking it as non-lifecycle."""
     labels = issue_data.get("labels", []) or []
@@ -60,6 +97,71 @@ def _issue_is_non_lifecycle(issue_data: dict) -> bool:
         for lbl in labels
     }
     return bool(label_names & _NON_LIFECYCLE_LABELS)
+
+
+def _merge_state(*sources: Optional[dict]) -> Optional[bool]:
+    """Did this PR merge? ``True`` / ``False`` / ``None`` for "could not tell".
+
+    ``sources`` are consulted in order — the PR row from
+    ``fetch_recently_merged_prs`` first (it carries ``state`` and ``mergedAt``
+    for the advisory sweep), then ``resolution["pr_data"]`` from ``_fetch_pr``
+    (which carries both for the own-PR blocking path).
+
+    Returns ``None`` rather than guessing when neither source says. That third
+    answer is the one the old template could not spell: it read a missing
+    ``mergedAt`` as "merged, date unclear" and printed ``merged (unknown)``.
+    """
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        if source.get("mergedAt"):
+            return True
+        state = str(source.get("state") or "").upper()
+        if state in _MERGED_STATES:
+            return True
+        if state in _UNMERGED_STATES:
+            return False
+    return None
+
+
+def next_phase_remedy(phase: str, issue_number: int) -> str:
+    """The remedy sentence for an issue standing at ``phase``, from the machine.
+
+    ``phase_machine()`` reads ``coach/conventions/phase_machine.convention.yaml``,
+    which declares itself the single source of truth ("add or change a phase
+    HERE, never in Python"). The forward target is the first declared transition
+    that is not an escape — the same selection ``atdd.coach.core._forward_target``
+    makes, on the same data.
+
+    Never names a phase the machine does not declare reachable from ``phase``, so
+    it cannot repeat the old hardcoded ``e.g. "REFACTOR" or "COMPLETE"`` that
+    skipped RED, GREEN and SMOKE. When the machine cannot be read it names NO
+    phase at all and points at the file — a remedy invented at the one moment the
+    lifecycle is unreadable is exactly the fabrication this issue is about.
+    """
+    try:
+        machine = phase_machine()
+    except PhaseMachineUnavailable as exc:
+        return (
+            f"Fix: advance #{issue_number} to the next phase the lifecycle "
+            f"declares after {phase} — this run could not read the phase machine "
+            f"to name it ({exc}); "
+            f"see src/atdd/coach/conventions/phase_machine.convention.yaml."
+        )
+
+    targets = machine.get(str(phase).upper(), ())
+    forward = next((t for t in targets if t not in _ESCAPE_TARGETS), None)
+    if forward is None:
+        return (
+            f"Fix: the phase machine declares no forward transition out of "
+            f"{phase} for #{issue_number}; "
+            f"see src/atdd/coach/conventions/phase_machine.convention.yaml."
+        )
+    return (
+        f"Fix: run `atdd coach transition {issue_number} {forward}` — "
+        f"{forward} is the phase the machine declares next after {phase} "
+        f"(see src/atdd/coach/conventions/phase_machine.convention.yaml)."
+    )
 
 
 # Regex for a PR number embedded in an env ref or a PR URL.
@@ -108,8 +210,19 @@ def _evaluate_pr(mgr: "PRManager", pr: dict) -> Optional[str]:
 
     Shared by the blocking own-PR check and the advisory cross-PR sweep so
     both apply the identical skip logic (closed / terminal / non-lifecycle).
-    ``pr`` needs a ``number`` key; ``mergedAt`` is used for the message when
-    present.
+    ``pr`` needs a ``number`` key; ``state``/``mergedAt`` settle the merge
+    question when present, and ``resolution["pr_data"]`` supplies them when the
+    caller passed only a number.
+
+    The message states what was observed and nothing else (#1748):
+
+    * merged + issue at INIT/PLANNED → the real condition, reported as a merge.
+    * NOT merged → ``None``. Nothing is owed before a merge; that is
+      ``NOT_APPLICABLE``, and inventing a merge to fail on was the defect.
+      A pre-SMOKE PR that should not merge is
+      ``coach.pr.merge-blocks-on-pre-smoke-close``'s job, not this one's.
+    * merge state indeterminate → ``COULD_NOT_CHECK``, which refuses. It says
+      the state could not be read; it does not assert either answer.
     """
     pr_number = pr["number"]
     resolution = mgr.resolve_linked_issue(pr_number)
@@ -137,18 +250,29 @@ def _evaluate_pr(mgr: "PRManager", pr: dict) -> Optional[str]:
     if _issue_is_non_lifecycle(resolution["issue_data"]):
         return None
 
-    if phase in _STALE_PHASES:
-        merged_at = pr.get("mergedAt", "unknown")
+    if phase not in _STALE_PHASES:
+        return None
+
+    merged = _merge_state(pr, resolution.get("pr_data"))
+    if merged is False:
+        return None
+    if merged is None:
         return (
-            f"PR #{pr_number} merged ({merged_at}) but linked issue "
-            f"#{issue_number} is still at {phase} — expected phase "
-            f"advancement after merge. "
-            f"Fix: atdd coach transition {issue_number} <next-phase> "
-            f'(e.g. "REFACTOR" or "COMPLETE"; '
-            f"see CLAUDE.md::state_machine.transitions for the valid "
-            f"transitions out of {phase})."
+            f"{COULD_NOT_CHECK_PREFIX} PR #{pr_number}'s merge state could not be "
+            f"read (no `state` and no `mergedAt` came back), so whether linked "
+            f"issue #{issue_number} — currently at {phase} — owes an advancement "
+            f"cannot be decided. Re-run once the API is reachable "
+            f"(run `gh pr view {pr_number} --json state,mergedAt` to see what it "
+            f"answers)."
         )
-    return None
+
+    merged_at = (pr.get("mergedAt") or (resolution.get("pr_data") or {}).get("mergedAt"))
+    when = f" at {merged_at}" if merged_at else ""
+    return (
+        f"PR #{pr_number} merged{when} but linked issue #{issue_number} is still "
+        f"at {phase} — expected phase advancement after merge. "
+        f"{next_phase_remedy(phase, issue_number)}"
+    )
 
 
 def _advisory_cross_pr_sweep(
@@ -164,7 +288,7 @@ def _advisory_cross_pr_sweep(
     advisories: List[str] = []
     try:
         merged_prs = mgr.fetch_recently_merged_prs(limit=20)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-09-01
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return advisories
 
     log = logging.getLogger(__name__)
@@ -196,16 +320,27 @@ def scan_issue_advancement(repo_root: Path) -> Tuple[int, Sequence]:
     Returns (violation_count, violation_messages) for the disposition gate.
     """
     mgr = PRManager(target_dir=repo_root)
+    log = logging.getLogger(__name__)
     violations: List[str] = []
 
     own_pr = _current_pr_number(mgr)
-    if own_pr is not None:
+    if own_pr is None:
+        # Name the green. This rule is about a PR that MERGED; a run with no PR in
+        # scope observed nothing and must say so rather than bank a silent pass
+        # indistinguishable from a verified one (#1747's lesson, same family).
+        log.info(
+            "SPEC-COACH-PRGATE-0003: %s — no PR under validation on this run, so "
+            "no post-merge advancement was checked",
+            GateVerdict.NOT_APPLICABLE.value,
+            extra={"verdict": GateVerdict.NOT_APPLICABLE.value},
+        )
+    else:
         message = _evaluate_pr(mgr, {"number": own_pr})
         if message:
             violations.append(message)
-            logging.getLogger(__name__).warning(
-                "SPEC-COACH-PRGATE-0003: own PR #%d linked issue not advanced",
-                own_pr,
+            log.warning(
+                "SPEC-COACH-PRGATE-0003: own PR #%d — %s",
+                own_pr, message,
                 extra={"pr": own_pr},
             )
 

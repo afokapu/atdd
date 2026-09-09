@@ -27,6 +27,49 @@ rules:
     description: "GREEN-phase PR ships code files without SMOKE evidence (issue #293)"
     introduced_in: "1.67.0"
 
+  # Emitted at runtime by test_pr_phase_alignment.py (Violation rule_id
+  # COACH-PRGATE-0002). Strict, and safe to be strict because the validator
+  # routes through `_pr_scope.select_for_current_pr` (#1478/E070) like its two
+  # sibling PR gates: the scan still sees every offender, but only the PR under
+  # validation is failed. The 10 open PRs shipping code at INIT/PLANNED today
+  # each fail on their OWN run, which is enforcement rather than the cross-PR
+  # coupling that a fleet-wide strict gate would have been.
+  - id: "coach.pr.early-phase-ships-code"
+    aliases: ["COACH-PRGATE-0002"]
+    severity: 4
+    disposition: strict
+    validator: "test_pr_phase_alignment::test_pr_phase_alignment"
+    description: "PR ships code files while its linked issue is still at atdd:INIT or atdd:PLANNED — the lifecycle was skipped entirely (issue #1791; incident pattern #256)"
+    introduced_in: "4.41.0"
+
+  # Structural rule (#1805): enforced by reading validator source, not by
+  # running the gates. `_pr_scope` (#1478/E070) scoped two PR-scanning gates and
+  # #1791 scoped a third; routing through it stayed a convention nobody checked,
+  # so each new gate re-opened the hole and failed branches that could not fix it.
+  # The discriminator is ENUMERATION, never the location shape: a gate that emits
+  # PR#<n> while scanning only its own branch diff (e009) must NOT be scoped.
+  - id: "coach.pr.scanning-gate-must-scope-to-current-pr"
+    severity: 3
+    disposition: strict
+    validator: "test_pr_scanning_gates_route_through_pr_scope::test_every_pr_scanning_gate_routes_through_pr_scope"
+    description: "A validator that enumerates open pull requests and fails on PR#<n> locations must route those violations through atdd.coach.validators._pr_scope, so one offending PR cannot red every other contributor's CI (issue #1805; pattern from #1478/E070)"
+    introduced_in: "4.45.0"
+    aliases: []
+    fix_hint: |
+      The named validator asks GitHub for open pull requests and emits
+      violations located at PR#<n>, but hands them to the disposition gate
+      unscoped. Every branch then fails for whichever PR happens to offend.
+
+      Route the scan result through the shared selector before the gate:
+
+        from atdd.coach.validators._pr_scope import select_for_current_pr
+        blocking = select_for_current_pr(all_violations, current_pr)
+        assert_disposition_satisfied(validator_id=..., violations=blocking)
+
+      Scan and log every offender for repo-health visibility; only narrow what
+      FAILS. A run that cannot name its own PR blocks nothing — the offender is
+      still failed on the run that can.
+
   - id: "coach.pr.merge-blocks-on-pre-smoke-close"
     severity: 4
     description: "Open PRs that auto-close an ATDD issue (via `Closes #N` / `Fixes #N` / `Resolves #N` or the GitHub `closingIssuesReferences` API field) must reference an issue whose phase label is atdd:REFACTOR or atdd:COMPLETE. PRs targeting an issue at atdd:RED or atdd:GREEN are blocked — the issue must transition through SMOKE+REFACTOR before merge, otherwise GitHub's auto-close fires while the lifecycle is still pre-SMOKE (the 2026-05-13 substrate-asymmetry incident). Strict disposition: bypass is forbidden; no inline suppress."

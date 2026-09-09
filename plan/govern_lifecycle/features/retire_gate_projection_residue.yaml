@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:retire-gate-projection-residue"
+wagon: "wagon:govern-lifecycle"
+description: "Finishes the agent-config projection retirement inside ATDDGate. #1811/#1812 deleted the projection and its producer but left two surfaces reading the `files` local it produced, so `atdd gate --json` raises NameError from the CLI and `get_confirmation_template` raises for any caller; a hash helper still reaches a `syncer` attribute no longer constructed, and `verify`'s docstring still promises a return code nothing can produce. Removes the residue rather than reviving the projection."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:R011"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No CLI surface changes — `atdd gate` and `atdd gate --json` keep their arguments and exit codes; the JSON form simply stops raising."
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "Nothing is added. This is deletion of residue from a retirement that already happened."
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "No domain concept involved; the retired projection was file generation."
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "The collaborator this feature removes the last references to (AgentConfigSync) was itself deleted by #1812."

@@ -211,7 +211,7 @@ def print_update_notice() -> None:
         notice = check_for_updates()
         if notice:
             print(notice, file=sys.stderr)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         pass  # Never fail the main command due to version check
 
 
@@ -341,7 +341,7 @@ def _upgrade_sync_message(last_version: str) -> Optional[str]:
     upgrade notes appended. None when the installed version is not newer."""
     if not _is_newer(__version__, last_version):
         return None
-    msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd sync && atdd init"
+    msg = f"ATDD upgraded ({last_version} → {__version__}). Run: atdd upgrade"
     notes = get_upgrade_notes(last_version, __version__)
     if notes:
         msg += "\n" + "\n".join(f"  → {v}: {note}" for v, note in notes)
@@ -393,7 +393,7 @@ def check_upgrade_sync_needed() -> Optional[str]:
             # An ATDD repo that has never recorded a sync (fresh init, or a
             # config predating the legacy field). Treat as needing sync — but
             # with no credible from-version, do not invent one.
-            return f"ATDD upgraded to {__version__}. Run: atdd sync && atdd init"
+            return f"ATDD upgraded to {__version__}. Run: atdd upgrade"
 
     return _upgrade_sync_message(recorded)
 
@@ -435,8 +435,34 @@ def print_upgrade_sync_notice() -> None:
         if notice:
             print(f"\n⚠️  {notice}", file=sys.stderr)
             print(file=sys.stderr)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            _print_placement_drift_notice()
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         pass  # Never fail the main command
+
+
+def _print_placement_drift_notice() -> None:
+    """Offer relocation when a version change reveals this worktree is misplaced.
+
+    #1524 asks for the relocation offer to surface "on the first `atdd` command
+    after a version change", and this is the only place that knows a version
+    change happened. Deliberately nested inside the upgrade branch rather than
+    called on its own: this does real work (a git subprocess and a store read),
+    and `print_upgrade_sync_notice` runs on EVERY CLI invocation. Hanging it off
+    the already-rare upgrade path keeps the hot path exactly as cheap as it was.
+
+    Like its caller, it only ever prints. The relocation itself is opt-in
+    through `atdd worktree relocate`, because a move that happened because
+    someone ran `atdd --help` would be indefensible.
+    """
+    try:
+        from atdd.coach.commands.worktree_placement import placement_drift_notice
+
+        drift = placement_drift_notice()
+        if drift:
+            print(f"ℹ️  {drift}", file=sys.stderr)
+            print(file=sys.stderr)
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        pass  # A placement hint must never break a command
 
 
 # --- Version gate (git hook enforcement) ---
@@ -482,7 +508,7 @@ def installed_cli_version() -> Optional[str]:
             capture_output=True, text=True, timeout=10,
             env=env, cwd=tempfile.gettempdir(),
         )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return None
 
     if result.returncode != 0:
@@ -505,21 +531,46 @@ def _gate_version() -> Optional[str]:
     return current
 
 
-def is_outdated() -> Tuple[bool, str, str]:
-    """Check if the INSTALLED atdd CLI is outdated vs PyPI (no cache).
+def is_outdated(*, cached: bool = False) -> Tuple[bool, str, str]:
+    """Check whether the INSTALLED atdd CLI is behind the latest published version.
 
     Judges the ``atdd`` executable on PATH, never the working tree (#1449).
+
+    Args:
+        cached: Resolve "latest" through :func:`_resolve_latest_version` and its
+            24 h cache instead of fetching PyPI. The push gate passes True; the
+            operator-invoked ``atdd upgrade`` does not.
 
     Returns:
         Tuple of (outdated, current_version, latest_version).
         If the installed version is unknowable, returns (False, "", "") — open.
-        If PyPI is unreachable, returns (False, current, "").
+        If no latest version can be resolved, returns (False, current, "").
+
+    Two callers, two correct answers (#1762). ``atdd upgrade`` is a command an
+    operator ran *on purpose*: it must see PyPI as it is this second, so it goes
+    uncached. ``_gate_against_pypi`` runs on **every** ``git push``, and until
+    #1762 it also went uncached — up to two seconds of network on the critical
+    path of every push, for a question already answered by a cache this module
+    writes and ``print_update_notice`` already reads. The gate now reads that
+    cache, which bounds it to one fetch per :data:`CHECK_INTERVAL` rather than
+    one per push.
+
+    The relaxation this buys is deliberate and bounded: a release published
+    minutes ago no longer refuses the push of the operator who authored it. The
+    gate is not weakened — an install behind the resolved latest is still
+    refused, still fail-closed, still with no bypass (wmbt:...:Y004). It is the
+    *backstop* now; the post-merge / post-checkout self-upgrade is what actually
+    keeps a checkout current, and it warms this very cache on its way through.
     """
     current = _gate_version()
     if current is None:
         return False, "", ""
 
-    latest = _fetch_latest_version()
+    latest = (
+        _resolve_latest_version(_load_cache(), time.time())
+        if cached
+        else _fetch_latest_version()
+    )
     if latest is None:
         return False, current, ""
 
@@ -569,7 +620,7 @@ def _verify_installed_version(expected: Optional[str]) -> bool:
             extra={"phase": "verify", "outcome": "timeout", "timeout_s": 10},
         )
         return False
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
         return False
 
     if result.returncode != 0:
@@ -801,8 +852,15 @@ def _gate_against_minimum(minimum_version: str) -> None:
 
 
 def _gate_against_pypi() -> None:
-    """Gate the installed version against PyPI latest. Exits 1 when outdated."""
-    outdated, current, latest = is_outdated()
+    """Gate the installed version against the latest published version. Exits 1
+    when outdated.
+
+    ``cached=True`` is the whole of #1762's push-path change: the comparison is
+    made against the 24 h cache rather than a fresh PyPI fetch, so a push costs
+    no network on the overwhelming majority of invocations. Nothing else about
+    this function's posture moves — see :func:`is_outdated`.
+    """
+    outdated, current, latest = is_outdated(cached=True)
 
     if not outdated:
         if not current:

@@ -13,13 +13,55 @@ set -e
 _REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
 
 # --- Source-checkout live-source bridge (#928 Gap 4 Item 3) ---
+# Cleared first: this is an internal flag read by the interpreter resolution
+# below, and a same-named variable inherited from the caller's environment would
+# otherwise suppress that resolution and silently restore the bug it fixes.
+_ATDD_SOURCE_BRIDGE=
 # Inside the atdd toolkit source checkout, prepend src/ so the bare `python3`
 # version gate AND `atdd validate` import atdd from the WORKING TREE, not the
 # installed wheel. Removes the manual `PYTHONPATH=src` bridge; no-op elsewhere.
 if [ -n "$_REPO_ROOT" ] && [ -d "$_REPO_ROOT/src/atdd" ] && \
    grep -q '^name = "atdd"' "$_REPO_ROOT/pyproject.toml" 2>/dev/null; then
     export PYTHONPATH="$_REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+    # Recorded so the interpreter resolution below knows the ambient python3 can
+    # now import atdd — from this tree, which is the point.
+    _ATDD_SOURCE_BRIDGE=1
 fi
+
+# --- BEGIN atdd-gate-interpreter ---
+# Which interpreter runs the gates below (#1875).
+#
+# When the source bridge above applied it put the WORKING TREE on the import
+# path, and the gates must test that rather than the installed wheel — so the
+# ambient `python3` wins there and the console script is deliberately NOT
+# consulted: its entry point carries `-E`, which would discard the very path the
+# bridge just set.
+#
+# Everywhere else the only interpreter known to hold atdd is the one the `atdd`
+# console script was built against. pipx and uv install into an isolated venv no
+# ambient python3 can import, which is why a freshly initialised consumer repo
+# could not push at all. Resolved from the shebang rather than by probing, so
+# this costs one `command -v` and one `sed` — no interpreter start-up — on every
+# commit and push.
+ATDD_PYTHON=python3
+if [ -z "${_ATDD_SOURCE_BRIDGE:-}" ]; then
+    _ATDD_BIN=$(command -v atdd 2>/dev/null || true)
+    if [ -n "$_ATDD_BIN" ]; then
+        # Bounded read: `atdd` is a text console script, but some installers ship
+        # a binary launcher, and an unbounded `sed` would scan it to the first
+        # newline. 256 bytes is far more than any shebang.
+        # Both halves muted: a binary launcher makes `sed` complain about an
+        # illegal byte sequence, and that would print before every commit and push.
+        _ATDD_SHEBANG=$(head -c 256 "$_ATDD_BIN" 2>/dev/null | sed -n '1s|^#!\([^[:space:]]*\).*|\1|p' 2>/dev/null || true)
+        # Some installers ship `atdd` as a shell wrapper; only take a python.
+        case "$_ATDD_SHEBANG" in
+            */python*)
+                if [ -x "$_ATDD_SHEBANG" ]; then ATDD_PYTHON="$_ATDD_SHEBANG"; fi
+                ;;
+        esac
+    fi
+fi
+# --- END atdd-gate-interpreter ---
 if [ -n "$_REPO_ROOT" ]; then
     _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
     if [ -f "$_BYPASS_FILE" ]; then
@@ -58,7 +100,7 @@ BARE_MSG
 fi
 
 # --- Version gate ---
-python3 -c "
+"$ATDD_PYTHON" -c "
 import sys
 try:
     from atdd.version_check import _gate_main
@@ -82,7 +124,7 @@ if [ $? -ne 0 ]; then exit 1; fi
 # Blocking is scoped to the work_item bound to THIS branch. Repo-wide drift is
 # reported as advisory only — a repo-wide block would red-gate every branch on
 # pre-existing history (#1516 backfills it).
-python3 -c "
+"$ATDD_PYTHON" -c "
 import sys
 try:
     from atdd.coach.store_mirror_gate import _gate_main
@@ -255,6 +297,32 @@ if [ "${CI:-}" != "true" ]; then
         atdd registry update --yes >&2 2>&1 || true
         git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml 2>/dev/null || true
         echo "ATDD: mirrors resynced and re-staged; continuing push..." >&2
+    fi
+fi
+
+# --- Worktree placement gate (#1524, Decision 4 — the BLOCK stage) ---
+# OPT-IN: silent unless `.atdd/config.yaml` sets
+# `worktree_placement_enforcement: block`. The default (`warn`) reports from
+# post-checkout and refuses nothing, which is the whole of the first release.
+#
+# pre-push is the only placement-relevant hook whose refusal costs no work: the
+# commits exist, the worktree exists, and `atdd worktree relocate --apply`
+# clears the block. Gating the COMMIT instead would strand work an agent had
+# just finished — the failure Decision 4 exists to avoid.
+if command -v atdd >/dev/null 2>&1; then
+    PLACEMENT_BLOCK=$(atdd worktree check-placement 2>/dev/null) || PLACEMENT_BLOCK=''
+    if [ -n "$PLACEMENT_BLOCK" ]; then
+        cat >&2 <<PLACEMENT
+
+ATDD BLOCK: this worktree is not under the configured worktree_root.
+
+$PLACEMENT_BLOCK
+
+  Fix it without losing anything:
+    atdd worktree relocate --apply
+
+PLACEMENT
+        exit 1
     fi
 fi
 

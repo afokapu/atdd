@@ -81,4 +81,6 @@ def run(argv: list[str]) -> int:
 
     from atdd.coach.commands.issue_lifecycle import IssueLifecycle
 
-    return IssueLifecycle().enter(issue_number)
+    # #1708: this is the READ verb — showing must never create a branch or a
+    # worktree. `atdd coach enter` keeps the creating behaviour.
+    return IssueLifecycle().enter(issue_number, create=False)

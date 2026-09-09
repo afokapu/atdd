@@ -1,0 +1,75 @@
+urn: wmbt:govern-lifecycle:P002
+step: prepare
+direction: maximize
+dimension: likelihood
+object_of_control: a-hook-gate-reaching-an-interpreter-that-can-import-atdd
+context_clarifier: the hooks run their gates under bare python3, and pipx and uv install atdd
+  into an isolated venv no other python3 can import; the source checkout is covered by a PYTHONPATH
+  bridge, so the failure is invisible in the toolkit's own repo and total in a consumer's, where
+  the very first push is refused
+lens: functional.effectiveness
+statement: maximize likelihood of a-hook-gate-reaching-an-interpreter-that-can-import-atdd by
+  resolving the interpreter from the atdd console script when the source bridge does not apply,
+  so the gates run wherever atdd is installed rather than only where it happens to share a python3
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:P002-UNIT-001-the-source-bridge-still-wins-in-the-toolkit-checkout
+    id: AC-UNIT-001
+    purpose: the bridge exists so the gates test the WORKING TREE; an interpreter fix that silently
+      redirected them to the installed wheel would be a worse defect than the one being fixed,
+      and an invisible one
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a hook running inside the toolkit source checkout, where the bridge puts the working tree
+      on the import path
+  when:
+    abstract: the hook resolves the interpreter it will run its gates under
+  then:
+    abstract:
+    - it resolves to the bare interpreter the bridge prepared, not to the console script's
+    - the console script is not consulted at all, because its entry point ignores the import
+      path the bridge just set
+- identity:
+    urn: acc:govern-lifecycle:P002-UNIT-002-outside-the-bridge-the-console-script-decides
+    id: AC-UNIT-002
+    purpose: this is the consumer case that could not push at all; the only interpreter known
+      to have atdd is the one the console script was built against
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo that is not the toolkit checkout, with atdd installed into an isolated environment
+      no ambient interpreter can import
+  when:
+    abstract: the hook resolves the interpreter it will run its gates under
+  then:
+    abstract:
+    - it resolves to the interpreter behind the atdd console script
+    - with no console script present it falls back to the ambient interpreter and the gate reports
+      the environment fault rather than the hook failing opaquely
+- identity:
+    urn: acc:govern-lifecycle:P002-SMOKE-001-a-real-isolated-install-runs-the-gate
+    id: AC-SMOKE-001
+    purpose: the defect was measured as a refused first push, so the proof has to be a real
+      gate executing under a real isolated install, not a resolver returning a string
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real virtual environment holding atdd that the ambient interpreter cannot import, and
+      a real repository that is not the toolkit checkout
+  when:
+    abstract: the resolved interpreter is used to run a real version gate
+  then:
+    abstract:
+    - the gate imports atdd and reports a verdict
+    - the ambient interpreter is confirmed unable to import it, so the run proves the resolution
+      and not merely a happy environment

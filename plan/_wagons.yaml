@@ -141,7 +141,10 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 28
+    total: 29
+    E011: minimize likelihood of a body-store-divergence for the documentation obligation,
+      by projecting the stored declaration into the issue body in one direction only
+      and never parsing the rendered row back
     D001: maximize likelihood of schema-valid substrate by defining one canonical
       schema and flat canonical home per artifact kind and freezing the controlled
       vocabularies
@@ -209,6 +212,13 @@ wagons:
       checker to answer the `## Artifacts` question for both the validator and the
       runtime gate, reporting an empty declaration and an undeclared changed file
       as violations
+    C013: minimize quantity of deletion-claims-confirmed-by-absence-rather-than-by-a-deletion
+      by verifying a `### Deleted` claim against the revision's deletions rather than
+      against the tree, so a path that never existed stops resolving as CONFIRMED
+      GONE — the shape guard ahead of it passes n/a, none/none and an italic none,
+      all of which earned a green (#1824)
+    E010: minimize quantity of issue-bodies-stamped-with-a-non-current-mint-date when
+      authoring an issue body
   total: 0
   manifest: plan/author_atdd_substrate/_author_atdd_substrate.yaml
   path: plan/author_atdd_substrate/
@@ -413,7 +423,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 7
+    total: 8
     D001: maximize likelihood of a schema-valid binding plan by defining one canonical
       JSON schema for `.atdd/binding.lock.yaml` (which conventions are bound-owned
       vs legacy-fallback, keyed by the substrate-lock digest) and validating it before
@@ -436,6 +446,10 @@ wagons:
       disposition gate with deterministic precedence, so a bound implementation shadows
       the matching legacy validator for the same convention and gates a lifecycle
       transition exactly like a legacy validator
+    L002: minimize likelihood of the binding lock being unreachable from the directory
+      work happens in by resolving the substrate home through the Control Root resolver
+      rather than the caller's checkout, and by naming the substrate home a run actually
+      used instead of silently substituting the toolkit's
     M001: minimize likelihood of a silent bind failure by detecting a bound implementation
       that crashes, times out, or emits malformed output and falling back to legacy
       gating, surfaced loudly — never silently passing the gate (fail-safe, not fail-open)
@@ -493,6 +507,11 @@ wagons:
       when fetch_ci_status returns unknown for an unrecognised gh failure and wait_for_ci
       — which exits only on pass or fail — sleeps on it until the 1800s per-PR timeout
       (#1612)
+    C001: minimize quantity of successful-merges-reported-as-conflicts by classifying
+      the merge outcome from the pull request's actual state rather than from gh's
+      exit code, so a `--delete-branch` cleanup that fails while a worktree still
+      holds the branch is reported as the cleanup failure it is and the cascade continues,
+      while a merge that genuinely did not land still halts the wave (#1816)
   total: 0
   manifest: plan/coach_ops/_coach_ops.yaml
   path: plan/coach_ops/
@@ -595,7 +614,10 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 13
+    total: 14
+    D002: maximize likelihood of a documentation-declaration recorded as first-class
+      work-item state at Ratify, so every ratified plan states whether it changes
+      accepted documentation and why when it does not
     D001: minimize likelihood of session-without-main-job — Define gate requires a
       JTBD main-job before Locate opens
     L001: minimize likelihood of unbound-source-capture — Locate binds captured sources
@@ -976,6 +998,11 @@ wagons:
     E010: minimize likelihood of participating-session-absent-from-store-after-commit
     M004: minimize likelihood of wrong-session-selected-when-resuming-a-work-item
     L003: minimize effort-to-locate-the-session-to-resume-after-a-crash
+    C001: minimize quantity of post-merge-advances-that-report-a-no-op-after-failing-to-look
+      by distinguishing an unobservable link from an absent one — the COULD_NOT_CHECK
+      versus NOT_APPLICABLE split GateVerdict already models — carrying the reason
+      the fetch failed, and exiting non-zero when the advance could not be attempted
+      (#1640)
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
@@ -1087,6 +1114,10 @@ wagons:
       violations flat, so turning the enforce job blocking does not red the first
       build, while any rule whose violation count climbs above its baseline — or any
       rule that was clean and starts failing — still fails the gate
+    E004: minimize quantity of unratcheted-static-analysis-findings-reaching-main
+      by ratcheting ruff and pyright against frozen baselines, so today's 528 type
+      errors and 401 unused imports are held flat while a NEW finding fails the gate,
+      and a missing tool refuses rather than passes (#1837)
   total: 0
   manifest: plan/enforce_conventions_ci/_enforce_conventions_ci.yaml
   path: plan/enforce_conventions_ci/
@@ -1135,6 +1166,9 @@ wagons:
     name: commons:project:projection-object
     telemetry: null
   wmbt:
+    C005: minimize likelihood of an undocumented-merge, by refusing entry to main
+      when the declared documentation obligation is unresolved, and by failing closed
+      when the obligation lookup itself cannot be performed
     C001: minimize likelihood of an illegal-transition-merge, in which a canonical
       and schema-valid projection diff whose phase change is not lifecycle-legal relative
       to the merge-base, or which carries no evidence for a gate it skips, is admitted
@@ -1167,7 +1201,7 @@ wagons:
       executes the full section-4 required-check set (projection canonicality, projection
       schema, legal transition, trailer/diff cross-check, field-writer, no-secrets,
       core no-provider) and fails the run when any one of them fails
-    total: 8
+    total: 9
   total: 0
   manifest: plan/enforce_merge_authority/_enforce_merge_authority.yaml
   path: plan/enforce_merge_authority/
@@ -1260,6 +1294,73 @@ wagons:
   total: 0
   manifest: plan/freeze_runtime_contracts/_freeze_runtime_contracts.yaml
   path: plan/freeze_runtime_contracts/
+- wagon: govern-documentation-obligation
+  description: The lifecycle-core half of the documentation system. Declares a documentation
+    obligation as first-class work-item state at Ratify, checks the integrity of that
+    declaration without any knowledge of documentation format or repository layout,
+    and delegates every content judgement to an installed documentation capability
+    discovered through an entry point. Core never names AsciiDoc, ADRs, a documentation
+    taxonomy, a rendering toolchain or a documentation graph; those belong to the
+    standard documentation extension. Prevents accepted software entering main with
+    an unresolved documentation obligation, and prevents a capability that could not
+    observe from being read as a pass.
+  theme: commons
+  subject: agent:coach
+  context: ratifying-a-plan-that-changes-what-the-system-documents, and gating an
+    issue at COMPLETE and at merge on whether the declared documentation obligation
+    was discharged
+  action: records the documentation impact declared at Ratify as store state, refuses
+    a declaration that is structurally incomplete, resolves at most one installed
+    documentation capability, and converts that capability's verdict into a transition
+    decision in which NOT_APPLICABLE permits and COULD_NOT_CHECK blocks
+  goal: prove a change documented what it changed before it merges, without core learning
+    any documentation policy, so a consumer that installs no documentation extension
+    keeps a working lifecycle
+  outcome: a ratified plan carries a documentation declaration; a declaration naming
+    artifacts absent from the change set fails COMPLETE; an installed capability that
+    cannot answer blocks rather than passes; a repository with no documentation capability
+    installed is NOT_APPLICABLE and proceeds
+  produce:
+  - name: commons:govern:declaration-integrity-check
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:documentation-capability-seam
+    contract: null
+    telemetry: null
+    to: internal
+  - name: commons:govern:documentation-verdict
+    contract: null
+    telemetry: null
+    to: internal
+  consume:
+  - contract: null
+    from: wagon:define-plans
+    name: commons:plan:documentation-declaration
+    telemetry: null
+  - contract: null
+    from: wagon:govern-projection-fields
+    name: commons:govern:field-ownership-policy
+    telemetry: null
+  - contract: null
+    from: wagon:enforce-merge-authority
+    name: commons:enforce:lifecycle-evidence
+    telemetry: null
+  wmbt:
+    C001: minimize likelihood of an unobserved-obligation being reported as a discharged
+      one, by resolving the installed documentation capability and treating COULD_NOT_CHECK
+      as a blocking verdict distinct from NOT_APPLICABLE
+    D001: maximize likelihood of a format-agnostic declaration-integrity-check that
+      decides a documentation declaration is well-formed and its named artifacts are
+      present in the change set, so core proves the obligation without reading a single
+      documentation file
+    total: 3
+    C002: minimize likelihood of an undocumented-completion, by refusing the COMPLETE
+      transition when the declared documentation obligation is unresolved or could
+      not be observed
+  total: 0
+  manifest: plan/govern_documentation_obligation/_govern_documentation_obligation.yaml
+  path: plan/govern_documentation_obligation/
 - wagon: govern-lifecycle
   description: Orchestrates ATDD lifecycle, manages GitHub issues, validates phase
     transitions, maintains registries
@@ -1286,7 +1387,19 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 119
+    total: 124
+    C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
+      by having format_fix_hint() name the consequence of the amend it prescribes
+      and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
+      author must run before pushing, over the drifted-file set the check already
+      computed, while emitting nothing on the clean path and exempting no mirror from
+      the Artifacts requirement (#1739)
+    C024: minimize likelihood of a-registered-train-being-rejected-by-the-gate-that-confirms-train-assignment-because-the-two-sides-of-the-comparison-spell-the-same-train-differently
+      by normalizing train identity on both sides of the membership test — the graph
+      mints `train:<stem>` for a loose train file while the registry reader returns
+      the bare `<stem>` from that same directory, so an `==` made a train's registration
+      depend on which reader produced the string and wedged all 7 legacy numbered
+      trains at PLANNED with no --force path (#1850)
     C021: minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers
       by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose
       registry holds a substantive check — where it registers the same checks the
@@ -1305,6 +1418,22 @@ wagons:
       index over that same single source so records predating the binding are not
       newly stranded, and keeping the gate's refusal confined to a branch that matches
       no work item in a populated store (#1720)
+    C017: 'minimize quantity of operator-approval-tokens-demanded-on-an-edge-the-machine-declares-agent-submittable
+      by having ApprovalTokenGateCheck report NOT_APPLICABLE when the FROM phase declares
+      autonomy agent, so the edge stays listed in gate.transitions and the #1602 evidence
+      check still runs while the human stop it attached as collateral is lifted, with
+      any doubt — an unreadable machine, an absent or non-agent value — keeping the
+      token demanded (#1798)'
+    C018: 'minimize quantity of open-prs-failed-by-another-prs-tracked-stack by exempting
+      a base that is the head of another OPEN pull request from the orphan-merge guard
+      — tracked, not phantom, and retargeted by GitHub when the base PR merges — while
+      a base belonging to no open PR still violates, so the #477 guard is narrowed
+      rather than weakened (#1802)'
+    C019: minimize quantity of filesystem-mutations-performed-by-a-read-verb by stopping
+      `atdd coach issues` delegating its show path to the entering path, and by resolving
+      the worktree-identity check through the registered branch-to-worktree binding
+      instead of a `{prefix}-{slug}` name derived from the issue body, so a worktree
+      carrying any other prefix is seen rather than duplicated beside (#1708)
     C012: minimize likelihood of an-approval-token-naming-the-operator-as-its-approver-when-an-agent-minted-it-because-approved-by-defaults-to-the-user-environment-variable-and-is-not-covered-by-the-signature
       by observing the acting agent session at the mint through the shipped resolve_session()
       instead of defaulting to $USER, recording that session as its own token field
@@ -1320,12 +1449,25 @@ wagons:
     L003: minimize wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them
     R006: minimize drifted-lifecycle-records-that-no-verb-can-repair
     R005: minimize phase-labels-written-without-the-store-transition-behind-them
+    P002: maximize likelihood of a hook gate reaching an interpreter that can import
+      atdd, by resolving the interpreter from the atdd console script when the source
+      bridge does not apply, so the gates run wherever atdd is installed rather than
+      only where it happens to share a python3
     R001: minimize stale local manifest status after a successful GitHub transition
     R002: minimize misleading layout errors during post-transition re-enter
     R003: minimize stale hierarchy_coverage_features ratchet baseline carrying tactical
       baseline bumps
     R004: minimize branch-creation-gate rejections of repos already in flat-sibling
       worktree layout
+    C025: minimize likelihood of a generated CI workflow that cannot read the pull
+      request it was triggered by, by declaring the least-privilege permissions the
+      generated jobs actually need, so a freshly initialised consumer repo gets real
+      validate verdicts on its first pull request rather than a failed filter and
+      a row of skips
+    C026: minimize likelihood of a toolkit-self validator being collected in a repo
+      that is not the toolkit, by having every validator that reads the toolkit's
+      own source tree declare itself toolkit-self and decline to run elsewhere, so
+      a consumer's validate run reports on the consumer's code and nothing else
     D001: minimize issues created without orchestrate-ready template body
     D002: minimize parent issues without GitHub WMBT sub-issues when plan artifacts
       exist
@@ -1412,10 +1554,6 @@ wagons:
       an issue by validating the body against issue.schema.json before any GitHub
       call and publishing store-first via a single create (#792; the mint-path create+edit
       acceptances retired with the mint path in #1477)'
-    E020: minimize codex-agents-receiving-no-atdd-rules-because-sync-writes-deprecated-agents-md-not-conductor-md
-      by renaming the persona template to CONDUCTOR.md.tmpl, updating AgentConfigSync.AGENT_FILES['codex']
-      to 'CONDUCTOR.md', and emitting a migration notice when a stale AGENTS.md with
-      managed block is detected (#794)
     E021: minimize registry-mirror-drift-accumulates-on-main-because-no-push-or-ci-gate-enforces-atdd-registry-update-before-landing
       by applying a one-shot atdd registry update --yes chore commit, wiring atdd
       registry update --check into the pre-push hook, and adding a required atdd-registry-drift
@@ -1659,19 +1797,14 @@ wagons:
       by widening the signed scope to bind the branch and an expiry, so verification
       rejects a token presented on a branch it was not signed for and a token presented
       after its expiry
-    E065: 'minimize likelihood of the-claude-md-agent-context-file-exceeding-the-operator-line-budget-or-losing-its-atdd-lifecycle-and-command-pointers
-      (rehomed from spawn-agents #1483)'
     E066: 'minimize likelihood of the-operator-emergency-bypass-doc-being-absent-or-documenting-an-env-var-escape-hatch-instead-of-the-cli
       (rehomed from spawn-agents #1483)'
     E067: 'minimize likelihood of the-deployed-freedom-layer-allow-list-pre-authorizing-a-forbidden-command-or-an-unscoped-bash-prefix
       (rehomed from spawn-agents #1483; policy/freedom_layer_bash_scope variant is
       still live)'
-    E068: 'minimize likelihood of claude-md-advertising-atdd-skip-bypass-env-vars-or-a-destructive-force-flag-to-agents
-      (rehomed from spawn-agents #1483; renumbered from E064 which origin/main claimed)'
-    R007: 'minimize likelihood of the-claude-md-size-budget-rule-being-absent-from-the-atdd-validate-coach-surface
-      (rehomed from spawn-agents #1483)'
-    R008: 'minimize likelihood of the-no-bypass-advertising-rule-being-absent-from-the-atdd-validate-coach-surface
-      (rehomed from spawn-agents #1483)'
+    E068: minimize likelihood of an-upgrade-banner-teaching-agents-to-run-a-forbidden-flag
+      by keeping the banner free of `--force` and naming a verb that can act (#1811
+      retired this WMBT's three CLAUDE.md acceptances with the projection itself)
     E069: 'minimize likelihood of a-smoke-execution-gate-that-no-run-can-ever-satisfy-because-the-repo-declares-zero-live-smoke-acceptances-so-smoke-to-refactor-is-reachable-only-by-force
       by declaring the repo''s first execution_kind: live_smoke acceptance and anchoring
       it to a test that drives the whole #1602 chain against real infrastructure through
@@ -1696,12 +1829,35 @@ wagons:
       single shared Control Root''s .atdd/runtime/ is found by the gate no matter
       which child worktree evaluates the transition, with a worktree-local read retained
       as a back-compat fallback (#1376)'
+    R011: minimize likelihood of a-command-surface-left-reading-a-local-whose-producer-was-deliberately-deleted-so-the-bootstrap-command-agents-are-told-to-run-first-raises-rather-than-reports
+      by removing the residue rather than reviving the retired projection — the two
+      dangling reads in verify(json=True) and get_confirmation_template, the orphaned
+      hash helper still calling a syncer attribute no longer constructed, and the
+      return contract nothing can satisfy (#1861)
+    E007: minimize quantity of tests-that-cannot-be-executed-because-the-repositorys-own-configured-entry-point-aborts-collection-before-running-anything
+      by giving each colliding tests package a parent package, so every test module
+      is named under atdd and the two trees no longer contend for one name (#1868)
     C020: minimize likelihood of atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
       by reading the issue's phase from the State Store at mint time and validating
       the requested edge against phase_machine.convention.yaml, refusing — never warning
       — unless the issue is standing on FROM and the machine declares FROM->TO, with
       the refusal naming the phase the issue is actually on so the operator can act
       on it (#1735)
+    C022: minimize likelihood of the-conditional-mint-evaluating-an-edges-gates-at-the-head-of-whatever-directory-the-operator-was-standing-in-rather-than-at-the-head-of-the-branch-the-state-store-binds-the-issue-to
+      by resolving the commit the same way the branch already is — reusing approval_binding.resolve_issue_branch
+      and reading refs/heads/<that branch>, which every worktree of the repository
+      shares — by refusing rather than falling back to the invoking directory's HEAD
+      when it cannot be resolved, by naming the issue and the branch in that refusal,
+      and by printing the branch beside the commit so a token naming one branch while
+      attesting another's commit is legible (#1765)
+    E071: 'minimize quantity of smoke-acceptances-unclassified-by-whether-they-can-produce-a-live-smoke-attestation
+      by adding a live-smoke-attestability axis to E027''s existing docs/smoke-audit.md
+      census — can-attest-today / should-declare / never-attestable-by-construction
+      — and closing that census gate''s open direction so no row survives its acceptance
+      URN, giving the planner-side obligation smoke_obligation.py deliberately defers
+      an empirical target list before it is made mandatory against 299 SMOKE acceptances
+      of which exactly one declares execution_kind: live_smoke (#1664, after #1602
+      and E069)'
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
@@ -1768,6 +1924,9 @@ wagons:
     telemetry: null
     from: wagon:enforce-merge-authority
   wmbt:
+    D003: maximize likelihood of a declared documentation-field-ownership entry naming
+      the single legal writer and merge rule of the documentation obligation field,
+      so the new field cannot corrupt the committed projection
     C001: minimize likelihood of a policy-coverage-gap surviving authoring, by rejecting
       a field-ownership policy that omits any projection schema field or names a writer
       outside the declared writer set
@@ -1794,7 +1953,7 @@ wagons:
     R001: maximize likelihood of an unsafe-merge-conflict being raised with an actionable
       report naming the field, both sides' writers, and the failing ownership or evidence
       rule, never resolved by blind max phase
-    total: 8
+    total: 9
   total: 0
   manifest: plan/govern_projection_fields/_govern_projection_fields.yaml
   path: plan/govern_projection_fields/
@@ -1946,6 +2105,8 @@ wagons:
     D006: minimize undetected frontend composition root drift via source scan
     D007: minimize unverified wagon trains.ts export contracts via source scan
     D008: minimize unstructured train YAML render metadata via JSON Schema
+    E002: minimize quantity of convention-registry-builds-forced-by-cli-startup when
+      the CLI entrypoint is imported to dispatch any command
   total: 0
   manifest: plan/implement_code/_implement_code.yaml
   path: plan/implement_code/
@@ -2119,7 +2280,7 @@ wagons:
   - name: commons:compliance:integration-bugs
     from: wagon:integrate-end-to-end
   wmbt:
-    total: 24
+    total: 25
     K001: minimize quantity of unspawned-phase-transitions-in-atdd-coach-state-machine
     D001: minimize likelihood of state-transitions-without-durable-decisions-jsonl-entries
     D002: minimize quantity of test-files-containing-static-bare-mode-or-core-bare-mutation-patterns-unscoped-to-tmp-path
@@ -2167,6 +2328,11 @@ wagons:
       by serialising the mutating section on a lock scoped to the install rather than
       the checkout, making an already-current run a no-op, and refusing loudly rather
       than proceeding unlocked (#1628, ~60 agents share one pipx install)
+    E009: minimize quantity of git-operations-refused-solely-to-tell-a-human-to-run-an-upgrade-a-machine-could-have-run-itself
+      by calling auto_upgrade() from the non-blocking post-merge and post-checkout
+      hooks behind E008's install lock, and routing the push gate's PyPI comparison
+      through the 24 h cached resolver instead of the uncached fetch — leaving Y004's
+      fail-closed gate untouched but rarely reached (#1762)
   total: 0
   manifest: plan/integration_hardening/_integration_hardening.yaml
   path: plan/integration_hardening/
@@ -2521,6 +2687,41 @@ wagons:
   total: 0
   manifest: plan/observe_and_correct/_observe_and_correct.yaml
   path: plan/observe_and_correct/
+- wagon: place-worktrees
+  description: Resolve every worktree path from one configured root instead of seven
+    inlined derivations, so an operator chooses the repo layout once and both creation
+    paths, the spawned-agent launch prompt, and the orphan scanner all agree on it.
+  theme: commons
+  subject: agent:coach
+  context: in-coach-worktree-lifecycle, when-a-worktree-path-is-derived-stored-or-asserted
+    and-seven-call-sites-each-compute-it-independently-from-a-hardcoded-flat-sibling-layout
+  action: resolves the worktree directory from a worktree_root config key defaulting
+    to the current flat-sibling layout, routes all seven derivation and assertion
+    sites through that single resolver, and offers a transactional self-relocation
+    when the configured layout and the actual layout disagree
+  goal: make worktree placement one configured decision rather than seven independent
+    derivations that can silently disagree
+  outcome: atdd worktree create, atdd coach enter, the spawned-agent launch prompt,
+    and atdd worktree gc all resolve the same path from worktree_root; with no config
+    present the placement is bit-identical to today
+  produce:
+  - name: commons:coach:worktree-root-resolver
+    contract: null
+    telemetry: null
+    to: external
+  - name: commons:coach:worktree-relocation-offer
+    contract: null
+    telemetry: null
+    to: external
+  consume: []
+  wmbt:
+    total: 3
+    E001: minimize likelihood of divergent-worktree-placement-between-the-two-creation-paths
+    E002: minimize likelihood of a-spawned-agent-being-directed-to-a-path-no-resolver-created
+    Y001: minimize likelihood of a-half-applied-relocation-leaving-git-and-the-store-disagreeing
+  total: 0
+  manifest: plan/place_worktrees/_place_worktrees.yaml
+  path: plan/place_worktrees/
 - wagon: project-shared-state
   description: 'Milestone M1 projection spine: deterministic project(store), hydrate(projection),
     a projection digest pinned by golden files, the canonical CI identity project(hydrate(projection))
@@ -2565,7 +2766,10 @@ wagons:
     Y001: 'minimize likelihood of a slug-rename mutating object identity: renaming
       slug or title must leave uid and the .atdd/state/projection/<uid>.yaml filename
       unchanged'
-    total: 7
+    Y002: 'minimize likelihood of a rename-addressability failure: atdd state object
+      rename must address every work item the store holds, never refusing one because
+      its uid is not wi_<ULID>-shaped'
+    total: 8
   total: 0
   manifest: plan/project_shared_state/_project_shared_state.yaml
   path: plan/project_shared_state/
@@ -2812,8 +3016,6 @@ wagons:
     P001: Define validate lifecycle train
     R001: Wire URN traceability across plan, test, code
     K001: Both atdd validate and local pytest pass on the toolkit itself
-    Y001: atdd sync preserves user content outside managed block and warns on within-block
-      deletions
   total: 0
   manifest: plan/self_compliance_migration/_self_compliance_migration.yaml
   path: plan/self_compliance_migration/

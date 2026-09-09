@@ -40,6 +40,33 @@ _CANDIDATE_TRANSITIONS = (
 )
 
 
+def approval_required_for(config, from_phase: str, to_phase: str) -> bool:
+    """Whether crossing ``from_phase -> to_phase`` needs ``atdd coach approve`` first.
+
+    The two declarations that decide it, asked together and asked of nothing
+    else: :data:`_CANDIDATE_TRANSITIONS` (which edges the approval check is
+    registered for) and :func:`~atdd.coach.gate.decision.is_transition_gated`
+    (which of those the repo's ``.atdd/config.yaml`` actually enforces).
+
+    Exists so a caller can DERIVE the operator's next command instead of
+    restating it. ``atdd coach enter``'s next-step hint printed a bare
+    ``atdd coach transition <N> RED`` for four issues on 2026-08-04 while this
+    repo's config set ``PLANNED->RED: true``, so the only guidance the lifecycle
+    offers named a command the gate would refuse (#1750). A hardcoded string
+    there would go stale the moment a repo gates a different edge — which is the
+    whole point of the config knob.
+
+    Pure: reads the declarations, registers nothing and mutates no registry, so
+    a read-only surface can ask without the import-time side effect this module's
+    header forbids.
+    """
+    from atdd.coach.gate.decision import is_transition_gated
+
+    if (from_phase, to_phase) not in _CANDIDATE_TRANSITIONS:
+        return False
+    return is_transition_gated(config, from_phase, to_phase)
+
+
 def register_approval_checks(registry=GATE_REGISTRY) -> None:
     """Idempotently register the approval check for the candidate transitions."""
     for from_phase, to_phase in _CANDIDATE_TRANSITIONS:
