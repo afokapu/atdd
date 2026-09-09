@@ -1,0 +1,52 @@
+urn: "wmbt:govern-lifecycle:E007"
+step: "execute"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "tests-that-cannot-be-executed-because-the-repositorys-own-configured-entry-point-aborts-collection-before-running-anything"
+context_clarifier: "pyproject declares testpaths = [\"src/atdd\", \"tests\"], and running pytest exactly as that configures aborts with `Interrupted: 25 errors during collection`. All 25 are one defect. pytest names a test module by walking up from the file to the first directory WITHOUT __init__.py, and two trees resolve into the same `tests` package: src/atdd/coder/conventions/tests (whose parent src/atdd/coder/conventions has no __init__.py, so the module is named tests.test_adapter_recipe) and the root tests/ (a package all the way to the repo root, so tests.architecture.test_layer_imports). Whichever imports first binds `tests` in sys.modules and every later tests.* from the other tree fails, which is why 5 conventions files and 20 root-tests files fail together. Exactly two directories under src/ carry this shape — a tests package whose parent is not a package — the other being src/atdd/coach/templates/bin/tests; 33 sibling tests dirs package all the way up to atdd and 11 more have no __init__.py at all, and neither shape collides. It has stayed invisible because NO CI job runs the configured testpaths: every job passes a narrow path (pytest src/atdd/coder/validators/, pytest tests/enforce/) and each collects cleanly alone, so the collision only appears when both roots are collected in one process — which is exactly what the documented command does and what nothing in CI exercises."
+lens: "functional.availability"
+statement: "minimize quantity of tests-that-cannot-be-executed-because-the-repositorys-own-configured-entry-point-aborts-collection-before-running-anything by giving each colliding tests package a parent package, so every test module is named under atdd and the two trees no longer contend for one name"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E007-SMOKE-001-the-configured-entry-point-collects"
+      id: "AC-SMOKE-001"
+      purpose: "The command pyproject documents must collect this repository's own suite — the property that is broken, stated over the real checkout because a fixture cannot reproduce a name collision between two real trees"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository's own checkout and its committed pyproject testpaths"
+    when:
+      abstract: "pytest collects exactly what testpaths configures, in one process, as a subprocess of the branch's own source"
+    then:
+      abstract:
+        - "Collection is not interrupted, so the suite can be run by the command the configuration documents"
+        - "No collection error names a module under the ambiguous top-level `tests` package, since that ambiguity is the defect"
+        - "More tests are collected than the count that was reachable before, so the fix recovers execution rather than merely silencing a message"
+        - "Read from the real repository rather than a fixture, because the collision is between two real trees and a fixture would have to recreate it to detect it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-09"
+  - identity:
+      urn: "acc:govern-lifecycle:E007-UNIT-001-no-test-package-is-ambiguously-named"
+      id: "AC-UNIT-001"
+      purpose: "The invariant, checked structurally rather than by running pytest — a new tests directory added under a non-package parent would silently re-open this, and the next reader would face the same 25-error wall"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Every directory named tests under the package source tree"
+    when:
+      abstract: "each is resolved to the module name pytest would derive for the files inside it"
+    then:
+      abstract:
+        - "No such directory that is itself a package has a parent that is not a package, since that is precisely the shape that names a module under the top-level tests namespace"
+        - "The check enumerates the tree rather than naming the two known directories, so a third added later is caught by construction"
+        - "A directory carrying no package marker is not reported, because it is named rootdir-relative and does not contend for the name"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-09"

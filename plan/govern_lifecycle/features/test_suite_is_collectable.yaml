@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:test-suite-is-collectable"
+wagon: "wagon:govern-lifecycle"
+description: "Makes the command pyproject documents actually collect this repository's suite. Two directories resolve into the same top-level `tests` package — src/atdd/coder/conventions/tests and src/atdd/coach/templates/bin/tests, each a package whose parent is not — so whichever imports first binds the name and 25 modules fail to import, aborting collection and leaving 112 tests unrunnable. Gives each colliding package a parent package so every test module is named under atdd, and adds a structural check so a third such directory cannot silently re-open it."
+sizing:
+  wmbts: 1
+  footprint_score: 1
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:E007"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 0
+        rationale: "No CLI surface; the change is two package markers and one structural validator."
+    application:
+      - type: "use_cases"
+        count: 0
+        rationale: "No behaviour is added — the fix is the absence of a name collision."
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "Module naming is a packaging property, not a domain concept."
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Nothing external is read; the invariant is checked against the source tree."
