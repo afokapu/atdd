@@ -17,7 +17,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["interlocking_id", "path"],
+        "required": ["interlocking_id", "path", "surfaces"],
         "properties": {
           "interlocking_id": {
             "type": "string",
@@ -34,6 +34,13 @@
           "status": {
             "type": "string",
             "enum": ["draft", "checked", "stale"]
+          },
+          "surfaces": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "enum": ["backend", "frontend"] },
+            "description": "Mirrors the document's `entrypoint.surfaces` so a consumer can filter from this index without opening every document. The document stays authoritative; `planner.interlocking.registry-mirrors-document` fails when the two disagree. Required, because an index entry declaring no side is the ambiguity the discriminator closed, one level up (#1855)."
           }
         }
       }

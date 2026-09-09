@@ -189,6 +189,10 @@ def write_tree(root: Path, doc: Dict[str, Any] | None = None) -> Path:
                         "path": doc["source"]["path"],
                         "theme": doc["theme"],
                         "status": doc["status"],
+                        # mirrored from the document, like theme/status above —
+                        # planner.interlocking.registry-mirrors-document fails
+                        # if this fixture ever disagrees with what it wrote
+                        "surfaces": doc["entrypoint"]["surfaces"],
                     }
                 ],
             },
