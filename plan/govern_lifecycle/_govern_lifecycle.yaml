@@ -86,7 +86,7 @@ features:
   - urn: "feature:govern-lifecycle:test-suite-is-collectable"
 
 wmbt:
-  total: 123
+  total: 124
   C023: "minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated by having format_fix_hint() name the consequence of the amend it prescribes and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the author must run before pushing, over the drifted-file set the check already computed, while emitting nothing on the clean path and exempting no mirror from the Artifacts requirement (#1739)"
   C024: "minimize likelihood of a-registered-train-being-rejected-by-the-gate-that-confirms-train-assignment-because-the-two-sides-of-the-comparison-spell-the-same-train-differently by normalizing train identity on both sides of the membership test — the graph mints `train:<stem>` for a loose train file while the registry reader returns the bare `<stem>` from that same directory, so an `==` made a train's registration depend on which reader produced the string and wedged all 7 legacy numbered trains at PLANNED with no --force path (#1850)"
   C021: "minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose registry holds a substantive check — where it registers the same checks the transition dispatch registers, excludes the approval check from its own precondition, refuses on FAIL and COULD_NOT_CHECK while proceeding on NOT_APPLICABLE, refuses when zero substantive checks were evaluated, and refuses when HEAD cannot be resolved (#1670)"
@@ -104,6 +104,7 @@ wmbt:
   L003: "minimize wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them"
   R006: "minimize drifted-lifecycle-records-that-no-verb-can-repair"
   R005: "minimize phase-labels-written-without-the-store-transition-behind-them"
+  P002: "maximize likelihood of a hook gate reaching an interpreter that can import atdd, by resolving the interpreter from the atdd console script when the source bridge does not apply, so the gates run wherever atdd is installed rather than only where it happens to share a python3"
   R001: "minimize stale local manifest status after a successful GitHub transition"
   R002: "minimize misleading layout errors during post-transition re-enter"
   R003: "minimize stale hierarchy_coverage_features ratchet baseline carrying tactical baseline bumps"
