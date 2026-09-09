@@ -31,7 +31,6 @@ Run: atdd validate coach
 import re
 import warnings as w
 import pytest
-import yaml
 
 from atdd.coach.utils.repo import find_repo_root
 

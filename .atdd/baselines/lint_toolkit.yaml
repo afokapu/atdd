@@ -3,7 +3,6 @@ note: "Frozen ruff debt (#1837). The gate fails only on findings NOT listed here
   \ Shrink this list; never grow it to make a red build green \u2014 that is what\
   \ the gate is for."
 frozen:
-- B007::src/atdd/coach/commands/gate.py
 - B007::src/atdd/coach/commands/initializer.py
 - B007::src/atdd/coach/commands/inventory.py
 - B007::src/atdd/coach/commands/issue_review.py
@@ -11,7 +10,6 @@ frozen:
 - B007::src/atdd/coach/commands/traceability.py
 - B007::src/atdd/coach/utils/graph/graph_builder.py
 - B007::src/atdd/coach/validators/shared_fixtures.py
-- B007::src/atdd/coach/validators/test_issue_validation.py
 - B007::src/atdd/coder/validators/test_cross_language_consistency.py
 - B007::src/atdd/coder/validators/test_duplication_detector.py
 - B007::src/atdd/coder/validators/test_green_cross_stack_layers.py
@@ -101,7 +99,6 @@ frozen:
 - F401::src/atdd/coach/commands/coach.py
 - F401::src/atdd/coach/commands/coach_watch.py
 - F401::src/atdd/coach/commands/consumers.py
-- F401::src/atdd/coach/commands/gate.py
 - F401::src/atdd/coach/commands/initializer.py
 - F401::src/atdd/coach/commands/interface.py
 - F401::src/atdd/coach/commands/inventory.py
@@ -443,7 +440,6 @@ frozen:
 - F811::src/atdd/coder/validators/test_error_response_compliance.py
 - F811::src/atdd/tester/validators/test_contracts_structure.py
 - F821::src/atdd/coach/commands/coach.py
-- F821::src/atdd/coach/commands/gate.py
 - F821::src/atdd/coach/commands/pr.py
 - F821::src/atdd/coach/utils/coach_config.py
 - F821::src/atdd/coach/validators/test_init_substrate_mode.py
@@ -611,7 +607,6 @@ frozen:
 - RUF059::src/atdd/coach/commands/tests/test_M3_integration_001_validators_fire_at_phase_exit.py
 - RUF059::src/atdd/coach/commands/tests/test_M3_integration_003_risk_threshold_block.py
 - RUF059::src/atdd/coach/commands/tests/test_branch_protection.py
-- RUF059::src/atdd/coach/github.py
 - RUF059::src/atdd/coach/runtime/tests/test_dashboard_unit_002_render_grid.py
 - RUF059::src/atdd/coach/validators/tests/test_y006_backfill_skip_guard_requires_resolvable.py
 - RUF059::src/atdd/coder/validators/test_complexity.py
@@ -669,7 +664,6 @@ frozen:
 - RUF100::src/atdd/substrate/binding/tests/fixtures/provider/adapter/run.py
 - RUF100::src/atdd/tester/validators/conftest.py
 - SIM102::src/atdd/coach/commands/branch.py
-- SIM102::src/atdd/coach/commands/initializer.py
 - SIM102::src/atdd/coach/commands/interface.py
 - SIM102::src/atdd/coach/commands/issue_review.py
 - SIM102::src/atdd/coach/commands/tests/test_e054_unit_002_no_local_issuemanager_shadow.py

@@ -9,7 +9,6 @@ frozen:
 - reportArgumentType::src/atdd/coach/commands/coach_verbs/__init__.py
 - reportArgumentType::src/atdd/coach/commands/event_queue.py
 - reportArgumentType::src/atdd/coach/commands/git_watcher.py
-- reportArgumentType::src/atdd/coach/commands/initializer.py
 - reportArgumentType::src/atdd/coach/commands/inventory.py
 - reportArgumentType::src/atdd/coach/commands/issue_graph.py
 - reportArgumentType::src/atdd/coach/commands/issue_lifecycle.py
@@ -106,7 +105,6 @@ frozen:
 - reportAssignmentType::src/atdd/coach/core/__init__.py
 - reportAssignmentType::src/atdd/state/evidence.py
 - reportAssignmentType::src/atdd/train/persistence.py
-- reportAttributeAccessIssue::src/atdd/coach/commands/gate.py
 - reportAttributeAccessIssue::src/atdd/coach/commands/tests/test_e001_integration_001_between_wave_dependency_order_preserved.py
 - reportAttributeAccessIssue::src/atdd/coach/commands/tests/test_e001_unit_001_concurrent_spawn_before_terminal.py
 - reportAttributeAccessIssue::src/atdd/coach/commands/tests/test_e001_unit_002_wave_joins_before_next_wave.py
@@ -232,6 +230,5 @@ frozen:
 - reportReturnType::src/atdd/train/persistence.py
 - reportUnboundVariable::src/atdd/cli.py
 - reportUndefinedVariable::src/atdd/coach/commands/coach.py
-- reportUndefinedVariable::src/atdd/coach/commands/gate.py
 - reportUndefinedVariable::src/atdd/coach/commands/pr.py
 - reportUndefinedVariable::src/atdd/coach/utils/coach_config.py
