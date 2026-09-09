@@ -24,6 +24,15 @@
           "tags": { "type": "array", "items": { "type": "string" } },
           "latest_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
           "versions": { "type": "array", "items": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" } },
+          "behaviour_digest_algo": {
+            "type": "string",
+            "description": "Names the recipe that produced `behaviour_digest` — e.g. `sha256-behaviour-v1`. Required for the digest to be comparable ACROSS TIME: the publisher's file set is not frozen, so a digest alone cannot distinguish 'the package changed' from 'the recipe changed'. A consumer that does not recognise the algo reports COULD_NOT_CHECK rather than a drift storm across every package at once (#1878)."
+          },
+          "behaviour_digest": {
+            "type": ["string", "null"],
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "Publisher's digest over the files that decide what this package ENFORCES (manifest, convention nodes, detector sources; fixtures and tests excluded). NOT comparable to the install digest core records in substrate.lock.yaml, which covers every file — a consumer must store this published value and compare it against a later index, never against its own digest. May be null when the publisher's globs matched nothing, which is COULD_NOT_CHECK, not 'no drift' (#1878)."
+          },
           "source": { "type": "string" },
           "workspaces": {
             "type": "array",

@@ -2,7 +2,7 @@ urn: "feature:admit-substrate:substrate-admission"
 wagon: "wagon:admit-substrate"
 description: "The substrate front door: admit external extension/workspace packages into a project's local substrate, validated and locked, without executing any runtime code. Four commands — `atdd search` (query configured registry indexes by alias/id/tags/kind), `atdd add` (resolve a ref/alias/path → validate manifest + owned files + realizes/depends_on against core → compose a protocol view → record a sha256 digest → install into a versioned `.atdd/` home → write intent + lock), `atdd remove` (withdraw from intent + lock, refusing on dependents unless forced), and `atdd list` (read the installed substrate from the lockfile). Two files: `.atdd/substrate.yaml` (user intent) and `.atdd/substrate.lock.yaml` (resolved, digested state). Admission reuses the package-composition seam read-only and NEVER imports or runs an extension implementation module; runtime binding is a later wagon."
 sizing:
-  wmbts: 7
+  wmbts: 8
   footprint_score: 13
   footprint_size: "M"
 wmbts:
@@ -13,6 +13,7 @@ wmbts:
   - "wmbt:admit-substrate:C003"
   - "wmbt:admit-substrate:E001"
   - "wmbt:admit-substrate:C004"
+  - "wmbt:admit-substrate:C007"
 components:
   backend:
     presentation:
