@@ -162,6 +162,13 @@ jobs:
         env:
           ATDD_RELEASE_ALLOW_PUBLISH: ${{ secrets.ATDD_RELEASE_ALLOW_PUBLISH }}
           WORKER_DIR: ${{ steps.ext.outputs.worker_dir }}
+          # The worker shells out to `gh release create`, and gh reads GH_TOKEN.
+          # Without it every publish since v4.21.0 failed here with gh's own
+          # missing-token error, leaving the version_decided message pending —
+          # while the tag and the PyPI upload, which do not use gh, both
+          # succeeded. The job's `permissions: contents: write` above is the
+          # scope this token carries; the two are a pair (#1869).
+          GH_TOKEN: ${{ github.token }}
           # INTERIM (decommission → afokapu/atdd-extensions#40): the extension's
           # real_publish uses raw `twine upload`, which cannot consume this repo's
           # OIDC trusted-publishing. Supply a project-scoped PyPI API token via
