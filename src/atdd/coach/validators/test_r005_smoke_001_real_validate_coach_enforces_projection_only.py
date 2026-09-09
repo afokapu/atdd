@@ -33,9 +33,28 @@ from pathlib import Path
 
 import pytest
 
-from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.repo import find_repo_root, is_atdd_source_repo
 
-pytestmark = [pytest.mark.coach, pytest.mark.slow]
+# TOOLKIT-SELF (#1863). This validator asserts against the toolkit's OWN source
+# tree — it shells pytest at `src/atdd/coach/validators/...`, a path no consumer
+# repo has. Validators ship inside the installed package and run against whatever
+# repo invokes them, so without both guards below it failed in every consumer,
+# keeping `validate-coach` (and via the fan-in, `validate-gate`) permanently red
+# with nothing the consumer could do about it.
+#
+# Two guards because two runners: the `platform` mark is what `atdd validate`
+# filters on (it passes `-m 'not platform'` when is_atdd_source_repo() is False),
+# and the skip covers a bare `pytest` run, which applies no marker filter at all.
+# This is the guard is_atdd_source_repo's own docstring asks for (#272, #276).
+pytestmark = [
+    pytest.mark.coach,
+    pytest.mark.slow,
+    pytest.mark.platform,
+    pytest.mark.skipif(
+        not is_atdd_source_repo(),
+        reason="toolkit-self: reads the atdd source tree, which a consumer repo has no reason to have",
+    ),
+]
 
 REPO_ROOT = find_repo_root()
 VALIDATOR = "src/atdd/coach/validators/test_phase_label_projection_only.py"
