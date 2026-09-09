@@ -49,6 +49,7 @@ from atdd.enforce.conventions import (
     compute_scan_policy,
     is_interlocking_rule,
     load_bound,
+    package_declares_interlocking_surfaces,
     resolve_interlocking_layout,
     rule_metadata,
     select_rules,
@@ -361,13 +362,20 @@ def enforce(
                 ) from exc
         provider = provider_cache[cache_key]
 
-        # Scope the per-repo interlocking layout to the interlocking rules only —
-        # resolve the declared block once and forward it via env ONLY for a
-        # coder.train.interlocking-* subprocess, never leaking it onto unrelated
-        # rule subprocesses (#1595).
+        # Scope the per-repo interlocking layout to the rules that consume it —
+        # forwarded ONLY to a subprocess whose package DECLARES those surfaces,
+        # never leaking onto unrelated rule subprocesses (#1595).
+        #
+        # Keyed on the declaring package, not on the rule name (#1867). The prior
+        # `coder.train.interlocking-*` prefix silently starved two rules the same
+        # package realizes — `runtime-executes-the-declaration` and
+        # `station-master-interlocking-routing` — which then scanned default globs
+        # absent from this repo and passed having read nothing.
         layout = (
             resolve_interlocking_layout(config)
-            if is_interlocking_rule(rule_id)
+            if package_declares_interlocking_surfaces(
+                substrate_home, str(conv.get("package_id") or "")
+            )
             else None
         )
 

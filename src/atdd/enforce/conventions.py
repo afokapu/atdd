@@ -370,9 +370,50 @@ def compute_scan_policy(
 
 
 def is_interlocking_rule(rule_id: str) -> bool:
-    """True iff ``rule_id`` is one of the ``coder.train.interlocking-*`` rules the
-    train-interlocking detector realizes (the only rules the layout env is scoped to)."""
+    """DEPRECATED name-based approximation, kept only for callers not yet migrated.
+
+    Prefer :func:`package_declares_interlocking_surfaces`. See #1867: this predicate
+    said "the rules the detector realizes" and implemented "the rules whose id starts
+    with ``coder.train.interlocking-``". Those agreed until the package gained
+    ``runtime-executes-the-declaration`` and ``station-master-interlocking-routing``,
+    which the detector realizes and this prefix does not match.
+    """
     return rule_id.startswith(_INTERLOCKING_LAYOUT_RULE_PREFIX)
+
+
+def package_declares_interlocking_surfaces(substrate_home: Path, package_id: str) -> bool:
+    """True iff the vendored ``package_id`` declares the layout's selector surfaces.
+
+    The layout exists so a repo whose runtime does not sit at the detector's default
+    globs can say where it does. The question "does this rule consume that?" is
+    answered by the package that DECLARES the surfaces, not by how the rule happens
+    to be named — a name prefix is the same bug waiting for the next rule name, and
+    it already bit once (#1867).
+
+    Scope selector ids are namespaced with the surface as the LAST segment
+    (``coder.train.python_runtime`` -> ``python_runtime``), which the extension's own
+    scope file documents as a contract. Matching on that segment keeps core out of
+    the extension's namespacing choices.
+
+    Returns False on any unreadable or absent scope — an undeclared package simply
+    does not get the env var, which is the pre-existing fallback, not a new failure.
+    """
+    pkg_root = Path(substrate_home) / "extensions" / package_id
+    if not pkg_root.is_dir():
+        return False
+    wanted = set(_INTERLOCKING_LAYOUT_SELECTOR_IDS)
+    for scope_path in sorted(pkg_root.glob("*/scopes/*.yaml")):
+        try:
+            doc = yaml.safe_load(scope_path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            continue
+        for selector in doc.get("selectors") or []:
+            if not isinstance(selector, dict):
+                continue
+            sid = selector.get("selector_id")
+            if isinstance(sid, str) and sid.rsplit(".", 1)[-1] in wanted:
+                return True
+    return False
 
 
 def _layout_globs_for(selector_id: object, globs: object) -> Optional[list[str]]:
