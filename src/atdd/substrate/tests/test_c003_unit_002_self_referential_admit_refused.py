@@ -1,10 +1,10 @@
-# URN: test:admit-substrate:substrate-admission:C003-UNIT-001-self-referential-admit-refused
-# Acceptance: acc:admit-substrate:C003-UNIT-001-self-referential-admit-refused
+# URN: test:admit-substrate:substrate-admission:C003-UNIT-002-self-referential-admit-refused
+# Acceptance: acc:admit-substrate:C003-UNIT-002-self-referential-admit-refused
 # WMBT: wmbt:admit-substrate:C003
 # Phase: GREEN
 # Layer: unit
 # Assertion: behavioral
-"""C003-UNIT-001 — admitting a package from its own install home is refused with
+"""C003-UNIT-002 — admitting a package from its own install home is refused with
 the tree intact (#1840).
 
 `install()` deleted the destination and only then read the source. When the two
