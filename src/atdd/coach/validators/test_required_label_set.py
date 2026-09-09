@@ -1,3 +1,8 @@
+# URN: test:govern-lifecycle:govern-lifecycle:D006-UNIT-001-require-only-the-label-families-with-a-reader
+# Acceptance: acc:govern-lifecycle:D006-UNIT-001-require-only-the-label-families-with-a-reader
+# WMBT: wmbt:govern-lifecycle:D006
+# Phase: GREEN
+# Layer: application
 """
 Assert every ``atdd-issue``-labeled open issue carries the label families that
 something actually reads: one ``atdd:<PHASE>``.
@@ -162,7 +167,7 @@ def test_missing_families_reports_the_phase_when_only_atdd_issue_present():
     assert missing == ["atdd:<PHASE>"]
 
 
-def test_missing_families_does_not_demand_archetype_or_wagon(): 
+def test_missing_families_does_not_demand_archetype_or_wagon():
     """The shape EVERY sanctioned mint produces must be compliant (#1761).
 
     `atdd author issue` writes `atdd-issue` and `atdd:<phase>` and nothing else.
