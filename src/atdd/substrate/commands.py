@@ -27,6 +27,10 @@ _ADMISSION_REFUSALS = (
     AuthorInputError,
     CompositionError,
     SubstrateSchemaError,
+    # A self-referential --path is an operator mistake, not a crash: it belongs on
+    # the refusal path so it prints "error: refused — ..." and exits 1, rather than
+    # surfacing copytree's FileNotFoundError as a traceback (#1840).
+    installer.SelfReferentialInstall,
 )
 
 
