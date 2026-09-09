@@ -52,8 +52,8 @@ from atdd.enforce.conventions import (
     rule_metadata,
     select_rules,
 )
-from atdd.enforce.interlocking_layout import package_declares_interlocking_surfaces  # noqa: E402
 from atdd.enforce.dispositions import fails_on_violation
+from atdd.enforce.interlocking_layout import package_declares_interlocking_surfaces
 from atdd.enforce.provider_env import provider_env
 from atdd.enforce.resolution import (
     ProviderResolutionError,
