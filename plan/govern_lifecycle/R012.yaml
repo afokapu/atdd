@@ -1,0 +1,51 @@
+urn: "wmbt:govern-lifecycle:R012"
+step: "resolve"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-release-step-invoking-a-tool-whose-credential-the-step-never-supplies-so-the-workflow-fails-on-every-merge-until-its-red-is-the-expected-state"
+context_clarifier: "publish.yml's `Drain version_decided -> tag + PyPI` step declares an env block carrying ATDD_RELEASE_ALLOW_PUBLISH, WORKER_DIR, TWINE_USERNAME and TWINE_PASSWORD, and no GH_TOKEN. The release worker it invokes calls `gh release create <tag> --verify-tag --generate-notes`, and gh refuses without GH_TOKEN, naming the variable in its error. The job already declares permissions: contents: write, so the scope gh needs is present and merely never handed to it. Measured over the last three merges (runs 34295910559, 34271780319, 34252921208): all three failed, all with the same message, and the drain reports 'leaving outbox message pending' so the work is retried and re-fails rather than draining. What is NOT broken matters for scoping: the version bump works (v4.58.x decided), the git tag is pushed (v4.58.1 is on the remote, which is why --verify-tag gets far enough to reach the credential check), and PyPI has 4.58.1. Only the GitHub Release object is missing, for every version since v4.21.0 on 2026-07-21. The deeper harm is that a workflow red on every merge stops being a signal: a genuine publish failure would be indistinguishable from the standing state. Same shape as #1621, where a decommissioned PROJECT_TOKEN shadowed the GITHUB_TOKEN carrying issues:write."
+lens: "functional.availability"
+statement: "minimize likelihood of a-release-step-invoking-a-tool-whose-credential-the-step-never-supplies-so-the-workflow-fails-on-every-merge-until-its-red-is-the-expected-state by supplying the workflow token to the step that shells out to gh, so the publish path either completes or fails for a reason a reader can act on"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:R012-UNIT-001-every-step-that-shells-out-to-gh-is-given-a-token"
+      id: "AC-UNIT-001"
+      purpose: "The invariant rather than the instance: a step invoking gh without a token is the defect, and naming only this one step would let the next such step ship the same failure"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The repository's own committed workflow definitions, parsed as YAML rather than grepped"
+    when:
+      abstract: "each step that can reach the gh CLI is examined for the credential gh requires"
+    then:
+      abstract:
+        - "Every such step, or the job or workflow enclosing it, supplies the token variable gh reads"
+        - "A step that invokes a release worker counts as reaching gh, since the credential requirement travels with the callee and not with the visible command text"
+        - "The check enumerates the workflows rather than asserting about one named step, so a newly added step is covered by construction"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-09"
+  - identity:
+      urn: "acc:govern-lifecycle:R012-SMOKE-001-the-real-publish-workflow-can-authenticate"
+      id: "AC-SMOKE-001"
+      purpose: "Against the repository's own committed publish workflow rather than a fixture: the step that actually failed carries both halves of what the call needs — the credential and the scope — because either alone still fails"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "The repository's own committed publish workflow, parsed as it will be executed"
+    when:
+      abstract: "the step that runs the release drain is examined together with the job enclosing it"
+    then:
+      abstract:
+        - "The step has the credential the gh CLI reads in scope, since the call it makes is the one that has failed on every merge"
+        - "The enclosing job declares write access to repository contents, read from the job rather than assumed from the repository default which grants read only"
+        - "Read from the real committed workflow rather than a constructed one, because a fixture would assert only that the check works and not that this repository can publish"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-09"
