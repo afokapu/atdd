@@ -36,7 +36,13 @@ _TOKEN_VARS = {"GH_TOKEN", "GITHUB_TOKEN"}
 
 # Entry points known to shell out to `gh` from inside the process they start.
 # Text analysis cannot see through these, so they are named.
-_KNOWN_GH_CALLEES = ("drain_version_decided", "release_worker", "release_entrypoint")
+#
+# These must be CALLABLE names, not path fragments. "release_worker" was tried and
+# removed: it appears in the WORKER_DIR path of the step that merely `git clone`s
+# the extension from a public repository, which needs no credential at all. A
+# marker that matches a directory name flags steps by where they point rather than
+# by what they run.
+_KNOWN_GH_CALLEES = ("drain_version_decided", "release_entrypoint")
 
 
 def _env_names(*blocks) -> set[str]:
