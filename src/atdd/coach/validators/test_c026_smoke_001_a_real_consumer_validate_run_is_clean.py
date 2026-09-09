@@ -32,7 +32,10 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = [pytest.mark.coach, pytest.mark.slow]
+# TOOLKIT-SELF: this test reads its sibling validator out of the toolkit's own
+# tree to run it elsewhere, so it is exactly the class it is written to guard.
+# Flagged, correctly, by coach.source-layout.platform-marker-on-toolkit-selftest.
+pytestmark = [pytest.mark.coach, pytest.mark.slow, pytest.mark.platform]
 
 TARGET = "test_r005_smoke_001_real_validate_coach_enforces_projection_only.py"
 
