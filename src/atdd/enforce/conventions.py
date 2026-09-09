@@ -370,8 +370,14 @@ def compute_scan_policy(
 
 
 def is_interlocking_rule(rule_id: str) -> bool:
-    """True iff ``rule_id`` is one of the ``coder.train.interlocking-*`` rules the
-    train-interlocking detector realizes (the only rules the layout env is scoped to)."""
+    """DEPRECATED name-based approximation, kept only for callers not yet migrated.
+
+    Prefer :func:`package_declares_interlocking_surfaces`. See #1867: this predicate
+    said "the rules the detector realizes" and implemented "the rules whose id starts
+    with ``coder.train.interlocking-``". Those agreed until the package gained
+    ``runtime-executes-the-declaration`` and ``station-master-interlocking-routing``,
+    which the detector realizes and this prefix does not match.
+    """
     return rule_id.startswith(_INTERLOCKING_LAYOUT_RULE_PREFIX)
 
 
