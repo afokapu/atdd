@@ -11,10 +11,9 @@ Creates the following structure:
 
 GitHub infrastructure (requires `gh` CLI):
     - Labels: atdd-issue, atdd-wmbt, atdd:*, archetype:*, wagon:*
+    - Project v2: "ATDD Sessions" with 11 custom fields
     - Workflow: .github/workflows/atdd-validate.yml
     - Config: repo in .atdd/config.yaml
-    (The "ATDD Sessions" Project v2 board this used to bootstrap was
-    decommissioned in #1051 and its bootstrap path removed in #1761.)
 
 Usage:
     atdd init                    # Initialize ATDD structure
@@ -31,6 +30,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 import yaml
+from atdd.coach.utils.yaml_block_edit import remove_top_level_block, set_top_level_block
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +84,17 @@ SUBSTRATE_DEFAULT_PLAN_ROOT = "plan/"
 
 class ProjectInitializer:
     """Initialize ATDD structure in consumer repo."""
+
+    DEFAULT_PATH_FILTERS = {
+        "planner": ["plan/**"],
+        "tester": ["contracts/**", "telemetry/**"],
+        "coder": ["web/**", "python/**", "packages/**", "supabase/**", "src/**"],
+        "coach": [".atdd/**", ".github/**"],
+        # SMOKE phase (issue #293): trigger when web/ or e2e/ change so the
+        # opt-in Playwright job runs against the current branch's deploy preview.
+        "smoke": ["web/**", "e2e/**"],
+    }
+
 
     def __init__(self, target_dir: Optional[Path] = None):
         """
@@ -158,7 +169,7 @@ class ProjectInitializer:
             )
             if result.returncode != 0:
                 return []
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return []
 
         # Porcelain format: blocks separated by blank lines, first block is main checkout
@@ -264,11 +275,11 @@ class ProjectInitializer:
             for dest, original in reversed(moved_items):
                 try:
                     shutil.move(str(dest), str(original))
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                     pass
             try:
                 main_dir.rmdir()
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
             raise RuntimeError(f"Migration failed (rolled back): {e}") from e
 
@@ -313,7 +324,7 @@ class ProjectInitializer:
             self._update_target_dir(new_root)
             print(f"Migrated to worktree layout: {new_root}")
             print(f"\n  ** After init completes, run: cd main **\n")
-        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except RuntimeError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -330,7 +341,7 @@ class ProjectInitializer:
                 print("Error: Not at repository root.")
                 print(f"Run from: {repo_root}")
                 return False
-        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
 
         # Safety: no linked worktrees (their .git files would break)
@@ -451,11 +462,6 @@ class ProjectInitializer:
             # Install train-render harness when consumer repo has a frontend (#335)
             self._install_harness(force)
 
-            # Sync agent config files
-            from atdd.coach.commands.sync import AgentConfigSync
-            syncer = AgentConfigSync(self.target_dir)
-            syncer.sync()
-
             # Bootstrap GitHub infrastructure
             github_summary = self._bootstrap_github(force)
 
@@ -472,10 +478,10 @@ class ProjectInitializer:
 
             return 0
 
-        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except PermissionError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: Permission denied - {e}")
             return 1
-        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except OSError as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             print(f"Error: {e}")
             return 1
 
@@ -793,9 +799,12 @@ class ProjectInitializer:
         if cfg.get("repo") == repo_block:
             return  # already current — no-op
 
-        cfg["repo"] = repo_block
-        with open(self.config_file, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        # #1455: edit the `repo:` block in place. Loading and re-dumping the
+        # whole document discards every operator comment — PyYAML drops them at
+        # parse — and this writer only ever changes one top-level key.
+        self.config_file.write_text(
+            set_top_level_block(self.config_file.read_text(), "repo", repo_block)
+        )
         print(f"  Wrote substrate fields to {self.config_file}")
 
     def _remove_substrate_config(self) -> None:
@@ -808,9 +817,10 @@ class ProjectInitializer:
         if not isinstance(cfg, dict) or "repo" not in cfg:
             return
 
-        del cfg["repo"]
-        with open(self.config_file, "w") as f:
-            yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        # #1455: remove only that block; the rest of the file is not re-rendered.
+        self.config_file.write_text(
+            remove_top_level_block(self.config_file.read_text(), "repo")
+        )
         print(f"  Removed substrate fields from {self.config_file}")
 
     #: Marker identifying a file we wrote, so a refresh can tell an installed
@@ -1122,7 +1132,7 @@ class ProjectInitializer:
                 capture_output=True, text=True, timeout=10,
             )
             return result.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _detect_repo(self) -> Optional[str]:
@@ -1135,12 +1145,12 @@ class ProjectInitializer:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (FileNotFoundError, subprocess.TimeoutExpired):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             pass
         return None
 
     def _bootstrap_github(self, force: bool = False) -> Optional[str]:
-        """Bootstrap GitHub infrastructure: labels, workflows, branch protection."""
+        """Bootstrap GitHub infrastructure: labels, Project v2, fields, workflow."""
         if not self._gh_available():
             print("\nWarning: gh CLI not available or not authenticated.")
             print("  GitHub infrastructure not created.")
@@ -1165,13 +1175,25 @@ class ProjectInitializer:
         schema_path = self.package_root / "schemas" / "label_taxonomy.schema.json"
         labels_created, labels_existed = self._create_labels(repo, schema_path)
 
+        # #1761: the Projects v2 bootstrap USED TO LIVE HERE — _ensure_project,
+        # _get_project_node_id, _create_project_fields, _migrate_project_fields,
+        # _create_missing_fields, _field_create_mutation, _run_field_mutation,
+        # _query_project_field_names_and_ids, _rename_project_field_raw and
+        # _delete_project_field_raw, all deleted.
+        #
+        # #1051 decommissioned the board and stubbed _ensure_project to return
+        # (None, None, False), which left every one of these unreachable behind
+        # an `if project_id:` that could never be true. The label taxonomy,
+        # workflows, branch protection and auto-merge that _bootstrap_github
+        # also performs are live and stay.
+
         # Write workflow files (skip if config says so)
         skip_workflows = False
         if self.config_file.exists():
             try:
                 cfg = yaml.safe_load(self.config_file.read_text()) or {}
                 skip_workflows = cfg.get("init", {}).get("skip_workflows", False)
-            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except (yaml.YAMLError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         if skip_workflows:
@@ -1189,9 +1211,6 @@ class ProjectInitializer:
 
         # Enable auto-merge
         auto_merge_set = self._enable_auto_merge(repo)
-
-        # Update config with GitHub settings
-        self._update_config_github(repo)
 
         # Summary
         parts = []
@@ -1269,30 +1288,6 @@ class ProjectInitializer:
 
         return created, existed
 
-    # #1761: the Projects v2 bootstrap USED TO LIVE HERE — _ensure_project,
-    # _get_project_node_id, _create_project_fields, _migrate_project_fields,
-    # _create_missing_fields, _field_create_mutation, _run_field_mutation,
-    # _query_project_field_names_and_ids, _rename_project_field_raw,
-    # _delete_project_field_raw and the _FIELD_MIGRATION map, all deleted.
-    #
-    # #1051 decommissioned the board and stubbed _ensure_project to return
-    # (None, None, False), which left every one of these unreachable behind an
-    # `if project_id:` that could never be true — ten helpers and a GraphQL
-    # field-migration map kept warm for a board nobody reads. The label
-    # taxonomy, workflows, branch protection and auto-merge that
-    # _bootstrap_github also performs are live and stay.
-
-    # Default path → phase mappings for path-scoped validation
-    DEFAULT_PATH_FILTERS = {
-        "planner": ["plan/**"],
-        "tester": ["contracts/**", "telemetry/**"],
-        "coder": ["web/**", "python/**", "packages/**", "supabase/**", "src/**"],
-        "coach": [".atdd/**", ".github/**"],
-        # SMOKE phase (issue #293): trigger when web/ or e2e/ change so the
-        # opt-in Playwright job runs against the current branch's deploy preview.
-        "smoke": ["web/**", "e2e/**"],
-    }
-
     def _write_workflow(self, repo: str) -> bool:
         """Write .github/workflows/atdd-validate.yml with parallel phase jobs.
 
@@ -1318,7 +1313,7 @@ class ProjectInitializer:
                 cfg = yaml.safe_load(config_path.read_text()) or {}
                 if "path_filters" in cfg:
                     filters.update(cfg["path_filters"])
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
                 pass
 
         # Build dorny/paths-filter filter config (plain YAML, no f-string interpolation)
@@ -1507,6 +1502,18 @@ class ProjectInitializer:
             "    branches: [main]\n"
             "  issues:\n"
             "    types: [opened, edited, closed, labeled, unlabeled]\n"
+            "\n"
+            # Least privilege, and load-bearing (#1856). `dorny/paths-filter` in
+            # detect-changes calls the pull-request FILES API to decide which
+            # validate jobs run. With no permissions block the workflow inherits
+            # the repository default, and a read-contents-only default refuses
+            # that call: detect-changes fails and every validate job reports
+            # `skipping` — CI green because nothing ran. Declared at workflow
+            # level so every generated job inherits it; note a job that declares
+            # its own block REPLACES this one rather than merging with it.
+            "permissions:\n"
+            "  contents: read\n"
+            "  pull-requests: read\n"
             "\n"
             f"jobs:{detect_changes_job}{phase_jobs}{smoke_job}{gate_job}"
         )
@@ -1704,7 +1711,7 @@ jobs:
             else:
                 print("  Auto-merge: SKIPPED (may require admin access)")
                 return False
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-08-31
+        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
             return False
 
     def _set_branch_protection(self, repo: str) -> bool:
@@ -1718,32 +1725,6 @@ jobs:
         from atdd.coach.commands.branch_protection import apply_branch_protection
 
         return apply_branch_protection(repo)
-
-    def _update_config_github(self, repo: str) -> None:
-        """Record the detected repo in .atdd/config.yaml.
-
-        ``repo`` is the only key left: #1761 removed ``project_id`` /
-        ``project_number`` / ``field_schema``, which described the
-        decommissioned Projects v2 board. Existing keys under ``github`` are
-        merged rather than replaced, so a consumer's own settings survive
-        ``atdd init --force``.
-        """
-        if not self.config_file.exists():
-            return
-
-        with open(self.config_file) as f:
-            config = yaml.safe_load(f) or {}
-
-        github = config.get("github")
-        if not isinstance(github, dict):
-            github = {}
-        github["repo"] = repo
-        config["github"] = github
-
-        with open(self.config_file, "w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
-
-        print(f"  Updated: {self.config_file} (github section)")
 
 
 # Public alias: the class is named ProjectInitializer internally, but
