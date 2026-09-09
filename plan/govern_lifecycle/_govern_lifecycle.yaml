@@ -131,6 +131,7 @@ wmbt:
   D017: "minimize convention rules whose letter (workspace) hides their intent (one isolated agent context)"
   D018: "minimize presentation components whose render body is statically empty (jel-app AuthGateShell incident, #318)"
   L001: "minimize manual theme discovery during atdd init"
+  M003: "maximize likelihood of a toolkit-self validator the strict detector cannot see being visible to a human, by reporting toolkit-path string constants in unmarked validators as advisory rather than gating on them, so a blind spot is surfaced for triage without a low-precision rule being allowed to switch off consumer enforcement"
   P001: "minimize blind theme prompts that force game-domain defaults on non-game repos"
   C001: "minimize invalid custom theme names accepted into config"
   C002: "minimize likelihood of wagons-or-trains-declaring-a-non-canonical-theme"

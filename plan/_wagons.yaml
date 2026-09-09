@@ -1387,7 +1387,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 124
+    total: 125
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1495,6 +1495,11 @@ wagons:
     D018: 'minimize presentation components whose render body is statically empty
       (jel-app AuthGateShell incident, #318)'
     L001: minimize manual theme discovery during atdd init
+    M003: maximize likelihood of a toolkit-self validator the strict detector cannot
+      see being visible to a human, by reporting toolkit-path string constants in
+      unmarked validators as advisory rather than gating on them, so a blind spot
+      is surfaced for triage without a low-precision rule being allowed to switch
+      off consumer enforcement
     P001: minimize blind theme prompts that force game-domain defaults on non-game
       repos
     C001: minimize invalid custom theme names accepted into config

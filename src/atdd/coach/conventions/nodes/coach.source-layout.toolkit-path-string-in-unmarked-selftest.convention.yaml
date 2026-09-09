@@ -1,0 +1,39 @@
+schema_version: 1.0.0
+rule_id: coach.source-layout.toolkit-path-string-in-unmarked-selftest
+kind: rule
+status: active
+name: Toolkit-path string constants in unmarked validators are reported
+statement: A shipped validator test carrying no pytest.mark.platform that ASSIGNS a string literal
+  naming a toolkit-only directory (src/atdd, docs, .github) is REPORTED for human triage. This rule is
+  advisory by construction and must never gate a build.
+rationale: 'The sibling strict rule coach.source-layout.platform-marker-on-toolkit-selftest recognises
+  only literal Path division chains. R005-SMOKE-001 evaded it by holding its toolkit path as a plain
+  string constant handed to a subprocess, and shipped — red in every consumer repo until #1863. The gap
+  is real; extending the strict gate to cover it is not safe. Measured against this tree, a strict rule
+  over that shape scores ONE true positive in FOUR: the three current matches all pass in a real
+  non-toolkit repo, because they name a toolkit path used as DATA (a string classifier''s input, a
+  file:Symbol citation) rather than a path anything opens. Separating those needs dataflow the AST scan
+  does not do. The harm is asymmetric, which settles it: a false negative costs one red test in
+  consumers — visible and fixable, as #1863 was — while a false positive puts a platform marker on a
+  validator that works fine there, silently disabling a live gate in every consumer repo, in the
+  direction nobody audits. So the blind spot is made VISIBLE rather than enforced: what a class
+  validator cannot see is otherwise indistinguishable from there being nothing to see.'
+terms:
+- term_id: toolkit_path_string
+  text: a string literal, assigned to a name, whose value is or descends into src/atdd, docs or .github —
+    excluding file:Symbol citations, which name a location in prose rather than a path
+- term_id: advisory_by_construction
+  text: reported through the disposition gate's advisory path, which warns and passes; an inline
+    atdd:suppress marker on the assigning line records a triaged case and keeps the report quiet
+implementation:
+  type: validator
+  ref: test_platform_marker_on_toolkit_selftests::test_toolkit_path_strings_are_reported
+metadata:
+  aliases:
+  - COACH-PKG-LAYOUT-004
+  severity: 2
+  disposition: advisory
+  introduced_in: 4.55.0
+  core_surface: toolkit_self
+notes: 'Incident ref: #1863 (the member that evaded), #1865 (this measurement). Complements
+  COACH-PKG-LAYOUT-003, which gates the literal division-chain shapes strictly.'
