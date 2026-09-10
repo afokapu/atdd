@@ -64,40 +64,23 @@ REPO_ROOT = find_repo_root()
 # E010: Body Section Validation (GitHub Issues)
 # ============================================================================
 
-PARENT_ISSUE_TEMPLATE = (
-    REPO_ROOT / "src/atdd/coach/templates/PARENT-ISSUE-TEMPLATE.md"
+# The body-section contract has ONE reader (#1901).
+#
+# This module used to carry its own `load_required_sections` and
+# `check_body_sections` — same names, same template, different rules. The
+# command's versions filter OPTIONAL_SECTIONS (`## Rule Wiring`, optional per
+# #682) and additionally enforce REQUIRED_SUBSECTIONS; this copy did neither, so
+# it rejected every body `atdd author issue` produced. Measured before removing
+# it: of 40 open atdd-issues, 38 were rejected by THIS reader alone and 0 by the
+# command alone. Not one issue in the repository satisfied both.
+#
+# Two implementations of one contract cannot be kept in step by care. Importing
+# the command's is what makes them the same rule rather than two rules that
+# happen to agree today.
+from atdd.coach.commands.issue_template import (  # noqa: E402
+    check_body_sections,
+    load_required_sections,
 )
-
-
-def load_required_sections():
-    """
-    Parse PARENT-ISSUE-TEMPLATE.md to derive the list of required H2 sections.
-
-    This is the single source of truth — updating the template file
-    automatically updates what both the E010 validator and the CLI
-    `atdd issue <N> --check` enforce.
-
-    Returns: list of required H2 headings (e.g. ["## Issue Metadata", ...])
-    """
-    if not PARENT_ISSUE_TEMPLATE.exists():
-        return []
-    sections = []
-    for line in PARENT_ISSUE_TEMPLATE.read_text().splitlines():
-        if line.startswith("## ") and not line.startswith("### "):
-            sections.append(line.strip())
-    return sections
-
-
-def check_body_sections(body):
-    """
-    Reusable compliance check — callable from CLI (`atdd issue <N> --check`)
-    and from the E010 validator.
-
-    Returns: list of missing section headings (empty list = compliant).
-    """
-    required = load_required_sections()
-    body = body or ""
-    return [s for s in required if s not in body]
 
 
 def test_issue_body_has_required_sections(github_issues):

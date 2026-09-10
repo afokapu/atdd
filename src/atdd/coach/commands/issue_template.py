@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 TEMPLATE_PATH = Path(__file__).parent.parent / "templates" / "PARENT-ISSUE-TEMPLATE.md"
@@ -66,21 +67,91 @@ PLACEHOLDER_STRINGS: tuple[str, ...] = (
     "(recipe or convention pointer)",
 )
 
-# Sections that are present in the template but NOT required for compliance.
-# `## Rule Wiring` is OPTIONAL per #682 — it only applies to issues that
-# introduce new convention rules; trivial issues may leave the section empty
-# or omit it entirely.
-OPTIONAL_SECTIONS: frozenset[str] = frozenset({"## Rule Wiring"})
+# --- The contract has ONE source: issue.schema.json (#1901) ----------------
+#
+# It had two. The author rendered from `issue.schema.json` (13 required
+# sections); the coach validated from `PARENT-ISSUE-TEMPLATE.md` (12). The two
+# constants below were the difference between them, maintained BY HAND:
+#
+#     OPTIONAL_SECTIONS     template-only  ->  ## Rule Wiring
+#     REQUIRED_SUBSECTIONS  schema-only    ->  ### Graph Context, ### Mirror Across Agents
+#
+# So they were not policy. They were the drift, written down — and when #682
+# moved the schema, one reader followed and another did not. Measured over 40
+# open issues before this change: 38 were rejected by the template-only reader
+# ALONE, and not one issue in the repository satisfied both.
+#
+# Both names survive with the SAME values, because a dozen call sites use them —
+# but they are now DERIVED from the two artifacts rather than typed out, so the
+# next time schema and template move apart the difference follows automatically
+# instead of being discovered by a broken CI run.
+
+SCHEMA_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "planner" / "schemas" / "author" / "issue.schema.json"
+)
+
+
+@lru_cache(maxsize=1)
+def _schema_required() -> tuple[str, ...]:
+    """The section headings `issue.schema.json` declares required.
+
+    Empty when the schema is absent — the callers below then fall back to the
+    template, which is the pre-#1901 behaviour and keeps a checkout without the
+    planner package working rather than silently requiring nothing.
+    """
+    if not SCHEMA_PATH.exists():
+        return ()
+    import json
+
+    return tuple(json.loads(SCHEMA_PATH.read_text(encoding="utf-8")).get("required", []))
+
+
+def _template_h2() -> tuple[str, ...]:
+    """Every `## ` heading in the human template, in order."""
+    if not TEMPLATE_PATH.exists():
+        return ()
+    return tuple(
+        line.rstrip()
+        for line in TEMPLATE_PATH.read_text().splitlines()
+        if line.startswith("## ") and not line.startswith("### ")
+    )
+
+
+def _optional_sections() -> frozenset[str]:
+    """Template headings the schema does not require.
+
+    `## Rule Wiring` is the current member: it applies only to issues that
+    introduce convention rules (#682), so the template offers it and the
+    contract does not demand it.
+    """
+    required = set(_schema_required())
+    if not required:
+        return frozenset({"## Rule Wiring"})
+    return frozenset(h for h in _template_h2() if h not in required)
+
+
+OPTIONAL_SECTIONS: frozenset[str] = _optional_sections()
 
 # Subsections (H3) that ARE required to appear in every issue body. These are
 # not surfaced by `load_required_sections()` (which only scans H2) but are
 # enforced by `check_body_sections()`. Added in #682 to lift the
 # Architecture > Graph Context and Architecture > Mirror Across Agents
 # subsections from advisory to mandatory.
-REQUIRED_SUBSECTIONS: tuple[str, ...] = (
-    "### Graph Context",
-    "### Mirror Across Agents",
-)
+def _required_subsections() -> tuple[str, ...]:
+    """Schema-required headings the H2 template scan cannot surface.
+
+    `load_required_sections()` returns H2 headings only, so the H3 sections #682
+    lifted from advisory to mandatory have to be carried separately. Derived from
+    the schema rather than typed out, so "mandatory" means one thing.
+    """
+    required = _schema_required()
+    if not required:
+        return ("### Graph Context", "### Mirror Across Agents")
+    return tuple(h for h in required if h.startswith("### "))
+
+
+REQUIRED_SUBSECTIONS: tuple[str, ...] = _required_subsections()
 
 
 @dataclass
