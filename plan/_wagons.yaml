@@ -1874,6 +1874,11 @@ wagons:
       an empirical target list before it is made mandatory against 299 SMOKE acceptances
       of which exactly one declares execution_kind: live_smoke (#1664, after #1602
       and E069)'
+    E073: minimize likelihood of a-train-identity-that-names-no-train-being-written-and-only-refused-at-a-later-gate
+      by admitting a train at write time through the same resolver the read path uses,
+      naming the canonical successor of a retired legacy identity, and keeping every
+      identity the toolkit emits by default resolvable against the declared trains
+      (#1890)
     E072: minimize likelihood of registry-mirror-drift-reaching-main-behind-a-heal-that-reported-success
       by healing drift at pre-commit where the staged mirror still joins the commit,
       refusing the push when drift survives to pre-push, and reporting a failed resync
