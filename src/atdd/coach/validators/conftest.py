@@ -10,6 +10,8 @@ reducing 7 sequential HTTP round-trips to 3 concurrent ones.
 """
 import subprocess
 
+from typing import NoReturn
+
 import pytest
 from concurrent.futures import ThreadPoolExecutor
 
@@ -124,12 +126,39 @@ def _github_prefetch(github_client):
     return results
 
 
+def _unestablished(what: str, cause: object) -> "NoReturn":
+    """Fail, because the validator could not reach a verdict (#1896).
+
+    `pytest.skip` was here. A skipped test is GREEN, so every validator behind
+    these fixtures reported nothing whenever GitHub was unreachable — and
+    "reported nothing" is indistinguishable, in a CI summary, from "found
+    nothing wrong". #1892 is the proof: validate-coach passed on one PR and
+    failed on the next with the same code and the same 14 pre-existing unlabeled
+    issues. The difference was API availability, not the repository.
+
+    An unestablished verdict is not a clean one. This is the posture
+    `coach.documentation.verdict` already takes for COULD_NOT_CHECK, and the
+    posture the ruff ratchet takes when ruff is missing: refuse to report.
+
+    NOT used for a genuinely inapplicable case — an unconfigured repository, or a
+    query that succeeded and returned nothing. Those are answers, and they still
+    skip.
+    """
+    pytest.fail(
+        f"COULD_NOT_CHECK: {what}, so this validator reached no verdict.\n"
+        f"  cause: {cause}\n"
+        "  This is not a pass. Re-run when the GitHub API is reachable, or "
+        "deselect the api-bound validators explicitly with -m 'not github_api' "
+        "so the suite reports them as unevaluated rather than green."
+    )
+
+
 @pytest.fixture(scope="session")
 def github_issues(_github_prefetch):
     """All open issues with atdd-issue label (from prefetch cache)."""
     data = _github_prefetch.get("issues")
     if isinstance(data, Exception):
-        pytest.skip(f"Cannot query GitHub: {data}")
+        _unestablished("the open-issue query failed", data)
     if not data:
         pytest.skip("No issues found")
     return data
@@ -140,7 +169,7 @@ def github_complete_issues(_github_prefetch):
     """Issues with atdd:COMPLETE label (from prefetch cache)."""
     data = _github_prefetch.get("complete_issues")
     if isinstance(data, Exception):
-        pytest.skip(f"Cannot query GitHub: {data}")
+        _unestablished("the COMPLETE-issue query failed", data)
     if not data:
         pytest.skip("No COMPLETE issues found")
     return data
@@ -156,9 +185,11 @@ def all_open_issues_unfiltered(_github_prefetch):
     """
     data = _github_prefetch.get("all_open_issues")
     if isinstance(data, Exception):
-        pytest.skip(f"Cannot query GitHub: {data}")
+        _unestablished("the unfiltered open-issue query failed", data)
     if data is None:
-        pytest.skip("No open issues in prefetch cache")
+        # An ABSENT key is not an empty answer. The prefetch never populated it,
+        # so nothing is known — whereas [] would mean the repo really has none.
+        _unestablished("the unfiltered open-issue query never ran", "no entry in the prefetch cache")
     return data
 
 
@@ -167,7 +198,7 @@ def github_sub_issues(_github_prefetch):
     """Sub-issues for all open parent issues (from prefetch cache)."""
     data = _github_prefetch.get("sub_issues")
     if isinstance(data, Exception):
-        pytest.skip(f"Cannot batch-query sub-issues: {data}")
+        _unestablished("the sub-issue batch query failed", data)
     return data
 
 
@@ -176,7 +207,7 @@ def github_closed_sub_issues(_github_prefetch):
     """Sub-issues for all closed parent issues (from prefetch cache)."""
     data = _github_prefetch.get("closed_sub_issues")
     if isinstance(data, Exception):
-        pytest.skip(f"Cannot batch-query closed sub-issues: {data}")
+        _unestablished("the closed sub-issue batch query failed", data)
     return data
 
 
@@ -193,11 +224,12 @@ def protection_result(_github_prefetch):
 
     data = _github_prefetch.get("branch_protection")
     if isinstance(data, Exception):
-        pytest.skip(f"Cannot verify branch protection: {data}")
+        _unestablished("the branch-protection query failed", data)
     status, details = data
     if status == ProtectionStatus.DEGRADED:
-        pytest.skip(
-            f"Cannot verify branch protection (degraded mode): "
-            f"{'; '.join(details)}"
-        )
+        # DEGRADED says outright that protection could not be verified. Skipping
+        # on it meant "is main protected?" answered GREEN whenever the answer
+        # was unknown — the highest-stakes instance of this defect.
+        _unestablished("branch protection could not be verified (degraded mode)",
+                       "; ".join(details))
     return status, details
