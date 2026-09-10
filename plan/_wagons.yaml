@@ -49,7 +49,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 11
+    total: 12
     D001: maximize likelihood of schema-valid substrate intent and lock by defining
       canonical substrate.yaml / substrate.lock.yaml / registry-index schemas and
       validating both files against them
@@ -81,6 +81,10 @@ wagons:
     C006: minimize likelihood of stale-flat-verb-docs by documenting `atdd substrate
       ...` as the canonical form in the README and synced agent docs, with no doc
       presenting a flat substrate verb as primary
+    C007: minimize likelihood of undetected-substrate-staleness by comparing each
+      locked version against the registry's published latest_version in `atdd substrate
+      list`, reporting which packages are behind without applying anything, and reporting
+      COULD_NOT_CHECK when a configured registry cannot be read
   total: 0
   manifest: plan/admit_substrate/_admit_substrate.yaml
   path: plan/admit_substrate/
@@ -1387,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 125
+    total: 126
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1495,6 +1499,11 @@ wagons:
     D018: 'minimize presentation components whose render body is statically empty
       (jel-app AuthGateShell incident, #318)'
     L001: minimize manual theme discovery during atdd init
+    M003: maximize likelihood of a toolkit-self validator the strict detector cannot
+      see being visible to a human, by reporting toolkit-path string constants in
+      unmarked validators as advisory rather than gating on them, so a blind spot
+      is surfaced for triage without a low-precision rule being allowed to switch
+      off consumer enforcement
     P001: minimize blind theme prompts that force game-domain defaults on non-game
       repos
     C001: minimize invalid custom theme names accepted into config
@@ -1533,6 +1542,10 @@ wagons:
       staged-paths exception to the pre-commit hook, and minimize issues-missing-from-manifest-blocking-worktree-creation
       by making atdd branch <N> self-heal from GitHub and adding atdd issue reconcile
       for bulk backfill (#775)
+    R013: minimize likelihood of the repo asserting two contradictory models for what
+      an installed hook is, by finishing the migration the installer already performs
+      — every installed hook a dispatcher — and retiring the byte-identity assertions
+      that encode the abandoned model
     Y004: minimize pre-commit hook drift-detection that silently omits a notice when
       the current branch slug is absent from the manifest
     Y005: minimize atdd issue reconcile missing from the CLI when bulk backfill of

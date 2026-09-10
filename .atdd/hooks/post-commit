@@ -1,128 +1,74 @@
 #!/bin/sh
-# ATDD post-commit hook — blast-radius local validation.
-# Installed by `atdd init`. Always exits 0 (info-only; cannot undo a commit).
+# ATDD managed hook dispatcher — DO NOT EDIT (#1492).
 #
-# Behavior:
-#   1. Determines which files were touched in HEAD via `git show --name-only HEAD`.
-#   2. Maps file paths to validator phases (planner/tester/coder/coach/repo).
-#   3. Runs only the matched phases in parallel via shell backgrounding + wait.
-#   4. Exits 0 always — failures are surfaced via stderr but never block.
-#   5. No-op when CI=true (CI runs full validate; double-run wastes minutes).
+# This file is FIXED CONTENT. The real logic for this hook lives in the
+# INSTALLED atdd package, and this dispatcher does nothing but exec it.
 #
-# Bypass flag retired (E026): this hook is advisory (always exits 0);
-# a bypass of a non-blocking hook has no enforcement value.
+# Why: `.atdd/hooks/*` used to be a snapshot COPY of the packaged templates,
+# refreshed only by `atdd init --force` — a flag that is forbidden because it
+# caused #793. So every hook fix ever made reached only repos initialised after
+# it landed, and 6 of 11 hooks were never installed at all. A dispatcher has no
+# logic to go stale: `pipx upgrade atdd` is now sufficient to propagate a hook
+# fix, and the pre-push version gate (#1449) already keeps everyone current.
 #
-# Path → phase mapping:
-#   plan/**                       → atdd repo validate + atdd validate planner --local --skip-api
-#   contracts/**                  → atdd repo validate + atdd validate tester
-#   src/atdd/planner/**           → atdd validate planner
-#   src/atdd/tester/**            → atdd validate tester
-#   src/atdd/coder/**             → atdd validate coder
-#   src/atdd/coach/**             → atdd validate coach
-#   .atdd/manifest.yaml           → atdd validate coach
-#   (anything else)               → no validators run, silent exit 0
+# Editing this file changes nothing about the logic that runs. It will be
+# replaced on the next `atdd sync` (your copy is preserved as *.local.bak).
+#
+# FAILS CLOSED: if the packaged hook cannot be resolved, this BLOCKS rather
+# than silently allowing. A guard that allows on error is not a guard — that is
+# the claude-pre-tool-use.sh defect (inert in every consumer repo). There is
+# deliberately no bypass env var here: E030 retired that entire class.
 
-set -u  # no `set -e` — we want to keep going even if a validator fails
+_HOOK_NAME='post-commit'
 
-# --- Agent session capture (#1540) ---
-# Records WHICH agent session touched this work_item, read from ambient
-# environment. Runs BEFORE the CI bypass and before any validator work:
-#   * post-commit, not pre-commit, because this must survive `--no-verify`
-#     (agents use it routinely) and can never cost anyone their commit;
-#   * a no-op when no agent env var is set — a human commit records nothing
-#     and, crucially, clears nothing;
-#   * backgrounded and fully muted so it cannot slow or interrupt a commit.
-# Always through the `atdd` binary: a bare `python3` cannot import a
-# pipx-installed atdd.
-( atdd state sessions capture >/dev/null 2>&1 & ) 2>/dev/null || true
+# Resolve the packaged hook via the `atdd` console script, which is the only
+# entry point that survives a pipx install (the toolkit lives in an isolated
+# venv that a bare `python3` cannot import — measured, #1492).
+_resolve_packaged_hook() {
+    _atdd_bin=$(command -v atdd 2>/dev/null) || return 1
+    [ -n "$_atdd_bin" ] || return 1
+    # </dev/null: never consume the hook's stdin (pre-push reads refs from it).
+    "$_atdd_bin" hooks path "$_HOOK_NAME" 2>/dev/null </dev/null
+}
 
-# --- CI bypass ---
-if [ "${CI:-}" = "true" ]; then
-    exit 0
-fi
-
-# --- Resolve files in HEAD (works on first-ever commit, unlike HEAD~1..HEAD) ---
-FILES=$(git show --pretty=format: --name-only HEAD 2>/dev/null | grep -v '^$' || true)
-
-if [ -z "$FILES" ]; then
-    exit 0
-fi
-
-# --- Map files to validator phases ---
-RUN_REPO=0
-RUN_PLANNER=0
-RUN_TESTER=0
-RUN_CODER=0
-RUN_COACH=0
-
-while IFS= read -r f; do
-    case "$f" in
-        plan/*)                       RUN_REPO=1; RUN_PLANNER=1 ;;
-        contracts/*)                  RUN_REPO=1; RUN_TESTER=1 ;;
-        src/atdd/planner/*)           RUN_PLANNER=1 ;;
-        src/atdd/tester/*)            RUN_TESTER=1 ;;
-        src/atdd/coder/*)             RUN_CODER=1 ;;
-        src/atdd/coach/*)             RUN_COACH=1 ;;
-        .atdd/manifest.yaml)          RUN_COACH=1 ;;
-    esac
-done <<EOF
-$FILES
-EOF
-
-# --- Fast path: nothing to validate ---
-if [ "$RUN_REPO" = "0" ] && [ "$RUN_PLANNER" = "0" ] && [ "$RUN_TESTER" = "0" ] \
-        && [ "$RUN_CODER" = "0" ] && [ "$RUN_COACH" = "0" ]; then
-    exit 0
-fi
-
-echo "ATDD post-commit: running blast-radius validators..." >&2
-
-# --- core.bare snapshot + restore trap (E022) ---
-# Prevents pytester-based SMOKE tests from leaving core.bare=true in the shared
-# .git/config even if the pytest process is interrupted (SIGKILL, timeout, OOM).
-BARE_BEFORE=$(git config core.bare 2>/dev/null || echo "")
-trap '
-    if [ -n "$BARE_BEFORE" ]; then
-        git config core.bare "$BARE_BEFORE" 2>/dev/null || true
-    else
-        git config --unset core.bare 2>/dev/null || true
+# Retry, because `pipx upgrade atdd` unlinks the console script for ~1.3s of its
+# ~6s run (measured, #1492). Without this, an upgrade racing a commit would fire
+# the block spuriously — and an enforcement message that cries wolf is how
+# operators learn to reach for bypasses (#1442). Retrying rides through the
+# transient window; a genuinely absent atdd still blocks, which is correct.
+_HOOK_PATH=''
+_try=0
+while [ "$_try" -lt 3 ]; do
+    _HOOK_PATH=$(_resolve_packaged_hook)
+    if [ -n "$_HOOK_PATH" ] && [ -f "$_HOOK_PATH" ]; then
+        break
     fi
-' EXIT
-
-# --- Fire validators in parallel ---
-# Each non-zero RUN_* triggers an async subprocess. We collect PIDs and wait
-# on them so the hook only returns after every validator has reported.
-PIDS=""
-
-if [ "$RUN_REPO" = "1" ]; then
-    ( atdd repo validate >&2 2>&1 ) &
-    PIDS="$PIDS $!"
-fi
-
-if [ "$RUN_PLANNER" = "1" ]; then
-    ( atdd validate planner --local --skip-api >&2 2>&1 ) &
-    PIDS="$PIDS $!"
-fi
-
-if [ "$RUN_TESTER" = "1" ]; then
-    ( atdd validate tester --local --skip-api >&2 2>&1 ) &
-    PIDS="$PIDS $!"
-fi
-
-if [ "$RUN_CODER" = "1" ]; then
-    ( atdd validate coder --local --skip-api >&2 2>&1 ) &
-    PIDS="$PIDS $!"
-fi
-
-if [ "$RUN_COACH" = "1" ]; then
-    ( PYTEST_ADDOPTS="-m 'not slow'" atdd validate coach --local --skip-api >&2 2>&1 ) &
-    PIDS="$PIDS $!"
-fi
-
-# Wait for all to finish; we don't propagate their exit codes.
-for pid in $PIDS; do
-    wait "$pid" 2>/dev/null || true
+    _HOOK_PATH=''
+    _try=$((_try + 1))
+    if [ "$_try" -lt 3 ]; then
+        sleep 1
+    fi
 done
 
-# Always exit 0 — post-commit can't undo, only inform.
-exit 0
+if [ -z "$_HOOK_PATH" ]; then
+    # `echo` only, never `cat <<EOF`: this branch runs precisely when the
+    # environment is broken, and a message that needs an external binary to
+    # print is a message that goes missing when it matters most. `echo` is a
+    # shell builtin and always available.
+    echo "" >&2
+    echo "ATDD: cannot resolve the packaged '$_HOOK_NAME' hook from the installed atdd." >&2
+    echo "" >&2
+    echo "The guard could not run, so this operation is BLOCKED rather than" >&2
+    echo "silently allowed. This is an install problem, not a problem with" >&2
+    echo "your change." >&2
+    echo "" >&2
+    echo "Repair:" >&2
+    echo "  pipx upgrade atdd        # or: pipx install --force atdd" >&2
+    echo "  atdd doctor              # diagnose interpreter / PATH problems" >&2
+    echo "" >&2
+    exit 1
+fi
+
+# exec via `sh` rather than relying on the executable bit surviving the wheel.
+# Every hook template is #!/bin/sh (enforced by the dispatcher-parity test).
+exec sh "$_HOOK_PATH" "$@"

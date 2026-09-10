@@ -1,87 +1,74 @@
 #!/bin/sh
-# ATDD commit-msg hook — mass-delete contamination guard (#629 Layer 2).
+# ATDD managed hook dispatcher — DO NOT EDIT (#1492).
 #
-# Git invokes this with $1 = path to the file holding the prepared commit
-# message. Unlike pre-commit (which runs before .git/COMMIT_EDITMSG is
-# written for the current commit), commit-msg reliably has the message.
+# This file is FIXED CONTENT. The real logic for this hook lives in the
+# INSTALLED atdd package, and this dispatcher does nothing but exec it.
 #
-# Blocks when:
-#   - staged diff deletes > 50 files OR > 10,000 lines, AND
-#   - the commit message does not have one of the recognised
-#     decommission prefixes / explicit allow tokens.
+# Why: `.atdd/hooks/*` used to be a snapshot COPY of the packaged templates,
+# refreshed only by `atdd init --force` — a flag that is forbidden because it
+# caused #793. So every hook fix ever made reached only repos initialised after
+# it landed, and 6 of 11 hooks were never installed at all. A dispatcher has no
+# logic to go stale: `pipx upgrade atdd` is now sufficient to propagate a hook
+# fix, and the pre-push version gate (#1449) already keeps everyone current.
 #
-# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
-# For genuine emergencies: atdd emergency --reason "<reason>"
+# Editing this file changes nothing about the logic that runs. It will be
+# replaced on the next `atdd sync` (your copy is preserved as *.local.bak).
+#
+# FAILS CLOSED: if the packaged hook cannot be resolved, this BLOCKS rather
+# than silently allowing. A guard that allows on error is not a guard — that is
+# the claude-pre-tool-use.sh defect (inert in every consumer repo). There is
+# deliberately no bypass env var here: E030 retired that entire class.
 
-set -e
+_HOOK_NAME='commit-msg'
 
-# --- Emergency bypass check (E031) ---
-_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
-if [ -n "$_REPO_ROOT" ]; then
-    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
-    if [ -f "$_BYPASS_FILE" ]; then
-        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
-            printf "ATDD: Emergency bypass active (commit-msg). Reason: %s\n" \
-                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
-            exit 0
-        else
-            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
-        fi
+# Resolve the packaged hook via the `atdd` console script, which is the only
+# entry point that survives a pipx install (the toolkit lives in an isolated
+# venv that a bare `python3` cannot import — measured, #1492).
+_resolve_packaged_hook() {
+    _atdd_bin=$(command -v atdd 2>/dev/null) || return 1
+    [ -n "$_atdd_bin" ] || return 1
+    # </dev/null: never consume the hook's stdin (pre-push reads refs from it).
+    "$_atdd_bin" hooks path "$_HOOK_NAME" 2>/dev/null </dev/null
+}
+
+# Retry, because `pipx upgrade atdd` unlinks the console script for ~1.3s of its
+# ~6s run (measured, #1492). Without this, an upgrade racing a commit would fire
+# the block spuriously — and an enforcement message that cries wolf is how
+# operators learn to reach for bypasses (#1442). Retrying rides through the
+# transient window; a genuinely absent atdd still blocks, which is correct.
+_HOOK_PATH=''
+_try=0
+while [ "$_try" -lt 3 ]; do
+    _HOOK_PATH=$(_resolve_packaged_hook)
+    if [ -n "$_HOOK_PATH" ] && [ -f "$_HOOK_PATH" ]; then
+        break
     fi
+    _HOOK_PATH=''
+    _try=$((_try + 1))
+    if [ "$_try" -lt 3 ]; then
+        sleep 1
+    fi
+done
+
+if [ -z "$_HOOK_PATH" ]; then
+    # `echo` only, never `cat <<EOF`: this branch runs precisely when the
+    # environment is broken, and a message that needs an external binary to
+    # print is a message that goes missing when it matters most. `echo` is a
+    # shell builtin and always available.
+    echo "" >&2
+    echo "ATDD: cannot resolve the packaged '$_HOOK_NAME' hook from the installed atdd." >&2
+    echo "" >&2
+    echo "The guard could not run, so this operation is BLOCKED rather than" >&2
+    echo "silently allowed. This is an install problem, not a problem with" >&2
+    echo "your change." >&2
+    echo "" >&2
+    echo "Repair:" >&2
+    echo "  pipx upgrade atdd        # or: pipx install --force atdd" >&2
+    echo "  atdd doctor              # diagnose interpreter / PATH problems" >&2
+    echo "" >&2
+    exit 1
 fi
 
-# --- Count staged deletions ---
-DEL_FILES=$(git diff --cached --name-only --diff-filter=D 2>/dev/null | wc -l | tr -d ' ')
-DEL_LINES=$(git diff --cached --numstat 2>/dev/null | awk '{sum+=$2} END {print sum+0}')
-
-# Fast path: not a mass delete, nothing to do.
-if [ "${DEL_FILES:-0}" -le 50 ] && [ "${DEL_LINES:-0}" -le 10000 ]; then
-    exit 0
-fi
-
-# --- Inspect the commit message ---
-MSG_FILE="${1:-}"
-if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
-    # Fallback for direct invocation outside git's hook context.
-    MSG_FILE="$(git rev-parse --git-dir 2>/dev/null)/COMMIT_EDITMSG"
-fi
-
-MSG_CONTENT=""
-if [ -f "$MSG_FILE" ]; then
-    MSG_CONTENT=$(cat "$MSG_FILE" 2>/dev/null || true)
-fi
-
-# Strip comment lines (git-style # lines) before checking the prefix.
-MSG_BODY=$(printf '%s\n' "$MSG_CONTENT" | grep -v '^#' || true)
-FIRST_LINE=$(printf '%s\n' "$MSG_BODY" | head -1)
-
-# Allow if first line begins with a recognised decommission prefix,
-# or if the body contains the explicit allow token.
-if printf '%s' "$FIRST_LINE" | grep -qE '^(chore\(decom|refactor\(remove|chore\(archive)' \
-        || printf '%s' "$MSG_BODY" | grep -qF '[mass-delete-approved]'; then
-    exit 0
-fi
-
-cat >&2 <<MASSDELETE_MSG
-
-ATDD: Commit blocked — mass-delete signature detected.
-
-Staged diff would delete ${DEL_FILES} files / ${DEL_LINES} lines.
-This matches the Wave 12 bare-mode contamination signature
-(PRs #625 / #627: 220,000-line deletions across 1,277 files each).
-
-Recovery:
-  1. git config core.bare         # check if = true (the upstream cause)
-  2. git diff --cached --stat     # confirm what is staged
-  3. If contaminated: git config core.bare false; git reset to a safe commit
-
-If this deletion is intentional, prefix the commit message with one of:
-  chore(decom):
-  refactor(remove):
-  chore(archive):
-... or include the literal token [mass-delete-approved] anywhere in the body.
-
-For genuine emergencies: atdd emergency --reason "<reason>"
-
-MASSDELETE_MSG
-exit 1
+# exec via `sh` rather than relying on the executable bit surviving the wheel.
+# Every hook template is #!/bin/sh (enforced by the dispatcher-parity test).
+exec sh "$_HOOK_PATH" "$@"
