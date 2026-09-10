@@ -167,22 +167,47 @@ def test_wmbt_sub_issues_have_atdd_wmbt_label(github_sub_issues):
     When: Checking labels
     Then: Each sub-issue has the atdd-wmbt label
     """
+    # Every parent, not the first one (#1907).
+    #
+    # This loop used to `return` after checking the first parent that had
+    # sub-issues, annotated "# Found and validated — pass". Two consequences,
+    # and the second is the bad one:
+    #
+    #   it examined 1 of 12 parents, and 36 sub-issues sat unlabelled behind it;
+    #   and its verdict depended on ITERATION ORDER — the same repository state
+    #   passed or failed according to which parent came first. Measured:
+    #   {dirty, clean} FAILs and {clean, dirty} PASSes, on identical data.
+    #
+    # An order-dependent gate is worse than a blind one. It goes green and red
+    # across runs with no code change, and every green is believed.
+    drift = []
+    parents_with_subs = 0
     for num, subs in github_sub_issues.items():
         if not subs:
             continue
+        parents_with_subs += 1
 
-        unlabeled = []
-        for sub in subs:
-            labels = [l["name"] for l in sub.get("labels", [])]
-            if "atdd-wmbt" not in labels:
-                unlabeled.append(f"#{sub['number']}: {sub.get('title', '?')}")
-
+        unlabeled = [
+            f"#{sub['number']}: {sub.get('title', '?')}"
+            for sub in subs
+            if "atdd-wmbt" not in [label["name"] for label in sub.get("labels", [])]
+        ]
         if unlabeled:
-            assert False, (
-                f"\nWMBT sub-issues of #{num} missing atdd-wmbt label:\n  "
-                + "\n  ".join(unlabeled)
+            drift.append(
+                f"sub-issues of #{num} missing atdd-wmbt:\n    "
+                + "\n    ".join(unlabeled)
             )
-        # Found and validated — pass
-        return
 
-    pytest.skip("No issue with sub-issues found")
+    # NOT_APPLICABLE is only "no parent has sub-issues at all". It is checked
+    # BEFORE the assert so that a repository with nothing to check is reported
+    # honestly, and AFTER the loop so it cannot mask drift (#1907).
+    if parents_with_subs == 0:
+        pytest.skip("no parent issue has sub-issues — nothing to check")
+
+    assert not drift, (
+        f"\n\n{len(drift)} of {parents_with_subs} parent issue(s) have "
+        f"sub-issues missing the atdd-wmbt label:\n\n  "
+        + "\n\n  ".join(drift)
+        + "\n\nFix: `atdd coach sync-labels <N>` per parent, or label the "
+        "sub-issues directly."
+    )
