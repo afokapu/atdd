@@ -39,8 +39,8 @@ from atdd.coach.validators.test_pr_phase_alignment import (
 # Real paths from this repo's own tree. `src/atdd/coach/commands/issue.py` is the
 # single code file on PR#1589, whose issue #1583 sits at GREEN — the live
 # COACH-PRGATE-0003 case this fix surfaces.
-_OWN_CODE = "src/atdd/coach/commands/issue.py"
-_OWN_MODULE = "src/atdd/coach/utils/repo.py"
+_OWN_CODE = "src/atdd/coach/commands/issue.py"  # atdd:suppress(coach.source-layout.toolkit-path-string-in-unmarked-selftest) classifier input, never opened
+_OWN_MODULE = "src/atdd/coach/utils/repo.py"  # atdd:suppress(coach.source-layout.toolkit-path-string-in-unmarked-selftest) classifier input, never opened
 
 
 # --------------------------------------------------------------------------- #

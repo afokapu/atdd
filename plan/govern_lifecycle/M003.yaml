@@ -1,0 +1,73 @@
+urn: wmbt:govern-lifecycle:M003
+step: monitor
+direction: maximize
+dimension: likelihood
+object_of_control: a-toolkit-self-validator-the-strict-detector-cannot-see-being-visible-to-a-human
+context_clarifier: the strict detector recognises only literal Path division chains, so a toolkit
+  path held as a string constant evaded it and shipped; measured against the tree, a strict
+  rule over that shape scores one true positive in four, and every error falls on the side of
+  marking a working validator platform, which silently disables a live gate in every consumer
+lens: functional.sustainability
+statement: maximize likelihood of a-toolkit-self-validator-the-strict-detector-cannot-see-being-visible-to-a-human
+  by reporting toolkit-path string constants in unmarked validators as advisory rather than
+  gating on them, so a blind spot is surfaced for triage without a low-precision rule being
+  allowed to switch off consumer enforcement
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:M003-UNIT-001-a-toolkit-path-string-is-reported-not-gated
+    id: AC-UNIT-001
+    purpose: the shape that evaded the strict detector must become visible, and it must not
+      be able to fail a build, because a rule at this precision would disable working consumer
+      gates
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a shipped validator carrying no platform marker that assigns a string naming a directory
+      only the toolkit has
+  when:
+    abstract: the advisory scan runs over it
+  then:
+    abstract:
+    - the file is reported, naming the string and where it was assigned
+    - the run passes, because the report is advisory and never a gate
+- identity:
+    urn: acc:govern-lifecycle:M003-UNIT-002-prose-citations-and-marked-files-are-not-reported
+    id: AC-UNIT-002
+    purpose: an advisory that reports the benign is noise, and noise is how a report stops being
+      read — every one of the three shapes here was measured as a false positive
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a validator mentioning a toolkit path only in prose, one citing a path with a symbol suffix
+      rather than naming a file, one already carrying the platform marker, and one whose assignment
+      carries an inline suppression
+  when:
+    abstract: the advisory scan runs over them
+  then:
+    abstract:
+    - none of them is reported
+    - the suppression is honoured on the assigning line, so a triaged case stays quiet
+- identity:
+    urn: acc:govern-lifecycle:M003-SMOKE-001-the-live-tree-is-quiet-and-the-scan-still-bites
+    id: AC-SMOKE-001
+    purpose: a report that is noisy on the day it ships will be ignored by the time it matters;
+      the live tree must start quiet and speak only for something new
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - this repository's own shipped validators, as they stand
+  when:
+    abstract: the advisory scan runs over the real tree
+  then:
+    abstract:
+    - every reported file is one a human has triaged and suppressed with a reason
+    - the scan still finds the shape, proven by planting one and seeing it reported
