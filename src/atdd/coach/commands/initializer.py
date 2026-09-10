@@ -13,7 +13,7 @@ GitHub infrastructure (requires `gh` CLI):
     - Labels: atdd-issue, atdd-wmbt, atdd:*, archetype:*, wagon:*
     - Project v2: "ATDD Sessions" with 11 custom fields
     - Workflow: .github/workflows/atdd-validate.yml
-    - Config: project_id, project_number, repo in .atdd/config.yaml
+    - Config: repo in .atdd/config.yaml
 
 Usage:
     atdd init                    # Initialize ATDD structure
@@ -84,6 +84,17 @@ SUBSTRATE_DEFAULT_PLAN_ROOT = "plan/"
 
 class ProjectInitializer:
     """Initialize ATDD structure in consumer repo."""
+
+    DEFAULT_PATH_FILTERS = {
+        "planner": ["plan/**"],
+        "tester": ["contracts/**", "telemetry/**"],
+        "coder": ["web/**", "python/**", "packages/**", "supabase/**", "src/**"],
+        "coach": [".atdd/**", ".github/**"],
+        # SMOKE phase (issue #293): trigger when web/ or e2e/ change so the
+        # opt-in Playwright job runs against the current branch's deploy preview.
+        "smoke": ["web/**", "e2e/**"],
+    }
+
 
     def __init__(self, target_dir: Optional[Path] = None):
         """
@@ -1164,13 +1175,17 @@ class ProjectInitializer:
         schema_path = self.package_root / "schemas" / "label_taxonomy.schema.json"
         labels_created, labels_existed = self._create_labels(repo, schema_path)
 
-        # Create or find Project v2
-        project_id, project_number, project_created = self._ensure_project(repo)
-
-        # Create custom fields
-        fields_created = 0
-        if project_id:
-            fields_created = self._create_project_fields(project_id)
+        # #1761: the Projects v2 bootstrap USED TO LIVE HERE — _ensure_project,
+        # _get_project_node_id, _create_project_fields, _migrate_project_fields,
+        # _create_missing_fields, _field_create_mutation, _run_field_mutation,
+        # _query_project_field_names_and_ids, _rename_project_field_raw and
+        # _delete_project_field_raw, all deleted.
+        #
+        # #1051 decommissioned the board and stubbed _ensure_project to return
+        # (None, None, False), which left every one of these unreachable behind
+        # an `if project_id:` that could never be true. The label taxonomy,
+        # workflows, branch protection and auto-merge that _bootstrap_github
+        # also performs are live and stay.
 
         # Write workflow files (skip if config says so)
         skip_workflows = False
@@ -1197,19 +1212,10 @@ class ProjectInitializer:
         # Enable auto-merge
         auto_merge_set = self._enable_auto_merge(repo)
 
-        # Update config with GitHub settings
-        if project_id:
-            self._update_config_github(repo, project_id, project_number)
-
         # Summary
         parts = []
         parts.append(f"{labels_created + labels_existed} labels "
                       f"({labels_created} created, {labels_existed} existed)")
-        if project_id:
-            verb = "created" if project_created else "found"
-            parts.append(f"Project 'ATDD Sessions' #{project_number} ({verb})")
-        if fields_created:
-            parts.append(f"{fields_created} fields created")
         if workflow_written:
             parts.append("workflow written")
         if protection_set:
@@ -1281,233 +1287,6 @@ class ProjectInitializer:
                 existed += 1
 
         return created, existed
-
-    def _ensure_project(self, repo: str) -> Tuple[Optional[str], Optional[int], bool]:
-        """Projects v2 board decommissioned (#1051/#1072) — no-op stub.
-
-        The coach no longer creates or syncs an "ATDD Sessions" Project v2
-        board; phase state is the ``atdd:<phase>`` label + ``.atdd/manifest
-        .yaml`` (the source of truth). Returns the ``(id, number, created)``
-        contract as ``(None, None, False)`` so callers guarded on
-        ``if project_id:`` skip all board work.
-        """
-        return None, None, False
-
-    def _get_project_node_id(self, owner: str, project_number: int) -> Optional[str]:
-        """Get Project v2 node ID from owner and number."""
-        try:
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f",
-                 f'query={{ user(login:"{owner}") {{ '
-                 f'projectV2(number:{project_number}) {{ id }} }} }}',
-                 "--jq", ".data.user.projectV2.id"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip()
-            # Try as org
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f",
-                 f'query={{ organization(login:"{owner}") {{ '
-                 f'projectV2(number:{project_number}) {{ id }} }} }}',
-                 "--jq", ".data.organization.projectV2.id"],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip() or None
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            pass
-        return None
-
-    # v1 → v2 field migration map: old_name → new_name (None = delete)
-    # NOTE: GitHub Project v2 field names cannot contain colons.
-    _FIELD_MIGRATION: Dict[str, Optional[str]] = {
-        "Session Number": None,              # DELETE — redundant with GitHub issue number
-        "Session Type":   "ATDD Issue Type",
-        "Complexity":     "ATDD Complexity",
-        "Archetypes":     "ATDD Archetypes",
-        "Branch":         "ATDD Branch",
-        "Train":          "ATDD Train",
-        "Feature URN":    "ATDD Feature URN",
-        "WMBT ID":        "ATDD WMBT ID",
-        "WMBT Step":      "ATDD WMBT Step",
-        "WMBT Phase":     "ATDD WMBT Phase",
-    }
-
-    def _query_project_field_names_and_ids(self, project_id: str) -> Dict[str, str]:
-        """Query existing project fields. Returns {name: field_id}."""
-        try:
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f",
-                 f'query={{ node(id: "{project_id}") {{ ... on ProjectV2 {{ '
-                 f'fields(first: 30) {{ nodes {{ '
-                 f'... on ProjectV2Field {{ id name }} '
-                 f'... on ProjectV2SingleSelectField {{ id name }} '
-                 f'}} }} }} }} }}'],
-                capture_output=True, text=True, timeout=15,
-            )
-            if result.returncode == 0:
-                data = json.loads(result.stdout)
-                return {
-                    node["name"]: node["id"]
-                    for node in data["data"]["node"]["fields"]["nodes"]
-                    if node.get("name") and node.get("id")
-                }
-        except (subprocess.TimeoutExpired, FileNotFoundError, json.JSONDecodeError, KeyError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            pass
-        return {}
-
-    def _rename_project_field_raw(self, project_id: str, field_id: str, new_name: str) -> bool:
-        """Rename a project field via GraphQL. Returns True on success."""
-        mutation = (
-            f'mutation {{ updateProjectV2Field(input: {{ '
-            f'fieldId: "{field_id}", name: "{new_name}" '
-            f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id name }} '
-            f'... on ProjectV2SingleSelectField {{ id name }} }} }} }}'
-        )
-        try:
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f", f"query={mutation}"],
-                capture_output=True, text=True, timeout=10,
-            )
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            return False
-
-    def _delete_project_field_raw(self, project_id: str, field_id: str) -> bool:
-        """Delete a project field via GraphQL. Returns True on success."""
-        mutation = (
-            f'mutation {{ deleteProjectV2Field(input: {{ '
-            f'fieldId: "{field_id}" '
-            f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} '
-            f'... on ProjectV2SingleSelectField {{ id }} }} }} }}'
-        )
-        try:
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f", f"query={mutation}"],
-                capture_output=True, text=True, timeout=10,
-            )
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            return False
-
-    def _create_project_fields(self, project_id: str) -> int:
-        """Create/migrate custom fields on a Project v2 from schema. Returns count changed."""
-        schema_path = self.package_root / "schemas" / "project_fields.schema.json"
-        if not schema_path.exists():
-            return 0
-
-        with open(schema_path) as f:
-            schema = json.load(f)
-
-        # Pass 1: migrate — rename old-name fields, delete deprecated ones
-        existing = self._query_project_field_names_and_ids(project_id)
-        migrated = self._migrate_project_fields(project_id, existing)
-
-        # Pass 2: re-query after migration
-        if migrated:
-            existing = self._query_project_field_names_and_ids(project_id)
-
-        # Pass 3: create any still-missing fields from schema
-        created = self._create_missing_fields(project_id, schema, set(existing.keys()))
-
-        return migrated + created
-
-    def _migrate_project_fields(self, project_id: str, existing: Dict[str, str]) -> int:
-        """Rename renamed fields and delete deprecated ones. Returns count changed."""
-        migrated = 0
-        for old_name, new_name in self._FIELD_MIGRATION.items():
-            if old_name not in existing:
-                continue
-            field_id = existing[old_name]
-
-            if new_name is None:
-                # Delete deprecated field
-                if self._delete_project_field_raw(project_id, field_id):
-                    print(f"    Deleted field: {old_name}")
-                    migrated += 1
-            elif old_name != new_name and new_name not in existing:
-                # Rename (preserves values)
-                if self._rename_project_field_raw(project_id, field_id, new_name):
-                    print(f"    Renamed field: {old_name} -> {new_name}")
-                    migrated += 1
-
-        return migrated
-
-    def _create_missing_fields(
-        self, project_id: str, schema: dict, existing_names: set
-    ) -> int:
-        """Create every schema-declared field the project does not carry yet."""
-        created = 0
-        defs = schema.get("$defs", {})
-
-        for scope in ["parent_fields", "sub_issue_fields"]:
-            for field_spec in defs.get(scope, {}).get("properties", {}).values():
-                field_props = field_spec.get("properties", {})
-                name = field_props.get("name", {}).get("const")
-                data_type = field_props.get("data_type", {}).get("const")
-
-                if not name or not data_type or name in existing_names:
-                    continue
-
-                mutation = self._field_create_mutation(
-                    project_id, name, data_type, field_spec
-                )
-                if self._run_field_mutation(mutation):
-                    created += 1
-
-        return created
-
-    @staticmethod
-    def _field_create_mutation(
-        project_id: str, name: str, data_type: str, field_spec: dict
-    ) -> str:
-        """The createProjectV2Field mutation for one field."""
-        if data_type != "SINGLE_SELECT":
-            return (
-                f'mutation {{ createProjectV2Field(input: {{ '
-                f'projectId: "{project_id}", dataType: {data_type}, '
-                f'name: "{name}" '
-                f'}}) {{ projectV2Field {{ ... on ProjectV2Field {{ id }} }} }} }}'
-            )
-
-        options = field_spec.get("properties", {}).get("options", {})
-        options_str = ", ".join(
-            f'{{name: "{item["properties"]["name"]["const"]}", '
-            f'description: "{item["properties"]["description"]["const"]}", '
-            f'color: {item["properties"]["color"]["const"]}}}'
-            for item in options.get("prefixItems", [])
-            if "properties" in item
-        )
-        return (
-            f'mutation {{ createProjectV2Field(input: {{ '
-            f'projectId: "{project_id}", dataType: {data_type}, '
-            f'name: "{name}", singleSelectOptions: [{options_str}] '
-            f'}}) {{ projectV2Field {{ ... on ProjectV2SingleSelectField {{ id }} }} }} }}'
-        )
-
-    @staticmethod
-    def _run_field_mutation(mutation: str) -> bool:
-        """Run one field mutation via gh. False when gh is absent or times out."""
-        try:
-            result = subprocess.run(
-                ["gh", "api", "graphql", "-f", f"query={mutation}"],
-                capture_output=True, text=True, timeout=10,
-            )
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            return False
-
-    # Default path → phase mappings for path-scoped validation
-    DEFAULT_PATH_FILTERS = {
-        "planner": ["plan/**"],
-        "tester": ["contracts/**", "telemetry/**"],
-        "coder": ["web/**", "python/**", "packages/**", "supabase/**", "src/**"],
-        "coach": [".atdd/**", ".github/**"],
-        # SMOKE phase (issue #293): trigger when web/ or e2e/ change so the
-        # opt-in Playwright job runs against the current branch's deploy preview.
-        "smoke": ["web/**", "e2e/**"],
-    }
 
     def _write_workflow(self, repo: str) -> bool:
         """Write .github/workflows/atdd-validate.yml with parallel phase jobs.
@@ -1946,30 +1725,6 @@ jobs:
         from atdd.coach.commands.branch_protection import apply_branch_protection
 
         return apply_branch_protection(repo)
-
-    def _update_config_github(
-        self, repo: str, project_id: str, project_number: int
-    ) -> None:
-        """Add GitHub settings to .atdd/config.yaml."""
-        if not self.config_file.exists():
-            return
-
-        with open(self.config_file) as f:
-            config = yaml.safe_load(f) or {}
-
-        config["github"] = {
-            "repo": repo,
-            "project_number": project_number,
-            "project_id": project_id,
-            "field_schema": "atdd/coach/schemas/project_fields.schema.json",
-        }
-
-        # #1455: same reason — one top-level key, edited in place.
-        self.config_file.write_text(
-            set_top_level_block(self.config_file.read_text(), "github", config["github"])
-        )
-
-        print(f"  Updated: {self.config_file} (github section)")
 
 
 # Public alias: the class is named ProjectInitializer internally, but

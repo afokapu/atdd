@@ -13,8 +13,8 @@ schema-driven create path — owns it, and the planner's author validators
 cover it.
 
 These tests run against the LIVE GitHub API and require:
-- .atdd/config.yaml with github.repo and github.project_id
-- gh CLI authenticated with project scope
+- .atdd/config.yaml with github.repo
+- gh CLI authenticated
 
 Run: atdd validate coach
 """
@@ -65,8 +65,9 @@ def test_github_client_methods_exist():
           list_issues_by_label, get_issue, ensure_label, add_label,
           remove_label methods exist. (Projects v2 board methods —
           get_project_fields/add_issue_to_project/set_project_field_*/
-          get_project_item_* — were removed in #1051; state lives in the
-          atdd:<phase> label + .atdd/manifest.yaml, not the board.)
+          get_project_item_* — were removed in #1051, and the last three
+          write mutations plus ProjectConfig.project_id in #1761; state
+          lives in the atdd:<phase> label + .atdd/manifest.yaml.)
     """
     from atdd.coach.github import GitHubClient
 

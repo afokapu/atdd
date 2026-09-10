@@ -43,7 +43,7 @@ patterns:
       argv_prefix: ["issue", "create"]
     reason: >
       gh issue create bypasses atdd manifest registration, WMBT sub-issue
-      generation, and Project v2 field setup. The L1 PreToolUse hook (#668)
+      generation, and store-first work-item creation. The L1 PreToolUse hook (#668)
       only fires inside the Claude Code Bash tool — operators in raw shells,
       other LLM harnesses, and cmux panes reach the real gh unblocked. The
       .atdd/bin/gh shim closes that gap for every shell process inside the

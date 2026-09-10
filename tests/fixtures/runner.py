@@ -143,7 +143,6 @@ class LocalDryRunRunner:
         if to_phase is Phase.COMPLETE:
             self._merge_gate(run_id, evidence, issue_number)
 
-        # Atomic label + Projects v2 sync (closes #882) lives in one call.
         self.github.set_phase(issue_number, to_phase)
         self.persistence.set_current_phase(run_id, to_phase)
         self.persistence.append_event(

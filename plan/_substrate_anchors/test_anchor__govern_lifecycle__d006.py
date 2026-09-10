@@ -1,5 +1,5 @@
 # URN: test:govern-lifecycle:d006-anchor
-# Acceptance: acc:govern-lifecycle:D006-UNIT-001-require-phase-archetype-wagon-triplet
+# Acceptance: acc:govern-lifecycle:D006-UNIT-001-require-only-the-label-families-with-a-reader
 # WMBT: wmbt:govern-lifecycle:D006
 # Phase: GREEN
 # Layer: assembly
@@ -24,5 +24,5 @@ import pytest
 
 
 def test_d006_unit_001_require_phase_archetype_wagon_triplet() -> None:
-    """Anchor stub for acc:govern-lifecycle:D006-UNIT-001-require-phase-archetype-wagon-triplet (real test pending)."""
+    """Anchor stub for acc:govern-lifecycle:D006-UNIT-001-require-only-the-label-families-with-a-reader (real test pending)."""
     pytest.skip("substrate anchor stub — real wired test pending (#423)")

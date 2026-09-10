@@ -218,7 +218,7 @@ class TestIssueManagerReconcile:
         the sole registry)."""
         config_path = tmp_path / ".atdd"
         config_path.mkdir(parents=True, exist_ok=True)
-        (config_path / "config.yaml").write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
+        (config_path / "config.yaml").write_text("github:\n  repo: owner/repo\n")
 
         open_issues = [
             {"number": 100, "title": "existing issue", "createdAt": "2026-01-01T00:00:00Z",
@@ -250,7 +250,7 @@ class TestIssueManagerReconcile:
         """Y005-UNIT-001: reconcile() running twice must not duplicate store entries."""
         config_path = tmp_path / ".atdd"
         config_path.mkdir(parents=True, exist_ok=True)
-        (config_path / "config.yaml").write_text("github:\n  repo: owner/repo\n  project_id: PVT_1\n")
+        (config_path / "config.yaml").write_text("github:\n  repo: owner/repo\n")
 
         open_issues = [
             {"number": 100, "title": "existing issue", "createdAt": "2026-01-01T00:00:00Z",

@@ -9,9 +9,7 @@
       "type": "string",
       "description": "Configuration schema version",
       "pattern": "^[0-9]+\\.[0-9]+$",
-      "examples": [
-        "1.0"
-      ]
+      "examples": ["1.0"]
     },
     "release": {
       "type": "object",
@@ -20,25 +18,16 @@
         "version_file": {
           "type": "string",
           "description": "Path to version file (relative to repo root)",
-          "examples": [
-            "pyproject.toml",
-            "package.json",
-            "VERSION"
-          ]
+          "examples": ["pyproject.toml", "package.json", "VERSION"]
         },
         "tag_prefix": {
           "type": "string",
           "description": "Prefix for git tags",
           "default": "v",
-          "examples": [
-            "v",
-            ""
-          ]
+          "examples": ["v", ""]
         }
       },
-      "required": [
-        "version_file"
-      ],
+      "required": ["version_file"],
       "additionalProperties": false
     },
     "sync": {
@@ -50,17 +39,10 @@
           "description": "List of agents to sync ATDD rules to",
           "items": {
             "type": "string",
-            "enum": [
-              "claude",
-              "codex",
-              "gemini",
-              "qwen"
-            ]
+            "enum": ["claude", "codex", "gemini", "qwen"]
           },
           "uniqueItems": true,
-          "default": [
-            "claude"
-          ]
+          "default": ["claude"]
         }
       },
       "additionalProperties": false
@@ -86,9 +68,7 @@
           "description": "Last installed ATDD toolkit version"
         }
       },
-      "required": [
-        "last_version"
-      ],
+      "required": ["last_version"],
       "additionalProperties": false
     },
     "code": {
@@ -125,51 +105,37 @@
           "properties": {
             "wagons_not_in_train": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "description": "Wagon slugs allowed without train coverage"
             },
             "features_orphaned": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "description": "Feature URNs allowed without wagon manifest reference"
             },
             "wmbts_without_acceptance": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "description": "WMBT URNs allowed without acceptance criteria"
             },
             "acceptance_without_tests": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "description": "Acceptance URNs allowed without test coverage"
             },
             "contracts_unreferenced": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "description": "Contract URNs allowed without produce/consume"
             },
             "telemetry_unreferenced": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "description": "Telemetry URNs allowed without references"
             },
             "features_without_implementation": {
               "type": "array",
-              "items": {
-                "type": "string"
-              },
+              "items": {"type": "string"},
               "description": "Feature URNs allowed without code implementation"
             }
           },
@@ -211,42 +177,15 @@
           "type": "string",
           "description": "GitHub repository in owner/name format",
           "pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$",
-          "examples": [
-            "org/repo",
-            "afokapu/atdd"
-          ]
-        },
-        "project_number": {
-          "type": "integer",
-          "description": "GitHub Projects v2 number (visible in URL)",
-          "minimum": 1,
-          "examples": [
-            1
-          ]
-        },
-        "project_id": {
-          "type": "string",
-          "description": "GitHub Projects v2 node ID (GraphQL identifier)",
-          "pattern": "^PVT_",
-          "examples": [
-            "PVT_kwHOAIbyOM4BPpKf"
-          ]
-        },
-        "field_schema": {
-          "const": "atdd/coach/schemas/project_fields.schema.json",
-          "description": "Reference to the custom field schema definition"
+          "examples": ["org/repo", "afokapu/atdd"]
         }
       },
-      "required": [
-        "repo",
-        "project_number",
-        "project_id"
-      ],
+      "required": ["repo"],
       "additionalProperties": false
     },
     "themes": {
       "type": "object",
-      "description": "Optional digit (0-9) \u2192 custom theme-name mapping merged with the 10 built-in defaults. Values are resolved at runtime via `get_theme_map(config)` (atdd.coach.utils.theme_map). Overriding digit 0 emits warning W-THEME-001 (non-blocking).",
+      "description": "Optional digit (0-9) → custom theme-name mapping merged with the 10 built-in defaults. Values are resolved at runtime via `get_theme_map(config)` (atdd.coach.utils.theme_map). Overriding digit 0 emits warning W-THEME-001 (non-blocking).",
       "propertyNames": {
         "pattern": "^[0-9]$"
       },
@@ -255,41 +194,17 @@
         "pattern": "^[a-z][a-z0-9-]*$"
       },
       "examples": [
-        {
-          "1": "qualification",
-          "2": "security",
-          "3": "operations"
-        }
+        {"1": "qualification", "2": "security", "3": "operations"}
       ]
     },
     "path_filters": {
       "type": "object",
-      "description": "Custom path \u2192 phase mappings for path-scoped validation",
+      "description": "Custom path → phase mappings for path-scoped validation",
       "properties": {
-        "planner": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "tester": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "coder": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "coach": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
+        "planner": { "type": "array", "items": { "type": "string" } },
+        "tester": { "type": "array", "items": { "type": "string" } },
+        "coder": { "type": "array", "items": { "type": "string" } },
+        "coach": { "type": "array", "items": { "type": "string" } }
       },
       "additionalProperties": false
     },
@@ -314,24 +229,19 @@
     },
     "repo": {
       "type": "object",
-      "description": "Consumer-repo substrate settings (issue #415, spec v12 \u00a79.3). Written by `atdd init --consumer-repo` (or by default heuristic when `plan/` exists and `src/atdd/` does not). The `--toolkit` flag removes this block.",
+      "description": "Consumer-repo substrate settings (issue #415, spec v12 §9.3). Written by `atdd init --consumer-repo` (or by default heuristic when `plan/` exists and `src/atdd/` does not). The `--toolkit` flag removes this block.",
       "properties": {
         "test_root": {
           "type": "string",
           "description": "Path the substrate pytest plugin walks for `# Acceptance:` headers (consumed by `atdd.tester.substrate.plugin`, issue #411). Relative to repo root.",
           "default": "tests/",
-          "examples": [
-            "tests/",
-            "python/tests/"
-          ]
+          "examples": ["tests/", "python/tests/"]
         },
         "plan_root": {
           "type": "string",
           "description": "Walker root for AcceptanceResolver (issue #408). Relative to repo root.",
           "default": "plan/",
-          "examples": [
-            "plan/"
-          ]
+          "examples": ["plan/"]
         },
         "substrate": {
           "type": "object",
@@ -349,26 +259,15 @@
             },
             "mode": {
               "type": "string",
-              "enum": [
-                "consumer-repo",
-                "toolkit"
-              ],
+              "enum": ["consumer-repo", "toolkit"],
               "description": "Mode resolved by `atdd init`. Subsequent bare `atdd init` reads this and stays in mode (override needs explicit --toolkit / --consumer-repo)."
             }
           },
-          "required": [
-            "enabled",
-            "plugin",
-            "mode"
-          ],
+          "required": ["enabled", "plugin", "mode"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "test_root",
-        "plan_root",
-        "substrate"
-      ],
+      "required": ["test_root", "plan_root", "substrate"],
       "additionalProperties": false
     },
     "coach": {
@@ -378,37 +277,16 @@
         "session_gate_command_prefixes": {
           "type": "array",
           "description": "Allowed prefixes for gate commands in session files",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "atdd",
-            "pytest",
-            "python",
-            "npm",
-            "supabase"
-          ],
-          "examples": [
-            [
-              "atdd",
-              "pytest",
-              "npm run test"
-            ]
-          ]
+          "items": {"type": "string"},
+          "default": ["atdd", "pytest", "python", "npm", "supabase"],
+          "examples": [["atdd", "pytest", "npm run test"]]
         },
         "session_gate_command_exceptions": {
           "type": "array",
           "description": "Session files exempt from gate command prefix validation (by filename pattern)",
-          "items": {
-            "type": "string"
-          },
+          "items": {"type": "string"},
           "default": [],
-          "examples": [
-            [
-              "SESSION-00-*.md",
-              "SESSION-01-legacy.md"
-            ]
-          ]
+          "examples": [["SESSION-00-*.md", "SESSION-01-legacy.md"]]
         },
         "archive_status_warnings": {
           "type": "boolean",
@@ -417,29 +295,8 @@
         }
       },
       "additionalProperties": false
-    },
-    "worktree_root": {
-      "type": "string",
-      "description": "Where `atdd worktree create` places worktrees (#1524). Relative values are anchored on the PROJECT ROOT \u2014 the directory holding `main/` \u2014 not on the checkout the command runs from, so every caller resolves the same path. Omit (or `.`) for the flat-sibling default, which is the layout a repo has before this key exists; `worktrees` for `<project>/worktrees/<prefix>-<slug>`. Changing it moves nothing that already exists \u2014 see `atdd worktree relocate`.",
-      "examples": [
-        "worktrees",
-        "."
-      ]
-    },
-    "worktree_placement_enforcement": {
-      "type": "string",
-      "enum": [
-        "off",
-        "warn",
-        "block"
-      ],
-      "default": "warn",
-      "description": "How hard to enforce `worktree_root` (#1524, Decision 4). `warn` (the default) reports a misplaced worktree from post-checkout and refuses nothing. `block` additionally refuses a push from one \u2014 set it only once the repo's worktrees have drained via `atdd worktree relocate`. `off` says nothing. Staged by config rather than by version so enforcement cannot turn itself on in a repo that is still migrating."
     }
   },
-  "required": [
-    "version",
-    "release"
-  ],
+  "required": ["version", "release"],
   "additionalProperties": false
 }
