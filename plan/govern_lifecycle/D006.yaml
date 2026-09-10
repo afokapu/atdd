@@ -2,29 +2,30 @@ urn: "wmbt:govern-lifecycle:D006"  # atdd:suppress(planner.wmbt.must-have-smoke-
 step: "define"
 direction: "minimize"
 dimension: "quantity"
-object_of_control: "atdd-issues-missing-required-label-set"
-context_clarifier: "when an atdd-issue-labeled open issue lacks one of the required label families (atdd:<PHASE>, at least one archetype:*, at least one wagon:*) so the label set drifts from the issue body metadata"
+object_of_control: "atdd-issues-whose-label-set-has-drifted-from-the-body-metadata-in-a-family-something-actually-reads"
+context_clarifier: "The required set was a TRIPLET — atdd:<PHASE>, archetype:*, wagon:* — and two thirds of it guarded nothing. Measured on this repository: `archetype:*` has exactly two read sites, and both are circular — sync_labels' own is-this-mine-to-manage guard (issue.py:685) and this validator's own assertion. Nothing filters by it, no gh query names it, no workflow reads it. `wagon:*` is worse than unread: the issue template emits no Wagon row at all since the field became train + feature (#1477), so no issue authored through the sanctioned path can carry one, and the requirement was unsatisfiable rather than merely useless. The validator's own premise had also expired — its docstring justified the check by saying `atdd issue <slug>` applies the full triplet on creation, and that command was removed in #1309; its replacement `atdd author issue` applies atdd-issue and atdd:<phase> and nothing more. What remains true is the original concern for the families that ARE read: atdd-issue gates every coach validator through conftest's github_issues fixture (14 read sites) and atdd:<PHASE> is the phase machine's representation (13). Those drift, and drift in those is invisible. This was found only because #1761 removed the Projects v2 board prefetch whose failing GraphQL had been making this validator SKIP in CI."
 lens: "functional.effectiveness"
-statement: "minimize quantity of atdd-issues-missing-required-label-set when an atdd-issue-labeled open issue lacks one of the required label families (atdd:<PHASE>, at least one archetype:*, at least one wagon:*) so the label set drifts from the issue body metadata"
+statement: "minimize quantity of atdd-issues-whose-label-set-has-drifted-from-the-body-metadata-in-a-family-something-actually-reads by requiring exactly the families with a live reader — one atdd:<PHASE> — and dropping archetype:* and wagon:*, which no code consults and which no correctly-authored issue can satisfy"
 acceptances:
   - identity:
-      urn: "acc:govern-lifecycle:D006-UNIT-001-require-phase-archetype-wagon-triplet"
+      urn: "acc:govern-lifecycle:D006-UNIT-001-require-only-the-label-families-with-a-reader"
       id: "AC-UNIT-001"
-      purpose: "test_required_label_set fails when an atdd-issue-labeled issue is missing any of: atdd:<PHASE>, archetype:*, or wagon:*"
+      purpose: "The validator fails on a missing phase label, and does NOT fail on a missing archetype or wagon label — because requiring a label nothing reads makes every correctly-authored issue non-compliant and teaches the reader to ignore the check"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "An atdd-issue-labeled open issue whose label set is missing at least one of atdd:<PHASE>, archetype:*, wagon:*"
+        - "An atdd-issue-labeled open issue carrying no phase label"
+        - "An atdd-issue-labeled open issue carrying a phase label and neither an archetype nor a wagon label — the shape every issue minted by the sanctioned authoring path has"
     when:
-      abstract: "test_required_label_set runs under atdd validate coach"
+      abstract: "the required-family check evaluates each"
     then:
       abstract:
-        - "The validator FAILs with exit code non-zero"
-        - "The failure message names the offending issue and which label family is missing"
-        - "The failure message suggests atdd issue sync-labels <N> as the supervised repair path"
+        - "The issue missing its phase label is reported, naming the issue and the family, since that family gates the phase machine"
+        - "The issue missing archetype and wagon is NOT reported, since neither family has a reader and the wagon row no longer exists in the issue schema"
+        - "The repair path named in the failure is a command that exists — `atdd coach sync-labels`, not the `atdd issue sync-labels` removed in #1309"
     metadata:
       author: "atdd:self-compliance"
-      created: "2026-04-17"
+      created: "2026-09-09"

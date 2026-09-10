@@ -29,7 +29,7 @@ if [ -n "$hits" ]; then
 ATDD: `gh issue create` found in staged changes — commit blocked.
 
 GitHub issues must be created through the toolkit so they are registered in the
-manifest and the project board. Do not bake `gh issue create` into source.
+manifest and the State Store. Do not bake `gh issue create` into source.
 
   Use:  atdd author issue --title <title> --slug <slug>
 

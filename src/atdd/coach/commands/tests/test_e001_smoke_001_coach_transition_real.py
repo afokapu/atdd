@@ -131,7 +131,7 @@ def _setup(tmp_path: Path):
     atdd = tmp_path / ".atdd"
     atdd.mkdir()
     (atdd / "config.yaml").write_text(
-        "github:\n  repo: afokapu/atdd\n  project_number: 1\n", encoding="utf-8"
+        "github:\n  repo: afokapu/atdd\n", encoding="utf-8"
     )
 
     _seed_store_red(tmp_path)

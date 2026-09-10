@@ -10,6 +10,9 @@ and its ``PROJECT_TOKEN`` env with it, but these tests were left importing both 
 so the module raised at import and took the whole configured suite's collection
 down with it (#1868). The label assertions were still correct and are kept; the
 board-sync ones described behaviour that no longer exists and are gone.
+
+#1761 reached the same conclusion independently and additionally asserted the
+absence of any `gh api graphql` call; that assertion is kept here.
 """
 from __future__ import annotations
 
@@ -50,6 +53,10 @@ def test_transition_phase_swaps_the_phase_label(monkeypatch):
     edit_calls = [c for c in calls if c[:2] == ["issue", "edit"]]
     assert ["issue", "edit", str(ISSUE), "--remove-label", "atdd:RED"] in edit_calls
     assert ["issue", "edit", str(ISSUE), "--add-label", "atdd:COMPLETE"] in edit_calls
+    # No board call rides along: every command is `gh issue ...`, never
+    # `gh api graphql`. Kept from #1763, which asserted the absence directly
+    # rather than inferring it from the presence of the label edits.
+    assert all(c[0] == "issue" for c in calls), calls
 
 
 def test_transition_phase_leaves_unrelated_labels_alone(monkeypatch):

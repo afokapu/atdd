@@ -8,7 +8,7 @@ Meta-validator: GitHub-API-dependent validators must be ``github_api``-marked.
 The pre-push hook runs ``atdd validate coach --local --skip-api`` to stay
 **offline and diff-scoped** — ``--skip-api`` maps to ``-m "not github_api"``.
 A validator that consumes a fixture backed by the live GitHub API
-(``github_issues``, ``github_project_items``, …, all rooted at the
+(``github_issues``, ``github_sub_issues``, …, all rooted at the
 ``_github_prefetch`` / ``github_client`` fixtures in
 ``coach/validators/conftest.py``) but is NOT marked ``github_api`` cannot be
 deselected by ``--skip-api``. It then runs in the offline gate and:
