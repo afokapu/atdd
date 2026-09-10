@@ -135,56 +135,78 @@ class IssueLifecycle:
         callers DO — an unestablished verdict still refuses, as
         `coach.documentation.verdict` treats COULD_NOT_CHECK — it changes what
         they can truthfully say.
+
+        Each failure is recorded by its own small handler rather than inline: the
+        four cases were four nested blocks in one method, which is both hard to
+        read and what `coder.refactor.complexity-nesting` was reporting.
         """
+        import json
+
         self._last_fetch_verdict = None
+        result = self._run_issue_view(issue_number)
+        if result is None:
+            return None
+        if result.returncode != 0:
+            return self._record_query_failure(issue_number, result)
         try:
-            result = subprocess.run(
+            return json.loads(result.stdout)
+        except ValueError:
+            return self._record_malformed(issue_number, result.stdout)
+
+    def _run_issue_view(self, issue_number: int):
+        """Run `gh issue view`, or record why it could not run at all."""
+        try:
+            return subprocess.run(
                 ["gh", "issue", "view", str(issue_number),
                  "--json", "number,title,state,labels,body"],
                 capture_output=True, text=True, timeout=15,
                 cwd=self.target_dir,
             )
-            if result.returncode != 0:
-                self._last_fetch_verdict = gh_failure.classify(
-                    result.stderr or result.stdout, result.returncode
-                )
-                logger.warning("gh issue view failed", extra=self._fetch_log(
-                    issue_number, result.stderr or result.stdout))
-                return None
-            import json
-            try:
-                return json.loads(result.stdout)
-            except ValueError:
-                self._last_fetch_verdict = gh_failure.malformed(result.stdout)
-                logger.warning(
-                    "gh issue view returned unparseable output",
-                    extra={"issue": issue_number, "kind": gh_failure.MALFORMED,
-                           "output": (result.stdout or "").strip()[:200]},
-                )
-                return None
         except subprocess.TimeoutExpired:
-            self._last_fetch_verdict = gh_failure.GhVerdict(
-                gh_failure.UNAVAILABLE, False,
+            return self._record_unavailable(
+                issue_number,
                 "the GitHub CLI did not respond within 15s, so it did not answer",
                 "Retry; if it persists, check network connectivity.",
-            )
-            logger.warning(
                 "gh issue view timed out",
-                extra={"issue": issue_number, "kind": gh_failure.UNAVAILABLE,
-                       "timeout_s": 15},
             )
-            return None
         except FileNotFoundError:
-            self._last_fetch_verdict = gh_failure.GhVerdict(
-                gh_failure.UNAVAILABLE, False,
+            return self._record_unavailable(
+                issue_number,
                 "the `gh` CLI is not installed or not on PATH, so nothing was asked",
                 "Install the GitHub CLI: https://cli.github.com",
-            )
-            logger.warning(
                 "gh CLI not found; nothing was asked about the issue",
-                extra={"issue": issue_number, "kind": gh_failure.UNAVAILABLE},
             )
-            return None
+
+    def _record_unavailable(
+        self, issue_number: int, detail: str, remedy: str, log_message: str,
+    ) -> None:
+        """Record a failure that produced no answer at all, and return None."""
+        self._last_fetch_verdict = gh_failure.GhVerdict(
+            gh_failure.UNAVAILABLE, False, detail, remedy,
+        )
+        logger.warning(log_message, extra={
+            "issue": issue_number, "kind": gh_failure.UNAVAILABLE,
+        })
+        return None
+
+    def _record_query_failure(self, issue_number: int, result) -> None:
+        """Classify a non-zero `gh` exit and record it."""
+        raw = result.stderr or result.stdout
+        self._last_fetch_verdict = gh_failure.classify(raw, result.returncode)
+        logger.warning(
+            "gh issue view failed", extra=self._fetch_log(issue_number, raw),
+        )
+        return None
+
+    def _record_malformed(self, issue_number: int, payload: str) -> None:
+        """`gh` exited 0 but its output did not parse."""
+        self._last_fetch_verdict = gh_failure.malformed(payload)
+        logger.warning("gh issue view returned unparseable output", extra={
+            "issue": issue_number,
+            "kind": gh_failure.MALFORMED,
+            "output": (payload or "").strip()[:200],
+        })
+        return None
 
     def _fetch_log(self, issue_number: int, raw: str) -> dict:
         """Structured context for a failed fetch.
