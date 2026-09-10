@@ -175,7 +175,7 @@ def sample_spec() -> dict:
         "type": "implementation",
         "branch": "feat/sample-schema-issue",
         "archetypes": ["planner"],
-        "train": "0003-author-substrate",
+        "train": "train:substrate:author-artifacts",
         "feature": "feature:author-atdd-substrate:author-issue-body",
         "scope": {
             "in_scope": ["the issue body shape"],

@@ -32,22 +32,23 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:E023-UNIT-001-skip-all-gates-sets-all-four-flags"
       id: "AC-UNIT-001"
-      purpose: "ATDD_SKIP_ALL_GATES=1 causes the pre-push hook to bypass bare-check, version gate, prepush-validate, and registry-check in one shot"
+      purpose: "a routine push needs no env-var bypass at all. E023 proposed one meta-flag (ATDD_SKIP_ALL_GATES) to replace four; E026 measured that as structurally additive — the individual flags still worked and the meta-flag only lowered the typing cost of bypassing everything — and retired the whole class in favour of the audited `atdd emergency`. The goal stands and is better met; the mechanism this acceptance named does not exist (#1893)"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "A tmp_path repo with the pre-push hook installed"
-        - "ATDD_SKIP_ALL_GATES=1 is set in the hook's environment"
+        - "The shipped pre-push hook template"
+        - "A clean worktree with no environment overrides of any kind set"
     when:
       abstract: "git push is simulated (hook is invoked directly with dummy stdin payload)"
     then:
       abstract:
-        - "The hook exits 0"
-        - "None of the four gate checks execute (verified by absence of their output strings in stderr)"
-        - "The hook prints a one-line bypass notice to stderr (e.g., 'ATDD: all gates bypassed via ATDD_SKIP_ALL_GATES')"
+        - "No ATDD_SKIP_* env-var bypass survives in the hook: the four gates cannot be waved through by setting a variable"
+        - "The single escape is the audited one — `atdd emergency --reason` writes .atdd/EMERGENCY_BYPASS with a reason and a TTL, so taking a bypass leaves a record of who took it and why"
+        - "That escape is time-bounded: an expired bypass file is reported and ignored rather than honoured"
+        - "ATDD_SKIP_ALL_GATES specifically is absent, because one flag that waves through everything at once records nothing about what was skipped"
     metadata:
       author: "atdd:substrate-friction-investigation"
       created: "2026-05-23"
@@ -77,7 +78,7 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:E023-UNIT-003-registry-check-auto-heals-in-non-ci"
       id: "AC-UNIT-003"
-      purpose: "registry check auto-runs atdd registry update --yes and re-stages mirror files in non-CI mode instead of blocking"
+      purpose: "the registry check heals drift automatically instead of blocking, and it does so at the hook stage where a staged file still reaches the commit — pre-push cannot, because git resolves the refs it will send before the hook runs (mechanism corrected by #1888)"
       phase: "GREEN"
     harness:
       type: "unit"
@@ -93,9 +94,10 @@ acceptances:
     then:
       abstract:
         - "The hook invokes atdd registry update --yes automatically (captured via stub)"
-        - "The hook re-stages the mirror files (git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml)"
-        - "The hook exits 0 (push is not blocked)"
-        - "The hook prints a notice: 'ATDD: registry mirrors auto-resynced (atdd registry update --yes)'"
+        - "The hook stages the mirror files (git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml)"
+        - "The heal runs from pre-commit, where a staged file still joins the commit being created — never from pre-push, where git has already resolved the refs it will send and no index change can reach them (#1888)"
+        - "The operator is not blocked: the resync rides along in the commit they were already making"
+        - "The hook prints a notice naming the command it ran"
     metadata:
       author: "atdd:substrate-friction-investigation"
       created: "2026-05-23"

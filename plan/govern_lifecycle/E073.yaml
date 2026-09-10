@@ -1,0 +1,92 @@
+urn: "wmbt:govern-lifecycle:E073"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-train-identity-that-names-no-train-being-written-and-only-refused-at-a-later-gate"
+context_clarifier: >
+  `atdd update <N> --train <T>` wrote whatever string it was handed. The PLANNED transition gate has
+  always checked registration, so the value was refused — minutes or days later, at a gate with nothing
+  in between to connect the refusal to the write. Measured: `atdd update 1888 --train INVALID` was
+  accepted outright. The bad data is real and shipped. `atdd author issue` defaulted its train to
+  `0003-author-substrate`, retired by the #1421 migration, so every issue authored without an explicit
+  --train inherited an identity that resolves against nothing; live issues carry it 8 times and the
+  repository's own smoke tests wrote it. Separately, the registry reader globbed `plan/_trains/*.yaml`
+  including the underscore sidecars, so `--train _aliases` — the migration alias MAP — resolved, and
+  the gate accepted it. `planner.subjects` already excludes those sidecars for the same directory; this
+  reader was the one place that did not. A false ACCEPT in a registration gate is strictly worse than
+  the false reject #1850 removed. The rule that bites is registration, not shape: `train.schema.json`
+  keeps the legacy `NNNN-slug` form valid "DURING the migration transition", and 7 of 21 registered
+  trains still use it, so refusing the SHAPE today would orphan trains that are correctly declared.
+  Measured in docs/spikes/1890-train-write-validation.md.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-train-identity-that-names-no-train-being-written-and-only-refused-at-a-later-gate by admitting a train at write time through the same resolver the read path uses, naming the canonical successor of a retired legacy identity, and keeping every identity the toolkit emits by default resolvable against the declared trains"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E073-UNIT-001-write-path-admits-only-declared-trains"
+      id: "AC-UNIT-001"
+      purpose: "the write path admits a declared train in either vocabulary, refuses one that names no train, and reports shape separately from admission so a legacy spelling is not mistaken for an invalid one"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A set of declared trains mixing canonical `train:<subject>:<slug>` and legacy `NNNN-slug` spellings"
+    when:
+      abstract: "each candidate identity is put to the admission check"
+    then:
+      abstract:
+        - "a declared canonical train is admitted"
+        - "both spellings of a declared legacy train are admitted and reach the same verdict"
+        - "a value naming no declared train is refused, and the refusal says so"
+        - "a retired legacy identity is refused while still reporting its legacy shape, so a successor can be named"
+        - "an identity that is empty after the `train:` prefix is refused rather than matching a registry that never declared it"
+        - "a repository declaring no trains constrains nothing, which is not the same as a check that could not run"
+        - "the count of registered legacy trains is reported, because zero is the condition for refusing the legacy shape outright"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E073-UNIT-002-shipped-defaults-name-declared-trains"
+      id: "AC-UNIT-002"
+      purpose: "every train identity the toolkit emits by default resolves against this repository's own declared trains, and no sidecar under plan/_trains/ is mistaken for one"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository's real plan/_trains.yaml, loose plan/_trains/*.yaml stems, and migration alias map"
+    when:
+      abstract: "the default train the authoring command emits, the registry reader's output, and every alias target are resolved against the declared trains"
+    then:
+      abstract:
+        - "the default train `atdd author issue` emits resolves against a declared train"
+        - "that default is canonical, so newly authored data does not extend the migration"
+        - "no underscore-prefixed sidecar under plan/_trains/ is admitted as a train"
+        - "every target in the migration alias map is itself a declared train, so a retired id is never redirected to another dangling one"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E073-SMOKE-001-real-authoring-cli-emits-a-resolvable-train"
+      id: "AC-SMOKE-001"
+      purpose: "the installed `atdd author issue` CLI, run as a subprocess, renders a train that resolves against the declared trains"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository's checkout and its declared trains, with no --train passed so the shipped default is exercised"
+    when:
+      abstract: "`atdd author issue --dry-run` is invoked as a subprocess"
+    then:
+      abstract:
+        - "the call exits zero and renders a Train row"
+        - "the identity in that row resolves against the declared trains"
+        - "the identity is canonical, not a legacy spelling"
+        - "nothing is created: the dry run is the whole of the observation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
