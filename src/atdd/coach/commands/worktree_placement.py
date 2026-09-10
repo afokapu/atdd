@@ -42,6 +42,7 @@ store stale) manufactures the same stale-binding class this repo already carries
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -160,9 +161,55 @@ def resolve_worktree_root(repo_root: Path) -> Path:
     return root
 
 
+_PROVENANCE_QUALIFIER = "unverified:"
+
+# Everything `git check-ref-format` refuses inside a single refname component:
+# control characters, space, and ~ ^ : ? * [ \ DEL. Verified against git itself
+# rather than transcribed from memory (#1913).
+_REFNAME_ILLEGAL = re.compile(r"[\x00-\x20~^:?*\[\\\177]+")
+
+
+def sanitize_branch_slug(slug: str) -> str:
+    """A store slug reduced to something git will accept as a refname component.
+
+    The store's slug IS the work item's uid — `WorkItemReader.session_entry`
+    returns ``{"slug": obj.uid, ...}`` — and for records that predate the
+    authoring path the uid is ``unverified:<slug>``. That colon is illegal in a
+    refname, so `atdd worktree create` built names like
+    ``feat/unverified:issue-814`` and git refused every one of them (#1913).
+
+    ``unverified:`` is a statement about provenance, not part of the identity, so
+    it is stripped; anything else git refuses is replaced. **A slug git already
+    accepts is returned unchanged** — that is the property that keeps existing
+    bindings from moving, and it is asserted directly.
+
+    Returns ``""`` when nothing survives. The caller substitutes ``issue-<N>``,
+    mirroring what the GitHub backfill path in `branch.py` already does; emitting
+    a half-formed name would be worse than saying nothing.
+    """
+    if slug.startswith(_PROVENANCE_QUALIFIER):
+        slug = slug[len(_PROVENANCE_QUALIFIER):]
+    slug = _REFNAME_ILLEGAL.sub("-", slug)
+    slug = slug.replace("..", "-").replace("@{", "-")
+    slug = slug.strip("./-")
+    if slug.endswith(".lock"):
+        slug = slug[: -len(".lock")]
+    return slug
+
+
 def resolve_worktree_dir_name(prefix: str, slug: str) -> str:
-    """The directory name for a worktree — unchanged from the inlined form."""
-    return f"{prefix}-{slug}"
+    """The directory name for a worktree.
+
+    Sanitizes here rather than at the call sites so the five derivation sites
+    cannot disagree — the same reason `resolve_worktree_path` exists.
+    """
+    safe = sanitize_branch_slug(slug)
+    if not safe:
+        raise ValueError(
+            f"no valid worktree name can be derived from slug {slug!r} — "
+            "nothing survives git's refname rules"
+        )
+    return f"{prefix}-{safe}"
 
 
 def resolve_worktree_path(repo_root: Path, prefix: str, slug: str) -> Path:

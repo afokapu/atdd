@@ -25,6 +25,7 @@ from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES, TYPE_TO_
 from atdd.coach.commands.worktree_placement import (
     resolve_worktree_dir_name,
     resolve_worktree_path,
+    sanitize_branch_slug,
 )
 from atdd.coach.github import GitHubClient, GitHubClientError, ProjectConfig
 from atdd.coach.utils.default_branch import resolve_default_branch
@@ -403,7 +404,12 @@ class BranchManager:
             )
             return 1
 
-        slug = entry["slug"]
+        # The store's slug IS the uid, and for records predating the authoring
+        # path that uid is `unverified:<slug>` — a colon, which git refuses in a
+        # refname. Sanitized once here so the branch name, the directory name and
+        # the worktree path are all derived from the same string (#1913). The
+        # `issue-<N>` fallback mirrors `_backfill_from_github` above.
+        slug = sanitize_branch_slug(entry["slug"]) or f"issue-{issue_number}"
         issue_type = entry.get("type", "implementation")
 
         # Derive prefix
@@ -484,7 +490,14 @@ class BranchManager:
             print(f"Error: {exc}")
             return 1
         if created is None:
-            print("Error: git worktree add failed")
+            # `created is None` was the whole of the diagnosis, and git's own
+            # stderr — which says exactly what is wrong — was discarded. Name the
+            # refname at least, so the operator has something to act on (#1913).
+            print(
+                f"Error: git worktree add failed for branch '{branch_name}' "
+                f"at {worktree_path}"
+            )
+            print("  Check the branch name against `git check-ref-format --branch`.")
             return 1
 
         print(f"  Worktree: {worktree_path}")
