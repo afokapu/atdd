@@ -75,12 +75,22 @@ def test_clean_worktree_push_exits_zero(tmp_path: Path):
     hook_dest.write_bytes(HOOK_PATH.read_bytes())
     hook_dest.chmod(0o755)
 
-    # Version gate and validator would need real atdd install; skip those
-    # gates via the clean environment simulating a post-E023 state where
-    # version gate uses minimum_version and registry auto-heals.
+    # This acceptance is "a routine push needs NO bypass env var", so setting two
+    # of them to make it pass proved the opposite (#1893). They were retired by
+    # E030 in any case, so they did nothing except leave the version gate to fall
+    # back on PyPI — which made the verdict depend on how recently the operator
+    # upgraded: green just after an upgrade, red the moment PyPI moved.
+    #
+    # Declare the version floor instead. E023-UNIT-002 shipped exactly this path:
+    # `_gate_main` prefers release.minimum_version and only consults PyPI when no
+    # floor is declared. A repository that declares one is the state this SMOKE is
+    # supposed to be describing.
+    atdd_dir = tmp_path / ".atdd"
+    atdd_dir.mkdir(parents=True, exist_ok=True)
+    (atdd_dir / "config.yaml").write_text(
+        "release:\n  minimum_version: '0.0.1'\n", encoding="utf-8"
+    )
     env = _build_clean_env(tmp_path)
-    env["ATDD_SKIP_VERSION_GATE"] = "1"
-    env["ATDD_SKIP_PREPUSH_VALIDATE"] = "1"
 
     result = subprocess.run(
         [str(hook_dest), "origin", "https://example.com/repo.git"],

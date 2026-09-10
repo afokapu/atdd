@@ -18,6 +18,7 @@ import json
 import logging
 import re
 import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set, Tuple
@@ -1424,6 +1425,79 @@ class IssueManager:
         messages.append(f"  Release version: {version} (State Store SoT, #1172) — OK")
         return True, messages
 
+    def _admit_train(self, train: str) -> bool:
+        """Refuse a train identity that names no declared train.
+
+        Refusing the unregistered VALUE, not the legacy SHAPE: `train.schema.json`
+        keeps the `NNNN-slug` form valid "DURING the migration transition", and 7
+        of the 21 registered trains are still spelled that way, so a shape rule
+        would orphan trains that are correctly declared. A registered legacy id is
+        admitted with a notice naming the canonical form.
+        """
+        from atdd.coach.utils.train_identity import check_train_id, legacy_ids_remaining
+
+        known = self._registered_train_ids(self.target_dir / "plan")
+        verdict = check_train_id(train, known)
+
+        if not verdict.resolves:
+            print(f"Error: train '{train}' {verdict.detail}", file=sys.stderr)
+            successor = self._canonical_successor(train)
+            if successor:
+                # The migration alias map already knows what this legacy id became.
+                # Refusing without saying so would send the operator to look up a
+                # mapping the repository is holding for them.
+                print(
+                    f"  `{train}` is a RETIRED legacy identity. Its canonical "
+                    f"successor is:\n    {successor}",
+                    file=sys.stderr,
+                )
+            print(
+                "  Nothing was written. Pass a declared train, or add it to "
+                "plan/_trains.yaml first.",
+                file=sys.stderr,
+            )
+            return False
+
+        if verdict.legacy_format:
+            remaining = len(legacy_ids_remaining(known))
+            print(f"Warning: train '{train}' {verdict.detail}", file=sys.stderr)
+            print(
+                f"  {remaining} registered train(s) still use it; the write path "
+                "refuses the legacy form once that reaches zero.",
+                file=sys.stderr,
+            )
+        return True
+
+    def _canonical_successor(self, train: str) -> Optional[str]:
+        """The typed identity a retired legacy train was migrated to, if any.
+
+        Read from `plan/_trains/_aliases.yaml`, the map #1421 wrote for exactly
+        this question. Returns None when the file is absent, unreadable, or holds
+        no entry — an unknown successor is reported as no advice, never as a
+        guess at one.
+        """
+        from atdd.planner.migration.train_urn_migration import parse_alias_value
+
+        alias_file = self.target_dir / "plan" / "_trains" / "_aliases.yaml"
+        try:
+            doc = yaml.safe_load(alias_file.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            # Say so rather than returning a quiet None. The refusal above stands
+            # either way — this only decides whether the operator is TOLD what
+            # their retired id became. A missing successor because the map could
+            # not be read looks identical, from the terminal, to a retired id
+            # that has no successor, and those are different situations.
+            logger.warning(
+                "train alias map unreadable; no canonical successor can be named",
+                extra={"alias_file": str(alias_file), "error": str(exc)},
+            )
+            return None
+        aliases = doc.get("aliases") or {}
+        if not isinstance(aliases, dict):
+            return None
+        parts = parse_alias_value(aliases.get(train.removeprefix("train:")))
+        return f"train:{parts[0]}:{parts[1]}" if parts else None
+
     def _validate_train_against_trains_yaml(
         self, train_value: str,
     ) -> Tuple[bool, List[str]]:
@@ -1463,7 +1537,18 @@ class IssueManager:
 
         trains_dir = plan_dir / "_trains"
         if trains_dir.exists():
-            valid_ids.update(f.stem for f in trains_dir.glob("*.yaml"))
+            # Underscore-prefixed files are SIDECARS, not trains (#1890).
+            # `_aliases.yaml` is the legacy->typed migration map and
+            # `_interlockings.yaml` is the interlocking registry; globbing them in
+            # made `--train _aliases` resolve, and the PLANNED gate accept it.
+            # `planner.subjects` already states this rule for the same directory —
+            # "Registry / alias sidecars (`_aliases.yaml` etc.) are not trains" —
+            # and this reader is now the second place that honours it rather than
+            # the one place that did not. A false ACCEPT in a registration gate is
+            # strictly worse than the false reject #1850 removed.
+            valid_ids.update(
+                f.stem for f in trains_dir.glob("*.yaml") if not f.name.startswith("_")
+            )
 
         return valid_ids
 
@@ -1557,6 +1642,15 @@ class IssueManager:
         if resolved is None:
             return 1
         issue_number, issue, client = resolved
+
+        # Admit the train BEFORE anything is written (#1890). The PLANNED gate has
+        # always checked registration; this path checked nothing, so an id that
+        # names no train was stored and only refused later, at a gate the operator
+        # reaches minutes or days afterwards. Both paths now decide through
+        # check_train_id, because two callers spelling the rule separately is the
+        # divergence #1850 removed one layer up.
+        if train and not self._admit_train(train):
+            return 1
 
         updated = []
 

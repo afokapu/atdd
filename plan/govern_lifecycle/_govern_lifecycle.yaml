@@ -87,7 +87,7 @@ features:
   - urn: "feature:govern-lifecycle:release-steps-carry-their-credential"
 
 wmbt:
-  total: 133
+  total: 134
   C023: "minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated by having format_fix_hint() name the consequence of the amend it prescribes and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the author must run before pushing, over the drifted-file set the check already computed, while emitting nothing on the clean path and exempting no mirror from the Artifacts requirement (#1739)"
   C024: "minimize likelihood of a-registered-train-being-rejected-by-the-gate-that-confirms-train-assignment-because-the-two-sides-of-the-comparison-spell-the-same-train-differently by normalizing train identity on both sides of the membership test — the graph mints `train:<stem>` for a loose train file while the registry reader returns the bare `<stem>` from that same directory, so an `==` made a train's registration depend on which reader produced the string and wedged all 7 legacy numbered trains at PLANNED with no --force path (#1850)"
   C021: "minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose registry holds a substantive check — where it registers the same checks the transition dispatch registers, excludes the approval check from its own precondition, refuses on FAIL and COULD_NOT_CHECK while proceeding on NOT_APPLICABLE, refuses when zero substantive checks were evaluated, and refuses when HEAD cannot be resolved (#1670)"
@@ -222,6 +222,10 @@ wmbt:
   E076: "minimize likelihood of one-contract-read-by-several-implementations-that-drift-apart-unnoticed
     by having the validator use the command's reader rather than a copy of it, and by deriving the
     schema-template difference from the two artifacts instead of maintaining it by hand (#1901)"
+  E073: "minimize likelihood of a-train-identity-that-names-no-train-being-written-and-only-refused-at-a-later-gate
+    by admitting a train at write time through the same resolver the read path uses, naming the canonical
+    successor of a retired legacy identity, and keeping every identity the toolkit emits by default
+    resolvable against the declared trains (#1890)"
   E072: "minimize likelihood of registry-mirror-drift-reaching-main-behind-a-heal-that-reported-success
     by healing drift at pre-commit where the staged mirror still joins the commit, refusing the
     push when drift survives to pre-push, and reporting a failed resync as a failure rather than
