@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from atdd.coach.utils import gh_failure
 from atdd.coach.commands.worktree_placement import (
     resolve_worktree_dir_name,
     resolve_worktree_path,
@@ -122,20 +123,126 @@ class IssueLifecycle:
         return cfg.get("github", {}).get("repo")
 
     def _fetch_issue(self, issue_number: int) -> Optional[dict]:
-        """Fetch issue metadata via gh CLI."""
+        """Fetch issue metadata via gh CLI.
+
+        Returns None when the issue could not be read, and records WHY on
+        ``self._last_fetch_verdict`` (#1895). `gh issue view` exits 1 both for an
+        issue that does not exist and for an API that declined to answer, and
+        collapsing those made a rate limit read as a missing issue — sending the
+        operator to look for an issue that was open and fine.
+
+        Only "no such issue" is an answer. The distinction does not change what
+        callers DO — an unestablished verdict still refuses, as
+        `coach.documentation.verdict` treats COULD_NOT_CHECK — it changes what
+        they can truthfully say.
+
+        Each failure records its verdict through its own small handler rather than
+        inline: the four cases were four nested blocks in one method, which is both
+        hard to read and what `coder.refactor.complexity-nesting` was reporting. The
+        `logger.warning` calls stay in the handlers, where the silent-swallow rule
+        can see them.
+        """
+        import json
+
+        self._last_fetch_verdict = None
+        result = self._run_issue_view(issue_number)
+        if result is None:
+            return None
+        if result.returncode != 0:
+            return self._record_query_failure(issue_number, result)
         try:
-            result = subprocess.run(
+            return json.loads(result.stdout)
+        except ValueError:
+            context = self._malformed_log(issue_number, result.stdout)
+            logger.warning("gh issue view returned unparseable output", extra=context)
+            return self._record_malformed(result.stdout)
+
+    def _run_issue_view(self, issue_number: int):
+        """Run `gh issue view`, or record why it could not run at all.
+
+        The `logger.warning` calls stay inside their handlers rather than moving
+        into `_record_unavailable` with the rest: `coder.logging.coach-silent-swallow`
+        reads the handler body, and a handler that only calls a helper reads as a
+        silent swallow however loudly the helper speaks.
+        """
+        try:
+            return subprocess.run(
                 ["gh", "issue", "view", str(issue_number),
                  "--json", "number,title,state,labels,body"],
                 capture_output=True, text=True, timeout=15,
                 cwd=self.target_dir,
             )
-            if result.returncode != 0:
-                return None
-            import json
-            return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            return None
+        except subprocess.TimeoutExpired:
+            context = self._unavailable_log(issue_number)
+            logger.warning("gh issue view timed out", extra=context)
+            return self._record_unavailable(
+                "the GitHub CLI did not respond within 15s, so it did not answer",
+                "Retry; if it persists, check network connectivity.",
+            )
+        except FileNotFoundError:
+            context = self._unavailable_log(issue_number)
+            logger.warning("gh CLI not found; nothing was asked", extra=context)
+            return self._record_unavailable(
+                "the `gh` CLI is not installed or not on PATH, so nothing was asked",
+                "Install the GitHub CLI: https://cli.github.com",
+            )
+
+    def _unavailable_log(self, issue_number: int) -> dict:
+        """Structured context for a fetch that produced no answer at all."""
+        return {"issue": issue_number, "kind": gh_failure.UNAVAILABLE}
+
+    def _malformed_log(self, issue_number: int, payload: str) -> dict:
+        """Structured context for output that did not parse."""
+        return {
+            "issue": issue_number,
+            "kind": gh_failure.MALFORMED,
+            "output": (payload or "").strip()[:200],
+        }
+
+    def _record_unavailable(self, detail: str, remedy: str) -> None:
+        """Record a failure that produced no answer at all, and return None."""
+        self._last_fetch_verdict = gh_failure.GhVerdict(
+            gh_failure.UNAVAILABLE, False, detail, remedy,
+        )
+        return None
+
+    def _record_query_failure(self, issue_number: int, result) -> None:
+        """Classify a non-zero `gh` exit and record it."""
+        raw = result.stderr or result.stdout
+        self._last_fetch_verdict = gh_failure.classify(raw, result.returncode)
+        logger.warning(
+            "gh issue view failed", extra=self._fetch_log(issue_number, raw),
+        )
+        return None
+
+    def _record_malformed(self, payload: str) -> None:
+        """`gh` exited 0 but its output did not parse."""
+        self._last_fetch_verdict = gh_failure.malformed(payload)
+        return None
+
+    def _fetch_log(self, issue_number: int, raw: str) -> dict:
+        """Structured context for a failed fetch.
+
+        Hoisted out of the `logger.warning` call: the literal sat inside a try,
+        inside an if, inside a call, and `coder.refactor.complexity-nesting`
+        measures raw indentation divided by four rather than block structure, so
+        a dict literal that deep reads as a nesting violation.
+        """
+        verdict = self._last_fetch_verdict
+        return {
+            "issue": issue_number,
+            "kind": verdict.kind if verdict else "unknown",
+            "established": verdict.established if verdict else False,
+            "error": (raw or "").strip()[:200],
+        }
+
+    def _explain_fetch_failure(self, issue_number: int, doing: str = "") -> str:
+        """Why the last fetch failed, phrased so it cannot assert absence."""
+
+        verdict = getattr(self, "_last_fetch_verdict", None)
+        if verdict is None:
+            verdict = gh_failure.classify("", 1)
+        return f"❌ {gh_failure.render(issue_number, verdict, doing)}"
 
     def _resolve_wmbts(self, issue_number: int):
         """Resolve this issue's WMBTs through its feature binding (#1635).
@@ -460,7 +567,7 @@ class IssueLifecycle:
 
         issue = self._fetch_issue(issue_number)
         if not issue:
-            print(f"❌ could not fetch issue #{issue_number}")
+            print(self._explain_fetch_failure(issue_number))
             return 1
         report = check_issue_compliance(
             issue_number=issue_number,
@@ -481,7 +588,7 @@ class IssueLifecycle:
 
         issue = self._fetch_issue(issue_number)
         if not issue:
-            print(f"❌ could not fetch issue #{issue_number} for compliance check")
+            print(self._explain_fetch_failure(issue_number, "for the compliance check"))
             return 1
         report = check_issue_compliance(
             issue_number=issue_number,
@@ -531,7 +638,7 @@ class IssueLifecycle:
 
         issue = self._fetch_issue(issue_number)
         if not issue:
-            print(f"❌ could not fetch issue #{issue_number} for transition gate")
+            print(self._explain_fetch_failure(issue_number, "for the transition gate"))
             return 1
         from_phase = self._get_status_from_labels(issue.get("labels", []))
         ctx = GateContext(

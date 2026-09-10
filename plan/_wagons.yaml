@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 137
+    total: 138
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1899,6 +1899,10 @@ wagons:
       and by rebuilding the entry with the same builder the full check regenerates
       from so the two cannot disagree, while an unreadable manifest is reported as
       drift rather than swallowed into a pass (#1891)
+    E074: minimize likelihood of an-api-that-declined-to-answer-being-reported-as-a-fact-about-the-repository
+      by classifying why the GitHub CLI failed, reserving the absence claim for the
+      one failure that establishes it, and naming a remedy the operator can act on
+      for every other (#1895)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
