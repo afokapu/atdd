@@ -239,3 +239,6 @@ wmbt:
     by healing drift at pre-commit where the staged mirror still joins the commit, refusing the
     push when drift survives to pre-push, and reporting a failed resync as a failure rather than
     as a heal (#1888)"
+  E074: "minimize likelihood of an-api-that-declined-to-answer-being-reported-as-a-fact-about-the-repository
+    by classifying why the GitHub CLI failed, reserving the absence claim for the one failure that
+    establishes it, and naming a remedy the operator can act on for every other (#1895)"
