@@ -1,0 +1,27 @@
+urn: "feature:govern-lifecycle:stale-worktree-bindings-are-cleared"
+wagon: "wagon:govern-lifecycle"
+description: "Gives the toolkit a way to see and retire a work item's worktree_path when the directory it names is gone. The value is written at creation and rewritten on relocation, and cleared by nothing, so every `git worktree remove` leaves the store asserting a directory that no longer exists — 104 of 132 bindings on this repo, 73 of them produced in one afternoon of ordinary maintenance. Reports by default and clears on request; a path that does not exist is false by inspection, so retiring it needs no judgement. Deliberately narrow: the untracked half of #1529 — worktrees with no binding at all — needs an operator and is not touched here."
+sizing:
+  wmbts: 1
+  footprint_score: 2
+  footprint_size: "S"
+wmbts:
+  - "wmbt:govern-lifecycle:M004"
+components:
+  backend:
+    presentation:
+      - type: "controllers"
+        count: 1
+        rationale: "One verb under the existing `atdd worktree` group, following gc and relocate: report by default, act on --apply."
+    application:
+      - type: "use_cases"
+        count: 1
+        rationale: "The survey — pure over a set of bindings and a directory-existence predicate, so it is testable without a store."
+    domain:
+      - type: "entities"
+        count: 0
+        rationale: "A binding is a field on an existing work item, not a modelled entity."
+    integration:
+      - type: "repositories"
+        count: 0
+        rationale: "Reuses worktree_placement's existing store seams rather than opening a second write path to the same field."
