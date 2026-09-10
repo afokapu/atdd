@@ -55,3 +55,25 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-09-09"
+  - identity:
+      urn: "acc:admit-substrate:C007-SMOKE-001-list-cli-reports-staleness"
+      id: "AC-SMOKE-001"
+      purpose: "`atdd substrate list` as a subprocess names a package the registry has moved past, and refuses to render a configured-but-unreadable registry as a clean substrate"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A temp project with one admitted package and a path registry that in turn publishes a newer version, and then cannot be read at all"
+    when:
+      abstract: "`atdd substrate list` is invoked as a subprocess against each"
+    then:
+      abstract:
+        - "against a registry publishing a newer version the call exits zero and names both the locked and the published version"
+        - "the same output names `atdd substrate add` as the remedy, so the report is actionable"
+        - "against a configured registry whose index is absent the call reports COULD_NOT_CHECK and states the substrate is not up to date"
+        - "neither call writes the lockfile: staleness is reported, never applied"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-09"
