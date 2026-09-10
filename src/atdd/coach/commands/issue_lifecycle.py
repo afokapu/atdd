@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from atdd.coach.utils import gh_failure
 from atdd.coach.commands.worktree_placement import (
     resolve_worktree_dir_name,
     resolve_worktree_path,
@@ -135,8 +136,6 @@ class IssueLifecycle:
         `coach.documentation.verdict` treats COULD_NOT_CHECK — it changes what
         they can truthfully say.
         """
-        from atdd.coach.utils import gh_failure
-
         self._last_fetch_verdict = None
         try:
             result = subprocess.run(
@@ -196,7 +195,6 @@ class IssueLifecycle:
 
     def _explain_fetch_failure(self, issue_number: int, doing: str = "") -> str:
         """Why the last fetch failed, phrased so it cannot assert absence."""
-        from atdd.coach.utils import gh_failure
 
         verdict = getattr(self, "_last_fetch_verdict", None)
         if verdict is None:
