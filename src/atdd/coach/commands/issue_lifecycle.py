@@ -122,7 +122,22 @@ class IssueLifecycle:
         return cfg.get("github", {}).get("repo")
 
     def _fetch_issue(self, issue_number: int) -> Optional[dict]:
-        """Fetch issue metadata via gh CLI."""
+        """Fetch issue metadata via gh CLI.
+
+        Returns None when the issue could not be read, and records WHY on
+        ``self._last_fetch_verdict`` (#1895). `gh issue view` exits 1 both for an
+        issue that does not exist and for an API that declined to answer, and
+        collapsing those made a rate limit read as a missing issue — sending the
+        operator to look for an issue that was open and fine.
+
+        Only "no such issue" is an answer. The distinction does not change what
+        callers DO — an unestablished verdict still refuses, as
+        `coach.documentation.verdict` treats COULD_NOT_CHECK — it changes what
+        they can truthfully say.
+        """
+        from atdd.coach.utils import gh_failure
+
+        self._last_fetch_verdict = None
         try:
             result = subprocess.run(
                 ["gh", "issue", "view", str(issue_number),
@@ -131,11 +146,62 @@ class IssueLifecycle:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
+                self._last_fetch_verdict = gh_failure.classify(
+                    result.stderr or result.stdout, result.returncode
+                )
+                logger.warning(
+                    "gh issue view failed",
+                    extra={
+                        "issue": issue_number,
+                        "kind": self._last_fetch_verdict.kind,
+                        "established": self._last_fetch_verdict.established,
+                        "error": (result.stderr or result.stdout).strip()[:200],
+                    },
+                )
                 return None
             import json
-            return json.loads(result.stdout)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+            try:
+                return json.loads(result.stdout)
+            except ValueError:
+                self._last_fetch_verdict = gh_failure.malformed(result.stdout)
+                logger.warning(
+                    "gh issue view returned unparseable output",
+                    extra={"issue": issue_number, "kind": gh_failure.MALFORMED,
+                           "output": (result.stdout or "").strip()[:200]},
+                )
+                return None
+        except subprocess.TimeoutExpired:
+            self._last_fetch_verdict = gh_failure.GhVerdict(
+                gh_failure.UNAVAILABLE, False,
+                "the GitHub CLI did not respond within 15s, so it did not answer",
+                "Retry; if it persists, check network connectivity.",
+            )
+            logger.warning(
+                "gh issue view timed out",
+                extra={"issue": issue_number, "kind": gh_failure.UNAVAILABLE,
+                       "timeout_s": 15},
+            )
             return None
+        except FileNotFoundError:
+            self._last_fetch_verdict = gh_failure.GhVerdict(
+                gh_failure.UNAVAILABLE, False,
+                "the `gh` CLI is not installed or not on PATH, so nothing was asked",
+                "Install the GitHub CLI: https://cli.github.com",
+            )
+            logger.warning(
+                "gh CLI not found; nothing was asked about the issue",
+                extra={"issue": issue_number, "kind": gh_failure.UNAVAILABLE},
+            )
+            return None
+
+    def _explain_fetch_failure(self, issue_number: int, doing: str = "") -> str:
+        """Why the last fetch failed, phrased so it cannot assert absence."""
+        from atdd.coach.utils import gh_failure
+
+        verdict = getattr(self, "_last_fetch_verdict", None)
+        if verdict is None:
+            verdict = gh_failure.classify("", 1)
+        return f"❌ {gh_failure.render(issue_number, verdict, doing)}"
 
     def _resolve_wmbts(self, issue_number: int):
         """Resolve this issue's WMBTs through its feature binding (#1635).
@@ -460,7 +526,7 @@ class IssueLifecycle:
 
         issue = self._fetch_issue(issue_number)
         if not issue:
-            print(f"❌ could not fetch issue #{issue_number}")
+            print(self._explain_fetch_failure(issue_number))
             return 1
         report = check_issue_compliance(
             issue_number=issue_number,
@@ -481,7 +547,7 @@ class IssueLifecycle:
 
         issue = self._fetch_issue(issue_number)
         if not issue:
-            print(f"❌ could not fetch issue #{issue_number} for compliance check")
+            print(self._explain_fetch_failure(issue_number, "for the compliance check"))
             return 1
         report = check_issue_compliance(
             issue_number=issue_number,
@@ -531,7 +597,7 @@ class IssueLifecycle:
 
         issue = self._fetch_issue(issue_number)
         if not issue:
-            print(f"❌ could not fetch issue #{issue_number} for transition gate")
+            print(self._explain_fetch_failure(issue_number, "for the transition gate"))
             return 1
         from_phase = self._get_status_from_labels(issue.get("labels", []))
         ctx = GateContext(
