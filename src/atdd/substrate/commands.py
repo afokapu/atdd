@@ -15,7 +15,7 @@ _log = logging.getLogger(__name__)
 
 from atdd.planner.commands.author_manifest import AuthorInputError
 from atdd.planner.commands.compose import CompositionError
-from atdd.substrate import admission, installer, registry, resolver
+from atdd.substrate import admission, installer, registry, resolver, staleness
 from atdd.substrate.schemas import SubstrateSchemaError
 
 SUBSTRATE_FILE = "substrate.yaml"
@@ -47,6 +47,43 @@ def _load_registry_entries(project_root: str | Path) -> list[registry.RegistryEn
         if index is not None and index.exists():
             entries.extend(registry.load_registry_index(index))
     return entries
+
+
+def load_registry_entries_or_none(project_root: str | Path):
+    """Registry entries, or ``None`` when a CONFIGURED registry could not be read.
+
+    :func:`_load_registry_entries` returns ``[]`` for three different situations —
+    no substrate file, no registries configured, and a configured registry whose
+    index could not be resolved. Staleness must not treat the third as the first:
+    "nothing publishes this" and "I could not look" are different facts, and
+    collapsing them is how a could-not-check becomes a silent pass (#1878).
+
+    Returns ``(entries, unreadable)`` where ``entries is None`` iff at least one
+    configured registry was unreadable.
+    """
+    root = Path(project_root)
+    intent_path = root / ".atdd" / SUBSTRATE_FILE
+    if not intent_path.exists():
+        return [], []
+    intent = yaml.safe_load(intent_path.read_text(encoding="utf-8")) or {}
+    configured = intent.get("registries", []) or []
+    entries: list[registry.RegistryEntry] = []
+    unreadable: list[str] = []
+    for reg in configured:
+        name = str(reg.get("name") or reg.get("source") or "<unnamed>")
+        index = _registry_index_path(root, reg)
+        if index is None or not index.exists():
+            # Configured but not locally resolvable — core does not fetch remote
+            # indexes. Reported, never skipped.
+            unreadable.append(f"{name}: no locally-resolvable index")
+            continue
+        try:
+            entries.extend(registry.load_registry_index(index))
+        except Exception as exc:  # an unreadable index is a fact to report, not a crash
+            unreadable.append(f"{name}: {type(exc).__name__}")
+    if unreadable:
+        return None, unreadable
+    return entries, []
 
 
 def _registry_index_path(root: Path, reg: dict):
@@ -159,10 +196,46 @@ def run_remove(
 
 
 def run_list(*, project_root: str | Path = ".") -> int:
+    """List the admitted substrate, and say which packages a registry has moved past.
+
+    Staleness lives here rather than in `atdd doctor` (#1878): doctor diagnoses the
+    local Python ENVIRONMENT — interpreter, import paths, git-hook python — and is
+    the wrong reader for what the substrate contains. This command already reads the
+    lock, and `load_registry_entries_or_none` already reads registries, so both
+    halves of the comparison were here.
+
+    Core does not fetch remote indexes, so a configured registry that is not locally
+    resolvable reports COULD_NOT_CHECK rather than being skipped in silence.
+    """
     arts = installer.list_substrate(project_root)
     if not arts:
         print("substrate is empty (no admitted artifacts)")
         return 0
+    entries, unreadable = load_registry_entries_or_none(project_root)
+    results = staleness.evaluate(arts, entries)
+    marks = {r.package_id: r for r in results}
     for a in arts:
-        print(f"{a['id']}  [{a['kind']}]  {a['version']}  {a['digest']}  {a['installed_path']}")
+        r = marks.get(a["id"])
+        if r is None or r.verdict == staleness.NOT_APPLICABLE:
+            mark = ""
+        elif r.verdict == staleness.COULD_NOT_CHECK:
+            mark = "  [COULD_NOT_CHECK]"
+        elif r.is_stale:
+            mark = f"  [stale -> {r.latest_version}]"
+        else:
+            mark = ""
+        print(f"{a['id']}  [{a['kind']}]  {a['version']}  {a['digest']}  {a['installed_path']}{mark}")
+    for reason in unreadable:
+        print(f"  registry unreadable — {reason}")
+    stale = [r for r in results if r.is_stale]
+    if staleness.blocks(results):
+        print(
+            "staleness: COULD_NOT_CHECK — a configured registry could not be read, so "
+            "currency was NOT established. This is not 'up to date'."
+        )
+    elif stale:
+        print(
+            f"staleness: {len(stale)} package(s) behind their registry. "
+            f"Applying is deliberate: atdd substrate add <id>"
+        )
     return 0
