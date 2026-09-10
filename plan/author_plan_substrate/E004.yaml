@@ -237,3 +237,36 @@ acceptances:
     feature: author-train
     author: atdd:self-compliance
     created: '2026-09-10'
+- identity:
+    urn: acc:author-plan-substrate:E004-SMOKE-002-cli-reauthors-an-existing-train
+    id: AC-SMOKE-002
+    purpose: Verify the real `atdd author train` CLI lands a re-authored spec on an
+      existing train without deleting the post-authoring state on its manifest
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real checkout and the installed atdd CLI
+    - a train already authored through the CLI, whose manifest has since gained route_space
+      and an advanced status
+  when:
+    abstract: '`atdd author train` is invoked a second time for the same train_id
+      with a changed description and wagon list'
+    action: invoke
+  then:
+    abstract:
+    - the command exits zero
+    - the per-train manifest carries the re-authored description and participants
+    - route_space and the advanced status survive on the manifest
+    - the _trains.yaml row carries the re-authored description and wagons
+    - exactly one registry row carries the train_id
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-plan-substrate
+    feature: author-train
+    author: atdd:self-compliance
+    created: '2026-09-10'
