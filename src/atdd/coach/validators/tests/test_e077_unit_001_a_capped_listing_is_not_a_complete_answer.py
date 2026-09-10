@@ -31,7 +31,7 @@ from atdd.coach.github import GitHubClient, GitHubResultTruncated
 class _StubClient(GitHubClient):
     """A client whose gh invocation is replaced by a fixed row count."""
 
-    def __init__(self, rows: int) -> None:  # noqa: D107 - test double
+    def __init__(self, rows: int) -> None:
         self._rows = rows
         self.repo = "owner/repo"
         self.calls: list[list[str]] = []

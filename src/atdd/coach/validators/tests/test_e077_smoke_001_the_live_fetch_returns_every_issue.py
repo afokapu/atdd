@@ -14,7 +14,6 @@ Marked `github_api` — one real, paginated census per run.
 """
 from __future__ import annotations
 
-import json
 import subprocess
 
 import pytest
