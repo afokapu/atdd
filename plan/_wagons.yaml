@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 134
+    total: 136
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1604,6 +1604,9 @@ wagons:
     M002: minimize quantity of post-smoke-production-bugs-per-release-wave by maintaining
       a Future-Tracking table in docs/smoke-audit.md with expectation=0 for all waves
       >= v3.83.0 (#855)
+    M004: minimize quantity of work-items-asserting-a-worktree-path-that-no-longer-exists-with-nothing-in-the-toolkit-able-to-notice
+      by reporting every binding whose directory is absent and clearing it on request
+      (#1894)
     E030: minimize quantity of operator-skip-env-vars-remaining-in-hook-source-after-2026-05-26-directive
       by removing all 5 remaining ATDD_SKIP_* blocks from every hook template and
       setting meta-guard baseline to 0 (#851)
@@ -1878,6 +1881,10 @@ wagons:
       by classifying why the GitHub CLI failed, reserving the absence claim for the
       one failure that establishes it, and naming a remedy the operator can act on
       for every other (#1895)
+    E078: minimize likelihood of a-mention-of-scaffolding-being-reported-as-scaffolding-left-behind
+      by treating a placeholder as unfilled only when it is the whole content of a
+      line, so prose that names a placeholder is distinguished from a section that
+      still is one (#1904)
     E073: minimize likelihood of a-train-identity-that-names-no-train-being-written-and-only-refused-at-a-later-gate
       by admitting a train at write time through the same resolver the read path uses,
       naming the canonical successor of a retired legacy identity, and keeping every

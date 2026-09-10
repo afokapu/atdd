@@ -1,0 +1,74 @@
+urn: "wmbt:govern-lifecycle:M004"
+step: "monitor"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "work-items-asserting-a-worktree-path-that-no-longer-exists-with-nothing-in-the-toolkit-able-to-notice"
+context_clarifier: "A work item's data.worktree_path is written when the worktree is created and rewritten when it relocates, and cleared by nothing. `git worktree remove` knows nothing about the State Store, so every removal leaves the store asserting a directory that is gone. Measured 2026-09-10: 132 work items carry a worktree_path and 104 of those name a path that does not exist. 73 of the 104 were produced in a single afternoon by ordinary correct maintenance — a sweep of 49 worktrees whose content was verified present in main by squash-commit ancestry, plus 26 relocations under worktree_root (#1524). The count went 31 to 104 in that time, which is what makes this a leak rather than a backlog. Nothing detects it: `atdd worktree gc` scans for orphan DIRECTORIES absent from git's list, never reading a binding; `atdd worktree list` is documented as showing bindings but prints git's view only; `atdd worktree relocate` refuses an UNBOUND worktree, which is the inverse direction. The cost is that the store both over-asserts 104 phantom paths and under-asserts 55 untracked worktrees, so it cannot answer where the work for an issue lives — the question relocate, enter and gc all depend on."
+lens: "functional.effectiveness"
+statement: "minimize quantity of work-items-asserting-a-worktree-path-that-no-longer-exists-with-nothing-in-the-toolkit-able-to-notice by reporting every binding whose directory is absent and clearing it on request, since a path that does not exist is false by inspection and needs no judgement to retire"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:M004-UNIT-001-a-binding-to-a-missing-directory-is-reported-and-a-live-one-is-not"
+      id: "AC-UNIT-001"
+      purpose: "The detection must key on the directory's absence and nothing else — a binding is stale when its path is gone, not when its work item is closed, not when its branch is merged"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Work items whose worktree_path names a directory that exists, one that does not, and one carrying no worktree_path at all"
+    when:
+      abstract: "the bindings are surveyed"
+    then:
+      abstract:
+        - "The item naming an absent directory is reported, with its work item identified so an operator can act"
+        - "The item naming a live directory is not reported, since a real worktree is not drift"
+        - "The item carrying no worktree_path is not reported — an absent binding is a different defect and belongs to the untracked half of #1529"
+        - "A terminal-phase work item whose directory still exists is NOT reported, because the phase says nothing about whether the directory is there"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:M004-UNIT-002-clearing-removes-only-the-false-value-and-reports-nothing-when-clean"
+      id: "AC-UNIT-002"
+      purpose: "Clearing must be narrow and idempotent: it removes a value already known false and touches nothing else on the record, and a second run has nothing to say"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A work item whose worktree_path names an absent directory, carrying other fields alongside it"
+    when:
+      abstract: "the stale binding is cleared and the survey is run again"
+    then:
+      abstract:
+        - "The worktree_path no longer asserts the absent directory"
+        - "Every other field on the work item is unchanged, since only the false value was in question"
+        - "The work item's phase and state are untouched — clearing a binding is not a lifecycle event"
+        - "The second survey reports nothing for that item, so the operation is idempotent and a scheduled run stays quiet once clean"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:M004-SMOKE-001-the-real-store-drift-is-reported-and-survives-clearing"
+      id: "AC-SMOKE-001"
+      purpose: "Against this repository's own State Store rather than a fixture, because the 104 are real records and a fixture would only prove the check works on records built to be found"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository's own State Store and its real work items"
+    when:
+      abstract: "the survey runs over it, reporting only"
+    then:
+      abstract:
+        - "Every reported binding names a directory that genuinely does not exist on disk, verified independently of the survey's own reasoning"
+        - "No binding whose directory exists is reported, so a live fleet is never proposed for clearing"
+        - "The survey reports without writing, so an operator can read the drift before deciding to act on it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"

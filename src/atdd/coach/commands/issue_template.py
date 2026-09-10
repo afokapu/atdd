@@ -164,14 +164,46 @@ def _iter_section_slices(body: str) -> list[tuple[str, str]]:
     return slices
 
 
+def _is_unfilled(line: str, placeholder: str) -> bool:
+    """Is *line* the placeholder itself, rather than a mention of it?
+
+    Strips list bullets, markdown emphasis, backticks and enclosing brackets, so
+    `- _(example)_` still counts as unfilled while a sentence that happens to
+    contain the word does not.
+    """
+    stripped = line.strip().lstrip("-*+ \t").strip()
+    for ch in ("_", "*", "`"):
+        stripped = stripped.strip(ch)
+    stripped = stripped.strip()
+    return stripped == placeholder or stripped == placeholder.strip("()")
+
+
 def check_placeholders(
     body: str,
     placeholders: tuple[str, ...] = PLACEHOLDER_STRINGS,
 ) -> list[tuple[str, str]]:
     """Return (section_heading, placeholder_string) for every unfilled placeholder.
 
-    Only placeholder strings that *literally* appear in the body are flagged.
-    This avoids regex false positives on user content.
+    A placeholder is UNFILLED when it is the whole content of a line — that is
+    what "the author did not replace the scaffold" looks like. It is not a
+    substring anywhere in the section (#1904).
+
+    The substring form flagged, among 120 open issues, four hits and zero real
+    ones. All four were prose:
+
+        DEFINE = "define"      # find the JTBD main job        <- 'JTBD'
+        | 9 | Which predecessor is the pilot? | TBD — chosen before RED
+        honestly-broken values (`TBD` 34, `none` 14, `N/A` 7)
+        34  TBD                                                <- a count OF TBDs
+
+    The first is decisive: "JTBD" contains "TBD". A Jobs-To-Be-Done comment read
+    as an unfilled section. The second is worse than harmless — a Decisions table
+    recording a pending decision is that table doing its job, and the check
+    punished it.
+
+    Markdown emphasis, backticks and surrounding parens are stripped before the
+    comparison, because the template ships several placeholders already wrapped
+    that way and an author who leaves `_TBD_` has still left it.
 
     Skips OPTIONAL sections (`## Rule Wiring`) — authors who don't introduce
     new rules may leave that scaffold's placeholder text intact.
@@ -183,7 +215,7 @@ def check_placeholders(
         if heading in OPTIONAL_SECTIONS:
             continue
         for placeholder in placeholders:
-            if placeholder in text:
+            if any(_is_unfilled(line, placeholder) for line in text.splitlines()):
                 hits.append((heading, placeholder))
     return hits
 
