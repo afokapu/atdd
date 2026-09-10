@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 125
+    total: 131
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1870,6 +1870,10 @@ wagons:
       an empirical target list before it is made mandatory against 299 SMOKE acceptances
       of which exactly one declares execution_kind: live_smoke (#1664, after #1602
       and E069)'
+    E072: minimize likelihood of registry-mirror-drift-reaching-main-behind-a-heal-that-reported-success
+      by healing drift at pre-commit where the staged mirror still joins the commit,
+      refusing the push when drift survives to pre-push, and reporting a failed resync
+      as a failure rather than as a heal (#1888)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

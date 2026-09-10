@@ -1,0 +1,91 @@
+urn: "wmbt:govern-lifecycle:E072"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "registry-mirror-drift-reaching-main-behind-a-heal-that-reported-success"
+context_clarifier: >
+  plan/_wagons.yaml, plan/_trains.yaml and contracts/_artifacts.yaml are generated mirrors of the
+  wagon manifests. Three layers claim to keep them honest and none of them does. (1) The pre-push
+  hook detects drift, runs `atdd registry update --yes`, `git add`s the result and prints "mirrors
+  resynced and re-staged; continuing push..." — but git resolves the refs it will send BEFORE running
+  the hook and passes them on stdin, so no index change can reach the push. The resync is left
+  uncommitted in the operator's worktree and the drifted mirror ships. Amending in the hook is worse,
+  not better: the push exits 0, sends the pre-amend commit, and leaves local HEAD diverged from the
+  remote with a clean-looking `git status` (measured; see docs/spikes/1888-pre-push-mirror-resync.md).
+  (2) There is no per-PR registry check at all — the "per-PR GT-002 gate" cited in the main-guard
+  workflow comment exists in no workflow and no validator suite. (3) The post-merge guard
+  (.github/workflows/atdd-registry-main-guard.yml) runs only `on: push: branches: [main]` and carries
+  `continue-on-error: true`, so it reports after the fact and cannot fail: "alert only, does not
+  revert the merge". #1869 merged with plan/govern_lifecycle/_govern_lifecycle.yaml declaring R012
+  while plan/_wagons.yaml did not, and nothing stopped it. The heal belongs at pre-commit, where a
+  staged file still joins the commit; pre-push stops claiming a heal it cannot perform and refuses
+  instead; and a resync that FAILS must never be reported as one that succeeded.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of registry-mirror-drift-reaching-main-behind-a-heal-that-reported-success by healing drift at pre-commit where the staged mirror still joins the commit, refusing the push when drift survives to pre-push, and reporting a failed resync as a failure rather than as a heal"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E072-UNIT-001-heal-runs-where-staging-reaches-the-commit"
+      id: "AC-UNIT-001"
+      purpose: "the mirror resync is invoked from pre-commit, and a resync that fails is reported as a failure rather than swallowed into a success notice"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The shipped hook templates, and a stubbed `atdd registry update` that can be made to report drift, to heal, or to fail"
+    when:
+      abstract: "the pre-commit and pre-push hook bodies are inspected and executed against the stub"
+    then:
+      abstract:
+        - "pre-commit invokes `atdd registry update --yes` and stages the three mirror files when the check reports drift"
+        - "pre-commit is silent and stages nothing when the check reports no drift"
+        - "a resync that exits non-zero makes the hook say so; it never prints a notice claiming the mirrors were resynced"
+        - "pre-push contains no `git add` of the mirror files: staging there cannot reach the push and must not be implied"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E072-UNIT-002-pre-push-refuses-instead-of-pretending"
+      id: "AC-UNIT-002"
+      purpose: "pre-push reports drift truthfully: it refuses the push and names the remedy, and it never exits 0 on a mirror it did not actually bring into sync"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The shipped pre-push template and a stubbed `atdd registry update --check` reporting drift, no drift, or an unrunnable toolkit"
+    when:
+      abstract: "the pre-push hook is executed against each"
+    then:
+      abstract:
+        - "drift at push time exits non-zero and names the commands that clear it"
+        - "no drift exits zero and prints nothing about the registry"
+        - "a check that cannot be run refuses rather than passing: an unestablished verdict is not a clean one"
+        - "the refusal names the mirror files, so the operator knows what to commit"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E072-SMOKE-001-real-push-carries-the-resync-or-is-refused"
+      id: "AC-SMOKE-001"
+      purpose: "through real git against a real remote: a commit made with drift carries the resynced mirror into the commit and onto the remote, and drift that survives to push time is refused rather than shipped"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real non-bare repository with the shipped hooks installed, an adjacent bare remote, and a stubbed atdd on PATH that reports and heals mirror drift"
+    when:
+      abstract: "`git commit` then `git push` are run for real, and separately a push is attempted with the pre-commit hook bypassed so drift survives to push time"
+    then:
+      abstract:
+        - "the commit created contains the resynced mirror, not the drifted one"
+        - "the push exits zero and the mirror content on the remote is the resynced content"
+        - "local HEAD and the remote ref name the same commit after the push"
+        - "with drift surviving to push time the push exits non-zero and the remote ref is unchanged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
