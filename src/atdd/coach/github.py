@@ -27,6 +27,15 @@ class GitHubClientError(Exception):
     """Raised when a GitHub API call fails."""
 
 
+class GitHubResultTruncated(RuntimeError):
+    """A listing hit its fetch cap, so completeness is UNKNOWN (#1903).
+
+    Distinct from an API failure: the call succeeded. What it did not do is
+    answer the question asked of it, and a prefix of the answer read as the whole
+    answer is how a validator reports PASS over a sample.
+    """
+
+
 class GitHubPermissionError(GitHubClientError):
     """A ``gh`` call was refused because the credential lacks the permission.
 
@@ -404,6 +413,42 @@ class GitHubClient:
     # Issue queries
     # -------------------------------------------------------------------------
 
+    # `gh issue list --limit N` paginates internally up to N and then STOPS,
+    # returning N rows with no indication that more exist (#1903). A validator
+    # behind a capped fetch reports PASS over a sample: measured, 100 of 289 open
+    # atdd-issues, and the 100 were the NEWEST — so ten issues labelled minutes
+    # earlier sat outside the window and the label validator passed without ever
+    # seeing them.
+    #
+    # The cap is set far above any plausible repository, and reaching it RAISES.
+    # At exactly N rows the result is indistinguishable from "there were more",
+    # so the honest verdict is that completeness is unknown — and unknown is not
+    # clean. `get_sub_issues`, ten lines below, has always used --paginate; the
+    # two read identically at the call site, which is why nothing marked one as a
+    # sample and the other as an answer.
+    _ISSUE_FETCH_CAP = 5000
+
+    def _list_issues_complete(
+        self, selector: List[str], fields: str,
+    ) -> List[Dict[str, Any]]:
+        """Every issue matching *selector*, or an error — never a silent prefix."""
+        output = self._run_gh([
+            "issue", "list",
+            "--repo", self.repo,
+            *selector,
+            "--json", fields,
+            "--limit", str(self._ISSUE_FETCH_CAP),
+        ])
+        data = json.loads(output) if output else []
+        if len(data) >= self._ISSUE_FETCH_CAP:
+            raise GitHubResultTruncated(
+                f"gh returned {len(data)} issues, the fetch cap. Whether more "
+                f"exist is UNKNOWN, so this is not a complete answer and callers "
+                f"must not treat it as one. Selector: {' '.join(selector)}"
+            )
+        return data
+
+
     def list_all_open_issues(
         self, include_body: bool = False,
     ) -> List[Dict[str, Any]]:
@@ -417,14 +462,7 @@ class GitHubClient:
         fields = "number,title,labels,state"
         if include_body:
             fields += ",body"
-        output = self._run_gh([
-            "issue", "list",
-            "--repo", self.repo,
-            "--state", "open",
-            "--json", fields,
-            "--limit", "500",
-        ])
-        return json.loads(output) if output else []
+        return self._list_issues_complete(["--state", "open"], fields)
 
     def list_issues_by_label(
         self, label: str, include_body: bool = True, state: str = "open",
@@ -438,15 +476,9 @@ class GitHubClient:
         fields = "number,title,labels,state"
         if include_body:
             fields += ",body"
-        output = self._run_gh([
-            "issue", "list",
-            "--repo", self.repo,
-            "--label", label,
-            "--state", state,
-            "--json", fields,
-            "--limit", "100",
-        ])
-        return json.loads(output) if output else []
+        return self._list_issues_complete(
+            ["--label", label, "--state", state], fields,
+        )
 
     def get_sub_issues(self, issue_number: int) -> List[Dict[str, Any]]:
         """Get sub-issues of a parent issue."""

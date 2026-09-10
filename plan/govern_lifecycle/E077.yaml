@@ -1,0 +1,67 @@
+urn: "wmbt:govern-lifecycle:E077"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-prefix-of-the-answer-being-read-as-the-whole-answer"
+context_clarifier: >
+  `list_issues_by_label` passed `--limit 100` with no pagination, so `gh` returned 100 rows and said
+  nothing about the rest. Every validator behind the prefetch therefore reported PASS over a SAMPLE.
+  Measured on this repository: 100 rows against 289 open atdd-issues, and the 100 were the NEWEST
+  (#1620..#1901) — so ten issues labelled minutes earlier (#1098, #1099, #1100, #1101, #1102, #1109,
+  #1141, #1207, #1313, #1314) sat outside the window, and test_required_label_set passed without ever
+  seeing them. With the complete set it fails on exactly those ten, which is what it should always have
+  done. `list_all_open_issues` carried a 500 cap — latent at today's volume and the same defect waiting.
+  The asymmetry is the tell: `get_sub_issues`, ten lines below in the same class, has always used
+  `--paginate`, and BOTH return a plain list. Nothing at either call site marks one as an answer and
+  the other as a prefix, which is why this was invisible rather than merely missed. Raising the cap
+  only defers it; at exactly N rows "there were N" and "there were more" are the same observation, so
+  reaching the cap must refuse. `list_open_issues(limit=...)` keeps its cap: it is the display path for
+  `atdd coach issues open` and the limit is what the operator asked for.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-prefix-of-the-answer-being-read-as-the-whole-answer by refusing when an issue listing reaches its fetch cap, so completeness is either established or reported unknown, never assumed"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E077-UNIT-001-a-capped-listing-is-not-a-complete-answer"
+      id: "AC-UNIT-001"
+      purpose: "a listing that reached its cap refuses instead of returning a prefix, and no prefetch-backed fetch carries a hardcoded row limit"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A GitHub client whose listing returns fewer rows than the cap, and one whose listing returns exactly the cap"
+    when:
+      abstract: "each prefetch-backed listing is called"
+    then:
+      abstract:
+        - "a listing shorter than the cap is returned whole"
+        - "a listing at the cap refuses, and the refusal says completeness is UNKNOWN"
+        - "the refusal names the selector that was asked for, so the operator knows which query was incomplete"
+        - "the unfiltered listing refuses at the cap too, not only the label-filtered one"
+        - "no prefetch-backed fetch passes a literal row limit: a number typed into a fetch is a silent sample"
+        - "the cap sits far above any plausible repository, since a cap a real repository can reach is a truncation with extra steps"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E077-SMOKE-001-the-live-fetch-returns-every-issue"
+      id: "AC-SMOKE-001"
+      purpose: "against the real repository, the prefetch-backed listings return every matching issue rather than the newest page of them"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository's live open issues, counted independently through a paginated REST call"
+    when:
+      abstract: "the client's label-filtered and unfiltered listings are invoked"
+    then:
+      abstract:
+        - "each listing returns the same count as the independent paginated census"
+        - "issues outside the newest hundred are present, which is exactly what the cap used to drop"
+        - "neither listing raises: the repository is far below the cap, so refusal is reserved for the case it cannot see past"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
