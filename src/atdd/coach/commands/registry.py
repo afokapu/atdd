@@ -94,6 +94,7 @@ def _format_declaration_warning(drifted_files: list) -> list:
     ]
 import yaml
 import json
+import pathlib
 import re
 import ast
 import logging
@@ -832,30 +833,56 @@ class RegistryBuilder:
         return {"has_changes": False, "drifted_wagons": []}
 
     def _drifted_wagon_slug(self, rel_path: str, existing_wagons: Dict) -> Optional[str]:
-        """Slug of a wagon whose source drifted from the aggregate entry, else None."""
+        """Slug of a wagon whose source drifted from the aggregate entry, else None.
+
+        Compares the entry the aggregate WOULD hold — built by
+        `_build_wagon_entry`, the same function the full check regenerates from —
+        against the entry it does hold (#1891).
+
+        It used to compare exactly ONE field, `description`, out of the fourteen
+        an entry carries. So it could only ever catch two things: a wagon missing
+        from the aggregate, or a reworded description. Every other drift passed:
+        `wmbt`, `produce`, `consume`, `theme`, `subject`, `goal`, `outcome`,
+        `action`, `context`, `total`, `manifest`, `path`.
+
+        Measured: on a commit that added a WMBT to a manifest without
+        regenerating the mirror, the full check reported "Drift detected" and this
+        one reported "1 wagon source(s) checked, all in sync" — same commit, same
+        file, opposite verdicts.
+
+        A scoped check that re-implements the comparison will drift from the full
+        one; a scoped check that reuses the builder cannot. That is the same fix
+        as #1901, one layer down.
+        """
         manifest_path = self.repo_root / rel_path
         if not manifest_path.exists():
             return None
 
         try:
-            with open(manifest_path) as f:
-                manifest = yaml.safe_load(f)
+            rebuilt = self._build_wagon_entry(manifest_path)
         except Exception as e:
-            _logger.debug(
-                "Skipping unreadable wagon manifest %s: %s", manifest_path, e,
+            # An unreadable manifest is NOT a clean verdict — nothing was
+            # established about whether it drifted. Reported as drift so the
+            # operator looks, rather than swallowed into a pass (#1891).
+            _logger.warning(
+                "wagon manifest could not be read; reporting as drift",
                 extra={"path": str(manifest_path), "error": str(e)},
             )
+            return pathlib.Path(rel_path).parent.name
+
+        if rebuilt is None:
             return None
 
-        slug = manifest.get("wagon", "")
+        slug = rebuilt.get("wagon", "")
         if not slug:
             return None
 
         current = existing_wagons.get(slug)
         if current is None:
             return slug
-        if manifest.get("description", "") != current.get("description", ""):
-            return slug
+        for field, value in rebuilt.items():
+            if current.get(field) != value:
+                return slug
         return None
 
     def update_contract_registry(self, mode: str = "interactive", preview_only: bool = None) -> Dict[str, Any]:
