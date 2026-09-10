@@ -1,7 +1,7 @@
 # URN: test:govern-lifecycle:phase-aware-coverage:E081-INTEGRATION-001-validators-skip-pre-red-trains
-# Acceptance: acc:govern-lifecycle:E081-UNIT-001-coverage-validators-respect-pre-red-phase
+# Acceptance: acc:govern-lifecycle:E081-SMOKE-001-validators-consult-the-owning-phase
 # WMBT: wmbt:govern-lifecycle:E081
-# Phase: RED
+# Phase: SMOKE
 # Layer: integration
 # Assertion: behavioral
 """E081-INTEGRATION-001 — the three validators themselves, against a real repo.

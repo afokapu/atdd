@@ -25,6 +25,7 @@ from typing import List
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery, e2e_dir_for
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.tester.validators._acceptance_walker import coverage_is_due
 
 
 REPO_ROOT = find_repo_root()
@@ -107,7 +108,7 @@ def test_train_e2e_existence():
     violations = [
         f"{s.train_id}: no E2E tests in e2e/{s.train_id}/"
         for s in statuses
-        if not s.has_tests
+        if not s.has_tests and coverage_is_due(REPO_ROOT, s.train_id)
     ]
 
     if violations:

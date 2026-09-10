@@ -19,6 +19,7 @@ from typing import List
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery, e2e_dir_for
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.tester.validators._acceptance_walker import coverage_is_due
 
 
 REPO_ROOT = find_repo_root()
@@ -160,10 +161,14 @@ def test_train_completeness():
     # A train is incomplete if it's missing any link in the chain
     incomplete = [s for s in statuses if not s.complete]
 
+    # Pre-RED trains are excluded: the chain they are missing is the one RED
+    # exists to write. `coverage_is_due` fails closed on an unmapped or escape
+    # phase, so this narrows the check without opening a hole (#1920).
     violations = [
         f"{s.train_id}: {s.status_label} "
         f"(e2e={s.e2e_count}, contract={s.contract_count}, smoke={s.smoke_count})"
         for s in incomplete
+        if coverage_is_due(REPO_ROOT, s.train_id)
     ]
 
     if violations:

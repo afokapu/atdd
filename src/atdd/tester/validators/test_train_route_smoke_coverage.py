@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from typing import List
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.tester.validators._acceptance_walker import coverage_is_due
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import (
     PlanTrainDiscovery,
@@ -137,7 +138,7 @@ def scan_train_route_smoke_coverage(repo_root: Path):
     gap_violations = [
         f"{s.train_id}: no smoke tests in e2e/{s.train_id}/"
         for s in statuses
-        if not s.has_smoke_tests
+        if not s.has_smoke_tests and coverage_is_due(repo_root, s.train_id)
     ]
 
     # Mock violations: smoke files that import mocking libraries
@@ -176,7 +177,7 @@ def test_train_route_smoke_coverage():
     violations = [
         f"{s.train_id}: no smoke tests in e2e/{s.train_id}/"
         for s in statuses
-        if not s.has_smoke_tests
+        if not s.has_smoke_tests and coverage_is_due(REPO_ROOT, s.train_id)
     ]
 
     if violations:

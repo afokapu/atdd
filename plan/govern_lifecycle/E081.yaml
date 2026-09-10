@@ -15,21 +15,36 @@ statement: minimize likelihood of pre-red-trains-failed-by-coverage-validators w
   to a declared rule_id
 acceptances:
 - identity:
-    urn: acc:govern-lifecycle:E081-SMOKE-001-seed
+    urn: acc:govern-lifecycle:E081-SMOKE-001-validators-consult-the-owning-phase
     id: AC-SMOKE-001
-    purpose: Verify the E081 behaviour against the real CLI in a checkout
+    purpose: Verify the three shipped train coverage validators consult the owning
+      work item's phase when run against a real repo, skipping a pre-RED train and
+      still failing one at RED or later
     phase: SMOKE
   harness:
     type: integration
     category: backend
   given:
     abstract:
-    - a real repo checkout and the installed atdd CLI
+    - a real repo whose plan/_trains.yaml registers one train and which has no e2e/
+      directory
+    - a State Store work item bound to that train at the phase under test
   when:
-    abstract: the behaviour is exercised end-to-end
+    abstract: the shipped train_completeness, train_e2e_existence and train_route_smoke_coverage
+      validators are run against it
+    action: invoke
   then:
     abstract:
-    - the observable outcome holds
+    - the run exits zero while the owning work item is at INIT or PLANNED
+    - the run exits non-zero once the owning work item has reached RED
+    - the run exits non-zero when no work item maps the train, failing closed
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-10'
 - identity:
     urn: acc:govern-lifecycle:E081-UNIT-001-coverage-validators-respect-pre-red-phase
     id: AC-UNIT-001
