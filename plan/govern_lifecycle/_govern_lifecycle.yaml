@@ -88,7 +88,7 @@ features:
   - urn: "feature:govern-lifecycle:stale-worktree-bindings-are-cleared"
 
 wmbt:
-  total: 139
+  total: 141
   C023: "minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated by having format_fix_hint() name the consequence of the amend it prescribes and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the author must run before pushing, over the drifted-file set the check already computed, while emitting nothing on the clean path and exempting no mirror from the Artifacts requirement (#1739)"
   C024: "minimize likelihood of a-registered-train-being-rejected-by-the-gate-that-confirms-train-assignment-because-the-two-sides-of-the-comparison-spell-the-same-train-differently by normalizing train identity on both sides of the membership test — the graph mints `train:<stem>` for a loose train file while the registry reader returns the bare `<stem>` from that same directory, so an `==` made a train's registration depend on which reader produced the string and wedged all 7 legacy numbered trains at PLANNED with no --force path (#1850)"
   C021: "minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose registry holds a substantive check — where it registers the same checks the transition dispatch registers, excludes the approval check from its own precondition, refuses on FAIL and COULD_NOT_CHECK while proceeding on NOT_APPLICABLE, refuses when zero substantive checks were evaluated, and refuses when HEAD cannot be resolved (#1670)"
@@ -224,6 +224,10 @@ wmbt:
   E077: "minimize likelihood of a-prefix-of-the-answer-being-read-as-the-whole-answer by refusing
     when an issue listing reaches its fetch cap, so completeness is either established or
     reported unknown, never assumed (#1903)"
+  E075: "minimize likelihood of a-validator-that-could-not-query-its-subject-reporting-the-clean-answer
+    by refusing when a fixture's query failed, naming the cause and how to deselect api-bound
+    validators deliberately, while continuing to skip only where the case is genuinely not
+    applicable (#1896)"
   E080: "minimize likelihood of a-gate-whose-verdict-depends-on-which-item-it-happened-to-read-first
     by examining every parent before deciding, reporting all drifted parents rather than the
     first, and reserving the skip for the one case where there is genuinely nothing to
@@ -242,6 +246,10 @@ wmbt:
     by healing drift at pre-commit where the staged mirror still joins the commit, refusing the
     push when drift survives to pre-push, and reporting a failed resync as a failure rather than
     as a heal (#1888)"
+  E079: "minimize likelihood of a-drift-gate-that-nothing-invokes-and-that-compares-one-field-of-fourteen-reporting-all-in-sync
+    by running the scoped check on every pull request over a full-depth checkout, and by rebuilding the
+    entry with the same builder the full check regenerates from so the two cannot disagree, while an
+    unreadable manifest is reported as drift rather than swallowed into a pass (#1891)"
   E074: "minimize likelihood of an-api-that-declined-to-answer-being-reported-as-a-fact-about-the-repository
     by classifying why the GitHub CLI failed, reserving the absence claim for the one failure that
     establishes it, and naming a remedy the operator can act on for every other (#1895)"

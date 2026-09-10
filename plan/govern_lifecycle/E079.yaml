@@ -1,0 +1,69 @@
+urn: "wmbt:govern-lifecycle:E079"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-drift-gate-that-nothing-invokes-and-that-compares-one-field-of-fourteen-reporting-all-in-sync"
+context_clarifier: >
+  The PR-scoped registry gate was built under E018, shipped with three unit tests, and named in
+  atdd-registry-main-guard.yml as the per-PR protection. No workflow ever invoked it. The guard that
+  did run is `on: push` to main with continue-on-error: true — its own comment says "alert only, does
+  not revert the merge" — so registry mirror drift had no blocking check anywhere: not before the
+  merge, and not after it. Wiring alone would not have helped, because the check itself could not see
+  most drift. `_drifted_wagon_slug` compared exactly ONE field, `description`, of the fourteen a wagon
+  entry carries; `wmbt`, `produce`, `consume`, `theme`, `subject`, `goal`, `outcome`, `action`,
+  `context`, `total`, `manifest` and `path` all passed unread. Measured on one commit that added a
+  WMBT without regenerating the mirror: the full check reported "Drift detected in wagon registry" and
+  the scoped gate reported "1 wagon source(s) checked, all in sync" — same commit, same file, opposite
+  verdicts. This is the recurring shape once more: a check that cannot establish its answer reports the
+  clean one. The fix is not a longer field list but the same fix as #1901 one layer down — the scoped
+  check rebuilds the entry with `_build_wagon_entry`, the function the full check regenerates from, so
+  the two cannot drift apart by hand. An unreadable manifest, which established nothing, is reported
+  as drift rather than logged at debug and returned as None.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-drift-gate-that-nothing-invokes-and-that-compares-one-field-of-fourteen-reporting-all-in-sync by running the scoped check on every pull request over a full-depth checkout, and by rebuilding the entry with the same builder the full check regenerates from so the two cannot disagree, while an unreadable manifest is reported as drift rather than swallowed into a pass"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E079-UNIT-001-the-scoped-gate-sees-every-field"
+      id: "AC-UNIT-001"
+      purpose: "the scoped gate reports drift in any field of a wagon entry, not only its description, and refuses to call an unreadable manifest clean"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A wagon manifest and the aggregate entry built from it by `_build_wagon_entry`, in sync"
+    when:
+      abstract: "one field of the manifest is changed and the scoped check is asked whether the source drifted"
+    then:
+      abstract:
+        - "an untouched manifest is in sync, so the gate does not simply always fail"
+        - "a reworded description is still drift — the one field the old gate did compare"
+        - "a change to wmbt, produce, consume, theme, subject, goal, outcome, action, context or total is drift too; each of these changed the wagon and passed the old gate"
+        - "a wagon absent from the aggregate is drift"
+        - "an unreadable manifest is reported as drift, because nothing was established about whether it drifted"
+        - "a PR touching no wagon source is a trivial pass, since the scope is the point of a scoped gate"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E079-SMOKE-001-a-real-pr-diff-is-refused"
+      id: "AC-SMOKE-001"
+      purpose: "the installed CLI, invoked exactly as the new CI job invokes it, refuses a real branch whose mirror was not regenerated"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repository with a real origin/main and a real feature branch whose wagon manifest gained a WMBT without the mirror being regenerated"
+    when:
+      abstract: "`atdd registry update --check --scope changed-files` is run as a subprocess in that checkout"
+    then:
+      abstract:
+        - "the gate exits non-zero and names the wagon; before this change it printed 'all in sync' over the same branch"
+        - "the gate exits zero once the mirror is regenerated, so it does not simply always refuse"
+        - "the same drifted branch cloned shallow exits zero, because no merge-base yields an empty changed-file scope — which is why the CI job carries fetch-depth: 0, and asserting it here means dropping that line fails a test rather than quietly disarming the gate"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"

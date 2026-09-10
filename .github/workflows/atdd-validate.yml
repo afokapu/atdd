@@ -76,6 +76,43 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # The PR-scoped registry gate (wmbt:govern-lifecycle:E018) — WIRED (#1891).
+  #
+  # It has existed since E018, with three unit tests, reachable only via
+  # `atdd registry update --check --scope changed-files`. No workflow invoked it.
+  # The comment in atdd-registry-main-guard.yml described it as the per-PR
+  # protection while nothing ran it, and the main guard itself is `on: push` to
+  # main with continue-on-error: true — "alert only, does not revert the merge".
+  # So registry drift had no blocking check anywhere.
+  #
+  # fetch-depth: 0 is required: the gate diffs against origin/main via merge-base,
+  # and a shallow clone yields no merge-base, which its resolver turns into an
+  # empty changed-files list and a trivial pass.
+  registry-drift-scoped:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-atdd-toolkit
+
+      - name: Install the package and dependencies
+        run: pip3 install -e .
+
+      - name: Registry drift, scoped to the wagon sources this PR touched
+        run: atdd registry update --check --scope changed-files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   validate-tester:
     runs-on: ubuntu-latest
     if: >-
@@ -172,8 +209,22 @@ jobs:
       - name: Install the package and dependencies
         run: pip3 install -e . tree-sitter tree-sitter-typescript build setuptools wheel
 
+      # test_branch_protection is deselected DELIBERATELY, and the deliberateness
+      # is the point (#1896). Reading `branches/main/protection` needs repo-admin
+      # rights, which the Actions GITHUB_TOKEN cannot be granted -- `administration`
+      # is not a `permissions:` scope, and adding it fails the workflow to parse.
+      # So the API answers 403, the client reports DEGRADED, and these four
+      # validators reach no verdict in CI, always.
+      #
+      # That was already true. What changed is that it used to be a `pytest.skip`,
+      # which is green -- CI reported branch protection verified while it had never
+      # looked. The fixture now refuses, so the choice must be made in the open:
+      # this line says CI does not check branch protection. Run locally, with
+      # credentials that can read it, these validators run and must pass.
       - name: Run coach validators
-        run: python3 -m pytest src/atdd/coach/validators/ -v --tb=short
+        run: |
+          python3 -m pytest src/atdd/coach/validators/ -v --tb=short \
+            --ignore=src/atdd/coach/validators/test_branch_protection.py
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
