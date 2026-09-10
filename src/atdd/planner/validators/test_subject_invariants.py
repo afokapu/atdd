@@ -57,18 +57,19 @@ BAD_SUBJECTS = {
     "Artifact-Identity": "not kebab-case",
 }
 
-#: A repo whose themes are these — chosen to overlap nothing in GOOD_SUBJECTS
-#: and nothing in DEFAULT_THEME_MAP, so the assertions below cannot be
-#: satisfied by an ambient vocabulary leaking in from anywhere else.
-_LAB_THEMES = {"1": "cartography", "5": "husbandry"}
+#: The theme map the `themed_repo` fixture declares. Deliberately overlapping
+#: neither GOOD_SUBJECTS nor DEFAULT_THEME_MAP, so an assertion below can only
+#: pass by resolving THIS repo's themes — never by an ambient vocabulary
+#: reaching the code from the cwd, the toolkit's own config, or the defaults.
+_FIXTURE_THEMES = {"1": "cartography", "5": "husbandry"}
 
 
 @pytest.fixture()
 def themed_repo(tmp_path: Path) -> Path:
-    """A repo root whose `.atdd/config.yaml` declares `_LAB_THEMES`."""
+    """A repo root whose `.atdd/config.yaml` declares `_FIXTURE_THEMES`."""
     cfg = tmp_path / ".atdd"
     cfg.mkdir()
-    body = "\n".join(f"  '{d}': {name}" for d, name in sorted(_LAB_THEMES.items()))
+    body = "\n".join(f"  '{d}': {name}" for d, name in sorted(_FIXTURE_THEMES.items()))
     (cfg / "config.yaml").write_text(f"version: '1.0'\nthemes:\n{body}\n", encoding="utf-8")
     return tmp_path
 
@@ -97,7 +98,7 @@ def test_non_nouns_rejected(name: str) -> None:
 # name here would fail in any consumer that renamed that digit.
 
 
-@pytest.mark.parametrize("theme", sorted(_LAB_THEMES.values()))
+@pytest.mark.parametrize("theme", sorted(_FIXTURE_THEMES.values()))
 def test_a_theme_of_the_repo_is_not_a_subject(themed_repo: Path, theme: str) -> None:
     ok, reason = subj.is_durable_noun(theme, root=themed_repo)
     assert not ok, f"{theme!r} is a theme of this repo and must be rejected as a subject"
