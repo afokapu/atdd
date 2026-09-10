@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 138
+    total: 139
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1881,6 +1881,10 @@ wagons:
       by refusing when a fixture's query failed, naming the cause and how to deselect
       api-bound validators deliberately, while continuing to skip only where the case
       is genuinely not applicable (#1896)
+    E080: minimize likelihood of a-gate-whose-verdict-depends-on-which-item-it-happened-to-read-first
+      by examining every parent before deciding, reporting all drifted parents rather
+      than the first, and reserving the skip for the one case where there is genuinely
+      nothing to check (#1907)
     E076: minimize likelihood of one-contract-read-by-several-implementations-that-drift-apart-unnoticed
       by having the validator use the command's reader rather than a copy of it, and
       by deriving the schema-template difference from the two artifacts instead of
