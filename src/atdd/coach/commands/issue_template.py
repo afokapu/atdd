@@ -49,7 +49,13 @@ PLACEHOLDER_STRINGS: tuple[str, ...] = (
     "(question)",
     "(decision)",
     "(rationale)",
-    "(none yet)",
+    # "(none yet)" is deliberately NOT here (#1903). Every other entry is a
+    # PROMPT — it asks the author a question and must be replaced. This one is
+    # an ANSWER, and the correct one: `## Artifacts` is derived mechanically
+    # from `git diff --name-only origin/main..HEAD` before COMPLETE, so an
+    # issue at INIT with no branch legitimately has none. Flagging it punished
+    # authors for stating the truth — six open issues were non-compliant for
+    # nothing else.
     "(Additional context, learnings, or decisions that don't fit elsewhere.)",
     "TBD",
     # New placeholders for Graph Context + Mirror Across Agents + Rule Wiring
