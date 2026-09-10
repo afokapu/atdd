@@ -148,15 +148,8 @@ class IssueLifecycle:
                 self._last_fetch_verdict = gh_failure.classify(
                     result.stderr or result.stdout, result.returncode
                 )
-                logger.warning(
-                    "gh issue view failed",
-                    extra={
-                        "issue": issue_number,
-                        "kind": self._last_fetch_verdict.kind,
-                        "established": self._last_fetch_verdict.established,
-                        "error": (result.stderr or result.stdout).strip()[:200],
-                    },
-                )
+                logger.warning("gh issue view failed", extra=self._fetch_log(
+                    issue_number, result.stderr or result.stdout))
                 return None
             import json
             try:
@@ -192,6 +185,22 @@ class IssueLifecycle:
                 extra={"issue": issue_number, "kind": gh_failure.UNAVAILABLE},
             )
             return None
+
+    def _fetch_log(self, issue_number: int, raw: str) -> dict:
+        """Structured context for a failed fetch.
+
+        Hoisted out of the `logger.warning` call: the literal sat inside a try,
+        inside an if, inside a call, and `coder.refactor.complexity-nesting`
+        measures raw indentation divided by four rather than block structure, so
+        a dict literal that deep reads as a nesting violation.
+        """
+        verdict = self._last_fetch_verdict
+        return {
+            "issue": issue_number,
+            "kind": verdict.kind if verdict else "unknown",
+            "established": verdict.established if verdict else False,
+            "error": (raw or "").strip()[:200],
+        }
 
     def _explain_fetch_failure(self, issue_number: int, doing: str = "") -> str:
         """Why the last fetch failed, phrased so it cannot assert absence."""

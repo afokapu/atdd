@@ -88,7 +88,7 @@ def test_the_rendered_remedy_is_actionable_per_cause() -> None:
 
 
 def test_context_rides_on_the_cause_line_not_after_the_remedy() -> None:
-    rendered = gh_failure.render(1876, gh_failure.classify(REAL_RATE_LIMIT),
-                                 "for the transition gate")
+    verdict = gh_failure.classify(REAL_RATE_LIMIT)
+    rendered = gh_failure.render(1876, verdict, "for the transition gate")
     first_line = rendered.splitlines()[0]
     assert "for the transition gate" in first_line
