@@ -178,7 +178,12 @@ def create_issue_body(spec: dict | None = None) -> str:
     branch = str(spec.get("branch") or "feat/unscoped").strip()
     archetypes = spec.get("archetypes") or ["planner"]
     archetypes_display = ", ".join(str(a) for a in archetypes)
-    train = str(spec.get("train") or "0003-author-substrate").strip()
+    # The default must be a train that RESOLVES (#1890). `0003-author-substrate`
+    # was retired by the #1421 migration — plan/_trains/_aliases.yaml maps it to
+    # substrate/author-artifacts — so every issue authored without an explicit
+    # --train inherited an identity the PLANNED gate refuses. That is where the
+    # dangling train references in live issues came from.
+    train = str(spec.get("train") or "train:substrate:author-artifacts").strip()
     feature = str(spec.get("feature") or "feature:author-atdd-substrate:author-issue-body").strip()
 
     scope = spec.get("scope") or {}
