@@ -142,10 +142,20 @@ jobs:
     # comes back empty and they pass vacuously rather than failing. Measured on
     # PR #1692: coach.pr.merge-blocks-on-pre-smoke-close (disposition=strict)
     # blocked locally and passed in CI on the same commit (#1671 investigation).
+    #
+    # `administration: read` is the same lesson for branch protection (#1896).
+    # Reading `repos/{owner}/{repo}/branches/main/protection` needs it; without
+    # it the API answers 403, the client reports DEGRADED, and the four
+    # test_branch_protection validators reached no verdict. That used to
+    # `pytest.skip`, which is green — so CI reported branch protection verified
+    # while it had never looked. Now the fixture refuses instead, which is what
+    # made the missing scope visible. The fix is to grant what the check needs,
+    # not to deselect the check.
     permissions:
       contents: read
       pull-requests: read
       issues: read
+      administration: read
     if: >-
       github.event_name != 'issues' ||
       contains(github.event.issue.labels.*.name, 'atdd-issue') ||
