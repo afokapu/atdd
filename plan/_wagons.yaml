@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 136
+    total: 137
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1894,6 +1894,11 @@ wagons:
       by healing drift at pre-commit where the staged mirror still joins the commit,
       refusing the push when drift survives to pre-push, and reporting a failed resync
       as a failure rather than as a heal (#1888)
+    E079: minimize likelihood of a-drift-gate-that-nothing-invokes-and-that-compares-one-field-of-fourteen-reporting-all-in-sync
+      by running the scoped check on every pull request over a full-depth checkout,
+      and by rebuilding the entry with the same builder the full check regenerates
+      from so the two cannot disagree, while an unreadable manifest is reported as
+      drift rather than swallowed into a pass (#1891)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/
