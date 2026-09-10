@@ -1344,11 +1344,34 @@ class ComponentResolver(BaseResolver):
     Resolver for component: URNs.
 
     Resolution: component:{wagon}:{feature}:{name}:{side}:{layer} -> code files
+
+    A component URN is declared by a header in the very file it names, so the
+    declaring file IS the resolution (#1753). That authoritative answer is tried
+    first; the layout search below is the fallback for a URN no file declares.
     """
+
+    def __init__(self, repo_root: Optional[Path] = None):
+        super().__init__(repo_root)
+        self._decl_index: Optional[Dict[str, List[Path]]] = None
 
     @property
     def family(self) -> str:
         return "component"
+
+    def _declaration_index(self) -> Dict[str, List[Path]]:
+        """``{urn: [declaring file, ...]}`` from the component headers on disk.
+
+        Built once per resolver instance. ``find_declarations`` already reads
+        every code file's headers, so the file that carries
+        ``# URN: component:...`` is known exactly — no path guessing.
+        """
+        if self._decl_index is None:
+            index: Dict[str, List[Path]] = {}
+            for decl in self.find_declarations():
+                if decl.source_path is not None:
+                    index.setdefault(decl.urn, []).append(decl.source_path)
+            self._decl_index = index
+        return self._decl_index
 
     def resolve(self, urn: str) -> URNResolution:
         if not self.can_resolve(urn):
@@ -1357,6 +1380,25 @@ class ComponentResolver(BaseResolver):
         error = self._validate_urn_format(urn)
         if error:
             return URNResolution(urn=urn, family=self.family, error=error)
+
+        # #1753 defect 2: a component URN's declaring file is the tautological
+        # resolution, and 27 URNs failed it because resolution re-derived a path
+        # from layout convention (side/layer directory guesses + a filename stem
+        # match) and never asked which file actually carried the header.
+        #
+        # Deliberately AFTER the grammar check: a malformed URN stays broken.
+        # Resolving those to their declaring file would silence 144 real grammar
+        # violations and make `atdd repo broken` quieter, which is the opposite
+        # of this issue's intent.
+        declared = self._declaration_index().get(urn, [])
+        if declared:
+            return URNResolution(
+                urn=urn,
+                family=self.family,
+                resolved_paths=list(declared),
+                is_deterministic=len(declared) == 1,
+                error=None,
+            )
 
         parsed = URNGrammar.parse_urn(urn)
         wagon_id = parsed.get("wagon_id")

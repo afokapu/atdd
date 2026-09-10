@@ -23,7 +23,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 from enum import Enum
 
 from atdd.coach.utils.repo import find_repo_root
@@ -155,6 +155,23 @@ class URNEdge:
         }
 
 
+@dataclass(frozen=True)
+class UnresolvedReference:
+    """A URN an edge points at that the graph refused to invent a node for (#1753).
+
+    Recorded — never silently dropped. The edge that named this URN is kept, so
+    the reference stays visible as a real dangling end rather than resolving
+    against a node the graph fabricated moments earlier.
+    """
+
+    urn: str
+    family: str
+    reason: str
+
+    def to_dict(self) -> Dict:
+        return {"urn": self.urn, "family": self.family, "reason": self.reason}
+
+
 class TraceabilityGraph:
     """
     The complete traceability graph with nodes and edges.
@@ -165,12 +182,23 @@ class TraceabilityGraph:
     - Exporting to JSON and DOT formats
     """
 
-    def __init__(self, allowed_families: Optional[List[str]] = None):
+    def __init__(
+        self,
+        allowed_families: Optional[List[str]] = None,
+        node_resolver: Optional[Callable[[str, str], Optional[str]]] = None,
+    ):
         self._nodes: Dict[str, URNNode] = {}
         self._edges: List[URNEdge] = []
         self._edges_by_source: Dict[str, List[URNEdge]] = {}
         self._edges_by_target: Dict[str, List[URNEdge]] = {}
         self._allowed_families: Optional[Set[str]] = set(allowed_families) if allowed_families else None
+        # #1753: the write-path resolver. Given (urn, family), returns None when
+        # the URN resolves to a real artifact, or a reason string when it does
+        # not. When absent, _ensure_node keeps its historical behaviour — used by
+        # get_subgraph()/filtered copies, which only ever re-add nodes that were
+        # already resolved when the source graph was built.
+        self._node_resolver = node_resolver
+        self._unresolved: Dict[str, UnresolvedReference] = {}
 
     @property
     def nodes(self) -> Dict[str, URNNode]:
@@ -213,9 +241,57 @@ class TraceabilityGraph:
         return True
 
     def _ensure_node(self, urn: str, family: str) -> None:
-        """Synthesize a bare node for a URN the graph has not seen yet."""
-        if urn not in self._nodes:
-            self._nodes[urn] = URNNode(urn=urn, family=family)
+        """Create a node for a URN the graph has not seen yet — if it resolves.
+
+        #1753: this is the graph's only write path for edge endpoints, and it
+        used to create a node for ANY URN handed to it, consulting no resolver.
+        An edge then "resolved" against a node the graph had invented moments
+        earlier — 28 phantom feature parents carrying 149 component edges.
+
+        A fabricated node reports as resolved, which is worse than absence:
+        absence is reportable. So an unresolvable URN gets NO node and is
+        recorded in ``unresolved_references``. The caller still appends the
+        edge, because deleting it would substitute a quieter lie for a loud one
+        — ``get_children``/``get_parents``/``_contained_urns`` already skip
+        endpoints with no node.
+        """
+        if urn in self._nodes:
+            return
+
+        if self._node_resolver is not None:
+            reason = self._node_resolver(urn, family)
+            if reason is not None:
+                self._unresolved[urn] = UnresolvedReference(
+                    urn=urn, family=family, reason=reason
+                )
+                return
+
+        self._nodes[urn] = URNNode(urn=urn, family=family)
+
+    @property
+    def unresolved_references(self) -> Dict[str, UnresolvedReference]:
+        """URNs an edge named that did not resolve, so no node was created (#1753)."""
+        return dict(getattr(self, "_unresolved", {}))
+
+    def __getstate__(self) -> Dict:
+        """Drop the resolver before pickling (#1753).
+
+        The write-path resolver is a closure over the builder, so it is not
+        picklable — and this graph is pickled into ``.atdd/cache``. Without
+        this, every cache write would raise, be swallowed by the writer's
+        ``except Exception``, and silently turn a cached build back into a full
+        rebuild. A restored graph is already fully built, so it needs no
+        resolver; ``_ensure_node`` on it behaves like any resolver-less copy.
+        """
+        state = self.__dict__.copy()
+        state["_node_resolver"] = None
+        return state
+
+    def __setstate__(self, state: Dict) -> None:
+        # Tolerate caches pickled before this field existed.
+        state.setdefault("_node_resolver", None)
+        state.setdefault("_unresolved", {})
+        self.__dict__.update(state)
 
     def _infer_family(self, urn: str) -> str:
         """Infer family from URN prefix."""
@@ -534,6 +610,15 @@ class TraceabilityGraph:
                 1 for u, n in self._nodes.items()
                 if n.family == "acc" and u not in tested_by_targets
             ),
+            # #1753: edge endpoints that did not resolve, so no node was
+            # invented for them. Previously these were fabricated and reported
+            # as resolved; surfacing them here is the whole point of the fix.
+            "unresolved_references": [
+                r.to_dict()
+                for r in sorted(
+                    self.unresolved_references.values(), key=lambda r: r.urn
+                )
+            ],
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -734,6 +819,66 @@ class GraphBuilder:
             self._logger.warning("graph cache write failed: %s", exc)
             tmp.unlink(missing_ok=True)
 
+    # Families whose URNs are declared by a header inside the artifact itself.
+    # For these the declaration index IS the authoritative resolution — the same
+    # insight as #1753 defect 2 — so "not declared" means "not real", and the
+    # layout-guessing fallback in their resolvers must not get a second vote.
+    # It also keeps the write path affordable: a single `test` resolve costs
+    # ~4.4s and a `component` resolve ~3.1s (measured), against ~200 undeclared
+    # endpoints, which would add >10 minutes to every graph build.
+    _SELF_DECLARING_FAMILIES = frozenset({"test", "component"})
+
+    def _edge_endpoint_reason(
+        self,
+        resolve_cache: Dict[str, URNResolution],
+        declared_urns: Set[str],
+    ) -> Callable[[str, str], Optional[str]]:
+        """The graph's write-path resolver (#1753).
+
+        Returns a callable answering "may a node be created for this URN?" —
+        ``None`` to allow, or a reason string to refuse.
+
+        Order matters, cheapest and most authoritative first:
+
+        1. **Declared on disk** — the declaration pass already found an artifact
+           carrying this URN. O(1), and the strongest possible evidence.
+        2. **Self-declaring family** (see ``_SELF_DECLARING_FAMILIES``) — not
+           declared means not real; refuse without a filesystem walk.
+        3. **Anything else** — a real ``registry.resolve()``, memoised in the
+           shared ``resolve_cache``. These are cheap (feature ~1ms, wagon
+           ~0.1ms, acc ~0.3ms, subject ~9ms, contract ~68ms).
+
+        A family with no registered resolver is ALLOWED, and logs that it was.
+        No resolution was performed, so the URN cannot honestly be called
+        unresolvable. That is a narrow remaining hole — a consumer repo defining
+        its own family gets the old create-anything behaviour for it — recorded
+        here rather than papered over. Every family this repo synthesizes
+        (feature, subject, wagon, contract, test, acc, component) has a resolver.
+        """
+
+        def reason(urn: str, family: str) -> Optional[str]:
+            if urn in declared_urns:
+                return None
+
+            if family in self._SELF_DECLARING_FAMILIES:
+                return f"no file declares {family} URN: {urn}"
+
+            if not self.registry.get_resolver(family):
+                self._logger.debug(
+                    "no resolver for family %r; node for %s created unverified",
+                    family, urn,
+                )
+                return None
+
+            if urn not in resolve_cache:
+                resolve_cache[urn] = self.registry.resolve(urn)
+            resolution = resolve_cache[urn]
+            if resolution.is_resolved:
+                return None
+            return resolution.error or f"{family} URN did not resolve: {urn}"
+
+        return reason
+
     def build(self, families: Optional[List[str]] = None) -> TraceabilityGraph:
         """
         Build the complete traceability graph.
@@ -755,15 +900,26 @@ class GraphBuilder:
                 self._logger.info("graph loaded from cache in %.2fs", elapsed)
                 return cached
 
-        graph = TraceabilityGraph(allowed_families=families)
+        # Phase 1: resolve() cache — each unique URN resolved once. Shared with
+        # the write-path resolver below so an edge endpoint costs no extra walk.
+        resolve_cache: Dict[str, URNResolution] = {}
 
         # Phase 2: Single-walk multi-resolver dispatch (reads each code file once)
         declarations, content_cache = self.registry.find_all_declarations_single_pass(
             families
         )
 
-        # Phase 1: resolve() cache — each unique URN resolved once
-        resolve_cache: Dict[str, URNResolution] = {}
+        # Every URN some artifact on disk declares. This is the write-path
+        # resolver's first and strongest test, so it must be complete BEFORE any
+        # edge is added (#1753).
+        declared_urns: Set[str] = {
+            decl.urn for decls in declarations.values() for decl in decls
+        }
+
+        graph = TraceabilityGraph(
+            allowed_families=families,
+            node_resolver=self._edge_endpoint_reason(resolve_cache, declared_urns),
+        )
 
         for family, decls in declarations.items():
             for decl in decls:
