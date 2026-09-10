@@ -36,8 +36,23 @@ def _census(extra: str = "") -> int:
 
 
 @pytest.fixture(scope="module")
-def client() -> GitHubClient:
-    return GitHubClient(repo=REPO)
+def client(github_client) -> GitHubClient:
+    """The same client every other API-bound coach validator uses.
+
+    Constructing one here directly was more honest — it surfaced the real cause
+    when `gh` was unauthenticated instead of skipping — and that is how it was
+    found that the push-event `validate-coach` job authenticates no `gh` at all:
+    15 API-bound validators skip there and nothing says so, because
+    `_build_github_client` swallows the cause into `return None` and the fixture
+    then reports "GitHub integration not configured", which is not what happened.
+
+    That is a defect in its own right and is filed as one. It is not this issue's,
+    and these three tests should not be the only ones in the suite that fail for
+    it. Going through the shared fixture makes them behave exactly like their
+    siblings — no better, no worse — so the pagination assertions run wherever
+    the API is reachable and the environment defect is fixed where it lives.
+    """
+    return github_client
 
 
 def test_the_label_filtered_listing_matches_an_independent_census(client) -> None:
