@@ -36,7 +36,7 @@ _QUERY_FIXTURES = [
 
 
 def _call(fixture_name: str, prefetch: dict):
-    return getattr(vconf, fixture_name).__wrapped__(prefetch)
+    return getattr(getattr(vconf, fixture_name), "__wrapped__")(prefetch)
 
 
 # `pytest.fail` raises Failed, which subclasses BaseException rather than
@@ -124,5 +124,5 @@ def test_an_unconfigured_repository_still_skips() -> None:
     not owed these validators at all."""
     import inspect
 
-    source = inspect.getsource(vconf.github_client.__wrapped__)
+    source = inspect.getsource(getattr(vconf.github_client, "__wrapped__"))
     assert "pytest.skip" in source and "not configured" in source

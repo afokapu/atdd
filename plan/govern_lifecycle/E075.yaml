@@ -1,0 +1,67 @@
+urn: "wmbt:govern-lifecycle:E075"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-validator-that-could-not-query-its-subject-reporting-the-clean-answer"
+context_clarifier: >
+  Six fixtures in the coach validator conftest called `pytest.skip` when the GitHub API could not be
+  queried. A skipped test is GREEN, so 16 test functions across 8 validator files reported nothing
+  whenever the API was unreachable — and in a CI summary "reported nothing" is indistinguishable from
+  "found nothing wrong". `protection_result` is the highest-stakes member: "is main branch-protected?"
+  answered green whenever the answer was unknown. Measured, not hypothesised: validate-coach passed on
+  one PR and failed on the next with identical code and the same 14 pre-existing unlabeled issues, and
+  the difference was API availability — the validator had never been green, it had been absent. A
+  further conflation sat one level down: `all_open_issues_unfiltered` skipped on `data is None` saying
+  "No open issues in prefetch cache", but None means the query never ran while [] would mean the
+  repository really has none. The skip is CORRECT where the case is genuinely not applicable — an
+  unconfigured repository, or a query that succeeded and found nothing — and turning those into
+  failures would only be a different false alarm.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-validator-that-could-not-query-its-subject-reporting-the-clean-answer by refusing when a fixture's query failed, naming the cause and how to deselect api-bound validators deliberately, while continuing to skip only where the case is genuinely not applicable"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E075-UNIT-001-an-unreachable-api-is-not-a-pass"
+      id: "AC-UNIT-001"
+      purpose: "a fixture whose query failed refuses rather than skipping, and the refusal says COULD_NOT_CHECK, names the cause, and tells the operator how to deselect the api-bound validators on purpose"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Each prefetch-backed fixture, driven directly, with its cache entry holding an API exception, an absent key, an empty result, or a degraded branch-protection status"
+    when:
+      abstract: "the fixture is asked for its data"
+    then:
+      abstract:
+        - "a failed query refuses, and the refusal is a failure rather than a skip — a skip is reported green by every runner"
+        - "the refusal names the underlying cause and states that it is not a pass"
+        - "the refusal names `-m 'not github_api'`, so deselecting is a deliberate act that leaves the suite reporting unevaluated rather than green"
+        - "an absent prefetch key refuses: the query never ran, which is not the same as a repository that really has none"
+        - "a query that succeeded and returned nothing still skips, because that is an answer and there is nothing to check"
+        - "branch protection reported as degraded refuses, since degraded says outright that protection could not be verified"
+        - "an unconfigured repository still skips: it is not owed these validators at all"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E075-SMOKE-001-a-real-suite-run-goes-red-when-the-api-is-gone"
+      id: "AC-SMOKE-001"
+      purpose: "a real pytest run of an api-bound validator, with the query failing, exits non-zero rather than reporting success — the summary line is what a reader believes"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real pytest invocation of a validator behind a prefetch-backed fixture, with the cache entry holding an API exception"
+    when:
+      abstract: "the suite is run as a subprocess"
+    then:
+      abstract:
+        - "the run exits non-zero: a suite that could not evaluate its subject does not report success"
+        - "the summary line does not report the run as passed"
+        - "the output carries COULD_NOT_CHECK, so a reader can tell an unevaluated run from a clean one"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
