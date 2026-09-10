@@ -1,0 +1,66 @@
+urn: "wmbt:govern-lifecycle:E080"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-gate-whose-verdict-depends-on-which-item-it-happened-to-read-first"
+context_clarifier: >
+  `test_wmbt_sub_issues_have_atdd_wmbt_label` carried a `return` inside its loop, annotated
+  "# Found and validated — pass". It therefore examined the first parent that had sub-issues and
+  reported a pass for every other. Measured on the live repository: 1 of 12 parents examined, with 36
+  sub-issues sitting unlabelled behind it. The `return` is visible by reading; the consequence that
+  decides the severity is not. A spike fed it permutations of the same data: {dirty, clean} FAILS and
+  {clean, dirty} PASSES. The verdict depended on ITERATION ORDER, so the same repository state could go
+  green or red across runs with no code change — and an order-dependent gate is worse than a blind one,
+  because every green is believed. Removing the return exposed a second defect underneath: the trailing
+  `pytest.skip` then fired on every clean run, so a fully-labelled repository reported SKIPPED and could
+  never report PASSED. NOT_APPLICABLE here is exactly one situation — no parent has sub-issues at all —
+  and it must be decided after the loop so it cannot mask drift.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-gate-whose-verdict-depends-on-which-item-it-happened-to-read-first by examining every parent before deciding, reporting all drifted parents rather than the first, and reserving the skip for the one case where there is genuinely nothing to check"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E080-UNIT-001-every-parent-is-examined"
+      id: "AC-UNIT-001"
+      purpose: "the check reads every parent before deciding, so its verdict does not depend on iteration order, and it distinguishes a clean repository from one with nothing to check"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Parent issues whose sub-issues are labelled or not, arranged so the drifted parent appears first, later, and behind several clean ones"
+    when:
+      abstract: "the sub-issue label check is applied to each arrangement"
+    then:
+      abstract:
+        - "drift in the first parent is caught"
+        - "drift in a LATER parent is caught — the same data, reordered, used to pass"
+        - "the verdict is identical under both orderings, since order-dependence is what made every green untrustworthy"
+        - "drift behind several clean parents is caught"
+        - "every drifted parent is reported, not only the first, so fixing one does not reveal the next on the following run"
+        - "a fully labelled repository PASSES rather than skipping — the check can say it looked and found nothing wrong"
+        - "a parent with no sub-issues is stepped over rather than stopped at"
+        - "no parent having sub-issues is the one legitimate skip"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E080-SMOKE-001-the-live-repository-is-fully-examined"
+      id: "AC-SMOKE-001"
+      purpose: "against this repository's real sub-issue graph, the check examines every parent that has sub-issues rather than one of them"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository's live parents and their sub-issues, counted independently through a paginated API call"
+    when:
+      abstract: "the check runs over the same data"
+    then:
+      abstract:
+        - "the number of parents it accounts for equals the independent census, not one"
+        - "the run reaches a verdict of PASS or FAIL rather than skipping, because this repository does have parents with sub-issues"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
