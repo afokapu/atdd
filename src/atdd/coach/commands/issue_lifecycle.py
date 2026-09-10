@@ -136,9 +136,11 @@ class IssueLifecycle:
         `coach.documentation.verdict` treats COULD_NOT_CHECK — it changes what
         they can truthfully say.
 
-        Each failure is recorded by its own small handler rather than inline: the
-        four cases were four nested blocks in one method, which is both hard to
-        read and what `coder.refactor.complexity-nesting` was reporting.
+        Each failure records its verdict through its own small handler rather than
+        inline: the four cases were four nested blocks in one method, which is both
+        hard to read and what `coder.refactor.complexity-nesting` was reporting. The
+        `logger.warning` calls stay in the handlers, where the silent-swallow rule
+        can see them.
         """
         import json
 
@@ -151,10 +153,18 @@ class IssueLifecycle:
         try:
             return json.loads(result.stdout)
         except ValueError:
-            return self._record_malformed(issue_number, result.stdout)
+            context = self._malformed_log(issue_number, result.stdout)
+            logger.warning("gh issue view returned unparseable output", extra=context)
+            return self._record_malformed(result.stdout)
 
     def _run_issue_view(self, issue_number: int):
-        """Run `gh issue view`, or record why it could not run at all."""
+        """Run `gh issue view`, or record why it could not run at all.
+
+        The `logger.warning` calls stay inside their handlers rather than moving
+        into `_record_unavailable` with the rest: `coder.logging.coach-silent-swallow`
+        reads the handler body, and a handler that only calls a helper reads as a
+        silent swallow however loudly the helper speaks.
+        """
         try:
             return subprocess.run(
                 ["gh", "issue", "view", str(issue_number),
@@ -163,30 +173,37 @@ class IssueLifecycle:
                 cwd=self.target_dir,
             )
         except subprocess.TimeoutExpired:
+            context = self._unavailable_log(issue_number)
+            logger.warning("gh issue view timed out", extra=context)
             return self._record_unavailable(
-                issue_number,
                 "the GitHub CLI did not respond within 15s, so it did not answer",
                 "Retry; if it persists, check network connectivity.",
-                "gh issue view timed out",
             )
         except FileNotFoundError:
+            context = self._unavailable_log(issue_number)
+            logger.warning("gh CLI not found; nothing was asked", extra=context)
             return self._record_unavailable(
-                issue_number,
                 "the `gh` CLI is not installed or not on PATH, so nothing was asked",
                 "Install the GitHub CLI: https://cli.github.com",
-                "gh CLI not found; nothing was asked about the issue",
             )
 
-    def _record_unavailable(
-        self, issue_number: int, detail: str, remedy: str, log_message: str,
-    ) -> None:
+    def _unavailable_log(self, issue_number: int) -> dict:
+        """Structured context for a fetch that produced no answer at all."""
+        return {"issue": issue_number, "kind": gh_failure.UNAVAILABLE}
+
+    def _malformed_log(self, issue_number: int, payload: str) -> dict:
+        """Structured context for output that did not parse."""
+        return {
+            "issue": issue_number,
+            "kind": gh_failure.MALFORMED,
+            "output": (payload or "").strip()[:200],
+        }
+
+    def _record_unavailable(self, detail: str, remedy: str) -> None:
         """Record a failure that produced no answer at all, and return None."""
         self._last_fetch_verdict = gh_failure.GhVerdict(
             gh_failure.UNAVAILABLE, False, detail, remedy,
         )
-        logger.warning(log_message, extra={
-            "issue": issue_number, "kind": gh_failure.UNAVAILABLE,
-        })
         return None
 
     def _record_query_failure(self, issue_number: int, result) -> None:
@@ -198,14 +215,9 @@ class IssueLifecycle:
         )
         return None
 
-    def _record_malformed(self, issue_number: int, payload: str) -> None:
+    def _record_malformed(self, payload: str) -> None:
         """`gh` exited 0 but its output did not parse."""
         self._last_fetch_verdict = gh_failure.malformed(payload)
-        logger.warning("gh issue view returned unparseable output", extra={
-            "issue": issue_number,
-            "kind": gh_failure.MALFORMED,
-            "output": (payload or "").strip()[:200],
-        })
         return None
 
     def _fetch_log(self, issue_number: int, raw: str) -> dict:
