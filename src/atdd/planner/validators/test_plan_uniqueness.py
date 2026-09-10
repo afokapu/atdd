@@ -36,9 +36,22 @@ def test_train_ids_are_unique(trains_registry):
 
     Given: All train definitions in plan/_trains.yaml
     When: Checking train_id uniqueness
-    Then: Each train_id appears exactly once
+    Then: Each train_id appears exactly once, in every theme and bucket
+
+    The `trains_registry` fixture hands back `{theme: [entry, ...]}` — already
+    flattened from the theme -> bucket -> entries nesting. Reading a `"trains"`
+    key off THAT (as this check did until #1915) finds nothing, so the assertion
+    ran over an empty list and reported PASS across 0 of the 21 registered
+    trains. Entries are collected across themes because the duplicate this is
+    here to catch — one train_id in two buckets after a category pivot — is
+    precisely the one a per-theme check would miss.
     """
-    train_ids = [train.get("train_id", "") for train in trains_registry.get("trains", [])]
+    train_ids = [
+        train.get("train_id", "")
+        for entries in trains_registry.values()
+        for train in entries
+        if isinstance(train, dict)
+    ]
     train_id_counts = Counter(train_ids)
 
     duplicates = {tid: count for tid, count in train_id_counts.items() if count > 1}
