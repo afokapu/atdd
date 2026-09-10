@@ -76,10 +76,7 @@ def _build_github_client():
 
         config_file = REPO_ROOT / ".atdd" / "config.yaml"
         project_config = ProjectConfig.from_config(config_file)
-        return GitHubClient(
-            repo=project_config.repo,
-            project_id=project_config.project_id,
-        )
+        return GitHubClient(repo=project_config.repo)
     except Exception:
         return None
 
@@ -97,9 +94,9 @@ def github_client():
 def _github_prefetch(github_client):
     """Prefetch ALL GitHub data via batched API calls.
 
-    Uses GitHubClient.prefetch_validator_data() for issues, project fields,
-    project items, and sub-issues (3 parallel groups instead of 7 sequential).
-    Branch protection is fetched in parallel alongside the batch.
+    Uses GitHubClient.prefetch_validator_data() for issues and sub-issues
+    (2 parallel groups instead of 5 sequential). Branch protection is fetched
+    in parallel alongside the batch.
     """
     results = {}
 
@@ -108,8 +105,7 @@ def _github_prefetch(github_client):
             results.update(github_client.prefetch_validator_data())
         except Exception as e:
             for key in ("issues", "complete_issues", "all_open_issues",
-                        "project_fields", "project_items", "sub_issues",
-                        "closed_sub_issues"):
+                        "sub_issues", "closed_sub_issues"):
                 results.setdefault(key, e)
 
     def _fetch_branch_protection():
@@ -163,24 +159,6 @@ def all_open_issues_unfiltered(_github_prefetch):
         pytest.skip(f"Cannot query GitHub: {data}")
     if data is None:
         pytest.skip("No open issues in prefetch cache")
-    return data
-
-
-@pytest.fixture(scope="session")
-def github_project_fields(_github_prefetch):
-    """Project v2 fields (from prefetch cache)."""
-    data = _github_prefetch.get("project_fields")
-    if isinstance(data, Exception):
-        pytest.skip(f"Cannot query Project v2 fields: {data}")
-    return data
-
-
-@pytest.fixture(scope="session")
-def github_project_items(_github_prefetch):
-    """All project items with field values (from prefetch cache)."""
-    data = _github_prefetch.get("project_items")
-    if isinstance(data, Exception):
-        pytest.skip(f"Cannot query project items: {data}")
     return data
 
 

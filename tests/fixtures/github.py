@@ -1,14 +1,16 @@
 """``FakeGitHub`` — in-memory stand-in for the GitHub integration layer.
 
-Models exactly what the lifecycle parity test observes: issue labels, the PR
-state for an issue, and the Projects v2 Status field. ``set_phase`` performs the
-atomic label-swap + Projects-v2 sync that the real
-``integrations.github.issue_state.transition_phase`` will own (§4.10, closes
-#882) — modelling the atomicity here lets the parity test assert the board stays
-in lock-step with the label, which is the #882 regression guard.
+Models exactly what the lifecycle parity test observes: issue labels and the PR
+state for an issue. ``set_phase`` swaps the ``atdd:<phase>`` label, matching what
+``integrations.github.issue_state.transition_phase`` does.
 
-No network, no ``gh`` subprocess: this is the Child-2 dry-run double. The real
-adapter ships in Child 4.
+It used to model a Projects v2 Status field too, and the parity test asserted
+the board stayed in lock-step with the label — the #882 guard. #1051
+decommissioned that board and #1761 removed its last writers, so the double
+stopped standing in for anything real; a fake that models a system nobody talks
+to only proves the fake works.
+
+No network, no ``gh`` subprocess.
 """
 from __future__ import annotations
 
@@ -40,7 +42,6 @@ class FakeGitHub:
     def __init__(self) -> None:
         self._issues: dict[int, FakeIssue] = {}
         self._prs: dict[int, FakePr] = {}
-        self._project_status: dict[int, str] = {}
         self._next_issue = 816
         self._next_pr = 1000
 
@@ -55,22 +56,16 @@ class FakeGitHub:
             labels={ISSUE_LABEL, f"atdd:{Phase.INIT.value}"},
         )
         self._issues[number] = issue
-        self._project_status[number] = Phase.INIT.value
         return issue
 
     def issue(self, number: int) -> FakeIssue:
         return self._issues[number]
 
     def set_phase(self, number: int, phase: Phase) -> None:
-        """Atomic label swap + Projects v2 status sync (§4.10, closes #882)."""
+        """Swap the ``atdd:<phase>`` label — the whole of the phase projection."""
         issue = self._issues[number]
         issue.labels = {label for label in issue.labels if not label.startswith("atdd:")}
         issue.labels.add(f"atdd:{phase.value}")
-        # Same call site updates the board — they can never drift (the #882 fix).
-        self._project_status[number] = phase.value
-
-    def project_v2_status(self, number: int) -> str:
-        return self._project_status[number]
 
     # --- pull requests --------------------------------------------------- #
     def open_pr(self, issue_number: int) -> FakePr:

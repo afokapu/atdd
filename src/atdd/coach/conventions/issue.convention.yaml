@@ -170,20 +170,23 @@ workflow:
 # =============================================================================
 # GITHUB ISSUE TRACKING (v2 — replaces local session files)
 # =============================================================================
-# Issues are now GitHub Issues with Project v2 custom fields.
+# Issues are GitHub Issues carrying `atdd:<phase>` labels.
 # Local session files (atdd-sessions/*.md) are historical only.
 # New issues are created as GitHub Issues via `atdd author issue --title <t> --slug <s>`.
 #
 # Three-layer architecture:
 #   Layer 1: Parent issue body — human-readable (context, architecture, decisions, log)
-#   Layer 2: Project custom fields — machine-parseable metadata (queryable, filterable)
+#   Layer 2: Labels + the State Store — machine-parseable metadata (queryable, filterable)
 #   Layer 3: Sub-issues — WMBT tracking with automatic progress bar
 #
-# Schema: atdd/coach/schemas/project_fields.schema.json
-# Config: .atdd/config.yaml -> github.project_id, github.project_number, github.repo
+# Layer 2 used to be Projects v2 custom fields, described by
+# `atdd/coach/schemas/project_fields.schema.json`. #1051 decommissioned the
+# board and #1761 deleted that schema with the last of its writers; the phase
+# comes from the label and the train from the manifest.
+#
+# Config: .atdd/config.yaml -> github.repo
 
 github_issue_tracking:
-  schema: "atdd/coach/schemas/project_fields.schema.json"
   config: ".atdd/config.yaml (github section)"
 
   labels:
@@ -234,7 +237,7 @@ github_issue_tracking:
   # The `atdd issue` monolith was REMOVED (#1309, umbrella #1303).
   # Creation lives in the `author` archetype; lifecycle lives in `coach`.
   cli_commands:
-    init: "atdd init — bootstraps labels, Project v2, custom fields, workflow"
+    init: "atdd init — bootstraps labels, workflows, branch protection, auto-merge"
     issue_create: "atdd author issue --title <t> --slug <s> — store-first create (parent issue + WMBT sub-issues)"
     issue_enter: "atdd coach enter <NN> — enters issue (state-driven context + worktree)"
     issue_show: "atdd coach issues <NN> — shows a single issue"
@@ -248,7 +251,7 @@ github_issue_tracking:
     issue_review: "atdd coach issue-review <NN> — multi-pass cross-LLM issue review"
     list: "atdd list — queries Project items (parent issues only)"
     branch: "atdd worktree create <NN> — creates worktree branch from issue metadata"
-    validate: "atdd validate coach — validates Project fields + sub-issue state"
+    validate: "atdd validate coach — validates issue body, labels + sub-issue state"
     # Deprecated aliases (still work, print warning):
     # atdd update <NN> --status <S> → atdd coach transition <NN> <S>
     # atdd close-wmbt <NN> <ID>     → atdd coach close-wmbt <NN> <ID>
@@ -257,9 +260,8 @@ github_issue_tracking:
 
   hard_dependencies:
     - "gh CLI must be installed and authenticated"
-    - "GitHub Projects v2 API access (GraphQL)"
     - "GitHub sub-issues feature (GA since 2025)"
-    - "atdd init must have been run (project_id in .atdd/config.yaml)"
+    - "atdd init must have been run (github.repo in .atdd/config.yaml)"
 
   # ---------------------------------------------------------------------------
   # WMBT Sub-Issue Template (D002)
@@ -267,7 +269,7 @@ github_issue_tracking:
   # Each WMBT becomes a sub-issue of the session parent issue.
   # The sub-issue body is generated from this template by `atdd author issue`.
   # Sub-issues carry NO session-level metadata (train, feature, branch, archetypes)
-  # — that lives on the parent issue's Project custom fields.
+  # — that lives on the parent issue (body table + labels + the State Store).
   wmbt_sub_issue_template:
     file: "atdd/coach/templates/WMBT-SUBISSUE-TEMPLATE.md"
     title_format: "wmbt:{wagon}:{wmbt_id} — {statement}"

@@ -30,7 +30,7 @@ def _setup_atdd_config(tmp_path: Path) -> Path:
     cfg_dir = tmp_path / ".atdd"
     cfg_dir.mkdir()
     (cfg_dir / "config.yaml").write_text(yaml.safe_dump({
-        "github": {"repo": "owner/repo", "project_id": "PVT_test"},
+        "github": {"repo": "owner/repo"},
     }))
     # #1051 / #1270 Slice G: the PLANNED PR-gate resolves the branch from the
     # State Store (the manifest mirror it used to read is deleted). Seed it.

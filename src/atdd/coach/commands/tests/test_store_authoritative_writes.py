@@ -26,7 +26,7 @@ def _init_repo(tmp_path):
     """A control root whose store is seeded with #1203 at GREEN (no manifest)."""
     (tmp_path / ".atdd").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".atdd" / "config.yaml").write_text(
-        "github:\n  repo: owner/repo\n  project_id: PVT_test\n", encoding="utf-8"
+        "github:\n  repo: owner/repo\n", encoding="utf-8"
     )
     db = init_state_store(db_path=tmp_path / ".atdd" / "state" / "state.sqlite")
     conn = connect(db)
