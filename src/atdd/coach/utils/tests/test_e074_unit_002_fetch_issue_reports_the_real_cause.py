@@ -52,6 +52,19 @@ def with_stub_gh(tmp_path, monkeypatch):
     return _set
 
 
+
+def _verdict(lifecycle) -> gh_failure.GhVerdict:
+    """The recorded verdict, narrowed from Optional.
+
+    Asserted rather than assumed: a fetch that failed and recorded NO reason is
+    the defect this module exists to remove, so it fails here with that sentence
+    instead of raising AttributeError on None three lines later.
+    """
+    verdict = lifecycle._last_fetch_verdict
+    assert verdict is not None, "the fetch failed but recorded no reason"
+    return verdict
+
+
 def test_a_successful_fetch_records_no_failure(with_stub_gh) -> None:
     lifecycle = with_stub_gh("ok")
     assert lifecycle._fetch_issue(1) == {
@@ -63,15 +76,16 @@ def test_a_successful_fetch_records_no_failure(with_stub_gh) -> None:
 def test_a_missing_issue_is_recorded_as_an_answer(with_stub_gh) -> None:
     lifecycle = with_stub_gh("not_found")
     assert lifecycle._fetch_issue(99999999) is None
-    assert lifecycle._last_fetch_verdict.established
+    assert _verdict(lifecycle).established
 
 
 def test_a_rate_limit_is_recorded_as_no_answer(with_stub_gh) -> None:
     """THE DEFECT: this used to be indistinguishable from the case above."""
     lifecycle = with_stub_gh("rate_limit")
     assert lifecycle._fetch_issue(1876) is None
-    assert not lifecycle._last_fetch_verdict.established
-    assert lifecycle._last_fetch_verdict.kind == gh_failure.UNAVAILABLE
+    verdict = _verdict(lifecycle)
+    assert not verdict.established
+    assert verdict.kind == gh_failure.UNAVAILABLE
 
 
 def test_the_two_failures_do_not_print_the_same_sentence(with_stub_gh) -> None:
@@ -101,7 +115,7 @@ def test_unparseable_output_is_not_reported_as_a_missing_issue(with_stub_gh) -> 
     None as everything else."""
     lifecycle = with_stub_gh("garbage")
     assert lifecycle._fetch_issue(1) is None
-    assert lifecycle._last_fetch_verdict.kind == gh_failure.MALFORMED
+    assert _verdict(lifecycle).kind == gh_failure.MALFORMED
     assert "does not exist" not in lifecycle._explain_fetch_failure(1)
 
 
@@ -110,5 +124,6 @@ def test_a_missing_gh_binary_is_unavailable_not_absent(monkeypatch, tmp_path) ->
     monkeypatch.setenv("PATH", str(tmp_path))
     lifecycle = IssueLifecycle()
     assert lifecycle._fetch_issue(1876) is None
-    assert not lifecycle._last_fetch_verdict.established
-    assert "not installed" in lifecycle._last_fetch_verdict.detail
+    verdict = _verdict(lifecycle)
+    assert not verdict.established
+    assert "not installed" in verdict.detail
