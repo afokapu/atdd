@@ -1,0 +1,73 @@
+urn: "wmbt:govern-lifecycle:Y009"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-derived-identifier-being-handed-to-a-tool-that-refuses-it-and-the-refusal-being-reported-as-a-generic-failure"
+context_clarifier: >
+  `atdd worktree create` builds the branch name from the work item's slug, and the store's slug
+  IS the uid — `WorkItemReader.session_entry` returns `{"slug": obj.uid, ...}`. For records that
+  predate the authoring path the uid is `unverified:<slug>`, and a colon is illegal in a git
+  refname, so the command produced names like `feat/unverified:issue-814` that git refused every
+  time. The codebase's own count (state/work_item_writer.py) puts those at 633 of 822 work items.
+  It was unrecoverable rather than merely annoying: `atdd worktree create` is the only sanctioned
+  way to make a branch because it registers the branch-issue-worktree binding, the pre-commit gate
+  refuses an unregistered branch, there is no verb to attach one afterwards, and `coach reconcile`
+  reports the store up-to-date because the record is not missing — it just has an `unverified:`
+  uid. So for those issues the sanctioned path was closed end to end.
+  Two things are fixed. The slug is sanitized once inside `resolve_worktree_dir_name`, the seam the
+  five derivation sites already route through, so branch name, directory name and worktree path
+  cannot disagree. And the failure names the refname it tried, instead of `git worktree add failed`
+  — git's own stderr says exactly what is wrong and was being discarded.
+  The load-bearing property is identity: a slug git already accepts is returned byte-identical.
+  Existing bindings are derived from these strings, so a sanitizer that "improved" a valid slug
+  would move them silently. Correctness is decided by `git check-ref-format`, not by a transcribed
+  copy of the refname rules — a hand-copied rule list is the second implementation this repository
+  keeps finding (#1901, #1547, #1891).
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-derived-identifier-being-handed-to-a-tool-that-refuses-it-and-the-refusal-being-reported-as-a-generic-failure by sanitizing the store slug once at the placement seam every derivation site already routes through, keeping a slug git already accepts byte-identical so no existing binding moves, and naming the rejected refname when the create still fails"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:Y009-UNIT-001-a-store-slug-becomes-a-valid-refname"
+      id: "AC-UNIT-001"
+      purpose: "every store slug yields a refname git accepts, and a slug git already accepts is unchanged"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Slugs of both shapes — uids git accepts, and `unverified:` uids plus the other characters git refuses"
+    when:
+      abstract: "each is sanitized and the result put to `git check-ref-format --branch`"
+    then:
+      abstract:
+        - "a slug git already accepts is returned byte-identical, so no existing branch-issue binding moves"
+        - "every slug git refuses becomes one it accepts, verified by git rather than by a transcribed rule list"
+        - "the `unverified:` qualifier is stripped, not mangled: the slug beneath it is the real name"
+        - "a slug that sanitizes to nothing is refused with a named cause rather than yielding `feat-`"
+        - "the directory name is sanitized at the placement seam, so the five derivation sites cannot disagree"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:Y009-SMOKE-001-a-real-unverified-record-gets-a-worktree"
+      id: "AC-SMOKE-001"
+      purpose: "a real store record whose uid carries the `unverified:` qualifier gets a real branch and a real worktree"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real git repository with a real bare origin, and a real State Store holding a work item whose uid is `unverified:<slug>` linked to a GitHub issue number"
+    when:
+      abstract: "`BranchManager.branch` — what `atdd worktree create` dispatches to — is run for that issue"
+    then:
+      abstract:
+        - "the call returns 0 and the expected branch exists; before this it ended in `git worktree add failed`"
+        - "no colon reaches any refname, and the worktree directory is listed"
+        - "the `unverified:` qualifier appears in no branch name"
+        - "the store really does hand back the raw uid as the slug — without this the case above could pass over an ordinary record and prove nothing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
