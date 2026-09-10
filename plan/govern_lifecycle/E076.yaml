@@ -1,0 +1,68 @@
+urn: "wmbt:govern-lifecycle:E076"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "one-contract-read-by-several-implementations-that-drift-apart-unnoticed"
+context_clarifier: >
+  `atdd author issue` emitted bodies its own repository rejected — not because the two sides disagreed
+  about the template, but because one side did not know a rule the other had. The issue-body contract
+  had THREE readers over TWO sources, each documented as "the single source of truth": the author
+  rendered from issue.schema.json (13 required sections), the coach command read
+  PARENT-ISSUE-TEMPLATE.md (12), and the coach validator carried a private copy of the command's
+  functions under the same names with none of its rules. The two sources differ by exactly
+  ['## Rule Wiring'] and ['### Graph Context', '### Mirror Across Agents'] — which is exactly what
+  OPTIONAL_SECTIONS and REQUIRED_SUBSECTIONS contained. Those constants were never policy; they were
+  the drift, written down and maintained by hand, so when #682 moved the schema one reader followed and
+  another did not. Measured over 40 open atdd-issues: 38 rejected by the validator's copy ALONE, 0 by
+  the command alone, 0 clean on both — not one issue in the repository satisfied both readers. The fix
+  is deletion and derivation, not synchronisation: two implementations of one contract cannot be held
+  in step by care, and these agreed once.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of one-contract-read-by-several-implementations-that-drift-apart-unnoticed by having the validator use the command's reader rather than a copy of it, and by deriving the schema-template difference from the two artifacts instead of maintaining it by hand"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E076-UNIT-001-one-reader-for-the-body-contract"
+      id: "AC-UNIT-001"
+      purpose: "the body contract has one reader and one source: the validator uses the command's functions by identity, the difference between schema and template is derived, and the authoring command's own output passes the validator"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The authoring command, the coach command's reader, the coach validator, and the two contract artifacts they read"
+    when:
+      abstract: "the readers are compared, and a body rendered by the authoring command is put to the validator"
+    then:
+      abstract:
+        - "the validator's reader IS the command's function object, not an equal one — a re-implementation that agrees today is what this repository already had"
+        - "the validator module defines no second implementation of either function"
+        - "a body carrying every non-optional section is accepted, so an optional section is not silently required"
+        - "a genuinely missing section is still reported, so the fix did not turn the check off"
+        - "the subsections #682 made mandatory are enforced here too, which the private copy never learned"
+        - "the authoring command's own rendered body passes the validator — that is what one contract means"
+        - "the schema-template difference still equals the two derived constants, so the day the artifacts move apart without them following, this fails"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E076-SMOKE-001-the-real-authoring-cli-emits-an-accepted-body"
+      id: "AC-SMOKE-001"
+      purpose: "the installed authoring CLI, run as a subprocess, emits a body the coach validator's reader accepts"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository, its issue schema and its parent-issue template, with no arguments beyond a title and slug so the shipped defaults are exercised"
+    when:
+      abstract: "`atdd author issue --dry-run` is invoked as a subprocess and its rendered body put to the validator's reader"
+    then:
+      abstract:
+        - "the call exits zero and renders a body"
+        - "the validator's reader reports no missing sections for it"
+        - "nothing is created: the dry run is the whole of the observation"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
