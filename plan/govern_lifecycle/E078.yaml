@@ -1,0 +1,48 @@
+urn: "wmbt:govern-lifecycle:E078"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-mention-of-scaffolding-being-reported-as-scaffolding-left-behind"
+context_clarifier: >
+  `check_placeholders` asked `if placeholder in text` over a whole section, so any prose containing the
+  substring was reported as template scaffolding the author forgot to replace. Its own docstring claimed
+  the opposite — "only placeholder strings that literally appear in the body are flagged. This avoids
+  regex false positives on user content" — which described the intent rather than the implementation.
+  Measured across 120 open atdd-issues: four hits and ZERO genuine ones. The decisive case is
+  `DEFINE = "define"  # find the JTBD main job`, where the word JTBD contains TBD; the worst is a
+  Decisions table row reading "Which predecessor is the pilot? | TBD — chosen before RED, recorded
+  here", because a Decisions table recording a pending decision is that table doing its job and the
+  check punished it. Those four issues blocked every open PR in the repository. An unfilled placeholder
+  is one that is the WHOLE CONTENT of a line — that is what "the author did not replace the scaffold"
+  looks like — with markdown emphasis, backticks and enclosing parens stripped first, since the
+  template ships several placeholders already wrapped and an author who leaves `_TBD_` has still left
+  it. Both directions matter: a detector that stops false-positiving by detecting nothing is the same
+  defect, quieter.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-mention-of-scaffolding-being-reported-as-scaffolding-left-behind by treating a placeholder as unfilled only when it is the whole content of a line, so prose that names a placeholder is distinguished from a section that still is one"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E078-UNIT-001-a-mention-is-not-a-placeholder"
+      id: "AC-UNIT-001"
+      purpose: "prose containing a placeholder string is not flagged, a line that IS the placeholder still is, and the detector still detects"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The four prose lines, verbatim, from the issues that blocked every open PR, alongside bare and emphasis-wrapped placeholder lines"
+    when:
+      abstract: "each body is put to the placeholder check"
+    then:
+      abstract:
+        - "prose mentioning a placeholder is clean, including the word JTBD which contains TBD"
+        - "a Decisions row recording a pending decision is clean, because that is the table working"
+        - "a bare placeholder line is still flagged"
+        - "a placeholder wrapped in emphasis, backticks or a list bullet is still flagged, since the template ships them that way"
+        - "a parenthesised placeholder such as (none yet) is still flagged"
+        - "a section with real content is clean"
+        - "the detector still fires on a plainly unfilled placeholder — a fix that passes by never firing is the same defect, quieter"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
