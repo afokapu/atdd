@@ -19,10 +19,6 @@ pytestmark = [pytest.mark.platform]
 _PKG_DIR = Path(__file__).resolve().parent.parent  # src/atdd/coach
 _TEMPLATE_DIR = _PKG_DIR / "templates" / "hooks"
 _REPO_ROOT = _PKG_DIR.parent.parent.parent  # coach -> atdd -> src -> repo root
-_INSTALLED_DIR = _REPO_ROOT / ".atdd" / "hooks"
-
-_HOOK_NAMES = ("pre-commit", "pre-push", "pre-merge-commit")
-
 
 def _read_hook(hook_dir: Path, name: str) -> str:
     """Read a hook file, skip test if missing."""
@@ -151,22 +147,10 @@ class TestPreMergeCommitEnforcement:
         )
 
 
-class TestInstalledHooksMatchTemplates:
-    """E012: Installed hooks in .atdd/hooks/ must match templates."""
-
-    @pytest.mark.parametrize("hook_name", _HOOK_NAMES)
-    def test_installed_hooks_match_templates(self, hook_name):
-        """
-        SPEC-SESSION-VAL-0084: Installed hook matches its template.
-
-        Given: A hook template and its installed counterpart
-        When: Comparing file contents
-        Then: They are identical
-        """
-        template = _read_hook(_TEMPLATE_DIR, hook_name)
-        installed = _read_hook(_INSTALLED_DIR, hook_name)
-
-        assert installed == template, (
-            f"\nInstalled hook .atdd/hooks/{hook_name} differs from template.\n"
-            f"Fix: Run `atdd init` or copy the template to sync.\n"
-        )
+# The byte-identity assertion that lived here is RETIRED (#1884). It required
+# `.atdd/hooks/<name>` to be a copy of its template, which the installer stopped
+# writing in #1492 — every installed hook is a dispatcher now. Measured in
+# atdd-hooklab, a snapshot is frozen at install AND fails open when the toolkit is
+# absent (it ran and exited 0 with nothing on PATH), so the rule was pinning the
+# worse of the two models. The checks below read the TEMPLATE — the hook logic
+# itself — and are unaffected by where the installed file points.
