@@ -46,7 +46,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 __all__ = [
     "DEFAULT_WORKTREE_ROOT",
@@ -239,8 +239,14 @@ def _bound_work_item(repo_root: Path, worktree: Path) -> Optional[tuple]:
     return None
 
 
-def write_worktree_binding(repo_root: Path, slug: str, worktree_path: Path) -> None:
+def write_worktree_binding(
+    repo_root: Path, slug: str, worktree_path: Union[Path, str]
+) -> None:
     """Rewrite ``data.worktree_path`` for a work item.
+
+    Accepts a str as well as a Path so the empty string can retire a binding
+    whose directory is gone (#1894), rather than forcing a second write path
+    to the same field.
 
     Its own seam so relocation's failure mode is injectable: the rollback below
     only means something if this write is genuinely attempted and can genuinely
