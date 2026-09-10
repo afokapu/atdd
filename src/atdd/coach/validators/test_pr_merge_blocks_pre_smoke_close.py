@@ -33,6 +33,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import warnings
 from pathlib import Path
 from typing import Any, List, Optional, Sequence
 
@@ -334,6 +335,17 @@ def evaluate_link_readings(readings: Sequence[Reading]) -> List[Violation]:
     return violations + evaluate_pr_merge_violations(observed)
 
 
+def _observed_open_prs(repo_root: Optional[Path] = None) -> List[dict]:
+    """The open PRs this gate actually saw, so a run can report its own scope.
+
+    Separate from :func:`scan_open_prs_for_pre_smoke_close` because "how many PRs
+    did you look at" and "which of them offend" are different questions, and only
+    the second one has ever been reported.
+    """
+    mgr = PRManager(target_dir=repo_root or REPO_ROOT)
+    return [pr for pr in mgr.fetch_open_prs() if pr.get("number")]
+
+
 def scan_open_prs_for_pre_smoke_close(
     repo_root: Optional[Path] = None,
 ) -> List[Violation]:
@@ -446,8 +458,35 @@ def test_no_open_pr_closes_an_issue_in_pre_smoke_phase():
     # Scan + log every offender (repo-health visibility), then scope the strict
     # FAILURE to the PR under test: an innocent PR is not failed by another PR's
     # offense, while every offender is still blocked on its own CI (E056).
+    observed_prs = _observed_open_prs(REPO_ROOT)
     all_violations = scan_open_prs_for_pre_smoke_close(REPO_ROOT)
     current_pr = _current_pr_number(REPO_ROOT)
+
+    # A strict gate must say what it LOOKED AT, not only what it concluded (#1876).
+    #
+    # Every diagnostic this validator emits is logging.INFO, and CI runs
+    # `pytest -v` with no `--log-cli-level`, so none of it reaches the job log:
+    # a run that scanned 22 open PRs and one that scanned zero produce a
+    # byte-identical green. That is how #1871 merged past this gate with its
+    # issue at atdd:INIT while #1833 and #1839 were blocked the same day for the
+    # identical condition — and why the cause is still unestablished.
+    #
+    # A warning is used rather than a log record because pytest surfaces warnings
+    # on a PASSING test and suppresses INFO logs; the same reason
+    # `assert_disposition_satisfied` reports advisory findings this way.
+    #
+    # This does NOT change the verdict. It makes the vacuous case visible so the
+    # next real CI run answers what five hypotheses could not.
+    if not observed_prs:
+        warnings.warn(
+            f"{_RULE.rule_id}: scanned ZERO open PRs. This gate cannot have "
+            f"observed anything, so its green means 'nothing was examined', not "
+            f"'nothing is wrong'. Expected causes: a `gh` listing that returned "
+            f"empty (missing pull-requests scope or token), or a repo with no open "
+            f"PRs. See #1876.",
+            UserWarning,
+            stacklevel=2,
+        )
     if current_pr is None:
         # Say which kind of green this is. A branch with no PR is owed nothing by
         # a merge gate, so it proceeds — but it proceeds as NOT_APPLICABLE, not as
