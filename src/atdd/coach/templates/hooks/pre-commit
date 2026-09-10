@@ -112,4 +112,30 @@ if [ "$STAGED" -gt "$MAX_STAGED" ]; then
     echo "ATDD WARNING: $STAGED files staged. Consider splitting into smaller commits." >&2
 fi
 
+# --- Registry mirror auto-heal (wmbt:govern-lifecycle:E072, corrects E023) ---
+# plan/_wagons.yaml, plan/_trains.yaml and contracts/_artifacts.yaml are generated
+# mirrors of the wagon manifests. When a commit changes their sources the resync
+# must ride along IN that commit.
+#
+# This runs at pre-commit and not at pre-push because only here does staging still
+# reach the commit being created. E023 put the heal in pre-push, where git has
+# already resolved the refs it will send, so the resync was staged and then left
+# behind (#1888).
+#
+# Advisory on failure: a resync that fails says so and lets the commit through, so
+# no work is ever stranded at commit time. pre-push refuses instead — a refusal
+# there costs nothing, because the commits already exist.
+# Auto-skipped: CI=true (CI does not author commits).
+if [ "${CI:-}" != "true" ]; then
+    if ! atdd registry update --check >/dev/null 2>&1; then
+        if atdd registry update --yes >&2 2>&1; then
+            git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml 2>/dev/null || true
+            echo "ATDD: registry mirrors resynced and included in this commit (atdd registry update --yes)" >&2
+        else
+            echo "ATDD: registry mirrors are drifted and 'atdd registry update --yes' FAILED." >&2
+            echo "      They were NOT resynced. This commit proceeds; the push will refuse until they are." >&2
+        fi
+    fi
+fi
+
 exit 0
