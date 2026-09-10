@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from ._e072_registry_harness import HOOKS_DIR, extract_block, make_repo
+from ._e072_registry_harness import extract_block, make_repo
 
 pytestmark = [pytest.mark.platform]
 
