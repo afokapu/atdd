@@ -77,7 +77,7 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:E023-UNIT-003-registry-check-auto-heals-in-non-ci"
       id: "AC-UNIT-003"
-      purpose: "registry check auto-runs atdd registry update --yes and re-stages mirror files in non-CI mode instead of blocking"
+      purpose: "the registry check heals drift automatically instead of blocking, and it does so at the hook stage where a staged file still reaches the commit — pre-push cannot, because git resolves the refs it will send before the hook runs (mechanism corrected by #1888)"
       phase: "GREEN"
     harness:
       type: "unit"
@@ -93,9 +93,10 @@ acceptances:
     then:
       abstract:
         - "The hook invokes atdd registry update --yes automatically (captured via stub)"
-        - "The hook re-stages the mirror files (git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml)"
-        - "The hook exits 0 (push is not blocked)"
-        - "The hook prints a notice: 'ATDD: registry mirrors auto-resynced (atdd registry update --yes)'"
+        - "The hook stages the mirror files (git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml)"
+        - "The heal runs from pre-commit, where a staged file still joins the commit being created — never from pre-push, where git has already resolved the refs it will send and no index change can reach them (#1888)"
+        - "The operator is not blocked: the resync rides along in the commit they were already making"
+        - "The hook prints a notice naming the command it ran"
     metadata:
       author: "atdd:substrate-friction-investigation"
       created: "2026-05-23"
