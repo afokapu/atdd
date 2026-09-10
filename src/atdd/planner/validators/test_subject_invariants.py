@@ -41,11 +41,14 @@ GOOD_SUBJECTS = [
     "object-conflict-resolution",
 ]
 
-# Each violates exactly one invariant clause.
+# Each violates exactly one invariant clause. These are the clauses that hold
+# in EVERY repo — shape, actor and structural keyword. The "not a theme" clause
+# is deliberately absent: no theme name is universally reserved (a consumer's
+# `themes:` block can rename any digit, digit 0 included, and `get_theme_map`
+# honours it), so naming one here would assert the toolkit's own vocabulary
+# rather than the rule. It is covered hermetically below.
 BAD_SUBJECTS = {
     "resolve-conflicts": "verb-led (resolve is a verb, not a noun object)",
-    "commons": "a theme, not a subject",
-    "player": "a theme, not a subject",
     "user": "an actor, not a subject",
     "system": "an actor, not a subject",
     "route": "a structural keyword",
@@ -53,6 +56,21 @@ BAD_SUBJECTS = {
     "owner": "a structural keyword",
     "Artifact-Identity": "not kebab-case",
 }
+
+#: A repo whose themes are these — chosen to overlap nothing in GOOD_SUBJECTS
+#: and nothing in DEFAULT_THEME_MAP, so the assertions below cannot be
+#: satisfied by an ambient vocabulary leaking in from anywhere else.
+_LAB_THEMES = {"1": "cartography", "5": "husbandry"}
+
+
+@pytest.fixture()
+def themed_repo(tmp_path: Path) -> Path:
+    """A repo root whose `.atdd/config.yaml` declares `_LAB_THEMES`."""
+    cfg = tmp_path / ".atdd"
+    cfg.mkdir()
+    body = "\n".join(f"  '{d}': {name}" for d, name in sorted(_LAB_THEMES.items()))
+    (cfg / "config.yaml").write_text(f"version: '1.0'\nthemes:\n{body}\n", encoding="utf-8")
+    return tmp_path
 
 
 def test_rule_is_bound() -> None:
@@ -71,6 +89,61 @@ def test_non_nouns_rejected(name: str) -> None:
     ok, reason = subj.is_durable_noun(name)
     assert not ok, f"{name!r} should be rejected ({BAD_SUBJECTS[name]}) but passed"
     assert reason, "a violation must carry a human-readable reason"
+
+
+# --- the "a theme is not a subject" clause -------------------------------
+# Asserted against a vocabulary the test supplies, never against the toolkit's
+# own defaults: `is_durable_noun` resolves themes per-repo, so hardcoding a
+# name here would fail in any consumer that renamed that digit.
+
+
+@pytest.mark.parametrize("theme", sorted(_LAB_THEMES.values()))
+def test_a_theme_of_the_repo_is_not_a_subject(themed_repo: Path, theme: str) -> None:
+    ok, reason = subj.is_durable_noun(theme, root=themed_repo)
+    assert not ok, f"{theme!r} is a theme of this repo and must be rejected as a subject"
+    assert "theme" in (reason or ""), f"reason must name the theme clause, got: {reason}"
+
+
+def test_a_theme_of_another_repo_is_still_a_subject(themed_repo: Path) -> None:
+    """The clause reserves THIS repo's themes, not the toolkit's built-ins.
+
+    `player` is digit 5 in `DEFAULT_THEME_MAP` but not a theme of `themed_repo`,
+    so it is an ordinary durable noun there. This is the assertion that fails if
+    the theme set is ever resolved from anywhere but the given root.
+    """
+    ok, reason = subj.is_durable_noun("player", root=themed_repo)
+    assert ok, f"'player' is not a theme of this repo and must be accepted: {reason}"
+
+
+def test_theme_clause_needs_a_root() -> None:
+    """With no root there is no repo and no theme vocabulary — the structural
+    blocklist alone applies, and the answer does not depend on the process's
+    working directory."""
+    for name in ("player", "commons", "cartography"):
+        ok, _ = subj.is_durable_noun(name)
+        assert ok, f"{name!r} is not structurally reserved; rootless call must accept it"
+    ok, _ = subj.is_durable_noun("route")
+    assert not ok, "the structural blocklist still applies with no root"
+
+
+def test_theme_clause_ignores_the_working_directory(themed_repo: Path, monkeypatch) -> None:
+    """The regression pin for the defect itself.
+
+    `_reserved_themes` used to fall back to `Path(".")` when given no root, so
+    the rootless call silently answered out of whatever `.atdd/config.yaml`
+    happened to sit in the process's cwd. That made this shipped validator a
+    function of the CONSUMER's theme block: `player` is digit 5 by default, so
+    a consumer that renamed digit 5 saw `is_durable_noun("player")` flip to True
+    and every `git push` from that repo fail on a test about the toolkit's
+    vocabulary. Same call, same argument, different answer per directory.
+    """
+    outside = subj.is_durable_noun("husbandry")
+    monkeypatch.chdir(themed_repo)
+    inside = subj.is_durable_noun("husbandry")
+    assert inside == outside, (
+        "is_durable_noun() with no root must not read the cwd's .atdd/config.yaml; "
+        f"got {outside} outside the themed repo and {inside} inside it"
+    )
 
 
 @pytest.mark.platform  # toolkit dogfood: reads toolkit-only repo state (#1475)
