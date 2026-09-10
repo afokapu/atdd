@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 137
+    total: 139
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1880,6 +1880,10 @@ wagons:
     E077: minimize likelihood of a-prefix-of-the-answer-being-read-as-the-whole-answer
       by refusing when an issue listing reaches its fetch cap, so completeness is
       either established or reported unknown, never assumed (#1903)
+    E080: minimize likelihood of a-gate-whose-verdict-depends-on-which-item-it-happened-to-read-first
+      by examining every parent before deciding, reporting all drifted parents rather
+      than the first, and reserving the skip for the one case where there is genuinely
+      nothing to check (#1907)
     E076: minimize likelihood of one-contract-read-by-several-implementations-that-drift-apart-unnoticed
       by having the validator use the command's reader rather than a copy of it, and
       by deriving the schema-template difference from the two artifacts instead of
@@ -1897,6 +1901,10 @@ wagons:
       by healing drift at pre-commit where the staged mirror still joins the commit,
       refusing the push when drift survives to pre-push, and reporting a failed resync
       as a failure rather than as a heal (#1888)
+    E074: minimize likelihood of an-api-that-declined-to-answer-being-reported-as-a-fact-about-the-repository
+      by classifying why the GitHub CLI failed, reserving the absence claim for the
+      one failure that establishes it, and naming a remedy the operator can act on
+      for every other (#1895)
   total: 0
   manifest: plan/govern_lifecycle/_govern_lifecycle.yaml
   path: plan/govern_lifecycle/

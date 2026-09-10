@@ -1,0 +1,93 @@
+urn: "wmbt:govern-lifecycle:E074"
+step: "execute"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "an-api-that-declined-to-answer-being-reported-as-a-fact-about-the-repository"
+context_clarifier: >
+  `gh issue view` exits 1 both for an issue that does not exist and for an API that declined to answer,
+  and `_fetch_issue` returned None for every case — a rate limit, a missing credential, an unreachable
+  host, a 502, a timeout, a `gh` that is not installed, and output that did not parse. The caller then
+  printed "could not fetch issue #N", which reads as a statement about the repository. Observed in this
+  session: `atdd coach transition 1876 COMPLETE` refused with that message while issue #1876 was open
+  and fine, and while `gh api rate_limit` reported the GraphQL bucket FULL — the REST and GraphQL
+  buckets are counted separately, so the obvious check appears to contradict the diagnosis. The operator
+  is sent to look for a missing issue, and the real cause clears itself in minutes. Only "no such issue"
+  is an answer; everything else is the absence of one. The distinction does not change what callers DO —
+  an unestablished verdict still refuses, exactly as coach.documentation.verdict treats COULD_NOT_CHECK —
+  it changes what they can truthfully say. An unrecognised failure must land on UNAVAILABLE, because
+  guessing "absent" from an unfamiliar message reintroduces the same conflation without anyone noticing.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of an-api-that-declined-to-answer-being-reported-as-a-fact-about-the-repository by classifying why the GitHub CLI failed, reserving the absence claim for the one failure that establishes it, and naming a remedy the operator can act on for every other"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:E074-UNIT-001-absent-is-not-unavailable"
+      id: "AC-UNIT-001"
+      purpose: "the classifier separates an issue that is not there from an API that would not answer, defaults an unrecognised failure to unavailable, and lets only the established verdict claim the issue does not exist"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The stderr strings the GitHub CLI really emits, captured from actual failures against this repository"
+    when:
+      abstract: "each is classified and rendered for an operator"
+    then:
+      abstract:
+        - "a missing issue is an established answer"
+        - "a rate limit is not an answer, and neither is a secondary rate limit"
+        - "a missing credential, an unreachable host, a refused connection and a server error are all unestablished"
+        - "a failure the classifier does not recognise is unavailable, never absent"
+        - "output that did not parse is neither absent nor a transport failure, because the call succeeded"
+        - "only the established verdict renders the words 'does not exist'"
+        - "the rate-limit remedy names the command that shows the reset, and says the REST and GraphQL buckets are counted separately"
+        - "the context of the call rides on the cause line, not after the remedy"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E074-UNIT-002-fetch-issue-reports-the-real-cause"
+      id: "AC-UNIT-002"
+      purpose: "the fetch records why it failed and the operator-facing message reflects it, so the seam between the subprocess result and the printed sentence cannot discard the reason"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A stubbed GitHub CLI on PATH that reproduces each real failure, exiting non-zero for all of them exactly as the real one does"
+    when:
+      abstract: "the real fetch is driven against each, and its failure explained"
+    then:
+      abstract:
+        - "a successful fetch records no failure at all"
+        - "a missing issue is recorded as an established answer"
+        - "a rate limit is recorded as unestablished"
+        - "the two do not print the same sentence"
+        - "a transport failure names the transport rather than the issue"
+        - "unparseable output is not reported as a missing issue"
+        - "a GitHub CLI that is not installed is unavailable, not absent, because nothing was asked"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E074-SMOKE-001-a-real-refusal-names-a-cause"
+      id: "AC-SMOKE-001"
+      purpose: "the installed CLI, run as a subprocess against a genuinely absent issue, refuses with a message that names the cause rather than a generic fetch failure"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository and an issue number that does not exist in it"
+    when:
+      abstract: "a coach command that must read the issue is invoked as a subprocess"
+    then:
+      abstract:
+        - "the call exits non-zero: an unestablished verdict refuses, and so does an established absence"
+        - "the message names the cause, not merely that a fetch did not succeed"
+        - "the message carries a remedy the operator can act on"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
