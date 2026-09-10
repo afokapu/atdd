@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 139
+    total: 140
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1877,6 +1877,10 @@ wagons:
       an empirical target list before it is made mandatory against 299 SMOKE acceptances
       of which exactly one declares execution_kind: live_smoke (#1664, after #1602
       and E069)'
+    E075: minimize likelihood of a-validator-that-could-not-query-its-subject-reporting-the-clean-answer
+      by refusing when a fixture's query failed, naming the cause and how to deselect
+      api-bound validators deliberately, while continuing to skip only where the case
+      is genuinely not applicable (#1896)
     E080: minimize likelihood of a-gate-whose-verdict-depends-on-which-item-it-happened-to-read-first
       by examining every parent before deciding, reporting all drifted parents rather
       than the first, and reserving the skip for the one case where there is genuinely
