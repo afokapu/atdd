@@ -1,0 +1,68 @@
+urn: wmbt:verify-validation-receipt:E001
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: committed-pass-receipts-that-collide-across-concurrent-branches
+context_clarifier: "Each .atdd/baselines/validation/<phase>.yaml carries one source_hash\
+  \ over the whole toolkit tree and is committed, so any branch that runs validation\
+  \ rewrites the same lines and any two concurrent branches conflict regardless of\
+  \ whether their real changes overlap (issue #1566: PR #1530 changed two files, zero\
+  \ code conflict, yet CONFLICTING solely on all.yaml; PR #1538 reconflicted on planner.yaml\
+  \ every time main advanced). No CI gate reads these receipts (verified: only src/atdd/cli.py),\
+  \ so the fix is to stop tracking them \u2014 git-rm the files and gitignore .atdd/baselines/validation/\
+  \ \u2014 not a merge driver/union/rerere, which only make the false receipt cheaper\
+  \ to produce (Decision 1).\n"
+lens: functional.effectiveness
+statement: 'minimize likelihood of committed-pass-receipts-that-collide-across-concurrent-branches
+  by making the validation pass-receipt a local, gitignored dev cache instead of committed
+  whole-tree state: git-rm .atdd/baselines/validation/*.yaml and add the directory
+  to .gitignore, so two branches validating disjoint work no longer contend on one
+  line of YAML
+
+  '
+acceptances:
+- identity:
+    urn: acc:verify-validation-receipt:E001-UNIT-001-disjoint-branches-produce-no-tracked-receipt
+    id: AC-UNIT-001
+    purpose: Two branches validating disjoint work each leave the pass-receipt untracked,
+      so there is no committed file to three-way conflict on
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A temp git repo with .atdd/baselines/validation/ gitignored
+    - write_validation_baseline is imported from atdd.coach.commands.validation_baseline
+  when:
+    abstract: write_validation_baseline is invoked on two simulated branches that
+      touched disjoint files
+  then:
+    abstract:
+    - The written receipt path is matched by git check-ignore (not tracked)
+    - git status --porcelain lists no .atdd/baselines/validation/ path as an added/modified
+      tracked change
+  metadata:
+    author: atdd:receipt-source-hash-1566
+    created: '2026-07-20'
+- identity:
+    urn: acc:verify-validation-receipt:E001-UNIT-002-no-tracked-receipt-remains-in-tree
+    id: AC-UNIT-002
+    purpose: The previously committed .atdd/baselines/validation/*.yaml receipts are
+      removed from version control
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The repository root and its git index
+  when:
+    abstract: git ls-files .atdd/baselines/validation/ is queried
+  then:
+    abstract:
+    - No .atdd/baselines/validation/*.yaml path is tracked by git
+    - .atdd/baselines/validation/ is matched by a .gitignore rule
+  metadata:
+    author: atdd:receipt-source-hash-1566
+    created: '2026-07-20'
