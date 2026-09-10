@@ -1,396 +1,74 @@
 #!/bin/sh
-# ATDD pre-push hook — version gate + branch protection + blocking validators.
-# Installed by `atdd init`.
+# ATDD managed hook dispatcher — DO NOT EDIT (#1492).
 #
-# All ATDD_SKIP_* bypass env vars have been retired (E030, 2026-05-26).
-# For genuine emergencies: atdd emergency --reason "<reason>"
-
-set -e
-
-# --- Emergency bypass check (E031) ---
-# atdd emergency --reason "<text>" creates .atdd/EMERGENCY_BYPASS with a TTL of 5 min.
-# If the file is fresh, all hook gates are skipped for this one operation.
-_REPO_ROOT="${ATDD_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
-
-# --- Source-checkout live-source bridge (#928 Gap 4 Item 3) ---
-# Cleared first: this is an internal flag read by the interpreter resolution
-# below, and a same-named variable inherited from the caller's environment would
-# otherwise suppress that resolution and silently restore the bug it fixes.
-_ATDD_SOURCE_BRIDGE=
-# Inside the atdd toolkit source checkout, prepend src/ so the bare `python3`
-# version gate AND `atdd validate` import atdd from the WORKING TREE, not the
-# installed wheel. Removes the manual `PYTHONPATH=src` bridge; no-op elsewhere.
-if [ -n "$_REPO_ROOT" ] && [ -d "$_REPO_ROOT/src/atdd" ] && \
-   grep -q '^name = "atdd"' "$_REPO_ROOT/pyproject.toml" 2>/dev/null; then
-    export PYTHONPATH="$_REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
-    # Recorded so the interpreter resolution below knows the ambient python3 can
-    # now import atdd — from this tree, which is the point.
-    _ATDD_SOURCE_BRIDGE=1
-fi
-
-# --- BEGIN atdd-gate-interpreter ---
-# Which interpreter runs the gates below (#1875).
+# This file is FIXED CONTENT. The real logic for this hook lives in the
+# INSTALLED atdd package, and this dispatcher does nothing but exec it.
 #
-# When the source bridge above applied it put the WORKING TREE on the import
-# path, and the gates must test that rather than the installed wheel — so the
-# ambient `python3` wins there and the console script is deliberately NOT
-# consulted: its entry point carries `-E`, which would discard the very path the
-# bridge just set.
+# Why: `.atdd/hooks/*` used to be a snapshot COPY of the packaged templates,
+# refreshed only by `atdd init --force` — a flag that is forbidden because it
+# caused #793. So every hook fix ever made reached only repos initialised after
+# it landed, and 6 of 11 hooks were never installed at all. A dispatcher has no
+# logic to go stale: `pipx upgrade atdd` is now sufficient to propagate a hook
+# fix, and the pre-push version gate (#1449) already keeps everyone current.
 #
-# Everywhere else the only interpreter known to hold atdd is the one the `atdd`
-# console script was built against. pipx and uv install into an isolated venv no
-# ambient python3 can import, which is why a freshly initialised consumer repo
-# could not push at all. Resolved from the shebang rather than by probing, so
-# this costs one `command -v` and one `sed` — no interpreter start-up — on every
-# commit and push.
-ATDD_PYTHON=python3
-if [ -z "${_ATDD_SOURCE_BRIDGE:-}" ]; then
-    _ATDD_BIN=$(command -v atdd 2>/dev/null || true)
-    if [ -n "$_ATDD_BIN" ]; then
-        # Bounded read: `atdd` is a text console script, but some installers ship
-        # a binary launcher, and an unbounded `sed` would scan it to the first
-        # newline. 256 bytes is far more than any shebang.
-        # Both halves muted: a binary launcher makes `sed` complain about an
-        # illegal byte sequence, and that would print before every commit and push.
-        _ATDD_SHEBANG=$(head -c 256 "$_ATDD_BIN" 2>/dev/null | sed -n '1s|^#!\([^[:space:]]*\).*|\1|p' 2>/dev/null || true)
-        # Some installers ship `atdd` as a shell wrapper; only take a python.
-        case "$_ATDD_SHEBANG" in
-            */python*)
-                if [ -x "$_ATDD_SHEBANG" ]; then ATDD_PYTHON="$_ATDD_SHEBANG"; fi
-                ;;
-        esac
+# Editing this file changes nothing about the logic that runs. It will be
+# replaced on the next `atdd sync` (your copy is preserved as *.local.bak).
+#
+# FAILS CLOSED: if the packaged hook cannot be resolved, this BLOCKS rather
+# than silently allowing. A guard that allows on error is not a guard — that is
+# the claude-pre-tool-use.sh defect (inert in every consumer repo). There is
+# deliberately no bypass env var here: E030 retired that entire class.
+
+_HOOK_NAME='pre-push'
+
+# Resolve the packaged hook via the `atdd` console script, which is the only
+# entry point that survives a pipx install (the toolkit lives in an isolated
+# venv that a bare `python3` cannot import — measured, #1492).
+_resolve_packaged_hook() {
+    _atdd_bin=$(command -v atdd 2>/dev/null) || return 1
+    [ -n "$_atdd_bin" ] || return 1
+    # </dev/null: never consume the hook's stdin (pre-push reads refs from it).
+    "$_atdd_bin" hooks path "$_HOOK_NAME" 2>/dev/null </dev/null
+}
+
+# Retry, because `pipx upgrade atdd` unlinks the console script for ~1.3s of its
+# ~6s run (measured, #1492). Without this, an upgrade racing a commit would fire
+# the block spuriously — and an enforcement message that cries wolf is how
+# operators learn to reach for bypasses (#1442). Retrying rides through the
+# transient window; a genuinely absent atdd still blocks, which is correct.
+_HOOK_PATH=''
+_try=0
+while [ "$_try" -lt 3 ]; do
+    _HOOK_PATH=$(_resolve_packaged_hook)
+    if [ -n "$_HOOK_PATH" ] && [ -f "$_HOOK_PATH" ]; then
+        break
     fi
-fi
-# --- END atdd-gate-interpreter ---
-if [ -n "$_REPO_ROOT" ]; then
-    _BYPASS_FILE="${_REPO_ROOT}/.atdd/EMERGENCY_BYPASS"
-    if [ -f "$_BYPASS_FILE" ]; then
-        # find -mmin -5: matches if file was modified less than 5 minutes ago
-        if find "$_BYPASS_FILE" -mmin -5 2>/dev/null | grep -q .; then
-            printf "ATDD: Emergency bypass active (pre-push). Reason: %s\n" \
-                "$(head -1 "$_BYPASS_FILE" 2>/dev/null | sed 's/^reason=//' || echo 'see .atdd/EMERGENCY_BYPASS')" >&2
-            printf "  Remove .atdd/EMERGENCY_BYPASS when the emergency is resolved.\n" >&2
-            exit 0
-        else
-            printf "ATDD: Emergency bypass file found but expired (> 5 min). Ignored.\n" >&2
-        fi
+    _HOOK_PATH=''
+    _try=$((_try + 1))
+    if [ "$_try" -lt 3 ]; then
+        sleep 1
     fi
-fi
-
-# --- Bare-mode contamination guard (#629 Layer 1) ---
-# A worktree with core.bare=true silently mass-deletes its files on the next
-# `git add -A`. Wave 12 (PRs #625, #627) shipped 220k-line deletions this way.
-if [ "$(git config --get core.bare 2>/dev/null)" = "true" ]; then
-    cat >&2 <<'BARE_MSG'
-
-ATDD: Pre-push blocked — this worktree has core.bare=true.
-
-This is the bare-mode contamination signature that mass-deleted PRs
-#625 and #627 in Wave 12 (220,000 lines / 1,277 files each).
-
-Recovery:
-  1. git config core.bare false
-  2. git log --oneline -5         # audit recent commits for surprise deletions
-  3. git show --stat HEAD         # confirm last commit's diff is sane
-
-For genuine emergencies: atdd emergency --reason "<reason>"
-
-BARE_MSG
-    exit 1
-fi
-
-# --- Version gate ---
-"$ATDD_PYTHON" -c "
-import sys
-try:
-    from atdd.version_check import _gate_main
-    _gate_main()
-except ImportError:
-    print('ATDD: the python3 running this hook (' + sys.executable + ') cannot import atdd.', file=sys.stderr)
-    print('  This is an environment/path problem, NOT a stale package: atdd is', file=sys.stderr)
-    print('  likely installed in an isolated venv (pipx) that is not on the path', file=sys.stderr)
-    print('  of this interpreter. Diagnose and fix:  atdd doctor', file=sys.stderr)
-    sys.exit(1)
-" 2>&1
-if [ $? -ne 0 ]; then exit 1; fi
-
-# --- Store-as-source-of-truth gate (#1503) ---
-# This block is a dispatcher: the gate logic lives in the installed package, so
-# fixing it needs no hook edit. The hook file itself is still a byte-identical
-# projection of this template (.atdd/hooks/pre-push is tracked, and
-# test_template_and_installed_hook_are_byte_identical enforces the match) — so
-# changing these lines requires regenerating that projection in the same commit.
-#
-# Blocking is scoped to the work_item bound to THIS branch. Repo-wide drift is
-# reported as advisory only — a repo-wide block would red-gate every branch on
-# pre-existing history (#1516 backfills it).
-"$ATDD_PYTHON" -c "
-import sys
-try:
-    from atdd.coach.store_mirror_gate import _gate_main
-    _gate_main()
-except ImportError:
-    print('ATDD: the python3 running this hook (' + sys.executable + ') cannot import atdd.', file=sys.stderr)
-    print('  Diagnose and fix:  atdd doctor', file=sys.stderr)
-    sys.exit(1)
-" 2>&1
-if [ $? -ne 0 ]; then exit 1; fi
-
-REMOTE="$1"
-URL="$2"
-
-# Accumulate the last ref's SHAs for blast-radius detection below.
-LAST_LOCAL_SHA=""
-LAST_REMOTE_SHA=""
-
-# Read each ref being pushed (stdin: local_ref local_sha remote_ref remote_sha)
-while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
-    # Track for blast-radius detection (last ref wins; most pushes have one ref)
-    LAST_LOCAL_SHA="$LOCAL_SHA"
-    LAST_REMOTE_SHA="$REMOTE_SHA"
-
-    # Block manual tag pushes (tags should only come from CI publish workflow)
-    case "$LOCAL_REF" in
-        refs/tags/*)
-            echo "ATDD: Manual tag pushes blocked. Tags are created by the publish workflow." >&2
-            exit 1
-            ;;
-    esac
-
-    # Only guard pushes targeting main or master
-    case "$REMOTE_REF" in
-        refs/heads/main|refs/heads/master) ;;
-        *) continue ;;
-    esac
-
-    # Allow: CI-only env bypass
-    if [ "${CI:-}" = "true" ] && [ "${ATDD_ALLOW_MAIN_PUSH:-0}" = "1" ]; then
-        continue
-    fi
-
-    # --- Block all direct pushes to main/master ---
-    BRANCH=$(echo "$REMOTE_REF" | sed 's|refs/heads/||')
-    cat >&2 <<EOF
-
-ATDD: All direct pushes to $BRANCH are blocked.
-
-Every change must go through a worktree branch and PR.
-Create one first:
-  atdd worktree create <issue-number>
-
-CI bypass (requires CI=true):
-  CI=true ATDD_ALLOW_MAIN_PUSH=1 git push ...
-
-EOF
-    exit 1
 done
 
-# --- Blocking validator pass (#583) ---
-# Runs the blast-radius subset of local validators for the files in this push.
-# Only phases whose source paths appear in the diff are validated.
-#
-# Auto-skipped when:
-#   CI=true                        — CI runs the full suite; no double-run
-#   No ATDD source files changed   — fast path for non-toolkit pushes
-if [ "${CI:-}" != "true" ] && [ -n "$LAST_LOCAL_SHA" ]; then
-
-    # Compute the set of files changed in this push.
-    NULL_SHA="0000000000000000000000000000000000000000"
-    if [ -z "$LAST_REMOTE_SHA" ] || [ "$LAST_REMOTE_SHA" = "$NULL_SHA" ]; then
-        # New branch — diff against origin/main if reachable, else the previous commit
-        BASE=$(git rev-parse --verify origin/main 2>/dev/null || \
-               git rev-parse --verify origin/HEAD 2>/dev/null || echo "")
-        if [ -n "$BASE" ]; then
-            CHANGED_FILES=$(git diff --name-only "${BASE}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
-        else
-            PARENT=$(git rev-parse --verify "${LAST_LOCAL_SHA}^" 2>/dev/null || echo "")
-            if [ -n "$PARENT" ]; then
-                CHANGED_FILES=$(git diff --name-only "${PARENT}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
-            else
-                CHANGED_FILES=""
-            fi
-        fi
-    else
-        # Branch update — compare the pushed range
-        CHANGED_FILES=$(git diff --name-only "${LAST_REMOTE_SHA}..${LAST_LOCAL_SHA}" 2>/dev/null || true)
-    fi
-
-    # Map changed files → validator phases (same mapping as post-commit hook)
-    RUN_REPO=0
-    RUN_PLANNER=0
-    RUN_TESTER=0
-    RUN_CODER=0
-    RUN_COACH=0
-
-    while IFS= read -r _f; do
-        case "$_f" in
-            plan/*)              RUN_REPO=1; RUN_PLANNER=1 ;;
-            contracts/*)         RUN_REPO=1; RUN_TESTER=1 ;;
-            src/atdd/planner/*)  RUN_PLANNER=1 ;;
-            src/atdd/tester/*)   RUN_TESTER=1 ;;
-            src/atdd/coder/*)    RUN_CODER=1 ;;
-            src/atdd/coach/*)    RUN_COACH=1 ;;
-            .atdd/manifest.yaml) RUN_COACH=1 ;;
-        esac
-    done <<__BLAST__
-$CHANGED_FILES
-__BLAST__
-
-    # Fast path — nothing in blast-radius, skip entirely
-    if [ "${RUN_REPO}${RUN_PLANNER}${RUN_TESTER}${RUN_CODER}${RUN_COACH}" != "00000" ]; then
-        echo "ATDD pre-push: running blast-radius validators (--local --skip-api)..." >&2
-
-        FAIL=0
-        if [ "$RUN_REPO" = "1" ]; then
-            # The full `atdd repo validate` URN-graph traversal builds the entire
-            # repo graph (~thousands of URNs, ~2-4 min) — far too slow for a
-            # local fast-fail gate. It is DEFERRED TO CI by default: the
-            # `validate-conventions` job runs the authoritative traceability
-            # check (resolution/urn_traceability over the real repo graph), so a
-            # graph regression still cannot reach main. The RUN_PLANNER /
-            # RUN_TESTER legs below still run --local --skip-api on plan/ and
-            # contracts/ changes, preserving fast local feedback.
-            # Opt in to the full local traversal with ATDD_PREPUSH_FULL=1.
-            if [ "${ATDD_PREPUSH_FULL:-0}" = "1" ]; then
-                atdd repo validate >&2 2>&1 || FAIL=1
-            else
-                echo "ATDD pre-push: deferring full 'atdd repo validate' URN-graph traversal to CI (set ATDD_PREPUSH_FULL=1 to run it locally)." >&2
-            fi
-        fi
-        if [ "$RUN_PLANNER" = "1" ]; then
-            atdd validate planner --local --skip-api >&2 2>&1 || FAIL=1
-        fi
-        if [ "$RUN_TESTER" = "1" ]; then
-            atdd validate tester --local --skip-api >&2 2>&1 || FAIL=1
-        fi
-        if [ "$RUN_CODER" = "1" ]; then
-            atdd validate coder --local --skip-api >&2 2>&1 || FAIL=1
-        fi
-        if [ "$RUN_COACH" = "1" ]; then
-            atdd validate coach --local --skip-api >&2 2>&1 || FAIL=1
-        fi
-
-        if [ "$FAIL" = "1" ]; then
-            cat >&2 <<'VALIDATE_FAIL'
-
-ATDD: Pre-push blocked — one or more local validators failed (see above).
-
-These validators catch violations that burn CI cycles when pushed.
-Fix the issues above, then retry your push.
-
-For genuine emergencies: atdd emergency --reason "<reason>"
-
-VALIDATE_FAIL
-            exit 1
-        fi
-    fi
+if [ -z "$_HOOK_PATH" ]; then
+    # `echo` only, never `cat <<EOF`: this branch runs precisely when the
+    # environment is broken, and a message that needs an external binary to
+    # print is a message that goes missing when it matters most. `echo` is a
+    # shell builtin and always available.
+    echo "" >&2
+    echo "ATDD: cannot resolve the packaged '$_HOOK_NAME' hook from the installed atdd." >&2
+    echo "" >&2
+    echo "The guard could not run, so this operation is BLOCKED rather than" >&2
+    echo "silently allowed. This is an install problem, not a problem with" >&2
+    echo "your change." >&2
+    echo "" >&2
+    echo "Repair:" >&2
+    echo "  pipx upgrade atdd        # or: pipx install --force atdd" >&2
+    echo "  atdd doctor              # diagnose interpreter / PATH problems" >&2
+    echo "" >&2
+    exit 1
 fi
 
-# --- Registry mirror drift gate (wmbt:govern-lifecycle:E021 / E072) ---
-# Confirms plan/_wagons.yaml, plan/_trains.yaml and contracts/_artifacts.yaml are
-# in sync with the wagon manifests.
-#
-# This gate REPORTS. It does not heal, and it must never appear to (#1888).
-# git resolves the refs it will send BEFORE running pre-push and passes them on
-# stdin, so nothing this hook stages can reach the push: the prior version ran
-# `atdd registry update --yes`, `git add`ed the result, printed "resynced and
-# re-staged" and let the push proceed with the drifted mirror, leaving the fix
-# uncommitted in the operator's worktree. Amending here is worse — the push exits
-# 0, sends the pre-amend commit, and diverges local HEAD from the remote behind a
-# clean `git status`. Both measured: docs/spikes/1888-pre-push-mirror-resync.md.
-#
-# The heal lives in pre-commit, where a staged mirror still joins the commit.
-# Auto-skipped: CI=true (the repo-wide CI check owns that path).
-# Emergency escape: handled above by .atdd/EMERGENCY_BYPASS (atdd emergency).
-if [ "${CI:-}" != "true" ]; then
-    _REGISTRY_OUT="$(atdd registry update --check 2>&1)"
-    _REGISTRY_RC=$?
-    if [ "$_REGISTRY_RC" -ne 0 ]; then
-        printf "%s\n" "$_REGISTRY_OUT" >&2
-        if [ "$_REGISTRY_RC" -eq 127 ]; then
-            cat >&2 <<'REGISTRY_UNCHECKABLE'
-
-ATDD: Pre-push blocked — the registry drift check could not be run at all.
-
-`atdd` was not found on PATH, so whether the generated mirrors match their
-sources is UNKNOWN. An unestablished verdict is not a clean one, so this
-refuses rather than waving the push through.
-
-Install the toolkit, then push again.
-
-For genuine emergencies: atdd emergency --reason "<reason>"
-
-REGISTRY_UNCHECKABLE
-        else
-            cat >&2 <<'REGISTRY_DRIFT'
-
-ATDD: Pre-push blocked — the generated registry mirrors are out of sync:
-
-  plan/_wagons.yaml   plan/_trains.yaml   contracts/_artifacts.yaml
-
-Staging them from this hook cannot help. git already resolved the commits it
-will send, so an index change here never reaches the remote. Put the resync in
-a commit instead:
-
-  atdd registry update --yes
-  git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml
-  git commit -m "chore: resync registry mirrors"
-
-Normally pre-commit does this for you; this fires when a commit was made with
---no-verify, or when a merge changed the sources without a commit of your own.
-
-For genuine emergencies: atdd emergency --reason "<reason>"
-
-REGISTRY_DRIFT
-        fi
-        exit 1
-    fi
-fi
-
-# --- Worktree placement gate (#1524, Decision 4 — the BLOCK stage) ---
-# OPT-IN: silent unless `.atdd/config.yaml` sets
-# `worktree_placement_enforcement: block`. The default (`warn`) reports from
-# post-checkout and refuses nothing, which is the whole of the first release.
-#
-# pre-push is the only placement-relevant hook whose refusal costs no work: the
-# commits exist, the worktree exists, and `atdd worktree relocate --apply`
-# clears the block. Gating the COMMIT instead would strand work an agent had
-# just finished — the failure Decision 4 exists to avoid.
-if command -v atdd >/dev/null 2>&1; then
-    PLACEMENT_BLOCK=$(atdd worktree check-placement 2>/dev/null) || PLACEMENT_BLOCK=''
-    if [ -n "$PLACEMENT_BLOCK" ]; then
-        cat >&2 <<PLACEMENT
-
-ATDD BLOCK: this worktree is not under the configured worktree_root.
-
-$PLACEMENT_BLOCK
-
-  Fix it without losing anything:
-    atdd worktree relocate --apply
-
-PLACEMENT
-        exit 1
-    fi
-fi
-
-# --- Uncommitted delta warning (advisory only — never blocks) ---
-UNCOMMITTED=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
-UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
-TOTAL=$((UNCOMMITTED + UNTRACKED))
-MAX_UNCOMMITTED=${ATDD_MAX_UNCOMMITTED:-10}
-
-if [ "$TOTAL" -gt "$MAX_UNCOMMITTED" ]; then
-    cat >&2 <<WARN
-
-ATDD WARNING: $TOTAL uncommitted/untracked files detected.
-
-Consider committing your work in smaller increments.
-Large uncommitted deltas risk losing work if a hook blocks.
-
-  git add -p    # Stage incrementally
-  git commit    # Commit frequently
-
-WARN
-fi
-
-exit 0
+# exec via `sh` rather than relying on the executable bit surviving the wheel.
+# Every hook template is #!/bin/sh (enforced by the dispatcher-parity test).
+exec sh "$_HOOK_PATH" "$@"

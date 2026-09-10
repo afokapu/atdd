@@ -47,7 +47,6 @@ pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 TEMPLATE_HOOK = REPO_ROOT / "src" / "atdd" / "coach" / "templates" / "hooks" / "pre-push"
-INSTALLED_HOOK = REPO_ROOT / ".atdd" / "hooks" / "pre-push"
 
 
 # ---------------------------------------------------------------------------
@@ -131,14 +130,13 @@ def _run_pre_push(
 # ---------------------------------------------------------------------------
 
 
-def test_template_and_installed_hook_are_byte_identical() -> None:
-    """AC-3: the source template and the installed hook must not drift."""
-    assert TEMPLATE_HOOK.exists(), f"missing template hook: {TEMPLATE_HOOK}"
-    assert INSTALLED_HOOK.exists(), f"missing installed hook: {INSTALLED_HOOK}"
-    assert TEMPLATE_HOOK.read_bytes() == INSTALLED_HOOK.read_bytes(), (
-        "src/atdd/coach/templates/hooks/pre-push and .atdd/hooks/pre-push "
-        "have drifted — regenerate so they are byte-identical."
-    )
+# The byte-identity assertion that lived here is RETIRED (#1884). It required
+# `.atdd/hooks/<name>` to be a copy of its template, which the installer stopped
+# writing in #1492 — every installed hook is a dispatcher now. Measured in
+# atdd-hooklab, a snapshot is frozen at install AND fails open when the toolkit is
+# absent (it ran and exited 0 with nothing on PATH), so the rule was pinning the
+# worse of the two models. The checks below read the TEMPLATE — the hook logic
+# itself — and are unaffected by where the installed file points.
 
 
 # ---------------------------------------------------------------------------

@@ -20,7 +20,10 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
-HOOK_PATH = REPO_ROOT / ".atdd" / "hooks" / "pre-push"
+# The TEMPLATE, not the installed file (#1884): these assert what the hook
+# DOES, and since #1492 the installed file is a dispatcher that carries no
+# logic to assert on. The logic lives in the template the dispatcher execs.
+HOOK_PATH = REPO_ROOT / "src" / "atdd" / "coach" / "templates" / "hooks" / "pre-push"
 
 # Stub import: RegistryDriftChecker does not exist yet; tests verify its behavior via
 # the hook script gate rather than calling it directly.
