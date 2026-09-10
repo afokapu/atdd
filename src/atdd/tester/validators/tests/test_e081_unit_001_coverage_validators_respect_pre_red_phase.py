@@ -28,6 +28,10 @@ from atdd.tester.validators._acceptance_walker import (
     owning_train_phase,
 )
 
+# Toolkit self-tests: the `platform` marker is what keeps them out of a
+# consumer repo's validator run.
+pytestmark = [pytest.mark.platform]
+
 TRAIN_ID = "train:issue-lifecycle:brand-new"
 
 PRE_TEST_PHASES = ["INIT", "PLANNED"]

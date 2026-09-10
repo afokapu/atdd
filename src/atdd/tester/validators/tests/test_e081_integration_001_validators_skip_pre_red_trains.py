@@ -28,6 +28,10 @@ import yaml
 
 _SRC = Path(__file__).resolve().parents[4]
 
+# Toolkit self-tests: the `platform` marker is what keeps them out of a
+# consumer repo's validator run.
+pytestmark = [pytest.mark.platform]
+
 TRAIN_ID = "train:issue-lifecycle:brand-new"
 VALIDATORS = (
     "test_train_completeness.py",
