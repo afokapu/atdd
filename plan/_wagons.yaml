@@ -281,7 +281,7 @@ wagons:
   - name: commons:author:author-spine
     from: wagon:author-atdd-substrate
   wmbt:
-    total: 15
+    total: 16
     C001: minimize likelihood of the plan-artifact author guard accepting a malformed
       slug, URN, step-code, or a path escaping plan/
     C008: minimize likelihood of non-object-author-spec by having the plan-author
@@ -313,6 +313,11 @@ wagons:
       construction (identity-derived path, $id contract:{identity}, deduped _contracts.yaml
       registry entry, dispatched through the plan build_author_fn seam), rejecting
       an invalid identity before any write
+    Y001: minimize likelihood of a-coverage-check-that-cannot-report-anything-being-counted-as-coverage
+      by having the interlocking projections delegate to the repaired sanity implementations
+      rather than keep a second copy of the rule, and by requiring a fault-injection
+      test per branch so a clean baseline can no longer be mistaken for a working
+      check (#1547)
   total: 0
   manifest: plan/author_plan_substrate/_author_plan_substrate.yaml
   path: plan/author_plan_substrate/
