@@ -244,9 +244,19 @@ class URNCommand:
                 print(json.dumps(output, indent=2))
             else:
                 if not issues:
-                    print("No broken URN references found.")
+                    print("No broken or undeclared URN references found.")
                 else:
-                    print(f"Found {len(issues)} broken URN reference(s):\n")
+                    # Two populations, counted apart: saying "445 broken" when 5 of
+                    # them resolve fine is the same conflation of "resolvable" with
+                    # "declared" that #1758 exists to remove.
+                    undeclared = sum(
+                        1 for i in issues if i.issue_type == IssueType.UNDECLARED
+                    )
+                    broken = len(issues) - undeclared
+                    print(
+                        f"Found {broken} broken and {undeclared} undeclared "
+                        f"URN reference(s):\n"
+                    )
                     for issue in issues:
                         self._print_issue(issue)
 
@@ -585,6 +595,7 @@ class URNCommand:
         type_labels = {
             IssueType.ORPHAN: "Orphaned URNs",
             IssueType.BROKEN: "Broken References",
+            IssueType.UNDECLARED: "Undeclared References (resolvable, declared by nothing)",
             IssueType.NON_DETERMINISTIC: "Non-Deterministic URNs",
             IssueType.MISSING_EDGE: "Missing Edges",
             IssueType.CYCLE: "Cycles Detected",
