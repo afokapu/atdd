@@ -906,6 +906,26 @@ Phase descriptions:
         help="Worktree to relocate (default: the current directory)",
     )
 
+    worktree_prune_parser = worktree_subparsers.add_parser(
+        "prune-bindings",
+        help="Report, and on request retire, bindings whose directory is gone",
+        description=(
+            "A work item's `worktree_path` is written at creation and rewritten on\n"
+            "relocation, and cleared by nothing — `git worktree remove` knows about\n"
+            "no store — so every removal leaves the store asserting a directory that\n"
+            "no longer exists (#1894).\n\n"
+            "  atdd worktree prune-bindings            Report (dry-run)\n"
+            "  atdd worktree prune-bindings --apply    Retire them\n\n"
+            "Reports ONLY bindings whose directory is absent. A work item carrying no\n"
+            "binding at all is the inverse defect (#1529) and needs an operator.\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    worktree_prune_parser.add_argument(
+        "--apply", action="store_true", help="Retire the stale bindings (default: report only)")
+    worktree_prune_parser.add_argument(
+        "--quiet", action="store_true", help="Say nothing when there is nothing to prune")
+
     worktree_subparsers.add_parser(
         "check-placement",
         help="Print why a push should be blocked for misplacement, or nothing",
@@ -2438,6 +2458,12 @@ Phase descriptions:
             from atdd.coach.commands.worktree_relocate import run_relocate
             return run_relocate(
                 target=getattr(args, "path", None),
+                apply=getattr(args, "apply", False),
+                quiet=getattr(args, "quiet", False),
+            )
+        if worktree_cmd == "prune-bindings":
+            from atdd.coach.commands.worktree_prune_bindings import run_prune_bindings
+            return run_prune_bindings(
                 apply=getattr(args, "apply", False),
                 quiet=getattr(args, "quiet", False),
             )
