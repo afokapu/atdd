@@ -23,7 +23,7 @@ Coverage map (one assertion home per defense; see §9 table):
 | I-9     | runtime.worktree (core.bare=false)         | test_worktree_safety::test_sets_per_worktree_core_bare  |
 | I-10    | RETIRED by #1480 (runtime.agent_control pruned from core)                            |
 | I-11    | coach.commands.emergency (5-min TTL)       | this file::test_i11_*                  |
-| I-13    | .atdd/hooks/pre-push (core.bare block)     | this file::test_i13_*                  |
+| I-13    | templates/hooks/pre-push (core.bare block) | this file::test_i13_*                  |
 
 I-1/I-2/I-9 keep their canonical home in ``test_worktree_safety.py``; this
 module pins the remaining nine so the suite is complete and each defense has a
@@ -282,8 +282,15 @@ def test_i11_emergency_bypass_writes_audit_and_bypass(tmp_path):
 # --------------------------------------------------------------------------- #
 def test_i13_pre_push_hook_guards_core_bare():
     """The shipped pre-push hook refuses to push when the worktree is core.bare=true."""
-    hook = REPO_ROOT / ".atdd" / "hooks" / "pre-push"
-    assert hook.is_file(), "pre-push hook must ship (I-13)"
+    # The TEMPLATE, not the installed file (#1884). Since #1492 the installed
+    # hook is a fixed-content dispatcher carrying no logic to assert on; the
+    # guard this defence exists for lives in the template the dispatcher execs.
+    # The installed file is still checked for presence — a dispatcher that is
+    # absent would mean the guard never runs at all.
+    installed = REPO_ROOT / ".atdd" / "hooks" / "pre-push"
+    assert installed.is_file(), "pre-push hook must ship (I-13)"
+    hook = REPO_ROOT / "src" / "atdd" / "coach" / "templates" / "hooks" / "pre-push"
+    assert hook.is_file(), "pre-push hook template must ship (I-13)"
     text = hook.read_text()
     assert "core.bare" in text, "pre-push hook must inspect core.bare (I-13)"
     # The guard must actually block (non-zero exit), not merely warn.
