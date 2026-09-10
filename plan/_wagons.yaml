@@ -49,7 +49,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 11
+    total: 12
     D001: maximize likelihood of schema-valid substrate intent and lock by defining
       canonical substrate.yaml / substrate.lock.yaml / registry-index schemas and
       validating both files against them
@@ -81,6 +81,10 @@ wagons:
     C006: minimize likelihood of stale-flat-verb-docs by documenting `atdd substrate
       ...` as the canonical form in the README and synced agent docs, with no doc
       presenting a flat substrate verb as primary
+    C007: minimize likelihood of undetected-substrate-staleness by comparing each
+      locked version against the registry's published latest_version in `atdd substrate
+      list`, reporting which packages are behind without applying anything, and reporting
+      COULD_NOT_CHECK when a configured registry cannot be read
   total: 0
   manifest: plan/admit_substrate/_admit_substrate.yaml
   path: plan/admit_substrate/
@@ -1842,6 +1846,9 @@ wagons:
     E007: minimize quantity of tests-that-cannot-be-executed-because-the-repositorys-own-configured-entry-point-aborts-collection-before-running-anything
       by giving each colliding tests package a parent package, so every test module
       is named under atdd and the two trees no longer contend for one name (#1868)
+    R012: minimize likelihood of a-release-step-invoking-a-tool-whose-credential-the-step-never-supplies-so-the-workflow-fails-on-every-merge-until-its-red-is-the-expected-state
+      by supplying the workflow token to the step that shells out to gh, so the publish
+      path either completes or fails for a reason a reader can act on (#1869)
     C020: minimize likelihood of atdd-coach-approve-minting-a-signed-token-for-an-edge-the-issue-cannot-cross-because-the-mint-reads-no-issue-state-and-validates-the-transition-string-against-no-phase-machine
       by reading the issue's phase from the State Store at mint time and validating
       the requested edge against phase_machine.convention.yaml, refusing — never warning
