@@ -102,23 +102,8 @@ def test_post_commit_hook_installed_in_atdd_hooks():
     )
 
 
-def test_post_commit_hook_matches_template():
-    """GT-004: installed post-commit hook must match the committed template.
-
-    The template at ``src/atdd/coach/templates/hooks/post-commit`` is the
-    source of truth. Any local divergence would go unnoticed in review.
-    """
-    template = _TEMPLATE_DIR / "post-commit"
-    if not template.is_file():
-        pytest.skip(f"template not found at {template}")
-
-    hook = _INSTALLED_HOOKS_DIR / "post-commit"
-    if not hook.is_file():
-        pytest.skip("post-commit hook not installed — GT-004 covers the presence check")
-
-    assert hook.read_text(encoding="utf-8") == template.read_text(encoding="utf-8"), (
-        f"``.atdd/hooks/post-commit`` differs from the template.\n"
-        f"Template: {template}\n"
-        f"Installed: {hook}\n"
-        "Fix: cp src/atdd/coach/templates/hooks/post-commit .atdd/hooks/post-commit"
-    )
+# `test_post_commit_hook_matches_template` is RETIRED (#1884): it required the
+# installed post-commit to be a byte-identical copy of its template, which the
+# installer stopped writing in #1492. The PRESENCE check above still stands —
+# that is what GT-004 was really protecting after the #618 incident, and a
+# dispatcher satisfies it.

@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 125
+    total: 126
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1542,6 +1542,10 @@ wagons:
       staged-paths exception to the pre-commit hook, and minimize issues-missing-from-manifest-blocking-worktree-creation
       by making atdd branch <N> self-heal from GitHub and adding atdd issue reconcile
       for bulk backfill (#775)
+    R013: minimize likelihood of the repo asserting two contradictory models for what
+      an installed hook is, by finishing the migration the installer already performs
+      — every installed hook a dispatcher — and retiring the byte-identity assertions
+      that encode the abandoned model
     Y004: minimize pre-commit hook drift-detection that silently omits a notice when
       the current branch slug is absent from the manifest
     Y005: minimize atdd issue reconcile missing from the CLI when bulk backfill of
