@@ -35,6 +35,8 @@ def _load_fixtures():
     path = (pathlib.Path(__file__).resolve().parents[4]
             / "planner" / "interlocking" / "tests" / "_fixtures.py")
     spec = importlib.util.spec_from_file_location("_il_fixtures_for_y001", path)
+    if spec is None or spec.loader is None:  # pragma: no cover — a missing fixture file
+        raise RuntimeError(f"interlocking fixtures are not importable at {path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
