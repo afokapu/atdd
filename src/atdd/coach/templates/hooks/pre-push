@@ -286,17 +286,64 @@ VALIDATE_FAIL
     fi
 fi
 
-# --- Registry mirror drift gate (wmbt:govern-lifecycle:E021) ---
-# Runs atdd registry update --check to confirm plan/_wagons.yaml,
-# plan/_trains.yaml, and contracts/_artifacts.yaml are in sync with source.
-# Auto-skipped: CI=true (CI check is the authoritative gate).
-# Auto-heal covers all non-CI cases (E023 registry auto-resync).
+# --- Registry mirror drift gate (wmbt:govern-lifecycle:E021 / E072) ---
+# Confirms plan/_wagons.yaml, plan/_trains.yaml and contracts/_artifacts.yaml are
+# in sync with the wagon manifests.
+#
+# This gate REPORTS. It does not heal, and it must never appear to (#1888).
+# git resolves the refs it will send BEFORE running pre-push and passes them on
+# stdin, so nothing this hook stages can reach the push: the prior version ran
+# `atdd registry update --yes`, `git add`ed the result, printed "resynced and
+# re-staged" and let the push proceed with the drifted mirror, leaving the fix
+# uncommitted in the operator's worktree. Amending here is worse — the push exits
+# 0, sends the pre-amend commit, and diverges local HEAD from the remote behind a
+# clean `git status`. Both measured: docs/spikes/1888-pre-push-mirror-resync.md.
+#
+# The heal lives in pre-commit, where a staged mirror still joins the commit.
+# Auto-skipped: CI=true (the repo-wide CI check owns that path).
+# Emergency escape: handled above by .atdd/EMERGENCY_BYPASS (atdd emergency).
 if [ "${CI:-}" != "true" ]; then
-    if ! atdd registry update --check >&2 2>&1; then
-        echo "ATDD: registry mirrors auto-resynced (atdd registry update --yes)" >&2
-        atdd registry update --yes >&2 2>&1 || true
-        git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml 2>/dev/null || true
-        echo "ATDD: mirrors resynced and re-staged; continuing push..." >&2
+    _REGISTRY_OUT="$(atdd registry update --check 2>&1)"
+    _REGISTRY_RC=$?
+    if [ "$_REGISTRY_RC" -ne 0 ]; then
+        printf "%s\n" "$_REGISTRY_OUT" >&2
+        if [ "$_REGISTRY_RC" -eq 127 ]; then
+            cat >&2 <<'REGISTRY_UNCHECKABLE'
+
+ATDD: Pre-push blocked — the registry drift check could not be run at all.
+
+`atdd` was not found on PATH, so whether the generated mirrors match their
+sources is UNKNOWN. An unestablished verdict is not a clean one, so this
+refuses rather than waving the push through.
+
+Install the toolkit, then push again.
+
+For genuine emergencies: atdd emergency --reason "<reason>"
+
+REGISTRY_UNCHECKABLE
+        else
+            cat >&2 <<'REGISTRY_DRIFT'
+
+ATDD: Pre-push blocked — the generated registry mirrors are out of sync:
+
+  plan/_wagons.yaml   plan/_trains.yaml   contracts/_artifacts.yaml
+
+Staging them from this hook cannot help. git already resolved the commits it
+will send, so an index change here never reaches the remote. Put the resync in
+a commit instead:
+
+  atdd registry update --yes
+  git add plan/_wagons.yaml plan/_trains.yaml contracts/_artifacts.yaml
+  git commit -m "chore: resync registry mirrors"
+
+Normally pre-commit does this for you; this fires when a commit was made with
+--no-verify, or when a merge changed the sources without a commit of your own.
+
+For genuine emergencies: atdd emergency --reason "<reason>"
+
+REGISTRY_DRIFT
+        fi
+        exit 1
     fi
 fi
 
