@@ -35,8 +35,20 @@ _QUERY_FIXTURES = [
 ]
 
 
+def _undecorated(fixture: object):
+    """The plain function pytest wrapped in a fixture.
+
+    pytest stores it on `__wrapped__`, but the declared type
+    (`FixtureFunctionDefinition`) does not carry the attribute, so pyright
+    objects to the direct access and ruff B009 objects to `getattr` with a
+    constant name. Working around one linter walks into the other, so this is one
+    justified ignore in one place, saying what is actually going on.
+    """
+    return fixture.__wrapped__  # type: ignore[attr-defined]
+
+
 def _call(fixture_name: str, prefetch: dict):
-    return getattr(getattr(vconf, fixture_name), "__wrapped__")(prefetch)
+    return _undecorated(getattr(vconf, fixture_name))(prefetch)
 
 
 # `pytest.fail` raises Failed, which subclasses BaseException rather than
@@ -124,5 +136,5 @@ def test_an_unconfigured_repository_still_skips() -> None:
     not owed these validators at all."""
     import inspect
 
-    source = inspect.getsource(getattr(vconf.github_client, "__wrapped__"))
+    source = inspect.getsource(_undecorated(vconf.github_client))
     assert "pytest.skip" in source and "not configured" in source
