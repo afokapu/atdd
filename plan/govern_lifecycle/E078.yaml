@@ -46,3 +46,24 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:E078-SMOKE-001-a-real-transition-is-not-blocked-by-prose"
+      id: "AC-SMOKE-001"
+      purpose: "the installed CLI's template-compliance gate does not refuse a transition because the issue body mentions a placeholder in prose"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue body carrying every required section, whose prose contains a placeholder string inside a word and inside a table cell"
+    when:
+      abstract: "the compliance check the transition gate runs is applied to it"
+    then:
+      abstract:
+        - "the body is reported compliant: no placeholder hit, no missing section"
+        - "the same check still refuses a body whose section is genuinely left as the bare placeholder"
+        - "the two verdicts differ, so the gate distinguishes a mention from an omission"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
