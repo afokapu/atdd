@@ -126,7 +126,7 @@ def _github_prefetch(github_client):
     return results
 
 
-def _unestablished(what: str, cause: object) -> "NoReturn":
+def _unestablished(what: str, cause: object) -> BaseException:
     """Fail, because the validator could not reach a verdict (#1896).
 
     `pytest.skip` was here. A skipped test is GREEN, so every validator behind
@@ -144,7 +144,7 @@ def _unestablished(what: str, cause: object) -> "NoReturn":
     query that succeeded and returned nothing. Those are answers, and they still
     skip.
     """
-    pytest.fail(
+    return pytest.fail.Exception(
         f"COULD_NOT_CHECK: {what}, so this validator reached no verdict.\n"
         f"  cause: {cause}\n"
         "  This is not a pass. Re-run when the GitHub API is reachable, or "
@@ -158,7 +158,7 @@ def github_issues(_github_prefetch):
     """All open issues with atdd-issue label (from prefetch cache)."""
     data = _github_prefetch.get("issues")
     if isinstance(data, Exception):
-        _unestablished("the open-issue query failed", data)
+        raise _unestablished("the open-issue query failed", data)
     if not data:
         pytest.skip("No issues found")
     return data
@@ -169,7 +169,7 @@ def github_complete_issues(_github_prefetch):
     """Issues with atdd:COMPLETE label (from prefetch cache)."""
     data = _github_prefetch.get("complete_issues")
     if isinstance(data, Exception):
-        _unestablished("the COMPLETE-issue query failed", data)
+        raise _unestablished("the COMPLETE-issue query failed", data)
     if not data:
         pytest.skip("No COMPLETE issues found")
     return data
@@ -185,11 +185,11 @@ def all_open_issues_unfiltered(_github_prefetch):
     """
     data = _github_prefetch.get("all_open_issues")
     if isinstance(data, Exception):
-        _unestablished("the unfiltered open-issue query failed", data)
+        raise _unestablished("the unfiltered open-issue query failed", data)
     if data is None:
         # An ABSENT key is not an empty answer. The prefetch never populated it,
         # so nothing is known — whereas [] would mean the repo really has none.
-        _unestablished("the unfiltered open-issue query never ran", "no entry in the prefetch cache")
+        raise _unestablished("the unfiltered open-issue query never ran", "no entry in the prefetch cache")
     return data
 
 
@@ -198,7 +198,7 @@ def github_sub_issues(_github_prefetch):
     """Sub-issues for all open parent issues (from prefetch cache)."""
     data = _github_prefetch.get("sub_issues")
     if isinstance(data, Exception):
-        _unestablished("the sub-issue batch query failed", data)
+        raise _unestablished("the sub-issue batch query failed", data)
     return data
 
 
@@ -207,7 +207,7 @@ def github_closed_sub_issues(_github_prefetch):
     """Sub-issues for all closed parent issues (from prefetch cache)."""
     data = _github_prefetch.get("closed_sub_issues")
     if isinstance(data, Exception):
-        _unestablished("the closed sub-issue batch query failed", data)
+        raise _unestablished("the closed sub-issue batch query failed", data)
     return data
 
 
@@ -219,17 +219,22 @@ def repo_name(github_client):
 
 @pytest.fixture(scope="session")
 def protection_result(_github_prefetch):
-    """Branch protection result (from prefetch cache)."""
+    """Branch protection result (from prefetch cache).
+
+    DEGRADED says outright that protection could not be verified, so it refuses
+    rather than skipping: skipping meant "is main branch-protected?" answered
+    GREEN whenever the answer was unknown — the highest-stakes instance of the
+    defect #1896 removes.
+    """
     from atdd.coach.commands.branch_protection import ProtectionStatus
 
     data = _github_prefetch.get("branch_protection")
     if isinstance(data, Exception):
-        _unestablished("the branch-protection query failed", data)
+        raise _unestablished("the branch-protection query failed", data)
     status, details = data
     if status == ProtectionStatus.DEGRADED:
-        # DEGRADED says outright that protection could not be verified. Skipping
-        # on it meant "is main protected?" answered GREEN whenever the answer
-        # was unknown — the highest-stakes instance of this defect.
-        _unestablished("branch protection could not be verified (degraded mode)",
-                       "; ".join(details))
+        raise _unestablished(
+            "branch protection could not be verified (degraded mode)",
+            "; ".join(details),
+        )
     return status, details
