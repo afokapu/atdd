@@ -1,0 +1,49 @@
+schema_version: 1.0.0
+rule_id: planner.artifact-naming.verb-object-corpus-drift
+kind: policy
+status: active
+name: Verb-object drift across the authored corpus is reported
+statement: The wagon and feature names already on disk are scanned for verb-object
+  conformance and the non-conforming ones are reported with a count, so naming drift
+  is visible and its size is known. This reports; it never blocks.
+terms:
+- term_id: corpus_not_gate
+  text: 'planner.wagon.name-is-verb-object and planner.feature.name-is-verb-object
+    gate the AUTHORING path — confirm_naming reads session.kept_units(), so anything
+    authored through atdd plan conforms by construction. Neither looks at the corpus.
+    An artifact renamed by hand, or created outside a plan session, drifts with nothing
+    to notice. This rule is the corpus half.'
+- term_id: reports_never_blocks
+  text: 'Advisory by design, and the disposition is load-bearing. 101 of 229 authored
+    artifacts do not conform today, and the remedy is unaffordable: a name is carried
+    by the directory, the wagon URN, every feature/WMBT/acceptance URN beneath it,
+    the test filenames, component URNs in code headers, both registries and the State
+    Store bindings — renaming one wagon touches roughly 54 files, 37 of them tests.
+    A blocking rule with no affordable remedy is a rule that gets ignored.'
+- term_id: drift_is_the_signal
+  text: 'The count is the artefact. A rising count means new drift entered outside
+    the authoring gate, which is the only thing here that is actually actionable;
+    a falling count means debt was paid opportunistically, while someone was already
+    touching the artifact for other reasons.'
+- term_id: not_a_lexicon_gap
+  text: 'Measured before this rule was written: of 101 non-conforming names, 92 lead
+    with a noun (coach x11, substrate x4, phase x3, pr x3) and 9 carry an `and` connective.
+    Only 2 verbs were genuinely missing from the lexicon. Widening the lexicon to
+    clear the report would silence a rule that is correctly describing the corpus.'
+implementation:
+  type: validator
+  ref: test_verb_object_corpus_drift::test_corpus_verb_object_drift_is_reported
+metadata:
+  severity: 2
+  disposition: advisory
+validation:
+  family: format
+  template: naming_pattern
+  variant: planner_artifact_naming_verb_object_corpus_drift
+  phase: VALIDATE
+  enforcement: advisory
+  subject_kind: wagon
+  failure_evidence:
+  - artifact_kind
+  - slug
+  - reason
