@@ -90,10 +90,16 @@ def prefix_for(issue_type: str) -> str:
 def assert_branch_prefix_allowed(branch: str) -> None:
     """Refuse a branch whose prefix is not in :data:`ALLOWED_BRANCH_PREFIXES`.
 
-    The derived path already checked this; the EXPLICIT ``--branch`` path did not,
+    The derived path already checked this; the EXPLICIT override path did not,
     which is how ``TBD/`` reached a live issue. Overriding the derived prefix stays
     legal — the corpus shows deliberate, sensible overrides — but only within the
     declared vocabulary.
+
+    Accepts either a full branch (``chore/retire-dead-vocabularies``) or a bare
+    prefix (``chore``), because both callers exist: ``atdd worktree create
+    --prefix`` supplies the latter. A string with no ``/`` is its own prefix, so
+    the single split serves both and there is no second spelling of this rule to
+    drift from the first — which is the whole point of #1948.
     """
     prefix = branch.split("/", 1)[0]
     if prefix not in ALLOWED_BRANCH_PREFIXES:

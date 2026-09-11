@@ -22,8 +22,8 @@ from typing import Any, Dict, Optional
 import yaml
 
 from atdd.coach.commands.issue_prefixes import (
-    ALLOWED_BRANCH_PREFIXES,
-    TYPE_TO_PREFIX,
+    DisallowedBranchPrefix,
+    assert_branch_prefix_allowed,
     prefix_for,
 )
 from atdd.coach.commands.worktree_placement import (
@@ -420,11 +420,10 @@ class BranchManager:
         if prefix is None:
             prefix = prefix_for(issue_type)
 
-        if prefix not in ALLOWED_BRANCH_PREFIXES:
-            print(
-                f"Error: Prefix '{prefix}' is not allowed.\n"
-                f"Allowed: {', '.join(ALLOWED_BRANCH_PREFIXES)}"
-            )
+        try:
+            assert_branch_prefix_allowed(prefix)
+        except DisallowedBranchPrefix as exc:
+            print(f"Error: {exc}")
             return 1
 
         branch_name = f"{prefix}/{slug}"
