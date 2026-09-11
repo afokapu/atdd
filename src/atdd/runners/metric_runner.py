@@ -164,17 +164,47 @@ def _load_module_from_path(path: Path) -> Optional[ModuleType]:
         return None
 
 
+#: The fields this runner actually reads off a rule. Selection is by these,
+#: not by class identity — see ``_is_rule_record``.
+_REQUIRED_RULE_FIELDS = ("rule_id", "severity", "signal_metric", "signal_threshold")
+
+
+def _is_rule_record(meta: object) -> bool:
+    """Whether *meta* carries everything the runner needs to judge a rule.
+
+    This replaces an ``isinstance`` check against
+    ``rule_id_registry.RuleMetadata`` (#1931). TWO classes of that name exist:
+    ``rule_binding.RuleMetadata`` is what ``find_repo_rules`` yields when it
+    walks ``plan/``, and it is not the one this module imports. Feeding the
+    walker's output straight to the runner therefore dropped every rule and
+    returned an empty violation list — which on an enforcement path reads
+    exactly like a clean run.
+
+    The supported path survived only because ``build_registry`` converts
+    between the two while merging the repo walk; nothing recorded that the
+    conversion was load-bearing. The same two-classes-one-name split is what
+    produced #1925, one hop earlier on this path.
+
+    Asking for the fields instead keeps the original guard's real purpose —
+    a malformed registry value must not raise ``AttributeError`` mid-walk —
+    without paying for it in correctness.
+    """
+    return all(hasattr(meta, field) for field in _REQUIRED_RULE_FIELDS)
+
+
 def _select_runnable_rules(
     registry: Dict[str, RuleMetadata],
 ) -> List[RuleMetadata]:
     """Return rules with BOTH ``signal_metric`` and ``signal_threshold`` set.
 
     Rules with one but not the other are silently skipped — the
-    measurability validator (#410) policies the schema violation.
+    measurability validator (#410) policies the schema violation. Widening
+    what counts as a rule RECORD (#1931) does not widen what counts as
+    RUNNABLE: those two skips are unchanged.
     """
     runnable: List[RuleMetadata] = []
     for meta in registry.values():
-        if not isinstance(meta, RuleMetadata):
+        if not _is_rule_record(meta):
             continue
         if not meta.signal_metric:
             continue
