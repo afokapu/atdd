@@ -22,10 +22,6 @@ Each regime below pins a `gh` on PATH, so this is offline and deterministic.
 """
 from __future__ import annotations
 
-import os
-import subprocess
-from pathlib import Path
-
 import pytest
 
 pytestmark = [pytest.mark.platform]
