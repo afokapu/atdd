@@ -244,6 +244,7 @@ wmbt:
     by examining every parent before deciding, reporting all drifted parents rather than the
     first, and reserving the skip for the one case where there is genuinely nothing to
     check (#1907)"
+  E082: "minimize likelihood of credentials-refused-for-failing-an-identity-check-they-need-not-pass\n    when GitHubClient is constructed, by confirming a non-zero gh auth status with a real\n    repo-scoped call before refusing and by quoting what gh actually said, so the Actions\n    GITHUB_TOKEN is not reported as unauthenticated for being unable to call /user (#1937)"
   E076: "minimize likelihood of one-contract-read-by-several-implementations-that-drift-apart-unnoticed
     by having the validator use the command's reader rather than a copy of it, and by deriving the
     schema-template difference from the two artifacts instead of maintaining it by hand (#1901)"
