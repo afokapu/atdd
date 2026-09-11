@@ -54,21 +54,33 @@ _LEGACY_TRAIN_RE = re.compile(r"^\d{4}-[a-z0-9][a-z0-9-]*$")
 
 
 def _reserved_themes(root: Optional[Path]) -> frozenset:
-    """Resolved canonical theme names — reserved (a subject is not a theme).
+    """Theme names reserved for *root* — a subject is not a theme.
 
-    Falls back to an empty set if the theme taxonomy can't be resolved (e.g. a
-    bare ``tmp_path`` with no ``.atdd/config.yaml``); the structural blocklist
-    still applies.
+    ``root=None`` means "no repo in hand": nothing is read from disk and no
+    theme is reserved, so the structural blocklist alone applies and the answer
+    is a pure function of the arguments. It must NOT fall back to ``Path(".")``.
+    That fallback made the theme vocabulary depend on the caller's working
+    directory, so ``is_durable_noun("player")`` answered False inside the
+    toolkit checkout and True inside a consumer repo that renamed digit 5 — the
+    same call, three answers, none of them requested.
+
+    With a *root*, the set is whatever ``get_theme_map`` resolves for that repo:
+    its ``.atdd/config.yaml`` ``themes:`` overrides merged over the built-in
+    defaults. A root with no config therefore reserves the DEFAULT names, not
+    none — the merge cannot remove a digit. The ``except`` guards a malformed
+    config, not a missing one.
     """
+    if root is None:
+        return frozenset()
     try:
         from atdd.planner.validators._theme_taxonomy import canonical_theme_set
         from atdd.coach.utils.config import load_atdd_config
 
-        cfg = load_atdd_config(Path(root) if root else Path("."))
+        cfg = load_atdd_config(Path(root))
         return frozenset(canonical_theme_set(cfg))
     except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-31
-        # Pure-mechanic callers (is_durable_noun with no root) and hermetic
-        # tmp_path tests get the structural blocklist only.
+        # A malformed taxonomy must not turn every subject into a violation;
+        # the structural blocklist still applies.
         return frozenset()
 
 
@@ -76,8 +88,13 @@ def is_durable_noun(name: str, *, root: Optional[Path] = None) -> Tuple[bool, Op
     """Return ``(ok, reason)`` — is *name* a durable noun fit to be a subject?
 
     ``reason`` is ``None`` when ok, else a human-readable explanation of the
-    first violated clause. When *root* is given, the resolved theme set is also
-    reserved; otherwise only the structural blocklist applies.
+    first violated clause.
+
+    *root* supplies the theme vocabulary: with a root, that repo's resolved
+    theme set is reserved too; with no root, only the structural blocklist
+    applies. Pass a root whenever "is this name a theme?" is part of the
+    question — the answer is repo-specific and this function will not guess it
+    from the process's working directory.
     """
     name = name or ""
     if not _KEBAB_RE.match(name):

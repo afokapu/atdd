@@ -1,0 +1,98 @@
+urn: "wmbt:govern-lifecycle:Y010"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-multi-artifact-outcome-being-judged-complete-from-the-artifact-that-lands-first"
+context_clarifier: >
+  A release is three artifacts published by separate calls that fail separately: a git tag, a
+  PyPI wheel, and a GitHub Release object. `publish.yml` decided "already released" from
+  `git describe --exact-match --tags HEAD` alone. The tag is created FIRST, which makes it the
+  artifact most likely to exist when a later step fails — the worst available proxy for the whole.
+  Measured on this repository: v4.73.0 and v4.73.1 each carry a tag and a wheel and neither had a
+  release object, because `gh release create` hit the Actions GraphQL rate limit after the other
+  two had landed. Because the tag was present, every re-run short-circuited, and the pending
+  outbox message the worker left behind lived in a store `atdd state init` recreates each run —
+  so neither version could ever heal, and nothing reported them. The class grew by one per failed
+  publish and was two deep before anyone looked.
+  Two things follow, and the second is the one a lab was needed to find. Flipping the gate to
+  "not released" is NOT sufficient: that sends the run down the ordinary reconcile+bump path,
+  publishing the next version and abandoning the half-published one permanently. The pipeline had
+  a version NUMBER where it needed a version STATE, so it rounded "half-published" to "released"
+  and moved on. PARTIAL must therefore name the version to COMPLETE, never one to mint.
+  The observers are three-valued for the same reason the gate is three-artifact: a PyPI outage or
+  a rate-limited `gh` is not evidence that an artifact is absent, and treating it as such would
+  reintroduce the defect as a duplicate publish. An unestablished state stops the run.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-multi-artifact-outcome-being-judged-complete-from-the-artifact-that-lands-first by observing the git tag, the PyPI wheel and the GitHub Release object separately, reporting an unanswered query as UNKNOWN rather than as absent, and refusing to bump past a version that is already half-published instead of abandoning it"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:Y010-UNIT-001-a-release-is-three-artifacts"
+      id: "AC-UNIT-001"
+      purpose: "release state is COMPLETE, PARTIAL or ABSENT over all three artifacts, and a partial release is completed rather than bumped past"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Every combination of the three artifacts a release consists of"
+    when:
+      abstract: "the release state is classified and an action planned"
+    then:
+      abstract:
+        - "all three present is COMPLETE and the run skips, so a re-run is idempotent"
+        - "none present is ABSENT and the run publishes the next version, so ordinary releases are unaffected"
+        - "all six mixtures are PARTIAL; the old gate called three of them released because it read only the first field"
+        - "the state that actually happened — tag and wheel present, release object absent — is PARTIAL and names github-release as missing"
+        - "a PARTIAL plan carries the EXISTING version, never the next one: bumping past a half-published release abandons it for good"
+        - "with no tag there is no identity to complete, so artifacts elsewhere are reported as orphans rather than silently published over"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:Y010-UNIT-002-could-not-ask-is-not-absent"
+      id: "AC-UNIT-002"
+      purpose: "an artifact query that could not be answered reports UNKNOWN, never absent"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "PyPI and GitHub responses spanning present, absent, unreachable, malformed and rate-limited"
+    when:
+      abstract: "each artifact's presence is observed"
+    then:
+      abstract:
+        - "a present artifact reads True and a genuine 404 reads False"
+        - "a PyPI release key holding no files is absent, not present — a deleted release leaves the key behind"
+        - "an unreachable or malformed PyPI answer is None, so an outage cannot be read as a missing wheel"
+        - "the rate-limit stderr that produced these orphans reads None, not absent"
+        - "the GitHub lookup uses the REST endpoint rather than a subcommand that resolves via GraphQL, because GraphQL is the bucket that fails here"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:govern-lifecycle:Y010-SMOKE-001-the-real-publish-workflow-observes-all-three"
+      id: "AC-SMOKE-001"
+      purpose: "the shipped publish workflow consults the observed state, gates the bump on ABSENT, and stops loudly on PARTIAL"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository's own .github/workflows/publish.yml, parsed as the file that runs"
+    when:
+      abstract: "its tag-release steps and their conditions are read"
+    then:
+      abstract:
+        - "the gate calls `atdd state version release-state` rather than deciding from git describe"
+        - "already_released is derived only from the observed action, asserted over executable lines because the comment block quotes the old code it replaced"
+        - "the reconcile+bump step runs only when the state is ABSENT"
+        - "a PARTIAL state emits an ::error annotation and exits non-zero"
+        - "the refusal precedes the drain step, since the drain is still conditioned on already_released being false, which PARTIAL also satisfies"
+        - "the gate carries GH_TOKEN, without which every release lookup would return UNKNOWN and refuse every release"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
