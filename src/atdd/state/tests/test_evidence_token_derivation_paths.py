@@ -31,7 +31,9 @@ from pathlib import Path
 
 import pytest
 
-from atdd.state.evidence import _MERGE_EVIDENCE_PREFIX, evidence_for
+from atdd.state.evidence import (
+    EVIDENCE_POLICY, PHASE_LADDER, _MERGE_EVIDENCE_PREFIX, evidence_for,
+)
 from atdd.state.merge_driver import EVIDENCE_RELATIVE
 
 pytestmark = [pytest.mark.platform]
@@ -126,3 +128,104 @@ def test_a_smoke_named_test_file_still_mints_the_v1_filename_token() -> None:
     the merge authority can only read paths, and paths cannot tell you what ran.
     """
     assert "smoke_evidence_artifact" in _tokens("src/atdd/x/tests/test_smoke_thing.py")
+
+
+# --------------------------------------------------------------------------- #
+# The prefix is a directory, not a licence (#1945)                             #
+# --------------------------------------------------------------------------- #
+
+
+def test_an_unrelated_file_under_the_prefix_mints_nothing() -> None:
+    """A README in the evidence directory is not smoke evidence.
+
+    ``smoke_evidence_artifact`` is the sole requirement of BOTH ``GREEN->SMOKE``
+    and ``SMOKE->REFACTOR``, so a branch that mints it from a bare directory
+    prefix hands any committed file in that directory a walk out of SMOKE. That
+    is the #1602 bug class arriving from the other direction: not a typed stamp
+    read as evidence, but an arbitrary path read as one.
+    """
+    for path in (
+        ".atdd/evidence/README.md",
+        ".atdd/evidence/notes.txt",
+        ".atdd/evidence/some-slug/anything.txt",
+        ".atdd/evidence/some-slug/probe-can-framework-x.yaml",
+    ):
+        assert _tokens(path) == _tokens(), (
+            f"{path} minted an evidence token; it names no gate, so it attests "
+            "to no transition"
+        )
+
+
+def test_another_objects_evidence_does_not_evidence_this_one() -> None:
+    """Evidence is per-object, and the reader that owns the path says so.
+
+    ``govern_cli._evidence_at`` scopes its ``git ls-tree`` to
+    ``.atdd/evidence/<uid>/``. The derivation is handed every path in the commit
+    for every object in it, so an unscoped prefix test lets one object's
+    honestly-earned artifact evidence every other object advancing in the same
+    commit.
+    """
+    assert _tokens(".atdd/evidence/other-slug/GREEN->SMOKE.yaml") == _tokens(), (
+        "another object's gate artifact minted this object's smoke evidence"
+    )
+    assert _tokens(".atdd/evidence/other-slug.yaml") == _tokens()
+
+
+def test_the_documented_gate_artifact_shapes_still_mint() -> None:
+    """The narrowing must not close the path the merge authority actually uses.
+
+    Both separator spellings are live in-tree — ``write_evidence`` is called with
+    ``PLANNED-RED`` by the live projection-merge tests, and ``GREEN->SMOKE`` by
+    this file — so both are read.
+    """
+    for path in (
+        ".atdd/evidence/some-slug/GREEN->SMOKE.yaml",
+        ".atdd/evidence/some-slug/GREEN-SMOKE.yaml",
+        ".atdd/evidence/some-slug/PLANNED-RED.yaml",
+        ".atdd/evidence/some-slug/RED-GREEN.yaml",
+        ".atdd/evidence/some-slug/INIT.yaml",
+        ".atdd/evidence/some-slug.yaml",
+    ):
+        assert "smoke_evidence_artifact" in _tokens(path), (
+            f"{path} is the committed per-gate artifact and stopped minting — the "
+            "merge authority has gone blind to real evidence"
+        )
+
+
+def _policy_gate_names() -> list:
+    """Every filename stem that names a gate in :data:`EVIDENCE_POLICY`.
+
+    An entry with no ``from`` is the ``* -> TOMBSTONED`` wildcard, so it names one
+    gate per rung; an entry with ``from: None`` is the mint, whose only source is
+    the empty set and whose name is therefore the target phase alone.
+    """
+    names: list = []
+    for entry in EVIDENCE_POLICY["transitions"]:
+        to_phase = entry["to"]
+        if "from" not in entry:
+            sources = list(PHASE_LADDER)
+        elif entry["from"] is None:
+            names.append(to_phase)
+            continue
+        else:
+            sources = [entry["from"]]
+        for source in sources:
+            names.extend((f"{source}->{to_phase}", f"{source}-{to_phase}"))
+    return names
+
+
+@pytest.mark.parametrize("gate_name", _policy_gate_names())
+def test_every_policy_gate_has_an_artifact_name_that_mints(gate_name) -> None:
+    """A gate added to the §6 table becomes an admissible artifact name by that edit.
+
+    Asserted through the derivation rather than against a private set, because a
+    hand-maintained second list of gate names would drift from
+    :data:`EVIDENCE_POLICY`, and the drift would read to an operator as "the
+    evidence is missing" rather than as "the filename is unrecognised".
+    """
+    path = f"{_MERGE_EVIDENCE_PREFIX}{DOC['uid']}/{gate_name}.yaml"
+
+    assert "smoke_evidence_artifact" in _tokens(path), (
+        f"{gate_name} names a transition in EVIDENCE_POLICY, but an artifact "
+        "filed under that name attests to nothing"
+    )
