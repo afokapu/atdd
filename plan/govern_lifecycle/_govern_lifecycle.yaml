@@ -232,6 +232,11 @@ wmbt:
     by examining every parent before deciding, reporting all drifted parents rather than the
     first, and reserving the skip for the one case where there is genuinely nothing to
     check (#1907)"
+  E081: "minimize likelihood of pre-red-trains-failed-by-coverage-validators when the tester
+    coverage validators run, by resolving the owning work item's phase through the shipped
+    is_pre_test_phase and owning_issue_phase helpers and binding each violation to a declared
+    rule_id, so a train authored at PLANNED is not failed for missing the tests RED exists to
+    write (#1920)"
   E076: "minimize likelihood of one-contract-read-by-several-implementations-that-drift-apart-unnoticed
     by having the validator use the command's reader rather than a copy of it, and by deriving the
     schema-template difference from the two artifacts instead of maintaining it by hand (#1901)"
