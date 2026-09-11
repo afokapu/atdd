@@ -41,10 +41,6 @@ from atdd.runtime.elicit import (
     ElicitStatus, Participant,
 )
 
-# The rungs of the granularity ladder a decomposition descends. A plan that
-# keeps wagons and nothing else has named a shape but nothing testable — the
-# `planner.plan.granularity-completeness` report at Ratify says so out loud.
-_GRANULARITY_LADDER = ("wagon", "feature", "wmbt", "acceptance")
 
 
 class Step(str, Enum):
@@ -398,57 +394,17 @@ class PlanSession:
         # a schema-invalid artifact raises and leaves the session unlocked. This
         # is the pass that adds `required`/`minItems`/`minLength` back on top of
         # the well-formedness Compose already enforced.
-        self.assert_kept_specs_schema_valid(root)
+        from atdd.planner.commands.confirm_spec_schema import (
+            assert_kept_specs_schema_valid,
+        )
+        assert_kept_specs_schema_valid(self, root)
         self.locked = True
-
-    def assert_kept_specs_schema_valid(self, root: Path | str = ".") -> None:
-        """Raise unless every kept unit's spec would author a schema-valid
-        artifact (``planner.plan.spec-is-schema-valid``, #1929).
-
-        Only ENFORCED kinds raise. An advisory kind's findings are refreshed
-        onto the unit so ``atdd plan show`` and the Ratify warning can read
-        them; they never block, because the schemas behind them do not describe
-        the artifacts atdd authors today (see ``plan_unit_schema``).
-        """
-        config = load_atdd_config(Path(root))
-        blocking: list = []
-        for unit in self.kept_units():
-            tier, findings = check_unit_spec(
-                unit["kind"], unit.get("spec") or {}, config=config,
-                stage="ratify")
-            if not findings:
-                unit.pop("advisories", None)
-                continue
-            if tier == "enforce":
-                blocking += [f"{unit['kind']} {unit['ref']}: {f}" for f in findings]
-            else:
-                unit["advisories"] = findings
-        if blocking:
-            raise SessionGateError(
-                "spec-is-schema-valid: cannot lock a plan whose kept units would "
-                "author schema-invalid artifacts:\n  - " + "\n  - ".join(blocking))
 
     def granularity_report(self) -> dict:
         """Which rungs of the granularity ladder the kept decomposition reached
-        (``planner.plan.granularity-completeness``, #1929).
-
-        Reports; never blocks. A plan session must allow incremental
-        composition — ``local-scope`` scopes each run to a slice, so requiring
-        every rung before an operator may look at eight wagons would make the
-        session unusable. The caller decides what to do with a dangling ladder;
-        the CLI warns, and ``--strict`` refuses.
-        """
-        kept: dict = {}
-        for unit in self.kept_units():
-            kept[unit["kind"]] = kept.get(unit["kind"], 0) + 1
-        return {
-            "kept": kept,
-            "reached": [k for k in _GRANULARITY_LADDER if kept.get(k)],
-            "dangling": [k for k in _GRANULARITY_LADDER if not kept.get(k)],
-            "advisories": sum(
-                len(u.get("advisories") or []) for u in self.kept_units()
-            ),
-        }
+        (``planner.plan.granularity-completeness``, #1929). Reports, never blocks."""
+        from atdd.planner.commands.confirm_spec_schema import granularity_report
+        return granularity_report(self)
 
     def author(self, author_fn) -> list:
         """Post-ratify: deterministically author each KEPT unit via `author_fn`
