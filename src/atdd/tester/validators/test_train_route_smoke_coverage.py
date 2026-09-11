@@ -31,7 +31,11 @@ from typing import List
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.rule_binding import bind_rule
-from atdd.coach.validators._violation import Violation
+# Aliased: this module already imports a DIFFERENT `Violation` from
+# test_smoke_coverage below (the mock-scan record, fields file/rule). Importing
+# the rule-substrate record under the same name shadowed it and left the two
+# shapes indistinguishable in one file.
+from atdd.coach.validators._violation import Violation as RuleViolation
 from atdd.tester.validators._acceptance_walker import coverage_is_due
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import (
@@ -179,7 +183,7 @@ def test_train_route_smoke_coverage():
         pytest.skip("No trains registered in plan/_trains.yaml")
 
     violations = [
-        Violation(
+        RuleViolation(
             rule_id=_RULE.rule_id,
             severity=_RULE.severity,
             location=f"plan/_trains.yaml:{s.train_id}",

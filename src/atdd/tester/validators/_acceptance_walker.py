@@ -535,13 +535,12 @@ def coverage_is_due(repo_root: Path, train_id: str) -> bool:
 
 
 __all__ = [
-    "coverage_is_due",
-    "owning_train_phase",
-    "RawAcceptance",
     "SUBSTRATE_BACKLOG_ENV",
+    "RawAcceptance",
     "acceptance_phase",
     "acceptance_urn",
     "assert_substrate_strict",
+    "coverage_is_due",
     "find_disposition_path",
     "has_harness_type",
     "has_signal_metric_and_threshold",
@@ -550,6 +549,7 @@ __all__ = [
     "iter_repo_acceptances",
     "iter_repo_wmbts",
     "owning_issue_phase",
+    "owning_train_phase",
     "scan_test_acceptance_headers",
     "yaml_path_str",
 ]
