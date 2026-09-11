@@ -337,11 +337,6 @@ def diff_phases(
     return changes
 
 
-#: Absent, as distinct from present-and-``None``: the ``* -> TOMBSTONED`` wildcard has
-#: no ``from`` key at all, while the mint has ``from: None``, and they name different
-#: gates.
-_ABSENT = object()
-
 #: Prefix of the committed merge-authority evidence artifact. It must stay equal to
 #: ``merge_driver.EVIDENCE_RELATIVE``, which is the module that OWNS the path; it is
 #: restated rather than imported to keep this module's hot path free of the driver,
@@ -355,25 +350,42 @@ _MERGE_EVIDENCE_PREFIX = ".atdd/evidence/"
 #: read. No phase name contains a ``-``, so neither spelling is ambiguous.
 _GATE_SEPARATORS: Tuple[str, ...] = ("->", "-")
 
-#: The filename stems that NAME a gate, derived from :data:`EVIDENCE_POLICY` so that a
-#: rung added to the §6 table becomes an admissible artifact name by that edit alone.
-#: A second, hand-typed list would drift, and the drift would reach an operator as
-#: "the evidence is missing" rather than as "the filename is unrecognised".
-_GATE_ARTIFACT_NAMES: FrozenSet[str] = frozenset(
-    name
-    for entry in EVIDENCE_POLICY["transitions"]
-    for name in (
-        # No ``from``: the ``* -> TOMBSTONED`` wildcard names one gate per rung.
-        # ``from: None``: the mint, whose source is the empty set, so the target
-        # phase alone names it.
-        (str(entry["to"]),) if entry.get("from", _ABSENT) is None
-        else tuple(
-            f"{source}{separator}{entry['to']}"
-            for source in (PHASE_LADDER if "from" not in entry else (str(entry["from"]),))
+
+def _gate_artifact_names() -> FrozenSet[str]:
+    """Every filename stem that NAMES a gate, read off :data:`EVIDENCE_POLICY`.
+
+    Derived rather than typed out, so that a rung added to the §6 table becomes an
+    admissible artifact name by that edit alone. A second, hand-maintained list would
+    drift from the policy, and the drift would reach an operator as "the evidence is
+    missing" rather than as "the filename is unrecognised" — the more expensive of the
+    two things to be told.
+
+    The three entry shapes are the three in the policy: a concrete ``from``, the
+    ``* -> TOMBSTONED`` wildcard (no ``from`` key at all — one gate per rung), and the
+    mint (``from: None``, whose source is the empty set, so the target phase alone
+    names it). Absent and present-and-``None`` are different claims here, which is why
+    the key is tested for membership rather than fetched with a default.
+    """
+    names: Set[str] = set()
+    for entry in EVIDENCE_POLICY["transitions"]:
+        to_phase = str(entry["to"])
+        if "from" not in entry:
+            sources: Tuple[str, ...] = PHASE_LADDER
+        elif entry["from"] is None:
+            names.add(to_phase)
+            continue
+        else:
+            sources = (str(entry["from"]),)
+        names.update(
+            f"{source}{separator}{to_phase}"
+            for source in sources
             for separator in _GATE_SEPARATORS
         )
-    )
-)
+    return frozenset(names)
+
+
+#: The filename stems an evidence artifact may be filed under, resolved once at import.
+_GATE_ARTIFACT_NAMES: FrozenSet[str] = _gate_artifact_names()
 
 
 def _is_gate_evidence_artifact(path: str, uid: str) -> bool:
