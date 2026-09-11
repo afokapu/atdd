@@ -190,9 +190,11 @@ jobs:
           echo "::error title=partial release needs completing::\
             ${{ steps.idem.outputs.action }} — missing: ${{ steps.idem.outputs.missing }}. \
             The tag and any published artifacts are intact; what is absent is listed above. \
-            Create it by hand (REST, since the GraphQL bucket is what fails here): \
-            gh api -X POST repos/${GITHUB_REPOSITORY}/releases -f tag_name=<tag> \
-            -f name=<tag> -F generate_release_notes=true"
+            To create a missing release object by hand, POST to the REST endpoint \
+            repos/${GITHUB_REPOSITORY}/releases with tag_name, name and \
+            generate_release_notes=true. Use REST rather than the release subcommand: \
+            REST and GraphQL are separate rate-limit buckets and GraphQL is the one \
+            that fails here (#1924)."
           exit 1
 
       # Fetch the release-worker extension (drains version_decided → tag + PyPI +
