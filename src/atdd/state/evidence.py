@@ -337,12 +337,80 @@ def diff_phases(
     return changes
 
 
+#: Absent, as distinct from present-and-``None``: the ``* -> TOMBSTONED`` wildcard has
+#: no ``from`` key at all, while the mint has ``from: None``, and they name different
+#: gates.
+_ABSENT = object()
+
 #: Prefix of the committed merge-authority evidence artifact. It must stay equal to
 #: ``merge_driver.EVIDENCE_RELATIVE``, which is the module that OWNS the path; it is
 #: restated rather than imported to keep this module's hot path free of the driver,
 #: and ``test_evidence_token_derivation_paths.py`` is the tie that stops the two
 #: literals from drifting apart.
 _MERGE_EVIDENCE_PREFIX = ".atdd/evidence/"
+
+#: The separators a gate artifact's filename may join two phase names with. Both
+#: spellings are live in-tree — the projection-merge tests file ``PLANNED-RED.yaml``,
+#: the derivation tests file ``GREEN->SMOKE.yaml`` — and neither is wrong, so both are
+#: read. No phase name contains a ``-``, so neither spelling is ambiguous.
+_GATE_SEPARATORS: Tuple[str, ...] = ("->", "-")
+
+#: The filename stems that NAME a gate, derived from :data:`EVIDENCE_POLICY` so that a
+#: rung added to the §6 table becomes an admissible artifact name by that edit alone.
+#: A second, hand-typed list would drift, and the drift would reach an operator as
+#: "the evidence is missing" rather than as "the filename is unrecognised".
+_GATE_ARTIFACT_NAMES: FrozenSet[str] = frozenset(
+    name
+    for entry in EVIDENCE_POLICY["transitions"]
+    for name in (
+        # No ``from``: the ``* -> TOMBSTONED`` wildcard names one gate per rung.
+        # ``from: None``: the mint, whose source is the empty set, so the target
+        # phase alone names it.
+        (str(entry["to"]),) if entry.get("from", _ABSENT) is None
+        else tuple(
+            f"{source}{separator}{entry['to']}"
+            for source in (PHASE_LADDER if "from" not in entry else (str(entry["from"]),))
+            for separator in _GATE_SEPARATORS
+        )
+    )
+)
+
+
+def _is_gate_evidence_artifact(path: str, uid: str) -> bool:
+    """Is ``path`` the committed gate-evidence artifact of the object ``uid``?
+
+    Two shapes, and only two — they are the shapes ``govern_cli._evidence_at``, the
+    reader that OWNS this artifact, goes looking for:
+
+    ``.atdd/evidence/<uid>/<gate>.yaml``
+        the per-gate shard, one file per transition evidenced;
+    ``.atdd/evidence/<uid>.yaml``
+        the flat form, for an object with one gate to show for itself.
+
+    Everything else under the prefix is some other file that happens to live in the
+    directory, and it attests to nothing. The check is the narrow half of #1945: a bare
+    ``path.startswith(prefix)`` minted ``smoke_evidence_artifact`` — the sole requirement
+    of BOTH ``GREEN->SMOKE`` and ``SMOKE->REFACTOR`` — from a committed ``README.md``,
+    so a directory prefix was a walk out of SMOKE.
+
+    ``uid`` is load-bearing, not decoration: the derivation is handed every path in the
+    commit once per object in it, so an unscoped test lets one object's honestly-earned
+    artifact evidence every other object advancing alongside it.
+
+    Shape only, deliberately (#1945 decision 1). Whether the artifact's *contents* are a
+    schema-valid token list is the artifact's own schema to say, and the merge authority
+    reads changed paths.
+    """
+    if not uid or not path.startswith(_MERGE_EVIDENCE_PREFIX):
+        return False
+    segments = path[len(_MERGE_EVIDENCE_PREFIX):].split("/")
+    if len(segments) == 1:
+        return segments[0] == f"{uid}.yaml"
+    if len(segments) != 2 or segments[0] != uid:
+        return False
+    stem, _, extension = segments[1].rpartition(".")
+    return extension == "yaml" and stem in _GATE_ARTIFACT_NAMES
+
 
 #: The evidence tokens a *document* can attest to on its own.
 _DOCUMENT_TOKENS: FrozenSet[str] = frozenset({
@@ -373,7 +441,8 @@ def evidence_for(
     alone is not possible, and pretending otherwise would be worse than saying so.
     """
     tokens: Set[str] = set()
-    if document.get("uid"):
+    uid = str(document.get("uid") or "")
+    if uid:
         tokens.add("uid_generated")
     if str(document.get("body") or "").strip():
         tokens.add("body_initialized")
@@ -401,12 +470,17 @@ def evidence_for(
             tokens.add("passing_test_evidence")
             if "smoke" in name or "/smoke" in path:
                 tokens.add("smoke_evidence_artifact")
-        elif path.startswith(_MERGE_EVIDENCE_PREFIX):
+        elif _is_gate_evidence_artifact(path, uid):
             # ``.atdd/evidence/<uid>/<gate>.yaml`` — the COMMITTED, per-gate merge
             # authority artifact (``merge_driver.EVIDENCE_RELATIVE``), read back out
             # of the object database by ``govern_cli._evidence_at``. Committed is the
             # requirement, not an accident: evidence a merge cannot see is evidence
             # the merge does not have (spec §6).
+            #
+            # The shape is checked, not just the prefix (#1945): the artifact has to
+            # NAME a gate and belong to THIS object. Any path under the directory used
+            # to do, which made a committed README enough to satisfy both gates out of
+            # SMOKE.
             #
             # NOT to be "aligned" with ``.atdd/smoke-evidence/<N>.yaml``, which looks
             # like a near-miss of this name and is a different artifact entirely: the
