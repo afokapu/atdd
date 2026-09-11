@@ -44,7 +44,10 @@ def _state(s: PlanSession) -> dict:
         # what they had attached without reading session.json by hand.
         "units": [
             {"kind": u["kind"], "ref": u["ref"], "verdict": u["verdict"],
-             "modification": u.get("modification"), "spec": u.get("spec", {})}
+             "modification": u.get("modification"), "spec": u.get("spec", {}),
+             # #1929: advisory schema findings ride on the unit so a long
+             # session can surface them after compaction, not from memory.
+             "advisories": u.get("advisories", [])}
             for u in s.units
         ],
     }
@@ -139,8 +142,12 @@ def build_parser() -> argparse.ArgumentParser:
     # `confirm` is an ALIAS, and the alias is the whole deprecation window (#1688).
     # argparse sets `op` to the name the operator typed, so both spellings must be
     # dispatched — see LOCK_OPS below.
-    with_id(sub.add_parser("ratify", aliases=["confirm"],
-                           help="lock the decomposition (ratify-before-author boundary)"))
+    rt = sub.add_parser("ratify", aliases=["confirm"],
+                        help="lock the decomposition (ratify-before-author boundary)")
+    with_id(rt)
+    rt.add_argument("--strict", action="store_true",
+                    help="refuse to lock when the granularity ladder has dangling "
+                         "rungs (default: warn and lock)")
     with_id(sub.add_parser("reopen", help="withdraw the ratification and return to Compose "
                                           "(the sanctioned way to edit a locked session)"))
     with_id(sub.add_parser("author", help="author kept units via atdd author (post-ratify)"))
@@ -155,6 +162,36 @@ def _resolver_for(verdict: str, modification: str | None):
             selections=[verdict], freeform=modification,
         )
     return InlineClaudeElicitAdapter(_r)
+
+
+def _report_granularity(s: PlanSession, *, strict: bool) -> None:
+    """Say out loud what the locked decomposition did NOT reach (#1929).
+
+    ``planner.plan.granularity-completeness`` is advisory by default and the
+    reason is the session's own shape: a plan may be composed incrementally and
+    ``local-scope`` scopes each run to a slice, so refusing to lock eight wagons
+    until their features exist would make the session unusable. Warning closes
+    the DETECTION gap, which is the one that actually failed — an operator
+    holding the protocol in memory was the only thing that noticed a
+    wagons-only plan had locked. ``--strict`` is there for a repo that wants the
+    hard gate, and it unlocks before raising so the refusal is atomic.
+    """
+    report = s.granularity_report()
+    if report["dangling"] and report["reached"]:
+        summary = (
+            f"granularity-completeness: kept {report['kept']}; nothing was kept "
+            f"at {', '.join(report['dangling'])} — this decomposition is not "
+            f"testable end to end. Continue only if this run is a deliberate slice.")
+        if strict:
+            s.locked = False
+            raise SessionGateError(summary)
+        print(f"atdd plan: WARNING: {summary}", file=sys.stderr)
+    if report["advisories"]:
+        print(
+            f"atdd plan: WARNING: spec-is-schema-valid: {report['advisories']} "
+            f"advisory schema finding(s) on kept units — read them with "
+            f"`atdd plan show --id {s.session_id}`.",
+            file=sys.stderr)
 
 
 def run(argv: list[str]) -> int:
@@ -184,13 +221,14 @@ def run(argv: list[str]) -> int:
         elif args.op == "reopen":
             s.reopen()
         elif args.op == "unit":
-            s.add_unit(Unit(kind=args.kind, ref=args.ref, spec=_parse_spec(args.spec)))
+            s.add_unit(Unit(kind=args.kind, ref=args.ref, spec=_parse_spec(args.spec)), root)
         elif args.op == "advance":
             s.advance(Step(args.step))
         elif args.op == "decide":
             s.decide(args.ref, _resolver_for(args.verdict, args.modification))
         elif args.op in LOCK_OPS:
-            s.confirm()
+            s.confirm(root)
+            _report_granularity(s, strict=getattr(args, "strict", False))
         elif args.op == "author":
             authored = s.author(build_author_fn(root))
             s.save(root)

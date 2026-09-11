@@ -29,6 +29,7 @@ from atdd.planner.artifact_naming import path_mirrors_identity
 from atdd.planner.commands.plan_session import (
     PlanSession, SessionGateError, Step, Unit, Verdict,
 )
+from atdd.planner.validators._plan_session_fixtures import wagon_spec
 
 # (identity, contract_path) pairs that mirror correctly — straight from the
 # convention's contract_file_mapping / logical_vs_physical examples.
@@ -43,7 +44,7 @@ GOOD = [
 
 # A schema file that does not mirror its identity (wrong middle directory).
 BAD = [
-    ("commons:identifiers.uuid", "contracts/commons/WRONG/uuid.schema.json"),
+    ("commons:identifiers.uuid", "contracts/commons/wrong/uuid.schema.json"),
     ("sensory:gesture.raw", "contracts/sensory/gesture.schema.json"),
 ]
 
@@ -71,14 +72,13 @@ def _confirm_session_producing(name: str, contract: str) -> PlanSession:
     s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
     s.add_unit(Unit(kind="wagon", ref="wagon:manage-users", verdict=Verdict.KEEP.value,
-                    spec={"wagon": "manage-users",
-                          "produce": [{"name": name, "contract": contract}]}))
+                    spec=wagon_spec(produce=[{"name": name, "contract": contract}])))
     return s
 
 
 def test_confirm_blocks_mispathed_contract(tmp_path) -> None:
     s = _confirm_session_producing(
-        "commons:identifiers.uuid", "contracts/commons/WRONG/uuid.schema.json")
+        "commons:identifiers.uuid", "contracts/commons/wrong/uuid.schema.json")
     with pytest.raises(SessionGateError):
         s.confirm(root=tmp_path)
     assert s.locked is False
@@ -95,8 +95,7 @@ def _drive_cli_to_confirm(tmp_path, name: str, contract: str) -> int:
     from atdd.planner.commands.plan_session_cli import run
 
     root = str(tmp_path)
-    spec = json.dumps({"wagon": "manage-users",
-                       "produce": [{"name": name, "contract": contract}]})
+    spec = json.dumps(wagon_spec(produce=[{"name": name, "contract": contract}]))
     assert run(["--root", root, "start", "--id", "c1",
                 "--main-job", "mj", "--issue", "demo-slug"]) == 0
     assert run(["--root", root, "source", "--id", "c1", "req"]) == 0
@@ -113,7 +112,7 @@ def _drive_cli_to_confirm(tmp_path, name: str, contract: str) -> int:
 def test_confirm_cli_exits_nonzero_on_mispathed_contract(tmp_path) -> None:
     assert _drive_cli_to_confirm(
         tmp_path / "bad", "commons:identifiers.uuid",
-        "contracts/commons/WRONG/uuid.schema.json") != 0
+        "contracts/commons/wrong/uuid.schema.json") != 0
     assert _drive_cli_to_confirm(
         tmp_path / "good", "commons:identifiers.uuid",
         "contracts/commons/identifiers/uuid.schema.json") == 0

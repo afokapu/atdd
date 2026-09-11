@@ -32,6 +32,7 @@ from atdd.planner.commands.tests._il_author_fixtures import (
     anchor_spec,
     author_route_train,
     kept_train_unit,
+    minimal_train_spec,
 )
 from atdd.planner.interlocking import (
     load_interlocking,
@@ -73,7 +74,7 @@ def test_direct_train_only_plan_is_noop_and_confirms(tmp_path):
     # the gate passes (direct trains are allowed).
     author_route_train(tmp_path)
     direct_unit = {"ref": "train:0001-anchor-nominal", "kind": "train",
-                   "verdict": "keep", "spec": {}}
+                   "verdict": "keep", "spec": minimal_train_spec()}
     session = _session_with([direct_unit])
     assert assert_kept_train_interlocking_sanity(session, tmp_path) is None
     session.confirm(tmp_path)
