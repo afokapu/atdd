@@ -8,12 +8,14 @@ context_clarifier: planner.wagon.name-is-verb-object and planner.feature.name-is
   discoverable by bind_rule and executed by atdd validate planner
 lens: functional.effectiveness
 statement: minimize likelihood of unenforced-foundational-naming-rule by backing foundational
-  verb-object naming with bound, confirm-blocking validators run under atdd validate planner
+  verb-object naming with bound, confirm-blocking validators run under atdd validate
+  planner
 acceptances:
 - identity:
     urn: acc:define-plans:E002-SMOKE-001-naming-rules-bound-and-run
     id: AC-SMOKE-001
-    purpose: The two verb-object rules are bound and their validators run under atdd validate planner
+    purpose: The two verb-object rules are bound and their validators run under atdd
+      validate planner
     phase: SMOKE
   harness:
     type: integration
@@ -27,3 +29,22 @@ acceptances:
     abstract:
     - test_wagon_name_is_verb_object and test_feature_name_is_verb_object are collected
     - bind_rule resolves planner.wagon.name-is-verb-object and planner.feature.name-is-verb-object
+- identity:
+    urn: acc:define-plans:E002-UNIT-001-corpus-drift-is-detected
+    id: AC-UNIT-001
+    purpose: Verb-object drift already on disk is detected and reported, not just
+      blocked at authoring
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a set of wagon and feature names, some verb-object and some not
+  when:
+    abstract: the corpus drift scanner reads them
+  then:
+    abstract:
+    - every non-conforming name is reported with the reason it failed
+    - every conforming name is absent from the report
+    - the report distinguishes a noun-led name from an and-connective name
