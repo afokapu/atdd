@@ -26,7 +26,7 @@ from typing import List
 from atdd.coach.utils.config import load_atdd_config
 from atdd.planner.commands.plan_unit_schema import check_unit_spec
 
-__all__ = ["assert_kept_specs_schema_valid", "granularity_report", "GRANULARITY_LADDER"]
+__all__ = ["GRANULARITY_LADDER", "assert_kept_specs_schema_valid", "granularity_report"]
 
 #: The rungs of the granularity ladder a decomposition descends. A plan that
 #: keeps wagons and nothing else has named a shape but nothing testable.
