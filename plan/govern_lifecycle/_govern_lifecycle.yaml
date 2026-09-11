@@ -88,7 +88,7 @@ features:
   - urn: "feature:govern-lifecycle:stale-worktree-bindings-are-cleared"
 
 wmbt:
-  total: 143
+  total: 144
   C023: "minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated by having format_fix_hint() name the consequence of the amend it prescribes and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the author must run before pushing, over the drifted-file set the check already computed, while emitting nothing on the clean path and exempting no mirror from the Artifacts requirement (#1739)"
   C024: "minimize likelihood of a-registered-train-being-rejected-by-the-gate-that-confirms-train-assignment-because-the-two-sides-of-the-comparison-spell-the-same-train-differently by normalizing train identity on both sides of the membership test — the graph mints `train:<stem>` for a loose train file while the registry reader returns the bare `<stem>` from that same directory, so an `==` made a train's registration depend on which reader produced the string and wedged all 7 legacy numbered trains at PLANNED with no --force path (#1850)"
   C021: "minimize likelihood of atdd-coach-approve-writing-a-signed-token-asserting-a-transition-is-authorised-without-ever-running-the-checks-that-edge-registers by making the mint conditional on SMOKE->REFACTOR alone — the only edge whose registry holds a substantive check — where it registers the same checks the transition dispatch registers, excludes the approval check from its own precondition, refuses on FAIL and COULD_NOT_CHECK while proceeding on NOT_APPLICABLE, refuses when zero substantive checks were evaluated, and refuses when HEAD cannot be resolved (#1670)"
@@ -105,6 +105,10 @@ wmbt:
     by sanitizing the store slug once at the placement seam every derivation site already routes
     through, keeping a slug git already accepts byte-identical so no existing binding moves, and
     naming the rejected refname when the create still fails (#1913)"
+  Y010: "minimize likelihood of a-multi-artifact-outcome-being-judged-complete-from-the-artifact-that-lands-first
+    by observing the git tag, the PyPI wheel and the GitHub Release object separately, reporting an
+    unanswered query as UNKNOWN rather than as absent, and refusing to bump past a version that is
+    already half-published instead of abandoning it (#1924)"
   Y011: "minimize likelihood of an-entire-check-surface-depending-on-one-rate-limit-bucket-that-fails-independently
     by listing issues over REST rather than through a subcommand that resolves via GraphQL, while
     preserving the shape callers already read — pull requests excluded, state case unchanged, only

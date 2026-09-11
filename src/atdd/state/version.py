@@ -36,7 +36,8 @@ import re
 import sqlite3
 import urllib.error
 import urllib.request
-from typing import Callable, Optional, Tuple
+from dataclasses import dataclass
+from typing import Callable, List, Optional, Tuple
 
 from atdd.state.projections import RELEASE_UID, VERSION_BUMPED_EVENT
 from atdd.state.store import EventStore, ObjectStore, SyncStore
@@ -160,6 +161,161 @@ def latest_on_pypi(
             extra={"package": package, "url": url, "reason": str(exc)},
         )
         return None
+
+
+# --- release completeness (#1924) -------------------------------------------
+#
+# A release is THREE artifacts published by separate calls that fail separately:
+# a git tag, a PyPI wheel, and a GitHub Release object. `publish.yml` decided
+# "already released" from `git describe --exact-match` alone — and the tag is
+# created FIRST, so it is the artifact most likely to exist when a later step
+# fails. Measured: v4.73.0 and v4.73.1 each carry a tag and a wheel and neither
+# has a release object, because `gh release create` hit a rate limit after the
+# other two had landed.
+
+COMPLETE = "COMPLETE"
+PARTIAL = "PARTIAL"
+ABSENT = "ABSENT"
+
+
+@dataclass(frozen=True)
+class ReleaseArtifacts:
+    """What actually exists for one version, observed rather than inferred."""
+
+    tag: bool
+    pypi: bool
+    github_release: bool
+
+    def missing(self) -> List[str]:
+        return [
+            name for name, present in (
+                ("tag", self.tag),
+                ("pypi", self.pypi),
+                ("github-release", self.github_release),
+            ) if not present
+        ]
+
+
+@dataclass(frozen=True)
+class ReleasePlan:
+    """What a publish run should do about the version on HEAD."""
+
+    action: str                       # "skip" | "complete" | "publish-new"
+    version: Optional[str]
+    missing: List[str]
+    orphaned: bool = False
+
+
+def release_state(artifacts: ReleaseArtifacts) -> str:
+    """COMPLETE, PARTIAL or ABSENT — never inferred from one artifact."""
+    present = (artifacts.tag, artifacts.pypi, artifacts.github_release)
+    if all(present):
+        return COMPLETE
+    if not any(present):
+        return ABSENT
+    return PARTIAL
+
+
+def plan_release_action(
+    head_version: Optional[str],
+    artifacts: ReleaseArtifacts,
+    next_version: str,
+) -> ReleasePlan:
+    """Decide from what exists, not from what a tag implies.
+
+    The `complete` branch is the point. Reporting PARTIAL without it would send
+    the run down the ordinary reconcile+bump path, publishing ``next_version``
+    and abandoning the half-published one for good — the gate would stop lying
+    and the outcome would get worse.
+
+    ``head_version`` is the version the tag on HEAD names. Without a tag there is
+    no identity to complete, so artifacts found elsewhere are orphans this commit
+    cannot claim: the run proceeds normally and says so. That is the boundary
+    #1326's ``max(PyPI, git tag)`` base already covers — it stops the next version
+    colliding with an orphan; it does not heal one.
+    """
+    state = release_state(artifacts)
+    if head_version is None:
+        return ReleasePlan(
+            "publish-new", next_version, [],
+            orphaned=state is not ABSENT,
+        )
+    if state == COMPLETE:
+        return ReleasePlan("skip", head_version, [])
+    if state == PARTIAL:
+        return ReleasePlan("complete", head_version, artifacts.missing())
+    return ReleasePlan("publish-new", next_version, [])
+
+
+def version_on_pypi(
+    version: str, package: str = PYPI_PACKAGE, *,
+    timeout: float = 10.0, opener: Optional[Opener] = None,
+) -> Optional[bool]:
+    """Whether ``version`` has a file published on PyPI.
+
+    ``True``/``False`` when PyPI answered, ``None`` when it could not be asked —
+    the three-valued return is the point. A network failure is not evidence that
+    a wheel is absent, and treating it as such is what turns a transient outage
+    into a duplicate publish (#1924).
+
+    A release key can exist with an EMPTY file list after a delete, so presence
+    of the key alone is not presence of a wheel.
+    """
+    url = PYPI_JSON_URL.format(package=package)
+    fetch = opener or urllib.request.urlopen
+    try:
+        with fetch(url, timeout=timeout) as resp:  # type: ignore[operator]
+            payload = json.load(resp)
+        releases = payload.get("releases")
+        if not isinstance(releases, dict):
+            raise ValueError("PyPI payload carries no releases map")
+        return bool(releases.get(str(version)))
+    except (urllib.error.URLError, OSError, ValueError, TypeError, KeyError,
+            AttributeError) as exc:
+        _log.warning(
+            "PyPI version-presence query failed; presence is UNKNOWN, not absent",
+            extra={"package": package, "version": version, "reason": str(exc)},
+        )
+        return None
+
+
+def github_release_exists(
+    tag: str, repo: str, *, runner: Optional[Callable] = None, timeout: float = 15.0,
+) -> Optional[bool]:
+    """Whether a GitHub Release object exists for ``tag``.
+
+    ``True``/``False`` when GitHub answered, ``None`` when it could not be asked.
+    The distinction is load-bearing: "I could not check" is not "it is missing",
+    and publishing on the strength of an unanswered question is how a duplicate
+    is made.
+
+    Deliberately the REST endpoint (``repos/{repo}/releases/tags/{tag}``) rather
+    than ``gh release view``. REST and GraphQL are separate rate-limit buckets,
+    and it was the GraphQL bucket that failed in the run this issue is about —
+    ``gh release create`` died on "API rate limit already exceeded" while REST
+    stood at 4823/5000, and the same operation over REST then succeeded on the
+    first try (#1924).
+    """
+    import subprocess
+
+    run = runner or subprocess.run
+    try:
+        proc = run(
+            ["gh", "api", f"repos/{repo}/releases/tags/{tag}", "--jq", ".id"],
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except (OSError, ValueError) as exc:
+        _log.warning("gh release lookup could not run; presence is UNKNOWN",
+                     extra={"tag": tag, "repo": repo, "reason": str(exc)})
+        return None
+    if proc.returncode == 0:
+        return bool((proc.stdout or "").strip())
+    stderr = (proc.stderr or "") + (proc.stdout or "")
+    if "Not Found" in stderr or "404" in stderr:
+        return False          # an answer: there is no release for this tag
+    _log.warning("gh release lookup failed; presence is UNKNOWN, not absent",
+                 extra={"tag": tag, "repo": repo, "stderr": stderr.strip()[:200]})
+    return None
 
 
 def resolve_release_base(git_tag: Optional[str], pypi_latest: Optional[str]) -> str:
