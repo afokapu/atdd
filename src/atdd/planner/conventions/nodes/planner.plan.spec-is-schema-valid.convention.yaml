@@ -1,0 +1,52 @@
+schema_version: 1.0.0
+rule_id: planner.plan.spec-is-schema-valid
+kind: policy
+status: active
+name: Plan unit specs are schema-valid
+statement: A hand-authored plan unit spec is validated against its artifact schema
+  — well-formedness at Compose, completeness at Ratify — so the by-construction guarantee
+  atdd author makes is kept at the one layer where the spec is written by hand.
+terms:
+- term_id: well_formedness_at_compose
+  text: Compose checks only the values a spec actually carries (pattern, enum, type,
+    additionalProperties). Those are wrong the instant they are written, and refusing
+    them there is what planner.plan.session-lifecycle already asks of Compose ("candidate
+    decomposition convention-shaped").
+- term_id: completeness_at_ratify
+  text: required, minItems, minLength and minProperties are checked only at Ratify,
+    on kept units, before the lock. Compose is a drafting loop — add_unit upserts by
+    ref so a spec can be re-stated as it fills in — so an unfinished spec is a draft
+    there and a defect only once the operator asserts the set may be authored.
+- term_id: enforced_kinds
+  text: A kind whose schema describes the artifacts atdd actually authors RAISES.
+    Measured over this repo's plan/ tree, wagon (41/41), train (21/21), interlocking
+    (8/8) and the embedded acceptance shape all validate, so all four enforce.
+- term_id: advisory_kinds
+  text: A kind whose schema has drifted from the artifacts atdd authors REPORTS and
+    never blocks; the findings ride on the unit so they survive compaction and resurface
+    at Ratify. feature (134/188 failing) and wmbt (294/468 failing) are advisory —
+    wmbt.schema.json says in its own $comment that it is not a file gate. A repo promotes
+    a kind with plan.spec_validation.enforce in .atdd/config.yaml.
+- term_id: atomicity
+  text: The Ratify pass runs before locked is set, so a failure leaves the session
+    unlocked — the same contract the interlocking, verb-object and artifact-naming
+    gates keep.
+implementation:
+  type: validator
+  ref: test_plan_unit_spec_schema::test_compose_refuses_a_malformed_enforced_spec
+metadata:
+  severity: 4
+  disposition: strict
+validation:
+  family: presence
+  template: conditional_requirement
+  variant: planner_plan_spec_is_schema_valid
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: plan-session
+  failure_evidence:
+  - session_id
+  - unit_ref
+  - unit_kind
+  - schema_file
+  - failed_field

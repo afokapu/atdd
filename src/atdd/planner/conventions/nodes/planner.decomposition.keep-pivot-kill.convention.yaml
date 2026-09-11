@@ -13,3 +13,11 @@ terms:
   text: accept with a named modification, then re-confirm.
 - term_id: kill
   text: reject the candidate; on all-killed, re-propose.
+- term_id: final_granularity
+  text: 'the granularities that resolve to an atdd author writer: wagon, feature, WMBT,
+    train, interlocking, contract, acceptance. Heuristic, analog and main job are REASONING
+    granularities — real candidates the operator decides on, but they author nothing,
+    so keeping one records a decision and writes no artifact. Made explicit by #1929:
+    the author dispatch used to RAISE on a kept heuristic, which left kill — the verdict
+    that records the opposite of what happened — as the only one that kept a session
+    authorable.'
