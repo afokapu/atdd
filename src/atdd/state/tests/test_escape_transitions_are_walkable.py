@@ -29,6 +29,7 @@ out at all and is refused by name rather than by silence.
 from __future__ import annotations
 
 import json
+from itertools import pairwise
 from pathlib import Path
 from typing import Dict, List, Set
 
@@ -76,7 +77,7 @@ def _clauses(violations) -> List[str]:
 def _walk_tokens(target: str) -> Set[str]:
     """Every token an object introduced at ``target`` owes: the mint, then each rung up to it."""
     tokens: Set[str] = set(requires_for(None, "INIT") or ())
-    rungs = list(zip(PHASE_LADDER, PHASE_LADDER[1:]))[: PHASE_LADDER.index(target)]
+    rungs = list(pairwise(PHASE_LADDER))[: PHASE_LADDER.index(target)]
     for lower, upper in rungs:
         tokens.update(requires_for(lower, upper) or ())
     return tokens
