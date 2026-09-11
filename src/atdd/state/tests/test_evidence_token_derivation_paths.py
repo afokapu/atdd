@@ -31,9 +31,8 @@ from pathlib import Path
 
 import pytest
 
-from atdd.state.evidence import (
-    EVIDENCE_POLICY, PHASE_LADDER, _MERGE_EVIDENCE_PREFIX, evidence_for,
-)
+from atdd.state.evidence import EVIDENCE_POLICY, PHASE_LADDER, evidence_for
+from atdd.state.evidence_paths import MERGE_EVIDENCE_PREFIX
 from atdd.state.merge_driver import EVIDENCE_RELATIVE
 
 pytestmark = [pytest.mark.platform]
@@ -54,7 +53,7 @@ def _tokens(*changed_paths: str) -> set:
 
 def test_the_prefix_matches_the_module_that_owns_the_path() -> None:
     """A rename of ``EVIDENCE_RELATIVE`` must not silently orphan the reader."""
-    assert _MERGE_EVIDENCE_PREFIX == EVIDENCE_RELATIVE.as_posix() + "/", (
+    assert MERGE_EVIDENCE_PREFIX == EVIDENCE_RELATIVE.as_posix() + "/", (
         "evidence_for reads a prefix that merge_driver no longer writes — the "
         "merge authority would stop seeing committed evidence and report green"
     )
@@ -223,7 +222,7 @@ def test_every_policy_gate_has_an_artifact_name_that_mints(gate_name) -> None:
     :data:`EVIDENCE_POLICY`, and the drift would read to an operator as "the
     evidence is missing" rather than as "the filename is unrecognised".
     """
-    path = f"{_MERGE_EVIDENCE_PREFIX}{DOC['uid']}/{gate_name}.yaml"
+    path = f"{MERGE_EVIDENCE_PREFIX}{DOC['uid']}/{gate_name}.yaml"
 
     assert "smoke_evidence_artifact" in _tokens(path), (
         f"{gate_name} names a transition in EVIDENCE_POLICY, but an artifact "

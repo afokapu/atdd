@@ -43,6 +43,9 @@ from typing import (
     Any, Dict, FrozenSet, Iterable, List, Mapping, Optional, Sequence, Set, Tuple,
 )
 
+from atdd.state.evidence_paths import (
+    gate_artifact_names, is_gate_evidence_artifact,
+)
 from atdd.state.projection import STATE_TOMBSTONED
 
 _log = logging.getLogger(__name__)
@@ -390,84 +393,11 @@ def diff_phases(
     return changes
 
 
-#: Prefix of the committed merge-authority evidence artifact. It must stay equal to
-#: ``merge_driver.EVIDENCE_RELATIVE``, which is the module that OWNS the path; it is
-#: restated rather than imported to keep this module's hot path free of the driver,
-#: and ``test_evidence_token_derivation_paths.py`` is the tie that stops the two
-#: literals from drifting apart.
-_MERGE_EVIDENCE_PREFIX = ".atdd/evidence/"
-
-#: The separators a gate filename may join two phase names with. Both spellings are live
-#: in-tree (``PLANNED-RED.yaml``, ``GREEN->SMOKE.yaml``); no phase name contains a ``-``.
-_GATE_SEPARATORS: Tuple[str, ...] = ("->", "-")
-
-
-def _gate_artifact_names() -> FrozenSet[str]:
-    """Every filename stem that NAMES a gate, read off :data:`EVIDENCE_POLICY`.
-
-    Derived, not typed out, so a rung added to the §6 table becomes an admissible
-    filename by that edit alone; a second list would drift, and the drift would reach
-    an operator as "the evidence is missing" rather than "the filename is unknown".
-
-    One branch per entry shape: a concrete ``from``; the ``* -> TOMBSTONED`` wildcard,
-    which has no ``from`` key and names one gate per rung; and the mint, whose ``from``
-    is ``None``, named by its target phase alone. Absent and present-and-``None`` are
-    different claims, hence the membership test.
-    """
-    names: Set[str] = set()
-    for entry in EVIDENCE_POLICY["transitions"]:
-        to_phase = str(entry["to"])
-        if "from" not in entry:
-            sources: Tuple[str, ...] = PHASE_LADDER
-        elif entry["from"] is None:
-            names.add(to_phase)
-            continue
-        else:
-            sources = (str(entry["from"]),)
-        names.update(
-            f"{source}{sep}{to_phase}" for source in sources for sep in _GATE_SEPARATORS
-        )
-    return frozenset(names)
-
-
-#: Resolved once at import: the stems an evidence artifact may be filed under.
-_GATE_ARTIFACT_NAMES: FrozenSet[str] = _gate_artifact_names()
-
-
-def _is_gate_evidence_artifact(path: str, uid: str) -> bool:
-    """Is ``path`` the COMMITTED gate-evidence artifact of the object ``uid``?
-
-    Only the two shapes ``govern_cli._evidence_at`` — the reader that OWNS the artifact
-    — looks for: ``.atdd/evidence/<uid>/<gate>.yaml``, the per-gate shard, and
-    ``.atdd/evidence/<uid>.yaml``, the flat form. Committed is the requirement, not an
-    accident: evidence a merge cannot see is evidence the merge does not have (§6).
-    Anything else under the prefix merely lives in the directory and attests to nothing
-    (#1945: a bare ``startswith`` minted ``smoke_evidence_artifact`` — the sole
-    requirement of BOTH ``GREEN->SMOKE`` and ``SMOKE->REFACTOR`` — from a ``README.md``).
-    ``uid`` is load-bearing for the same reason: the derivation sees every path in the
-    commit once per object in it, so an unscoped test let one object's honest artifact
-    evidence every other object advancing beside it.
-
-    NOT to be "aligned" with ``.atdd/smoke-evidence/<N>.yaml``, a near-miss of the name
-    and a different artifact entirely: the #358 ratchet's local, gitignored,
-    operator-TYPED stamp, written by ``atdd validate coder --smoke-required`` without
-    running a test. Pointing this at it would either never fire (a gitignored path is
-    never a changed path) or, if that ignore lifted, mint the token from a typed stamp
-    — a brand-new false green. #1602 closed that class;
-    ``test_evidence_token_derivation_paths.py`` keeps it closed.
-
-    Shape, not content (#1945 decision 1): whether the file parses as a token list is
-    the artifact's own schema to say, and the merge authority reads changed paths.
-    """
-    if not uid or not path.startswith(_MERGE_EVIDENCE_PREFIX):
-        return False
-    segments = path[len(_MERGE_EVIDENCE_PREFIX):].split("/")
-    if len(segments) == 1:
-        return segments[0] == f"{uid}.yaml"
-    if len(segments) != 2 or segments[0] != uid:
-        return False
-    stem, _, extension = segments[1].rpartition(".")
-    return extension == "yaml" and stem in _GATE_ARTIFACT_NAMES
+#: The gate filenames an evidence artifact may be filed under, resolved once at import.
+#: Derived from the policy above, so a rung added to §6 is admissible by that edit alone.
+_GATE_ARTIFACT_NAMES: FrozenSet[str] = gate_artifact_names(
+    EVIDENCE_POLICY["transitions"], PHASE_LADDER,
+)
 
 
 def evidence_for(
@@ -521,7 +451,7 @@ def evidence_for(
             tokens.add("passing_test_evidence")
             if "smoke" in name or "/smoke" in path:
                 tokens.add("smoke_evidence_artifact")
-        elif _is_gate_evidence_artifact(path, uid):
+        elif is_gate_evidence_artifact(path, uid, _GATE_ARTIFACT_NAMES):
             tokens.add("smoke_evidence_artifact")
         elif path.startswith("src/") and path.endswith(".py"):
             tokens.add("implementation_diff")
