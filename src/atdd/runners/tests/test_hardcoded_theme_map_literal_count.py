@@ -45,16 +45,18 @@ def _scan_root(tmp_path: Path) -> Path:
 def test_theme_map_dict_assignment_is_counted_once(tmp_path: Path) -> None:
     """A bare ``theme_map = {"0": "auth"}`` literal scores 1.
 
-    The acceptance-criterion case from the issue body. The single dict
-    assignment matches BOTH (1) the Name+Dict assignment pattern and
-    (3) the digit-keyed Dict heuristic, so the counter returns 2.
+    The acceptance-criterion case from the issue body. It used to score 2 —
+    the name-based pattern and the digit-keyed backstop both fired on the one
+    literal, so the test's own name contradicted its assertion. Since #1927 the
+    backstop also requires theme-named values, and ``"auth"`` is not one, so
+    only the name-based pattern fires and the count is what the name says.
     """
     _write(
         _scan_root(tmp_path),
         "coach/_fixture.py",
         'theme_map = {"0": "auth"}\n',
     )
-    assert compute(tmp_path) == 2
+    assert compute(tmp_path) == 1
 
 
 def test_no_literal_returns_zero(tmp_path: Path) -> None:
@@ -102,11 +104,16 @@ def test_valid_themes_dict_assignment_is_counted(tmp_path: Path) -> None:
 
 
 def test_digit_keyed_dict_heuristic_fires(tmp_path: Path) -> None:
-    """An anonymous digit-keyed dict literal is counted by the backstop."""
+    """An anonymous digit→THEME dict literal is counted by the backstop.
+
+    The fixture names real themes. Before #1927 any digit-keyed dict fired
+    here regardless of its values, which is what made the backstop count
+    train categories and menu maps; the values are now what qualify it.
+    """
     _write(
         _scan_root(tmp_path),
         "coach/_inline.py",
-        'def themes():\n    return {"0": "auth", "1": "billing"}\n',
+        'def themes():\n    return {"0": "commons", "1": "plan"}\n',
     )
     assert compute(tmp_path) == 1
 
@@ -140,3 +147,105 @@ def test_passes_upper_bound_semantics() -> None:
     assert passes(5, 5) is True
     assert passes(6, 5) is False
     assert passes(1, 0) is False
+
+
+# --- #1927: the backstop must measure theme-ness, not digit-keyed-ness -------
+#
+# Pattern 3 counted ANY dict whose keys are all single-digit strings. Across
+# the toolkit that caught train-category maps, an interactive menu, and test
+# fixtures — 22 of 23 hits were not theme maps at all. The count was never read
+# (the threshold reached passes() stringified, #1925), so the false-positive
+# rate was never observed. These pin what the backstop is actually for.
+
+
+def test_train_category_digit_map_is_not_a_theme_map(tmp_path: Path) -> None:
+    """``{"0": "nominal", "1": "error", ...}`` is a train category map.
+
+    Three sites carry this exact literal (registry, viz_app, the URN
+    migration). Its keys are digits and its values are categories; nothing
+    about it duplicates the digit→theme mapping.
+    """
+    _write(
+        _scan_root(tmp_path),
+        "coach/commands/_registry.py",
+        'CATEGORY_MAP = {"0": "nominal", "1": "error", '
+        '"2": "alternate", "3": "exception"}\n',
+    )
+    assert compute(tmp_path) == 0
+
+
+def test_interactive_menu_digit_map_is_not_a_theme_map(tmp_path: Path) -> None:
+    """A prompt's choice map is digit-keyed and entirely unrelated."""
+    _write(
+        _scan_root(tmp_path),
+        "coach/commands/_consumers.py",
+        "direction_map = {'1': 'manifests', '2': 'contracts', '3': 'mutual'}\n",
+    )
+    assert compute(tmp_path) == 0
+
+
+def test_a_theme_valued_digit_map_is_still_counted(tmp_path: Path) -> None:
+    """The case the backstop exists for: an inlined digit→theme mapping.
+
+    Values drawn from the theme vocabulary are what make a digit-keyed dict a
+    theme map. This is the shape that genuinely duplicates the helper.
+    """
+    _write(
+        _scan_root(tmp_path),
+        "planner/validators/_taxonomy.py",
+        'CANONICAL = {"0": "commons", "1": "plan", "2": "test", '
+        '"3": "code", "4": "coach"}\n',
+    )
+    assert compute(tmp_path) == 1
+
+
+def test_default_theme_map_inlined_elsewhere_is_counted(tmp_path: Path) -> None:
+    """A copy of the shipped default mapping, anywhere but theme_map.py."""
+    _write(
+        _scan_root(tmp_path),
+        "coach/_copy.py",
+        'M = {"0": "commons", "1": "mechanic", "2": "scenario", '
+        '"3": "match", "4": "sensory"}\n',
+    )
+    assert compute(tmp_path) == 1
+
+
+def test_test_modules_are_exempt(tmp_path: Path) -> None:
+    """A test pinning the canonical map must state the canonical map.
+
+    ``test_custom_themes.py`` asserts ``DEFAULT_THEME_MAP == {...}``; that
+    literal IS the assertion, not a second source of truth. Exempting test
+    modules follows the exemption ``theme_map.py`` already carries.
+    """
+    _write(
+        _scan_root(tmp_path),
+        "planner/validators/test_custom_themes.py",
+        'expected = {"0": "commons", "1": "mechanic", "2": "scenario"}\n'
+        'def test_default_map_is_pinned():\n'
+        '    assert expected == expected\n',
+    )
+    assert compute(tmp_path) == 0
+
+
+def test_named_theme_map_in_a_test_module_is_still_exempt(tmp_path: Path) -> None:
+    """The exemption is by module, not by pattern — fixtures name things too."""
+    _write(
+        _scan_root(tmp_path),
+        "coach/validators/tests/test_themes.py",
+        'theme_map = {"0": "commons"}\n',
+    )
+    assert compute(tmp_path) == 0
+
+
+def test_named_theme_map_outside_tests_is_unaffected(tmp_path: Path) -> None:
+    """Patterns 1 and 2 are name-based and keep firing in production code.
+
+    Scoping the backstop must not weaken the two precise patterns: a
+    ``theme_map = {...}`` literal is a violation whatever its values are.
+    """
+    _write(
+        _scan_root(tmp_path),
+        "coach/_fixture.py",
+        'theme_map = {"0": "auth", "1": "billing"}\n',
+    )
+    assert compute(tmp_path) == 1

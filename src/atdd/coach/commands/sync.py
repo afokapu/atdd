@@ -1,19 +1,20 @@
 """
-Agent config file sync for ATDD managed blocks.
+Refresh an already-initialised ATDD checkout.
 
-Syncs ATDD rules to agent config files (CLAUDE.md, CONDUCTOR.md, etc.) using
-managed blocks that preserve user content while keeping rules in sync.
+This module is NOT an agent-config sync any more, whatever its filename
+suggests. #1811 retired the projection that combined a CONDUCTOR.md template
+with per-agent overlays into managed blocks in CLAUDE.md / AGENTS.md /
+GEMINI.md / GLM.md; #1861 swept its residue out of the gate, and #1940 deleted
+the artifacts and the overlays it had left behind.
 
-Block format:
-    # --- ATDD:BEGIN (managed by atdd, do not edit) ---
-    <content from CONDUCTOR.md>
-    <optional overlay for that agent>
-    # --- ATDD:END ---
+What `atdd sync` does now is the reason the verb still exists: `atdd init`
+bails out on an initialised repo before it seeds anything and `atdd init
+--force` is forbidden (#793), so this is the only sanctioned path that reaches
+an existing checkout with a hook fix (#1492), the operational `.gitignore`
+entries (#1325), exported schemas, or a toolkit stamp (#1641).
 
 Usage:
-    atdd sync                    # Sync all enabled agents from config
-    atdd sync --agent claude     # Sync specific agent only
-    atdd sync --verify           # Check if files are in sync (for CI)
+    atdd sync                    # Refresh this checkout
 
 Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
@@ -46,8 +47,6 @@ class RepoRefresh:
         # Package resource locations
         self.package_root = Path(__file__).parent.parent  # src/atdd/coach
         self.templates_dir = self.package_root / "templates"
-        self.overlays_dir = self.package_root / "overlays"
-        self.atdd_template = self.templates_dir / "CONDUCTOR.md"
 
     def sync(self, agents: Optional[List[str]] = None) -> int:
         """Refresh what an already-initialised repo cannot refresh any other way.

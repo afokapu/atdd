@@ -1,0 +1,71 @@
+urn: "wmbt:author-plan-substrate:Y001"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "a-coverage-check-that-cannot-report-anything-being-counted-as-coverage"
+context_clarifier: >
+  Two interlocking coverage projections were provably inert, and the plan counted both as
+  coverage. `_interlocking_wmbt_surface_or_residual` built
+  `surfaced = {inv.wmbt_ref for inv in il.invariants ...}` and then, iterating those same
+  invariants, skipped every `ref in surfaced` — true by construction, so the append was
+  unreachable for any input and the projection returned `[]` whatever the plan contained.
+  Its residual escape, and the sibling escape in `_interlocking_guard_coverage`, compared
+  `{rsd.id ...}` — the `residual:` namespace — against `wmbt:` refs and `guard:` ids
+  respectively. Measured over this repository's own three interlockings, both intersections
+  are empty for every file, so neither branch could ever be taken.
+  The repair had in fact already been made once: `planner/interlocking/sanity.py` carries
+  corrected versions of both rules, with comments citing this very issue and naming the
+  `{rsd.id ...}` namespace mismatch. The archetype held a stale second copy that nothing
+  updated. So this is the #1901 shape one layer over — one rule, two implementations, and
+  the one that mattered was the wrong one — and the fix is the same: delegate, do not
+  re-implement. A projection that cannot fail is indistinguishable from a clean plan, which
+  is why the acceptance is fault injection per branch rather than a green baseline.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of a-coverage-check-that-cannot-report-anything-being-counted-as-coverage by having the interlocking projections delegate to the repaired sanity implementations rather than keep a second copy of the rule, and by requiring a fault-injection test per branch so a clean baseline can no longer be mistaken for a working check"
+acceptances:
+  - identity:
+      urn: "acc:author-plan-substrate:Y001-UNIT-001-the-interlocking-projections-can-fail"
+      id: "AC-UNIT-001"
+      purpose: "each repaired branch reports the specific fault it exists to catch, and each escape hatch still discharges in the correct namespace"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A well-formed interlocking built from the planner's own test fixture, mutated one fault at a time"
+    when:
+      abstract: "the two coverage projections are asked about it"
+    then:
+      abstract:
+        - "a clean interlocking reports nothing, so the projections do not simply always fire"
+        - "an invariant naming a WMBT while asserting no expression is reported unsurfaced — the branch the tautology made unreachable"
+        - "a structural residual naming that same WMBT still discharges it, through the `wmbt:` namespace the `residual:` ids could never match"
+        - "a guard whose only route is removed is reported uncovered"
+        - "a structural residual discharging that guard's WMBT excuses it, via the guard -> WMBT -> residual linkage a Residual actually carries"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"
+  - identity:
+      urn: "acc:author-plan-substrate:Y001-SMOKE-001-the-real-validator-run-reports-an-injected-fault"
+      id: "AC-SMOKE-001"
+      purpose: "the fault is reported through the dispatch the convention layer actually reaches, not only through the private helpers"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real interlocking tree on disk with one injected fault, and the variant string the convention YAML carries"
+    when:
+      abstract: "`_projection_covers_source` is dispatched by that variant, as the convention layer dispatches it"
+    then:
+      abstract:
+        - "both variants are present in the dispatch table — a missing one silently checks nothing"
+        - "the dispatched WMBT projection reports the unsurfaced obligation"
+        - "the dispatched guard projection reports the unrouted guard"
+        - "a clean tree dispatches to silence"
+        - "this repository is clean under the now-live projections, recorded so a future violation reads as a change rather than a surprise"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-10"

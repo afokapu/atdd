@@ -2214,6 +2214,38 @@ edges:
   target_ref: planner.train.interlocking-home
   type: requires
 - confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: Compose's exit condition is a convention-shaped decomposition, which is what
+    holding each hand-authored spec to its artifact schema actually checks
+  source_ref: planner.plan.session-lifecycle
+  strength: critical
+  target_ref: planner.plan.spec-is-schema-valid
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: a spec is validated against the schema of the artifact its kind authors, so
+    the plan layer keeps the by-construction promise the author layer already makes
+  source_ref: planner.plan.spec-is-schema-valid
+  strength: critical
+  target_ref: planner.wagon.urn-naming
+  type: requires
+- confidence: 1.0
+  reason: Ratify names the granularity rungs a decomposition never descended, so the
+    keep/pivot/kill ladder is reported rather than silently left dangling
+  source_ref: planner.decomposition.keep-pivot-kill
+  target_ref: planner.plan.granularity-completeness
+  type: enables
+- confidence: 1.0
+  reason: the ladder report is advisory and rides on the same Ratify lock the spec
+    schema gate fails closed on
+  source_ref: planner.plan.spec-is-schema-valid
+  target_ref: planner.plan.granularity-completeness
+  type: runs_alongside
+- confidence: 1.0
   reason: the session lifecycle's Ratify gate enforces confirm-before-author
   source_ref: planner.plan.session-lifecycle
   target_ref: planner.plan.confirm-before-author

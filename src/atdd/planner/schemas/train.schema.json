@@ -351,8 +351,9 @@
         },
         "artifact": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$",
-          "description": "Artifact passed between participants (domain:resource format)"
+          "pattern": "^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)+(?:\\.[a-z][a-z0-9-]*)?$",
+          "$comment": "Widened from the two-segment `^[a-z][a-z0-9-]*:[a-z][a-z0-9.-]*$` by #1929. That pattern contradicted planner.artifact-naming, whose identity grammar is theme-first `{theme}(:{category})*:{aspect}(.{variant})?` — `is_valid_artifact_identity('commons:admit:admission-cli')` returns True while the old pattern rejected it, so 7 of 21 in-repo trains failed their own schema on identities the naming authority accepts. Kept byte-compatible with _CONTRACT_IDENTITY_RE in planner/commands/author.py.",
+          "description": "Artifact passed between participants; a theme-first identity, `{theme}(:{category})*:{aspect}(.{variant})?`"
         }
       }
     }

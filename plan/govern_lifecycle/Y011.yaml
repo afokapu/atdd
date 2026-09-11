@@ -1,0 +1,74 @@
+urn: "wmbt:govern-lifecycle:Y011"
+step: "modify"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "an-entire-check-surface-depending-on-one-rate-limit-bucket-that-fails-independently"
+context_clarifier: >
+  `gh issue list --json` is `POST /graphql` — observed with GH_DEBUG=api, not assumed.
+  `_list_issues_complete` was built on it, both `list_issues_by_label` and
+  `list_all_open_issues` route through it, and the `_github_prefetch` fixture feeds nearly
+  every coach validator from those two. So the entire validator surface sat on the GraphQL
+  bucket, and that is the bucket that failed repeatedly: three pull requests and a publish
+  run were blocked by "API rate limit already exceeded for site ID installation" while REST
+  stood at 4823/5000. The two buckets fail independently, and everything was on one of them.
+  Moving the listing to REST is a TRANSPORT change and must change nothing callers can see.
+  Two differences make that non-trivial and both are silent. REST's `/issues` includes pull
+  requests — measured here, the unlabelled listing is 319 over REST against 296 over GraphQL,
+  23 of them PRs — so a naive swap ENLARGES every validator's subject while the count going
+  up looks like health. And REST reports `state` lowercase where gh reports it uppercase,
+  while callers compare against both forms in different modules; the listing therefore keeps
+  gh's form. The contract is held; only the wire changes.
+  `get_all_sub_issues` is deliberately out of scope. Its own docstring records that one
+  paginated GraphQL query replaced N sequential REST calls, and reversing that would turn a
+  single query into roughly one call per parent. That is a separate trade with its own
+  measurement, not a consequence of this one.
+lens: "functional.effectiveness"
+statement: "minimize likelihood of an-entire-check-surface-depending-on-one-rate-limit-bucket-that-fails-independently by listing issues over REST rather than through a subcommand that resolves via GraphQL, while preserving the shape callers already read — pull requests excluded, state case unchanged, only the requested fields returned"
+acceptances:
+  - identity:
+      urn: "acc:govern-lifecycle:Y011-UNIT-001-rest-listing-preserves-the-contract"
+      id: "AC-UNIT-001"
+      purpose: "REST rows are reduced to exactly what the previous listing returned"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "REST /issues rows including a pull request, a null body, and the full key set REST returns"
+    when:
+      abstract: "they are normalised for callers"
+    then:
+      abstract:
+        - "pull requests are dropped — the trap, because their presence makes the count rise rather than fall"
+        - "state is returned in the case callers already read, not the case REST sends"
+        - "labels keep their object shape, since callers read a name off each entry"
+        - "a body is returned only when it was requested, and a null body becomes an empty string"
+        - "only the requested fields come back, not the roughly thirty REST supplies"
+        - "an empty answer is an empty list"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-11"
+  - identity:
+      urn: "acc:govern-lifecycle:Y011-SMOKE-001-the-live-listing-makes-no-graphql-call"
+      id: "AC-SMOKE-001"
+      purpose: "the live client reaches REST and returns the same subject the GraphQL path returned"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "This repository's live issues, and gh's own request log via GH_DEBUG=api"
+    when:
+      abstract: "the client lists issues and the requests it makes are observed"
+    then:
+      abstract:
+        - "the listing reaches the REST issues endpoint and logs no GraphQL request"
+        - "the subcommand it replaced really does use GraphQL — without this the assertion above proves nothing"
+        - "the set of issue numbers is identical across both transports, so the subject did not silently change"
+        - "the unfiltered listing excludes exactly the open pull requests, asserted only while open PRs exist"
+        - "state comes back in the case callers read"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-11"

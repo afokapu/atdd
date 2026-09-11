@@ -31,6 +31,7 @@ from atdd.planner.artifact_naming import is_valid_artifact_identity
 from atdd.planner.commands.plan_session import (
     PlanSession, SessionGateError, Step, Unit, Verdict,
 )
+from atdd.planner.validators._plan_session_fixtures import wagon_spec
 
 # Good theme-first identities — the convention's own canonical examples. Themes
 # resolve from the built-in default map (no .atdd/config.yaml in the tmp repos).
@@ -74,8 +75,7 @@ def _confirm_session_producing(name: str) -> PlanSession:
     s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
     s.add_unit(Unit(kind="wagon", ref="wagon:manage-users", verdict=Verdict.KEEP.value,
-                    spec={"wagon": "manage-users",
-                          "produce": [{"name": name, "contract": None}]}))
+                    spec=wagon_spec(produce=[{"name": name, "contract": None}])))
     return s
 
 
@@ -98,8 +98,7 @@ def _drive_cli_to_confirm(tmp_path, produced_name: str) -> int:
     from atdd.planner.commands.plan_session_cli import run
 
     root = str(tmp_path)
-    spec = json.dumps({"wagon": "manage-users",
-                       "produce": [{"name": produced_name, "contract": None}]})
+    spec = json.dumps(wagon_spec(produce=[{"name": produced_name, "contract": None}]))
     assert run(["--root", root, "start", "--id", "c1",
                 "--main-job", "mj", "--issue", "demo-slug"]) == 0
     assert run(["--root", root, "source", "--id", "c1", "req"]) == 0
