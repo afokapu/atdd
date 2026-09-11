@@ -11,9 +11,10 @@ The policy is data, not code: :data:`EVIDENCE_POLICY` is a ``commons:projection-
 document (``contracts/commons/projection-evidence.schema.json``). Three properties fall
 out of it and are the whole of the validator's contract:
 
-- **Monotonic.** ``GREEN -> RED`` is rejected as non-monotonic. Retirement is the one
-  exception: ``* -> TOMBSTONED`` leaves the ladder, and is admitted only with a reason
-  digest and tombstone metadata (spec §10 rule 3 — a tombstone, never a file deletion).
+- **Monotonic.** ``GREEN -> RED`` is rejected as non-monotonic. The edges that leave the
+  ladder rather than climb it are gated on their own terms: ``* -> TOMBSTONED`` on a
+  reason digest and tombstone metadata (spec §10 rule 3 — a tombstone, never a file
+  deletion), the escapes on an operator sign-off (:data:`ESCAPES`).
 - **No unevidenced skip.** ``PLANNED -> GREEN`` is not forbidden *because* it skips RED;
   it is forbidden unless it carries the evidence every skipped gate would have demanded.
   So the validator walks the ladder rung by rung and accumulates each rung's ``requires``.
@@ -24,20 +25,15 @@ out of it and are the whole of the validator's contract:
 Every rejection carries the uid, the attempted transition, and the failed clause — a
 report that names only "illegal" gives an operator nothing to act on.
 
-The second half of this module (below the divider) is the **smoke-execution
-attestation** (#1602): the record that a live-smoke test actually RAN. It is a
-different kind of evidence from the projection-diff tokens above — those are
-*derived from a commit* at merge-authority time, this one is *captured by the
-test run itself* — so the two are kept apart deliberately and share nothing but
-this file. In particular ``evidence_for``'s ``smoke_evidence_artifact``
-derivation is NOT extended to read it: the merge authority may only read what is
-in the commit, and a run artifact is not.
+The **smoke-execution attestation** (#1602) — the record that a live-smoke test actually
+RAN — is a different kind of evidence and lives apart, in :mod:`atdd.state.smoke_evidence`:
+the tokens here are *derived from a commit* at merge-authority time, that one is *captured
+by the test run itself*. ``evidence_for``'s ``smoke_evidence_artifact`` derivation is NOT
+extended to read it: the merge authority may only read what is in the commit, and a run
+artifact is not.
 
 Dependency discipline: stdlib + ``atdd.state`` only. No provider, and in particular no
-``external_refs`` is ever consulted for a lifecycle decision (I7, spec §8.2 rule 5) —
-which is why every attestation function below is keyed by **work-item uid** and never
-by a provider-side issue number. Resolving an issue number to a uid is the caller's
-job, one layer up.
+``external_refs`` is ever consulted for a lifecycle decision (I7, spec §8.2 rule 5).
 """
 from __future__ import annotations
 
@@ -72,6 +68,22 @@ PHASE_LADDER: Tuple[str, ...] = (
 
 #: Rung index by phase.
 PHASE_RANK: Dict[str, int] = {phase: index for index, phase in enumerate(PHASE_LADDER)}
+
+#: The escapes the phase machine declares out of every rung. Off :data:`PHASE_LADDER` on
+#: purpose — an escape orders against nothing, so it has no rung — but off the ladder is
+#: not outside the model: each is entered through a wildcard policy entry, as
+#: ``TOMBSTONED`` is. Before #1947 they had neither, so ``check_transition`` fell through
+#: to its off-ladder branch and refused a *declared* edge as ``unknown_transition``.
+#: One costs the operator token digest (I8: the approval reaches CI as a digest, never a
+#: token) — the machine-readable form of the convention's one invariant about escapes, that
+#: entering one is never autonomous. Deliberately NOT `reason_digest`: no projection field
+#: carries an escape's reason, so `evidence_for` could never derive it and the edge would
+#: stay as unwalkable as #1947 found it, merely better named. Give them a field, then tighten.
+ESCAPES: FrozenSet[str] = frozenset({"BLOCKED", "OBSOLETE"})
+
+#: Of those, the ones a phase may come back out of: ``BLOCKED`` is symmetric — entered by
+#: operator decision and left by one — while ``OBSOLETE`` declares none and is terminal.
+RESUMABLE_ESCAPES: FrozenSet[str] = frozenset({"BLOCKED"})
 
 #: The §6 lifecycle evidence table, as a ``commons:projection-evidence`` document.
 #: An entry with **no** ``from`` key is a wildcard source (``* -> TOMBSTONED``); an entry
@@ -121,6 +133,11 @@ EVIDENCE_POLICY: Dict[str, Any] = {
             "requires": ["derived_from_merge_to_main"],
             "derived": True,
         },
+        # No `from`: an escape may be entered from any rung, so these are wildcard-source
+        # entries like retirement below them — spread from ESCAPES rather than typed out, so
+        # a newly declared escape cannot arrive with no entry (#1947's defect exactly). What
+        # they require, and what they pointedly do not, is argued at :data:`ESCAPES`.
+        *({"to": e, "requires": ["operator_token_digest"]} for e in sorted(ESCAPES)),
         {
             # No `from`: retirement may leave any phase (spec §6, `* -> TOMBSTONED`).
             "to": TOMBSTONED,
@@ -136,6 +153,8 @@ CLAUSE_MISSING_EVIDENCE = "missing_evidence"
 CLAUSE_UNKNOWN_TRANSITION = "unknown_transition"
 CLAUSE_COMPLETE_IS_DERIVED = "complete_is_derived"
 CLAUSE_TOMBSTONE_EVIDENCE = "tombstone_evidence"
+CLAUSE_ESCAPE_EVIDENCE = "escape_evidence"
+CLAUSE_TERMINAL_PHASE = "terminal_phase"
 
 
 def _entry(from_phase: Optional[str], to_phase: str) -> Optional[Mapping[str, Any]]:
@@ -230,7 +249,9 @@ def check_transition(
     Returns an empty list when the transition is admissible. A transition is checked in
     one order and one order only, because the clauses are not independent: a backward
     move is rejected as non-monotonic *before* its evidence is weighed, since no amount
-    of evidence makes ``GREEN -> RED`` a legal shared claim.
+    of evidence makes ``GREEN -> RED`` a legal shared claim, and the off-ladder edges are
+    settled before the ladder is consulted at all, ranking being what would otherwise
+    refuse a declared escape as ``unknown_transition`` (#1947).
     """
     have: Set[str] = set(evidence)
     transition = f"{before or '∅'}->{after}"
@@ -253,6 +274,40 @@ def check_transition(
             "COMPLETE is derived from merge-to-main and may never be stored in the projection",
         )]
 
+    if before == after:
+        return []  # a no-op phase-wise; other validators cover the rest of the diff
+
+    if before in ESCAPES and before not in RESUMABLE_ESCAPES:
+        return [Violation(
+            uid, transition, CLAUSE_TERMINAL_PHASE,
+            f"{before} is terminal: the phase machine declares no transition out of it, so "
+            f"reopening is a new object, not a phase change",
+        )]
+
+    if after in ESCAPES:
+        # No rung, so no walk to accumulate: the wildcard entry is all an escape owes.
+        missing = [token for token in requires_for(before, after) or () if token not in have]
+        if missing:
+            return [Violation(
+                uid, transition, CLAUSE_ESCAPE_EVIDENCE,
+                f"entering {after} requires {sorted(missing)}; an escape is an operator "
+                "decision and never an autonomous one",
+            )]
+        return []
+
+    if before in RESUMABLE_ESCAPES:
+        # Symmetric with entering it. The rung BLOCKED was entered from is not recoverable
+        # from the diff — the escape kept no rank — so the resume is judged below like an
+        # introduction at `after`, which is also what stops BLOCKED laundering a skip:
+        # INIT -> BLOCKED -> GREEN owes everything INIT -> GREEN owed.
+        if "operator_token_digest" not in have:
+            violations.append(Violation(
+                uid, transition, CLAUSE_ESCAPE_EVIDENCE,
+                f"leaving {before} requires ['operator_token_digest']; an escape is entered "
+                "by operator decision and left by one",
+            ))
+        before = None
+
     if before is not None and (before not in PHASE_RANK or after not in PHASE_RANK):
         return [Violation(
             uid, transition, CLAUSE_UNKNOWN_TRANSITION,
@@ -266,9 +321,6 @@ def check_transition(
             f"phase is monotonic: {after} is behind {before} on the ladder",
         )]
 
-    if before is not None and PHASE_RANK[after] == PHASE_RANK[before]:
-        return []  # a no-op phase-wise; other validators cover the rest of the diff
-
     if before is None:
         # A newly-committed object is born at INIT and walks up from there. Introducing it
         # straight into PLANNED does not skip the mint — it just leaves it unevidenced.
@@ -279,10 +331,11 @@ def check_transition(
     else:
         gates = gate_path(before, after)
     if gates is None:
-        return [Violation(
+        violations.append(Violation(
             uid, transition, CLAUSE_UNKNOWN_TRANSITION,
             f"no evidence-policy entry for {transition}",
-        )]
+        ))
+        return violations
 
     for gate_from, gate_to in gates:
         needed = requires_for(gate_from, gate_to)

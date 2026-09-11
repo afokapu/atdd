@@ -33,6 +33,7 @@ import yaml
 from atdd.state.evidence import (
     CLAUSE_MISSING_EVIDENCE,
     CLAUSE_UNKNOWN_TRANSITION,
+    ESCAPES,
     EVIDENCE_POLICY,
     PHASE_LADDER,
     PHASE_RANK,
@@ -46,9 +47,11 @@ _CONVENTION = (
     _REPO / "src" / "atdd" / "coach" / "conventions" / "phase_machine.convention.yaml"
 )
 
-#: Off-spine phases: an escape is reachable from any rung and orders against none,
-#: so it has no rank and belongs to no ladder walk (phase_machine.convention.yaml).
-ESCAPES: Set[str] = {"BLOCKED", "OBSOLETE"}
+#: Off-spine phases: an escape is reachable from any rung and orders against none, so it
+#: has no rank and belongs to no ladder walk (phase_machine.convention.yaml). Named by
+#: the evidence model itself since #1947, where they stopped being merely unranked and
+#: became gated — `test_escape_transitions_are_walkable.py` is where that gate is asserted.
+_ESCAPES: Set[str] = set(ESCAPES)
 
 
 @pytest.fixture(scope="module")
@@ -68,7 +71,7 @@ def spine(phase_machine) -> List[str]:
         forward = [
             target
             for target in phase_machine[chain[-1]]["transitions_to"]
-            if target not in ESCAPES
+            if target not in _ESCAPES
         ]
         if not forward:
             return chain
@@ -93,8 +96,8 @@ def test_the_ladder_is_the_phase_machines_spine(spine) -> None:
 def test_every_projectable_phase_has_a_rung_or_is_an_escape() -> None:
     """No phase a committed projection may carry falls off the ladder unaccounted for."""
     unranked = [phase for phase in PHASES if phase not in PHASE_RANK]
-    assert set(unranked) == ESCAPES, (
-        f"projection.PHASES carries {sorted(set(unranked) - ESCAPES)}, which the evidence "
+    assert set(unranked) == _ESCAPES, (
+        f"projection.PHASES carries {sorted(set(unranked) - _ESCAPES)}, which the evidence "
         "model can neither rank nor gate"
     )
 
