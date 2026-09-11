@@ -124,6 +124,59 @@ def _validator(name: str, ref: str | None, complete: bool):
     return jsonschema.Draft7Validator(schema, registry=registry)
 
 
+def _project_wagon(spec: dict) -> dict:
+    """What ``create_wagon`` writes: input keys rebuilt, defaults filled in."""
+    doc: dict = {
+        key: value
+        for key, value in spec.items()
+        if key not in ("produce", "consume", "wmbt")
+    }
+    doc["produce"] = [
+        {
+            "name": entry.get("name"),
+            "contract": entry.get("contract"),
+            "telemetry": entry.get("telemetry"),
+            "to": entry.get("to", "external"),
+        }
+        for entry in spec.get("produce", [])
+        if isinstance(entry, dict)
+    ]
+    doc["consume"] = spec.get("consume", [])
+    doc["wmbt"] = spec.get("wmbt", {"total": 0})
+    return doc
+
+
+_WMBT_AUTHORED_KEYS = (
+    "step", "direction", "dimension", "object_of_control",
+    "context_clarifier", "lens", "statement",
+)
+
+
+def _project_wmbt(spec: dict) -> dict:
+    """What ``create_wmbt`` writes: a synthesised urn plus the authored keys."""
+    doc: dict = {"urn": f"wmbt:{spec.get('wagon_slug', '')}:{spec.get('code', '')}"}
+    doc.update({k: spec[k] for k in _WMBT_AUTHORED_KEYS if k in spec})
+    if spec.get("acceptances"):
+        doc["acceptances"] = list(spec["acceptances"])
+    return doc
+
+
+def _project_acceptance(spec: dict) -> dict:
+    """``create_acceptance(spec["wmbt_urn"], spec["block"])`` — the block is the
+    document; the urn only addresses the file it is appended to."""
+    block = spec.get("block")
+    return dict(block) if isinstance(block, dict) else {}
+
+
+#: kind -> the projection mirroring that kind's `atdd author` writer. A kind with
+#: no entry is authored from the spec as written.
+_PROJECTIONS = {
+    "wagon": _project_wagon,
+    "wmbt": _project_wmbt,
+    "acceptance": _project_acceptance,
+}
+
+
 def project_for_schema(kind: str, spec: dict) -> dict:
     """The document the ``atdd author`` writer would WRITE for ``spec``.
 
@@ -133,48 +186,14 @@ def project_for_schema(kind: str, spec: dict) -> dict:
     ``to: external``) whose absence is not the operator's error. Projecting first
     means Compose and Author hold the same document to the same schema.
 
-    The projections mirror ``create_wagon`` / ``create_wmbt`` / ``create_acceptance``.
-    ``train`` is deliberately NOT mirrored: ``_build_train_doc`` is being
-    reworked under #1915 and a re-author now merges with what is on disk, so a
-    copy here would drift. ``dict(spec)`` is the honest approximation — it costs
-    only that a train spec is checked as written rather than as merged.
+    ``train`` is deliberately absent from ``_PROJECTIONS``: ``_build_train_doc``
+    is being reworked under #1915 and a re-author now merges with what is on
+    disk, so a copy here would drift. ``dict(spec)`` is the honest
+    approximation — it costs only that a train spec is checked as written
+    rather than as merged.
     """
-    if kind == "wagon":
-        doc: dict = {
-            key: value
-            for key, value in spec.items()
-            if key not in ("produce", "consume", "wmbt")
-        }
-        doc["produce"] = [
-            {
-                "name": entry.get("name"),
-                "contract": entry.get("contract"),
-                "telemetry": entry.get("telemetry"),
-                "to": entry.get("to", "external"),
-            }
-            for entry in spec.get("produce", [])
-            if isinstance(entry, dict)
-        ]
-        doc["consume"] = spec.get("consume", [])
-        doc["wmbt"] = spec.get("wmbt", {"total": 0})
-        return doc
-    if kind == "wmbt":
-        doc: dict = {"urn": f"wmbt:{spec.get('wagon_slug', '')}:{spec.get('code', '')}"}
-        for key in (
-            "step", "direction", "dimension", "object_of_control",
-            "context_clarifier", "lens", "statement",
-        ):
-            if key in spec:
-                doc[key] = spec[key]
-        if spec.get("acceptances"):
-            doc["acceptances"] = list(spec["acceptances"])
-        return doc
-    if kind == "acceptance":
-        # `create_acceptance(spec["wmbt_urn"], spec["block"])` — the block is the
-        # document; the urn addresses the file it is appended to.
-        block = spec.get("block")
-        return dict(block) if isinstance(block, dict) else {}
-    return dict(spec)
+    project = _PROJECTIONS.get(kind)
+    return project(spec) if project else dict(spec)
 
 
 def tier_for(kind: str, config: dict | None = None) -> str:

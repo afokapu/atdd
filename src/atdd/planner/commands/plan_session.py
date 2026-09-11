@@ -172,6 +172,40 @@ class PlanSession:
         self.step = Step.COMPOSE.value
 
     # ---- units -------------------------------------------------------------
+    def _assert_kind_admissible(self, unit: Unit) -> None:
+        """Refuse a kind that authors nothing, and a ref reused under a new one.
+
+        The conflict check runs BEFORE any schema check: re-using a ref under a
+        different kind is a structural mistake about the session, and the
+        incoming spec is then being read against the wrong schema entirely, so
+        reporting its fields would bury the error that actually matters.
+        """
+        if unit.kind not in KNOWN_KINDS:
+            raise SessionGateError(
+                f"unknown plan kind {unit.kind!r} — it resolves to no atdd author "
+                f"writer and names no reasoning move, so it would ride through "
+                f"Ratify and fail only at author. Known kinds: "
+                f"{', '.join(sorted(KNOWN_KINDS))}")
+        for existing in self.units:
+            if existing["ref"] == unit.ref and existing["kind"] != unit.kind:
+                raise SessionGateError(
+                    f"unit {unit.ref!r} already exists as kind "
+                    f"{existing['kind']!r}; refusing to redefine it as "
+                    f"{unit.kind!r} — use a distinct ref")
+
+    def _compose_findings(self, unit: Unit, root: Path | str) -> list:
+        """Well-formedness findings for ``unit``; raises for an ENFORCED kind."""
+        tier, findings = check_unit_spec(
+            unit.kind, unit.spec, config=load_atdd_config(Path(root)),
+            stage="compose")
+        if findings and tier == "enforce":
+            raise SessionGateError(
+                f"spec-is-schema-valid: the {unit.kind} {unit.ref!r} is not "
+                f"schema-valid — atdd author promises schema-valid artifacts by "
+                f"construction, and Compose is where a hand-authored spec keeps "
+                f"that promise:\n  - " + "\n  - ".join(findings))
+        return findings
+
     def add_unit(self, unit: Unit, root: Path | str = ".") -> None:
         """Add a candidate unit, or update the one already carrying this ``ref``.
 
@@ -207,31 +241,8 @@ class PlanSession:
         Ratify instead of relying on a human to remember them.
         """
         self.assert_mutable(f"add the {unit.kind} unit {unit.ref!r}")
-        if unit.kind not in KNOWN_KINDS:
-            raise SessionGateError(
-                f"unknown plan kind {unit.kind!r} — it resolves to no atdd author "
-                f"writer and names no reasoning move, so it would ride through "
-                f"Ratify and fail only at author. Known kinds: "
-                f"{', '.join(sorted(KNOWN_KINDS))}")
-        # Kind conflict BEFORE the schema check: re-using a ref under a new kind
-        # is a structural mistake about the session, and the incoming spec is
-        # then being read against the wrong schema entirely — so reporting its
-        # fields would bury the error that actually matters.
-        for existing in self.units:
-            if existing["ref"] == unit.ref and existing["kind"] != unit.kind:
-                raise SessionGateError(
-                    f"unit {unit.ref!r} already exists as kind "
-                    f"{existing['kind']!r}; refusing to redefine it as "
-                    f"{unit.kind!r} — use a distinct ref")
-        tier, findings = check_unit_spec(
-            unit.kind, unit.spec, config=load_atdd_config(Path(root)),
-            stage="compose")
-        if findings and tier == "enforce":
-            raise SessionGateError(
-                f"spec-is-schema-valid: the {unit.kind} {unit.ref!r} is not "
-                f"schema-valid — atdd author promises schema-valid artifacts by "
-                f"construction, and Compose is where a hand-authored spec keeps "
-                f"that promise:\n  - " + "\n  - ".join(findings))
+        self._assert_kind_admissible(unit)
+        findings = self._compose_findings(unit, root)
         incoming = asdict(unit)
         if findings:
             # Only when non-empty: `incoming` is a fresh dict and the upsert
