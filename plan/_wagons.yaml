@@ -983,7 +983,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 25
+    total: 26
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -1014,6 +1014,7 @@ wagons:
       versus NOT_APPLICABLE split GateVerdict already models — carrying the reason
       the fetch failed, and exiting non-zero when the advance could not be attempted
       (#1640)
+    D004: minimize likelihood of phase-vocabulary-forked-across-python-copies
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
