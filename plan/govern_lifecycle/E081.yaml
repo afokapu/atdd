@@ -1,0 +1,79 @@
+urn: wmbt:govern-lifecycle:E081
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: pre-red-trains-failed-by-coverage-validators
+context_clarifier: when the tester coverage validators run over plan/_trains.yaml
+  they demand e2e and smoke evidence from every registered train regardless of the
+  owning issue's phase, so a train authored at INIT or PLANNED is failed for not yet
+  carrying the tests RED exists to write, and the bare-string violation shape leaves
+  no disposition, ratchet or suppression path to land the planned work
+lens: functional.effectiveness
+statement: minimize likelihood of pre-red-trains-failed-by-coverage-validators when
+  the tester coverage validators run by resolving the owning work item's phase through
+  the shipped is_pre_test_phase and owning_issue_phase helpers and binding each violation
+  to a declared rule_id
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:E081-SMOKE-001-validators-consult-the-owning-phase
+    id: AC-SMOKE-001
+    purpose: Verify the three shipped train coverage validators consult the owning
+      work item's phase when run against a real repo, skipping a pre-RED train and
+      still failing one at RED or later
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo whose plan/_trains.yaml registers one train and which has no e2e/
+      directory
+    - a State Store work item bound to that train at the phase under test
+  when:
+    abstract: the shipped train_completeness, train_e2e_existence and train_route_smoke_coverage
+      validators are run against it
+    action: invoke
+  then:
+    abstract:
+    - the run exits zero while the owning work item is at INIT or PLANNED
+    - the run exits non-zero once the owning work item has reached RED
+    - the run exits non-zero when no work item maps the train, failing closed
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-10'
+- identity:
+    urn: acc:govern-lifecycle:E081-UNIT-001-coverage-validators-respect-pre-red-phase
+    id: AC-UNIT-001
+    purpose: the three train coverage validators raise nothing for a train whose owning
+      work item is pre-RED, still raise from RED onward, and fail closed when no work
+      item maps the train
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a repo whose plan/_trains.yaml registers one train and which has no e2e/ directory
+    - a State Store work item bound to that train, at a phase the case under test
+      sets
+  when:
+    abstract: each of train_completeness, train_e2e_existence and train_route_smoke_coverage
+      is run against that repo
+    action: invoke
+  then:
+    abstract:
+    - a work item at INIT or PLANNED yields no violation from any of the three
+    - the same train at RED, GREEN, SMOKE, REFACTOR or COMPLETE still yields its violation
+    - a train no work item maps still yields its violation, failing closed
+    - every violation carries a bound rule_id rather than the legacy bare-string shape
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-10'

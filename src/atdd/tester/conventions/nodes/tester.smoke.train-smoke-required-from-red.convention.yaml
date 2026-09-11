@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+rule_id: tester.smoke.train-smoke-required-from-red
+kind: rule
+status: active
+name: Train route smoke tests are required from RED onward
+statement: Every train route whose owning issue has reached RED must have at least one smoke test under e2e/<train_id>/
+terms:
+- term_id: coverage_is_due
+  text: A train's e2e and smoke evidence is due once any work item owning that train
+    has reached RED. While every owning work item is strictly before RED the evidence
+    is not yet due, because RED is the phase that writes it. An unmapped train, an
+    escape phase (BLOCKED/OBSOLETE) and an unrecognised token all count as due —
+    the check fails closed rather than letting an untracked train switch it off.
+implementation:
+  type: validator
+  ref: test_train_route_smoke_coverage::test_train_route_smoke_coverage
+content:
+  fix_hint: 'Add a *_smoke.py under e2e/<train_id>/, or transition the owning issue to RED only once it exists.'
+  operational_guidance: 'Transition the owning issue to RED and write the tests, or
+    bind the train to its work item so its phase can be resolved. See #1920.'
+metadata:
+  severity: 3
+  disposition: strict

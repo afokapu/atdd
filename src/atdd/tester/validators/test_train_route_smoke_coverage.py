@@ -30,6 +30,13 @@ from dataclasses import dataclass, field
 from typing import List
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.utils.rule_binding import bind_rule
+# Aliased: this module already imports a DIFFERENT `Violation` from
+# test_smoke_coverage below (the mock-scan record, fields file/rule). Importing
+# the rule-substrate record under the same name shadowed it and left the two
+# shapes indistinguishable in one file.
+from atdd.coach.validators._violation import Violation as RuleViolation
+from atdd.tester.validators._acceptance_walker import coverage_is_due
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import (
     PlanTrainDiscovery,
@@ -40,6 +47,8 @@ from atdd.tester.validators.test_smoke_coverage import (
 
 
 REPO_ROOT = find_repo_root()
+
+_RULE = bind_rule("tester.smoke.train-smoke-required-from-red")
 E2E_DIR = REPO_ROOT / "e2e"
 TRAINS_FILE = REPO_ROOT / "plan" / "_trains.yaml"
 
@@ -137,7 +146,7 @@ def scan_train_route_smoke_coverage(repo_root: Path):
     gap_violations = [
         f"{s.train_id}: no smoke tests in e2e/{s.train_id}/"
         for s in statuses
-        if not s.has_smoke_tests
+        if not s.has_smoke_tests and coverage_is_due(repo_root, s.train_id)
     ]
 
     # Mock violations: smoke files that import mocking libraries
@@ -174,9 +183,15 @@ def test_train_route_smoke_coverage():
         pytest.skip("No trains registered in plan/_trains.yaml")
 
     violations = [
-        f"{s.train_id}: no smoke tests in e2e/{s.train_id}/"
+        RuleViolation(
+            rule_id=_RULE.rule_id,
+            severity=_RULE.severity,
+            location=f"plan/_trains.yaml:{s.train_id}",
+            detail=f"{s.train_id}: no smoke tests in e2e/{s.train_id}/",
+            fix_hint_ref=_RULE.fix_hint_ref,
+        )
         for s in statuses
-        if not s.has_smoke_tests
+        if not s.has_smoke_tests and coverage_is_due(REPO_ROOT, s.train_id)
     ]
 
     if violations:
