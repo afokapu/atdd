@@ -1,6 +1,6 @@
 phase: tester
-passed_at: '2026-09-11T12:36:55.418214+00:00'
-source_hash: 15016673c3a7d8f37b8eaf5440409466469d71ccb879128d43acf058c562da7e
-atdd_version: 4.80.0
+passed_at: '2026-09-09T04:12:23.818452+00:00'
+source_hash: 255ac498df4f8f07b575c2ea9d095275f02c7d66c8162f96164e12aabb58a22b
+atdd_version: 4.62.0
 skipped_api: true
 could_not_check: 108
