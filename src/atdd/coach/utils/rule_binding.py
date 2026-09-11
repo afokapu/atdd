@@ -152,7 +152,11 @@ class RuleMetadata:
         harness_type: Test harness type the rule expects.
         harness_category: Coarse-grained harness category.
         signal_metric: Telemetry metric the rule produces / consumes.
-        signal_threshold: Threshold against which ``signal_metric`` is judged.
+        signal_threshold: Threshold against which ``signal_metric`` is judged,
+            preserved verbatim from the YAML source (``int``/``float``/
+            ``bool``/``str``) so the metric module's
+            ``passes(value, threshold)`` sees the type the author wrote.
+            ``None`` when unset; ``0`` and ``False`` are meaningful.
         given: Authoring-time precondition prose, full list per
             §4.1 (one tuple element per ``given.abstract`` list item, or
             a single-element tuple when the source is a scalar string).
@@ -189,7 +193,7 @@ class RuleMetadata:
     harness_type: Optional[str] = None
     harness_category: Optional[str] = None
     signal_metric: Optional[str] = None
-    signal_threshold: Optional[str] = None
+    signal_threshold: object = None
     given: Optional[Tuple[str, ...]] = None
     when: Optional[Tuple[str, ...]] = None
     then: Optional[Tuple[str, ...]] = None
@@ -661,13 +665,28 @@ def _passthrough_list(block, key) -> Optional[Tuple[str, ...]]:
 
 
 def _passthrough_threshold(signal):
-    """Return ``signal.threshold`` as a string (preserves int/float/str)."""
+    """Return ``signal.threshold`` VERBATIM — the authored scalar, untouched.
+
+    The metric module's ``passes(value, threshold)`` is handed this value
+    directly (``metric_runner.collect_metric_violations``), so the type the
+    author wrote in YAML is part of the contract. ``str()`` does not preserve
+    that type, it destroys it: an authored ``threshold: 0`` arrived as ``'0'``
+    and every numeric comparison raised ``TypeError``, which the runner logged
+    and swallowed — so every metric acceptance in every consumer repo reported
+    PASS unconditionally.
+
+    This now matches the sibling passthrough in ``rule_id_registry``, which
+    already documents the same contract ("type is preserved verbatim from the
+    YAML source so the metric module's ``passes(value, threshold)`` call sees
+    what the author wrote") and honours it.
+
+    ``None`` means absent. ``0`` and ``False`` are meaningful thresholds and
+    are preserved as themselves — the caller discriminates on ``is None``, not
+    on truthiness.
+    """
     if not isinstance(signal, dict):
         return None
-    val = signal.get("threshold")
-    if val is None:
-        return None
-    return str(val)
+    return signal.get("threshold")
 
 
 def _build_repo_rule_metadata(

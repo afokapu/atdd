@@ -16,6 +16,9 @@ Iterates every ``RuleMetadata`` carrying both ``signal_metric`` and
 3. Calls ``passes(value, threshold) -> bool`` from the same module.
 4. On ``passes() == False`` constructs a ``Violation`` with
    ``rule_id`` = the registry's rule_id and ``location`` = ``"codebase"``.
+5. On ``passes()`` RAISING, constructs a ``Violation`` too — fail closed.
+   A threshold the module cannot judge has not been satisfied, and the
+   runner must not report a gate it never evaluated as clean.
 
 All violations across all rules are routed through a SINGLE
 ``assert_disposition_satisfied`` call with
@@ -36,6 +39,12 @@ Skip rules:
   ``tester.acceptance-violation.acceptance-must-be-measurable`` validator
   (#410) catches the schema violation; runner does not double-emit.
 
+Deliberately NOT a skip rule: a ``passes()`` that raises. No validator
+downstream can catch it — the fault is in the pairing of a computed value
+with an authored threshold, which only exists at runtime. It was a skip
+until #1925, and that is exactly how a stringified threshold disabled
+every metric acceptance in the repo without turning a single gate red.
+
 The metric module owns the ``passes`` semantic. The runner does NOT
 infer threshold direction from the metric name; supplying a default
 ``passes`` would silently invert minimum-requirement metrics. See spec
@@ -49,7 +58,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Protocol, Sequence
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
@@ -155,17 +164,67 @@ def _load_module_from_path(path: Path) -> Optional[ModuleType]:
         return None
 
 
+class RuleRecord(Protocol):
+    """Everything this runner needs off a rule — the whole contract.
+
+    A structural type, deliberately (#1931). Two classes named
+    ``RuleMetadata`` satisfy it: ``rule_binding``'s, which
+    ``find_repo_rules`` yields, and ``rule_id_registry``'s, which
+    ``build_registry`` returns. Naming a concrete class here would re-assert
+    in the type system the same false requirement the ``isinstance`` guard
+    asserted at runtime — that a rule is a particular class rather than a
+    thing carrying particular fields.
+    """
+
+    rule_id: str
+    severity: Any
+    signal_metric: Optional[str]
+    signal_threshold: Any
+
+
+#: The fields this runner actually reads off a rule. Selection is by these,
+#: not by class identity — see ``_is_rule_record``. Kept in step with
+#: ``RuleRecord`` above: that protocol is the compile-time statement of this
+#: tuple, and this tuple is the runtime check of that protocol.
+_REQUIRED_RULE_FIELDS = ("rule_id", "severity", "signal_metric", "signal_threshold")
+
+
+def _is_rule_record(meta: object) -> bool:
+    """Whether *meta* carries everything the runner needs to judge a rule.
+
+    This replaces an ``isinstance`` check against
+    ``rule_id_registry.RuleMetadata`` (#1931). TWO classes of that name exist:
+    ``rule_binding.RuleMetadata`` is what ``find_repo_rules`` yields when it
+    walks ``plan/``, and it is not the one this module imports. Feeding the
+    walker's output straight to the runner therefore dropped every rule and
+    returned an empty violation list — which on an enforcement path reads
+    exactly like a clean run.
+
+    The supported path survived only because ``build_registry`` converts
+    between the two while merging the repo walk; nothing recorded that the
+    conversion was load-bearing. The same two-classes-one-name split is what
+    produced #1925, one hop earlier on this path.
+
+    Asking for the fields instead keeps the original guard's real purpose —
+    a malformed registry value must not raise ``AttributeError`` mid-walk —
+    without paying for it in correctness.
+    """
+    return all(hasattr(meta, field) for field in _REQUIRED_RULE_FIELDS)
+
+
 def _select_runnable_rules(
-    registry: Dict[str, RuleMetadata],
-) -> List[RuleMetadata]:
+    registry: Mapping[str, Any],
+) -> List[RuleRecord]:
     """Return rules with BOTH ``signal_metric`` and ``signal_threshold`` set.
 
     Rules with one but not the other are silently skipped — the
-    measurability validator (#410) policies the schema violation.
+    measurability validator (#410) policies the schema violation. Widening
+    what counts as a rule RECORD (#1931) does not widen what counts as
+    RUNNABLE: those two skips are unchanged.
     """
-    runnable: List[RuleMetadata] = []
+    runnable: List[RuleRecord] = []
     for meta in registry.values():
-        if not isinstance(meta, RuleMetadata):
+        if not _is_rule_record(meta):
             continue
         if not meta.signal_metric:
             continue
@@ -180,12 +239,34 @@ def _format_metric_detail(metric: str, value: Any, threshold: Any) -> str:
     return f"{metric}={value!r}, threshold={threshold!r}"
 
 
+def _format_unevaluatable_detail(
+    metric: str, value: Any, threshold: Any, exc: BaseException,
+) -> str:
+    """Detail for a threshold the metric module could not judge.
+
+    Names both operands and their types: the overwhelmingly common cause is
+    a threshold whose type does not match the computed value's.
+    """
+    return (
+        f"{metric}: threshold could not be evaluated — "
+        f"passes({value!r}, {threshold!r}) raised "
+        f"{type(exc).__name__}: {exc} "
+        f"(value is {type(value).__name__}, threshold is "
+        f"{type(threshold).__name__})"
+    )
+
+
 def _build_violation(
-    meta: RuleMetadata,
+    meta: RuleRecord,
     value: Any,
     threshold: Any,
+    detail: Optional[str] = None,
 ) -> Optional[Violation]:
     """Construct the ``Violation`` record for a failing rule.
+
+    *detail* overrides the standard ``<metric>=<value>, threshold=<t>`` line
+    for failures that are not a plain threshold breach (e.g. a ``passes()``
+    that raised). Severity gating stays here so every emission path shares it.
 
     Returns ``None`` when severity is missing/non-int — those rules are
     malformed and policed elsewhere; the runner skips defensively.
@@ -204,14 +285,14 @@ def _build_violation(
         rule_id=meta.rule_id,
         severity=severity,
         location="codebase",
-        detail=_format_metric_detail(
+        detail=detail if detail is not None else _format_metric_detail(
             meta.signal_metric or "", value, threshold,
         ),
     )
 
 
 def collect_metric_violations(
-    registry: Dict[str, RuleMetadata],
+    registry: Mapping[str, Any],
     repo_root: Path,
     *,
     toolkit_root: Optional[Path] = None,
@@ -258,7 +339,12 @@ def collect_metric_violations(
 
         try:
             ok = passes_fn(value, meta.signal_threshold)
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
+            # FAIL CLOSED. A threshold that cannot be evaluated is not a
+            # threshold that was met. Treating this as a skip is what hid a
+            # repo-wide defect: every authored threshold reached `passes()`
+            # stringified, every comparison raised TypeError, and the runner
+            # reported a clean gate over acceptances it had never judged.
             _logger.warning(
                 "metric_runner: passes() raised for %s: %s",
                 meta.signal_metric, exc,
@@ -267,6 +353,14 @@ def collect_metric_violations(
                     "error_type": type(exc).__name__,
                 },
             )
+            violation = _build_violation(
+                meta, value, meta.signal_threshold,
+                detail=_format_unevaluatable_detail(
+                    meta.signal_metric or "", value, meta.signal_threshold, exc,
+                ),
+            )
+            if violation is not None:
+                violations.append(violation)
             continue
 
         if ok:
@@ -286,6 +380,12 @@ def run_metric_runner(
     toolkit_root: Optional[Path] = None,
 ) -> None:
     """Run the metric runner and route every failure through the gate.
+
+    Deliberately narrower than ``collect_metric_violations`` (#1931). This is
+    the gate-facing entry point: it defaults to ``build_registry()`` and hands
+    the same object to ``assert_disposition_satisfied``, which reads fields no
+    ``RuleRecord`` promises. Selection accepts any rule record; the gate call
+    takes the registry the gate requires, and the boundary sits here.
 
     Single ``assert_disposition_satisfied`` call: the gate groups by
     ``rule_id`` internally and emits one failure block per failing rule

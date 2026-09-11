@@ -36,6 +36,32 @@ def _debug_requests(args: list[str]) -> list[str]:
     return [ln for ln in proc.stderr.splitlines() if ln.startswith("> ")]
 
 
+def _gh_is_authenticated() -> bool:
+    """Whether `gh` in THIS environment can talk to GitHub at all."""
+    return subprocess.run(
+        ["gh", "auth", "status"], capture_output=True, timeout=30,
+    ).returncode == 0
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _require_gh() -> None:
+    """Skip the module when gh cannot authenticate, naming why.
+
+    A fixture rather than a module-level `pytest.mark.skipif`: that binding is
+    mutable global state, which `tester.isolation` forbids, and its condition is
+    evaluated at COLLECTION — so the marker form also ran `gh auth status` while
+    pytest was still importing files, in every suite that touched this path.
+    """
+    if not _gh_is_authenticated():
+        pytest.skip(
+            "gh is not authenticated in this environment, so the live transport "
+            "cannot be observed. This is #1911 — push-event CI runs authenticate "
+            "no gh even with GH_TOKEN set — not a verdict about the listing. The "
+            "pull_request-event run of the same job does exercise these assertions.",
+            allow_module_level=True,
+        )
+
+
 @pytest.fixture(scope="module")
 def client() -> GitHubClient:
     return GitHubClient(repo=REPO)

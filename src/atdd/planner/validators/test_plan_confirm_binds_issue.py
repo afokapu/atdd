@@ -24,6 +24,7 @@ from atdd.coach.validators._violation import Violation
 from atdd.planner.commands.plan_session import (
     PlanSession, SessionGateError, Step, Unit, Verdict,
 )
+from atdd.planner.validators._plan_session_fixtures import wagon_spec
 
 pytestmark = [pytest.mark.planner]
 
@@ -38,7 +39,7 @@ def _scan() -> List[Violation]:
     session = PlanSession("confirm-binds-issue-probe", step=Step.RATIFY.value)
     # name must be verb-object (planner.wagon.name-is-verb-object, #1276); the
     # positive control below locks only if the kept name also passes that gate.
-    session.add_unit(Unit(kind="wagon", ref="manage-probe", spec={"wagon": "manage-probe"}))
+    session.add_unit(Unit(kind="wagon", ref="manage-probe", spec=wagon_spec("manage-probe")))
     session.units[0]["verdict"] = Verdict.KEEP.value
     assert session.issue_ref is None  # precondition: no local issue bound
 

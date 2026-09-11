@@ -32,10 +32,15 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from atdd.coach.utils.config import load_atdd_config
+from atdd.planner.commands.plan_unit_schema import (
+    KNOWN_KINDS, REASONING_KINDS, check_unit_spec,
+)
 from atdd.runtime.elicit import (
     AtddRole, ElicitKind, ElicitRequest, ElicitResponse, ElicitRole,
     ElicitStatus, Participant,
 )
+
 
 
 class Step(str, Enum):
@@ -163,7 +168,41 @@ class PlanSession:
         self.step = Step.COMPOSE.value
 
     # ---- units -------------------------------------------------------------
-    def add_unit(self, unit: Unit) -> None:
+    def _assert_kind_admissible(self, unit: Unit) -> None:
+        """Refuse a kind that authors nothing, and a ref reused under a new one.
+
+        The conflict check runs BEFORE any schema check: re-using a ref under a
+        different kind is a structural mistake about the session, and the
+        incoming spec is then being read against the wrong schema entirely, so
+        reporting its fields would bury the error that actually matters.
+        """
+        if unit.kind not in KNOWN_KINDS:
+            raise SessionGateError(
+                f"unknown plan kind {unit.kind!r} — it resolves to no atdd author "
+                f"writer and names no reasoning move, so it would ride through "
+                f"Ratify and fail only at author. Known kinds: "
+                f"{', '.join(sorted(KNOWN_KINDS))}")
+        for existing in self.units:
+            if existing["ref"] == unit.ref and existing["kind"] != unit.kind:
+                raise SessionGateError(
+                    f"unit {unit.ref!r} already exists as kind "
+                    f"{existing['kind']!r}; refusing to redefine it as "
+                    f"{unit.kind!r} — use a distinct ref")
+
+    def _compose_findings(self, unit: Unit, root: Path | str) -> list:
+        """Well-formedness findings for ``unit``; raises for an ENFORCED kind."""
+        tier, findings = check_unit_spec(
+            unit.kind, unit.spec, config=load_atdd_config(Path(root)),
+            stage="compose")
+        if findings and tier == "enforce":
+            raise SessionGateError(
+                f"spec-is-schema-valid: the {unit.kind} {unit.ref!r} is not "
+                f"schema-valid — atdd author promises schema-valid artifacts by "
+                f"construction, and Compose is where a hand-authored spec keeps "
+                f"that promise:\n  - " + "\n  - ".join(findings))
+        return findings
+
+    def add_unit(self, unit: Unit, root: Path | str = ".") -> None:
         """Add a candidate unit, or update the one already carrying this ``ref``.
 
         ``ref`` identifies a unit within a session — ``_unit()`` has always
@@ -187,17 +226,28 @@ class PlanSession:
         a confirmed session would mutate a decomposition the operator had already
         signed off — the same bypass as appending a new unit, wearing the shape of
         an edit. The guard runs before the ref scan so both paths are covered.
+
+        The spec is WELL-FORMEDNESS-checked against its artifact schema (#1929),
+        which is what ``planner.plan.session-lifecycle`` already asks of Compose
+        ("candidate decomposition convention-shaped"). Only values that are
+        PRESENT are checked — a half-written spec is a draft, not a defect, and
+        the upsert above exists precisely to let it be re-stated. Completeness is
+        Ratify's job. An enforced kind raises; an advisory kind records its
+        findings onto the unit, so they survive compaction and resurface at
+        Ratify instead of relying on a human to remember them.
         """
         self.assert_mutable(f"add the {unit.kind} unit {unit.ref!r}")
+        self._assert_kind_admissible(unit)
+        findings = self._compose_findings(unit, root)
         incoming = asdict(unit)
+        if findings:
+            # Only when non-empty: `incoming` is a fresh dict and the upsert
+            # below REPLACES wholesale, so a re-stated spec that now validates
+            # simply arrives without the key — which drops the stale advisory.
+            incoming["advisories"] = findings
         for i, existing in enumerate(self.units):
             if existing["ref"] != incoming["ref"]:
                 continue
-            if existing["kind"] != incoming["kind"]:
-                raise SessionGateError(
-                    f"unit {incoming['ref']!r} already exists as kind "
-                    f"{existing['kind']!r}; refusing to redefine it as "
-                    f"{incoming['kind']!r} — use a distinct ref")
             if existing["spec"] != incoming["spec"]:
                 self.units[i] = incoming  # spec changed -> verdict resets to PENDING
             # identical spec: a no-op, so a replay never discards a verdict or
@@ -251,7 +301,11 @@ class PlanSession:
         if target is Step.COMPOSE:
             return bool(self.sources), "Attach requires captured sources / plan state"
         if target is Step.RATIFY:
-            cand = [u for u in self.units if u["kind"] not in ("main-job", "heuristic", "analog")]
+            # REASONING_KINDS is the single source for "names a move, not an
+            # artifact" (#1929) — this branch and `author()` each carried their
+            # own copy, and they disagreed: this one knew a heuristic is not a
+            # decomposition artifact while the author dispatch raised on one.
+            cand = [u for u in self.units if u["kind"] not in REASONING_KINDS]
             return bool(cand), "Compose requires at least one candidate decomposition unit"
         if target is Step.AUTHORED:
             return self.locked, "Ratify requires the decomposition to be locked by the operator"
@@ -335,16 +389,44 @@ class PlanSession:
             assert_kept_artifact_naming,
         )
         assert_kept_artifact_naming(self, root)
+        # Spec completeness for kept units (#1929). Same atomic, before-lock
+        # contract as the three gates above: a kept unit whose spec would author
+        # a schema-invalid artifact raises and leaves the session unlocked. This
+        # is the pass that adds `required`/`minItems`/`minLength` back on top of
+        # the well-formedness Compose already enforced.
+        from atdd.planner.commands.confirm_spec_schema import (
+            assert_kept_specs_schema_valid,
+        )
+        assert_kept_specs_schema_valid(self, root)
         self.locked = True
+
+    def granularity_report(self) -> dict:
+        """Which rungs of the granularity ladder the kept decomposition reached
+        (``planner.plan.granularity-completeness``, #1929). Reports, never blocks."""
+        from atdd.planner.commands.confirm_spec_schema import granularity_report
+        return granularity_report(self)
 
     def author(self, author_fn) -> list:
         """Post-ratify: deterministically author each KEPT unit via `author_fn`
         (the #1144 atdd-author writers). Refuses if not locked
-        (planner.plan.confirm-before-author — the rule name is unchanged)."""
+        (planner.plan.confirm-before-author — the rule name is unchanged).
+
+        A kept REASONING unit (main-job, heuristic, analog) authors nothing and
+        is skipped rather than raised on (#1929). ``planner.decomposition.keep-pivot-kill``
+        already settles this: it names heuristic and analog as candidate
+        granularities and says an artifact is written "only after a
+        FINAL-granularity keep". Raising instead left ``kill`` — which records
+        the opposite of what happened — as the only verdict that kept the
+        session authorable.
+        """
         if not self.locked:
             raise SessionGateError(
                 "confirm-before-author: nothing may be authored before the operator ratifies")
-        results = [author_fn(u["kind"], u["spec"]) for u in self.kept_units()]
+        results = [
+            author_fn(u["kind"], u["spec"])
+            for u in self.kept_units()
+            if u["kind"] not in REASONING_KINDS
+        ]
         self.advance(Step.AUTHORED)
         return results
 

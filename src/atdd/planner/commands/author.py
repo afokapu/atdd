@@ -716,26 +716,70 @@ def _reject_legacy_registry_shape(registry_path: Path, registry: object) -> None
         )
 
 
+def _evict_train_from_other_buckets(trains: dict, tid: str, *, keep: tuple) -> None:
+    """Drop ``tid`` from every bucket except ``keep``, pruning buckets left empty.
+
+    A category pivot moves a typed train to a different bucket, and the dedup in
+    :func:`_upsert_train_registry` is bucket-LOCAL — the hazard ``train_bucket``'s
+    docstring names (#1504). Without evicting first, the pivoted id is appended to
+    its new bucket while the old row stays where it was, filing one train_id twice.
+    """
+    for group, subs in list(trains.items()):
+        if not isinstance(subs, dict):
+            continue
+        for sub, entries in list(subs.items()):
+            if (group, sub) == keep or not isinstance(entries, list):
+                continue
+            kept = [
+                e for e in entries
+                if not (isinstance(e, dict) and e.get("train_id") == tid)
+            ]
+            if len(kept) == len(entries):
+                continue
+            if kept:
+                subs[sub] = kept
+            else:
+                del subs[sub]  # an emptied bucket is noise, not a record
+        if not subs:
+            del trains[group]
+
+
 def _upsert_train_registry(registry_path: Path, tid: str, spec: dict, home: tuple) -> None:
-    """Dedup-insert the train's entry into its bucket in plan/_trains.yaml."""
+    """Upsert the train's entry into its bucket in plan/_trains.yaml.
+
+    A re-author REPLACES the existing row rather than leaving it at its
+    first-authored values — the shape both sibling registry writers already have
+    (:func:`_insert_contract_registry`, :func:`_insert_interlocking_registry`).
+    Insert-only was how a pivoted train kept a stale description and wagon list
+    even after its manifest had been rewritten by hand (#1915).
+    """
     group, sub, rel_path, _per_train = home
     registry = {}
     if registry_path.exists():
         registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
     _reject_legacy_registry_shape(registry_path, registry)
     registry.setdefault("trains", {})
+    _evict_train_from_other_buckets(registry["trains"], tid, keep=(group, sub))
     bucket = registry["trains"].setdefault(group, {}).setdefault(sub, [])
-    if not any(isinstance(e, dict) and e.get("train_id") == tid for e in bucket):
-        entry = {
-            "train_id": tid,
-            "description": spec.get("description", ""),
-            "path": rel_path,
-            "wagons": spec.get("wagons", []),
-        }
-        if _TYPED_TRAIN_ID_RE.match(tid):
-            entry["category"] = spec.get("category", "nominal")
+    entry = {
+        "train_id": tid,
+        "description": spec.get("description", ""),
+        "path": rel_path,
+        "wagons": spec.get("wagons", []),
+    }
+    if _TYPED_TRAIN_ID_RE.match(tid):
+        entry["category"] = spec.get("category", "nominal")
+    existing = next(
+        (e for e in bucket if isinstance(e, dict) and e.get("train_id") == tid), None
+    )
+    if existing is None:
         bucket.append(entry)
-        bucket.sort(key=lambda e: e.get("train_id", ""))
+    else:
+        # Replace in place, do not merge: a key the spec no longer carries must
+        # leave the row, or a removal becomes unsayable.
+        existing.clear()
+        existing.update(entry)
+    bucket.sort(key=lambda e: e.get("train_id", ""))
     _write_yaml(registry_path, registry)
 
 
@@ -782,6 +826,48 @@ def _build_train_doc(tid: str, spec: dict) -> dict:
     return train_doc
 
 
+# The keys `_build_train_doc` authors. On a re-author the spec is authoritative
+# for exactly these: each is replaced, and one dropped from the spec is dropped
+# from the file. Every OTHER train.schema property — `route_space`, `test`,
+# `code`, `expectations`, `sort_key` — arrives AFTER authoring, from coach or a
+# human, and is carried through untouched. `route_space` rides on 7 of the 21
+# in-repo trains today; deleting it is what made the obvious repair (write
+# unconditionally) worse than the bug it fixed (#1915).
+_TRAIN_AUTHORED_KEYS = frozenset({
+    "train_id", "title", "description", "category", "themes", "family",
+    "primary_wagon", "dependencies", "sequence", "acceptances", "participants",
+    "source_interlocking",
+})
+
+# `status` is advanced by the phase machine (planned -> tested -> implemented).
+# `_build_train_doc` seeds it at "planned", which is right for a NEW train and
+# wrong for every re-author — so an existing value wins.
+_TRAIN_LIFECYCLE_KEYS = ("status",)
+
+
+def _merge_train_doc(per_train: Path, authored: dict) -> dict:
+    """The document to write for ``authored``, reconciled with what is on disk.
+
+    A first author writes ``authored`` verbatim. A re-author replaces every
+    authored key, preserves every other key, and keeps the existing lifecycle
+    status — so a pivoted spec lands without deleting post-authoring state or
+    resetting the phase.
+    """
+    if not per_train.exists():
+        return authored
+    existing = yaml.safe_load(per_train.read_text(encoding="utf-8")) or {}
+    if not isinstance(existing, dict):
+        return authored  # unreadable shape: the authored document is the repair
+    merged = dict(authored)
+    for key, value in existing.items():
+        if key not in _TRAIN_AUTHORED_KEYS:
+            merged[key] = value
+    for key in _TRAIN_LIFECYCLE_KEYS:
+        if key in existing:
+            merged[key] = existing[key]
+    return merged
+
+
 def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
     """Author a train: dedup-insert into _trains.yaml + write plan/_trains/<id>.yaml (WMBT E004)."""
     validate_train(spec)
@@ -799,8 +885,12 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
     _upsert_train_registry(registry_path, tid, spec, home)
 
     per_train.parent.mkdir(parents=True, exist_ok=True)
-    if not per_train.exists():
-        _write_yaml(per_train, _build_train_doc(tid, spec))
+    # Write on every author. Skipping when the file existed made a re-authored
+    # train a silent no-op, which broke the one modify-later route the system
+    # offers: `PlanSession.reopen()` refuses post-AUTHORED and directs the
+    # operator to author the change as a NEW plan session against the same
+    # issue — straight back through here (#1915).
+    _write_yaml(per_train, _merge_train_doc(per_train, _build_train_doc(tid, spec)))
     return per_train
 
 

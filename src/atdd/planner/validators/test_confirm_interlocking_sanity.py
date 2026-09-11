@@ -25,6 +25,7 @@ from atdd.planner.interlocking import (
 )
 from atdd.planner.interlocking.tests._fixtures import interlocking_doc, write_tree
 from atdd.planner.commands.plan_session import PlanSession, SessionGateError, Step, Unit, Verdict
+from atdd.planner.validators._plan_session_fixtures import train_spec
 
 pytestmark = [pytest.mark.platform]
 
@@ -69,8 +70,10 @@ def _session_with_kept_train(root: Path, *, interlocking: bool) -> PlanSession:
     s = PlanSession(session_id="s1")
     s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
-    spec = {"source_interlocking": {"interlocking_id": _INTERLOCKING_ID,
-                                    "route_id": "nominal-all-voted"}} if interlocking else {}
+    spec = train_spec(
+        source_interlocking={"interlocking_id": _INTERLOCKING_ID,
+                             "route_id": "nominal-all-voted"},
+    ) if interlocking else train_spec()
     s.add_unit(Unit(kind="train", ref="3007-match-resolution-standard",
                     verdict=Verdict.KEEP.value, spec=spec))
     return s

@@ -328,65 +328,68 @@ def _reachability_no_orphan(graph, config: Optional[dict] = None) -> List[dict]:
 # Both auto-capture: they fire only when a repo declares interlockings, so the
 # clean repo (no interlockings) stays at 0.
 # ---------------------------------------------------------------------------
-def _interlocking_guard_coverage(graph) -> List[dict]:
+def _iter_interlockings(graph):
+    """Every loadable interlocking under the graph root.
+
+    Shape failures are owned by the schema family, not by coverage, so an
+    interlocking that will not load is skipped here rather than reported twice.
+    """
     from atdd.planner.interlocking import InterlockingError, load_interlocking
     from atdd.planner.interlocking.discovery import iter_interlocking_paths
 
     root = graph.root
     if root is None:
-        return []
-    out: List[dict] = []
+        return
     for path in iter_interlocking_paths(root):
         try:
-            il = load_interlocking(path)
+            yield load_interlocking(path)
         except InterlockingError:
-            continue  # shape failures are owned by the schema family, not coverage
-        routed_guards = {r.guard_ref: r.route_id for r in il.routes}
-        residual_guards = {
-            rsd.id for rsd in il.residuals if rsd.kind == "structural"
-        }
-        for guard_id in il.guard_index():
-            if guard_id in routed_guards:
-                continue
-            if guard_id in residual_guards:
-                continue
-            out.append({"interlocking_id": il.interlocking_id, "guard_id": guard_id,
-                        "route_id": None, "coverage_status": "uncovered"})
+            continue
+
+
+def _interlocking_guard_coverage(graph) -> List[dict]:
+    """Delegates to `sanity.guard_coverage_violations` (#1547).
+
+    This used to re-implement the check, and the copy was inert: it excused a
+    guard when `guard_id` appeared in `{rsd.id for rsd in il.residuals}` — a
+    `residual:` namespace tested against a `guard:` one. Measured over this
+    repository's own interlockings, that intersection is empty for every file,
+    so the escape could never be taken.
+
+    `sanity.py` was repaired for this issue and carries the real linkage —
+    guard -> WMBT -> residual, via `residual_wmbt_refs("structural")`, because
+    `Residual` has no guard_ref. Two implementations of one rule drift until
+    one of them is wrong, and this one was; calling the repaired one is the fix,
+    not copying it across (#1901, one layer over).
+    """
+    from atdd.planner.interlocking.sanity import guard_coverage_violations
+
+    out: List[dict] = []
+    for il in _iter_interlockings(graph):
+        out.extend(guard_coverage_violations(il))
     return out
 
 
 def _interlocking_wmbt_surface_or_residual(graph) -> List[dict]:
-    from atdd.planner.interlocking import InterlockingError, load_interlocking
-    from atdd.planner.interlocking.discovery import iter_interlocking_paths
+    """Delegates to `sanity.wmbt_surface_or_residual_violations` (#1547).
 
-    root = graph.root
-    if root is None:
-        return []
+    The copy here was provably inert. It built
+    `surfaced = {inv.wmbt_ref for inv in il.invariants ...}` and then, iterating
+    those same invariants, skipped every `ref in surfaced` — true by
+    construction. The append was unreachable for any input, so the projection
+    returned `[]` and the validator reported clean over everything.
+
+    Its residual escape was dead for the same namespace reason as the guard one.
+
+    The repaired rule in `sanity.py` asks the question this was meant to ask:
+    an obligation surfaces when its invariant carries a real expression, and is
+    otherwise discharged only by a structural residual naming that same WMBT.
+    """
+    from atdd.planner.interlocking.sanity import wmbt_surface_or_residual_violations
+
     out: List[dict] = []
-    for path in iter_interlocking_paths(root):
-        try:
-            il = load_interlocking(path)
-        except InterlockingError:
-            continue
-        surfaced = {inv.wmbt_ref for inv in il.invariants if inv.wmbt_ref}
-        for msg in il.messages:
-            surfaced.update(msg.feature_refs)
-        residual_wmbts = {
-            rsd.id for rsd in il.residuals if rsd.kind == "structural"
-        }
-        # An obligation is unsurfaced only when an invariant names a wmbt_ref that
-        # is never carried by another surface and is not a declared residual.
-        for inv in il.invariants:
-            ref = inv.wmbt_ref
-            if not ref:
-                continue
-            if ref in surfaced:
-                continue
-            if ref in residual_wmbts:
-                continue
-            out.append({"interlocking_id": il.interlocking_id, "wmbt_ref": ref,
-                        "surface_kind": "invariant", "residual_id": None,
-                        "coverage_status": "unsurfaced"})
+    for il in _iter_interlockings(graph):
+        out.extend(wmbt_surface_or_residual_violations(il))
     return out
 
 
