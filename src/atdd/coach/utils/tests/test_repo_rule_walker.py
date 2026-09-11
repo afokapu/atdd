@@ -137,7 +137,10 @@ def test_walker_populates_rule_metadata_from_d010(fixture_repo: Path):
     assert meta.harness_type == "unit"
     assert meta.harness_category == "backend"
     assert meta.signal_metric == "hardcoded_theme_map_literal_count"
-    assert meta.signal_threshold == "0"
+    # Verbatim, not stringified: the metric module's passes(value, threshold)
+    # is handed this value directly, so `0` must stay an int (#1925).
+    assert meta.signal_threshold == 0
+    assert isinstance(meta.signal_threshold, int)
     assert meta.author == "atdd:self-compliance"
     assert meta.created == "2026-04-17"
 

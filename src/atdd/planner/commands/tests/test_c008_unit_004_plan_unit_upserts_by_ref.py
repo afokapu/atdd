@@ -119,7 +119,11 @@ def test_reusing_a_ref_under_a_different_kind_is_refused(tmp_path, capsys):
 
 def test_add_unit_refuses_a_kind_conflict_at_the_api(tmp_path):
     s = PlanSession("api", main_job="job", issue_ref="iss")
-    s.add_unit(Unit(kind="wagon", ref="w1", spec={"a": 1}))
+    s.add_unit(Unit(kind="wagon", ref="w1", spec={"wagon": "play-audio"}))
+    # The conflicting spec is ALSO malformed; the conflict must still be what is
+    # reported. A ref reused under a new kind is being read against the wrong
+    # schema entirely, so leading with its field errors would bury the mistake
+    # (#1929 orders the kind check before the schema check for exactly this).
     with pytest.raises(SessionGateError, match="already exists as kind"):
         s.add_unit(Unit(kind="feature", ref="w1", spec={"a": 1}))
 

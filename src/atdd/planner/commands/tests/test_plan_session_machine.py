@@ -76,9 +76,27 @@ def test_decide_records_verdict_via_elicit():
     assert s.kept_units()[0]["ref"] == "play-audio"
 
 
+def _wagon_spec(slug: str = "capture-audio") -> dict:
+    """A wagon spec complete enough for the Ratify gate (#1929).
+
+    `planner.plan.spec-is-schema-valid` checks kept specs for completeness
+    before the lock, so a bare `Unit(kind="wagon", ref=...)` no longer reaches
+    it — which is the point: `create_wagon({})` would have raised at author.
+    Tests whose subject is the verdict machinery build on this floor.
+    """
+    return {
+        "wagon": slug,
+        "description": f"{slug} for the session-machine fixtures",
+        "subject": "agent:planner", "context": "commute",
+        "action": "captures audio", "goal": "music on the go",
+        "outcome": "audio is captured",
+        "produce": [{"name": "commons:audio:stream"}],
+    }
+
+
 def test_confirm_requires_all_resolved_then_locks():
     s = PlanSession("s1", main_job="x", step=Step.RATIFY.value, issue_ref="my-plan")
-    s.add_unit(Unit(kind="wagon", ref="play-audio"))  # PENDING
+    s.add_unit(Unit(kind="wagon", ref="play-audio", spec=_wagon_spec()))  # PENDING
     with pytest.raises(SessionGateError):
         s.confirm()
     s.decide("play-audio", _op_resolver("keep"))
@@ -114,7 +132,7 @@ def test_killed_units_are_not_authored():
 def test_confirm_refuses_unresolved_pivot_until_re_resolved():
     """A pivot is non-terminal: confirm refuses until it is re-resolved to keep/kill."""
     s = PlanSession("s1", step=Step.RATIFY.value, issue_ref="my-plan")
-    s.add_unit(Unit(kind="wagon", ref="w"))
+    s.add_unit(Unit(kind="wagon", ref="w", spec=_wagon_spec()))
     s.decide("w", _op_resolver("pivot"))
     with pytest.raises(SessionGateError):
         s.confirm()

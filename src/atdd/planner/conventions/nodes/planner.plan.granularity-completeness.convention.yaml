@@ -1,0 +1,38 @@
+schema_version: 1.0.0
+rule_id: planner.plan.granularity-completeness
+kind: policy
+status: active
+name: Ratify reports the dangling granularity ladder
+statement: Ratify names the rungs of the granularity ladder a decomposition did not
+  descend, so an operator is told that a locked plan is not testable end to end rather
+  than having to notice it.
+terms:
+- term_id: ladder
+  text: 'the rungs a decomposition descends: wagon, feature, WMBT, acceptance. A plan
+    that keeps wagons and nothing else has named a shape but nothing testable.'
+- term_id: reports_not_blocks
+  text: Advisory by default, and deliberately so. A plan session must allow incremental
+    composition and planner.decomposition.local-scope scopes each run to a slice, so
+    refusing to lock eight wagons until their features exist would make the session
+    unusable. The failure being closed is DETECTION — an operator holding the protocol
+    in memory was the only thing that noticed a wagons-only plan had locked.
+- term_id: strict_opt_in
+  text: '`atdd plan ratify --strict` turns the report into a refusal for a repo that
+    wants the hard gate; it unlocks before raising, so the refusal is atomic.'
+implementation:
+  type: validator
+  ref: test_plan_unit_spec_schema::test_ratify_reports_the_dangling_ladder
+metadata:
+  severity: 2
+  disposition: advisory
+validation:
+  family: presence
+  template: conditional_requirement
+  variant: planner_plan_granularity_completeness
+  phase: CONFIRM
+  enforcement: advisory
+  subject_kind: plan-session
+  failure_evidence:
+  - session_id
+  - kept_kinds
+  - dangling_rungs

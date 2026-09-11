@@ -30,6 +30,7 @@ from atdd.planner.naming import is_verb_object
 from atdd.planner.commands.plan_session import (
     PlanSession, SessionGateError, Step, Unit, Verdict,
 )
+from atdd.planner.validators._plan_session_fixtures import wagon_spec
 
 # Good verb-object slugs — incl. the convention's own canonical examples and the
 # common action verbs rounded out by the lexicon extension (#1283): route,
@@ -67,7 +68,7 @@ def _confirm_session_with_wagon(slug: str) -> PlanSession:
     s.step = Step.RATIFY.value
     s.issue_ref = "demo-slug"
     s.add_unit(Unit(kind="wagon", ref=f"wagon:{slug}",
-                    verdict=Verdict.KEEP.value, spec={"wagon": slug}))
+                    verdict=Verdict.KEEP.value, spec=wagon_spec(slug)))
     return s
 
 
@@ -92,7 +93,7 @@ def _drive_cli_to_confirm(tmp_path, slug: str) -> int:
     from atdd.planner.commands.plan_session_cli import run
 
     root = str(tmp_path)
-    spec = json.dumps({"wagon": slug})
+    spec = json.dumps(wagon_spec(slug))
     assert run(["--root", root, "start", "--id", "c1",
                 "--main-job", "mj", "--issue", "demo-slug"]) == 0
     assert run(["--root", root, "source", "--id", "c1", "req"]) == 0

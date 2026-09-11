@@ -68,12 +68,34 @@ def author_route_train(root: Path) -> None:
     )
 
 
+def minimal_train_spec() -> dict:
+    """The smallest train spec `train.schema.json` accepts at the Ratify gate.
+
+    These fixtures exist to exercise the INTERLOCKING gate, so their train specs
+    used to carry only the fields that gate reads. `planner.plan.spec-is-schema-valid`
+    (#1929) now checks kept specs for completeness before the lock, which a
+    one-key spec cannot satisfy — and rightly: `create_train({...})` would have
+    raised on it at author anyway. This is the realistic floor to build on.
+    """
+    return {
+        "train_id": ROUTE_TRAIN_ID,
+        "title": "Anchor route train",
+        "description": "the anchor route train the interlocking gate binds",
+        "themes": ["commons"],
+        "participants": ["wagon:alpha"],
+        "sequence": [{"step": 1, "intent": "carry the anchor route",
+                      "from": "wagon:alpha", "to": "wagon:alpha",
+                      "artifact": "commons:anchor:route"}],
+    }
+
+
 def kept_train_unit() -> dict:
     """A kept train unit whose spec declares the interlocking the gate must bind."""
     return {
         "ref": f"train:{ROUTE_TRAIN_ID}",
         "kind": "train",
         "verdict": "keep",
-        "spec": {"source_interlocking": {"interlocking_id": INTERLOCKING_ID,
+        "spec": {**minimal_train_spec(),
+                 "source_interlocking": {"interlocking_id": INTERLOCKING_ID,
                                          "route_id": ROUTE_ID}},
     }
