@@ -1,0 +1,23 @@
+schema_version: 1.0.0
+rule_id: tester.smoke.train-chain-complete-from-red
+kind: rule
+status: active
+name: The train E2E and smoke chain is complete from RED onward
+statement: Every train whose owning issue has reached RED must carry the full chain of E2E plus smoke coverage
+terms:
+- term_id: coverage_is_due
+  text: A train's e2e and smoke evidence is due once any work item owning that train
+    has reached RED. While every owning work item is strictly before RED the evidence
+    is not yet due, because RED is the phase that writes it. An unmapped train, an
+    escape phase (BLOCKED/OBSOLETE) and an unrecognised token all count as due —
+    the check fails closed rather than letting an untracked train switch it off.
+implementation:
+  type: validator
+  ref: test_train_completeness::test_train_completeness
+content:
+  fix_hint: 'Complete the chain for the named train (e2e/<train_id>/ with at least one smoke test), or transition the owning issue to RED only once it is complete.'
+  operational_guidance: 'Transition the owning issue to RED and write the tests, or
+    bind the train to its work item so its phase can be resolved. See #1920.'
+metadata:
+  severity: 3
+  disposition: strict
