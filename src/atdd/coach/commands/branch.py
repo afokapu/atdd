@@ -21,7 +21,11 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
+from atdd.coach.commands.issue_prefixes import (
+    ALLOWED_BRANCH_PREFIXES,
+    TYPE_TO_PREFIX,
+    prefix_for,
+)
 from atdd.coach.commands.worktree_placement import (
     resolve_worktree_dir_name,
     resolve_worktree_path,
@@ -107,7 +111,7 @@ class BranchManager:
             return
 
         # Fetch issue title for the PR title
-        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+        prefix = prefix_for(issue_type)
         pr_title = f"{prefix}: {slug.replace('-', ' ')} (#{issue_number})"
         try:
             proj = ProjectConfig.from_config(self.config_file)
@@ -414,7 +418,7 @@ class BranchManager:
 
         # Derive prefix
         if prefix is None:
-            prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+            prefix = prefix_for(issue_type)
 
         if prefix not in ALLOWED_BRANCH_PREFIXES:
             print(
@@ -639,7 +643,7 @@ class BranchManager:
                 return 1
             slug = entry["slug"]
             issue_type = entry.get("type", "implementation")
-            prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+            prefix = prefix_for(issue_type)
             worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         else:
             worktree_path = Path(target).expanduser()
