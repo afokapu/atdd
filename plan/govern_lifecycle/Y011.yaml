@@ -52,7 +52,11 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:Y011-SMOKE-001-the-live-listing-makes-no-graphql-call"
       id: "AC-SMOKE-001"
-      purpose: "the live client reaches REST and returns the same subject the GraphQL path returned"
+      purpose: "the live client reaches REST, and its listing has the scope callers expect.
+        The two transports were verified to return an identical set when #1930 merged
+        (aaa7381b, green); that equivalence is a migration fact, not a property
+        re-assertable on every run — `gh issue list` is GraphQL, and the GraphQL
+        rate-limit bucket being exhausted is the condition #1930 existed to escape (#1954)."
       phase: "SMOKE"
     harness:
       type: "integration"
@@ -66,7 +70,6 @@ acceptances:
       abstract:
         - "the listing reaches the REST issues endpoint and logs no GraphQL request"
         - "the subcommand it replaced really does use GraphQL — without this the assertion above proves nothing"
-        - "the set of issue numbers is identical across both transports, so the subject did not silently change"
         - "the unfiltered listing excludes exactly the open pull requests, asserted only while open PRs exist"
         - "state comes back in the case callers read"
     metadata:
