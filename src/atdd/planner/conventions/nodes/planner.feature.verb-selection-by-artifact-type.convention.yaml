@@ -155,6 +155,7 @@ terms:
     - pause
     - persist
     - ping
+    - place
     - plan
     - poll
     - populate
@@ -198,6 +199,7 @@ terms:
     - resume
     - retrieve
     - retry
+    - review
     - revoke
     - rollback
     - route

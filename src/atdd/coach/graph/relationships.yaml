@@ -3093,6 +3093,22 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: start_to_start
+  reason: the corpus drift report judges names against the same leading-verb lexicon
+    the authoring gates use, so the two halves cannot disagree about what a verb is
+  source_ref: planner.artifact-naming.verb-object-corpus-drift
+  strength: important
+  target_ref: planner.feature.verb-selection-by-artifact-type
+  type: requires
+- confidence: 1.0
+  reason: the name rules gate the authoring path while the drift report covers the
+    corpus already on disk; neither sees what the other sees
+  source_ref: planner.wagon.name-is-verb-object
+  target_ref: planner.artifact-naming.verb-object-corpus-drift
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: the verb-object name rule enforces the verb-object preference of the wagon URN grammar
   source_ref: planner.wagon.name-is-verb-object
