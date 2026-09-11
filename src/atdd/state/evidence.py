@@ -43,6 +43,9 @@ from typing import (
     Any, Dict, FrozenSet, Iterable, List, Mapping, Optional, Sequence, Set, Tuple,
 )
 
+from atdd.state.evidence_paths import (
+    gate_artifact_names, is_gate_evidence_artifact,
+)
 from atdd.state.projection import STATE_TOMBSTONED
 
 _log = logging.getLogger(__name__)
@@ -390,18 +393,11 @@ def diff_phases(
     return changes
 
 
-#: Prefix of the committed merge-authority evidence artifact. It must stay equal to
-#: ``merge_driver.EVIDENCE_RELATIVE``, which is the module that OWNS the path; it is
-#: restated rather than imported to keep this module's hot path free of the driver,
-#: and ``test_evidence_token_derivation_paths.py`` is the tie that stops the two
-#: literals from drifting apart.
-_MERGE_EVIDENCE_PREFIX = ".atdd/evidence/"
-
-#: The evidence tokens a *document* can attest to on its own.
-_DOCUMENT_TOKENS: FrozenSet[str] = frozenset({
-    "uid_generated", "body_initialized", "plan_complete", "acceptance_or_wmbt_refs",
-    "reason_digest", "tombstone_metadata",
-})
+#: The gate filenames an evidence artifact may be filed under, resolved once at import.
+#: Derived from the policy above, so a rung added to §6 is admissible by that edit alone.
+_GATE_ARTIFACT_NAMES: FrozenSet[str] = gate_artifact_names(
+    EVIDENCE_POLICY["transitions"], PHASE_LADDER,
+)
 
 
 def evidence_for(
@@ -426,7 +422,8 @@ def evidence_for(
     alone is not possible, and pretending otherwise would be worse than saying so.
     """
     tokens: Set[str] = set()
-    if document.get("uid"):
+    uid = str(document.get("uid") or "")
+    if uid:
         tokens.add("uid_generated")
     if str(document.get("body") or "").strip():
         tokens.add("body_initialized")
@@ -454,22 +451,7 @@ def evidence_for(
             tokens.add("passing_test_evidence")
             if "smoke" in name or "/smoke" in path:
                 tokens.add("smoke_evidence_artifact")
-        elif path.startswith(_MERGE_EVIDENCE_PREFIX):
-            # ``.atdd/evidence/<uid>/<gate>.yaml`` — the COMMITTED, per-gate merge
-            # authority artifact (``merge_driver.EVIDENCE_RELATIVE``), read back out
-            # of the object database by ``govern_cli._evidence_at``. Committed is the
-            # requirement, not an accident: evidence a merge cannot see is evidence
-            # the merge does not have (spec §6).
-            #
-            # NOT to be "aligned" with ``.atdd/smoke-evidence/<N>.yaml``, which looks
-            # like a near-miss of this name and is a different artifact entirely: the
-            # #358 presentation ratchet's local, .gitignore'd, operator-TYPED stamp,
-            # writable by `atdd validate coder --smoke-required` without running a
-            # test. Pointing this branch at it would either never fire (a gitignored
-            # path never appears in a commit's changed paths) or, if that ignore were
-            # lifted, mint smoke_evidence_artifact from a typed stamp — inventing a
-            # brand-new false green in the merge authority. #1602 closed that bug
-            # class; ``test_evidence_token_derivation_paths.py`` keeps it closed.
+        elif is_gate_evidence_artifact(path, uid, _GATE_ARTIFACT_NAMES):
             tokens.add("smoke_evidence_artifact")
         elif path.startswith("src/") and path.endswith(".py"):
             tokens.add("implementation_diff")
