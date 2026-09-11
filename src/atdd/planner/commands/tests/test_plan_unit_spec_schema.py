@@ -148,7 +148,7 @@ def test_a_kept_reasoning_unit_authors_nothing(tmp_path):
 
 
 def test_reasoning_and_authorable_kinds_are_disjoint_and_total():
-    assert REASONING_KINDS & AUTHORABLE_KINDS == set()
+    assert not (REASONING_KINDS & AUTHORABLE_KINDS)
     assert REASONING_KINDS | AUTHORABLE_KINDS == KNOWN_KINDS
 
 

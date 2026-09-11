@@ -41,6 +41,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 _SCHEMAS = Path(__file__).resolve().parent.parent / "schemas"
 
@@ -82,7 +83,7 @@ _COMPLETENESS_KEYWORDS = frozenset(
 )
 
 
-def _wellformedness_only(node):
+def _wellformedness_only(node: Any) -> Any:
     """``node`` with every completeness keyword stripped, recursively."""
     if isinstance(node, list):
         return [_wellformedness_only(v) for v in node]
@@ -139,7 +140,7 @@ def project_for_schema(kind: str, spec: dict) -> dict:
     only that a train spec is checked as written rather than as merged.
     """
     if kind == "wagon":
-        doc = {
+        doc: dict = {
             key: value
             for key, value in spec.items()
             if key not in ("produce", "consume", "wmbt")
@@ -158,7 +159,7 @@ def project_for_schema(kind: str, spec: dict) -> dict:
         doc["wmbt"] = spec.get("wmbt", {"total": 0})
         return doc
     if kind == "wmbt":
-        doc = {"urn": f"wmbt:{spec.get('wagon_slug', '')}:{spec.get('code', '')}"}
+        doc: dict = {"urn": f"wmbt:{spec.get('wagon_slug', '')}:{spec.get('code', '')}"}
         for key in (
             "step", "direction", "dimension", "object_of_control",
             "context_clarifier", "lens", "statement",
