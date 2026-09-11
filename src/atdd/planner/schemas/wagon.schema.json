@@ -96,7 +96,8 @@
           },
           "contract": {
             "type": ["string", "null"],
-            "pattern": "^(contract:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?|contracts/[a-z]+/[a-z][a-z0-9-]+\\.json)$",
+            "pattern": "^(contract:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?|contracts/[a-z][a-z0-9-]*(?:/[a-z][a-z0-9-]*)*\\.(?:schema\\.)?json)$",
+            "$comment": "Path arm widened by #1929. It was contracts/[a-z]+/[a-z][a-z0-9-]+.json — ONE segment, bare .json — which no path satisfying planner.artifact-naming.path-mirrors-identity can match: that rule mirrors {theme}(:{category})*:{aspect} onto contracts/<theme>/<category>/<aspect>.schema.json. The two were mutually exclusive, and the contradiction stayed latent only because every in-repo wagon uses the contract: URN arm (19) or null (164). Widening keeps BOTH gates reachable: a malformed segment is refused here, a well-formed path mirroring the wrong identity is refused by path-mirrors-identity with its own message. Traversal (..) and uppercase remain refused.",
             "description": "Contract URN per artifact-naming.convention.yaml (e.g., contract:commons:ux:foundations, contract:commons:player.identity, contract:match:result) or legacy path (e.g., contracts/commons/ux/foundations.json). Required field, use null if no contract exists."
           },
           "telemetry": {
@@ -133,7 +134,8 @@
           },
           "contract": {
             "type": ["string", "null"],
-            "pattern": "^(contract:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?|contracts/[a-z]+/[a-z][a-z0-9-]+\\.json)$",
+            "pattern": "^(contract:[a-z][a-z0-9\\-]*:[a-z][a-z0-9\\-:]*(\\.[a-z][a-z0-9\\-]+)?|contracts/[a-z][a-z0-9-]*(?:/[a-z][a-z0-9-]*)*\\.(?:schema\\.)?json)$",
+            "$comment": "Path arm widened by #1929. It was contracts/[a-z]+/[a-z][a-z0-9-]+.json — ONE segment, bare .json — which no path satisfying planner.artifact-naming.path-mirrors-identity can match: that rule mirrors {theme}(:{category})*:{aspect} onto contracts/<theme>/<category>/<aspect>.schema.json. The two were mutually exclusive, and the contradiction stayed latent only because every in-repo wagon uses the contract: URN arm (19) or null (164). Widening keeps BOTH gates reachable: a malformed segment is refused here, a well-formed path mirroring the wrong identity is refused by path-mirrors-identity with its own message. Traversal (..) and uppercase remain refused.",
             "description": "Optional contract URN per artifact-naming.convention.yaml (e.g., contract:appendix:mockup, contract:match:dilemma.current, contract:match:result) or legacy path (e.g., contracts/appendix/mockup.json). Can be null if no contract exists."
           },
           "telemetry": {

@@ -192,8 +192,9 @@
         },
         "count": {
           "type": "integer",
-          "minimum": 1,
-          "description": "Number of components of this type"
+          "minimum": 0,
+          "$comment": "Relaxed from minimum:1 by #1929. A zero count is a deliberate, informative declaration, not an empty one: the entry still carries a `rationale` saying WHY the layer needs nothing ('No new CLI commands — migration uses existing atdd commands'), which omitting the entry cannot distinguish from having forgotten it. 224 of 667 in-repo component entries are zero, so minimum:1 made the most informative form of the declaration unsayable.",
+          "description": "Number of components of this type; 0 declares the layer deliberately empty, with the reason in `rationale`."
         },
         "rationale": {
           "type": "string",
