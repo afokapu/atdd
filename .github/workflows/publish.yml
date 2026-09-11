@@ -90,18 +90,57 @@ jobs:
           git config user.name "atdd-release-bot"
           git config user.email "release-bot@users.noreply.github.com"
 
-      # Idempotency oracle: if HEAD already carries a release tag, this push was
-      # already published (a re-run / duplicate workflow_run) — do nothing.
-      - name: Skip if HEAD is already released
+      # Idempotency oracle (#1924). A release is THREE artifacts published by
+      # separate calls that fail separately — a git tag, a PyPI wheel, and a
+      # GitHub Release object — and this step used to read the tag alone:
+      #
+      #     if git describe --exact-match --tags HEAD; then already_released=true
+      #
+      # The tag is created FIRST, so it is the artifact most likely to exist when
+      # a later step fails, which made it the worst available proxy for the whole.
+      # Measured: v4.73.0 and v4.73.1 each carry a tag and a wheel and neither had
+      # a release object — `gh release create` hit a rate limit after the other
+      # two had landed — and because the tag was there, every re-run skipped and
+      # neither could ever heal. `atdd state version release-state` observes all
+      # three instead.
+      #
+      # PARTIAL deliberately does NOT set already_released=true, and equally does
+      # not fall through to the ordinary bump: completing v4.73.1 is right,
+      # publishing v4.73.2 and abandoning it is not. The bump step below is
+      # guarded on state == ABSENT for exactly that reason.
+      - name: Establish the release state of HEAD
         id: idem
         run: |
           set -euo pipefail
-          if TAG=$(git describe --exact-match --tags HEAD 2>/dev/null); then
-            echo "HEAD is already released as ${TAG} — nothing to do."
-            echo "already_released=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "already_released=false" >> "$GITHUB_OUTPUT"
+          TAG=$(git describe --exact-match --tags HEAD 2>/dev/null || true)
+          if ! OUT=$(atdd state version release-state --tag "${TAG}" --repo "${GITHUB_REPOSITORY}"); then
+            echo "${OUT}"
+            echo "::error title=release state unestablished::could not observe the \
+              release artifacts for '${TAG}'; refusing to act on a guess"
+            exit 1
           fi
+          echo "${OUT}"
+          STATE=$(echo "${OUT}" | sed -n 's/^state=//p')
+          ACTION=$(echo "${OUT}" | sed -n 's/^action=//p')
+          MISSING=$(echo "${OUT}" | sed -n 's/^missing=//p')
+          ORPHANED=$(echo "${OUT}" | sed -n 's/^orphaned=//p')
+          {
+            echo "already_released=$([ "${ACTION}" = skip ] && echo true || echo false)"
+            echo "state=${STATE}"
+            echo "action=${ACTION}"
+            echo "missing=${MISSING}"
+          } >> "$GITHUB_OUTPUT"
+          if [ "${ACTION}" = "complete" ]; then
+            echo "::warning title=partial release::${TAG} is missing ${MISSING} — \
+              completing it rather than bumping past it"
+          fi
+          if [ "${ORPHANED}" = "true" ]; then
+            echo "::warning title=orphaned release artifacts::artifacts exist for a \
+              version this commit cannot name; #1326's max(PyPI, tag) base keeps the \
+              next version clear of them, but nothing heals them"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Reconcile the store's current from the authoritative release BASE, then
       # bump by the merge commit's conventional-commit change class. Result: a real
@@ -114,9 +153,12 @@ jobs:
       # 3.152.0 already on PyPI (a regression). `atdd state version reconcile-base`
       # anchors on the PyPI published record (JSON API), falling back to the git tag
       # if PyPI is unreachable so a transient outage never hard-fails the release.
+      # ABSENT only (#1924). On PARTIAL there is already a version in flight and
+      # bumping past it abandons it — that is how v4.73.1 would have been left
+      # half-published for good while v4.73.2 sailed out.
       - name: Reconcile + bump the release version (State Store, #1172 / #1326)
         id: version
-        if: steps.idem.outputs.already_released == 'false'
+        if: steps.idem.outputs.state == 'ABSENT'
         run: |
           set -euo pipefail
           LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
@@ -134,6 +176,24 @@ jobs:
             exit 1
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # The completion path itself belongs to the release worker, which publishes
+      # the artifacts and lives in another repository (cloned below). Core can
+      # observe that a release is partial and can refuse to bump past it; it
+      # cannot yet publish the one missing artifact. Until the worker grows a
+      # complete-this-version entry point, say so and stop — loudly, because the
+      # alternative is the silence that let two versions rot.
+      - name: Refuse to bump past a partial release
+        if: steps.idem.outputs.state == 'PARTIAL'
+        run: |
+          set -euo pipefail
+          echo "::error title=partial release needs completing::\
+            ${{ steps.idem.outputs.action }} — missing: ${{ steps.idem.outputs.missing }}. \
+            The tag and any published artifacts are intact; what is absent is listed above. \
+            Create it by hand (REST, since the GraphQL bucket is what fails here): \
+            gh api -X POST repos/${GITHUB_REPOSITORY}/releases -f tag_name=<tag> \
+            -f name=<tag> -F generate_release_notes=true"
+          exit 1
 
       # Fetch the release-worker extension (drains version_decided → tag + PyPI +
       # external_ref). Conditional on RELEASE_WORKER_REF being configured — see the

@@ -102,6 +102,20 @@ def _build_parser() -> argparse.ArgumentParser:
         root=None,
     )
     add_verb(
+        version_sub, "release-state",
+        "Report whether the release for a tag is COMPLETE, PARTIAL or ABSENT by "
+        "observing all three artifacts — git tag, PyPI wheel, GitHub Release — "
+        "instead of inferring it from the tag alone (#1924).",
+        opt("--tag", dest="tag", default=None,
+            help="The tag on HEAD (e.g. v4.73.1). Omit when HEAD carries no tag."),
+        opt("--repo", default="afokapu/atdd",
+            help="owner/name for the GitHub Release lookup."),
+        opt("--package", default="atdd", help="PyPI package to query."),
+        opt("--next-version", dest="next_version", default=None,
+            help="The version a clean run would publish, for the ABSENT branch."),
+        root=None,
+    )
+    add_verb(
         version_sub, "reconcile-base",
         "Print the authoritative release base = max(git tag, PyPI latest) for the "
         "next bump (#1326). Falls back to the git tag if PyPI is unreachable.",
@@ -563,6 +577,48 @@ def _cmd_version(args) -> int:
         print("usage: atdd state version <show|emit|bump --class PATCH|MINOR|MAJOR|set X.Y.Z|"
               "reconcile-base --git-tag X.Y.Z>")
         return 2
+
+    if args.version_op == "release-state":
+        tag = (args.tag or "").strip() or None
+        head_version = tag.lstrip("v") if tag else None
+
+        # Both observers are THREE-valued, and collapsing None to False here would
+        # reintroduce the defect one layer up: an unreachable PyPI would read as
+        # "wheel absent", and the run would republish over a wheel that exists.
+        # An unestablished state is reported as UNKNOWN and stops the run.
+        on_pypi = ver.version_on_pypi(head_version, args.package) if head_version else False
+        has_release = ver.github_release_exists(tag, args.repo) if tag else False
+        if on_pypi is None or has_release is None:
+            unknown = [n for n, v in (("pypi", on_pypi), ("github-release", has_release))
+                       if v is None]
+            _log.warning("release state could not be established",
+                         extra={"tag": tag, "unestablished": unknown})
+            print("state=UNKNOWN")
+            print("action=refuse")
+            print(f"version={head_version or ''}")
+            print("missing=")
+            print(f"unestablished={','.join(unknown)}")
+            print("orphaned=false")
+            return 1
+
+        artifacts = ver.ReleaseArtifacts(
+            tag=tag is not None, pypi=on_pypi, github_release=has_release,
+        )
+        plan = ver.plan_release_action(
+            head_version, artifacts, args.next_version or "",
+        )
+        state = ver.release_state(artifacts)
+        print(f"state={state}")
+        print(f"action={plan.action}")
+        print(f"version={plan.version or ''}")
+        print(f"missing={','.join(plan.missing)}")
+        print(f"orphaned={'true' if plan.orphaned else 'false'}")
+        if plan.action == "complete":
+            _log.warning(
+                "release is partial; completing rather than bumping past it",
+                extra={"version": plan.version, "missing": plan.missing},
+            )
+        return 0
 
     if args.version_op == "reconcile-base":
         # The base is max(git tag, PyPI latest) so the next bump never regresses
