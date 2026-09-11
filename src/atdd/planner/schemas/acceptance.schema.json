@@ -2,9 +2,16 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Acceptance Schema (V2)",
   "description": "Validates acceptance criteria in WMBT files. Used by both planner (generates) and tester (consumes).",
-  "$comment": "Two representations exist. (1) The STANDALONE shape (this root object) is strict — required [identity,harness,given,when,then,signal,metadata], additionalProperties:false. (2) The WMBT-EMBEDDED shape (definitions/embedded_acceptance) is lighter and is what real plan/ WMBT files carry inline: no top-level `signal`, `when` has only `abstract` (no `action`), `then` has only `abstract` (no `assertions`), `metadata` uses `author`/`created` (not `wagon`). The strict root object is NOT applied as a file gate to embedded acceptances (read literally it would reject every real WMBT file); embedded acceptances are validated by the Python content validators. Documented for honesty — no pass/fail change. See #760.",
+  "$comment": "Two representations exist. (1) The STANDALONE shape (this root object) is strict — required [identity,given,when,then,signal,metadata] plus the §4.3 measurability anyOf below (harness OR signal.metric+threshold), additionalProperties:false. (2) The WMBT-EMBEDDED shape (definitions/embedded_acceptance) is lighter and is what real plan/ WMBT files carry inline: no top-level `signal`, `when` has only `abstract` (no `action`), `then` has only `abstract` (no `assertions`), `metadata` uses `author`/`created` (not `wagon`). The strict root object is NOT applied as a file gate to embedded acceptances (read literally it would reject every real WMBT file); embedded acceptances are validated by the Python content validators. Documented for honesty — no pass/fail change. See #760.",
   "type": "object",
-  "required": ["identity", "harness", "given", "when", "then", "signal", "metadata"],
+  "required": ["identity", "given", "when", "then", "signal", "metadata"],
+  "anyOf": [
+    {"$comment": "Spec §4.3 measurability, as schema structure: EITHER harness.type OR (signal.metric AND signal.threshold). `harness` sat in `required` until #1925, which made the second half unauthorable — atdd author acceptance refused every metric-only acceptance the invariant explicitly admits.", "required": ["harness"]},
+    {
+      "required": ["signal"],
+      "properties": {"signal": {"required": ["metric", "threshold"]}}
+    }
+  ],
   "additionalProperties": false,
   "properties": {
     "identity": {
@@ -155,9 +162,19 @@
 
     "signal": {
       "type": "object",
-      "description": "Telemetry signals following OpenTelemetry (metrics, traces, logs) + analytics events",
+      "description": "Telemetry signals following OpenTelemetry (metrics, traces, logs) + analytics events, PLUS the executable enforcement bar (metric + threshold).",
+      "$comment": "`signal` carries two distinct things and both are legal. (1) DESCRIPTIVE: `metrics`/`traces`/`logs`/`events` are the OTel signals this slice EMITS — consumed by observability, not by a gate. (2) EXECUTABLE: `metric` + `threshold` are the bar this acceptance IS JUDGED BY — resolved by runners/metric_runner.py to <repo>/.atdd/metrics/<metric>.py (or the toolkit commons) and evaluated as passes(compute(root), threshold). They are not rival spellings of one idea. Before #1925 only the descriptive half was declared, and `additionalProperties: false` therefore FORBADE the exact shape the runtime requires — see #1925.",
       "additionalProperties": false,
       "properties": {
+        "metric": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Executable enforcement bar: the metric name the metric runner resolves to <repo>/.atdd/metrics/<name>.py or src/atdd/runners/metrics/<name>.py, each exporting compute(repo_root) and passes(value, threshold)."
+        },
+        "threshold": {
+          "type": ["number", "boolean", "string"],
+          "description": "Scalar `metric` is judged against, passed VERBATIM to the module's passes(value, threshold) — the authored type is part of the contract. `0` and `false` are meaningful thresholds, not absent ones."
+        },
         "metrics": {
           "type": "array",
           "description": "OpenTelemetry metrics for observability",
@@ -338,7 +355,14 @@
     "embedded_acceptance": {
       "type": "object",
       "description": "The lighter acceptance shape embedded inside WMBT files (plan/<wagon>/<CODE>.yaml acceptances[]). Reuses the standalone identity/harness/given shapes; when/then carry only `abstract`; metadata uses author/created. NOT applied as a file gate — documented for honesty (#760).",
-      "required": ["identity", "harness", "given", "when", "then"],
+      "required": ["identity", "given", "when", "then"],
+      "anyOf": [
+        {"$comment": "Spec §4.3 measurability — see the root shape's anyOf (#1925).", "required": ["harness"]},
+        {
+          "required": ["signal"],
+          "properties": {"signal": {"required": ["metric", "threshold"]}}
+        }
+      ],
       "additionalProperties": true,
       "properties": {
         "identity": {"$ref": "#/properties/identity"},
