@@ -1391,7 +1391,7 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 142
+    total: 144
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -1453,6 +1453,15 @@ wagons:
       already routes through, keeping a slug git already accepts byte-identical so
       no existing binding moves, and naming the rejected refname when the create still
       fails (#1913)
+    Y010: minimize likelihood of a-multi-artifact-outcome-being-judged-complete-from-the-artifact-that-lands-first
+      by observing the git tag, the PyPI wheel and the GitHub Release object separately,
+      reporting an unanswered query as UNKNOWN rather than as absent, and refusing
+      to bump past a version that is already half-published instead of abandoning
+      it (#1924)
+    Y011: minimize likelihood of an-entire-check-surface-depending-on-one-rate-limit-bucket-that-fails-independently
+      by listing issues over REST rather than through a subcommand that resolves via
+      GraphQL, while preserving the shape callers already read — pull requests excluded,
+      state case unchanged, only the requested fields returned (#1930)
     Y006: minimize an-issue-feature-binding-no-command-can-write-because-create-derives-nothing-and-revise-accepts-the-feature-flag-then-drops-it
     C011: minimize a-declared-feature-urn-that-resolves-to-nothing-in-plan-and-drifts-unseen-because-no-validator-holds-an-atdd-issue-body-or-its-stored-binding-to-the-plan-graph
     L003: minimize wmbts-no-coach-surface-can-locate-because-the-lookup-searches-a-github-atdd-wmbt-label-nothing-has-created-since-1477-retired-the-command-that-minted-them
