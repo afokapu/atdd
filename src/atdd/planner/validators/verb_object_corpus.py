@@ -17,6 +17,7 @@ filesystem and the walk is a separate, trivially-checkable concern.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Tuple
@@ -24,6 +25,8 @@ from typing import Iterable, List, Tuple
 import yaml
 
 from atdd.planner.naming import is_verb_object
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["Drift", "corpus_names", "scan_corpus", "scan_names"]
 
@@ -101,9 +104,19 @@ def scan_corpus(plan_root: Path) -> List[Drift]:
 
 
 def _read(path: Path):
-    """Parse ``path``, or return None. A malformed plan file is another
-    validator's business; this one must not fail on it."""
+    """Parse ``path``, or return None having SAID SO.
+
+    A malformed or unreadable plan file is another validator's business — this
+    one must not fail on it, or one bad file would hide the drift in every good
+    one. But skipping it silently would mean a name that is never scanned looks
+    exactly like a name that conforms, which is the failure this whole rule
+    exists to prevent. So the catch is narrow and it logs.
+    """
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, yaml.YAMLError) as exc:
+        logger.warning(
+            "verb-object corpus scan skipped an unreadable plan file",
+            extra={"path": str(path), "error": str(exc)},
+        )
         return None
