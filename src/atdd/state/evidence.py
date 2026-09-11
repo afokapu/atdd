@@ -344,9 +344,8 @@ def diff_phases(
 #: literals from drifting apart.
 _MERGE_EVIDENCE_PREFIX = ".atdd/evidence/"
 
-#: The separators a gate filename may join two phase names with. Both spellings are
-#: live in-tree (``PLANNED-RED.yaml``, ``GREEN->SMOKE.yaml``); no phase name contains
-#: a ``-``, so reading both is unambiguous.
+#: The separators a gate filename may join two phase names with. Both spellings are live
+#: in-tree (``PLANNED-RED.yaml``, ``GREEN->SMOKE.yaml``); no phase name contains a ``-``.
 _GATE_SEPARATORS: Tuple[str, ...] = ("->", "-")
 
 
@@ -372,8 +371,9 @@ def _gate_artifact_names() -> FrozenSet[str]:
             continue
         else:
             sources = (str(entry["from"]),)
-        names.update(f"{source}{sep}{to_phase}"
-                     for source in sources for sep in _GATE_SEPARATORS)
+        names.update(
+            f"{source}{sep}{to_phase}" for source in sources for sep in _GATE_SEPARATORS
+        )
     return frozenset(names)
 
 
