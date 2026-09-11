@@ -178,7 +178,10 @@ def corpus_wmbts(plan_root: Path) -> List[Dict]:
         except (OSError, yaml.YAMLError) as exc:
             # Narrow, and logged with the path: one malformed file must not
             # hide the coverage gap in every good one.
-            logger.warning("skipping unreadable plan file %s: %s", path, exc)
+            logger.warning(
+                "metric-mapping corpus scan skipped an unreadable plan file",
+                extra={"path": str(path), "error": str(exc)},
+            )
             continue
         if isinstance(data, dict) and str(data.get("urn", "")).startswith("wmbt:"):
             wmbts.append(data)
