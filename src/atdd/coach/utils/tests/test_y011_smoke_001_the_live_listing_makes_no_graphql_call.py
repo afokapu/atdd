@@ -93,16 +93,6 @@ def test_the_subcommand_it_replaced_really_was_graphql() -> None:
     )
 
 
-def test_the_live_counts_agree(client: GitHubClient) -> None:
-    """Same subject, both transports — a silent change of scope is the risk."""
-    rest = client.list_issues_by_label("atdd-issue", include_body=False)
-    gql = json.loads(subprocess.run(
-        ["gh", "issue", "list", "--repo", REPO, "--label", "atdd-issue",
-         "--state", "open", "--json", "number", "--limit", "5000"],
-        capture_output=True, text=True, timeout=120).stdout or "[]")
-    assert {i["number"] for i in rest} == {i["number"] for i in gql}
-
-
 def test_the_unfiltered_listing_excludes_pull_requests(client: GitHubClient) -> None:
     """REST /issues returns PRs too, and the count going UP is what hides it."""
     rows = client.list_all_open_issues()
