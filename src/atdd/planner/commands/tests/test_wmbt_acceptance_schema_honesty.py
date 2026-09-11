@@ -45,7 +45,49 @@ def test_acceptance_schema_defines_embedded_shape():
     a = _load("acceptance.schema.json")
     assert "embedded_acceptance" in a.get("definitions", {})
     emb = a["definitions"]["embedded_acceptance"]
-    assert set(["identity", "harness", "given", "when", "then"]).issubset(set(emb["required"]))
+    assert set(["identity", "given", "when", "then"]).issubset(set(emb["required"]))
+    # `harness` is deliberately NOT in `required` (#1925): spec §4.3 makes an
+    # acceptance measurable by EITHER harness.type OR signal.metric+threshold,
+    # and requiring `harness` made the second half unauthorable.
+    assert "harness" not in emb["required"]
+
+
+def _measurability_anyof(shape):
+    """The §4.3 OR as the schema encodes it: harness, or metric+threshold."""
+    branches = shape.get("anyOf")
+    assert branches, "the measurability OR must be encoded as anyOf"
+    return {
+        "harness": any(b.get("required") == ["harness"] for b in branches),
+        "metric": any(
+            b.get("required") == ["signal"]
+            and b.get("properties", {}).get("signal", {}).get("required")
+            == ["metric", "threshold"]
+            for b in branches
+        ),
+    }
+
+
+def test_both_shapes_encode_the_measurability_or():
+    """Spec §4.3 is schema structure, not prose, in BOTH shapes (#1925)."""
+    a = _load("acceptance.schema.json")
+    for shape in (a, a["definitions"]["embedded_acceptance"]):
+        got = _measurability_anyof(shape)
+        assert got["harness"], "missing the harness branch of the §4.3 OR"
+        assert got["metric"], "missing the signal.metric+threshold branch of the §4.3 OR"
+
+
+def test_signal_declares_the_executable_grammar_the_runtime_consumes():
+    """`signal.metric`/`threshold` is what metric_runner reads; the schema
+    forbade it outright before #1925 via additionalProperties:false."""
+    a = _load("acceptance.schema.json")
+    sig = a["properties"]["signal"]
+    assert sig["additionalProperties"] is False, "signal stays closed"
+    assert "metric" in sig["properties"], "signal.metric must be declared"
+    assert "threshold" in sig["properties"], "signal.threshold must be declared"
+    # `threshold: 0` and `threshold: false` are meaningful bars, not absences.
+    assert set(sig["properties"]["threshold"]["type"]) >= {"number", "boolean"}
+    # the descriptive OTel half is untouched and still present
+    assert "metrics" in sig["properties"]
 
 
 def _first_real_embedded_acceptance():

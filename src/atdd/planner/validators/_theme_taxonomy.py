@@ -22,7 +22,11 @@ from typing import Dict, FrozenSet, List, Mapping, Optional, Tuple
 import yaml
 
 from atdd.coach.utils.config import load_atdd_config
-from atdd.coach.utils.theme_map import get_theme_map
+from atdd.coach.utils.theme_map import (
+    CANONICAL_DIGIT_MAP,
+    CANONICAL_THEME_0,
+    get_theme_map,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -33,31 +37,23 @@ _log = logging.getLogger(__name__)
 # the MANDATORY non-removable floor of every resolved theme set (see
 # resolve_theme_set / planner.theme.theme-zero-mandatory).
 # ---------------------------------------------------------------------------
-CANONICAL_THEME_0: str = "commons"
+#: Re-exported from ``coach.utils.theme_map``, which owns the digit→theme
+#: mapping (#1927). Kept as a module attribute so existing importers of
+#: ``_theme_taxonomy.CANONICAL_THEME_0`` keep working.
+__all_theme_reexports__ = (CANONICAL_THEME_0, CANONICAL_DIGIT_MAP)
 
 #: The toolkit's OWN abstraction-stack themes (digits 0-4), documentary only.
 #: As of #1317 this tuple is NOT the enforcement source — the canonical set is
 #: resolved per-repo from ``get_theme_map(config)`` (see ``canonical_theme_set``)
 #: so a consumer/game repo governs against its own effective map. It remains as
 #: the value the toolkit's own ``.atdd/config.yaml`` ``themes:`` block declares.
-CANONICAL_THEMES: Tuple[str, ...] = (
-    CANONICAL_THEME_0,
-    "plan",
-    "test",
-    "code",
-    "coach",
+#: Derived from CANONICAL_DIGIT_MAP in digit order rather than restated, so a
+#: change to the mapping cannot leave this tuple behind (#1927).
+CANONICAL_THEMES: Tuple[str, ...] = tuple(
+    CANONICAL_DIGIT_MAP[d] for d in sorted(CANONICAL_DIGIT_MAP)
 )
 
-#: digit -> canonical theme name for the toolkit's own abstraction stack (0-4).
-#: Used by ``resolve_theme_set`` / theme-zero-mandatory as the pinned floor;
-#: the must-be-canonical membership check instead defers to ``get_theme_map``.
-CANONICAL_DIGIT_MAP: Dict[str, str] = {
-    "0": CANONICAL_THEME_0,
-    "1": "plan",
-    "2": "test",
-    "3": "code",
-    "4": "coach",
-}
+
 
 #: Themes whose wagons map onto a non-coach archetype source root.
 ARCHETYPE_THEME_ROOTS: Dict[str, str] = {

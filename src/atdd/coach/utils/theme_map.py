@@ -39,6 +39,28 @@ DEFAULT_THEME_MAP: Dict[str, str] = {
     "9": "partnership",
 }
 
+#: Digit 0 is locked to ``commons`` (operator decision #970) and no consumer
+#: override can remove or rename it.
+CANONICAL_THEME_0: str = "commons"
+
+#: digit -> theme for the TOOLKIT'S OWN abstraction stack (0-4) — the value
+#: atdd's own ``.atdd/config.yaml`` ``themes:`` block declares.
+#:
+#: It deliberately DIVERGES from ``DEFAULT_THEME_MAP`` on digits 1-4
+#: (plan/test/code/coach vs mechanic/scenario/match/sensory): the default map
+#: is what a consumer repo starts from, this is what the toolkit governs itself
+#: by. Two maps, two audiences, one module — they live here together because
+#: D010 requires the digit→theme mapping to have exactly one home, and a
+#: divergent copy in a validator module is precisely the failure that rule
+#: names. Moved from ``planner/validators/_theme_taxonomy.py`` in #1927.
+CANONICAL_DIGIT_MAP: Dict[str, str] = {
+    "0": CANONICAL_THEME_0,
+    "1": "plan",
+    "2": "test",
+    "3": "code",
+    "4": "coach",
+}
+
 THEME_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
 DIGIT_KEY_PATTERN = re.compile(r"^[0-9]$")
 
