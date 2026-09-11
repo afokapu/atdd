@@ -36,11 +36,30 @@ def _debug_requests(args: list[str]) -> list[str]:
     return [ln for ln in proc.stderr.splitlines() if ln.startswith("> ")]
 
 
+def _gh_is_authenticated() -> bool:
+    """Whether `gh` in THIS environment can talk to GitHub at all."""
+    return subprocess.run(
+        ["gh", "auth", "status"], capture_output=True, timeout=30,
+    ).returncode == 0
+
+
+requires_gh = pytest.mark.skipif(
+    not _gh_is_authenticated(),
+    reason=(
+        "gh is not authenticated in this environment, so the live transport "
+        "cannot be observed. This is #1911 — push-event CI runs authenticate no "
+        "gh even with GH_TOKEN set — not a verdict about the listing. The "
+        "pull_request-event run of the same job does exercise these assertions."
+    ),
+)
+
+
 @pytest.fixture(scope="module")
 def client() -> GitHubClient:
     return GitHubClient(repo=REPO)
 
 
+@requires_gh
 def test_the_listing_reaches_rest_and_not_graphql() -> None:
     """THE POINT. The two buckets fail independently and GraphQL is the one that
     has been failing; this path must not be on it."""
@@ -55,6 +74,7 @@ def test_the_listing_reaches_rest_and_not_graphql() -> None:
     assert [ln for ln in lines if "/issues?" in ln or "/issues" in ln], lines[:5]
 
 
+@requires_gh
 def test_the_subcommand_it_replaced_really_was_graphql() -> None:
     """Guards the guard: if `gh issue list` were REST all along, this change
     would be pointless and the test above would be proving nothing."""
@@ -67,6 +87,7 @@ def test_the_subcommand_it_replaced_really_was_graphql() -> None:
     )
 
 
+@requires_gh
 def test_the_live_counts_agree(client: GitHubClient) -> None:
     """Same subject, both transports — a silent change of scope is the risk."""
     rest = client.list_issues_by_label("atdd-issue", include_body=False)
@@ -77,6 +98,7 @@ def test_the_live_counts_agree(client: GitHubClient) -> None:
     assert {i["number"] for i in rest} == {i["number"] for i in gql}
 
 
+@requires_gh
 def test_the_unfiltered_listing_excludes_pull_requests(client: GitHubClient) -> None:
     """REST /issues returns PRs too, and the count going UP is what hides it."""
     rows = client.list_all_open_issues()
@@ -89,6 +111,7 @@ def test_the_unfiltered_listing_excludes_pull_requests(client: GitHubClient) -> 
     assert not ({r["number"] for r in rows} & {p["number"] for p in pulls})
 
 
+@requires_gh
 def test_state_keeps_the_case_callers_read(client: GitHubClient) -> None:
     rows = client.list_issues_by_label("atdd-issue", include_body=False)
     assert rows, "no open atdd-issues; nothing observed"
