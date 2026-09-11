@@ -16,6 +16,9 @@ Iterates every ``RuleMetadata`` carrying both ``signal_metric`` and
 3. Calls ``passes(value, threshold) -> bool`` from the same module.
 4. On ``passes() == False`` constructs a ``Violation`` with
    ``rule_id`` = the registry's rule_id and ``location`` = ``"codebase"``.
+5. On ``passes()`` RAISING, constructs a ``Violation`` too — fail closed.
+   A threshold the module cannot judge has not been satisfied, and the
+   runner must not report a gate it never evaluated as clean.
 
 All violations across all rules are routed through a SINGLE
 ``assert_disposition_satisfied`` call with
@@ -35,6 +38,12 @@ Skip rules:
   versa) → SILENTLY SKIPPED. The
   ``tester.acceptance-violation.acceptance-must-be-measurable`` validator
   (#410) catches the schema violation; runner does not double-emit.
+
+Deliberately NOT a skip rule: a ``passes()`` that raises. No validator
+downstream can catch it — the fault is in the pairing of a computed value
+with an authored threshold, which only exists at runtime. It was a skip
+until #1925, and that is exactly how a stringified threshold disabled
+every metric acceptance in the repo without turning a single gate red.
 
 The metric module owns the ``passes`` semantic. The runner does NOT
 infer threshold direction from the metric name; supplying a default
@@ -180,12 +189,34 @@ def _format_metric_detail(metric: str, value: Any, threshold: Any) -> str:
     return f"{metric}={value!r}, threshold={threshold!r}"
 
 
+def _format_unevaluatable_detail(
+    metric: str, value: Any, threshold: Any, exc: BaseException,
+) -> str:
+    """Detail for a threshold the metric module could not judge.
+
+    Names both operands and their types: the overwhelmingly common cause is
+    a threshold whose type does not match the computed value's.
+    """
+    return (
+        f"{metric}: threshold could not be evaluated — "
+        f"passes({value!r}, {threshold!r}) raised "
+        f"{type(exc).__name__}: {exc} "
+        f"(value is {type(value).__name__}, threshold is "
+        f"{type(threshold).__name__})"
+    )
+
+
 def _build_violation(
     meta: RuleMetadata,
     value: Any,
     threshold: Any,
+    detail: Optional[str] = None,
 ) -> Optional[Violation]:
     """Construct the ``Violation`` record for a failing rule.
+
+    *detail* overrides the standard ``<metric>=<value>, threshold=<t>`` line
+    for failures that are not a plain threshold breach (e.g. a ``passes()``
+    that raised). Severity gating stays here so every emission path shares it.
 
     Returns ``None`` when severity is missing/non-int — those rules are
     malformed and policed elsewhere; the runner skips defensively.
@@ -204,7 +235,7 @@ def _build_violation(
         rule_id=meta.rule_id,
         severity=severity,
         location="codebase",
-        detail=_format_metric_detail(
+        detail=detail if detail is not None else _format_metric_detail(
             meta.signal_metric or "", value, threshold,
         ),
     )
@@ -258,7 +289,12 @@ def collect_metric_violations(
 
         try:
             ok = passes_fn(value, meta.signal_threshold)
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
+            # FAIL CLOSED. A threshold that cannot be evaluated is not a
+            # threshold that was met. Treating this as a skip is what hid a
+            # repo-wide defect: every authored threshold reached `passes()`
+            # stringified, every comparison raised TypeError, and the runner
+            # reported a clean gate over acceptances it had never judged.
             _logger.warning(
                 "metric_runner: passes() raised for %s: %s",
                 meta.signal_metric, exc,
@@ -267,6 +303,14 @@ def collect_metric_violations(
                     "error_type": type(exc).__name__,
                 },
             )
+            violation = _build_violation(
+                meta, value, meta.signal_threshold,
+                detail=_format_unevaluatable_detail(
+                    meta.signal_metric or "", value, meta.signal_threshold, exc,
+                ),
+            )
+            if violation is not None:
+                violations.append(violation)
             continue
 
         if ok:
