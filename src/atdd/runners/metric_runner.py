@@ -58,7 +58,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Protocol, Sequence
 
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
 from atdd.coach.utils.repo import find_repo_root
@@ -164,8 +164,28 @@ def _load_module_from_path(path: Path) -> Optional[ModuleType]:
         return None
 
 
+class RuleRecord(Protocol):
+    """Everything this runner needs off a rule — the whole contract.
+
+    A structural type, deliberately (#1931). Two classes named
+    ``RuleMetadata`` satisfy it: ``rule_binding``'s, which
+    ``find_repo_rules`` yields, and ``rule_id_registry``'s, which
+    ``build_registry`` returns. Naming a concrete class here would re-assert
+    in the type system the same false requirement the ``isinstance`` guard
+    asserted at runtime — that a rule is a particular class rather than a
+    thing carrying particular fields.
+    """
+
+    rule_id: str
+    severity: Any
+    signal_metric: Optional[str]
+    signal_threshold: Any
+
+
 #: The fields this runner actually reads off a rule. Selection is by these,
-#: not by class identity — see ``_is_rule_record``.
+#: not by class identity — see ``_is_rule_record``. Kept in step with
+#: ``RuleRecord`` above: that protocol is the compile-time statement of this
+#: tuple, and this tuple is the runtime check of that protocol.
 _REQUIRED_RULE_FIELDS = ("rule_id", "severity", "signal_metric", "signal_threshold")
 
 
@@ -193,8 +213,8 @@ def _is_rule_record(meta: object) -> bool:
 
 
 def _select_runnable_rules(
-    registry: Dict[str, RuleMetadata],
-) -> List[RuleMetadata]:
+    registry: Mapping[str, Any],
+) -> List[RuleRecord]:
     """Return rules with BOTH ``signal_metric`` and ``signal_threshold`` set.
 
     Rules with one but not the other are silently skipped — the
@@ -202,7 +222,7 @@ def _select_runnable_rules(
     what counts as a rule RECORD (#1931) does not widen what counts as
     RUNNABLE: those two skips are unchanged.
     """
-    runnable: List[RuleMetadata] = []
+    runnable: List[RuleRecord] = []
     for meta in registry.values():
         if not _is_rule_record(meta):
             continue
@@ -237,7 +257,7 @@ def _format_unevaluatable_detail(
 
 
 def _build_violation(
-    meta: RuleMetadata,
+    meta: RuleRecord,
     value: Any,
     threshold: Any,
     detail: Optional[str] = None,
@@ -272,7 +292,7 @@ def _build_violation(
 
 
 def collect_metric_violations(
-    registry: Dict[str, RuleMetadata],
+    registry: Mapping[str, Any],
     repo_root: Path,
     *,
     toolkit_root: Optional[Path] = None,
@@ -360,6 +380,12 @@ def run_metric_runner(
     toolkit_root: Optional[Path] = None,
 ) -> None:
     """Run the metric runner and route every failure through the gate.
+
+    Deliberately narrower than ``collect_metric_violations`` (#1931). This is
+    the gate-facing entry point: it defaults to ``build_registry()`` and hands
+    the same object to ``assert_disposition_satisfied``, which reads fields no
+    ``RuleRecord`` promises. Selection accepts any rule record; the gate call
+    takes the registry the gate requires, and the boundary sits here.
 
     Single ``assert_disposition_satisfied`` call: the gate groups by
     ``rule_id`` internally and emits one failure block per failing rule
