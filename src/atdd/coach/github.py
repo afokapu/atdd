@@ -11,6 +11,7 @@ Usage:
 """
 
 import json
+from urllib.parse import quote, unquote
 import logging
 import os
 import subprocess
@@ -21,6 +22,42 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 logger = logging.getLogger(__name__)
+
+
+def normalise_rest_issues(
+    rows: List[Dict[str, Any]], *, fields: str,
+) -> List[Dict[str, Any]]:
+    """REST `/issues` rows reduced to exactly what `gh issue list --json` returns.
+
+    Moving the listing off GraphQL (#1930) is a TRANSPORT change; the contract
+    every caller reads must not move with it. Three differences have to be
+    absorbed here rather than pushed onto callers:
+
+    * REST's ``/issues`` includes pull requests. Measured on this repository, the
+      unlabelled listing is 319 over REST against 296 over GraphQL — 23 PRs. The
+      count goes UP, so the mistake looks like health.
+    * REST reports ``state`` lowercase, ``gh`` reports it uppercase, and callers
+      compare against both forms in different modules. The listing keeps gh's.
+    * REST returns roughly thirty keys per issue. Only the requested ones are
+      kept, so payload and shape both match what callers had.
+    """
+    wanted = [f.strip() for f in fields.split(",") if f.strip()]
+    out: List[Dict[str, Any]] = []
+    for row in rows or []:
+        if row.get("pull_request") is not None:
+            continue                      # a PR, not an issue
+        item: Dict[str, Any] = {}
+        for field in wanted:
+            value = row.get(field)
+            if field == "state":
+                value = str(value or "").upper()
+            elif field == "body":
+                value = value or ""       # REST gives null, gh gives ""
+            elif field == "labels":
+                value = [{"name": lbl.get("name")} for lbl in (value or [])]
+            item[field] = value
+        out.append(item)
+    return out
 
 
 class GitHubClientError(Exception):
@@ -427,24 +464,33 @@ class GitHubClient:
     # two read identically at the call site, which is why nothing marked one as a
     # sample and the other as an answer.
     _ISSUE_FETCH_CAP = 5000
+    _REST_PAGE_SIZE = 100
 
     def _list_issues_complete(
         self, selector: List[str], fields: str,
     ) -> List[Dict[str, Any]]:
         """Every issue matching *selector*, or an error — never a silent prefix."""
+        # REST, not `gh issue list` (#1930). That subcommand is `POST /graphql`
+        # (verified with GH_DEBUG=api), which put the entire coach validator
+        # surface on the one bucket that keeps failing in CI — three PRs and a
+        # publish run were blocked by "API rate limit already exceeded" while
+        # REST stood at 4823/5000. `--paginate` merges the pages into a single
+        # JSON array, so completeness is still decided here rather than by a
+        # `--limit` the caller cannot see.
+        query = "&".join([*selector, f"per_page={self._REST_PAGE_SIZE}"])
         output = self._run_gh([
-            "issue", "list",
-            "--repo", self.repo,
-            *selector,
-            "--json", fields,
-            "--limit", str(self._ISSUE_FETCH_CAP),
+            "api", "--paginate", f"repos/{self.repo}/issues?{query}",
         ])
-        data = json.loads(output) if output else []
+        raw = json.loads(output) if output else []
+        data = normalise_rest_issues(raw, fields=fields)
         if len(data) >= self._ISSUE_FETCH_CAP:
             raise GitHubResultTruncated(
                 f"gh returned {len(data)} issues, the fetch cap. Whether more "
                 f"exist is UNKNOWN, so this is not a complete answer and callers "
-                f"must not treat it as one. Selector: {' '.join(selector)}"
+                # Unencoded for the message: the request needs `atdd%3ACOMPLETE`,
+                # an operator reading the refusal needs `atdd:COMPLETE`.
+                f"must not treat it as one. Selector: "
+                f"{' '.join(unquote(part) for part in selector)}"
             )
         return data
 
@@ -462,22 +508,23 @@ class GitHubClient:
         fields = "number,title,labels,state"
         if include_body:
             fields += ",body"
-        return self._list_issues_complete(["--state", "open"], fields)
+        return self._list_issues_complete(["state=open"], fields)
 
     def list_issues_by_label(
         self, label: str, include_body: bool = True, state: str = "open",
     ) -> List[Dict[str, Any]]:
         """List issues with a given label.
 
-        ``state`` is passed to ``gh issue list --state`` ("open" by default,
-        "closed", or "all"). Closed issues are needed to reconcile stale
-        phase labels on already-closed atdd-issues (#1284).
+        ``state`` is "open" (default), "closed" or "all" — the REST `/issues`
+        filter takes the same three values gh's `--state` did. Closed issues are
+        needed to reconcile stale phase labels on already-closed atdd-issues
+        (#1284).
         """
         fields = "number,title,labels,state"
         if include_body:
             fields += ",body"
         return self._list_issues_complete(
-            ["--label", label, "--state", state], fields,
+            [f"state={state}", f"labels={quote(label, safe='')}"], fields,
         )
 
     def get_sub_issues(self, issue_number: int) -> List[Dict[str, Any]]:
