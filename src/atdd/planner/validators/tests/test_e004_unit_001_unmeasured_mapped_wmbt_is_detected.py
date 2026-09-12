@@ -74,11 +74,35 @@ def test_a_mapped_wmbt_with_no_bar_is_reported_with_the_metric_it_owes():
 def test_an_unmapped_wmbt_is_not_reported():
     """The convention assigns it no metric, so there is no bar for it to owe.
 
-    `quantity/minimize` is 94 WMBTs in the real corpus and the mapping covers
-    none of them; reporting those would be the scanner inventing an obligation
-    the convention never stated.
+    Reporting such a WMBT would be the scanner inventing an obligation the
+    convention never stated.
+
+    The example is `effort/maximize`, which carries the `unmapped` sentinel.
+    This test used `quantity/minimize` until #1959 made the table total over
+    the dimension x direction enums and mapped that pair to `metric:scrap_rate`
+    — it had only ever been unmapped because the table spelled the direction
+    `decrease`. A pair that is unmapped by intent, rather than by a spelling
+    gap, is the thing this test is actually about.
     """
-    assert scan_wmbts([_wmbt("E002", "quantity", "minimize")]) == []
+    assert scan_wmbts([_wmbt("E002", "effort", "maximize")]) == []
+
+
+def test_the_unmapped_sentinel_is_not_mistaken_for_a_metric(tmp_path):
+    """`unmapped` is an absence, not a metric_id (#1959 + #1958 interaction).
+
+    Since the table became total, a pair with no default metric is PRESENT and
+    carries the sentinel rather than being missing. A truthiness check on the
+    looked-up value would read `"unmapped"` as a real metric and demand a bar
+    naming it.
+    """
+    from atdd.planner.validators.metric_mapping import dimension_metric_map
+
+    table = dimension_metric_map()
+    assert ("effort", "maximize") not in table
+    assert "unmapped" not in set(table.values())
+    # ...and the mapped pairs are still there.
+    assert table[("likelihood", "minimize")] == "metric:error_ratio"
+    assert table[("quantity", "minimize")] == "metric:scrap_rate"
 
 
 def test_a_conforming_wmbt_is_not_reported():

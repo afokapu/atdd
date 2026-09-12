@@ -52,6 +52,11 @@ __all__ = [
 CAUSE_NO_BAR = "no-executable-bar"
 CAUSE_OFF_MAP = "bar-off-map"
 
+#: The value the convention writes for a legal dimension+direction pair that has
+#: no default metric. Present only since #1959 made the table total; before that
+#: such a pair was simply missing from the table.
+UNMAPPED_SENTINEL = "unmapped"
+
 _NODE = (
     Path(__file__).resolve().parents[1]
     / "conventions"
@@ -100,6 +105,15 @@ def dimension_metric_map(node_path: Optional[Path] = None) -> Dict[Tuple[str, st
         if not isinstance(directions, dict):
             continue
         for direction, metric_id in directions.items():
+            if str(metric_id) == UNMAPPED_SENTINEL:
+                # #1959 made the table TOTAL over the dimension x direction enums,
+                # so a pair with no default metric is now present and carries the
+                # `unmapped` sentinel instead of being absent. Absent and
+                # explicitly-unmapped mean the same thing to this validator — there
+                # is no metric to demand a bar for — and the sentinel must not be
+                # mistaken for a metric_id, which is what a bare truthiness check
+                # would do.
+                continue
             mapping[(_canonical_dimension(str(dimension)), str(direction))] = str(metric_id)
     return mapping
 
