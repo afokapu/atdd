@@ -43,7 +43,7 @@ def _setup_atdd_config(tmp_path: Path) -> Path:
     try:
         store = StateStore(conn)
         store.objects.upsert("478-branch-pr-empty", WORK_ITEM_KIND, state="INIT",
-                             data={"issue_number": 478, "type": "cleanup",
+                             data={"issue_number": 478, "type": "chore",
                                    "branch": "chore/478-branch-pr-empty"})
         store.external_refs.link("478-branch-pr-empty", GITHUB_PROVIDER, "issue", "478",
                                  data={"source": "test-seed"})
