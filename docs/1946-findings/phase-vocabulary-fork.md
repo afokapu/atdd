@@ -271,3 +271,84 @@ encodes `ESCAPES = {"BLOCKED", "OBSOLETE"}`, and already ties #1, #4, #5. Add:
 - **Root Cause** — `state_machine.py` is the J1 skeleton (#496); `MERGED` predates the
   PR-based merge design that `projection.py` §18-decision-1 and `core/__init__.py:205`
   now implement. #888 de-duplicated the docs copies and left both Python ones.
+
+---
+
+## 7. Lab measurements (added after the fact — see §8)
+
+Four arms, each a disposable clone of `main` at `4f9e0f54`, each running the full
+`src/atdd/coach` suite unfiltered, each verified to import the clone's own `src/`
+rather than the pipx install.
+
+| Arm | Mutation | New failures vs baseline |
+|-----|----------|--------------------------|
+| A baseline | none | — (73 failures) |
+| C control | `COMPLETE` removed from `TRANSITION_TABLE` + `PLANNED_PATH`, enum member kept | **5** |
+| B partial | `MERGED` removed from enum + both tables | **19** |
+| D complete | B, plus the `resume.py` guard the fix deletes anyway | **10** |
+
+**The control exists to calibrate.** `COMPLETE` is reachable by construction, so
+making it unreachable must produce failures if this suite can detect reachability
+at all. It produces 5 — all resume/replay tests. The instrument is sensitive.
+
+**Arm D is the answer.** All 10 remaining failures are test files carrying
+hardcoded `MERGED` literals:
+
+- `test_d001_unit_001` (4) — asserts the enum's own shape, incl. `all_nine_states`
+- `test_J3_integration_001` (5) — `PLANNED_PATH_TRANSITIONS`, a literal list in the
+  test file ending `("COMPLETE", "MERGED")`, NOT read from production `PLANNED_PATH`
+- `test_r002_unit_001` (1) — `stop_set = {COMPLETE, MERGED, BLOCKED}`
+
+Every resume and durable-decisions test — `R001_integration_001/002`,
+`R001_smoke_001`, `J3_integration_002/003` — **passes**. Those are the paths that
+would break if anything reached `MERGED`. The lifecycle runs start to finish
+without it.
+
+### What this changes about §3's claim
+
+§3 said `MERGED` is "unreachable dead code". Measured, the honest statement is
+narrower: **`MERGED` has no runtime producer.** It has dangling references — one
+production line (`resume.py:257`, whose own comment says the phase belongs to the
+PR-merge handler) and three test fixtures. Deleting it is safe, but "nothing
+references it" was never true and grep was the wrong instrument for the question.
+
+### An eighth vocabulary
+
+`test_J3_integration_001.PLANNED_PATH_TRANSITIONS` is a hardcoded copy of the
+planned path inside a test. §1 counted six; §5's table found a seventh in the plan
+layer (the feature's `value_objects` rationale). This is the eighth.
+
+### Two other measurements
+
+- **No import cycle.** A fresh interpreter importing `phase_edges` pulls in 4 `atdd`
+  modules, none of them `handlers.state_machine`. The new import edge is safe.
+- **The enum swap is behaviourally inert.** 15-way differential probe of
+  `(str, Enum)` vs `StrEnum` — `str`, f-string, `%`, `format`, `json.dumps` as value
+  and as key, concatenation, both equality directions, hash-equality with `str`,
+  sort order, pickle, identity on construction, `.value` type, `repr`. All 15
+  identical. They differ only in membership.
+
+## 8. Three inert instruments, recorded because the result nearly shipped
+
+This section is the point of §7, not an aside. Three successive measurements were
+broken, and each produced a tidy, plausible, WRONG answer:
+
+1. **`-m "not platform"` deselected 1808 tests** — over half the suite, including all
+   8 of `test_d001_unit_001`, the tests guaranteed to detect the mutation. Result:
+   "identical to baseline, MERGED removal breaks nothing." Caught only by noticing
+   the known-detectable assertions could not have run.
+2. **The first control renamed `COMPLETE`**, breaking module-level references and
+   aborting collection in 5.9s. No number at all — and it was not matched to the
+   treatment, which changed tables rather than the symbol.
+3. **`tail -60/-80` truncated every failure list** (55 of 75, 55 of 94, 77 of 83).
+   The diff over three differently-truncated lists produced a clean "control 25,
+   E2 1" that fit the thesis perfectly and was pure artifact. The underlying totals
+   said the opposite.
+
+Countermeasures now in the method: a positive control matched to the treatment; an
+in-tree probe asserting which `atdd` the runner imports and what vocabulary it sees;
+and a captured-vs-reported assertion so a truncated capture announces itself.
+
+This is the same defect class as #1547 (validators provably inert) and #1925 (every
+metric acceptance reports PASS against a threshold it never compared). An experiment
+that cannot fail is not evidence.
