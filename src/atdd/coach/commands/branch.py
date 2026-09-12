@@ -423,6 +423,11 @@ class BranchManager:
         try:
             assert_branch_prefix_allowed(prefix)
         except DisallowedBranchPrefix as exc:
+            logger.error(
+                "refusing branch prefix %r for issue #%s: %s",
+                prefix, issue_number, exc,
+                extra={"issue": issue_number, "prefix": prefix, "error": str(exc)},
+            )
             print(f"Error: {exc}")
             return 1
 
