@@ -52,6 +52,11 @@ __all__ = [
 CAUSE_NO_BAR = "no-executable-bar"
 CAUSE_OFF_MAP = "bar-off-map"
 
+#: The value the convention writes for a legal dimension+direction pair that has
+#: no default metric. Present only since #1959 made the table total; before that
+#: such a pair was simply missing from the table.
+UNMAPPED_SENTINEL = "unmapped"
+
 _NODE = (
     Path(__file__).resolve().parents[1]
     / "conventions"
@@ -84,24 +89,34 @@ def _canonical_dimension(label: str) -> str:
     return label.split("/", 1)[0].strip()
 
 
+def _mapping_values(data: Dict) -> Dict:
+    """The `values` block of the dimension->metric term, or an empty dict."""
+    for term in data.get("terms") or []:
+        if isinstance(term, dict) and term.get("term_id") == _TERM_ID:
+            return term.get("values") or {}
+    return {}
+
+
 def dimension_metric_map(node_path: Optional[Path] = None) -> Dict[Tuple[str, str], str]:
-    """Read `(dimension, direction) -> metric_id` from the convention node itself."""
+    """Read `(dimension, direction) -> metric_id` from the convention node itself.
+
+    Pairs carrying ``UNMAPPED_SENTINEL`` are omitted. #1959 made the table TOTAL
+    over the dimension x direction enums, so a pair with no default metric is now
+    PRESENT and carries the sentinel rather than being absent. Absent and
+    explicitly-unmapped mean the same thing here — there is no metric to demand a
+    bar for — and the sentinel must not be mistaken for a metric_id, which is what
+    a bare truthiness check on the looked-up value would do.
+    """
     path = Path(node_path) if node_path else _NODE
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
-    values: Dict = {}
-    for term in data.get("terms") or []:
-        if isinstance(term, dict) and term.get("term_id") == _TERM_ID:
-            values = term.get("values") or {}
-            break
-
-    mapping: Dict[Tuple[str, str], str] = {}
-    for dimension, directions in values.items():
-        if not isinstance(directions, dict):
-            continue
-        for direction, metric_id in directions.items():
-            mapping[(_canonical_dimension(str(dimension)), str(direction))] = str(metric_id)
-    return mapping
+    return {
+        (_canonical_dimension(str(dimension)), str(direction)): str(metric_id)
+        for dimension, directions in _mapping_values(data).items()
+        if isinstance(directions, dict)
+        for direction, metric_id in directions.items()
+        if str(metric_id) != UNMAPPED_SENTINEL
+    }
 
 
 def _bar_metrics(wmbt: Dict) -> List[str]:
