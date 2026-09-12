@@ -114,3 +114,83 @@ def test_strict_standalone_schema_would_reject_embedded_documenting_why_not_a_ga
     # the strict root object requires signal/when.action/then.assertions/metadata.wagon
     errs = list(Draft7Validator(a).iter_errors(acc))
     assert errs, "the strict standalone schema MUST reject the embedded shape — this is why it is not file-applied (#760)"
+
+
+# ---------------------------------------------------------------------------
+# #1957 — two fields that read as supported and have no reader.
+#
+# Measured over the corpus at the time of writing (1347 acceptances, 732 plan
+# files): `then.assertions[].tolerance` is carried by 0 of the 26 acceptances
+# that declare `then.assertions` at all, and `signal.metrics[]` is used by 0
+# acceptances — yet `threshold` was `required` on every entry of it. Neither
+# field has a reader anywhere in `src/`: `metric_runner` reads `signal.metric`
+# and `signal.threshold` and nothing else off `signal`.
+#
+# Decision 1 — DROP `tolerance`. #1925 made `signal.metric` + `signal.threshold`
+#   the quantitative mechanism; a second one on the assertion leg splits the
+#   grammar, and this one was never used.
+# Decision 2 — DE-REQUIRE `metrics[].threshold`. `metrics[]` describes the OTel
+#   signals a slice EMITS; a bar belongs to the executable half. Requiring it
+#   taxed every author of a descriptive metric for a field no gate reads. It
+#   stays authorable as observability metadata — it is no longer compelled.
+# ---------------------------------------------------------------------------
+
+
+def _assertion_item(schema):
+    """The `then.assertions[]` item shape of the strict standalone object."""
+    return schema["properties"]["then"]["properties"]["assertions"]["items"]
+
+
+def _descriptive_metric_item(schema):
+    """The `signal.metrics[]` item shape — the OTel descriptive half."""
+    return schema["properties"]["signal"]["properties"]["metrics"]["items"]
+
+
+def test_assertion_leg_declares_no_second_quantitative_mechanism():
+    """#1957 decision 1 — `tolerance` is gone from the assertion leg.
+
+    A shapeless `{"type": "object"}` with no inner shape and no reader
+    advertises a comparability that does not exist: two teams expressing the
+    same band would write it differently and no gate could reason about
+    either.
+    """
+    a = _load("acceptance.schema.json")
+    item = _assertion_item(a)
+    assert "tolerance" not in item["properties"], (
+        "then.assertions[].tolerance must not be declared — it is shapeless, "
+        "unused across the corpus and read by nothing (#1957)"
+    )
+    # ...and the mechanism it duplicated is still the executable one (#1925).
+    assert "threshold" in a["properties"]["signal"]["properties"], (
+        "signal.threshold remains THE quantitative bar"
+    )
+
+
+def test_descriptive_metrics_do_not_compel_an_unread_threshold():
+    """#1957 decision 2 — `metrics[].threshold` is declared but not required."""
+    a = _load("acceptance.schema.json")
+    item = _descriptive_metric_item(a)
+    assert "threshold" not in item["required"], (
+        "signal.metrics[].threshold must not be required — no reader evaluates "
+        "it, so requiring it taxes the author and pays nobody (#1957)"
+    )
+    # what actually identifies a declared OTel metric is still compelled
+    assert item["required"] == ["name", "type"], item["required"]
+    # the field itself survives as observability metadata, still closed-shape
+    assert "threshold" in item["properties"], (
+        "threshold stays authorable on a descriptive metric — de-required, not dropped"
+    )
+    assert item["additionalProperties"] is False, "the metric item stays closed"
+
+
+def test_schema_records_why_each_unread_affordance_was_retired():
+    """The rationale lives in the schema so neither field silently returns."""
+    a = _load("acceptance.schema.json")
+    for shape, label in (
+        (_assertion_item(a), "then.assertions[]"),
+        (_descriptive_metric_item(a), "signal.metrics[]"),
+    ):
+        assert "#1957" in shape.get("$comment", ""), (
+            f"{label} must carry a $comment naming #1957 — the decision is the "
+            "only thing stopping an unread field from being re-added"
+        )

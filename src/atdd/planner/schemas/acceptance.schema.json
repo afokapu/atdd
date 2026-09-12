@@ -136,6 +136,7 @@
           "type": "array",
           "minItems": 1,
           "items": {
+            "$comment": "`tolerance` was DROPPED here by #1957. It was declared as a bare {\"type\": \"object\"} — no inner shape, so two teams expressing the same band would write it differently and no gate could compare them — and it was carried by 0 of the 26 acceptances that declare `then.assertions` at all, with no reader anywhere in src/. The quantitative mechanism is `signal.metric` + `signal.threshold`, declared and wired by #1925 and resolved by runners/metric_runner.py; a second one on the assertion leg would split the grammar. Do not re-add a quantitative affordance here without a reader.",
             "type": "object",
             "required": ["type"],
             "properties": {
@@ -144,8 +145,7 @@
                 "enum": ["equals", "contains", "matches", "exists", "count", "performance"]
               },
               "target": {"type": "string"},
-              "value": {},
-              "tolerance": {"type": "object"}
+              "value": {}
             }
           }
         },
@@ -179,8 +179,9 @@
           "type": "array",
           "description": "OpenTelemetry metrics for observability",
           "items": {
+            "$comment": "`threshold` was DE-REQUIRED here by #1957. This array is the DESCRIPTIVE half of `signal` — the OTel metrics a slice EMITS, consumed by observability and by no gate — so a bar does not belong to it: the executable bar is `signal.metric` + `signal.threshold` (#1925). Requiring `threshold` on every declared metric compelled every author to state a number nothing would ever evaluate, and 0 of 1347 acceptances use `signal.metrics[]` at all. It stays DECLARED as optional alerting metadata; what identifies a declared metric — `name` and `type` — stays required, and the item stays closed.",
             "type": "object",
-            "required": ["name", "type", "threshold"],
+            "required": ["name", "type"],
             "additionalProperties": false,
             "properties": {
               "name": {
@@ -211,7 +212,7 @@
                   {"type": "number"},
                   {"type": "string", "pattern": "^[0-9]+(ms|s|%|MB|GB|bytes)$"}
                 ],
-                "description": "Expected threshold from acceptance (for alerting/testing)"
+                "description": "OPTIONAL expected threshold for alerting/dashboards. Descriptive only — no gate reads it; the executable bar an acceptance is judged by is the sibling `signal.metric` + `signal.threshold` (#1925). De-required by #1957."
               },
               "attributes": {
                 "type": "array",
