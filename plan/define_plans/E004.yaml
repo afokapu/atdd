@@ -1,0 +1,65 @@
+urn: wmbt:define-plans:E004
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: unbound-measurability-claim
+context_clarifier: planner.criteria.metric-mapping maps each WMBT dimension+direction
+  to a metric_id but carries no implementation and no validation, so 368 of 472 WMBTs
+  are declared measurable by a named ratio and not one of them states an executable
+  bar
+lens: functional.sustainability
+statement: minimize likelihood of unbound-measurability-claim by binding the dimension-to-metric
+  mapping to an advisory corpus validator that reports every mapped WMBT stating no
+  executable bar
+acceptances:
+- identity:
+    urn: acc:define-plans:E004-SMOKE-001-mapping-rule-bound-and-run
+    id: AC-SMOKE-001
+    purpose: planner.criteria.metric-mapping resolves through bind_rule and its validator
+      is collected by atdd validate planner
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout and the atdd CLI
+  when:
+    abstract: atdd validate planner --local is run and bind_rule resolves planner.criteria.metric-mapping
+  then:
+    abstract:
+    - bind_rule returns a RuleMetadata whose disposition is advisory
+    - test_metric_mapping_corpus_drift is collected and reports without failing the
+      run
+- identity:
+    urn: acc:define-plans:E004-UNIT-001-unmeasured-mapped-wmbt-is-detected
+    id: AC-UNIT-001
+    purpose: The scanner reads the mapping from the convention node itself and separates
+      a mapped WMBT that states no bar from one whose bar names a metric the mapping
+      does not assign
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a WMBT whose dimension+direction the convention maps, carrying no acceptance
+      with signal.metric and signal.threshold
+    - a WMBT whose dimension+direction the convention maps, carrying a bar whose metric
+      is not the mapped metric_id
+    - a WMBT whose dimension+direction the convention does not map, carrying no bar
+    - a WMBT whose dimension+direction the convention maps, carrying a bar naming
+      the mapped metric_id
+  when:
+    abstract: the scanner is run over the four WMBTs
+  then:
+    abstract:
+    - the unmeasured mapped WMBT is reported with cause no-executable-bar and the
+      metric_id the convention assigns it
+    - the mismatched WMBT is reported with cause bar-off-map, a distinct cause because
+      its remedy differs
+    - the unmapped WMBT is not reported, because the convention assigns it no metric
+      to be measured by
+    - the conforming WMBT is not reported
+    - the mapping the scanner applies is read from planner.criteria.metric-mapping,
+      so the node and its validator cannot disagree about what a dimension means

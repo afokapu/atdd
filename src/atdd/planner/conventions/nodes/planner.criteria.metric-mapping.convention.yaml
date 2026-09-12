@@ -4,6 +4,24 @@ kind: family
 status: active
 name: Dimension -> metric mapping
 statement: Each WMBT dimension+direction maps to a default metric_id (e.g. time/minimize -> metric:latency_p50).
+notes: "#1958: the node declared a dimension->metric contract and bound nothing \u2014\
+  \ no implementation, no validation, and `metric_id` in no schema and no validator,\
+  \ the same shape as #1548. Measured over 472 WMBTs, 368 carry a dimension+direction\
+  \ this table maps and NOT ONE states an executable bar; the single bar in the corpus\
+  \ (govern_lifecycle/D010) is quantity/minimize, which this table does not map. It\
+  \ is now bound to a real validator, ADVISORY: all 368 would fail on day one, and\
+  \ the remedy is not yet affordable because no error_ratio, success_ratio or\
+  \ occurrence_rate module exists for runners/metric_runner.py to resolve \u2014 so it\
+  \ reports a count and lets the debt be paid deliberately (issue Decision #2: phase\
+  \ it, never fail 368 at once). Before #1925 a threshold reached passes() stringified\
+  \ and every comparison was swallowed, so binding this node would have enforced a bar\
+  \ that was never evaluated; that constraint is gone."
+implementation:
+  type: validator
+  ref: test_metric_mapping_corpus_drift::test_mapped_wmbts_without_an_executable_bar_are_reported
+metadata:
+  severity: 2
+  disposition: advisory
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
   legacy_section: metrics
@@ -36,3 +54,20 @@ terms:
     financial value:
       minimize: metric:cost_per_unit
       maximize: metric:net_margin
+validation:
+  family: presence
+  template: required_field_presence
+  variant: planner_criteria_metric_mapping_corpus
+  phase: SMOKE
+  enforcement: advisory
+  subject_kind: wmbt
+  selector: WMBT files under plan/ whose dimension+direction this node maps to a metric_id
+  traversal: wmbt file -> acceptances[] -> signal.metric / signal.threshold
+  invariant: a WMBT the mapping covers states an executable bar naming the metric_id
+    the mapping assigns it
+  failure_evidence:
+  - wmbt_urn
+  - dimension
+  - direction
+  - metric_id
+  - cause

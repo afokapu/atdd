@@ -623,7 +623,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 14
+    total: 15
     D002: maximize likelihood of a documentation-declaration recorded as first-class
       work-item state at Ratify, so every ratified plan states whether it changes
       accepted documentation and why when it does not
@@ -651,6 +651,8 @@ wagons:
       naming is validator-backed and bound
     E003: minimize likelihood of unenforced-artifact-naming-rule — artifact/contract
       naming is validator-backed and bound
+    E004: minimize likelihood of unbound-measurability-claim — the dimension-to-metric
+      mapping is validator-backed and bound, advisory
     Y001: minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes
       through the elicit channel
     Y002: minimize likelihood of stale-stage-vocabulary-on-the-plan-cli-surface —

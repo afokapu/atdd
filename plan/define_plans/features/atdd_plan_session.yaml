@@ -4,7 +4,7 @@ description: "The atdd plan gated decomposition session (#1139): Intent\u2192Att
   Compose\u2192Ratify\u2192author lifecycle, the ratify-before-author boundary,\
   \ and post-ratify dispatch to atdd author per locked unit."
 sizing:
-  wmbts: 14
+  wmbts: 15
   footprint_score: 5
   footprint_size: S
 wmbts:
@@ -20,6 +20,7 @@ wmbts:
 - wmbt:define-plans:E001
 - wmbt:define-plans:E002
 - wmbt:define-plans:E003
+- wmbt:define-plans:E004
 - wmbt:define-plans:Y001
 - wmbt:define-plans:Y002
 components:
